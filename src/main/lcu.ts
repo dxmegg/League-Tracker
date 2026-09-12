@@ -284,7 +284,15 @@ async function fetchAllMatchIds(
     }
 
     const body = await response.json();
-    if (!Array.isArray(body) || body.length === 0) return { ids, truncated: false };
+    if (!Array.isArray(body) || body.length === 0) {
+      console.log(
+        `[backfill] SGP returned an empty page at startIndex=${page * SGP_PAGE_SIZE} — end of history reached`,
+      );
+      return { ids, truncated: false };
+    }
+    console.log(
+      `[backfill] page ${page}: got ${body.length} ids (startIndex=${page * SGP_PAGE_SIZE})`,
+    );
 
     // Ids arrive platform-prefixed, e.g. "NA1_5616465966"
     const pageIds: number[] = [];
@@ -295,10 +303,21 @@ async function fetchAllMatchIds(
     ids.push(...pageIds);
 
     // A short page means we've reached the end of the account's history
-    if (body.length < SGP_PAGE_SIZE) return { ids, truncated: false };
-    if (stopAfterPage(pageIds)) return { ids, truncated: false };
+    if (body.length < SGP_PAGE_SIZE) {
+      console.log(
+        `[backfill] SGP returned a short page (${body.length} ids) at startIndex=${page * SGP_PAGE_SIZE} — treating as end of history`,
+      );
+      return { ids, truncated: false };
+    }
+    if (stopAfterPage(pageIds)) {
+      console.log(`[backfill] stopAfterPage returned true at page ${page} — all ids on this page were already known`);
+      return { ids, truncated: false };
+    }
   }
 
+  console.log(
+    `[backfill] stopped after ${SGP_MAX_PAGES} pages (${ids.length} ids) — this means the SGP page cap was hit`,
+  );
   return { ids, truncated: true };
 }
 
@@ -319,7 +338,10 @@ export type BackfillResult = {
   cancelled: boolean;
 };
 
-export async function backfillHistory(win?: BrowserWindow | null): Promise<BackfillResult> {
+export async function backfillHistory(
+  win?: BrowserWindow | null,
+  forceFull = false,
+): Promise<BackfillResult> {
   if (backfillRunning) {
     throw new Error("A backfill is already running");
   }
@@ -342,7 +364,10 @@ export async function backfillHistory(win?: BrowserWindow | null): Promise<Backf
     // we've already fully accounted for means everything older is accounted for
     // too. Tracked per account, since a newly added one still needs a full walk.
     const completedKey = `backfill_complete_${summoner.puuid}`;
-    const walkedBefore = db.getSetting(completedKey) === "1";
+    const walkedBefore = !forceFull && db.getSetting(completedKey) === "1";
+    console.log(
+      `[backfill] starting walk for ${summoner.puuid} — completed flag: ${walkedBefore}`,
+    );
 
     const walk = (from: string) =>
       fetchAllMatchIds(

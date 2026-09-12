@@ -795,7 +795,7 @@ export interface ElectronAPI {
   getRiotAccounts: () => Promise<RiotAccountConfig[]>;
   saveRiotAccount: (account: RiotAccountConfig) => Promise<void>;
   removeRiotAccount: (id: string) => Promise<void>;
-  backfillHistory: () => Promise<BackfillResult | { error: string }>;
+  backfillHistory: (forceFull?: boolean) => Promise<BackfillResult | { error: string }>;
   cancelBackfill: () => Promise<void>;
   isBackfillRunning: () => Promise<boolean>;
   onBackfillProgress: (callback: (progress: BackfillProgress) => void) => () => void;

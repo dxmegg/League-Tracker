@@ -386,6 +386,30 @@ export default function Settings() {
     }
   }, []);
 
+  const handleForceFullBackfill = useCallback(async () => {
+    setBackfillStatus(
+      "Walking the entire Riot match history from page 0 — this may take a while...",
+    );
+    try {
+      const result = await window.api.backfillHistory(true);
+      if ("error" in result) {
+        setBackfillStatus(`Error: ${result.error}`);
+      } else {
+        const summary =
+          result.added > 0
+            ? `Added ${result.added} game(s) from ${result.scanned} found in your Riot history`
+            : `No new games found (${result.scanned} games checked)`;
+        setBackfillStatus(
+          result.truncated
+            ? `${summary}. Stopped at the ${result.scanned}-game paging limit — this is our own cap, not Riot's.`
+            : `${summary}. Riot returned an empty page, so this is the full history.`,
+        );
+      }
+    } catch (err: any) {
+      setBackfillStatus(`Error: ${err.message}`);
+    }
+  }, []);
+
   const handleRepair = useCallback(async () => {
     setRepairStatus(null);
     try {
@@ -673,17 +697,28 @@ export default function Settings() {
               <p className="text-sm text-lol-text-bright">Backfill match history</p>
               <p className="text-xs text-lol-text mt-0.5">
                 Pull your older Mayhem games from Riot and add any that aren't stored yet. This runs
-                automatically the first time an account connects; use this to run it again, or to
-                finish an import you cancelled.
+                automatically the first time an account connects; use this to run it again, or to finish an
+                import you cancelled. <strong>Force full walk</strong> ignores the "already walked" flag and
+                re-scans the whole history from page 0 — use it if games are missing that you know you played.
               </p>
             </div>
-            <button
-              onClick={handleBackfill}
-              disabled={backfilling}
-              className="px-4 py-1.5 rounded text-sm bg-lol-gold/20 text-lol-gold hover:bg-lol-gold/30 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {backfilling ? "Working..." : "Backfill"}
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={handleBackfill}
+                disabled={backfilling}
+                className="px-4 py-1.5 rounded text-sm bg-lol-gold/20 text-lol-gold hover:bg-lol-gold/30 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {backfilling ? "Working..." : "Backfill"}
+              </button>
+              <button
+                onClick={handleForceFullBackfill}
+                disabled={backfilling}
+                title="Walk the entire Riot history from page 0, ignoring the cached completion flag. Use this to test whether the current cap is our page limit or Riot's own cutoff."
+                className="px-4 py-1.5 rounded text-sm border border-lol-border text-lol-text hover:border-lol-gold/60 hover:text-lol-text-bright transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Force full walk
+              </button>
+            </div>
           </div>
           {backfillStatus && <p className="text-xs text-lol-text">{backfillStatus}</p>}
 

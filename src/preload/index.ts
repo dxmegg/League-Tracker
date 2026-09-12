@@ -100,7 +100,7 @@ const api: ElectronAPI = {
     ipcRenderer.invoke("riot:save-account", account),
   removeRiotAccount: (id: string) => ipcRenderer.invoke("riot:remove-account", id),
 
-  backfillHistory: () => ipcRenderer.invoke("lcu:backfill"),
+  backfillHistory: (forceFull = false) => ipcRenderer.invoke("lcu:backfill", forceFull),
 
   cancelBackfill: () => ipcRenderer.invoke("lcu:cancel-backfill"),
 

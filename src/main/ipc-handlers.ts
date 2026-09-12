@@ -258,9 +258,9 @@ export function registerIpcHandlers() {
   ipcMain.handle("riot:save-account", (_event, account) => riot.saveRiotAccount(account));
   ipcMain.handle("riot:remove-account", (_event, id: string) => riot.removeRiotAccount(id));
 
-  ipcMain.handle("lcu:backfill", async (event) => {
+  ipcMain.handle("lcu:backfill", async (event, forceFull = false) => {
     try {
-      return await lcu.backfillHistory(senderWindow(event));
+      return await lcu.backfillHistory(senderWindow(event), forceFull);
     } catch (err) {
       return { error: lcu.friendlyErrorMessage(err) };
     }
