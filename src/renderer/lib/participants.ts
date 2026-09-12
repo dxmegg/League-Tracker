@@ -11,6 +11,8 @@ export function parseParticipants(
   return participants.map((p) => ({
     ...p,
     cs: p.cs ?? 0,
+    gameName: p.gameName,
+    tagLine: p.tagLine,
     runeIds: p.runeIds ?? [],
     primaryStyle: p.primaryStyle ?? null,
     secondaryStyle: p.secondaryStyle ?? null,

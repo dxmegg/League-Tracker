@@ -39,7 +39,7 @@ export function friendlyErrorMessage(err: unknown): string {
     return "League client is not running";
   }
   if (err instanceof ClientElevatedPermsError) {
-    return "League client is running as administrator — run Mayhem Tracker as administrator to connect";
+    return "League client is running as administrator — run LeagueTracker as administrator to connect";
   }
   const message = err instanceof Error ? err.message : String(err);
   if (/ECONNREFUSED|ECONNRESET|socket hang up|EPIPE/i.test(message)) {

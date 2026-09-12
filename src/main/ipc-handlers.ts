@@ -34,6 +34,20 @@ function senderWindow(event: { sender: Electron.WebContents }): BrowserWindow | 
   return BrowserWindow.fromWebContents(event.sender);
 }
 
+const inFlightRequests = new Map<string, Promise<unknown>>();
+
+function dedupe<T>(key: string, factory: () => Promise<T>): Promise<T> {
+  const existing = inFlightRequests.get(key) as Promise<T> | undefined;
+  if (existing) return existing;
+  const promise = factory();
+  inFlightRequests.set(key, promise);
+  const cleanup = () => {
+    if (inFlightRequests.get(key) === promise) inFlightRequests.delete(key);
+  };
+  promise.then(cleanup, cleanup);
+  return promise;
+}
+
 export function registerIpcHandlers() {
   ipcMain.handle(
     "db:match-history",
@@ -106,6 +120,49 @@ export function registerIpcHandlers() {
   );
 
   ipcMain.handle(
+    "db:most-played-queue",
+    (_event, puuid: string, _gameName: string, _tagLine: string) => {
+      let result = db.getMostPlayedQueue(puuid);
+      const totalRows = db
+        .getDatabase()
+        .prepare("SELECT COUNT(*) AS n FROM match_participants WHERE puuid = ?")
+        .get(puuid) as { n: number };
+      console.log("[most-played] puuid:", puuid);
+      console.log("[most-played] rows in match_participants:", totalRows.n);
+      console.log("[most-played] result:", result);
+      return result;
+    },
+  );
+
+  ipcMain.handle(
+    "db:total-matches-played",
+    (_event, puuid: string, gameName: string, tagLine: string) => {
+      console.log("[total-matches] received:", { puuid, gameName, tagLine });
+      const result = db.getTotalMatchesPlayed(puuid);
+      console.log("[total-matches] result:", result);
+      return result;
+    },
+  );
+
+  ipcMain.handle("db:ranked-record", (_event, puuid: string) => {
+    return db.getRankedRecordForPuuid(puuid);
+  });
+
+  ipcMain.handle(
+    "db:recent-games",
+    (
+      _event,
+      puuid: string,
+      _gameName: string,
+      _tagLine: string,
+      queueIds: number[],
+      limit: number,
+    ) => {
+      return db.getRecentGames(puuid, queueIds, limit);
+    },
+  );
+
+  ipcMain.handle(
     "db:champion-match-history",
     (_event, championId: number, limit: number, offset: number, patch?: string, queue?: number) => {
       return db.getChampionMatchHistory(championId, limit, offset, patch, queue);
@@ -128,9 +185,75 @@ export function registerIpcHandlers() {
       senderWindow(event)?.webContents.send("lcu:games-updated");
       return result;
     } catch (err) {
-      return { error: riot.friendlyRiotError(err) };
+      return { error: riot.friendlyRiotError(err, "match") };
     }
   });
+  ipcMain.handle(
+    "riot:recent-matches",
+    async (
+      event,
+      puuid: string,
+      platform: string,
+      start: number,
+      count: number,
+      forceNewest = false,
+    ) => {
+      const key = `recent:${platform.toLowerCase()}:${puuid}:${start}:${count}:${forceNewest}`;
+      return dedupe(key, async () => {
+        const win = senderWindow(event);
+        riot.setRecentMatchesProgressListener((current, total) => {
+          if (win && !win.isDestroyed()) {
+            win.webContents.send("riot:recent-matches-progress", { current, total });
+          }
+        });
+        try {
+          return await riot.getRecentRiotMatches(puuid, platform, start, count, forceNewest);
+        } catch (err) {
+          if (err instanceof riot.RiotApiError && err.status === 404) {
+            return { matches: [], total: 0 };
+          }
+          return { error: riot.friendlyRiotError(err, "match") };
+        } finally {
+          riot.setRecentMatchesProgressListener(null);
+        }
+      });
+    },
+  );
+  ipcMain.handle(
+    "riot:profile",
+    async (
+      _event,
+      gameName: string,
+      tagLine: string,
+      platform: string,
+      force = false,
+    ) => {
+      const key = `profile:${platform.toLowerCase()}:${gameName.toLowerCase()}:${tagLine.toLowerCase()}:${force}`;
+      return dedupe(key, async () => {
+        console.log("[profile] received:", { gameName, tagLine, platform });
+        try {
+          return await riot.getProfileDataByRiotId(gameName, tagLine, platform, force);
+        } catch (err) {
+          if (err instanceof riot.RiotApiError && err.status === 404) return null;
+          console.error("Failed to load profile:", riot.friendlyRiotError(err, "account"));
+          return { error: riot.friendlyRiotError(err, "account") };
+        }
+      });
+    },
+  );
+  ipcMain.handle(
+    "riot:import-recent",
+    async (_event, puuid: string, platform: string, count: number) => {
+      try {
+        const result = await riot.importRecentRiotMatches(puuid, platform, count);
+        console.log("[ipc] import-recent result:", result);
+        console.log("[ipc] tracked rows for", puuid, db.getTrackedRowCountForPuuid(puuid));
+        return result;
+      } catch (err) {
+        return { error: riot.friendlyRiotError(err, "match") };
+      }
+    },
+  );
   ipcMain.handle("riot:accounts", () => riot.getRiotAccounts());
   ipcMain.handle("riot:save-account", (_event, account) => riot.saveRiotAccount(account));
   ipcMain.handle("riot:remove-account", (_event, id: string) => riot.removeRiotAccount(id));

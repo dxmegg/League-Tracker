@@ -24,10 +24,16 @@ export default function MatchScoreboard({
   detail,
   champData,
   puuids,
+  onPlayerClick,
 }: {
   detail: MatchDetail;
   champData: any;
   puuids: string[] | null;
+  onPlayerClick?: (player: {
+    puuid: string | null;
+    gameName: string | null;
+    tagLine: string | null;
+  }) => void;
 }) {
   const participants = useMemo(
     () => parseParticipants(detail.participants, puuids),
@@ -73,6 +79,7 @@ export default function MatchScoreboard({
           patch={detail.game.game_version}
           gameDuration={detail.game.game_duration}
           queueId={detail.game.queue_id}
+          onPlayerClick={onPlayerClick}
         />
       ))}
     </div>
@@ -88,6 +95,7 @@ function TeamScoreboard({
   patch,
   gameDuration,
   queueId,
+  onPlayerClick,
 }: {
   teamId: number;
   players: ParsedParticipant[];
@@ -97,6 +105,11 @@ function TeamScoreboard({
   patch?: string | null;
   gameDuration: number;
   queueId: number;
+  onPlayerClick?: (player: {
+    puuid: string | null;
+    gameName: string | null;
+    tagLine: string | null;
+  }) => void;
 }) {
   const showAugments = isAugmentQueue(queueId);
   const isWin = players[0]?.win ?? false;
@@ -111,7 +124,7 @@ function TeamScoreboard({
         <span className={`text-xs font-bold ${isWin ? "text-lol-win" : "text-lol-loss"}`}>
           Team {teamId === 100 ? "1" : "2"} — {isWin ? "Victory" : "Defeat"}
         </span>
-        <div className="ml-auto flex flex-wrap items-baseline gap-x-4 gap-y-1">
+        <div className="ml-auto mr-40 flex flex-wrap items-baseline gap-x-4 gap-y-1">
           <TeamStat label="Avg score">
             <span
               className={totals.avgScore != null ? scoreColor(totals.avgScore) : "text-lol-text"}
@@ -129,6 +142,9 @@ function TeamScoreboard({
           </TeamStat>
           <TeamStat label="Taken">
             <span className="text-sky-400">{compact(totals.taken)}</span>
+          </TeamStat>
+          <TeamStat label="CS">
+            <span className="text-lol-text-bright">{totals.cs}</span>
           </TeamStat>
           <TeamStat label="Gold">
             <span className="text-lol-gold">{compact(totals.gold)}</span>
@@ -167,6 +183,7 @@ function TeamScoreboard({
           patch={patch}
           gameDuration={gameDuration}
           showAugments={showAugments}
+          onPlayerClick={onPlayerClick}
         />
       ))}
     </div>
@@ -180,6 +197,7 @@ function computeTeamTotals(players: ParsedParticipant[], scores: Map<number, Sco
     assists: 0,
     dmg: 0,
     taken: 0,
+    cs: 0,
     gold: 0,
     heal: 0,
     avgScore: null as number | null,
@@ -193,6 +211,7 @@ function computeTeamTotals(players: ParsedParticipant[], scores: Map<number, Sco
     t.assists += p.assists;
     t.dmg += p.totalDamageDealtToChampions;
     t.taken += p.totalDamageTaken;
+    t.cs += p.cs;
     t.gold += p.goldEarned;
     t.heal += p.totalHeal;
     const s = scores.get(p.participantId);
@@ -234,6 +253,7 @@ function PlayerRow({
   patch,
   gameDuration,
   showAugments,
+  onPlayerClick,
 }: {
   player: ParsedParticipant;
   maxStats: { dmg: number; taken: number; gold: number; heal: number };
@@ -242,6 +262,11 @@ function PlayerRow({
   patch?: string | null;
   gameDuration: number;
   showAugments: boolean;
+  onPlayerClick?: (player: {
+    puuid: string | null;
+    gameName: string | null;
+    tagLine: string | null;
+  }) => void;
 }) {
   const kda = kdaRatio(p.kills, p.deaths, p.assists);
   const runeData = useRuneData();
@@ -263,11 +288,26 @@ function PlayerRow({
 
       {/* Player name */}
       <div className="min-w-0">
-        <div
-          className={`text-xs truncate ${p.isSelf ? "text-lol-gold font-semibold" : "text-lol-text-bright"}`}
+        <button
+          type="button"
+          onClick={() => {
+            if (!onPlayerClick) return;
+            onPlayerClick({
+              puuid: p.puuid,
+              gameName: p.gameName ?? null,
+              tagLine: p.tagLine ?? null,
+            });
+          }}
+          disabled={!onPlayerClick || !p.puuid}
+          className={`text-xs truncate text-left max-w-full transition-colors ${
+            p.isSelf
+              ? "text-lol-gold font-semibold"
+              : "text-lol-text-bright hover:text-lol-gold"
+          } ${onPlayerClick && p.puuid ? "cursor-pointer" : "cursor-default"}`}
+          title={p.gameName && p.tagLine ? `${p.gameName}#${p.tagLine}` : undefined}
         >
           {p.summonerName}
-        </div>
+        </button>
         <div className="text-[10px] text-lol-text truncate">
           {getChampionName(champData, p.championId)}
         </div>

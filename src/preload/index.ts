@@ -42,6 +42,44 @@ const api: ElectronAPI = {
   getDashboard: (filters?: Pick<MatchFilters, "championId" | "patch" | "queue" | "account">) =>
     ipcRenderer.invoke("db:dashboard", filters),
 
+  getMostPlayedQueue: (puuid: string, gameName: string, tagLine: string) =>
+    ipcRenderer.invoke("db:most-played-queue", puuid, gameName, tagLine),
+
+  getTotalMatchesPlayed: (puuid: string, gameName: string, tagLine: string) =>
+    ipcRenderer.invoke("db:total-matches-played", puuid, gameName, tagLine),
+
+  getRankedRecord: (puuid: string) => ipcRenderer.invoke("db:ranked-record", puuid),
+
+  getRecentGames: (
+    puuid: string,
+    gameName: string,
+    tagLine: string,
+    queueIds: number[],
+    limit: number,
+  ) => ipcRenderer.invoke("db:recent-games", puuid, gameName, tagLine, queueIds, limit),
+
+  getRecentRiotMatches: (
+    puuid: string,
+    platform: string,
+    start: number,
+    count: number,
+    forceNewest = false,
+  ) => ipcRenderer.invoke("riot:recent-matches", puuid, platform, start, count, forceNewest),
+
+  importRecentRiotMatches: (puuid: string, platform: string, count: number) =>
+    ipcRenderer.invoke("riot:import-recent", puuid, platform, count),
+
+  onRecentMatchesProgress: (
+    callback: (progress: { current: number; total: number }) => void,
+  ) => {
+    const handler = (
+      _event: unknown,
+      progress: { current: number; total: number },
+    ) => callback(progress);
+    ipcRenderer.on("riot:recent-matches-progress", handler);
+    return () => ipcRenderer.removeListener("riot:recent-matches-progress", handler);
+  },
+
   getChampionMatchHistory: (
     championId: number,
     limit: number,
@@ -54,8 +92,10 @@ const api: ElectronAPI = {
 
   syncRiotHistory: (): Promise<RiotSyncResult | { error: string }> =>
     ipcRenderer.invoke("riot:sync"),
+  getProfileData: (gameName: string, tagLine: string, platform: string, force = false) =>
+    ipcRenderer.invoke("riot:profile", gameName, tagLine, platform, force),
   getRiotAccounts: (): Promise<RiotAccountConfig[]> => ipcRenderer.invoke("riot:accounts"),
-  saveRiotAccount: (account: RiotAccountConfig & { apiKey?: string }) =>
+  saveRiotAccount: (account: RiotAccountConfig) =>
     ipcRenderer.invoke("riot:save-account", account),
   removeRiotAccount: (id: string) => ipcRenderer.invoke("riot:remove-account", id),
 
