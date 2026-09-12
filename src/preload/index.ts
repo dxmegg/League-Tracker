@@ -45,6 +45,17 @@ const api: ElectronAPI = {
   getMostPlayedQueue: (puuid: string, gameName: string, tagLine: string) =>
     ipcRenderer.invoke("db:most-played-queue", puuid, gameName, tagLine),
 
+  getTotalMatchesPlayed: (puuid: string, gameName: string, tagLine: string) =>
+    ipcRenderer.invoke("db:total-matches-played", puuid, gameName, tagLine),
+
+  getRecentGames: (
+    puuid: string,
+    gameName: string,
+    tagLine: string,
+    queueIds: number[],
+    limit: number,
+  ) => ipcRenderer.invoke("db:recent-games", puuid, gameName, tagLine, queueIds, limit),
+
   getChampionMatchHistory: (
     championId: number,
     limit: number,

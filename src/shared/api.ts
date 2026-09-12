@@ -308,6 +308,21 @@ export interface ChampionData {
   };
 }
 
+export interface ProfileRecentGame {
+  game_id: number;
+  champion_id: number;
+  win: number;
+  is_remake: number;
+  kills: number;
+  deaths: number;
+  assists: number;
+  cs: number;
+  game_duration: number;
+  score: number | null;
+  team_position: number | null;
+  queue_id: number;
+}
+
 export interface AugmentData {
   [id: number]: {
     name: string;
@@ -577,6 +592,12 @@ export interface ProfileRankedEntry {
   losses: number;
 }
 
+export interface ProfileMasteryChampion {
+  championId: number;
+  championPoints: number;
+  championLevel: number;
+}
+
 export interface ProfileData {
   puuid: string;
   gameName: string;
@@ -587,6 +608,7 @@ export interface ProfileData {
   dataDragonVersion: string;
   masteryPoints: number;
   masteryScore: number;
+  topMasteryChampions: ProfileMasteryChampion[] | null;
   rankedSolo: ProfileRankedEntry | null;
   rankedFlex: ProfileRankedEntry | null;
 }
@@ -650,7 +672,19 @@ export interface ElectronAPI {
     puuid: string,
     gameName: string,
     tagLine: string,
-  ) => Promise<{ queue_id: number; games: number; wins: number } | null>;
+  ) => Promise<{ queue_id: number; games: number; wins: number; isArenaGroup: boolean } | null>;
+  getTotalMatchesPlayed: (
+    puuid: string,
+    gameName: string,
+    tagLine: string,
+  ) => Promise<{ games: number; wins: number } | null>;
+  getRecentGames: (
+    puuid: string,
+    gameName: string,
+    tagLine: string,
+    queueIds: number[],
+    limit: number,
+  ) => Promise<ProfileRecentGame[] | null>;
   getChampionMatchHistory: (
     championId: number,
     limit: number,

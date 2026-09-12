@@ -125,6 +125,37 @@ export function registerIpcHandlers() {
   );
 
   ipcMain.handle(
+    "db:total-matches-played",
+    (_event, puuid: string, gameName: string, tagLine: string) => {
+      console.log("[total-matches] received:", { puuid, gameName, tagLine });
+      let result = db.getTotalMatchesPlayed(puuid);
+      if (!result && gameName && tagLine) {
+        result = db.getTotalMatchesPlayedByName(gameName, tagLine);
+      }
+      console.log("[total-matches] result:", result);
+      return result;
+    },
+  );
+
+  ipcMain.handle(
+    "db:recent-games",
+    (
+      _event,
+      puuid: string,
+      gameName: string,
+      tagLine: string,
+      queueIds: number[],
+      limit: number,
+    ) => {
+      let result = db.getRecentGames(puuid, queueIds, limit);
+      if (!result && gameName && tagLine) {
+        result = db.getRecentGamesByName(gameName, tagLine, queueIds, limit);
+      }
+      return result;
+    },
+  );
+
+  ipcMain.handle(
     "db:champion-match-history",
     (_event, championId: number, limit: number, offset: number, patch?: string, queue?: number) => {
       return db.getChampionMatchHistory(championId, limit, offset, patch, queue);
