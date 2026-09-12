@@ -998,7 +998,7 @@ function SessionHeader({ session }: { session: Session }) {
   );
 }
 
-interface GameRowProps {
+export interface GameRowProps {
   match: MatchListItem;
   champData: any;
   expanded: boolean;
@@ -1007,6 +1007,11 @@ interface GameRowProps {
   puuids: string[] | null;
   onToggle: () => void;
   onContextMenu: (e: React.MouseEvent) => void;
+  onPlayerClick?: (player: {
+    puuid: string | null;
+    gameName: string | null;
+    tagLine: string | null;
+  }) => void;
 }
 
 function parseAugmentIds(raw: string | null): number[] {
@@ -1028,7 +1033,7 @@ function AugmentGrid({ augmentIds, patch }: { augmentIds: number[]; patch?: stri
   );
 }
 
-function GameRow({
+export function GameRow({
   match,
   champData,
   expanded,
@@ -1037,6 +1042,7 @@ function GameRow({
   puuids,
   onToggle,
   onContextMenu,
+  onPlayerClick,
 }: GameRowProps) {
   const isRemake = !!match.is_remake;
   const isWin = !!match.win;
@@ -1200,7 +1206,12 @@ function GameRow({
           {detailLoading ? (
             <div className="text-sm text-lol-text text-center py-4">Loading...</div>
           ) : detail ? (
-            <MatchScoreboard detail={detail} champData={champData} puuids={puuids} />
+            <MatchScoreboard
+              detail={detail}
+              champData={champData}
+              puuids={puuids}
+              onPlayerClick={onPlayerClick}
+            />
           ) : null}
         </div>
       )}

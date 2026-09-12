@@ -1,14 +1,16 @@
 import { FormEvent, type ReactNode, useCallback, useEffect, useRef, useState } from "react";
-import type { ProfileData, ProfileRankedEntry } from "../lib/types";
-import { useChampionData } from "../hooks/useChampions";
+import { useSearchParams } from "react-router-dom";
+import type { MatchDetail, MatchListItem, ProfileData, ProfileRankedEntry } from "../lib/types";
+import { GameRow } from "./MatchHistory";
+import { getChampionName, useChampionData } from "../hooks/useChampions";
 import type {
   ChampionData,
   DashboardData,
   ProfileMasteryChampion,
   ProfileRecentGame,
-  RecentRiotMatch,
 } from "../../shared/api";
 import { MasteryCrestIcon, MasteryPointsIcon } from "../components/ProfileIcons";
+import ChampionIcon from "../components/ChampionIcon";
 import { shortRegion, PLATFORM_TO_NAME } from "../../shared/regions";
 import { ARENA_QUEUE_IDS, isAugmentQueue, QUEUE_LABELS } from "../../shared/queues";
 import { kdaRatio } from "../lib/format";
@@ -119,6 +121,76 @@ function readLastLookup(): ProfileLookup | null {
     return isProfileLookup(parsed) ? parsed : null;
   } catch {
     return null;
+  }
+}
+
+const LAST_REFRESH_KEY = "profile:lastRefresh";
+
+function readLastRefreshMap(): Record<string, number> {
+  try {
+    const raw = window.localStorage.getItem(LAST_REFRESH_KEY);
+    if (!raw) return {};
+    const parsed: unknown = JSON.parse(raw);
+    return typeof parsed === "object" && parsed !== null
+      ? (parsed as Record<string, number>)
+      : {};
+  } catch {
+    return {};
+  }
+}
+
+function readLastRefreshFor(puuid: string): number | null {
+  return readLastRefreshMap()[puuid] ?? null;
+}
+
+function writeLastRefreshFor(puuid: string, at: number): void {
+  try {
+    const map = readLastRefreshMap();
+    map[puuid] = at;
+    window.localStorage.setItem(LAST_REFRESH_KEY, JSON.stringify(map));
+  } catch {
+    // Storage may be unavailable in some Electron contexts.
+  }
+}
+
+function formatLastRefresh(ts: number): string {
+  const seconds = Math.max(0, Math.floor((Date.now() - ts) / 1000));
+  if (seconds < 60) return `${seconds} second${seconds === 1 ? "" : "s"} ago`;
+  const minutes = Math.floor(seconds / 60);
+  if (minutes < 120) return `${minutes} minute${minutes === 1 ? "" : "s"} ago`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours} hour${hours === 1 ? "" : "s"} ago`;
+  const days = Math.floor(hours / 24);
+  return `${days} day${days === 1 ? "" : "s"} ago`;
+}
+
+const LAST_IMPORT_KEY = "profile:lastImport";
+const IMPORT_COOLDOWN_MS = 2 * 60 * 1000;
+
+function readLastImportMap(): Record<string, number> {
+  try {
+    const raw = window.localStorage.getItem(LAST_IMPORT_KEY);
+    if (!raw) return {};
+    const parsed: unknown = JSON.parse(raw);
+    return typeof parsed === "object" && parsed !== null
+      ? (parsed as Record<string, number>)
+      : {};
+  } catch {
+    return {};
+  }
+}
+
+function readLastImportFor(puuid: string): number | null {
+  return readLastImportMap()[puuid] ?? null;
+}
+
+function writeLastImportFor(puuid: string, at: number): void {
+  try {
+    const map = readLastImportMap();
+    map[puuid] = at;
+    window.localStorage.setItem(LAST_IMPORT_KEY, JSON.stringify(map));
+  } catch {
+    // Storage may be unavailable in some Electron contexts.
   }
 }
 
@@ -238,7 +310,7 @@ type MatchTotals = {
 
 type RecentGame = ProfileRecentGame;
 
-function deriveFromRiotMatches(matches: RecentRiotMatch[]): {
+function deriveFromRiotMatches(matches: MatchListItem[]): {
   mostPlayed: MostPlayedQueue | null;
   totals: MatchTotals;
   recentGames: ProfileRecentGame[];
@@ -255,10 +327,10 @@ function deriveFromRiotMatches(matches: RecentRiotMatch[]): {
 
   const byQueue = new Map<number, { games: number; wins: number }>();
   for (const match of matches) {
-    const current = byQueue.get(match.queueId) ?? { games: 0, wins: 0 };
+    const current = byQueue.get(match.queue_id) ?? { games: 0, wins: 0 };
     current.games += 1;
     if (match.win) current.wins += 1;
-    byQueue.set(match.queueId, current);
+    byQueue.set(match.queue_id, current);
   }
 
   let bestQueue = 0;
@@ -272,19 +344,19 @@ function deriveFromRiotMatches(matches: RecentRiotMatch[]): {
     }
   }
 
-  const toRecentGame = (match: RecentRiotMatch): ProfileRecentGame => ({
-    game_id: match.gameId,
-    champion_id: match.championId,
+  const toRecentGame = (match: MatchListItem): ProfileRecentGame => ({
+    game_id: match.game_id,
+    champion_id: match.champion_id,
     win: match.win ? 1 : 0,
-    is_remake: 0,
+    is_remake: match.is_remake,
     kills: match.kills,
     deaths: match.deaths,
     assists: match.assists,
-    cs: Number.isFinite(match.cs) ? match.cs : 0,
-    game_duration: match.gameDuration,
-    score: null,
-    team_position: match.teamPosition,
-    queue_id: match.queueId,
+    cs: Number.isFinite(match.cs) ? (match.cs ?? 0) : 0,
+    game_duration: match.game_duration,
+    score: match.score,
+    team_position: match.team_position,
+    queue_id: match.queue_id,
   });
 
   const allRecent = matches.map(toRecentGame);
@@ -312,6 +384,17 @@ function deriveFromRiotMatches(matches: RecentRiotMatch[]): {
   };
 }
 
+function recomputeBoxesFromMatches(
+  matches: MatchListItem[],
+): {
+  mostPlayed: MostPlayedQueue | null;
+  totals: MatchTotals;
+  recentGames: ProfileRecentGame[];
+  recentAllGames: ProfileRecentGame[];
+} {
+  return deriveFromRiotMatches(matches);
+}
+
 const TEAM_POSITION_LABELS: Record<string, string> = {
   TOP: "Top",
   JUNGLE: "Jungle",
@@ -333,14 +416,6 @@ const NO_LANE_QUEUES = new Set([
   // Training Tool
   3140,
 ]);
-const RIOT_TEAM_POSITION_LABELS: Record<string, string> = {
-  TOP: "Top",
-  JUNGLE: "Jungle",
-  MIDDLE: "Mid",
-  BOTTOM: "Bottom",
-  UTILITY: "Support",
-};
-
 function RecentGamesStrip({
   games,
   championData,
@@ -499,6 +574,167 @@ function MatchStatsBox({
   );
 }
 
+function PipsRow({ matches }: { matches: MatchListItem[] }) {
+  const pips = matches.slice(0, 5).slice().reverse();
+  return (
+    <p className="mt-1 whitespace-nowrap text-sm font-semibold">
+      {pips.map((match, index) => (
+        <span key={match.game_id}>
+          {index > 0 && <span className="text-lol-text/40">-</span>}
+          <span className={match.win ? "text-emerald-400" : "text-red-400"}>
+            {match.win ? "W" : "L"}
+          </span>
+        </span>
+      ))}
+    </p>
+  );
+}
+
+function LastPlayedChampionsBox({
+  matches,
+  loading,
+  champData,
+}: {
+  matches: MatchListItem[];
+  loading: boolean;
+  champData: ChampionData;
+}) {
+  if (loading) {
+    return (
+      <div className="min-w-[220px] flex-1 rounded-xl border border-lol-border/70 bg-lol-card/50 px-4 py-3">
+        <p className="text-[11px] font-semibold uppercase tracking-wide text-lol-text/70">
+          Last played champions
+        </p>
+        <p className="mt-1 text-sm font-semibold text-lol-text">Loading…</p>
+      </div>
+    );
+  }
+
+  if (matches.length === 0) {
+    return (
+      <div className="min-w-[280px] flex-1 rounded-xl border border-lol-border/70 bg-lol-card/50 px-4 py-3">
+        <p className="text-[11px] font-semibold uppercase tracking-wide text-lol-text/70">
+          Last played champions
+        </p>
+        <p className="mt-1 text-sm font-semibold text-lol-text-bright">No games recorded</p>
+      </div>
+    );
+  }
+
+  const byChampion = new Map<number, MatchListItem[]>();
+  for (const match of matches) {
+    const list = byChampion.get(match.champion_id) ?? [];
+    list.push(match);
+    byChampion.set(match.champion_id, list);
+  }
+  const top5 = [...byChampion.entries()]
+    .map(([championId, games]) => ({ championId, games }))
+    .sort(
+      (left, right) =>
+        right.games.length - left.games.length || left.championId - right.championId,
+    )
+    .slice(0, 5);
+
+  return (
+    <div className="min-w-[280px] flex-1 rounded-xl border border-lol-border/70 bg-lol-card/50 px-4 py-3">
+      <p className="text-[11px] font-semibold uppercase tracking-wide text-lol-text/70">
+        Last played champions
+      </p>
+      <PipsRow matches={matches} />
+      <div className="mt-2 space-y-1">
+        {top5.map(({ championId, games }) => {
+          const wins = games.filter((game) => game.win).length;
+          const losses = games.length - wins;
+          const kills = games.reduce((sum, game) => sum + game.kills, 0);
+          const deaths = games.reduce((sum, game) => sum + game.deaths, 0);
+          const assists = games.reduce((sum, game) => sum + game.assists, 0);
+          return (
+            <div
+              key={championId}
+              className="grid grid-cols-[24px_1fr_auto] items-center gap-2 text-xs"
+            >
+              <span title={getChampionName(champData, championId)}>
+                <ChampionIcon championId={championId} size={22} />
+              </span>
+              <span className="tabular-nums">
+                <span className="text-lol-win">{wins}W</span>
+                <span className="text-lol-text/40"> - </span>
+                <span className="text-lol-loss">{losses}L</span>
+              </span>
+              <span className="text-lol-text tabular-nums">
+                {(kills / games.length).toFixed(1)}/{(deaths / games.length).toFixed(1)}/
+                {(assists / games.length).toFixed(1)}
+                <span className="text-lol-text/40"> · </span>
+                <span className="text-lol-text-bright">{kdaRatio(kills, deaths, assists)} KDA</span>
+              </span>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function LastGamesBox({
+  matches,
+  loading,
+}: {
+  matches: MatchListItem[];
+  loading: boolean;
+}) {
+  const games = matches.length;
+  if (loading) {
+    return (
+      <div className="min-w-[220px] flex-1 rounded-xl border border-lol-border/70 bg-lol-card/50 px-4 py-3">
+        <p className="text-[11px] font-semibold uppercase tracking-wide text-lol-text/70">
+          Last games
+        </p>
+        <p className="mt-1 text-sm font-semibold text-lol-text">Loading…</p>
+      </div>
+    );
+  }
+
+  if (games === 0) {
+    return (
+      <div className="min-w-[220px] flex-1 rounded-xl border border-lol-border/70 bg-lol-card/50 px-4 py-3">
+        <p className="text-[11px] font-semibold uppercase tracking-wide text-lol-text/70">
+          Last 0 games
+        </p>
+        <p className="mt-1 text-sm font-semibold text-lol-text-bright">No games recorded</p>
+      </div>
+    );
+  }
+
+  const wins = matches.filter((match) => match.win).length;
+  const losses = games - wins;
+  const winRate = (wins / games) * 100;
+  const kills = matches.reduce((sum, match) => sum + match.kills, 0);
+  const deaths = matches.reduce((sum, match) => sum + match.deaths, 0);
+  const assists = matches.reduce((sum, match) => sum + match.assists, 0);
+
+  return (
+    <div className="min-w-[220px] flex-1 rounded-xl border border-lol-border/70 bg-lol-card/50 px-4 py-3">
+      <p className="text-[11px] font-semibold uppercase tracking-wide text-lol-text/70">
+        Last {games} games
+      </p>
+      <PipsRow matches={matches} />
+      <div className="mt-2 flex h-1.5 overflow-hidden rounded-full bg-lol-loss/30">
+        <div className="h-full bg-lol-win" style={{ width: `${winRate}%` }} />
+      </div>
+      <div className="mt-2 grid grid-cols-3 text-xs">
+        <span className="text-lol-win">{wins}W</span>
+        <span className="text-center text-lol-text">{winRate.toFixed(1)}% WR</span>
+        <span className="text-right text-lol-loss">{losses}L</span>
+      </div>
+      <div className="mt-1 text-xs text-lol-text tabular-nums">
+        {(kills / games).toFixed(1)}/{(deaths / games).toFixed(1)}/{(assists / games).toFixed(1)}
+        <span className="text-lol-text/40"> · </span>
+        <span className="text-lol-text-bright">{kdaRatio(kills, deaths, assists)} KDA</span>
+      </div>
+    </div>
+  );
+}
+
 function MostPlayedMode({
   mostPlayed,
   recentGames,
@@ -625,99 +861,100 @@ function RecentRiotMatchesSection({
   matches,
   loading,
   error,
-  championData,
-  version,
-  puuid,
-  onRefresh,
+  puuids,
+  expandedId,
+  detail,
+  detailLoading,
+  availableCount,
+  canLoadMore,
+  champData,
+  refreshing,
+  summary,
+  onToggle,
   onLoadMore,
-  loadingMoreMatches,
+  onRefresh,
+  onContextMenu,
+  onPlayerClick,
 }: {
-  matches: RecentRiotMatch[] | null;
+  matches: MatchListItem[] | null;
   loading: boolean;
   error: string | null;
-  championData: ChampionData;
-  version: string;
-  puuid: string | null;
-  onRefresh: () => void;
+  puuids: string[] | null;
+  expandedId: number | null;
+  detail: MatchDetail | null;
+  detailLoading: boolean;
+  availableCount: number;
+  canLoadMore: boolean;
+  champData: ChampionData;
+  refreshing: boolean;
+  summary: string | null;
+  onToggle: (gameId: number) => void;
   onLoadMore: () => void;
-  loadingMoreMatches: boolean;
+  onRefresh: () => void;
+  onContextMenu: (event: React.MouseEvent, match: MatchListItem) => void;
+  onPlayerClick: (player: {
+    puuid: string | null;
+    gameName: string | null;
+    tagLine: string | null;
+  }) => void;
 }) {
   return (
-    <section className="rounded-xl border border-lol-border bg-lol-card p-5">
+    <section className="rounded-xl border border-lol-border bg-lol-card p-4">
       <div className="flex items-center justify-between gap-3">
         <h2 className="text-sm font-semibold uppercase tracking-wide text-lol-text/70">
-          Recent Matches (Riot API)
+          Recent Matches
         </h2>
+        <span className="text-[11px] text-lol-text">
+          {matches?.length ?? 0} loaded
+          {availableCount > (matches?.length ?? 0) &&
+            ` · up to ${availableCount} fetchable`}
+        </span>
         <button
           type="button"
           onClick={onRefresh}
-          disabled={!puuid || loading}
+          disabled={loading || refreshing}
           className="h-9 rounded-lg border border-lol-border bg-lol-card px-4 text-sm text-lol-text transition-colors hover:bg-lol-border/30 disabled:cursor-not-allowed disabled:opacity-50"
         >
-          {loading ? "Refreshing…" : "Refresh Match History"}
+          {loading || refreshing ? "Refreshing…" : "Refresh Match History"}
         </button>
       </div>
-      {loading ? (
+      {summary && (
+        <p className="mt-1 text-[11px] text-lol-text/60">Last import: {summary}</p>
+      )}
+      {loading && (!matches || matches.length === 0) && (
         <p className="mt-4 text-sm text-lol-text">Loading…</p>
-      ) : error ? (
-        <p className="mt-4 text-sm text-lol-loss">{error}</p>
-      ) : matches === null ? (
-        <p className="mt-4 text-sm text-lol-text">
-          Click Load Profile to fetch recent matches
-        </p>
-      ) : matches.length === 0 ? (
+      )}
+      {error && <p className="mt-4 text-sm text-lol-loss">{error}</p>}
+      {!loading && !error && matches && matches.length === 0 && (
         <p className="mt-4 text-sm text-lol-text">No recent matches</p>
-      ) : (
-        <>
-          <div className="mt-4 space-y-2">
-            {matches.map((match) => {
-              const champion = championData[match.championId];
-              return (
-                <div
-                  key={match.gameId}
-                  className="flex items-center gap-4 rounded-lg border border-lol-border/30 px-3 py-2"
-                >
-                  <span
-                    className={`w-5 shrink-0 text-center text-xs font-bold ${
-                      match.win ? "text-lol-win" : "text-lol-loss"
-                    }`}
-                  >
-                    {match.win ? "W" : "L"}
-                  </span>
-                  {champion ? (
-                    <img
-                      src={`https://ddragon.leagueoflegends.com/cdn/${version}/img/champion/${champion.key}.png`}
-                      alt={champion.name}
-                      className="h-9 w-9 shrink-0 object-contain"
-                    />
-                  ) : null}
-                  <span className="min-w-0 flex-1 truncate text-sm text-lol-text-bright">
-                    {champion?.name ?? `Champion ${match.championId}`}
-                  </span>
-                  <span className="shrink-0 text-sm text-lol-text">
-                    {match.kills} / {match.deaths} / {match.assists}
-                    <span className="ml-2 text-xs text-lol-text/70">
-                      {kdaRatio(match.kills, match.deaths, match.assists)} KDA
-                    </span>
-                    <span className="ml-2 text-xs text-lol-text/70">
-                      Lane {RIOT_TEAM_POSITION_LABELS[match.teamPosition ?? ""] ?? "Unknown"}
-                    </span>
-                  </span>
-                </div>
-              );
-            })}
-          </div>
+      )}
+      {matches && matches.length > 0 && (
+        <div className="mt-3 space-y-1">
+          {matches.map((match) => (
+            <GameRow
+              key={match.game_id}
+              match={match}
+              champData={champData}
+              expanded={expandedId === match.game_id}
+              detail={expandedId === match.game_id ? detail : null}
+              detailLoading={expandedId === match.game_id && detailLoading}
+              puuids={puuids}
+              onPlayerClick={onPlayerClick}
+              onToggle={() => onToggle(match.game_id)}
+              onContextMenu={(event) => onContextMenu(event, match)}
+            />
+          ))}
           <div className="mt-3">
             <button
               type="button"
               onClick={onLoadMore}
-              disabled={loadingMoreMatches}
+              disabled={loading || !canLoadMore}
               className="w-full h-9 rounded-lg border border-lol-border bg-lol-card text-sm text-lol-text transition-colors hover:border-lol-gold/60 hover:text-lol-text-bright disabled:cursor-not-allowed disabled:opacity-50"
             >
-              {loadingMoreMatches ? "Loading…" : "Load More"}
+              {loading ? "Loading…" : canLoadMore ? "Load More" : "All matches loaded"}
             </button>
           </div>
-        </>
+        </div>
       )}
     </section>
   );
@@ -774,10 +1011,20 @@ function ProfileForm({
   );
 }
 
+async function readRecentHistoryFromDb(
+  puuid: string,
+  count: number,
+): Promise<{ matches: MatchListItem[]; total: number }> {
+  return window.api.getMatchHistory(count, 0, {
+    account: puuid,
+    ignoreHiddenQueues: true,
+  });
+}
+
 export default function Profile({ localMode = false }: { localMode?: boolean }) {
   const championData = useChampionData();
+  const [searchParams, setSearchParams] = useSearchParams();
   const RECENT_PAGE_SIZE = 20;
-  const RECENT_LOAD_MORE_SIZE = 10;
   const [gameNameInput, setGameNameInput] = useState("");
   const [platform, setPlatform] = useState("euw1");
   const [profile, setProfile] = useState<ProfileData | null>(null);
@@ -786,10 +1033,23 @@ export default function Profile({ localMode = false }: { localMode?: boolean }) 
   const [recentGames, setRecentGames] = useState<RecentGame[] | null>(null);
   const [recentAllGames, setRecentAllGames] = useState<RecentGame[] | null>(null);
   const [dashboard, setDashboard] = useState<DashboardData | null>(null);
-  const [recentMatches, setRecentMatches] = useState<RecentRiotMatch[] | null>(null);
+  const [recentMatches, setRecentMatches] = useState<MatchListItem[] | null>(null);
+  const [_recentMatchesTotal, setRecentMatchesTotal] = useState<number | null>(null);
+  const [recentMatchesAvailable, setRecentMatchesAvailable] = useState(0);
   const [recentMatchesLoading, setRecentMatchesLoading] = useState(false);
   const [recentMatchesError, setRecentMatchesError] = useState<string | null>(null);
+  const [lastImportSummary, setLastImportSummary] = useState<string | null>(null);
+  const [refreshingMatchHistory, setRefreshingMatchHistory] = useState(false);
+  const [recentExpandedId, setRecentExpandedId] = useState<number | null>(null);
+  const [recentDetail, setRecentDetail] = useState<MatchDetail | null>(null);
+  const [recentDetailLoading, setRecentDetailLoading] = useState(false);
+  const [recentContextMenu, setRecentContextMenu] = useState<{
+    x: number;
+    y: number;
+    match: MatchListItem;
+  } | null>(null);
   const [loading, setLoading] = useState(false);
+  const [lastRefreshLabel, setLastRefreshLabel] = useState<string | null>(null);
   const [refreshPhase, setRefreshPhase] = useState<string | null>(null);
   const [refreshTotal, setRefreshTotal] = useState(0);
   const [recentMatchesCount, setRecentMatchesCount] = useState(RECENT_PAGE_SIZE);
@@ -805,6 +1065,24 @@ export default function Profile({ localMode = false }: { localMode?: boolean }) 
   const hasAutoLoaded = useRef(false);
   const recentMatchesRequest = useRef(0);
   const favoriteMessageTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const matchCountByPuuid = useRef<Map<string, number>>(new Map());
+  const lastRefreshAt = useRef(0);
+
+  useEffect(() => {
+    if (!recentContextMenu) return;
+    const close = () => setRecentContextMenu(null);
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") close();
+    };
+    window.addEventListener("click", close);
+    window.addEventListener("contextmenu", close, true);
+    window.addEventListener("keydown", onKey);
+    return () => {
+      window.removeEventListener("click", close);
+      window.removeEventListener("contextmenu", close, true);
+      window.removeEventListener("keydown", onKey);
+    };
+  }, [recentContextMenu]);
 
   useEffect(() => {
     return window.api.onRecentMatchesProgress(({ current, total }) => {
@@ -813,44 +1091,65 @@ export default function Profile({ localMode = false }: { localMode?: boolean }) 
     });
   }, []);
 
-  const loadRecentMatches = useCallback(async (puuid: string, selectedPlatform: string) => {
-    const requestId = ++recentMatchesRequest.current;
-    setRecentMatchesLoading(true);
-    setRecentMatchesError(null);
-    try {
-      const recentResult = await window.api.getRecentRiotMatches(
-        puuid,
-        selectedPlatform,
-        0,
-        RECENT_PAGE_SIZE,
-      );
-      if (requestId !== recentMatchesRequest.current) return;
-      if ("error" in recentResult) {
-        setRecentMatchesError(recentResult.error);
-      } else {
-        setRecentMatches(recentResult);
-        setRecentMatchesCount(RECENT_PAGE_SIZE);
+  const loadRecentMatches = useCallback(
+    async (puuid: string, selectedPlatform: string, selectedCount: number) => {
+      const requestId = ++recentMatchesRequest.current;
+      setRecentMatchesLoading(true);
+      setRecentMatchesError(null);
+      try {
+        const lastImport = readLastImportFor(puuid);
+        const withinCooldown =
+          !!lastImport && Date.now() - lastImport < IMPORT_COOLDOWN_MS;
+
+        if (!withinCooldown) {
+          const importResult = await window.api.importRecentRiotMatches(
+            puuid,
+            selectedPlatform,
+            selectedCount,
+          );
+          if (requestId !== recentMatchesRequest.current) return;
+          if ("error" in importResult) {
+            setRecentMatchesError(importResult.error);
+          } else {
+            setRecentMatchesAvailable(importResult.totalAvailable);
+            setLastImportSummary(
+              `imported ${importResult.imported} of ${importResult.scanned} attempted (${importResult.totalAvailable} available)`,
+            );
+            if (importResult.imported > 0 || importResult.scanned === 0) {
+              writeLastImportFor(puuid, Date.now());
+            }
+          }
+        }
+
+        const history = await readRecentHistoryFromDb(puuid, selectedCount);
+        if (requestId !== recentMatchesRequest.current) return;
+        setRecentMatches(history.matches);
+        setRecentMatchesTotal(history.total);
+        setRecentMatchesCount(selectedCount);
+      } catch (err: unknown) {
+        if (requestId === recentMatchesRequest.current) {
+          setRecentMatchesError(
+            err instanceof Error ? err.message : "Could not load recent matches",
+          );
+        }
+      } finally {
+        if (requestId === recentMatchesRequest.current) {
+          setRecentMatchesLoading(false);
+        }
       }
-    } catch (err: unknown) {
-      if (requestId === recentMatchesRequest.current) {
-        setRecentMatchesError(
-          err instanceof Error ? err.message : "Could not load recent matches",
-        );
-      }
-    } finally {
-      if (requestId === recentMatchesRequest.current) {
-        setRecentMatchesLoading(false);
-      }
-    }
-  }, []);
+    },
+    [],
+  );
 
   const fetchProfile = useCallback(async (
     gameName: string,
     tagLine: string,
     selectedPlatform: string,
     fetchRecentMatches = false,
+    silent = false,
+    force = false,
   ) => {
-    setLoading(true);
+    if (!silent) setLoading(true);
     setRefreshPhase("Contacting Riot API…");
     setError(null);
     setNotFound(false);
@@ -860,14 +1159,17 @@ export default function Profile({ localMode = false }: { localMode?: boolean }) 
     setRecentGames(null);
     setRecentAllGames(null);
     setTotalMatches(null);
-    setRecentMatchesCount(RECENT_PAGE_SIZE);
+    setRecentMatchesAvailable(0);
+    setRecentMatchesTotal(null);
     recentMatchesRequest.current += 1;
     setRecentMatches(null);
+    setRecentMatchesTotal(null);
     setRecentMatchesError(null);
     setRecentMatchesLoading(false);
+    setLoadingMoreMatches(false);
     try {
       const result = await withTimeout(
-        window.api.getProfileData(gameName, tagLine, selectedPlatform),
+        window.api.getProfileData(gameName, tagLine, selectedPlatform, force),
         PROFILE_TIMEOUT_MS,
       );
       if (result && "error" in result) {
@@ -876,112 +1178,65 @@ export default function Profile({ localMode = false }: { localMode?: boolean }) 
         setNotFound(true);
       } else {
         setProfile(result);
+        const previousRefresh = readLastRefreshFor(result.puuid);
+        if (previousRefresh) setLastRefreshLabel(formatLastRefresh(previousRefresh));
+        writeLastRefreshFor(result.puuid, Date.now());
+        const cachedCount = matchCountByPuuid.current.get(result.puuid) ?? 20;
+        setRecentMatchesCount(cachedCount);
         setRefreshPhase("Fetching recent matches…");
         if (fetchRecentMatches && !localMode) {
           const requestId = ++recentMatchesRequest.current;
           setRecentMatchesLoading(true);
           setRecentMatchesError(null);
           try {
-            setRefreshTotal(RECENT_PAGE_SIZE);
-            setRefreshPhase(`Fetching matches… 0 / ${RECENT_PAGE_SIZE}`);
-            const [localQueue, localTotals, recent] = await Promise.all([
-              window.api.getMostPlayedQueue(
-                result.puuid,
-                result.gameName || gameName,
-                result.tagLine || tagLine,
-              ),
-              window.api.getTotalMatchesPlayed(
-                result.puuid,
-                result.gameName || gameName,
-                result.tagLine || tagLine,
-              ),
-              withTimeout(
-                window.api.getRecentRiotMatches(
-                  result.puuid,
-                  result.platform,
-                  0,
-                  RECENT_PAGE_SIZE,
-                ),
-                PROFILE_TIMEOUT_MS,
-              ),
-            ]);
-            if ("error" in recent) {
-              setRefreshPhase(null);
-            } else {
-              setRefreshPhase(
-                `Fetching matches… ${recent.length} / ${RECENT_PAGE_SIZE}`,
-              );
-            }
-            if (requestId !== recentMatchesRequest.current) return;
+            const lastImport = readLastImportFor(result.puuid);
+            const withinCooldown =
+              !!lastImport && Date.now() - lastImport < IMPORT_COOLDOWN_MS && !force;
 
-            if ("error" in recent) {
-              setRecentMatchesError(recent.error);
-              const [localQueue, localTotals, localRecent, localRecentAll] =
-                await Promise.all([
-                  window.api.getMostPlayedQueue(
-                    result.puuid,
-                    result.gameName || gameName,
-                    result.tagLine || tagLine,
-                  ),
-                  window.api.getTotalMatchesPlayed(
-                    result.puuid,
-                    result.gameName || gameName,
-                    result.tagLine || tagLine,
-                  ),
-                  window.api.getRecentGames(
-                    result.puuid,
-                    result.gameName || gameName,
-                    result.tagLine || tagLine,
-                    [],
-                    5,
-                  ),
-                  window.api.getRecentGames(
-                    result.puuid,
-                    result.gameName || gameName,
-                    result.tagLine || tagLine,
-                    [],
-                    5,
-                  ),
-                ]);
-              if (requestId === recentMatchesRequest.current) {
-                if (localQueue) setMostPlayed(localQueue);
-                if (localTotals) setTotalMatches(localTotals);
-                if (localRecent) setRecentGames(localRecent);
-                if (localRecentAll) setRecentAllGames(localRecentAll);
-              }
-            } else {
-              setRecentMatches(recent);
-              setRecentMatchesCount(RECENT_PAGE_SIZE);
-              const derived = deriveFromRiotMatches(recent);
-              setMostPlayed(localQueue ?? derived.mostPlayed);
-              setTotalMatches(localTotals ?? derived.totals);
-              setRecentGames(
-                localTotals
-                  ? await window.api.getRecentGames(
-                      result.puuid,
-                      result.gameName || gameName,
-                      result.tagLine || tagLine,
-                      localQueue
-                        ? localQueue.isArenaGroup
-                          ? ARENA_QUEUE_IDS
-                          : [localQueue.queue_id]
-                        : [],
-                      5,
-                    )
-                  : derived.recentGames,
+            if (!withinCooldown) {
+              const importResult = await window.api.importRecentRiotMatches(
+                result.puuid,
+                result.platform,
+                recentMatchesCount,
               );
-              setRecentAllGames(
-                localTotals
-                  ? await window.api.getRecentGames(
-                      result.puuid,
-                      result.gameName || gameName,
-                      result.tagLine || tagLine,
-                      [],
-                      5,
-                    )
-                  : derived.recentAllGames,
+              console.log("[profile] fetchProfile import result:", importResult);
+              if (requestId !== recentMatchesRequest.current) return;
+              if ("error" in importResult) {
+                setRecentMatchesError(importResult.error);
+              } else {
+                setRecentMatchesAvailable(importResult.totalAvailable);
+                setLastImportSummary(
+                  `imported ${importResult.imported} of ${importResult.scanned} attempted (${importResult.totalAvailable} available)`,
+                );
+                if (importResult.imported > 0 || importResult.scanned === 0) {
+                  writeLastImportFor(result.puuid, Date.now());
+                }
+              }
+              console.log(
+                "[profile] import done for",
+                result.puuid,
+                "→",
+                "error" in importResult ? importResult.error : importResult,
               );
             }
+
+            const history = await readRecentHistoryFromDb(result.puuid, recentMatchesCount);
+            if (requestId !== recentMatchesRequest.current) return;
+            setRecentMatches(history.matches);
+            console.log(
+              "[profile] local query returned",
+              history.matches.length,
+              "of",
+              history.total,
+              "for",
+              result.puuid,
+            );
+            setRecentMatchesTotal(history.total);
+            const derived = deriveFromRiotMatches(history.matches);
+            setMostPlayed(derived.mostPlayed);
+            setTotalMatches(derived.totals);
+            setRecentGames(derived.recentGames);
+            setRecentAllGames(derived.recentAllGames);
           } catch (err) {
             if (requestId === recentMatchesRequest.current) {
               setRecentMatchesError(
@@ -991,7 +1246,6 @@ export default function Profile({ localMode = false }: { localMode?: boolean }) 
           } finally {
             if (requestId === recentMatchesRequest.current) {
               setRecentMatchesLoading(false);
-              setRefreshPhase(null);
             }
           }
         }
@@ -1029,11 +1283,11 @@ export default function Profile({ localMode = false }: { localMode?: boolean }) 
       console.error("Failed to load profile:", err);
       setError(err instanceof Error ? err.message : "Could not load profile");
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
       setRefreshPhase(null);
       setRefreshTotal(0);
     }
-  }, [localMode]);
+  }, [localMode, recentMatchesCount]);
 
   const loadLocalProfile = useCallback(async () => {
     setLoading(true);
@@ -1143,6 +1397,17 @@ export default function Profile({ localMode = false }: { localMode?: boolean }) 
     }
 
     void (async () => {
+      const queryGameName = searchParams.get("gameName");
+      const queryTagLine = searchParams.get("tagLine");
+      const queryPlatform = searchParams.get("platform");
+
+      if (queryGameName && queryTagLine && queryPlatform) {
+        setGameNameInput(`${queryGameName}#${queryTagLine}`);
+        setPlatform(queryPlatform);
+        await fetchProfile(queryGameName, queryTagLine, queryPlatform, true);
+        return;
+      }
+
       let remembered = readLastLookup();
       let rememberedPuuid: string | null = null;
       if (!remembered) {
@@ -1161,7 +1426,7 @@ export default function Profile({ localMode = false }: { localMode?: boolean }) 
       setGameNameInput(`${remembered.gameName}#${remembered.tagLine}`);
       setPlatform(remembered.platform);
       if (!localMode && rememberedPuuid) {
-        void loadRecentMatches(rememberedPuuid, remembered.platform);
+        void loadRecentMatches(rememberedPuuid, remembered.platform, recentMatchesCount);
       }
       await fetchProfile(
         remembered.gameName,
@@ -1170,7 +1435,30 @@ export default function Profile({ localMode = false }: { localMode?: boolean }) 
         !localMode && !rememberedPuuid,
       );
     })();
-  }, [fetchProfile, loadLocalProfile, loadRecentMatches, localMode]);
+  }, [
+    fetchProfile,
+    loadLocalProfile,
+    loadRecentMatches,
+    localMode,
+    recentMatchesCount,
+    searchParams,
+  ]);
+
+  useEffect(() => {
+    const SILENT_REFRESH_AFTER_MS = 5 * 60 * 1000;
+
+    const handleVisibility = () => {
+      if (document.visibilityState !== "visible") return;
+      if (localMode) return;
+      if (!profile) return;
+      const last = readLastRefreshFor(profile.puuid);
+      if (last && Date.now() - last < SILENT_REFRESH_AFTER_MS) return;
+      void fetchProfile(profile.gameName, profile.tagLine, profile.platform, true, true);
+    };
+
+    document.addEventListener("visibilitychange", handleVisibility);
+    return () => document.removeEventListener("visibilitychange", handleVisibility);
+  }, [profile, fetchProfile, localMode]);
 
   const loadRecentProfile = useCallback(
     (lookup: ProfileLookup) => {
@@ -1330,40 +1618,154 @@ export default function Profile({ localMode = false }: { localMode?: boolean }) 
     </div>
   );
 
-  const loadMoreRecent = useCallback(async () => {
+  const handleLoadMoreMatches = useCallback(async () => {
     if (!profile || loadingMoreMatches) return;
-    const nextCount = recentMatchesCount + RECENT_LOAD_MORE_SIZE;
+    if (recentMatchesCount >= 100) return;
     setLoadingMoreMatches(true);
     try {
-      setRefreshTotal(nextCount);
-      setRefreshPhase(`Fetching matches… 0 / ${nextCount}`);
-      const more = await window.api.getRecentRiotMatches(
+      const nextCount = Math.min(100, recentMatchesCount + 30);
+      const importResult = await window.api.importRecentRiotMatches(
         profile.puuid,
         profile.platform,
-        0,
         nextCount,
       );
-      if ("error" in more) {
-        setRecentMatchesError(more.error);
+      if ("error" in importResult) {
+        setRecentMatchesError(importResult.error);
         return;
       }
-      setRecentMatches(more);
+      writeLastImportFor(profile.puuid, Date.now());
+      setRecentMatchesAvailable(importResult.totalAvailable);
+      const more = await readRecentHistoryFromDb(profile.puuid, nextCount);
+      setRecentMatches(more.matches);
+      setRecentMatchesTotal(more.total);
       setRecentMatchesCount(nextCount);
-    } catch (err) {
-      setRecentMatchesError(
-        err instanceof Error ? err.message : "Could not load more matches",
-      );
+      matchCountByPuuid.current.set(profile.puuid, nextCount);
+      const derived = recomputeBoxesFromMatches(more.matches);
+      setRecentGames(derived.recentGames);
+      setRecentAllGames(derived.recentAllGames);
     } finally {
       setLoadingMoreMatches(false);
-      setRefreshPhase(null);
-      setRefreshTotal(0);
     }
   }, [profile, recentMatchesCount, loadingMoreMatches]);
 
-  const handleRefreshProfile = useCallback(() => {
-    if (!profile) return;
-    void fetchProfile(profile.gameName, profile.tagLine, profile.platform, !localMode);
-  }, [profile, fetchProfile, localMode]);
+  const handleRefreshProfile = useCallback(
+    (event?: React.MouseEvent<HTMLButtonElement>) => {
+      if (!profile) return;
+      const now = Date.now();
+      const isForce = !!event && (event.ctrlKey || event.shiftKey || event.metaKey);
+      if (!isForce && now - lastRefreshAt.current < 3_000) return;
+      lastRefreshAt.current = now;
+      void fetchProfile(
+        profile.gameName,
+        profile.tagLine,
+        profile.platform,
+        !localMode,
+        false,
+        isForce,
+      );
+    },
+    [profile, fetchProfile, localMode],
+  );
+
+  const handleToggleRecentMatch = useCallback(
+    async (gameId: number) => {
+      if (recentExpandedId === gameId) {
+        setRecentExpandedId(null);
+        setRecentDetail(null);
+        return;
+      }
+      setRecentExpandedId(gameId);
+      setRecentDetailLoading(true);
+      try {
+        setRecentDetail(await window.api.getMatchDetail(gameId));
+      } finally {
+        setRecentDetailLoading(false);
+      }
+    },
+    [recentExpandedId],
+  );
+
+  const handleScoreboardPlayerClick = useCallback(
+    (player: { puuid: string | null; gameName: string | null; tagLine: string | null }) => {
+      if (!player.gameName || !player.tagLine) return;
+      const next = new URLSearchParams();
+      next.set("gameName", player.gameName);
+      next.set("tagLine", player.tagLine);
+      next.set("platform", platform);
+      setSearchParams(next);
+      void fetchProfile(player.gameName, player.tagLine, platform, true, false, true);
+    },
+    [platform, setSearchParams, fetchProfile],
+  );
+
+  const handleRefreshMatchHistory = useCallback(async () => {
+    if (!profile || refreshingMatchHistory) return;
+    setRefreshingMatchHistory(true);
+    setRecentMatchesError(null);
+    try {
+      const importResult = await window.api.importRecentRiotMatches(
+        profile.puuid,
+        profile.platform,
+        20,
+      );
+      console.log(
+        "[profile] handleRefreshMatchHistory import result:",
+        importResult,
+      );
+      if ("error" in importResult) {
+        setRecentMatchesError(importResult.error);
+      } else {
+        setRecentMatchesAvailable(importResult.totalAvailable);
+        setLastImportSummary(
+          `imported ${importResult.imported} of ${importResult.scanned} attempted (${importResult.totalAvailable} available)`,
+        );
+        if (importResult.imported > 0 || importResult.scanned === 0) {
+          writeLastImportFor(profile.puuid, Date.now());
+        }
+        const history = await readRecentHistoryFromDb(profile.puuid, recentMatchesCount);
+        console.log("[profile] match history read:", history.matches.length, "of", history.total);
+        setRecentMatches(history.matches);
+        setRecentMatchesTotal(history.total);
+        const derived = deriveFromRiotMatches(history.matches);
+        setMostPlayed(derived.mostPlayed);
+        setTotalMatches(derived.totals);
+        setRecentGames(derived.recentGames);
+        setRecentAllGames(derived.recentAllGames);
+      }
+    } catch (err) {
+      setRecentMatchesError(
+        err instanceof Error ? err.message : "Could not refresh match history",
+      );
+    } finally {
+      setRefreshingMatchHistory(false);
+    }
+  }, [profile, refreshingMatchHistory, recentMatchesCount]);
+
+  const handleToggleRecentFavorite = useCallback(
+    async (match: MatchListItem) => {
+      setRecentContextMenu(null);
+      await window.api.toggleFavorite(match.game_id);
+      if (profile) {
+        const history = await window.api.getMatchHistory(recentMatchesCount, 0, {
+          account: profile.puuid,
+          ignoreHiddenQueues: true,
+        });
+        setRecentMatches(history.matches);
+      }
+    },
+    [profile, recentMatchesCount],
+  );
+
+  useEffect(() => {
+    if (localMode) return;
+    const handler = (event: KeyboardEvent) => {
+      if (event.key !== "F5") return;
+      event.preventDefault();
+      handleRefreshProfile();
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [handleRefreshProfile, localMode]);
 
   if (error || notFound || !profile) {
     return (
@@ -1387,12 +1789,20 @@ export default function Profile({ localMode = false }: { localMode?: boolean }) 
             matches={recentMatches}
             loading={recentMatchesLoading}
             error={recentMatchesError}
-            championData={championData}
-            version="latest"
-            puuid={null}
+            puuids={null}
+            onPlayerClick={handleScoreboardPlayerClick}
+            expandedId={recentExpandedId}
+            detail={recentDetail}
+            detailLoading={recentDetailLoading}
+            availableCount={recentMatchesAvailable}
+            canLoadMore={false}
+            champData={championData}
+            refreshing={false}
+            summary={lastImportSummary}
+            onToggle={handleToggleRecentMatch}
+            onLoadMore={handleLoadMoreMatches}
             onRefresh={() => undefined}
-            onLoadMore={() => undefined}
-            loadingMoreMatches={false}
+            onContextMenu={() => undefined}
           />
         )}
       </div>
@@ -1507,25 +1917,12 @@ export default function Profile({ localMode = false }: { localMode?: boolean }) 
             </p>
           </div>
           <div className="mt-4 flex flex-wrap items-stretch gap-3">
-            <MostPlayedMode
-              mostPlayed={mostPlayed}
-              recentGames={recentGames}
-              championData={championData}
+            <LastPlayedChampionsBox
+              matches={recentMatches ?? []}
+              loading={loading}
+              champData={championData}
             />
-            <MatchStatsBox
-              title="TOTAL MATCHES PLAYED"
-              totals={totalMatches}
-              recentGames={recentAllGames}
-              championData={championData}
-              subtitle={
-                totalMatches
-                  ? localMode
-                    ? `${totalMatches.games} Games in total`
-                    : `${totalMatches.games} Games in tracked history`
-                  : "No games recorded"
-              }
-              hideRecentGamesWhenEmpty
-            />
+            <LastGamesBox matches={recentMatches ?? []} loading={loading} />
           </div>
         </div>
         <div className="mt-[84px] w-64 rounded-xl border border-lol-border/70 bg-lol-card/50 px-5 py-4">
@@ -1558,6 +1955,7 @@ export default function Profile({ localMode = false }: { localMode?: boolean }) 
               type="button"
               onClick={handleRefreshProfile}
               disabled={loading}
+              title="Click to refresh. Ctrl/Shift+click to force a fresh fetch and ignore caches."
               className="h-9 cursor-pointer rounded-lg border border-lol-border bg-lol-card px-4 text-sm text-lol-text transition-colors hover:border-lol-gold/60 hover:text-lol-text-bright disabled:cursor-not-allowed disabled:opacity-50"
             >
               {loading ? "Refreshing…" : "Refresh Data"}
@@ -1570,6 +1968,11 @@ export default function Profile({ localMode = false }: { localMode?: boolean }) 
               Links
             </button>
           </div>
+          {lastRefreshLabel && (
+            <span className="text-[11px] text-lol-text/70">
+              Last refresh — {lastRefreshLabel}
+            </span>
+          )}
           {(loading || refreshPhase || refreshTotal > 0) && (
             <div className="w-64">
               <div className="text-[11px] text-lol-text mb-1 text-right">
@@ -1641,15 +2044,49 @@ export default function Profile({ localMode = false }: { localMode?: boolean }) 
           matches={recentMatches}
           loading={recentMatchesLoading}
           error={recentMatchesError}
-          championData={championData}
-          version={version}
-          puuid={profile.puuid}
-          onRefresh={() => {
-            void loadRecentMatches(profile.puuid, profile.platform);
+          puuids={[profile.puuid]}
+          onPlayerClick={handleScoreboardPlayerClick}
+          expandedId={recentExpandedId}
+          detail={recentDetail}
+          detailLoading={recentDetailLoading}
+          availableCount={recentMatchesAvailable}
+          canLoadMore={
+            recentMatchesCount < 100 &&
+            recentMatchesCount < recentMatchesAvailable
+          }
+          champData={championData}
+          refreshing={refreshingMatchHistory}
+          summary={lastImportSummary}
+          onToggle={handleToggleRecentMatch}
+          onLoadMore={handleLoadMoreMatches}
+          onRefresh={handleRefreshMatchHistory}
+          onContextMenu={(event, match) => {
+            event.preventDefault();
+            setRecentContextMenu({ x: event.clientX, y: event.clientY, match });
           }}
-          onLoadMore={loadMoreRecent}
-          loadingMoreMatches={loadingMoreMatches}
         />
+      )}
+      {recentContextMenu && (
+        <div
+          className="fixed z-50 min-w-44 py-1 bg-lol-card border border-lol-border rounded-md shadow-lg shadow-black/40"
+          style={{ left: recentContextMenu.x, top: recentContextMenu.y }}
+        >
+          <button
+            onClick={() => handleToggleRecentFavorite(recentContextMenu.match)}
+            className="w-full flex items-center gap-2 px-3 py-1.5 text-sm text-lol-text-bright hover:bg-white/5 text-left"
+          >
+            <span
+              className={
+                recentContextMenu.match.favorite ? "text-amber-400" : "text-lol-text"
+              }
+            >
+              {recentContextMenu.match.favorite ? "★" : "☆"}
+            </span>
+            {recentContextMenu.match.favorite
+              ? "Remove from Favorites"
+              : "Add to Favorites"}
+          </button>
+        </div>
       )}
     </div>
   );

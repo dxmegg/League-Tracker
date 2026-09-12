@@ -110,6 +110,7 @@ export interface MatchFilters {
   patch?: string;
   queue?: number;
   account?: string;
+  ignoreHiddenQueues?: boolean;
   sort?: MatchSort;
   sortDir?: MatchSortDir;
   multikills?: MultikillType[];
@@ -531,6 +532,8 @@ export interface ParsedParticipant {
   championId: number;
   teamId: number;
   puuid: string | null;
+  gameName: string | null;
+  tagLine: string | null;
   summonerName: string;
   kills: number;
   deaths: number;
@@ -610,6 +613,7 @@ export interface RecentRiotMatch {
   deaths: number;
   assists: number;
   cs: number;
+  score: number | null;
   gameCreation: number;
   gameDuration: number;
   queueId: number;
@@ -696,6 +700,12 @@ export interface ElectronAPI {
     gameName: string,
     tagLine: string,
   ) => Promise<{ games: number; wins: number } | null>;
+  getRankedRecord: (
+    puuid: string,
+  ) => Promise<{
+    solo: { wins: number; losses: number };
+    flex: { wins: number; losses: number };
+  } | null>;
   getRecentGames: (
     puuid: string,
     gameName: string,
@@ -708,7 +718,15 @@ export interface ElectronAPI {
     platform: string,
     start: number,
     count: number,
-  ) => Promise<RecentRiotMatch[] | { error: string }>;
+    forceNewest?: boolean,
+  ) => Promise<{ matches: RecentRiotMatch[]; total: number } | { error: string }>;
+  importRecentRiotMatches: (
+    puuid: string,
+    platform: string,
+    count: number,
+  ) => Promise<
+    { imported: number; scanned: number; totalAvailable: number } | { error: string }
+  >;
   onRecentMatchesProgress: (
     callback: (progress: { current: number; total: number }) => void,
   ) => () => void;
@@ -750,6 +768,7 @@ export interface ElectronAPI {
     gameName: string,
     tagLine: string,
     platform: string,
+    force?: boolean,
   ) => Promise<ProfileData | { error: string } | null>;
   refreshGames: () => Promise<{ newGames: number; totalGames: number } | { error: string }>;
   syncRiotHistory: () => Promise<RiotSyncResult | { error: string }>;

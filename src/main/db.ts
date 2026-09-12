@@ -1471,6 +1471,7 @@ export function getMatchHistory(
     sortDir?: string;
     multikills?: string[];
     favorites?: boolean;
+    ignoreHiddenQueues?: boolean;
   },
 ): { matches: any[]; total: number } {
   const statsTable = filters?.account ? "tracked_game_stats" : "player_stats";
@@ -1495,7 +1496,11 @@ export function getMatchHistory(
     where.push("g.game_version = ?");
     params.push(filters.patch);
   }
-  applyQueueFilter(where, params, filters?.queue);
+  if (filters?.ignoreHiddenQueues) {
+    if (filters.queue != null) applyQueueFilter(where, params, filters.queue);
+  } else {
+    applyQueueFilter(where, params, filters?.queue);
+  }
   if (filters?.multikills && filters.multikills.length > 0) {
     const cols = filters.multikills
       .map((k) => MULTIKILL_COLUMNS[k])
@@ -2160,6 +2165,33 @@ export function getTotalMatchesPlayedByName(
   return row;
 }
 
+export function getRankedRecordForPuuid(puuid: string): {
+  solo: { wins: number; losses: number };
+  flex: { wins: number; losses: number };
+} | null {
+  const rows = db
+    .prepare(
+      `SELECT g.queue_id AS queue_id, mp.win AS win
+       FROM match_participants mp
+       JOIN games g ON g.game_id = mp.game_id
+       WHERE mp.puuid = ? AND mp.is_remake = 0 AND g.queue_id IN (420, 440)`,
+    )
+    .all(puuid) as { queue_id: number; win: number }[];
+
+  if (rows.length === 0) return null;
+
+  const result = {
+    solo: { wins: 0, losses: 0 },
+    flex: { wins: 0, losses: 0 },
+  };
+  for (const row of rows) {
+    const bucket = row.queue_id === 420 ? result.solo : result.flex;
+    if (row.win) bucket.wins++;
+    else bucket.losses++;
+  }
+  return result;
+}
+
 export function getRecentGames(
   puuid: string,
   queueIds: number[],
@@ -2296,6 +2328,75 @@ export function getRecentGamesByName(
       queue_id: number;
     }>;
   return rows.length > 0 ? rows : null;
+}
+
+export function getRecentRiotMatchStubs(
+  puuid: string,
+  limit: number,
+): Array<{
+  gameId: number;
+  win: boolean;
+  championId: number;
+  kills: number;
+  deaths: number;
+  assists: number;
+  cs: number;
+  score: number | null;
+  gameCreation: number;
+  gameDuration: number;
+  queueId: number;
+  teamPosition: string | null;
+}> {
+  const rows = db
+    .prepare(
+      `SELECT mp.game_id AS gameId,
+              mp.win AS win,
+              mp.champion_id AS championId,
+              COALESCE(tgs.kills, mp.kills) AS kills,
+              COALESCE(tgs.deaths, mp.deaths) AS deaths,
+              COALESCE(tgs.assists, mp.assists) AS assists,
+              COALESCE(tgs.cs, mp.cs) AS cs,
+              tgs.score AS score,
+              g.game_creation AS gameCreation,
+              g.game_duration AS gameDuration,
+              g.queue_id AS queueId,
+              mp.team_position AS teamPosition
+       FROM match_participants mp
+       JOIN games g ON g.game_id = mp.game_id
+       LEFT JOIN tracked_game_stats tgs
+         ON tgs.game_id = g.game_id AND tgs.puuid = mp.puuid
+       WHERE mp.puuid = ?
+       ORDER BY g.game_creation DESC
+       LIMIT ?`,
+    )
+    .all(puuid, limit) as Array<{
+    gameId: number;
+    win: number;
+    championId: number;
+    kills: number;
+    deaths: number;
+    assists: number;
+    cs: number;
+    score: number | null;
+    gameCreation: number;
+    gameDuration: number;
+    queueId: number;
+    teamPosition: string | null;
+  }>;
+  return rows.map((row) => ({
+    gameId: row.gameId,
+    win: row.win === 1,
+    championId: row.championId,
+    kills: row.kills,
+    deaths: row.deaths,
+    assists: row.assists,
+    cs: row.cs ?? 0,
+    score: row.score ?? null,
+    gameCreation: row.gameCreation,
+    gameDuration: row.gameDuration,
+    queueId: row.queueId,
+    teamPosition: row.teamPosition ?? null,
+  }));
 }
 
 export function getAugmentStatsWithChampions(
@@ -2457,6 +2558,44 @@ export function getKnownGameIdsForPuuid(puuid: string): Set<number> {
   return new Set(rows.map((r) => r.game_id));
 }
 
+export function getTrackedGameIdsForPuuid(puuid: string): Set<number> {
+  const rows = db
+    .prepare("SELECT game_id FROM tracked_game_stats WHERE puuid = ?")
+    .all(puuid) as { game_id: number }[];
+  return new Set(rows.map((r) => r.game_id));
+}
+
+export function getTrackedRowCountForPuuid(puuid: string): {
+  trackedRows: number;
+  gamesRows: number;
+  joinedRows: number;
+} {
+  const trackedRows = (
+    db.prepare("SELECT COUNT(*) as n FROM tracked_game_stats WHERE puuid = ?").get(puuid) as {
+      n: number;
+    }
+  ).n;
+  const gamesRows = (
+    db
+      .prepare(
+        `SELECT COUNT(*) as n FROM games g
+         JOIN tracked_game_stats tgs ON g.game_id = tgs.game_id
+         WHERE tgs.puuid = ?`,
+      )
+      .get(puuid) as { n: number }
+  ).n;
+  const joinedRows = (
+    db
+      .prepare(
+        `SELECT COUNT(*) as n FROM games g
+         JOIN tracked_game_stats tgs ON g.game_id = tgs.game_id
+         WHERE tgs.puuid = ? AND g.is_remake = 0`,
+      )
+      .get(puuid) as { n: number }
+  ).n;
+  return { trackedRows, gamesRows, joinedRows };
+}
+
 export function markIgnoredGame(gameId: number): void {
   db.prepare("INSERT OR IGNORE INTO ignored_games (game_id) VALUES (?)").run(gameId);
 }
@@ -2474,7 +2613,131 @@ function findOwnerRow(rows: RawParticipantRow[], puuid: string): RawParticipantR
   return rows.find((r) => r.puuid === puuid) ?? null;
 }
 
+type TrackedOnlyResult = "inserted" | "duplicate" | "no-owner-row";
+
+function insertTrackedStatsOnly(gameId: number, puuid: string): TrackedOnlyResult {
+  const rows = db
+    .prepare(`
+      SELECT participant_id, puuid, team_id, champion_id, win,
+             kills, deaths, assists,
+             double_kills, triple_kills, quadra_kills, penta_kills,
+             total_damage_dealt, total_damage_taken, gold_earned, total_heal,
+             largest_killing_spree, total_damage_dealt_all, true_damage_dealt, cs,
+             largest_critical_strike, spell1, spell2,
+             item0, item1, item2, item3, item4, item5, item6
+      FROM match_participants
+      WHERE game_id = ?
+    `)
+    .all(gameId) as Array<
+    ScoreRow & {
+      largest_killing_spree: number;
+      total_damage_dealt_all: number;
+      true_damage_dealt: number;
+      cs: number;
+      largest_critical_strike: number;
+      spell1: number | null;
+      spell2: number | null;
+      item0: number | null;
+      item1: number | null;
+      item2: number | null;
+      item3: number | null;
+      item4: number | null;
+      item5: number | null;
+      item6: number | null;
+    }
+  >;
+
+  const owner = rows.find((r) => r.puuid === puuid);
+  if (!owner) return "no-owner-row";
+
+  const gameRow = db
+    .prepare("SELECT is_remake FROM games WHERE game_id = ?")
+    .get(gameId) as { is_remake: number } | undefined;
+  const isRemake = !!gameRow?.is_remake;
+
+  let ownerScore: PlayerScore | null = null;
+  if (!isRemake) {
+    ownerScore = computeOwnerScore(rows as ScoreRow[], puuid, {
+      champion_id: owner.champion_id,
+      kills: owner.kills,
+      deaths: owner.deaths,
+      assists: owner.assists,
+    });
+  }
+
+  const stmt = db.prepare(`
+    INSERT OR IGNORE INTO tracked_game_stats (
+      game_id, puuid, champion_id, win, kills, deaths, assists,
+      double_kills, triple_kills, quadra_kills, penta_kills,
+      total_damage_dealt, total_damage_taken, gold_earned, total_heal,
+      largest_killing_spree, total_damage_dealt_all, true_damage_dealt, cs,
+      largest_critical_strike, score, score_raw, score_badge, spell1, spell2,
+      item0, item1, item2, item3, item4, item5, item6
+    ) VALUES (
+      @game_id, @puuid, @champion_id, @win, @kills, @deaths, @assists,
+      @double_kills, @triple_kills, @quadra_kills, @penta_kills,
+      @total_damage_dealt, @total_damage_taken, @gold_earned, @total_heal,
+      @largest_killing_spree, @total_damage_dealt_all, @true_damage_dealt, @cs,
+      @largest_critical_strike, @score, @score_raw, @score_badge, @spell1, @spell2,
+      @item0, @item1, @item2, @item3, @item4, @item5, @item6
+    )
+  `);
+
+  const result = stmt.run({
+    game_id: gameId,
+    puuid,
+    champion_id: owner.champion_id,
+    win: owner.win,
+    kills: owner.kills,
+    deaths: owner.deaths,
+    assists: owner.assists,
+    double_kills: owner.double_kills,
+    triple_kills: owner.triple_kills,
+    quadra_kills: owner.quadra_kills,
+    penta_kills: owner.penta_kills,
+    total_damage_dealt: owner.total_damage_dealt,
+    total_damage_taken: owner.total_damage_taken,
+    gold_earned: owner.gold_earned,
+    total_heal: owner.total_heal,
+    largest_killing_spree: owner.largest_killing_spree,
+    total_damage_dealt_all: owner.total_damage_dealt_all,
+    true_damage_dealt: owner.true_damage_dealt,
+    cs: owner.cs,
+    largest_critical_strike: owner.largest_critical_strike,
+    score: ownerScore?.score ?? null,
+    score_raw: ownerScore?.raw ?? null,
+    score_badge: ownerScore?.badge ?? null,
+    spell1: owner.spell1,
+    spell2: owner.spell2,
+    item0: owner.item0,
+    item1: owner.item1,
+    item2: owner.item2,
+    item3: owner.item3,
+    item4: owner.item4,
+    item5: owner.item5,
+    item6: owner.item6,
+  });
+
+  return result.changes > 0 ? "inserted" : "duplicate";
+}
+
 export function insertGameFull(gameData: any, puuid: string): boolean {
+  if (gameExists(gameData.gameId)) {
+    const fast = insertTrackedStatsOnly(gameData.gameId, puuid);
+    if (fast === "no-owner-row") {
+      // The games row exists but our participant row does not, which happens
+      // when the game was originally imported under a different puuid, or
+      // before a repair that changed ownership. Fall through to the normal
+      // parse so the newly fetched Riot payload can seed the participant rows
+      // and then the tracked row.
+      console.log(
+        `[insertGameFull] fast path missed owner row for game ${gameData.gameId}, falling back to full parse`,
+      );
+    } else {
+      return fast === "inserted";
+    }
+  }
+
   const rows = participantRowsFromRaw(gameData);
   const owner = findOwnerRow(rows, puuid);
   if (!owner) return false;
@@ -2580,6 +2843,13 @@ export function insertGameFull(gameData: any, puuid: string): boolean {
     if (result.changes === 0) {
       // The game payload is shared, but its owner line is not. A second
       // tracked account must still be retained when this game was seen before.
+      // writeParticipants is safe here: it deletes and replaces this game's
+      // rows, so the fallback path repairs participant data in the same trip.
+      writeParticipants(
+        gameData.gameId,
+        { is_remake: isRemake, queue_id: gameData.queueId, game_version: gameVersion },
+        rows,
+      );
       const added = insertTrackedStatsStmt.run({ game_id: gameData.gameId, puuid, ...ownerStats });
       return added.changes > 0;
     }

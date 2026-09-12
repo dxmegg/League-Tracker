@@ -1,13 +1,17 @@
 import * as db from "./db";
+import fs from "fs";
+import path from "path";
 import { getCurrentSummoner } from "./lcu";
+import { getDataDir } from "./paths";
 import type {
   ProfileData,
   ProfileRankedEntry,
   RecentRiotMatch,
   RiotAccountConfig,
 } from "../shared/api";
+import { computeMatchScores, type ScoreInput } from "../shared/opScore";
 import { PROXY_BASE_URL } from "../shared/proxy";
-import { getChampionDataVersion } from "./dragon";
+import { getChampionClasses, getChampionDataVersion, loadChampionData } from "./dragon";
 
 export type RiotRegionalRoute = "americas" | "europe" | "asia" | "sea";
 export type RiotPlatformRoute =
@@ -86,18 +90,47 @@ type RecentMatchResponse = {
       kills?: number;
       deaths?: number;
       assists?: number;
+      cs?: number;
+      participantId?: number;
+      teamId?: number;
+      doubleKills?: number;
+      tripleKills?: number;
+      quadraKills?: number;
+      pentaKills?: number;
+      totalDamageDealtToChampions?: number;
+      totalDamageTaken?: number;
+      goldEarned?: number;
+      totalHeal?: number;
       totalMinionsKilled?: number;
       neutralMinionsKilled?: number;
     }>;
   };
 };
 
-type CachedIds = { ids: string[]; fetchedAt: number };
-const recentIdsCache = new Map<string, CachedIds>();
-const RECENT_IDS_TTL_MS = 5 * 60 * 1000;
+type CachedMatches = { matches: RecentRiotMatch[]; fetchedAt: number };
+const recentMatchesCache = new Map<string, CachedMatches>();
+const RECENT_MATCHES_TTL_MS = 5 * 60 * 1000;
 
-function recentIdsCacheKey(puuid: string, platform: string): string {
+function recentMatchesCacheKey(puuid: string, platform: string): string {
   return `${platform.toLowerCase()}:${puuid}`;
+}
+
+type CachedPayload = { payload: any; fetchedAt: number };
+const recentPayloadCache = new Map<number, CachedPayload>();
+const RECENT_PAYLOAD_TTL_MS = 10 * 60 * 1000;
+
+function cachePayload(gameId: number, payload: any): void {
+  recentPayloadCache.set(gameId, { payload, fetchedAt: Date.now() });
+}
+
+function getCachedPayload(gameId: number): any | null {
+  const entry = recentPayloadCache.get(gameId);
+  if (!entry) return null;
+  if (Date.now() - entry.fetchedAt > RECENT_PAYLOAD_TTL_MS) {
+    recentPayloadCache.delete(gameId);
+    return null;
+  }
+  return entry.payload;
 }
 
 type RecentMatchesProgressListener = (current: number, total: number) => void;
@@ -114,34 +147,51 @@ export async function getRecentRiotMatches(
   platform: string,
   start: number,
   count: number,
-): Promise<RecentRiotMatch[]> {
+  forceNewest = false,
+): Promise<{ matches: RecentRiotMatch[]; total: number }> {
+  const route = regionalRoute(platform);
   const safeCount = Math.max(0, Math.min(Math.floor(count), 100));
   const safeStart = Math.max(0, Math.floor(start));
-  if (safeCount === 0) return [];
+  if (safeCount === 0) return { matches: [], total: 0 };
 
-  const route = regionalRoute(platform);
-  const cacheKey = recentIdsCacheKey(puuid, platform);
-  const cached = recentIdsCache.get(cacheKey);
+  const cacheKey = recentMatchesCacheKey(puuid, platform);
+  const cached = recentMatchesCache.get(cacheKey);
   const now = Date.now();
-  let ids: string[];
-  if (
-    cached &&
-    now - cached.fetchedAt < RECENT_IDS_TTL_MS &&
-    cached.ids.length >= safeStart + safeCount
-  ) {
-    ids = cached.ids;
-  } else {
-    const total = Math.min(100, safeStart + safeCount);
-    ids = await riotFetch<string[]>(
-      `https://${route}.api.riotgames.com/lol/match/v5/matches/by-puuid/${encodeURIComponent(puuid)}/ids?start=0&count=${total}`,
-    );
-    recentIdsCache.set(cacheKey, { ids, fetchedAt: now });
+  if (forceNewest) {
+    recentMatchesCache.delete(cacheKey);
+    recentPayloadCache.clear();
+  }
+  const ttlOk = !forceNewest && !!cached && now - cached.fetchedAt < RECENT_MATCHES_TTL_MS;
+  const needed = safeStart + safeCount;
+
+  if (ttlOk && cached!.matches.length >= needed) {
+    recentMatchesProgressListener?.(needed, needed);
+    return {
+      matches: cached!.matches.slice(safeStart, safeStart + safeCount),
+      total: cached!.matches.length,
+    };
   }
 
-  const slice = ids.slice(safeStart, safeStart + safeCount);
-  let completed = 0;
-  const matches = await Promise.all(
-    slice.map(async (rawId): Promise<RecentRiotMatch | null> => {
+  const alreadyHave = ttlOk ? cached!.matches.length : 0;
+  const ids = await riotFetch<string[]>(
+    `https://${route}.api.riotgames.com/lol/match/v5/matches/by-puuid/${encodeURIComponent(puuid)}/ids?start=0&count=${needed}`,
+  );
+  const haveIds = new Set(ttlOk ? cached!.matches.map((match) => match.gameId) : []);
+  const knownLocally = db.getKnownGameIdsForPuuid(puuid);
+  const idsParsed = ids
+    .map((rawId) => ({ rawId, gameId: normalizeMatchId(rawId) }))
+    .filter((entry): entry is { rawId: string; gameId: number } => entry.gameId !== null)
+    .slice(0, needed);
+  const newIds = idsParsed.filter(
+    (entry) => !haveIds.has(entry.gameId) && !knownLocally.has(entry.gameId),
+  );
+  const alreadyStoredIds = idsParsed.filter(
+    (entry) => !haveIds.has(entry.gameId) && knownLocally.has(entry.gameId),
+  );
+
+  let completed = alreadyHave;
+  const newMatches = await Promise.all(
+    newIds.map(async ({ rawId }): Promise<RecentRiotMatch | null> => {
       try {
         const gameId = normalizeMatchId(rawId);
         if (gameId === null) return null;
@@ -149,9 +199,33 @@ export async function getRecentRiotMatches(
         const payload = await riotFetch<RecentMatchResponse>(
           `https://${route}.api.riotgames.com/lol/match/v5/matches/${encodeURIComponent(rawId)}`,
         );
+        cachePayload(gameId, payload);
         const info = payload.info;
         const participant = info?.participants?.find((entry) => entry.puuid === puuid);
         if (!info || !participant) return null;
+
+        await loadChampionData();
+        const allParticipants = info.participants ?? [];
+        const scoreInputs: ScoreInput[] = allParticipants.map((entry, index) => ({
+          participantId: entry.participantId ?? index + 1,
+          teamId: entry.teamId ?? (index < 5 ? 100 : 200),
+          championId: Number(entry.championId) || 0,
+          kills: Number(entry.kills) || 0,
+          deaths: Number(entry.deaths) || 0,
+          assists: Number(entry.assists) || 0,
+          doubleKills: Number(entry.doubleKills) || 0,
+          tripleKills: Number(entry.tripleKills) || 0,
+          quadraKills: Number(entry.quadraKills) || 0,
+          pentaKills: Number(entry.pentaKills) || 0,
+          totalDamageDealtToChampions: Number(entry.totalDamageDealtToChampions) || 0,
+          totalDamageTaken: Number(entry.totalDamageTaken) || 0,
+          goldEarned: Number(entry.goldEarned) || 0,
+          totalHeal: Number(entry.totalHeal) || 0,
+          win: entry.win === true,
+        }));
+        const ourScore = participant.participantId
+          ? computeMatchScores(scoreInputs, getChampionClasses()).get(participant.participantId)
+          : undefined;
 
         return {
           gameId,
@@ -163,6 +237,7 @@ export async function getRecentRiotMatches(
           cs:
             Number(participant.totalMinionsKilled ?? 0) +
             Number(participant.neutralMinionsKilled ?? 0),
+          score: ourScore?.score ?? null,
           gameCreation: Number(info.gameCreation) || 0,
           gameDuration: Number(info.gameDuration) || 0,
           queueId: Number(info.queueId) || 0,
@@ -170,11 +245,143 @@ export async function getRecentRiotMatches(
         };
       } finally {
         completed += 1;
-        recentMatchesProgressListener?.(completed, slice.length);
+        recentMatchesProgressListener?.(completed, needed);
       }
     }),
   );
-  return matches.filter((match): match is RecentRiotMatch => match !== null);
+
+  const filtered = newMatches.filter((m): m is RecentRiotMatch => m !== null);
+  const storedStubs =
+    alreadyStoredIds.length > 0
+      ? db
+          .getRecentRiotMatchStubs(puuid, alreadyStoredIds.length * 4)
+          .filter((stub) => alreadyStoredIds.some((entry) => entry.gameId === stub.gameId))
+      : [];
+  const merged = [...filtered, ...storedStubs, ...(ttlOk ? cached!.matches : [])].sort(
+    (a, b) => b.gameCreation - a.gameCreation,
+  );
+  const deduped = merged.filter(
+    (match, index, arr) =>
+      arr.findIndex((other) => other.gameId === match.gameId) === index,
+  );
+  recentMatchesCache.set(cacheKey, { matches: deduped, fetchedAt: now });
+  const matches = deduped.slice(0, needed);
+
+  return {
+    matches: matches.slice(safeStart, safeStart + safeCount),
+    total: ids.length,
+  };
+}
+
+const IMPORT_CONCURRENCY = 3;
+
+async function mapWithConcurrency<T, R>(
+  items: T[],
+  limit: number,
+  worker: (item: T, index: number) => Promise<R>,
+): Promise<Array<{ ok: true; value: R } | { ok: false; error: unknown }>> {
+  const results: Array<{ ok: true; value: R } | { ok: false; error: unknown }> = new Array(
+    items.length,
+  );
+  let next = 0;
+  const runners = Array.from({ length: Math.min(limit, items.length) }, async () => {
+    for (;;) {
+      const index = next++;
+      if (index >= items.length) return;
+      try {
+        results[index] = { ok: true, value: await worker(items[index], index) };
+      } catch (error) {
+        results[index] = { ok: false, error };
+      }
+    }
+  });
+  await Promise.all(runners);
+  return results;
+}
+
+export async function importRecentRiotMatches(
+  puuid: string,
+  platform: string,
+  count: number,
+): Promise<{ imported: number; scanned: number; totalAvailable: number }> {
+  const route = regionalRoute(platform);
+  console.log("[import] starting for", puuid, "platform", platform, "count", count);
+  const safeCount = Math.max(1, Math.min(Math.floor(count), 100));
+
+  const ids = await riotFetch<string[]>(
+    `https://${route}.api.riotgames.com/lol/match/v5/matches/by-puuid/${encodeURIComponent(puuid)}/ids?start=0&count=${safeCount}`,
+  );
+  console.log("[import] Riot returned", ids.length, "ids, first 3:", ids.slice(0, 3));
+
+  const candidates = ids
+    .map((rawId) => ({ rawId, gameId: normalizeMatchId(rawId) }))
+    .filter((entry): entry is { rawId: string; gameId: number } => entry.gameId !== null);
+
+  console.log("[import] candidates:", candidates.length, "of", ids.length);
+
+  const results = await mapWithConcurrency(candidates, IMPORT_CONCURRENCY, async ({ rawId, gameId }) => {
+    const cached = getCachedPayload(gameId);
+    console.log(
+        `[import] worker start ${gameId} (${rawId}) — ${cached ? "cache hit" : "network fetch"}`,
+    );
+    let payload = cached;
+    if (!payload) {
+        try {
+          payload = await riotFetch<any>(
+            `https://${route}.api.riotgames.com/lol/match/v5/matches/${encodeURIComponent(rawId)}`,
+          );
+          cachePayload(gameId, payload);
+          console.log(`[import] worker fetched ${gameId}`);
+        } catch (err) {
+          const status = err instanceof RiotApiError ? err.status : "?";
+          console.log(`[import] worker FAILED ${gameId} with status ${status}`, err);
+          if (err instanceof RiotApiError && err.status === 404) {
+            db.markIgnoredGame(gameId);
+          return false;
+        }
+        throw err;
+      }
+    }
+    const normalized = normalizeMatchPayload(payload, gameId, puuid);
+    const inserted = db.insertGameFull(normalized, puuid);
+    console.log(
+      `[import] worker ${gameId} insertGameFull returned ${
+        inserted ? "new tracked row" : "already tracked or duplicate"
+      }`,
+    );
+    return true;
+  });
+
+  let insertedNew = 0;
+  let alreadyKnown = 0;
+  let failed = 0;
+  for (const result of results) {
+    if (!result.ok) {
+      failed++;
+    } else if (result.value === true) {
+      insertedNew++;
+    } else {
+      alreadyKnown++;
+    }
+  }
+  if (failed > 0) {
+    console.warn(
+      `[import] ${failed} of ${candidates.length} matches could not be fetched for ${puuid}`,
+    );
+  }
+  const firstFailure = results.find((result) => !result.ok);
+  if (firstFailure && !firstFailure.ok) {
+    console.error("[import] first worker failure:", firstFailure.error);
+  }
+  console.log(
+    `[import] summary: ${insertedNew} new, ${alreadyKnown} already known, ${failed} failed, ${candidates.length} candidates`,
+  );
+
+  return {
+    imported: insertedNew,
+    scanned: candidates.length,
+    totalAvailable: ids.length,
+  };
 }
 
 export function normalizeMatchPayload(match: any, matchId: number, puuid: string) {
@@ -276,8 +483,8 @@ function sleep(ms: number): Promise<void> {
 // A small gap between requests keeps a full history sync (which can issue
 // thousands of calls) well under Riot's short per-second rate window instead
 // of bursting and immediately drawing a 429.
-const REQUEST_PACING_MS = 60;
-const MAX_RATE_LIMIT_RETRIES = 5;
+const REQUEST_PACING_MS = 30;
+const MAX_RATE_LIMIT_RETRIES = 3;
 let lastRequestAt = 0;
 let rateLimitPausedUntil = 0;
 let nextRequestStartAt = 0;
@@ -315,11 +522,16 @@ async function riotFetch<T>(url: string, _key?: string, tag?: string): Promise<T
       release();
     }
     if (response.status === 429 && attempt < MAX_RATE_LIMIT_RETRIES) {
-      const retryAfterHeader = Number(response.headers.get("Retry-After"));
-      const retryAfterMs = Number.isFinite(retryAfterHeader) && retryAfterHeader > 0
-        ? retryAfterHeader * 1000
-        : 2 ** attempt * 1000;
+      const retryAfterHeader = response.headers.get("Retry-After");
+      const retryAfterSeconds = retryAfterHeader ? Number(retryAfterHeader) : NaN;
+      const retryAfterMs =
+        Number.isFinite(retryAfterSeconds) && retryAfterSeconds > 0
+          ? retryAfterSeconds * 1000
+          : 2 ** attempt * 1000;
       rateLimitPausedUntil = Math.max(rateLimitPausedUntil, Date.now() + retryAfterMs);
+      console.warn(
+        `${logPrefix}Riot API 429 on ${proxyUrl}, pausing for ${Math.round(retryAfterMs / 1000)}s (attempt ${attempt + 1}/${MAX_RATE_LIMIT_RETRIES})`,
+      );
       continue;
     }
     const body = await response.text();
@@ -352,6 +564,7 @@ export async function getProfileDataByRiotId(
   gameName: string,
   tagLine: string,
   platform: string,
+  force = false,
 ): Promise<ProfileData | { error: string } | null> {
   const normalizedGameName = gameName.trim();
   const normalizedTagLine = tagLine.trim();
@@ -367,7 +580,7 @@ export async function getProfileDataByRiotId(
     console.error("[profile] accountByRiotId failed:", err);
     throw err;
   }
-  const profile = await getProfileData(account.puuid, normalizedPlatform);
+  const profile = await getProfileData(account.puuid, normalizedPlatform, force);
   return profile
     ? {
         ...profile,
@@ -378,6 +591,7 @@ export async function getProfileDataByRiotId(
 }
 
 interface SummonerResponse {
+  id: string;
   profileIconId: number;
   summonerLevel: number;
   puuid: string;
@@ -407,6 +621,22 @@ async function riotFetchOrNull<T>(url: string): Promise<T | null> {
   }
 }
 
+async function riotFetchOrNullCached<T>(
+  url: string,
+  cachedValue: T | null,
+  logLabel: string,
+): Promise<T | null> {
+  try {
+    return await riotFetchOrNull<T>(url);
+  } catch (err) {
+    if (err instanceof RiotApiError && err.status === 429 && cachedValue !== null) {
+      console.warn(`[profile] 429 on ${logLabel}, falling back to cached value`);
+      return cachedValue;
+    }
+    throw err;
+  }
+}
+
 function rankedEntry(entries: LeagueResponse[] | null, queueType: string): ProfileRankedEntry | null {
   const entry = entries?.find((candidate) => candidate.queueType === queueType);
   return entry
@@ -420,26 +650,125 @@ function rankedEntry(entries: LeagueResponse[] | null, queueType: string): Profi
     : null;
 }
 
+type CachedProfileMaster = {
+  summoner: SummonerResponse | null;
+  mastery: MasteryResponse[] | null;
+  masteryScore: number | null;
+  league: LeagueResponse[] | null;
+  fetchedAt: number;
+};
+const profileMasterCache = new Map<string, CachedProfileMaster>();
+const PROFILE_MASTER_TTL_MS = 10 * 60 * 1000;
+type PersistedProfileMaster = {
+  version: 1;
+  entries: Record<string, CachedProfileMaster>;
+};
+
+const PROFILE_MASTER_FILE = () => path.join(getDataDir(), "profile-master-cache.json");
+
+function loadProfileMasterCacheFromDisk(): void {
+  try {
+    const raw = fs.readFileSync(PROFILE_MASTER_FILE(), "utf8");
+    const parsed = JSON.parse(raw) as PersistedProfileMaster;
+    if (parsed?.version !== 1 || !parsed.entries) return;
+    const cutoff = Date.now() - 24 * 60 * 60 * 1000;
+    for (const [key, entry] of Object.entries(parsed.entries)) {
+      if (entry?.fetchedAt && entry.fetchedAt > cutoff) {
+        profileMasterCache.set(key, entry);
+      }
+    }
+  } catch {
+    // Missing or unreadable cache file is fine — a fresh fetch will rebuild it.
+  }
+}
+
+function saveProfileMasterCacheToDisk(): void {
+  try {
+    const entries: Record<string, CachedProfileMaster> = {};
+    for (const [key, entry] of profileMasterCache) entries[key] = entry;
+    fs.writeFileSync(
+      PROFILE_MASTER_FILE(),
+      JSON.stringify({ version: 1, entries } satisfies PersistedProfileMaster),
+    );
+  } catch (err) {
+    console.error("Failed to persist profile master cache:", err);
+  }
+}
+
+loadProfileMasterCacheFromDisk();
+
 export async function getProfileData(
   puuid: string,
   platform: string,
+  force = false,
 ): Promise<ProfileData | null> {
   const normalizedPlatform = platform.trim().toLowerCase();
   const base = `https://${normalizedPlatform}.api.riotgames.com`;
-  const [summoner, mastery, masteryScore, league] = await Promise.all([
-    riotFetchOrNull<SummonerResponse>(
-      `${base}/lol/summoner/v4/summoners/by-puuid/${encodeURIComponent(puuid)}`,
-    ),
-    riotFetchOrNull<MasteryResponse[]>(
-      `${base}/lol/champion-mastery/v4/champion-masteries/by-puuid/${encodeURIComponent(puuid)}`,
-    ),
-    riotFetchOrNull<number>(
-      `${base}/lol/champion-mastery/v4/scores/by-puuid/${encodeURIComponent(puuid)}`,
-    ),
-    riotFetchOrNull<LeagueResponse[]>(
+  const now = Date.now();
+  const cacheKey = `${normalizedPlatform}:${puuid}`;
+  const cachedMaster = profileMasterCache.get(cacheKey);
+  const cacheUsable =
+    !force && cachedMaster && now - cachedMaster.fetchedAt < PROFILE_MASTER_TTL_MS;
+
+  let summoner: SummonerResponse | null;
+  let mastery: MasteryResponse[] | null;
+  let masteryScore: number | null;
+  let league: LeagueResponse[] | null;
+
+  if (cacheUsable) {
+    summoner = cachedMaster!.summoner;
+    mastery = cachedMaster!.mastery;
+    masteryScore = cachedMaster!.masteryScore;
+    league = cachedMaster!.league;
+  } else {
+    const [freshSummoner, freshMastery, freshScore] = await Promise.all([
+      riotFetchOrNullCached<SummonerResponse>(
+        `${base}/lol/summoner/v4/summoners/by-puuid/${encodeURIComponent(puuid)}`,
+        cachedMaster?.summoner ?? null,
+        "summoner",
+      ),
+      riotFetchOrNullCached<MasteryResponse[]>(
+        `${base}/lol/champion-mastery/v4/champion-masteries/by-puuid/${encodeURIComponent(puuid)}`,
+        cachedMaster?.mastery ?? null,
+        "mastery",
+      ),
+      riotFetchOrNullCached<number>(
+        `${base}/lol/champion-mastery/v4/scores/by-puuid/${encodeURIComponent(puuid)}`,
+        cachedMaster?.masteryScore ?? null,
+        "mastery score",
+      ),
+    ]);
+    summoner = freshSummoner;
+    mastery = freshMastery;
+    masteryScore = freshScore;
+
+    let freshLeague = await riotFetchOrNullCached<LeagueResponse[]>(
       `${base}/lol/league/v4/entries/by-puuid/${encodeURIComponent(puuid)}`,
-    ),
-  ]);
+      cachedMaster?.league ?? null,
+      "league by-puuid",
+    );
+    if (!freshLeague && summoner?.id) {
+      freshLeague = await riotFetchOrNullCached<LeagueResponse[]>(
+        `${base}/lol/league/v4/entries/by-summoner/${encodeURIComponent(summoner.id)}`,
+        cachedMaster?.league ?? null,
+        "league by-summoner",
+      );
+    }
+    league = freshLeague;
+
+    profileMasterCache.set(cacheKey, {
+      summoner,
+      mastery,
+      masteryScore,
+      league,
+      fetchedAt: now,
+    });
+    saveProfileMasterCacheToDisk();
+  }
+  console.log("[ranked] puuid:", puuid, "platform:", normalizedPlatform);
+  console.log("[ranked] summoner.id:", summoner?.id);
+  console.log("[ranked] league by-puuid:", league);
+  console.log("[ranked] league (final):", league);
 
   const masteryEntries = mastery ?? [];
   const topMasteryEntries = [...masteryEntries]
