@@ -47,6 +47,7 @@ import {
   QUEUE_SCOPE_ARAM,
   QUEUE_SCOPE_ARENA,
   isAugmentQueue,
+  isArenaQueue,
 } from "../../shared/queues";
 import { parseRuneIds } from "../lib/runes";
 
@@ -1045,6 +1046,7 @@ export function GameRow({
   onPlayerClick,
 }: GameRowProps) {
   const isRemake = !!match.is_remake;
+  const isArena = isArenaQueue(match.queue_id);
   const isWin = !!match.win;
   const isFavorite = !!match.favorite;
   const kda = kdaRatio(match.kills, match.deaths, match.assists);
@@ -1105,15 +1107,17 @@ export function GameRow({
             ) : null;
           })()}
         </div>
-        <div className="w-16 shrink-0 text-center text-[10px] text-lol-text">
-          <div className="text-sm text-lol-text-bright">{match.cs ?? 0}</div>
-          <div>
-            {match.game_duration > 0
-              ? ((match.cs ?? 0) / (match.game_duration / 60)).toFixed(1)
-              : "0.0"}{" "}
-            CS/min
+        {!isArena && (
+          <div className="w-16 shrink-0 text-center text-[10px] text-lol-text">
+            <div className="text-sm text-lol-text-bright">{match.cs ?? 0}</div>
+            <div>
+              {match.game_duration > 0
+                ? ((match.cs ?? 0) / (match.game_duration / 60)).toFixed(1)
+                : "0.0"}{" "}
+              CS/min
+            </div>
           </div>
-        </div>
+        )}
         <div className="w-24 shrink-0 text-center">
           <div className="text-sm text-lol-text-bright">
             {formatKDA(match.kills, match.deaths, match.assists)}
@@ -1126,28 +1130,30 @@ export function GameRow({
         </div>
 
         {/* Score */}
-        <div className="w-10 shrink-0 text-center">
-          {match.score != null && !isRemake && (
-            <>
-              <div className={`text-sm font-semibold ${scoreColor(match.score)}`}>
-                {match.score.toFixed(1)}
-              </div>
-              {match.score_badge ? (
-                <div
-                  className={`text-[9px] font-bold leading-[15px] px-1 rounded w-fit mx-auto ${
-                    match.score_badge === "MVP"
-                      ? "bg-amber-400/20 text-amber-300"
-                      : "bg-purple-500/20 text-purple-400"
-                  }`}
-                >
-                  {match.score_badge}
+        {!isArena && (
+          <div className="w-10 shrink-0 text-center">
+            {match.score != null && !isRemake && (
+              <>
+                <div className={`text-sm font-semibold ${scoreColor(match.score)}`}>
+                  {match.score.toFixed(1)}
                 </div>
-              ) : (
-                <div className="text-[10px] text-lol-text uppercase tracking-wider">score</div>
-              )}
-            </>
-          )}
-        </div>
+                {match.score_badge ? (
+                  <div
+                    className={`text-[9px] font-bold leading-[15px] px-1 rounded w-fit mx-auto ${
+                      match.score_badge === "MVP"
+                        ? "bg-amber-400/20 text-amber-300"
+                        : "bg-purple-500/20 text-purple-400"
+                    }`}
+                  >
+                    {match.score_badge}
+                  </div>
+                ) : (
+                  <div className="text-[10px] text-lol-text uppercase tracking-wider">score</div>
+                )}
+              </>
+            )}
+          </div>
+        )}
 
         {/* Stat bars */}
         <StatBars

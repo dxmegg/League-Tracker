@@ -1688,14 +1688,19 @@ export default function Profile({ localMode = false }: { localMode?: boolean }) 
   const handleScoreboardPlayerClick = useCallback(
     (player: { puuid: string | null; gameName: string | null; tagLine: string | null }) => {
       if (!player.gameName || !player.tagLine) return;
+      // Use the profile's own platform, not the Server dropdown's current
+      // value: the dropdown may have been changed without clicking Load
+      // Profile, in which case a scoreboard click would look up the player on
+      // the wrong region and get a 404 or, worse, a same-name account.
+      const profilePlatform = profile?.platform || platform;
       const next = new URLSearchParams();
       next.set("gameName", player.gameName);
       next.set("tagLine", player.tagLine);
-      next.set("platform", platform);
+      next.set("platform", profilePlatform);
       setSearchParams(next);
-      void fetchProfile(player.gameName, player.tagLine, platform, true, false, true);
+      void fetchProfile(player.gameName, player.tagLine, profilePlatform, true, false, true);
     },
-    [platform, setSearchParams, fetchProfile],
+    [profile, platform, setSearchParams, fetchProfile],
   );
 
   const handleRefreshMatchHistory = useCallback(async () => {

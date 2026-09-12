@@ -178,58 +178,63 @@ let runeDataCache: Record<
 > | null = null;
 export async function loadRuneData() {
   if (runeDataCache) return runeDataCache;
-  const roots = (await fetchJson(
-    "https://ddragon.leagueoflegends.com/cdn/16.18.1/data/en_US/runesReforged.json",
-  )) as any[];
-  const data: Record<
-    number,
-    { name: string; longDesc: string; icon: string; category: "keystone" | "secondary" | "tree" }
-  > = {};
-  let communityPerks: Record<number, { name?: string; shortDesc?: string; longDesc?: string; iconPath?: string }> = {};
   try {
-    const perks = (await fetchJson(
-      "https://raw.communitydragon.org/latest/plugins/rcp-be-lol-game-data/global/default/v1/perks.json",
+    const roots = (await fetchJson(
+      "https://ddragon.leagueoflegends.com/cdn/16.18.1/data/en_US/runesReforged.json",
     )) as any[];
-    communityPerks = Object.fromEntries(perks.map((perk) => [perk.id, perk]));
-  } catch {
-    // Data Dragon metadata remains sufficient for names and IDs.
-  }
-  for (const root of roots) {
-    // The tree itself (e.g. 8100 Domination) is a valid rune id too — it's
-    // what participants.perks.styles[].style holds, and the primary/secondary
-    // tree icon the compact match views draw comes from here.
-    data[root.id] = {
-      name: root.name,
-      longDesc: "",
-      icon: communityPerks[root.id]?.iconPath ?? root.icon,
-      category: "tree",
-    };
-    for (const slot of root.slots ?? []) {
-      for (const rune of slot.runes ?? []) {
-        data[rune.id] = {
-          name: rune.name,
-          longDesc: rune.longDesc,
-          icon: communityPerks[rune.id]?.iconPath ?? rune.icon,
-          category: slot === root.slots[0] ? "keystone" : "secondary",
-        };
+    const data: Record<
+      number,
+      { name: string; longDesc: string; icon: string; category: "keystone" | "secondary" | "tree" }
+    > = {};
+    let communityPerks: Record<number, { name?: string; shortDesc?: string; longDesc?: string; iconPath?: string }> = {};
+    try {
+      const perks = (await fetchJson(
+        "https://raw.communitydragon.org/latest/plugins/rcp-be-lol-game-data/global/default/v1/perks.json",
+      )) as any[];
+      communityPerks = Object.fromEntries(perks.map((perk) => [perk.id, perk]));
+    } catch {
+      // Data Dragon metadata remains sufficient for names and IDs.
+    }
+    for (const root of roots) {
+      // The tree itself (e.g. 8100 Domination) is a valid rune id too — it's
+      // what participants.perks.styles[].style holds, and the primary/secondary
+      // tree icon the compact match views draw comes from here.
+      data[root.id] = {
+        name: root.name,
+        longDesc: "",
+        icon: communityPerks[root.id]?.iconPath ?? root.icon,
+        category: "tree",
+      };
+      for (const slot of root.slots ?? []) {
+        for (const rune of slot.runes ?? []) {
+          data[rune.id] = {
+            name: rune.name,
+            longDesc: rune.longDesc,
+            icon: communityPerks[rune.id]?.iconPath ?? rune.icon,
+            category: slot === root.slots[0] ? "keystone" : "secondary",
+          };
+        }
       }
     }
+    // Data Dragon's reforged export does not include the three stat-shard
+    // choices. CommunityDragon's complete perk catalog does, so retain those
+    // entries as well for match tooltips and the compact scoreboard.
+    for (const [id, perk] of Object.entries(communityPerks)) {
+      const numericId = Number(id);
+      if (!Number.isFinite(numericId) || data[numericId] || !perk.iconPath) continue;
+      data[numericId] = {
+        name: perk.name ?? `Perk ${numericId}`,
+        longDesc: perk.longDesc ?? perk.shortDesc ?? "",
+        icon: perk.iconPath,
+        category: "secondary",
+      };
+    }
+    runeDataCache = data;
+    return data;
+  } catch (err) {
+    console.error("Failed to load rune data:", err);
+    return {};
   }
-  // Data Dragon's reforged export does not include the three stat-shard
-  // choices. CommunityDragon's complete perk catalog does, so retain those
-  // entries as well for match tooltips and the compact scoreboard.
-  for (const [id, perk] of Object.entries(communityPerks)) {
-    const numericId = Number(id);
-    if (!Number.isFinite(numericId) || data[numericId] || !perk.iconPath) continue;
-    data[numericId] = {
-      name: perk.name ?? `Perk ${numericId}`,
-      longDesc: perk.longDesc ?? perk.shortDesc ?? "",
-      icon: perk.iconPath,
-      category: "secondary",
-    };
-  }
-  runeDataCache = data;
-  return data;
 }
 
 let runeTreeLayoutCache: Record<
@@ -238,24 +243,29 @@ let runeTreeLayoutCache: Record<
 > | null = null;
 export async function loadRuneTreeLayout() {
   if (runeTreeLayoutCache) return runeTreeLayoutCache;
-  const roots = (await fetchJson(
-    "https://ddragon.leagueoflegends.com/cdn/16.18.1/data/en_US/runesReforged.json",
-  )) as any[];
-  const layout: Record<
-    number,
-    { id: number; key: string; name: string; icon: string; slots: number[][] }
-  > = {};
-  for (const root of roots) {
-    layout[root.id] = {
-      id: root.id,
-      key: root.key,
-      name: root.name,
-      icon: root.icon,
-      slots: (root.slots ?? []).map((slot: any) => (slot.runes ?? []).map((r: any) => r.id)),
-    };
+  try {
+    const roots = (await fetchJson(
+      "https://ddragon.leagueoflegends.com/cdn/16.18.1/data/en_US/runesReforged.json",
+    )) as any[];
+    const layout: Record<
+      number,
+      { id: number; key: string; name: string; icon: string; slots: number[][] }
+    > = {};
+    for (const root of roots) {
+      layout[root.id] = {
+        id: root.id,
+        key: root.key,
+        name: root.name,
+        icon: root.icon,
+        slots: (root.slots ?? []).map((slot: any) => (slot.runes ?? []).map((r: any) => r.id)),
+      };
+    }
+    runeTreeLayoutCache = layout;
+    return layout;
+  } catch (err) {
+    console.error("Failed to load rune tree layout:", err);
+    return {};
   }
-  runeTreeLayoutCache = layout;
-  return layout;
 }
 
 const runeDictionaryCache = new Map<string, Record<number, string>>();
@@ -477,13 +487,39 @@ function readAugmentIconCache(): AugmentIconCache {
   return augmentIconCache!;
 }
 
+let augmentIconCacheDirty = false;
+let augmentIconFlushTimer: ReturnType<typeof setTimeout> | null = null;
+const AUGMENT_ICON_FLUSH_MS = 500;
+
+function scheduleAugmentIconFlush() {
+  if (augmentIconFlushTimer) return;
+  augmentIconFlushTimer = setTimeout(() => {
+    augmentIconFlushTimer = null;
+    if (!augmentIconCacheDirty) return;
+    augmentIconCacheDirty = false;
+    try {
+      fs.writeFileSync(augmentIconCacheFile(), JSON.stringify(augmentIconCache ?? {}));
+    } catch (err) {
+      console.error("Failed to persist augment icon cache:", err);
+    }
+  }, AUGMENT_ICON_FLUSH_MS);
+  augmentIconFlushTimer.unref?.();
+}
+
 function writeAugmentIconCache(id: number, url: string | null) {
   const cache = readAugmentIconCache();
   cache[String(id)] = url;
+  augmentIconCacheDirty = true;
+  scheduleAugmentIconFlush();
+}
+
+export function flushAugmentIconCache(): void {
+  if (!augmentIconCacheDirty) return;
+  augmentIconCacheDirty = false;
   try {
-    fs.writeFileSync(augmentIconCacheFile(), JSON.stringify(cache));
+    fs.writeFileSync(augmentIconCacheFile(), JSON.stringify(augmentIconCache ?? {}));
   } catch (err) {
-    console.error("Failed to persist augment icon cache:", err);
+    console.error("Failed to flush augment icon cache on quit:", err);
   }
 }
 

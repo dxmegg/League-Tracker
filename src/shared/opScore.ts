@@ -6,7 +6,7 @@
 // so class changes trigger a recompute too). Settings → Repair rescores
 // unconditionally, which is the way out when stored values went stale under a
 // key that never changed.
-export const SCORE_FORMULA_VERSION = 4;
+export const SCORE_FORMULA_VERSION = 5;
 
 // championId → Data Dragon class tag ("Assassin" | "Fighter" | "Mage" |
 // "Marksman" | "Support" | "Tank"). Supplied by the caller from live champion

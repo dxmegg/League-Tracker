@@ -95,6 +95,18 @@ export default function Settings() {
   const [backupBusy, setBackupBusy] = useState(false);
   // Restoring replaces the whole database, so the row asks a second time
   const [confirmRestore, setConfirmRestore] = useState<string | null>(null);
+  const [savedSummoners, setSavedSummoners] = useState<
+    Array<{
+      puuid: string;
+      game_name: string | null;
+      tag_line: string | null;
+      profile_icon: number | null;
+      updated_at: number;
+      games: number;
+    }>
+  >([]);
+  const [confirmDeleteSummoner, setConfirmDeleteSummoner] = useState<string | null>(null);
+  const [summonerStatus, setSummonerStatus] = useState<string | null>(null);
 
   useEffect(() => {
     Promise.all([
@@ -130,6 +142,29 @@ export default function Settings() {
   useEffect(() => {
     window.api.getRiotAccounts().then(setRiotAccounts);
   }, []);
+
+  const refreshSavedSummoners = useCallback(() => {
+    window.api.getSavedSummoners().then(setSavedSummoners);
+  }, []);
+
+  useEffect(refreshSavedSummoners, [refreshSavedSummoners]);
+
+  const handleDeleteSummoner = useCallback(
+    async (puuid: string) => {
+      setConfirmDeleteSummoner(null);
+      setSummonerStatus(null);
+      try {
+        const result = await window.api.deleteSummoner(puuid);
+        setSummonerStatus(
+          `Deleted account: ${result.deletedGames} game(s) removed, ${result.deletedTrackedRows} tracked row(s) removed`,
+        );
+        refreshSavedSummoners();
+      } catch (err: any) {
+        setSummonerStatus(`Error: ${err.message}`);
+      }
+    },
+    [refreshSavedSummoners],
+  );
 
   const handleRiotSync = useCallback(async () => {
     setRiotSyncing(true);
@@ -439,6 +474,66 @@ export default function Settings() {
             Save account
           </button>
         </div>
+      </div>
+
+      <div className="bg-lol-card rounded-xl border border-lol-border/60 p-5">
+        <h2 className="text-sm font-semibold text-lol-text-bright mb-2">Saved accounts</h2>
+        <p className="text-xs text-lol-text mb-4">
+          Accounts that can appear in the Local Account and Match History views. Deleting one
+          removes its summoner row and every game stored for it; games still owned by another saved
+          account are kept.
+        </p>
+        {savedSummoners.length === 0 ? (
+          <p className="text-xs text-lol-text">No saved accounts yet.</p>
+        ) : (
+          <div className="space-y-2">
+            {savedSummoners.map((summoner) => {
+              const name =
+                summoner.game_name && summoner.tag_line
+                  ? `${summoner.game_name}#${summoner.tag_line}`
+                  : summoner.game_name ?? summoner.puuid;
+              const confirming = confirmDeleteSummoner === summoner.puuid;
+              return (
+                <div
+                  key={summoner.puuid}
+                  className="flex items-center justify-between gap-3 rounded-md border border-lol-border px-3 py-2"
+                >
+                  <div className="min-w-0">
+                    <p className="text-xs text-lol-text-bright truncate">{name}</p>
+                    <p className="text-[11px] text-lol-text">
+                      {summoner.games} game{summoner.games === 1 ? "" : "s"} stored
+                    </p>
+                  </div>
+                  {confirming ? (
+                    <div className="flex items-center gap-2 shrink-0">
+                      <span className="text-[11px] text-lol-text">Delete all data?</span>
+                      <button
+                        onClick={() => handleDeleteSummoner(summoner.puuid)}
+                        className="px-3 py-1 rounded bg-red-500/20 text-red-300 hover:bg-red-500/30 transition-colors"
+                      >
+                        Delete
+                      </button>
+                      <button
+                        onClick={() => setConfirmDeleteSummoner(null)}
+                        className="px-3 py-1 rounded bg-lol-border/40 text-lol-text hover:bg-lol-border/60 transition-colors"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  ) : (
+                    <button
+                      onClick={() => setConfirmDeleteSummoner(summoner.puuid)}
+                      className="shrink-0 px-3 py-1 rounded text-xs bg-red-500/10 text-red-300 hover:bg-red-500/20 transition-colors"
+                    >
+                      Delete
+                    </button>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
+        {summonerStatus && <p className="mt-3 text-xs text-lol-text">{summonerStatus}</p>}
       </div>
 
       {/* General */}

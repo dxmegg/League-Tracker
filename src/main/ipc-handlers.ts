@@ -94,19 +94,19 @@ export function registerIpcHandlers() {
     return db.toggleFavorite(gameId);
   });
 
-  ipcMain.handle("db:champion-stats", (_event, patch?: string, queue?: number) => {
-    return db.getChampionStatsAll(patch, queue);
+  ipcMain.handle("db:champion-stats", (_event, patch?: string, queue?: number, account?: string) => {
+    return db.getChampionStatsAll(patch, queue, account);
   });
 
   ipcMain.handle(
     "db:augment-stats",
-    (_event, championId?: number, patch?: string, queue?: number) => {
-      return db.getAugmentStatsAll(championId, patch, queue);
+    (_event, championId?: number, patch?: string, queue?: number, account?: string) => {
+      return db.getAugmentStatsAll(championId, patch, queue, account);
     },
   );
 
-  ipcMain.handle("db:augment-stats-detailed", (_event, patch?: string, queue?: number) => {
-    return db.getAugmentStatsWithChampions(patch, queue);
+  ipcMain.handle("db:augment-stats-detailed", (_event, patch?: string, queue?: number, account?: string) => {
+    return db.getAugmentStatsWithChampions(patch, queue, account);
   });
 
   ipcMain.handle(
@@ -164,8 +164,8 @@ export function registerIpcHandlers() {
 
   ipcMain.handle(
     "db:champion-match-history",
-    (_event, championId: number, limit: number, offset: number, patch?: string, queue?: number) => {
-      return db.getChampionMatchHistory(championId, limit, offset, patch, queue);
+    (_event, championId: number, limit: number, offset: number, patch?: string, queue?: number, account?: string) => {
+      return db.getChampionMatchHistory(championId, limit, offset, patch, queue, account);
     },
   );
 
@@ -314,8 +314,20 @@ export function registerIpcHandlers() {
       return {};
     }
   });
-  ipcMain.handle("dragon:runes", async () => dragon.loadRuneData());
-  ipcMain.handle("dragon:rune-trees", async () => dragon.loadRuneTreeLayout());
+  ipcMain.handle("dragon:runes", async () => {
+    try {
+      return await dragon.loadRuneData();
+    } catch {
+      return {};
+    }
+  });
+  ipcMain.handle("dragon:rune-trees", async () => {
+    try {
+      return await dragon.loadRuneTreeLayout();
+    } catch {
+      return {};
+    }
+  });
 
   ipcMain.handle(
     "db:champion-item-stats",
@@ -343,8 +355,8 @@ export function registerIpcHandlers() {
   ipcMain.handle("db:global-stats", (_event, patch?: string, queue?: number) => {
     return db.getGlobalStats(patch, queue);
   });
-  ipcMain.handle("db:owned-item-stats", (_event, patch?: string, queue?: number) => {
-    return db.getOwnedItemStats(patch, queue);
+  ipcMain.handle("db:owned-item-stats", (_event, patch?: string, queue?: number, account?: string) => {
+    return db.getOwnedItemStats(patch, queue, account);
   });
   ipcMain.handle("db:owned-rune-stats", (_event, queue?: number, patch?: string) => {
     return db.getOwnedRuneStats(queue, patch);
@@ -356,12 +368,12 @@ export function registerIpcHandlers() {
     },
   );
 
-  ipcMain.handle("db:trends", (_event, queue?: number) => {
-    return db.getTrendsData(queue);
+  ipcMain.handle("db:trends", (_event, queue?: number, account?: string) => {
+    return db.getTrendsData(queue, account);
   });
 
-  ipcMain.handle("db:records", (_event, queue?: number) => {
-    return db.getRecords(queue);
+  ipcMain.handle("db:records", (_event, queue?: number, account?: string) => {
+    return db.getRecords(queue, account);
   });
 
   ipcMain.handle(
@@ -373,6 +385,17 @@ export function registerIpcHandlers() {
 
   ipcMain.handle("db:all-summoner-puuids", () => {
     return db.getAllPuuids();
+  });
+
+  ipcMain.handle("db:saved-summoners", () => {
+    return db.listSavedSummoners();
+  });
+
+  ipcMain.handle("db:delete-summoner", async (event, puuid: string) => {
+    await backup.backupQuietly("pre-import");
+    const result = db.deleteSavedSummoner(puuid);
+    senderWindow(event)?.webContents.send("lcu:games-updated");
+    return result;
   });
 
   ipcMain.handle("db:summoner-puuid", () => {
