@@ -82,6 +82,10 @@ export interface MatchListItem {
   stat_shard_ids?: string | null;
   cs?: number;
   game_version: string | null;
+  // Riot's lane for this participant in this game: "TOP" | "JUNGLE" | "MIDDLE" |
+  // "BOTTOM" | "UTILITY", or null for queues that do not have lanes (ARAM,
+  // Arena, Mayhem, co-op, tutorials).
+  team_position: string | null;
   game_max_dmg: number;
   game_max_taken: number;
   game_max_heal: number;
@@ -319,7 +323,7 @@ export interface ProfileRecentGame {
   cs: number;
   game_duration: number;
   score: number | null;
-  team_position: number | null;
+  team_position: string | null;
   queue_id: number;
 }
 
@@ -605,9 +609,11 @@ export interface RecentRiotMatch {
   kills: number;
   deaths: number;
   assists: number;
+  cs: number;
   gameCreation: number;
   gameDuration: number;
   queueId: number;
+  teamPosition: string | null;
 }
 
 export interface ProfileData {
@@ -701,6 +707,7 @@ export interface ElectronAPI {
     puuid: string,
     platform: string,
     count: number,
+    start?: number,
   ) => Promise<RecentRiotMatch[] | { error: string }>;
   getChampionMatchHistory: (
     championId: number,

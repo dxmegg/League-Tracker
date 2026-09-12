@@ -80,11 +80,14 @@ type RecentMatchResponse = {
     queueId?: number;
     participants?: Array<{
       puuid?: string;
+      teamPosition?: string;
       win?: boolean;
       championId?: number;
       kills?: number;
       deaths?: number;
       assists?: number;
+      totalMinionsKilled?: number;
+      neutralMinionsKilled?: number;
     }>;
   };
 };
@@ -93,13 +96,15 @@ export async function getRecentRiotMatches(
   puuid: string,
   platform: string,
   count: number,
+  start = 0,
 ): Promise<RecentRiotMatch[]> {
   const route = regionalRoute(platform);
   const safeCount = Math.max(0, Math.min(Math.floor(count), 100));
+  const safeStart = Math.max(0, Math.floor(start));
   if (safeCount === 0) return [];
 
   const ids = await riotFetch<string[]>(
-    `https://${route}.api.riotgames.com/lol/match/v5/matches/by-puuid/${encodeURIComponent(puuid)}/ids?start=0&count=${safeCount}`,
+    `https://${route}.api.riotgames.com/lol/match/v5/matches/by-puuid/${encodeURIComponent(puuid)}/ids?start=${safeStart}&count=${safeCount}`,
   );
   const matches = await Promise.all(
     ids.slice(0, safeCount).map(async (rawId): Promise<RecentRiotMatch | null> => {
@@ -120,9 +125,13 @@ export async function getRecentRiotMatches(
         kills: Number(participant.kills) || 0,
         deaths: Number(participant.deaths) || 0,
         assists: Number(participant.assists) || 0,
+        cs:
+          Number(participant.totalMinionsKilled ?? 0) +
+          Number(participant.neutralMinionsKilled ?? 0),
         gameCreation: Number(info.gameCreation) || 0,
         gameDuration: Number(info.gameDuration) || 0,
         queueId: Number(info.queueId) || 0,
+        teamPosition: participant.teamPosition ?? null,
       };
     }),
   );

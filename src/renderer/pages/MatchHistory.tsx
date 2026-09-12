@@ -85,6 +85,35 @@ const SELECT_CLASS = "select";
 // this hour belong to the night that started the evening before.
 const DAY_START_HOUR = 5;
 
+// Queues with no lane to show. Riot still reports a teamPosition value for
+// these (usually "NONE" or an empty string), so the UI has to drop them by
+// queue id rather than by position.
+const NO_LANE_QUEUES = new Set([
+  65, 67, 100, 450, // ARAM
+  31, 32, 33, 52, 83, 880, // Co-op vs AI
+  1700, 1740, 1750, // Arena
+  2000, 2010, 2020, // Tutorials
+  2400, 2450, // ARAM Mayhem, Mayhem Classic
+  3140, // Training Tool
+]);
+
+const TEAM_POSITION_LABELS: Record<string, string> = {
+  TOP: "Top",
+  JUNGLE: "Jungle",
+  MIDDLE: "Mid",
+  BOTTOM: "Bottom",
+  UTILITY: "Support",
+};
+
+// Human label for a row's lane, or null when this queue has no lane to show.
+// "Unknown" is only for a lane queue whose stored position is missing — a game
+// imported before migrateToV9 ran, or a remake that never got a position.
+function laneLabel(match: MatchListItem): string | null {
+  if (NO_LANE_QUEUES.has(match.queue_id)) return null;
+  if (match.team_position == null || match.team_position === "") return "Unknown";
+  return TEAM_POSITION_LABELS[match.team_position] ?? "Unknown";
+}
+
 // Local midnight of the session day a game belongs to.
 function sessionDay(ms: number): number {
   const d = new Date(ms);
@@ -1063,6 +1092,12 @@ function GameRow({
           <div className="text-sm text-lol-text-bright truncate">
             {getChampionName(champData, match.champion_id)}
           </div>
+          {(() => {
+            const lane = laneLabel(match);
+            return lane ? (
+              <div className="text-[10px] text-lol-text truncate">{lane}</div>
+            ) : null;
+          })()}
         </div>
         <div className="w-16 shrink-0 text-center text-[10px] text-lol-text">
           <div className="text-sm text-lol-text-bright">{match.cs ?? 0}</div>

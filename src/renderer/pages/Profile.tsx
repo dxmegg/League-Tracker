@@ -3,6 +3,7 @@ import type { ProfileData, ProfileRankedEntry } from "../lib/types";
 import { useChampionData } from "../hooks/useChampions";
 import type {
   ChampionData,
+  DashboardData,
   ProfileMasteryChampion,
   ProfileRecentGame,
   RecentRiotMatch,
@@ -11,6 +12,7 @@ import { MasteryCrestIcon, MasteryPointsIcon } from "../components/ProfileIcons"
 import { shortRegion, PLATFORM_TO_NAME } from "../../shared/regions";
 import { ARENA_QUEUE_IDS, isAugmentQueue, QUEUE_LABELS } from "../../shared/queues";
 import { kdaRatio } from "../lib/format";
+import { CHAMPION_ICON_URL } from "../lib/constants";
 
 const EMBLEM_BASE_URL = "https://opgg-static.akamaized.net/images/medals_new";
 const LAST_LOOKUP_KEY = "profile:lastLookup";
@@ -120,6 +122,20 @@ function readLastLookup(): ProfileLookup | null {
   }
 }
 
+const PROFILE_TIMEOUT_MS = 45_000;
+
+function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
+  return Promise.race([
+    promise,
+    new Promise<T>((_, reject) =>
+      setTimeout(
+        () => reject(new Error("Request timed out — Riot API did not respond")),
+        ms,
+      ),
+    ),
+  ]);
+}
+
 function getPercentColor(percent: number): string {
   return percent >= 54.5
     ? "text-emerald-400"
@@ -138,7 +154,7 @@ function RankCard({
 }: {
   title: string;
   entry: ProfileRankedEntry | null;
-  recentGames: ProfileRecentGame[] | null;
+  recentGames?: ProfileRecentGame[] | null;
   championData: ChampionData;
 }) {
   return (
@@ -173,13 +189,15 @@ function RankCard({
             <p className="text-xs text-lol-gold mt-1">{entry.leaguePoints} LP</p>
           </div>
           <div className="col-span-2">
-            <RecentGamesStrip games={recentGames} championData={championData} />
+            {recentGames && (
+              <RecentGamesStrip games={recentGames} championData={championData} />
+            )}
             {(() => {
               const games = entry.wins + entry.losses;
               const percent = games > 0 ? Math.round((entry.wins / games) * 1000) / 10 : 0;
               return (
                 <>
-                  <div className="mt-2 flex h-1.5 overflow-hidden rounded-full bg-red-400/30">
+                  <div className="mt-2 flex h-1.5 overflow-hidden bg-red-400/30">
                     <div
                       className="h-full bg-emerald-400 transition-all duration-300 ease-out"
                       style={{ width: `${games > 0 ? (entry.wins / games) * 100 : 0}%` }}
@@ -220,12 +238,107 @@ type MatchTotals = {
 
 type RecentGame = ProfileRecentGame;
 
-const TEAM_POSITION_LABELS: Record<number, string> = {
-  0: "Top",
-  1: "Jungle",
-  2: "Mid",
-  3: "Bot",
-  4: "Support",
+function deriveFromRiotMatches(matches: RecentRiotMatch[]): {
+  mostPlayed: MostPlayedQueue | null;
+  totals: MatchTotals;
+  recentGames: ProfileRecentGame[];
+  recentAllGames: ProfileRecentGame[];
+} {
+  if (matches.length === 0) {
+    return {
+      mostPlayed: null,
+      totals: { games: 0, wins: 0 },
+      recentGames: [],
+      recentAllGames: [],
+    };
+  }
+
+  const byQueue = new Map<number, { games: number; wins: number }>();
+  for (const match of matches) {
+    const current = byQueue.get(match.queueId) ?? { games: 0, wins: 0 };
+    current.games += 1;
+    if (match.win) current.wins += 1;
+    byQueue.set(match.queueId, current);
+  }
+
+  let bestQueue = 0;
+  let bestGames = 0;
+  let bestWins = 0;
+  for (const [queueId, { games, wins }] of byQueue) {
+    if (games > bestGames) {
+      bestQueue = queueId;
+      bestGames = games;
+      bestWins = wins;
+    }
+  }
+
+  const toRecentGame = (match: RecentRiotMatch): ProfileRecentGame => ({
+    game_id: match.gameId,
+    champion_id: match.championId,
+    win: match.win ? 1 : 0,
+    is_remake: 0,
+    kills: match.kills,
+    deaths: match.deaths,
+    assists: match.assists,
+    cs: Number.isFinite(match.cs) ? match.cs : 0,
+    game_duration: match.gameDuration,
+    score: null,
+    team_position: match.teamPosition,
+    queue_id: match.queueId,
+  });
+
+  const allRecent = matches.map(toRecentGame);
+  const isArenaGroup = ARENA_QUEUE_IDS.includes(bestQueue);
+  const bestQueueSet = isArenaGroup
+    ? new Set(ARENA_QUEUE_IDS)
+    : new Set([bestQueue]);
+  const recentGames = allRecent
+    .filter((game) => bestQueueSet.has(game.queue_id))
+    .slice(0, 5);
+
+  return {
+    mostPlayed: {
+      queue_id: bestQueue,
+      games: bestGames,
+      wins: bestWins,
+      isArenaGroup,
+    },
+    totals: {
+      games: matches.length,
+      wins: matches.filter((match) => match.win).length,
+    },
+    recentGames,
+    recentAllGames: allRecent.slice(0, 5),
+  };
+}
+
+const TEAM_POSITION_LABELS: Record<string, string> = {
+  TOP: "Top",
+  JUNGLE: "Jungle",
+  MIDDLE: "Mid",
+  BOTTOM: "Bottom",
+  UTILITY: "Support",
+};
+const NO_LANE_QUEUES = new Set([
+  // ARAM
+  65, 67, 100, 450,
+  // Co-op vs AI
+  31, 32, 33, 52, 83, 880,
+  // Arena
+  1700, 1740, 1750,
+  // Tutorials
+  2000, 2010, 2020,
+  // ARAM Mayhem and Mayhem Classic
+  2400, 2450,
+  // Training Tool
+  3140,
+]);
+const RIOT_TEAM_POSITION_LABELS: Record<string, string> = {
+  TOP: "Top",
+  JUNGLE: "Jungle",
+  MIDDLE: "Mid",
+  BOTTOM: "Bottom",
+  UTILITY: "Support",
 };
 
 function RecentGamesStrip({
@@ -249,17 +362,24 @@ function RecentGamesStrip({
               : "text-lol-text/60";
         const champion = championData[game.champion_id];
         const gamesPerMinute =
-          game.game_duration > 0 ? (game.cs / (game.game_duration / 60)).toFixed(1) : "0.0";
-        const fields: ReactNode[] = champion
-          ? [
-              <img
-                key="champion"
-                src={`https://ddragon.leagueoflegends.com/cdn/latest/img/champion/${champion.name}.png`}
-                alt={champion.name}
-                className="h-5 w-5 rounded"
-              />,
-            ]
-          : [];
+          game.game_duration > 0 && Number.isFinite(game.cs) && game.cs > 0
+            ? (game.cs / (game.game_duration / 60)).toFixed(1)
+            : "0.0";
+        const fields: ReactNode[] = [];
+        if (champion) {
+          fields.push(
+            <img
+              key="champion"
+              src={CHAMPION_ICON_URL(game.champion_id)}
+              alt={champion.name}
+              className="h-5 w-5 rounded"
+              onError={(event) => {
+                event.currentTarget.style.display = "none";
+              }}
+            />,
+            <span key="champion-name">{champion.name}</span>,
+          );
+        }
         fields.push(
           <span key="kda">
             <span className="text-white">{game.kills}</span>-
@@ -280,10 +400,17 @@ function RecentGamesStrip({
         if (game.score !== null) {
           fields.push(<span key="score">Score {game.score}</span>);
         }
+        if (!NO_LANE_QUEUES.has(game.queue_id)) {
+          fields.push(
+            <span key="lane">
+              Lane{" "}
+              {game.team_position == null
+                ? "Unknown"
+                : TEAM_POSITION_LABELS[game.team_position] ?? "Unknown"}
+            </span>,
+          );
+        }
         fields.push(
-          <span key="lane">
-            Lane {game.team_position === null ? "Unknown" : TEAM_POSITION_LABELS[game.team_position] ?? "Unknown"}
-          </span>,
           <span key="queue">{QUEUE_LABELS[game.queue_id] ?? `Queue ${game.queue_id}`}</span>,
         );
 
@@ -295,7 +422,7 @@ function RecentGamesStrip({
               <span className="absolute z-50 hidden group-hover:block top-full mt-2 left-1/2 -translate-x-1/2 whitespace-nowrap rounded border border-lol-gold/50 bg-lol-dark px-2 py-1 text-sm font-normal text-lol-text-bright shadow-lg">
                 {fields.map((field, fieldIndex) => (
                   <span key={fieldIndex}>
-                    {fieldIndex > 0 && " | "}
+                    {fieldIndex >= (champion ? 2 : 1) && " | "}
                     {field}
                   </span>
                 ))}
@@ -314,12 +441,14 @@ function MatchStatsBox({
   subtitle,
   recentGames,
   championData,
+  hideRecentGamesWhenEmpty = false,
 }: {
   title: string;
   totals: MatchTotals | null;
   subtitle?: ReactNode;
   recentGames?: ProfileRecentGame[] | null;
   championData: ChampionData;
+  hideRecentGamesWhenEmpty?: boolean;
 }) {
   if (!totals || totals.games <= 0) {
     return (
@@ -330,7 +459,9 @@ function MatchStatsBox({
         <p className="mt-1 text-sm font-semibold text-lol-text-bright">
           {subtitle ?? "No games recorded"}
         </p>
-        <RecentGamesStrip games={recentGames ?? null} championData={championData} />
+        {!hideRecentGamesWhenEmpty && (
+          <RecentGamesStrip games={recentGames ?? null} championData={championData} />
+        )}
       </div>
     );
   }
@@ -498,6 +629,9 @@ function RecentRiotMatchesSection({
   version,
   puuid,
   onRefresh,
+  onLoadMore,
+  loadingMore,
+  canLoadMore,
 }: {
   matches: RecentRiotMatch[] | null;
   loading: boolean;
@@ -506,6 +640,9 @@ function RecentRiotMatchesSection({
   version: string;
   puuid: string | null;
   onRefresh: () => void;
+  onLoadMore: () => void;
+  loadingMore: boolean;
+  canLoadMore: boolean;
 }) {
   return (
     <section className="rounded-xl border border-lol-border bg-lol-card p-5">
@@ -519,7 +656,7 @@ function RecentRiotMatchesSection({
           disabled={!puuid || loading}
           className="h-9 rounded-lg border border-lol-border bg-lol-card px-4 text-sm text-lol-text transition-colors hover:bg-lol-border/30 disabled:cursor-not-allowed disabled:opacity-50"
         >
-          {loading ? "Refreshing…" : "Refresh"}
+          {loading ? "Refreshing…" : "Refresh Match History"}
         </button>
       </div>
       {loading ? (
@@ -533,41 +670,58 @@ function RecentRiotMatchesSection({
       ) : matches.length === 0 ? (
         <p className="mt-4 text-sm text-lol-text">No recent matches</p>
       ) : (
-        <div className="mt-4 space-y-2">
-          {matches.slice(0, 10).map((match) => {
-            const champion = championData[match.championId];
-            return (
-              <div
-                key={match.gameId}
-                className="flex items-center gap-4 rounded-lg border border-lol-border/30 px-3 py-2"
-              >
-                <span
-                  className={`w-5 shrink-0 text-center text-xs font-bold ${
-                    match.win ? "text-lol-win" : "text-lol-loss"
-                  }`}
+        <>
+          <div className="mt-4 space-y-2">
+            {matches.slice(0, 20).map((match) => {
+              const champion = championData[match.championId];
+              return (
+                <div
+                  key={match.gameId}
+                  className="flex items-center gap-4 rounded-lg border border-lol-border/30 px-3 py-2"
                 >
-                  {match.win ? "W" : "L"}
-                </span>
-                {champion ? (
-                  <img
-                    src={`https://ddragon.leagueoflegends.com/cdn/${version}/img/champion/${champion.key}.png`}
-                    alt={champion.name}
-                    className="h-9 w-9 shrink-0 object-contain"
-                  />
-                ) : null}
-                <span className="min-w-0 flex-1 truncate text-sm text-lol-text-bright">
-                  {champion?.name ?? `Champion ${match.championId}`}
-                </span>
-                <span className="shrink-0 text-sm text-lol-text">
-                  {match.kills} / {match.deaths} / {match.assists}
-                  <span className="ml-2 text-xs text-lol-text/70">
-                    {kdaRatio(match.kills, match.deaths, match.assists)} KDA
+                  <span
+                    className={`w-5 shrink-0 text-center text-xs font-bold ${
+                      match.win ? "text-lol-win" : "text-lol-loss"
+                    }`}
+                  >
+                    {match.win ? "W" : "L"}
                   </span>
-                </span>
-              </div>
-            );
-          })}
-        </div>
+                  {champion ? (
+                    <img
+                      src={`https://ddragon.leagueoflegends.com/cdn/${version}/img/champion/${champion.key}.png`}
+                      alt={champion.name}
+                      className="h-9 w-9 shrink-0 object-contain"
+                    />
+                  ) : null}
+                  <span className="min-w-0 flex-1 truncate text-sm text-lol-text-bright">
+                    {champion?.name ?? `Champion ${match.championId}`}
+                  </span>
+                  <span className="shrink-0 text-sm text-lol-text">
+                    {match.kills} / {match.deaths} / {match.assists}
+                    <span className="ml-2 text-xs text-lol-text/70">
+                      {kdaRatio(match.kills, match.deaths, match.assists)} KDA
+                    </span>
+                    <span className="ml-2 text-xs text-lol-text/70">
+                      Lane {RIOT_TEAM_POSITION_LABELS[match.teamPosition ?? ""] ?? "Unknown"}
+                    </span>
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+          {canLoadMore && (
+            <div className="mt-4 flex justify-center">
+              <button
+                type="button"
+                onClick={onLoadMore}
+                disabled={loadingMore}
+                className="h-9 rounded-lg border border-lol-border bg-lol-card px-4 text-sm text-lol-text transition-colors hover:border-lol-gold/60 hover:text-lol-text-bright disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {loadingMore ? "Loading…" : "Load More"}
+              </button>
+            </div>
+          )}
+        </>
       )}
     </section>
   );
@@ -624,7 +778,7 @@ function ProfileForm({
   );
 }
 
-export default function Profile() {
+export default function Profile({ localMode = false }: { localMode?: boolean }) {
   const championData = useChampionData();
   const [gameNameInput, setGameNameInput] = useState("");
   const [platform, setPlatform] = useState("euw1");
@@ -633,18 +787,25 @@ export default function Profile() {
   const [totalMatches, setTotalMatches] = useState<MatchTotals | null>(null);
   const [recentGames, setRecentGames] = useState<RecentGame[] | null>(null);
   const [recentAllGames, setRecentAllGames] = useState<RecentGame[] | null>(null);
-  const [recentSoloGames, setRecentSoloGames] = useState<RecentGame[] | null>(null);
-  const [recentFlexGames, setRecentFlexGames] = useState<RecentGame[] | null>(null);
+  const [dashboard, setDashboard] = useState<DashboardData | null>(null);
   const [recentMatches, setRecentMatches] = useState<RecentRiotMatch[] | null>(null);
   const [recentMatchesLoading, setRecentMatchesLoading] = useState(false);
   const [recentMatchesError, setRecentMatchesError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [refreshPhase, setRefreshPhase] = useState<string | null>(null);
+  const [refreshTotal, setRefreshTotal] = useState(0);
+  const [recentMatchesStart, setRecentMatchesStart] = useState(0);
+  const [loadingMoreRecent, setLoadingMoreRecent] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notFound, setNotFound] = useState(false);
   const [recentProfiles, setRecentProfiles] = useState<ProfileLookup[]>([]);
   const [favoriteProfiles, setFavoriteProfiles] = useState<ProfileLookup[]>([]);
+  const [dragIndex, setDragIndex] = useState<number | null>(null);
+  const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
   const [favoriteMessage, setFavoriteMessage] = useState<string | null>(null);
   const [linksOpen, setLinksOpen] = useState(false);
+  const RECENT_PAGE_SIZE = 20;
+  const RECENT_LOAD_MORE_SIZE = 10;
   const hasAutoLoaded = useRef(false);
   const recentMatchesRequest = useRef(0);
   const favoriteMessageTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -685,84 +846,148 @@ export default function Profile() {
     fetchRecentMatches = false,
   ) => {
     setLoading(true);
+    setRefreshPhase("Contacting Riot API…");
     setError(null);
     setNotFound(false);
     setProfile(null);
+    setDashboard(null);
     setMostPlayed(null);
-    setTotalMatches(null);
     setRecentGames(null);
     setRecentAllGames(null);
-    setRecentSoloGames(null);
-    setRecentFlexGames(null);
+    setTotalMatches(null);
     recentMatchesRequest.current += 1;
     setRecentMatches(null);
     setRecentMatchesError(null);
     setRecentMatchesLoading(false);
     try {
-      const result = await window.api.getProfileData(gameName, tagLine, selectedPlatform);
+      const result = await withTimeout(
+        window.api.getProfileData(gameName, tagLine, selectedPlatform),
+        PROFILE_TIMEOUT_MS,
+      );
       if (result && "error" in result) {
         setError(result.error);
       } else if (!result) {
         setNotFound(true);
       } else {
         setProfile(result);
-        if (fetchRecentMatches) {
-          await loadRecentMatches(result.puuid, result.platform);
-        }
-        try {
-          const queue = await window.api.getMostPlayedQueue(
-            result.puuid,
-            result.gameName,
-            result.tagLine,
-          );
-          setMostPlayed(queue);
-          const queueIds = queue
-            ? queue.isArenaGroup
-              ? ARENA_QUEUE_IDS
-              : [queue.queue_id]
-            : [];
-          const recent = await window.api.getRecentGames(
-            result.puuid,
-            result.gameName,
-            result.tagLine,
-            queueIds,
-            5,
-          );
-          setRecentGames(recent);
-          const recentAll = await window.api.getRecentGames(
-            result.puuid,
-            result.gameName,
-            result.tagLine,
-            [],
-            5,
-          );
-          setRecentAllGames(recentAll);
-          const [recentSolo, recentFlex] = await Promise.all([
-            window.api.getRecentGames(
-              result.puuid,
-              result.gameName,
-              result.tagLine,
-              [420],
-              5,
-            ),
-            window.api.getRecentGames(
-              result.puuid,
-              result.gameName,
-              result.tagLine,
-              [440],
-              5,
-            ),
-          ]);
-          setRecentSoloGames(recentSolo);
-          setRecentFlexGames(recentFlex);
-          const totals = await window.api.getTotalMatchesPlayed(
-            result.puuid,
-            result.gameName,
-            result.tagLine,
-          );
-          setTotalMatches(totals);
-        } catch (err: unknown) {
-          console.error("Failed to load local queue breakdown:", err);
+        setRefreshPhase("Fetching recent matches…");
+        if (fetchRecentMatches && !localMode) {
+          const requestId = ++recentMatchesRequest.current;
+          setRecentMatchesLoading(true);
+          setRecentMatchesError(null);
+          try {
+            setRefreshTotal(RECENT_PAGE_SIZE);
+            setRefreshPhase(`Fetching matches… 0 / ${RECENT_PAGE_SIZE}`);
+            const [localQueue, localTotals, recent] = await Promise.all([
+              window.api.getMostPlayedQueue(
+                result.puuid,
+                result.gameName || gameName,
+                result.tagLine || tagLine,
+              ),
+              window.api.getTotalMatchesPlayed(
+                result.puuid,
+                result.gameName || gameName,
+                result.tagLine || tagLine,
+              ),
+              withTimeout(
+                window.api.getRecentRiotMatches(
+                  result.puuid,
+                  result.platform,
+                  RECENT_PAGE_SIZE,
+                  0,
+                ),
+                PROFILE_TIMEOUT_MS,
+              ),
+            ]);
+            if ("error" in recent) {
+              setRefreshPhase(null);
+            } else {
+              setRefreshPhase(
+                `Fetching matches… ${recent.length} / ${RECENT_PAGE_SIZE}`,
+              );
+            }
+            if (requestId !== recentMatchesRequest.current) return;
+
+            if ("error" in recent) {
+              setRecentMatchesError(recent.error);
+              const [localQueue, localTotals, localRecent, localRecentAll] =
+                await Promise.all([
+                  window.api.getMostPlayedQueue(
+                    result.puuid,
+                    result.gameName || gameName,
+                    result.tagLine || tagLine,
+                  ),
+                  window.api.getTotalMatchesPlayed(
+                    result.puuid,
+                    result.gameName || gameName,
+                    result.tagLine || tagLine,
+                  ),
+                  window.api.getRecentGames(
+                    result.puuid,
+                    result.gameName || gameName,
+                    result.tagLine || tagLine,
+                    [],
+                    5,
+                  ),
+                  window.api.getRecentGames(
+                    result.puuid,
+                    result.gameName || gameName,
+                    result.tagLine || tagLine,
+                    [],
+                    5,
+                  ),
+                ]);
+              if (requestId === recentMatchesRequest.current) {
+                if (localQueue) setMostPlayed(localQueue);
+                if (localTotals) setTotalMatches(localTotals);
+                if (localRecent) setRecentGames(localRecent);
+                if (localRecentAll) setRecentAllGames(localRecentAll);
+              }
+            } else {
+              setRecentMatches(recent);
+              setRecentMatchesStart(RECENT_PAGE_SIZE);
+              const derived = deriveFromRiotMatches(recent);
+              setMostPlayed(localQueue ?? derived.mostPlayed);
+              setTotalMatches(localTotals ?? derived.totals);
+              setRecentGames(
+                localTotals
+                  ? await window.api.getRecentGames(
+                      result.puuid,
+                      result.gameName || gameName,
+                      result.tagLine || tagLine,
+                      localQueue
+                        ? localQueue.isArenaGroup
+                          ? ARENA_QUEUE_IDS
+                          : [localQueue.queue_id]
+                        : [],
+                      5,
+                    )
+                  : derived.recentGames,
+              );
+              setRecentAllGames(
+                localTotals
+                  ? await window.api.getRecentGames(
+                      result.puuid,
+                      result.gameName || gameName,
+                      result.tagLine || tagLine,
+                      [],
+                      5,
+                    )
+                  : derived.recentAllGames,
+              );
+            }
+          } catch (err) {
+            if (requestId === recentMatchesRequest.current) {
+              setRecentMatchesError(
+                err instanceof Error ? err.message : "Could not load recent matches",
+              );
+            }
+          } finally {
+            if (requestId === recentMatchesRequest.current) {
+              setRecentMatchesLoading(false);
+              setRefreshPhase(null);
+            }
+          }
         }
         const successfulLookup: ProfileLookup = {
           gameName: result.gameName || gameName,
@@ -799,8 +1024,70 @@ export default function Profile() {
       setError(err instanceof Error ? err.message : "Could not load profile");
     } finally {
       setLoading(false);
+      setRefreshPhase(null);
+      setRefreshTotal(0);
     }
-  }, [loadRecentMatches]);
+  }, [localMode]);
+
+  const loadLocalProfile = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    setNotFound(false);
+    setProfile(null);
+    setDashboard(null);
+    setMostPlayed(null);
+    setTotalMatches(null);
+    setRecentGames(null);
+    setRecentAllGames(null);
+    try {
+      const [localProfile, puuid] = await Promise.all([
+        window.api.getProfile(),
+        window.api.getSummonerPuuid(),
+      ]);
+      if (!puuid) {
+        setError("No local account data. Connect to the League client or import history.");
+        return;
+      }
+
+      const localDashboard = await window.api.getDashboard();
+      const localName = localProfile.name ?? "Local account";
+      const localMostPlayed = await window.api.getMostPlayedQueue(puuid, localName, "");
+      const localQueueIds = localMostPlayed
+        ? localMostPlayed.isArenaGroup
+          ? ARENA_QUEUE_IDS
+          : [localMostPlayed.queue_id]
+        : [];
+      const [localRecentGames, localRecentAllGames, localTotals] = await Promise.all([
+        window.api.getRecentGames(puuid, localName, "", localQueueIds, 5),
+        window.api.getRecentGames(puuid, localName, "", [], 5),
+        window.api.getTotalMatchesPlayed(puuid, localName, ""),
+      ]);
+      setProfile({
+        puuid,
+        gameName: localName,
+        tagLine: "",
+        platform: "",
+        profileIconId: localProfile.profileIcon ?? 0,
+        summonerLevel: 0,
+        dataDragonVersion: "none",
+        masteryPoints: 0,
+        masteryScore: 0,
+        topMasteryChampions: null,
+        rankedSolo: null,
+        rankedFlex: null,
+      });
+      setDashboard(localDashboard);
+      setMostPlayed(localMostPlayed);
+      setRecentGames(localRecentGames);
+      setRecentAllGames(localRecentAllGames);
+      setTotalMatches(localTotals);
+    } catch (err: unknown) {
+      console.error("Failed to load local profile:", err);
+      setError(err instanceof Error ? err.message : "Could not load local profile");
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
   const loadProfile = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -825,7 +1112,7 @@ export default function Profile() {
       return;
     }
 
-    await fetchProfile(gameName, tagLine, platform, true);
+    await fetchProfile(gameName, tagLine, platform, !localMode);
   };
 
   useEffect(() => {
@@ -844,20 +1131,48 @@ export default function Profile() {
     if (hasAutoLoaded.current) return;
     hasAutoLoaded.current = true;
 
-    const lookup = readLastLookup();
-    if (!lookup) return;
-    setGameNameInput(`${lookup.gameName}#${lookup.tagLine}`);
-    setPlatform(lookup.platform);
-    void fetchProfile(lookup.gameName, lookup.tagLine, lookup.platform, true);
-  }, [fetchProfile]);
+    if (localMode) {
+      void loadLocalProfile();
+      return;
+    }
+
+    void (async () => {
+      let remembered = readLastLookup();
+      let rememberedPuuid: string | null = null;
+      if (!remembered) {
+        const [gameName, tagLine, platform, puuid] = await Promise.all([
+          window.api.getSetting("riot_game_name"),
+          window.api.getSetting("riot_tag_line"),
+          window.api.getSetting("riot_platform"),
+          window.api.getSetting("riot_puuid"),
+        ]);
+        if (gameName && tagLine && platform) {
+          remembered = { gameName, tagLine, platform };
+          rememberedPuuid = puuid;
+        }
+      }
+      if (!remembered) return;
+      setGameNameInput(`${remembered.gameName}#${remembered.tagLine}`);
+      setPlatform(remembered.platform);
+      if (!localMode && rememberedPuuid) {
+        void loadRecentMatches(rememberedPuuid, remembered.platform);
+      }
+      await fetchProfile(
+        remembered.gameName,
+        remembered.tagLine,
+        remembered.platform,
+        !localMode && !rememberedPuuid,
+      );
+    })();
+  }, [fetchProfile, loadLocalProfile, loadRecentMatches, localMode]);
 
   const loadRecentProfile = useCallback(
     (lookup: ProfileLookup) => {
       setGameNameInput(`${lookup.gameName}#${lookup.tagLine}`);
       setPlatform(lookup.platform);
-      void fetchProfile(lookup.gameName, lookup.tagLine, lookup.platform);
+      void fetchProfile(lookup.gameName, lookup.tagLine, lookup.platform, !localMode);
     },
-    [fetchProfile],
+    [fetchProfile, localMode],
   );
 
   const toggleFavorite = useCallback(() => {
@@ -903,6 +1218,19 @@ export default function Profile() {
     setFavoriteProfiles(updatedFavorites);
   }, [favoriteProfiles]);
 
+  const handleReorder = (from: number | null, to: number) => {
+    if (from == null || from === to) return;
+    const reordered = [...favoriteProfiles];
+    const [moved] = reordered.splice(from, 1);
+    reordered.splice(to, 0, moved);
+    try {
+      window.localStorage.setItem(FAVORITES_KEY, JSON.stringify(reordered));
+    } catch {
+      // Storage may be unavailable in some Electron contexts.
+    }
+    setFavoriteProfiles(reordered);
+  };
+
   const currentProfileLookup = profile
     ? {
         gameName: profile.gameName,
@@ -942,10 +1270,35 @@ export default function Profile() {
   const favoritesStrip = favoriteProfiles.length > 0 && (
     <div className="flex flex-wrap items-center gap-2">
       <span className="text-xs font-semibold text-amber-300">Favorites</span>
-      {favoriteProfiles.map((favorite) => (
+      {favoriteProfiles.map((favorite, index) => (
         <div
           key={`${favorite.gameName}#${favorite.tagLine}:${favorite.platform}`}
-          className="group flex items-center rounded-full border border-amber-400 px-3 py-1 text-xs text-amber-300 transition-colors hover:border-amber-300 hover:text-amber-200 hover:bg-amber-400/10"
+          draggable={true}
+          onDragStart={(event) => {
+            setDragIndex(index);
+            event.dataTransfer.effectAllowed = "move";
+          }}
+          onDragOver={(event) => {
+            event.preventDefault();
+            event.dataTransfer.dropEffect = "move";
+            setDragOverIndex(index);
+          }}
+          onDragLeave={() => setDragOverIndex(null)}
+          onDrop={(event) => {
+            event.preventDefault();
+            handleReorder(dragIndex, index);
+          }}
+          onDragEnd={() => {
+            setDragIndex(null);
+            setDragOverIndex(null);
+          }}
+          className={`group flex items-center rounded-full border border-amber-400 px-3 py-1 text-xs text-amber-300 transition-colors hover:border-amber-300 hover:text-amber-200 hover:bg-amber-400/10 ${
+            dragIndex === index ? "opacity-40" : ""
+          } ${
+            dragOverIndex === index && dragIndex !== index
+              ? "border-l-2 border-l-amber-400"
+              : ""
+          }`}
         >
           <button
             type="button"
@@ -971,12 +1324,53 @@ export default function Profile() {
     </div>
   );
 
+  const loadMoreRecent = useCallback(async () => {
+    if (!profile || loadingMoreRecent) return;
+    setLoadingMoreRecent(true);
+    try {
+      setRefreshTotal(RECENT_LOAD_MORE_SIZE);
+      setRefreshPhase(`Fetching matches… 0 / ${RECENT_LOAD_MORE_SIZE}`);
+      const more = await window.api.getRecentRiotMatches(
+        profile.puuid,
+        profile.platform,
+        RECENT_LOAD_MORE_SIZE,
+        recentMatchesStart,
+      );
+      if ("error" in more) {
+        setRecentMatchesError(more.error);
+        return;
+      }
+      setRefreshPhase(
+        `Fetching matches… ${more.length} / ${RECENT_LOAD_MORE_SIZE}`,
+      );
+      if (more.length === 0) {
+        setRecentMatchesStart((start) => start);
+        return;
+      }
+      setRecentMatches((prev) => [...(prev ?? []), ...more]);
+      setRecentMatchesStart((start) => start + more.length);
+    } catch (err) {
+      setRecentMatchesError(
+        err instanceof Error ? err.message : "Could not load more matches",
+      );
+    } finally {
+      setLoadingMoreRecent(false);
+      setRefreshPhase(null);
+      setRefreshTotal(0);
+    }
+  }, [profile, recentMatchesStart, loadingMoreRecent]);
+
+  const handleRefreshProfile = useCallback(() => {
+    if (!profile) return;
+    void fetchProfile(profile.gameName, profile.tagLine, profile.platform, !localMode);
+  }, [profile, fetchProfile, localMode]);
+
   if (error || notFound || !profile) {
     return (
       <div className="max-w-6xl space-y-4">
-        {recentStrip}
-        {favoritesStrip}
-        {form}
+        {!localMode && recentStrip}
+        {!localMode && favoritesStrip}
+        {!localMode && form}
         {loading && <p className="text-sm text-lol-text">Loading…</p>}
         {error && (
           <p className="rounded-lg border border-red-500/60 bg-red-500/10 p-3 text-sm text-red-300">
@@ -988,15 +1382,20 @@ export default function Profile() {
             Account not found. Check the spelling and server.
           </p>
         )}
-        <RecentRiotMatchesSection
-          matches={recentMatches}
-          loading={recentMatchesLoading}
-          error={recentMatchesError}
-          championData={championData}
-          version="latest"
-          puuid={null}
-          onRefresh={() => undefined}
-        />
+        {!localMode && (
+          <RecentRiotMatchesSection
+            matches={recentMatches}
+            loading={recentMatchesLoading}
+            error={recentMatchesError}
+            championData={championData}
+            version="latest"
+            puuid={null}
+            onRefresh={() => undefined}
+            onLoadMore={() => undefined}
+            loadingMore={false}
+            canLoadMore={false}
+          />
+        )}
       </div>
     );
   }
@@ -1006,9 +1405,63 @@ export default function Profile() {
 
   return (
     <div className="max-w-6xl space-y-8">
-      {recentStrip}
-      {favoritesStrip}
-      {form}
+      {!localMode && (
+        <>
+          {recentStrip}
+          {favoritesStrip}
+          {form}
+        </>
+      )}
+      {localMode && (
+        <div className="space-y-4">
+          <div className="flex items-center gap-4">
+            {profile.profileIconId > 0 ? (
+              <img
+                src={profileIconUrl}
+                alt={`${profile.gameName} profile icon`}
+                className="h-16 w-16 rounded-lg object-cover"
+              />
+            ) : (
+              <div className="flex h-16 w-16 items-center justify-center rounded-lg bg-lol-gold text-2xl font-bold text-lol-dark">
+                L
+              </div>
+            )}
+            <div>
+              <h1 className="text-2xl font-semibold text-lol-text-bright">
+                {profile.gameName || "Local account"}
+              </h1>
+              <p className="text-sm text-lol-text">
+                {dashboard
+                  ? `${dashboard.totalGames} games · ${dashboard.wins}W ${dashboard.totalGames - dashboard.wins}L · ${dashboard.avgScore?.toFixed(1) ?? "—"} avg score`
+                  : "No local data"}
+              </p>
+            </div>
+          </div>
+          <div className="flex flex-wrap items-stretch gap-3">
+            <MostPlayedMode
+              mostPlayed={mostPlayed}
+              recentGames={recentGames}
+              championData={championData}
+            />
+            <MatchStatsBox
+              title="TOTAL MATCHES PLAYED"
+              totals={totalMatches}
+              recentGames={recentAllGames}
+              championData={championData}
+              subtitle={
+                totalMatches
+                  ? localMode
+                    ? `${totalMatches.games} Games in total`
+                    : `${totalMatches.games} Games in tracked history`
+                  : "No games recorded"
+              }
+              hideRecentGamesWhenEmpty
+            />
+          </div>
+        </div>
+      )}
+      {!localMode && (
+        <>
       <div className="grid grid-cols-[220px_minmax(0,1fr)_256px_auto] items-start gap-8">
         <div>
           <div className="h-[220px] w-[220px] rounded-xl bg-[linear-gradient(138deg,#c89b37_0%,#ffe09b_50%,#c89b37_100%)] p-[5px]">
@@ -1067,9 +1520,12 @@ export default function Profile() {
               championData={championData}
               subtitle={
                 totalMatches
-                  ? `${totalMatches.games} Games in total`
+                  ? localMode
+                    ? `${totalMatches.games} Games in total`
+                    : `${totalMatches.games} Games in tracked history`
                   : "No games recorded"
               }
+              hideRecentGamesWhenEmpty
             />
           </div>
         </div>
@@ -1098,13 +1554,49 @@ export default function Profile() {
         </div>
 
         <div className="relative flex flex-col items-end gap-3">
-          <button
-            type="button"
-            onClick={() => setLinksOpen((open) => !open)}
-            className="h-9 cursor-pointer rounded-lg border border-lol-gold/60 bg-lol-gold/15 px-4 text-sm text-lol-gold transition-colors hover:border-lol-gold hover:bg-lol-gold/25"
-          >
-            Links
-          </button>
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={handleRefreshProfile}
+              disabled={loading}
+              className="h-9 cursor-pointer rounded-lg border border-lol-border bg-lol-card px-4 text-sm text-lol-text transition-colors hover:border-lol-gold/60 hover:text-lol-text-bright disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {loading ? "Refreshing…" : "Refresh Data"}
+            </button>
+            <button
+              type="button"
+              onClick={() => setLinksOpen((open) => !open)}
+              className="h-9 cursor-pointer rounded-lg border border-lol-gold/60 bg-lol-gold/15 px-4 text-sm text-lol-gold transition-colors hover:border-lol-gold hover:bg-lol-gold/25"
+            >
+              Links
+            </button>
+          </div>
+          {(loading || refreshPhase || refreshTotal > 0) && (
+            <div className="w-64">
+              <div className="text-[11px] text-lol-text mb-1 text-right">
+                {refreshPhase ?? "Loading…"}
+              </div>
+              <div className="h-1.5 rounded-full bg-lol-border/60 overflow-hidden">
+                {(() => {
+                  const match = refreshPhase?.match(/(\d+)\s*\/\s*(\d+)/);
+                  const pct = match
+                    ? Math.min(
+                        100,
+                        (Number(match[1]) / Math.max(Number(match[2]), 1)) * 100,
+                      )
+                    : 100;
+                  return (
+                    <div
+                      className={`h-full rounded-full bg-lol-gold transition-all ${
+                        match ? "" : "animate-pulse"
+                      }`}
+                      style={{ width: `${pct}%` }}
+                    />
+                  );
+                })()}
+              </div>
+            </div>
+          )}
           <div
             aria-hidden={!linksOpen}
             className={`absolute right-0 top-full z-20 mt-2 w-[320px] rounded-xl border border-lol-border/70 bg-lol-card p-4 shadow-xl transition-all duration-200 ${
@@ -1134,28 +1626,33 @@ export default function Profile() {
         <RankCard
           title="Ranked Solo"
           entry={profile.rankedSolo}
-          recentGames={recentSoloGames}
           championData={championData}
         />
         <RankCard
           title="Ranked Flex"
           entry={profile.rankedFlex}
-          recentGames={recentFlexGames}
           championData={championData}
         />
       </div>
+        </>
+      )}
 
-      <RecentRiotMatchesSection
-        matches={recentMatches}
-        loading={recentMatchesLoading}
-        error={recentMatchesError}
-        championData={championData}
-        version={version}
-        puuid={profile.puuid}
-        onRefresh={() => {
-          void loadRecentMatches(profile.puuid, profile.platform);
-        }}
-      />
+      {!localMode && (
+        <RecentRiotMatchesSection
+          matches={recentMatches}
+          loading={recentMatchesLoading}
+          error={recentMatchesError}
+          championData={championData}
+          version={version}
+          puuid={profile.puuid}
+          onRefresh={() => {
+            void loadRecentMatches(profile.puuid, profile.platform);
+          }}
+          onLoadMore={loadMoreRecent}
+          loadingMore={loadingMoreRecent}
+          canLoadMore={!loading && !loadingMoreRecent && (recentMatches?.length ?? 0) > 0}
+        />
+      )}
     </div>
   );
 }

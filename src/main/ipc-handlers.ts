@@ -107,7 +107,7 @@ export function registerIpcHandlers() {
 
   ipcMain.handle(
     "db:most-played-queue",
-    (_event, puuid: string, gameName: string, tagLine: string) => {
+    (_event, puuid: string, _gameName: string, _tagLine: string) => {
       let result = db.getMostPlayedQueue(puuid);
       const totalRows = db
         .getDatabase()
@@ -116,10 +116,6 @@ export function registerIpcHandlers() {
       console.log("[most-played] puuid:", puuid);
       console.log("[most-played] rows in match_participants:", totalRows.n);
       console.log("[most-played] result:", result);
-      if (!result && gameName && tagLine) {
-        result = db.getMostPlayedQueueByName(gameName, tagLine);
-        console.log("[most-played] puuid lookup empty, fell back to name match ->", result);
-      }
       return result;
     },
   );
@@ -128,10 +124,7 @@ export function registerIpcHandlers() {
     "db:total-matches-played",
     (_event, puuid: string, gameName: string, tagLine: string) => {
       console.log("[total-matches] received:", { puuid, gameName, tagLine });
-      let result = db.getTotalMatchesPlayed(puuid);
-      if (!result && gameName && tagLine) {
-        result = db.getTotalMatchesPlayedByName(gameName, tagLine);
-      }
+      const result = db.getTotalMatchesPlayed(puuid);
       console.log("[total-matches] result:", result);
       return result;
     },
@@ -142,16 +135,12 @@ export function registerIpcHandlers() {
     (
       _event,
       puuid: string,
-      gameName: string,
-      tagLine: string,
+      _gameName: string,
+      _tagLine: string,
       queueIds: number[],
       limit: number,
     ) => {
-      let result = db.getRecentGames(puuid, queueIds, limit);
-      if (!result && gameName && tagLine) {
-        result = db.getRecentGamesByName(gameName, tagLine, queueIds, limit);
-      }
-      return result;
+      return db.getRecentGames(puuid, queueIds, limit);
     },
   );
 
@@ -183,9 +172,9 @@ export function registerIpcHandlers() {
   });
   ipcMain.handle(
     "riot:recent-matches",
-    async (_event, puuid: string, platform: string, count: number) => {
+    async (_event, puuid: string, platform: string, count: number, start?: number) => {
       try {
-        return await riot.getRecentRiotMatches(puuid, platform, count);
+        return await riot.getRecentRiotMatches(puuid, platform, count, start ?? 0);
       } catch (err) {
         if (err instanceof riot.RiotApiError && err.status === 404) return [];
         return { error: riot.friendlyRiotError(err, "match") };

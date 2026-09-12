@@ -153,6 +153,7 @@ function createTables() {
       primary_style INTEGER, secondary_style INTEGER,
       item0 INTEGER, item1 INTEGER, item2 INTEGER,
       item3 INTEGER, item4 INTEGER, item5 INTEGER, item6 INTEGER,
+      team_position  TEXT,
       PRIMARY KEY (game_id, participant_id)
     );
 
@@ -362,6 +363,7 @@ interface RawParticipantRow {
   largest_killing_spree: number;
   largest_critical_strike: number;
   cs: number;
+  team_position: string | null;
   early_surrender: number;
   total_damage_dealt_all: number;
   true_damage_dealt: number;
@@ -458,6 +460,24 @@ export function extractRunes(owner: any): ExtractedRunes {
   return { runeIds, primaryStyle, secondaryStyle, statShardIds };
 }
 
+// Riot Match-V5 sends teamPosition directly, but the League Client's own match
+// payload does not: it sends timeline.lane + timeline.role instead. Normalize
+// both spellings to the Match-V5 vocabulary so the rest of the app only ever
+// sees "TOP" | "JUNGLE" | "MIDDLE" | "BOTTOM" | "UTILITY" | null.
+function normalizeTeamPosition(raw: any, stats: any): string | null {
+  const direct = raw?.teamPosition ?? stats?.teamPosition;
+  if (typeof direct === "string" && direct) return direct;
+
+  const lane = raw?.timeline?.lane ?? stats?.timeline?.lane;
+  const role = raw?.timeline?.role ?? stats?.timeline?.role;
+  if (typeof lane !== "string" || !lane || lane === "NONE") return null;
+
+  // Bot lane is the only lane whose role disambiguates the position: support
+  // is reported as UTILITY by Match-V5, carry as BOTTOM.
+  if (lane === "BOTTOM" && role === "DUO_SUPPORT") return "UTILITY";
+  return lane;
+}
+
 function participantRowsFromRaw(raw: any): RawParticipantRow[] {
   const participants = raw?.participants;
   if (!Array.isArray(participants)) return [];
@@ -516,6 +536,7 @@ function participantRowsFromRaw(raw: any): RawParticipantRow[] {
           ? Number(s.totalCreepScore)
           : Number(s.totalMinionsKilled ?? p.totalMinionsKilled ?? 0) +
             Number(s.neutralMinionsKilled ?? p.neutralMinionsKilled ?? 0),
+      team_position: normalizeTeamPosition(p, s),
       rune0: perks[0] ?? null,
       rune1: perks[1] ?? null,
       rune2: perks[2] ?? null,
@@ -557,7 +578,8 @@ function participantStatements() {
           largest_killing_spree, largest_critical_strike, cs, early_surrender,
           total_damage_dealt_all, true_damage_dealt, largest_critical_strike, cs,
           is_remake, queue_id, game_version,
-          spell1, spell2, item0, item1, item2, item3, item4, item5, item6
+          spell1, spell2, item0, item1, item2, item3, item4, item5, item6,
+          team_position
         ) VALUES (
           @game_id, @participant_id, @puuid, @game_name, @tag_line, @profile_icon,
           @team_id, @champion_id, @win, @kills, @deaths, @assists,
@@ -566,7 +588,8 @@ function participantStatements() {
           @largest_killing_spree, @largest_critical_strike, @cs, @early_surrender,
           @total_damage_dealt_all, @true_damage_dealt, @largest_critical_strike, @cs,
           @is_remake, @queue_id, @game_version,
-          @spell1, @spell2, @item0, @item1, @item2, @item3, @item4, @item5, @item6
+          @spell1, @spell2, @item0, @item1, @item2, @item3, @item4, @item5, @item6,
+          @team_position
         )
       `),
       augment: db.prepare(`
@@ -619,6 +642,7 @@ function writeParticipants(gameId: number, meta: GameDenorm, rows: RawParticipan
       early_surrender: row.early_surrender,
       total_damage_dealt_all: row.total_damage_dealt_all,
       true_damage_dealt: row.true_damage_dealt,
+      team_position: row.team_position,
       is_remake: meta.is_remake,
       queue_id: meta.queue_id,
       game_version: meta.game_version,
@@ -655,7 +679,7 @@ function writeParticipants(gameId: number, meta: GameDenorm, rows: RawParticipan
 // versioning, so it could be missing any subset of the columns v1 adds — which
 // is why each step checks for its column rather than assuming. A database that
 // createTables just built is also version 0, and lands on the same no-op path.
-const SCHEMA_VERSION = 8;
+const SCHEMA_VERSION = 9;
 
 function tableColumns(table: string): Set<string> {
   const rows = db.pragma(`table_info(${table})`) as { name: string }[];
@@ -674,6 +698,7 @@ function runMigrations() {
   if (current < 6) migrateToV6();
   if (current < 7) migrateToV7();
   if (current < 8) migrateToV8();
+  if (current < 9) migrateToV9();
 
   db.pragma(`user_version = ${SCHEMA_VERSION}`);
 }
@@ -1505,6 +1530,8 @@ export function getMatchHistory(
            ${statsAlias}.item0, ${statsAlias}.item1, ${statsAlias}.item2, ${statsAlias}.item3, ${statsAlias}.item4, ${statsAlias}.item5,
            (SELECT GROUP_CONCAT(ga.augment_id) FROM game_augments ga WHERE ga.game_id = g.game_id ORDER BY ga.slot) as augment_ids,
            g.raw_gz,
+           (SELECT mp.team_position FROM match_participants mp
+             WHERE mp.game_id = g.game_id AND mp.puuid = ${matchPuuid}) as team_position,
 ${GAME_MAX_STATS_SQL}
     FROM games g
     JOIN ${statsTable} ${statsAlias} ON g.game_id = ${statsAlias}.game_id
@@ -2148,7 +2175,7 @@ export function getRecentGames(
   cs: number;
   game_duration: number;
   score: number | null;
-  team_position: number | null;
+  team_position: string | null;
   queue_id: number;
 }> | null {
   if (limit <= 0) return null;
@@ -2167,7 +2194,7 @@ export function getRecentGames(
         COALESCE(tgs.cs, ps.cs, mp.cs) AS cs,
         g.game_duration,
         COALESCE(tgs.score, ps.score) AS score,
-        NULL AS team_position,
+        mp.team_position AS team_position,
         mp.queue_id
       FROM match_participants mp
       JOIN games g ON g.game_id = mp.game_id
@@ -2195,7 +2222,7 @@ export function getRecentGames(
       cs: number;
       game_duration: number;
       score: number | null;
-      team_position: number | null;
+      team_position: string | null;
       queue_id: number;
     }>;
   return rows.length > 0 ? rows : null;
@@ -2217,7 +2244,7 @@ export function getRecentGamesByName(
   cs: number;
   game_duration: number;
   score: number | null;
-  team_position: number | null;
+  team_position: string | null;
   queue_id: number;
 }> | null {
   if (limit <= 0) return null;
@@ -2236,7 +2263,7 @@ export function getRecentGamesByName(
         COALESCE(tgs.cs, ps.cs, mp.cs) AS cs,
         g.game_duration,
         COALESCE(tgs.score, ps.score) AS score,
-        NULL AS team_position,
+        mp.team_position AS team_position,
         mp.queue_id
       FROM match_participants mp
       JOIN games g ON g.game_id = mp.game_id
@@ -2265,7 +2292,7 @@ export function getRecentGamesByName(
       cs: number;
       game_duration: number;
       score: number | null;
-      team_position: number | null;
+      team_position: string | null;
       queue_id: number;
     }>;
   return rows.length > 0 ? rows : null;
@@ -2376,6 +2403,8 @@ export function getChampionMatchHistory(
            ps.score, ps.score_badge, ps.spell1, ps.spell2,
            ps.item0, ps.item1, ps.item2, ps.item3, ps.item4, ps.item5,
            (SELECT GROUP_CONCAT(ga.augment_id) FROM game_augments ga WHERE ga.game_id = g.game_id ORDER BY ga.slot) as augment_ids,
+           (SELECT mp.team_position FROM match_participants mp
+             WHERE mp.game_id = g.game_id AND mp.puuid = g.puuid) as team_position,
 ${GAME_MAX_STATS_SQL}
     FROM games g
     JOIN player_stats ps ON g.game_id = ps.game_id
@@ -4132,4 +4161,11 @@ function migrateToV8() {
       ps.item0, ps.item1, ps.item2, ps.item3, ps.item4, ps.item5, ps.item6
     FROM games g JOIN player_stats ps ON ps.game_id = g.game_id WHERE g.puuid != ''
   `);
+}
+
+function migrateToV9() {
+  if (!tableColumns("match_participants").has("team_position")) {
+    db.exec("ALTER TABLE match_participants ADD COLUMN team_position TEXT");
+  }
+  rebuildParticipantsFromPayloads();
 }
