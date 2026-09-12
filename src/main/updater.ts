@@ -6,6 +6,9 @@ import os from "os";
 import path from "path";
 
 const CHECK_TIMEOUT_MS = 10_000;
+const UPDATE_REPOSITORY = "dxmegg/League-Tracker";
+const UPDATE_API_URL = `https://api.github.com/repos/${UPDATE_REPOSITORY}/releases`;
+const UPDATE_DOWNLOAD_URL_PREFIX = `https://github.com/${UPDATE_REPOSITORY}/`;
 // One page covers any realistic gap between installs, and costs the same single
 // request the old /releases/latest check did.
 const RELEASE_PAGE_SIZE = 20;
@@ -92,9 +95,9 @@ function parseDigest(digest: unknown): string | null {
 export async function checkForUpdate(): Promise<UpdateInfo> {
   try {
     const res = await fetch(
-      `https://api.github.com/repos/Yhprum/mayhem-tracker/releases?per_page=${RELEASE_PAGE_SIZE}`,
+      `${UPDATE_API_URL}?per_page=${RELEASE_PAGE_SIZE}`,
       {
-        headers: { "User-Agent": "mayhem-tracker" },
+        headers: { "User-Agent": "league-tracker" },
         signal: AbortSignal.timeout(CHECK_TIMEOUT_MS),
       },
     );
@@ -154,7 +157,7 @@ export async function downloadAndInstall(
   if (!portableExe) {
     return { success: false, error: "In-app update only works in the portable exe build" };
   }
-  if (!assetUrl.startsWith("https://github.com/Yhprum/mayhem-tracker/")) {
+  if (!assetUrl.startsWith(UPDATE_DOWNLOAD_URL_PREFIX)) {
     return { success: false, error: "Unexpected download URL" };
   }
 
@@ -188,7 +191,7 @@ export async function downloadAndInstall(
   try {
     armStallTimer();
     const res = await fetch(assetUrl, {
-      headers: { "User-Agent": "mayhem-tracker" },
+      headers: { "User-Agent": "league-tracker" },
       signal: controller.signal,
     });
     if (!res.ok || !res.body) {

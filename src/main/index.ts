@@ -1,13 +1,19 @@
-import { app, BrowserWindow, Tray, Menu, nativeImage } from "electron";
+import { app, BrowserWindow, Tray, Menu, nativeImage, screen } from "electron";
 import path from "path";
 import { closeDatabase, getSetting, checkScoreBackfill } from "./db";
 import { initDatabaseWithRecovery, startBackupSchedule, stopBackupSchedule } from "./backup";
 import { registerIpcHandlers } from "./ipc-handlers";
 import { startPolling, stopPolling, isClientConnected, fetchNewGames } from "./lcu";
-import { loadChampionData, loadAugmentData, waitForChampionData } from "./dragon";
+import {
+  loadChampionData,
+  loadAugmentData,
+  waitForChampionData,
+  flushAugmentIconCache,
+} from "./dragon";
 import { applySecurityPolicy } from "./security";
 import { ensureStartMenuShortcut } from "./shortcut";
 import { syncAutoStart, HIDDEN_FLAG } from "./autostart";
+import { PROXY_BASE_URL } from "../shared/proxy";
 
 let mainWindow: BrowserWindow | null = null;
 let tray: Tray | null = null;
@@ -41,10 +47,12 @@ const iconPath = path.join(app.getAppPath(), "assets/icon.png");
 const launchedHidden = process.argv.includes(HIDDEN_FLAG);
 
 function createWindow(): BrowserWindow {
+  const { width: workAreaWidth } = screen.getPrimaryDisplay().workAreaSize;
+
   mainWindow = new BrowserWindow({
-    width: 1280,
+    width: Math.min(1440, workAreaWidth - 40),
     height: 820,
-    minWidth: 900,
+    minWidth: 1366,
     minHeight: 600,
     icon: iconPath,
     show: !launchedHidden,
@@ -131,7 +139,7 @@ function createTray() {
     },
   ]);
 
-  tray.setToolTip("Mayhem Tracker");
+  tray.setToolTip("LeagueTracker");
   tray.setContextMenu(contextMenu);
   tray.on("double-click", () => {
     mainWindow?.show();
@@ -140,9 +148,50 @@ function createTray() {
 }
 
 app.whenReady().then(async () => {
+  void fetch(
+    `${PROXY_BASE_URL}/proxy/riot/account/v1/accounts/by-riot-id/test/test?platform=europe`,
+  )
+    .then((res) => {
+      if (res.status === 401 || res.status === 403) {
+        console.warn("[startup] Proxy reached, but the Riot API key appears invalid.");
+      } else if (res.status >= 500) {
+        console.error("[startup] Cannot reach the Riot API proxy. Profile lookups will fail.");
+      } else if (res.status === 200) {
+        return res
+          .json()
+          .then((body: unknown) => {
+            const isObject = typeof body === "object" && body !== null;
+            const record = isObject ? (body as Record<string, unknown>) : null;
+            const status = record?.status;
+            const hasStatusCode =
+              typeof status === "object" &&
+              status !== null &&
+              "status_code" in status;
+            const hasPuuid = record !== null && "puuid" in record;
+            const isEmpty = isObject && Object.keys(body).length === 0;
+            if (hasPuuid || hasStatusCode || isEmpty) {
+              console.log("[startup] Proxy is reachable and the Riot API key is working.");
+            } else {
+              console.warn("[startup] Proxy returned an unexpected body.");
+            }
+          })
+          .catch(() => {
+            console.warn("[startup] Proxy returned an unexpected body.");
+          });
+      } else {
+        console.warn("[startup] Unexpected proxy response:", res.status);
+      }
+    })
+    .catch((err) => {
+      console.error(
+        "[startup] Cannot reach the Riot API proxy. Profile lookups will fail.",
+        err,
+      );
+    });
+
   // Windows groups taskbar entries and attributes notifications by this id;
   // without it the app is identified by the Electron executable instead.
-  app.setAppUserModelId("com.mayhem-tracker.app");
+  app.setAppUserModelId("com.dxmegg.leaguetracker");
 
   // Pairs with that id: gives the taskbar a durable shortcut to pin in place of
   // the temp exe the portable launcher runs from.
@@ -223,6 +272,10 @@ app.on("before-quit", async (event) => {
 // whatever it found by the time the database closes.
 app.on("will-quit", () => {
   stopBackupSchedule();
+  // The augment icon cache batches its writes; flush the pending batch so a
+  // resolved icon does not have to be re-resolved next launch.
+  // (augmentIconFlushTimer is a no-op if there is nothing pending.)
+  flushAugmentIconCache();
   closeDatabase();
 });
 

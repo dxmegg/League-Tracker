@@ -1,6 +1,6 @@
 {
-  "name": "mayhem-tracker",
-  "version": "1.10.3",
+  "name": "league-tracker",
+  "version": "1.0.3",
   "description": "ARAM Mayhem match history tracker",
   "license": "MIT",
   "main": "./out/main/index.js",
@@ -49,8 +49,13 @@
     "better-sqlite3@12.6.2": true
   },
   "build": {
-    "appId": "com.mayhem-tracker.app",
-    "productName": "Mayhem Tracker",
+    "appId": "com.dxmegg.leaguetracker",
+    "productName": "LeagueTracker",
+    "publish": {
+      "provider": "github",
+      "owner": "dxmegg",
+      "repo": "League-Tracker"
+    },
     "directories": {
       "output": "dist"
     },
@@ -62,7 +67,7 @@
     "win": {
       "target": "portable",
       "icon": "assets/icon.png",
-      "artifactName": "MayhemTracker.exe"
+      "artifactName": "LeagueTracker.exe"
     },
     "portable": {
       "unpackDirName": true

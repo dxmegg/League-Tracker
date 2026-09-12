@@ -30,17 +30,55 @@ const api: ElectronAPI = {
 
   toggleFavorite: (gameId: number) => ipcRenderer.invoke("db:toggle-favorite", gameId),
 
-  getChampionStats: (patch?: string, queue?: number) =>
-    ipcRenderer.invoke("db:champion-stats", patch, queue),
+  getChampionStats: (patch?: string, queue?: number, account?: string) =>
+    ipcRenderer.invoke("db:champion-stats", patch, queue, account),
 
-  getAugmentStats: (championId?: number, patch?: string, queue?: number) =>
-    ipcRenderer.invoke("db:augment-stats", championId, patch, queue),
+  getAugmentStats: (championId?: number, patch?: string, queue?: number, account?: string) =>
+    ipcRenderer.invoke("db:augment-stats", championId, patch, queue, account),
 
-  getAugmentStatsDetailed: (patch?: string, queue?: number) =>
-    ipcRenderer.invoke("db:augment-stats-detailed", patch, queue),
+  getAugmentStatsDetailed: (patch?: string, queue?: number, account?: string) =>
+    ipcRenderer.invoke("db:augment-stats-detailed", patch, queue, account),
 
   getDashboard: (filters?: Pick<MatchFilters, "championId" | "patch" | "queue" | "account">) =>
     ipcRenderer.invoke("db:dashboard", filters),
+
+  getMostPlayedQueue: (puuid: string, gameName: string, tagLine: string) =>
+    ipcRenderer.invoke("db:most-played-queue", puuid, gameName, tagLine),
+
+  getTotalMatchesPlayed: (puuid: string, gameName: string, tagLine: string) =>
+    ipcRenderer.invoke("db:total-matches-played", puuid, gameName, tagLine),
+
+  getRankedRecord: (puuid: string) => ipcRenderer.invoke("db:ranked-record", puuid),
+
+  getRecentGames: (
+    puuid: string,
+    gameName: string,
+    tagLine: string,
+    queueIds: number[],
+    limit: number,
+  ) => ipcRenderer.invoke("db:recent-games", puuid, gameName, tagLine, queueIds, limit),
+
+  getRecentRiotMatches: (
+    puuid: string,
+    platform: string,
+    start: number,
+    count: number,
+    forceNewest = false,
+  ) => ipcRenderer.invoke("riot:recent-matches", puuid, platform, start, count, forceNewest),
+
+  importRecentRiotMatches: (puuid: string, platform: string, count: number) =>
+    ipcRenderer.invoke("riot:import-recent", puuid, platform, count),
+
+  onRecentMatchesProgress: (
+    callback: (progress: { current: number; total: number }) => void,
+  ) => {
+    const handler = (
+      _event: unknown,
+      progress: { current: number; total: number },
+    ) => callback(progress);
+    ipcRenderer.on("riot:recent-matches-progress", handler);
+    return () => ipcRenderer.removeListener("riot:recent-matches-progress", handler);
+  },
 
   getChampionMatchHistory: (
     championId: number,
@@ -48,18 +86,21 @@ const api: ElectronAPI = {
     offset: number,
     patch?: string,
     queue?: number,
-  ) => ipcRenderer.invoke("db:champion-match-history", championId, limit, offset, patch, queue),
+    account?: string,
+  ) => ipcRenderer.invoke("db:champion-match-history", championId, limit, offset, patch, queue, account),
 
   refreshGames: () => ipcRenderer.invoke("lcu:refresh"),
 
   syncRiotHistory: (): Promise<RiotSyncResult | { error: string }> =>
     ipcRenderer.invoke("riot:sync"),
+  getProfileData: (gameName: string, tagLine: string, platform: string, force = false) =>
+    ipcRenderer.invoke("riot:profile", gameName, tagLine, platform, force),
   getRiotAccounts: (): Promise<RiotAccountConfig[]> => ipcRenderer.invoke("riot:accounts"),
-  saveRiotAccount: (account: RiotAccountConfig & { apiKey?: string }) =>
+  saveRiotAccount: (account: RiotAccountConfig) =>
     ipcRenderer.invoke("riot:save-account", account),
   removeRiotAccount: (id: string) => ipcRenderer.invoke("riot:remove-account", id),
 
-  backfillHistory: () => ipcRenderer.invoke("lcu:backfill"),
+  backfillHistory: (forceFull = false) => ipcRenderer.invoke("lcu:backfill", forceFull),
 
   cancelBackfill: () => ipcRenderer.invoke("lcu:cancel-backfill"),
 
@@ -101,8 +142,8 @@ const api: ElectronAPI = {
 
   getGlobalStats: (patch?: string, queue?: number) =>
     ipcRenderer.invoke("db:global-stats", patch, queue),
-  getOwnedItemStats: (patch?: string, queue?: number) =>
-    ipcRenderer.invoke("db:owned-item-stats", patch, queue),
+  getOwnedItemStats: (patch?: string, queue?: number, account?: string) =>
+    ipcRenderer.invoke("db:owned-item-stats", patch, queue, account),
   getOwnedRuneStats: (queue?: number, patch?: string) =>
     ipcRenderer.invoke("db:owned-rune-stats", queue, patch),
   getRuneData: () => ipcRenderer.invoke("dragon:runes"),
@@ -110,9 +151,9 @@ const api: ElectronAPI = {
   getOwnedItemDetail: (itemId: number, patch?: string, queue?: number) =>
     ipcRenderer.invoke("db:owned-item-detail", itemId, patch, queue),
 
-  getTrends: (queue?: number) => ipcRenderer.invoke("db:trends", queue),
+  getTrends: (queue?: number, account?: string) => ipcRenderer.invoke("db:trends", queue, account),
 
-  getRecords: (queue?: number) => ipcRenderer.invoke("db:records", queue),
+  getRecords: (queue?: number, account?: string) => ipcRenderer.invoke("db:records", queue, account),
 
   getGlobalChampionDetail: (championId: number, patch?: string, queue?: number) =>
     ipcRenderer.invoke("db:global-champion-detail", championId, patch, queue),
@@ -120,6 +161,10 @@ const api: ElectronAPI = {
   getSummonerPuuid: () => ipcRenderer.invoke("db:summoner-puuid"),
 
   getAllSummonerPuuids: () => ipcRenderer.invoke("db:all-summoner-puuids"),
+
+  getSavedSummoners: () => ipcRenderer.invoke("db:saved-summoners"),
+  deleteSummoner: (puuid: string) => ipcRenderer.invoke("db:delete-summoner", puuid),
+  deleteSearchedSummoners: () => ipcRenderer.invoke("db:delete-searched-summoners"),
 
   getProfile: () => ipcRenderer.invoke("db:profile"),
 

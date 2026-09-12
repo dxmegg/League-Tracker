@@ -3,7 +3,7 @@ import path from "path";
 
 // Must match the id passed to app.setAppUserModelId: the taskbar only
 // substitutes the shortcut for the running exe when the two agree.
-const APP_USER_MODEL_ID = "com.mayhem-tracker.app";
+const APP_USER_MODEL_ID = "com.dxmegg.leaguetracker";
 
 // The portable build runs from a temp copy that its launcher extracts on start
 // and deletes on exit, so pinning the running window would pin a path that no

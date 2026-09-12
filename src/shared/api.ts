@@ -82,6 +82,11 @@ export interface MatchListItem {
   stat_shard_ids?: string | null;
   cs?: number;
   game_version: string | null;
+  // Riot's lane for this participant in this game: "TOP" | "JUNGLE" | "MIDDLE" |
+  // "BOTTOM" | "UTILITY", or null for queues that do not have lanes (ARAM,
+  // Arena, Mayhem, co-op, tutorials).
+  team_position: string | null;
+  player_subteam_placement: number | null;
   game_max_dmg: number;
   game_max_taken: number;
   game_max_heal: number;
@@ -106,6 +111,7 @@ export interface MatchFilters {
   patch?: string;
   queue?: number;
   account?: string;
+  ignoreHiddenQueues?: boolean;
   sort?: MatchSort;
   sortDir?: MatchSortDir;
   multikills?: MultikillType[];
@@ -135,6 +141,8 @@ export interface MatchParticipantRecord {
   tagLine: string | null;
   championId: number;
   teamId: number;
+  playerSubteamId: number | null;
+  playerSubteamPlacement: number | null;
   win: boolean;
   kills: number;
   deaths: number;
@@ -306,6 +314,21 @@ export interface ChampionData {
     key: string;
     class?: string;
   };
+}
+
+export interface ProfileRecentGame {
+  game_id: number;
+  champion_id: number;
+  win: number;
+  is_remake: number;
+  kills: number;
+  deaths: number;
+  assists: number;
+  cs: number;
+  game_duration: number;
+  score: number | null;
+  team_position: string | null;
+  queue_id: number;
 }
 
 export interface AugmentData {
@@ -511,7 +534,11 @@ export interface ParsedParticipant {
   participantId: number;
   championId: number;
   teamId: number;
+  playerSubteamId: number | null;
+  playerSubteamPlacement: number | null;
   puuid: string | null;
+  gameName: string | null;
+  tagLine: string | null;
   summonerName: string;
   kills: number;
   deaths: number;
@@ -567,7 +594,50 @@ export interface RiotAccountConfig {
   gameName: string;
   tagLine: string;
   platform: string;
-  hasApiKey: boolean;
+}
+
+export interface ProfileRankedEntry {
+  tier: string;
+  rank: string;
+  leaguePoints: number;
+  wins: number;
+  losses: number;
+}
+
+export interface ProfileMasteryChampion {
+  championId: number;
+  championPoints: number;
+  championLevel: number;
+}
+
+export interface RecentRiotMatch {
+  gameId: number;
+  win: boolean;
+  championId: number;
+  kills: number;
+  deaths: number;
+  assists: number;
+  cs: number;
+  score: number | null;
+  gameCreation: number;
+  gameDuration: number;
+  queueId: number;
+  teamPosition: string | null;
+}
+
+export interface ProfileData {
+  puuid: string;
+  gameName: string;
+  tagLine: string;
+  platform: string;
+  profileIconId: number;
+  summonerLevel: number;
+  dataDragonVersion: string;
+  masteryPoints: number;
+  masteryScore: number;
+  topMasteryChampions: ProfileMasteryChampion[] | null;
+  rankedSolo: ProfileRankedEntry | null;
+  rankedFlex: ProfileRankedEntry | null;
 }
 
 export interface ReleaseNote {
@@ -619,18 +689,59 @@ export interface ElectronAPI {
   getStoredQueues: () => Promise<number[]>;
   getMatchDetail: (gameId: number) => Promise<MatchDetail>;
   toggleFavorite: (gameId: number) => Promise<boolean>;
-  getChampionStats: (patch?: string, queue?: number) => Promise<ChampionStats[]>;
-  getAugmentStats: (championId?: number, patch?: string, queue?: number) => Promise<AugmentStats[]>;
-  getAugmentStatsDetailed: (patch?: string, queue?: number) => Promise<AugmentStatsDetailedResult>;
+  getChampionStats: (patch?: string, queue?: number, account?: string) => Promise<ChampionStats[]>;
+  getAugmentStats: (championId?: number, patch?: string, queue?: number, account?: string) => Promise<AugmentStats[]>;
+  getAugmentStatsDetailed: (patch?: string, queue?: number, account?: string) => Promise<AugmentStatsDetailedResult>;
   getDashboard: (
     filters?: Pick<MatchFilters, "championId" | "patch" | "queue" | "account">,
   ) => Promise<DashboardData>;
+  getMostPlayedQueue: (
+    puuid: string,
+    gameName: string,
+    tagLine: string,
+  ) => Promise<{ queue_id: number; games: number; wins: number; isArenaGroup: boolean } | null>;
+  getTotalMatchesPlayed: (
+    puuid: string,
+    gameName: string,
+    tagLine: string,
+  ) => Promise<{ games: number; wins: number } | null>;
+  getRankedRecord: (
+    puuid: string,
+  ) => Promise<{
+    solo: { wins: number; losses: number };
+    flex: { wins: number; losses: number };
+  } | null>;
+  getRecentGames: (
+    puuid: string,
+    gameName: string,
+    tagLine: string,
+    queueIds: number[],
+    limit: number,
+  ) => Promise<ProfileRecentGame[] | null>;
+  getRecentRiotMatches: (
+    puuid: string,
+    platform: string,
+    start: number,
+    count: number,
+    forceNewest?: boolean,
+  ) => Promise<{ matches: RecentRiotMatch[]; total: number } | { error: string }>;
+  importRecentRiotMatches: (
+    puuid: string,
+    platform: string,
+    count: number,
+  ) => Promise<
+    { imported: number; scanned: number; totalAvailable: number } | { error: string }
+  >;
+  onRecentMatchesProgress: (
+    callback: (progress: { current: number; total: number }) => void,
+  ) => () => void;
   getChampionMatchHistory: (
     championId: number,
     limit: number,
     offset: number,
     patch?: string,
     queue?: number,
+    account?: string,
   ) => Promise<{ matches: MatchListItem[]; total: number }>;
   getChampionItemStats: (
     championId: number,
@@ -644,13 +755,13 @@ export interface ElectronAPI {
     relation?: "friends" | "enemies",
   ) => Promise<TeammateDetail | null>;
   getGlobalStats: (patch?: string, queue?: number) => Promise<GlobalStats>;
-  getOwnedItemStats: (patch?: string, queue?: number) => Promise<ItemStats[]>;
+  getOwnedItemStats: (patch?: string, queue?: number, account?: string) => Promise<ItemStats[]>;
   getOwnedRuneStats: (queue?: number, patch?: string) => Promise<RuneOverview>;
   getRuneData: () => Promise<RuneData>;
   getRuneTrees: () => Promise<RuneTreeLayout>;
   getOwnedItemDetail: (itemId: number, patch?: string, queue?: number) => Promise<ItemDetail>;
-  getTrends: (queue?: number) => Promise<TrendsData>;
-  getRecords: (queue?: number) => Promise<RecordsData>;
+  getTrends: (queue?: number, account?: string) => Promise<TrendsData>;
+  getRecords: (queue?: number, account?: string) => Promise<RecordsData>;
   getGlobalChampionDetail: (
     championId: number,
     patch?: string,
@@ -658,13 +769,33 @@ export interface ElectronAPI {
   ) => Promise<GlobalChampionDetail>;
   getSummonerPuuid: () => Promise<string | null>;
   getAllSummonerPuuids: () => Promise<string[]>;
+  getSavedSummoners: () => Promise<
+    Array<{
+      puuid: string;
+      game_name: string | null;
+      tag_line: string | null;
+      profile_icon: number | null;
+      updated_at: number;
+      games: number;
+    }>
+  >;
+  deleteSearchedSummoners: () => Promise<{ removed: number; games: number }>;
+  deleteSummoner: (
+    puuid: string,
+  ) => Promise<{ deletedGames: number; deletedTrackedRows: number }>;
   getProfile: () => Promise<{ name: string | null; profileIcon: number | null }>;
+  getProfileData: (
+    gameName: string,
+    tagLine: string,
+    platform: string,
+    force?: boolean,
+  ) => Promise<ProfileData | { error: string } | null>;
   refreshGames: () => Promise<{ newGames: number; totalGames: number } | { error: string }>;
   syncRiotHistory: () => Promise<RiotSyncResult | { error: string }>;
   getRiotAccounts: () => Promise<RiotAccountConfig[]>;
-  saveRiotAccount: (account: RiotAccountConfig & { apiKey?: string }) => Promise<void>;
+  saveRiotAccount: (account: RiotAccountConfig) => Promise<void>;
   removeRiotAccount: (id: string) => Promise<void>;
-  backfillHistory: () => Promise<BackfillResult | { error: string }>;
+  backfillHistory: (forceFull?: boolean) => Promise<BackfillResult | { error: string }>;
   cancelBackfill: () => Promise<void>;
   isBackfillRunning: () => Promise<boolean>;
   onBackfillProgress: (callback: (progress: BackfillProgress) => void) => () => void;

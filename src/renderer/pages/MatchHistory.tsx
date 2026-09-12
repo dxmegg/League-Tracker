@@ -85,6 +85,44 @@ const SELECT_CLASS = "select";
 // this hour belong to the night that started the evening before.
 const DAY_START_HOUR = 5;
 
+// Queues with no lane to show. Riot still reports a teamPosition value for
+// these (usually "NONE" or an empty string), so the UI has to drop them by
+// queue id rather than by position.
+const NO_LANE_QUEUES = new Set([
+  65, 67, 100, 450, // ARAM
+  31, 32, 33, 52, 83, 880, // Co-op vs AI
+  1700, 1740, 1750, // Arena
+  2000, 2010, 2020, // Tutorials
+  2400, 2450, // ARAM Mayhem, Mayhem Classic
+  3140, // Training Tool
+]);
+
+const TEAM_POSITION_LABELS: Record<string, string> = {
+  TOP: "Top",
+  JUNGLE: "Jungle",
+  MIDDLE: "Mid",
+  BOTTOM: "Bottom",
+  UTILITY: "Support",
+};
+
+const ARENA_PLACEMENT_LABELS: Record<number, string> = {
+  1: "First place",
+  2: "Second place",
+  3: "Third place",
+  4: "Fourth place",
+  5: "Fifth place",
+  6: "Sixth place",
+};
+
+// Human label for a row's lane, or null when this queue has no lane to show.
+// "Unknown" is only for a lane queue whose stored position is missing — a game
+// imported before migrateToV9 ran, or a remake that never got a position.
+function laneLabel(match: MatchListItem): string | null {
+  if (NO_LANE_QUEUES.has(match.queue_id)) return null;
+  if (match.team_position == null || match.team_position === "") return "Unknown";
+  return TEAM_POSITION_LABELS[match.team_position] ?? "Unknown";
+}
+
 // Local midnight of the session day a game belongs to.
 function sessionDay(ms: number): number {
   const d = new Date(ms);
@@ -969,7 +1007,7 @@ function SessionHeader({ session }: { session: Session }) {
   );
 }
 
-interface GameRowProps {
+export interface GameRowProps {
   match: MatchListItem;
   champData: any;
   expanded: boolean;
@@ -978,6 +1016,11 @@ interface GameRowProps {
   puuids: string[] | null;
   onToggle: () => void;
   onContextMenu: (e: React.MouseEvent) => void;
+  onPlayerClick?: (player: {
+    puuid: string | null;
+    gameName: string | null;
+    tagLine: string | null;
+  }) => void;
 }
 
 function parseAugmentIds(raw: string | null): number[] {
@@ -999,7 +1042,7 @@ function AugmentGrid({ augmentIds, patch }: { augmentIds: number[]; patch?: stri
   );
 }
 
-function GameRow({
+export function GameRow({
   match,
   champData,
   expanded,
@@ -1008,10 +1051,16 @@ function GameRow({
   puuids,
   onToggle,
   onContextMenu,
+  onPlayerClick,
 }: GameRowProps) {
   const isRemake = !!match.is_remake;
+  console.log("[card] spells", { spell1: match.spell1, spell2: match.spell2, queue: match.queue_id });
   const isWin = !!match.win;
   const isFavorite = !!match.favorite;
+  const isArena = isAugmentQueue(match.queue_id);
+  const placement = match.player_subteam_placement;
+  const placementLabel = placement != null ? ARENA_PLACEMENT_LABELS[placement] : null;
+  const arenaWin = placement != null && placement <= 3;
   const kda = kdaRatio(match.kills, match.deaths, match.assists);
   const augmentIds = parseAugmentIds(match.augment_ids);
   const runeIds = parseRuneIds(match.rune_ids);
@@ -1043,9 +1092,17 @@ function GameRow({
         <span className={`absolute left-0 inset-y-0 w-[3px] ${accent}`} />
         <span className={`absolute inset-0 pointer-events-none bg-gradient-to-r ${tint}`} />
         <div
-          className={`flex w-20 shrink-0 flex-col text-xs font-bold ${isRemake ? "text-gray-500" : isWin ? "text-lol-win" : "text-lol-loss"}`}
+          className={`flex w-20 shrink-0 flex-col text-xs font-bold ${isRemake ? "text-gray-500" : isArena && placementLabel ? (arenaWin ? "text-lol-win" : "text-lol-loss") : isWin ? "text-lol-win" : "text-lol-loss"}`}
         >
-          <span>{isRemake ? "RMK" : isWin ? "WIN" : "LOSS"}</span>
+          <span className="truncate">
+            {isRemake
+              ? "RMK"
+              : isArena && placementLabel
+                ? placementLabel
+                : isWin
+                  ? "WIN"
+                  : "LOSS"}
+          </span>
           <span
             className="mt-0.5 truncate text-[10px] font-normal text-lol-text"
             title={queueLabel(match.queue_id)}
@@ -1063,16 +1120,24 @@ function GameRow({
           <div className="text-sm text-lol-text-bright truncate">
             {getChampionName(champData, match.champion_id)}
           </div>
+          {(() => {
+            const lane = laneLabel(match);
+            return lane ? (
+              <div className="text-[10px] text-lol-text truncate">{lane}</div>
+            ) : null;
+          })()}
         </div>
-        <div className="w-16 shrink-0 text-center text-[10px] text-lol-text">
-          <div className="text-sm text-lol-text-bright">{match.cs ?? 0}</div>
-          <div>
-            {match.game_duration > 0
-              ? ((match.cs ?? 0) / (match.game_duration / 60)).toFixed(1)
-              : "0.0"}{" "}
-            CS/min
+        {!isArena && (
+          <div className="w-16 shrink-0 text-center text-[10px] text-lol-text">
+            <div className="text-sm text-lol-text-bright">{match.cs ?? 0}</div>
+            <div>
+              {match.game_duration > 0
+                ? ((match.cs ?? 0) / (match.game_duration / 60)).toFixed(1)
+                : "0.0"}{" "}
+              CS/min
+            </div>
           </div>
-        </div>
+        )}
         <div className="w-24 shrink-0 text-center">
           <div className="text-sm text-lol-text-bright">
             {formatKDA(match.kills, match.deaths, match.assists)}
@@ -1085,28 +1150,30 @@ function GameRow({
         </div>
 
         {/* Score */}
-        <div className="w-10 shrink-0 text-center">
-          {match.score != null && !isRemake && (
-            <>
-              <div className={`text-sm font-semibold ${scoreColor(match.score)}`}>
-                {match.score.toFixed(1)}
-              </div>
-              {match.score_badge ? (
-                <div
-                  className={`text-[9px] font-bold leading-[15px] px-1 rounded w-fit mx-auto ${
-                    match.score_badge === "MVP"
-                      ? "bg-amber-400/20 text-amber-300"
-                      : "bg-purple-500/20 text-purple-400"
-                  }`}
-                >
-                  {match.score_badge}
+        {!isArena && (
+          <div className="w-10 shrink-0 text-center">
+            {match.score != null && !isRemake && (
+              <>
+                <div className={`text-sm font-semibold ${scoreColor(match.score)}`}>
+                  {match.score.toFixed(1)}
                 </div>
-              ) : (
-                <div className="text-[10px] text-lol-text uppercase tracking-wider">score</div>
-              )}
-            </>
-          )}
-        </div>
+                {match.score_badge ? (
+                  <div
+                    className={`text-[9px] font-bold leading-[15px] px-1 rounded w-fit mx-auto ${
+                      match.score_badge === "MVP"
+                        ? "bg-amber-400/20 text-amber-300"
+                        : "bg-purple-500/20 text-purple-400"
+                    }`}
+                  >
+                    {match.score_badge}
+                  </div>
+                ) : (
+                  <div className="text-[10px] text-lol-text uppercase tracking-wider">score</div>
+                )}
+              </>
+            )}
+          </div>
+        )}
 
         {/* Stat bars */}
         <StatBars
@@ -1165,7 +1232,12 @@ function GameRow({
           {detailLoading ? (
             <div className="text-sm text-lol-text text-center py-4">Loading...</div>
           ) : detail ? (
-            <MatchScoreboard detail={detail} champData={champData} puuids={puuids} />
+            <MatchScoreboard
+              detail={detail}
+              champData={champData}
+              puuids={puuids}
+              onPlayerClick={onPlayerClick}
+            />
           ) : null}
         </div>
       )}

@@ -9,7 +9,8 @@ import Trends from "./pages/Trends";
 import Records from "./pages/Records";
 import GlobalStats from "./pages/GlobalStats";
 import Settings from "./pages/Settings";
-import LiveGame from "./pages/LiveGame";
+import Experiments from "./pages/Experiments";
+import Profile from "./pages/Profile";
 import HistorySection from "./pages/HistorySection";
 import GlobalChampionDetail from "./pages/GlobalChampionDetail";
 import ItemDetail from "./pages/ItemDetail";
@@ -23,7 +24,8 @@ export default function App() {
     <HashRouter>
       <Routes>
         <Route element={<Layout />}>
-          <Route path="/live" element={<LiveGame />} />
+          <Route path="/profile" element={<Profile key="profile-search" />} />
+          <Route path="/local" element={<Profile key="profile-local" localMode />} />
           <Route path="/" element={<MatchHistory />} />
           <Route path="/history/mayhem" element={<MatchHistory scope="mayhem" />} />
           <Route path="/history/rest" element={<MatchHistory scope="rest" />} />
@@ -47,6 +49,7 @@ export default function App() {
           <Route path="/global" element={<GlobalStats />} />
           <Route path="/global/champion/:championId" element={<GlobalChampionDetail />} />
           <Route path="/settings" element={<Settings />} />
+          <Route path="/experiments" element={<Experiments />} />
         </Route>
       </Routes>
     </HashRouter>
