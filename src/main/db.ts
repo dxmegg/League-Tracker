@@ -592,8 +592,8 @@ function participantRowsFromRaw(raw: any): RawParticipantRow[] {
       // wants the raw everything-included number.
       total_damage_dealt_all: Number(s.totalDamageDealt ?? 0),
       true_damage_dealt: Number(s.trueDamageDealtToChampions ?? s.trueDamageDealt ?? 0),
-      spell1: p.spell1Id ?? p.summoner1Id ?? s.spell1Id ?? null,
-      spell2: p.spell2Id ?? s.spell2Id ?? null,
+      spell1: p.spell1Id ?? p.summoner1Id ?? s.spell1Id ?? s.summoner1Id ?? null,
+      spell2: p.spell2Id ?? p.summoner2Id ?? s.spell2Id ?? s.summoner2Id ?? null,
       cs:
         s.totalCreepScore != null
           ? Number(s.totalCreepScore)
@@ -744,7 +744,7 @@ function writeParticipants(gameId: number, meta: GameDenorm, rows: RawParticipan
 // versioning, so it could be missing any subset of the columns v1 adds — which
 // is why each step checks for its column rather than assuming. A database that
 // createTables just built is also version 0, and lands on the same no-op path.
-const SCHEMA_VERSION = 12;
+const SCHEMA_VERSION = 17;
 
 function tableColumns(table: string): Set<string> {
   const rows = db.pragma(`table_info(${table})`) as { name: string }[];
@@ -789,6 +789,11 @@ function runMigrations() {
   if (current < 10) migrateToV10();
   if (current < 11) migrateToV11();
   if (current < 12) migrateToV12();
+  if (current < 13) migrateToV13();
+  if (current < 14) migrateToV14();
+  if (current < 15) migrateToV15();
+  if (current < 16) migrateToV16();
+  if (current < 17) migrateToV17();
 
   db.pragma(`user_version = ${SCHEMA_VERSION}`);
 }
@@ -850,22 +855,7 @@ interface NormalizeResult {
 // that still has its payload. This is the one place that turns a stored payload
 // into rows, shared by the v2 migration and by Repair — so the two can't drift
 // into disagreeing about what a participant row should contain.
-function rebuildParticipantsFromPayloads(force = false): NormalizeResult {
-  // If every game already has participant rows, there is nothing to rebuild.
-  // The migrations call this unconditionally; the guard turns a re-run into a
-  // single COUNT instead of a full library walk.
-  const gamesWithoutRows = db
-    .prepare(
-      `SELECT COUNT(*) as n FROM games g
-       WHERE g.raw_gz IS NOT NULL
-         AND NOT EXISTS (SELECT 1 FROM match_participants mp WHERE mp.game_id = g.game_id)`,
-    )
-    .get() as { n: number };
-
-  if (!force && gamesWithoutRows.n === 0) {
-    return { normalized: 0, unusable: 0 };
-  }
-
+function rebuildParticipantsFromPayloads(): NormalizeResult {
   const page = db.prepare(`
     SELECT game_id, is_remake, queue_id, game_version, raw_gz
     FROM games
@@ -888,6 +878,108 @@ function rebuildParticipantsFromPayloads(force = false): NormalizeResult {
 
     const tx = db.transaction(() => {
       for (const row of rows) {
+        if (process.env.REBUILD_DEBUG === "1" && row.game_id) {
+          const raw = unpackRaw(row.raw_gz);
+          const first = raw?.participants?.[0] ?? raw?.info?.participants?.[0];
+          const firstStats = first?.stats ?? first;
+          if (first) {
+            console.log(`[rebuild] game ${row.game_id} participant spell keys:`, {
+              p_spell1Id: first.spell1Id,
+              p_spell2Id: first.spell2Id,
+              p_summoner1Id: first.summoner1Id,
+              p_summoner2Id: first.summoner2Id,
+              s_spell1Id: firstStats?.spell1Id,
+              s_spell2Id: firstStats?.spell2Id,
+              s_summoner1Id: firstStats?.summoner1Id,
+              s_summoner2Id: firstStats?.summoner2Id,
+            });
+          }
+          // One game is enough for diagnosis; do not flood the console.
+          process.env.REBUILD_DEBUG = "0";
+        }
+        const arenaDumpState = globalThis as typeof globalThis & {
+          __arenaDump?: boolean;
+        };
+        if (!arenaDumpState.__arenaDump) {
+          const raw = unpackRaw(row.raw_gz);
+          const queueId = Number(raw?.gameQueueConfigId ?? raw?.info?.queueId ?? 0);
+          if (
+            queueId === 1700 ||
+            queueId === 1740 ||
+            queueId === 1750 ||
+            queueId === 2400 ||
+            queueId === 2450
+          ) {
+            arenaDumpState.__arenaDump = true;
+            try {
+              const dir = path.join(process.cwd(), "data");
+              fs.mkdirSync(dir, { recursive: true });
+              const out = path.join(dir, "arena-payload-dump.json");
+              fs.writeFileSync(
+                out,
+                JSON.stringify(
+                  {
+                    gameId: row.game_id,
+                    queueId,
+                    participants: raw?.participants ?? raw?.info?.participants ?? [],
+                    participantIdentities:
+                      raw?.participantIdentities ?? raw?.info?.participantIdentities ?? [],
+                  },
+                  null,
+                  2,
+                ),
+              );
+              console.log(`[rebuild] dumped Arena payload to ${out}`);
+            } catch (err) {
+              console.error("[rebuild] failed to dump payload:", err);
+            }
+          }
+        }
+        const spellDumpState = globalThis as typeof globalThis & {
+          __spellDump?: boolean;
+        };
+        if (!spellDumpState.__spellDump) {
+          const raw = unpackRaw(row.raw_gz);
+          const queueId = Number(raw?.gameQueueConfigId ?? raw?.info?.queueId ?? 0);
+          if (
+            queueId === 1700 ||
+            queueId === 1740 ||
+            queueId === 1750 ||
+            queueId === 2400 ||
+            queueId === 2450
+          ) {
+            spellDumpState.__spellDump = true;
+            const first = raw?.participants?.[0] ?? raw?.info?.participants?.[0];
+            if (first) {
+              const s = first.stats ?? first;
+              const keys = new Set<string>();
+              for (const k of Object.keys(first)) {
+                if (k.toLowerCase().includes("spell") || k.toLowerCase().includes("summoner")) {
+                  keys.add(`p.${k}`);
+                }
+              }
+              for (const k of Object.keys(s)) {
+                if (k.toLowerCase().includes("spell") || k.toLowerCase().includes("summoner")) {
+                  keys.add(`s.${k}`);
+                }
+              }
+              console.log(
+                `[spell-dump] game ${row.game_id} queue ${queueId} — spell-related fields:`,
+                [...keys],
+              );
+              console.log(`[spell-dump] values:`, {
+                p_spell1Id: first.spell1Id,
+                p_spell2Id: first.spell2Id,
+                p_summoner1Id: first.summoner1Id,
+                p_summoner2Id: first.summoner2Id,
+                s_spell1Id: s.spell1Id,
+                s_spell2Id: s.spell2Id,
+                s_summoner1Id: s.summoner1Id,
+                s_summoner2Id: s.summoner2Id,
+              });
+            }
+          }
+        }
         const participants = participantRowsFromRaw(unpackRaw(row.raw_gz));
         if (participants.length === 0) {
           result.unusable++;
@@ -958,7 +1050,7 @@ function migrateToV2() {
   }
 
   // Pass two derives the rows every query now reads.
-  const { normalized, unusable } = rebuildParticipantsFromPayloads(true);
+  const { normalized, unusable } = rebuildParticipantsFromPayloads();
 
   // Nothing below this line is reversible, so confirm the rows are actually on
   // disk first: every game holding a payload should have participants, bar the
@@ -999,7 +1091,7 @@ function migrateToV3() {
   }
   // Re-deriving the participant rows wholesale is how spells reach
   // match_participants; the copy below then narrows them to the game's owner.
-  rebuildParticipantsFromPayloads(true);
+  rebuildParticipantsFromPayloads();
   backfillPlayerStatsSpells();
 }
 
@@ -1058,7 +1150,7 @@ function migrateToV6() {
   if (!ps.has("largest_critical_strike")) {
   db.exec("ALTER TABLE player_stats ADD COLUMN largest_critical_strike INTEGER NOT NULL DEFAULT 0");
   }
-  rebuildParticipantsFromPayloads(true);
+  rebuildParticipantsFromPayloads();
   rebuildDerivedStats();
 }
 
@@ -1086,7 +1178,7 @@ function migrateToV7() {
       if (!existing.has(column)) db.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${definition}`);
     }
   }
-  rebuildParticipantsFromPayloads(true);
+  rebuildParticipantsFromPayloads();
   rebuildDerivedStats();
   } catch (error) {
   console.error("Database schema migration v7 failed:", error);
@@ -1360,7 +1452,7 @@ function applyQueueFilter(where: string[], params: any[], queue?: number, alias 
 // puuid is not in summoner came from the Search Account import and must not
 // show up in the local views.
 function ownedPuuidFilter(alias: string): string {
-  return `(${alias}.puuid IN (SELECT puuid FROM summoner) OR ${alias}.puuid = '')`;
+  return `${alias}.puuid IN (SELECT puuid FROM summoner)`;
 }
 
 // Remakes are already left out of every stat; this setting takes them out of
@@ -1690,12 +1782,22 @@ export function getMatchHistory(
            ${statsAlias}.champion_id, ${statsAlias}.win, ${statsAlias}.kills, ${statsAlias}.deaths, ${statsAlias}.assists,
            ${statsAlias}.double_kills, ${statsAlias}.triple_kills, ${statsAlias}.quadra_kills, ${statsAlias}.penta_kills,
            ${statsAlias}.total_damage_dealt, ${statsAlias}.total_damage_taken, ${statsAlias}.total_heal, ${statsAlias}.gold_earned,
-           ${statsAlias}.score, ${statsAlias}.score_badge, ${statsAlias}.spell1, ${statsAlias}.spell2,
+           ${statsAlias}.score, ${statsAlias}.score_badge,
+           COALESCE(${statsAlias}.spell1, (
+             SELECT mp.spell1 FROM match_participants mp
+             WHERE mp.game_id = g.game_id AND mp.puuid = ${matchPuuid}
+           )) as spell1,
+           COALESCE(${statsAlias}.spell2, (
+             SELECT mp.spell2 FROM match_participants mp
+             WHERE mp.game_id = g.game_id AND mp.puuid = ${matchPuuid}
+           )) as spell2,
            ${statsAlias}.item0, ${statsAlias}.item1, ${statsAlias}.item2, ${statsAlias}.item3, ${statsAlias}.item4, ${statsAlias}.item5,
            ${augmentIdsSql} as augment_ids,
            g.raw_gz,
            (SELECT mp.team_position FROM match_participants mp
              WHERE mp.game_id = g.game_id AND mp.puuid = ${matchPuuid}) as team_position,
+           (SELECT mp.player_subteam_placement FROM match_participants mp
+             WHERE mp.game_id = g.game_id AND mp.puuid = ${matchPuuid}) as player_subteam_placement,
 ${GAME_MAX_STATS_SQL}
     FROM games g
     JOIN ${statsTable} ${statsAlias} ON g.game_id = ${statsAlias}.game_id
@@ -1977,6 +2079,73 @@ function getMatchParticipants(gameId: number): any[] {
     else augments.set(row.participant_id, [row.augment_id]);
   }
 
+  const spellDumpState = globalThis as typeof globalThis & {
+    __spellDumpDone?: boolean;
+  };
+  if (!spellDumpState.__spellDumpDone) {
+    spellDumpState.__spellDumpDone = true;
+    try {
+     const dump = rawParticipants.map((p: any, index: number) => {
+       const s = p.stats ?? p;
+       return {
+         index,
+         participantId: p.participantId ?? index + 1,
+         championId: p.championId ?? s.championId,
+         topLevelKeys: Object.keys(p).filter(
+           (k) => k.toLowerCase().includes("spell") || k.toLowerCase().includes("summoner"),
+         ),
+         statsKeys: Object.keys(s).filter(
+           (k) => k.toLowerCase().includes("spell") || k.toLowerCase().includes("summoner"),
+         ),
+         topLevelValues: {
+           spell1Id: p.spell1Id,
+           spell2Id: p.spell2Id,
+           summoner1Id: p.summoner1Id,
+           summoner2Id: p.summoner2Id,
+         },
+         statsValues: {
+           spell1Id: s.spell1Id,
+           spell2Id: s.spell2Id,
+           summoner1Id: s.summoner1Id,
+           summoner2Id: s.summoner2Id,
+         },
+       };
+     });
+     const dbRows = rows.map((r: any) => ({
+       participantId: r.participant_id,
+       championId: r.champion_id,
+       spell1: r.spell1,
+       spell2: r.spell2,
+     }));
+     const out = path.join(process.cwd(), "data", "spell-participant-dump.json");
+     fs.mkdirSync(path.dirname(out), { recursive: true });
+     fs.writeFileSync(
+       out,
+       JSON.stringify({ gameId, rawParticipants: dump, dbRows }, null, 2),
+     );
+     console.log(`[spell-dump] wrote ${out} for game ${gameId}`);
+     console.log(
+       "[spell-dump] raw spells (top-level):",
+       dump.map((d: any) => ({
+         id: d.participantId,
+         spell1: d.topLevelValues.spell1Id ?? d.topLevelValues.summoner1Id,
+         spell2: d.topLevelValues.spell2Id ?? d.topLevelValues.summoner2Id,
+       })),
+     );
+     console.log(
+       "[spell-dump] raw spells (stats):",
+       dump.map((d: any) => ({
+         id: d.participantId,
+         spell1: d.statsValues.spell1Id ?? d.statsValues.summoner1Id,
+         spell2: d.statsValues.spell2Id ?? d.statsValues.summoner2Id,
+       })),
+     );
+     console.log("[spell-dump] db rows:", dbRows);
+    } catch (err) {
+     console.error("[spell-dump] failed:", err);
+    }
+  }
+
   return rows.map((r) => {
     const raw = rawParticipants.find((p: any) => Number(p.participantId) === r.participant_id);
     const runes = extractRunes(raw);
@@ -2026,6 +2195,58 @@ export function getMatchDetail(gameId: number): any {
     `)
     .get(gameId) as any;
   if (!game) return null;
+  const spellDumpState = globalThis as typeof globalThis & {
+    __spellDump?: boolean;
+  };
+  if (!spellDumpState.__spellDump) {
+    const q = Number(game.queue_id);
+    if (q === 1700 || q === 1740 || q === 1750) {
+      spellDumpState.__spellDump = true;
+      const rawRow = db
+        .prepare("SELECT raw_gz FROM games WHERE game_id = ?")
+        .get(gameId) as { raw_gz: Buffer | null } | undefined;
+      if (rawRow?.raw_gz) {
+        try {
+          const raw = JSON.parse(zlib.gunzipSync(rawRow.raw_gz).toString("utf8"));
+          const first = raw?.participants?.[0] ?? raw?.info?.participants?.[0];
+          if (first) {
+            const s = first.stats ?? first;
+            const spellKeys: Record<string, unknown> = {};
+            for (const k of Object.keys(first)) {
+              if (k.toLowerCase().includes("spell") || k.toLowerCase().includes("summoner")) {
+                spellKeys[`p.${k}`] = first[k];
+              }
+            }
+            for (const k of Object.keys(s)) {
+              if (k.toLowerCase().includes("spell") || k.toLowerCase().includes("summoner")) {
+                spellKeys[`s.${k}`] = s[k];
+              }
+            }
+            const out = path.join(process.cwd(), "data", "arena-spell-dump.json");
+            fs.mkdirSync(path.dirname(out), { recursive: true });
+            fs.writeFileSync(
+              out,
+              JSON.stringify(
+                {
+                  gameId,
+                  queueId: q,
+                  spellKeys,
+                  fullFirstParticipant: first,
+                },
+                null,
+                2,
+              ),
+            );
+            console.log(`[spell-dump] wrote ${out}`);
+            console.log(`[spell-dump] keys:`, Object.keys(spellKeys));
+            console.log(`[spell-dump] values:`, spellKeys);
+          }
+        } catch (err) {
+          console.error("[spell-dump] failed:", err);
+        }
+      }
+    }
+  }
   const stats = db.prepare("SELECT * FROM player_stats WHERE game_id = ?").get(gameId);
   const augments = db
     .prepare("SELECT * FROM game_augments WHERE game_id = ? ORDER BY slot")
@@ -2722,11 +2943,21 @@ export function getChampionMatchHistory(
            ps.champion_id, ps.win, ps.kills, ps.deaths, ps.assists,
            ps.double_kills, ps.triple_kills, ps.quadra_kills, ps.penta_kills,
            ps.total_damage_dealt, ps.total_damage_taken, ps.total_heal, ps.gold_earned,
-           ps.score, ps.score_badge, ps.spell1, ps.spell2,
+           ps.score, ps.score_badge,
+           COALESCE(ps.spell1, (
+             SELECT mp.spell1 FROM match_participants mp
+             WHERE mp.game_id = g.game_id AND mp.puuid = ps.puuid
+           )) as spell1,
+           COALESCE(ps.spell2, (
+             SELECT mp.spell2 FROM match_participants mp
+             WHERE mp.game_id = g.game_id AND mp.puuid = ps.puuid
+           )) as spell2,
            ps.item0, ps.item1, ps.item2, ps.item3, ps.item4, ps.item5,
            ${augmentIdsSql} as augment_ids,
            (SELECT mp.team_position FROM match_participants mp
-             WHERE mp.game_id = g.game_id AND mp.puuid = ps.puuid) as team_position,
+             WHERE mp.game_id = g.game_id AND mp.puuid = g.puuid) as team_position,
+           (SELECT mp.player_subteam_placement FROM match_participants mp
+             WHERE mp.game_id = g.game_id AND mp.puuid = g.puuid) as player_subteam_placement,
 ${GAME_MAX_STATS_SQL}
     FROM games g
     JOIN ${source.table} ps ON g.game_id = ps.game_id
@@ -2942,7 +3173,7 @@ function insertTrackedStatsOnly(gameId: number, puuid: string): TrackedOnlyResul
   return result.changes > 0 ? "inserted" : "duplicate";
 }
 
-export function insertGameFull(gameData: any, puuid: string): boolean {
+export function insertGameFull(gameData: any, puuid: string, foreign = false): boolean {
   if (gameExists(gameData.gameId)) {
     const fast = insertTrackedStatsOnly(gameData.gameId, puuid);
     if (fast === "no-owner-row") {
@@ -3049,6 +3280,7 @@ export function insertGameFull(gameData: any, puuid: string): boolean {
   };
 
   const tx = db.transaction(() => {
+    const ownerPuuidForGamesRow = foreign ? "" : puuid;
     const result = insertGameStmt.run(
       gameData.gameId,
       gameData.queueId,
@@ -3056,7 +3288,7 @@ export function insertGameFull(gameData: any, puuid: string): boolean {
       gameData.gameCreation,
       gameData.gameDuration,
       isRemake,
-      puuid,
+      ownerPuuidForGamesRow,
       gameVersion,
       packRaw(gameData),
     );
@@ -3081,39 +3313,41 @@ export function insertGameFull(gameData: any, puuid: string): boolean {
       rows,
     );
 
-    insertStatsStmt.run(
-      gameData.gameId,
-      owner.champion_id,
-      owner.win,
-      owner.kills,
-      owner.deaths,
-      owner.assists,
-      owner.double_kills,
-      owner.triple_kills,
-      owner.quadra_kills,
-      owner.penta_kills,
-      owner.total_damage_dealt,
-      owner.total_damage_taken,
-      owner.gold_earned,
-      owner.total_heal,
-      owner.largest_killing_spree,
-      owner.total_damage_dealt_all,
-      owner.true_damage_dealt,
-      owner.cs,
-      owner.largest_critical_strike,
-      owner.spell1,
-      owner.spell2,
-      owner.items[0],
-      owner.items[1],
-      owner.items[2],
-      owner.items[3],
-      owner.items[4],
-      owner.items[5],
-      owner.items[6],
-      ownerScore?.score ?? null,
-      ownerScore?.raw ?? null,
-      ownerScore?.badge ?? null,
-    );
+    if (!foreign) {
+      insertStatsStmt.run(
+        gameData.gameId,
+        owner.champion_id,
+        owner.win,
+        owner.kills,
+        owner.deaths,
+        owner.assists,
+        owner.double_kills,
+        owner.triple_kills,
+        owner.quadra_kills,
+        owner.penta_kills,
+        owner.total_damage_dealt,
+        owner.total_damage_taken,
+        owner.gold_earned,
+        owner.total_heal,
+        owner.largest_killing_spree,
+        owner.total_damage_dealt_all,
+        owner.true_damage_dealt,
+        owner.cs,
+        owner.largest_critical_strike,
+        owner.spell1,
+        owner.spell2,
+        owner.items[0],
+        owner.items[1],
+        owner.items[2],
+        owner.items[3],
+        owner.items[4],
+        owner.items[5],
+        owner.items[6],
+        ownerScore?.score ?? null,
+        ownerScore?.raw ?? null,
+        ownerScore?.badge ?? null,
+      );
+    }
     insertTrackedStatsStmt.run({ game_id: gameData.gameId, puuid, ...ownerStats });
 
     // Augments
@@ -3288,6 +3522,32 @@ export function deleteSavedSummoner(puuid: string): {
   tx();
 
   return { deletedGames, deletedTrackedRows };
+}
+
+export function deleteSearchedSummoners(): { removed: number; games: number } {
+  // A searched summoner has no LCU-sourced identity fields. Keep this
+  // conservative so real saved accounts are not removed accidentally.
+  const candidates = db
+    .prepare(
+      `SELECT s.puuid,
+              (SELECT COUNT(*) FROM tracked_game_stats t WHERE t.puuid = s.puuid) as games
+         FROM summoner s
+        WHERE s.summoner_id IS NULL
+          AND s.account_id IS NULL`,
+    )
+    .all() as { puuid: string; games: number }[];
+
+  let removed = 0;
+  let removedGames = 0;
+  const tx = db.transaction(() => {
+    for (const candidate of candidates) {
+      const result = deleteSavedSummoner(candidate.puuid);
+      removed++;
+      removedGames += result.deletedGames;
+    }
+  });
+  tx();
+  return { removed, games: removedGames };
 }
 
 // Someone we queued with once is a stranger, not a friend — the list only
@@ -4786,7 +5046,7 @@ function migrateToV9() {
   if (!tableColumns("match_participants").has("team_position")) {
     db.exec("ALTER TABLE match_participants ADD COLUMN team_position TEXT");
   }
-  rebuildParticipantsFromPayloads(true);
+  rebuildParticipantsFromPayloads();
 }
 
 function migrateToV10() {
@@ -4799,9 +5059,95 @@ function migrateToV11() {
   if (!tableColumns("match_participants").has("player_subteam_placement")) {
     db.exec("ALTER TABLE match_participants ADD COLUMN player_subteam_placement INTEGER");
   }
-  rebuildParticipantsFromPayloads(true);
+  rebuildParticipantsFromPayloads();
 }
 
 function migrateToV12() {
-  rebuildParticipantsFromPayloads(true);
+  // v11 and earlier could miss Match-V5's summoner2Id spelling when
+  // normalizing participant spells. Rebuild stored payloads so spell2 is
+  // populated for existing Arena and ARAM games.
+  rebuildParticipantsFromPayloads();
+}
+
+function migrateToV13() {
+  // v12 and earlier called rebuildParticipantsFromPayloads, which skipped
+  // the walk entirely when every game already had participant rows. That
+  // made those migrations no-ops on populated databases. This one always
+  // walks, so the spell1/spell2 and subteam columns are re-extracted from
+  // the stored payloads.
+  const result = rebuildParticipantsFromPayloads();
+  console.log(
+    `[db] v13 rebuild: ${result.normalized} rows rewritten, ${result.unusable} unreadable payloads`,
+  );
+}
+
+function migrateToV14() {
+  const result = rebuildParticipantsFromPayloads();
+  console.log(`[db] v14 rebuild: ${result.normalized} rows rewritten`);
+}
+
+function migrateToV15() {
+  const cleared = db
+    .prepare(
+      `UPDATE games
+          SET puuid = ''
+        WHERE puuid != ''
+          AND puuid NOT IN (SELECT puuid FROM summoner)`,
+    )
+    .run().changes;
+
+  const backfilled = db
+    .prepare(
+      `UPDATE games
+          SET puuid = (
+            SELECT mp.puuid FROM match_participants mp
+            WHERE mp.game_id = games.game_id
+              AND mp.puuid IN (SELECT puuid FROM summoner)
+            LIMIT 1
+          )
+        WHERE puuid = ''
+          AND EXISTS (
+            SELECT 1 FROM match_participants mp
+            WHERE mp.game_id = games.game_id
+              AND mp.puuid IN (SELECT puuid FROM summoner)
+          )`,
+    )
+    .run().changes;
+
+  console.log(
+    `[db] v15 cleanup: cleared ${cleared} foreign-owned game(s), backfilled ${backfilled} owned game(s)`,
+  );
+}
+
+function migrateToV16() {
+  const result = rebuildParticipantsFromPayloads();
+  console.log(`[db] v16 rebuild: ${result.normalized} rows rewritten`);
+}
+
+function migrateToV17() {
+  backfillPlayerStatsSpells();
+  const result = db
+    .prepare(
+      `UPDATE tracked_game_stats
+          SET spell1 = (
+                SELECT mp.spell1
+                FROM match_participants mp
+                WHERE mp.game_id = tracked_game_stats.game_id
+                  AND mp.puuid = tracked_game_stats.puuid
+              ),
+              spell2 = (
+                SELECT mp.spell2
+                FROM match_participants mp
+                WHERE mp.game_id = tracked_game_stats.game_id
+                  AND mp.puuid = tracked_game_stats.puuid
+              )
+        WHERE EXISTS (
+          SELECT 1
+          FROM match_participants mp
+          WHERE mp.game_id = tracked_game_stats.game_id
+            AND mp.puuid = tracked_game_stats.puuid
+        )`,
+    )
+    .run();
+  console.log(`[db] v17 spell sync: ${result.changes} tracked row(s) updated`);
 }

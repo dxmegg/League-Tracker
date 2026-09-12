@@ -99,7 +99,7 @@ export default function MatchScoreboard({
 }
 
 const ARENA_GRID_COLS =
-  "grid-cols-[28px_52px_140px_76px_110px_110px_56px_56px_56px_1fr_110px]";
+  "grid-cols-[32px_52px_140px_76px_110px_110px_56px_56px_56px_1fr_110px]";
 
 function ArenaScoreboard({
   participants,
@@ -169,6 +169,20 @@ function ArenaScoreboard({
   );
 }
 
+const PLACEMENT_ORDINALS: Record<number, string> = {
+  1: "First place",
+  2: "Second place",
+  3: "Third place",
+  4: "Fourth place",
+  5: "Fifth place",
+  6: "Sixth place",
+};
+
+function placementLabel(placement: number | null, subteamId: number): string {
+  if (placement == null) return `Team ${subteamId}`;
+  return PLACEMENT_ORDINALS[placement] ?? `Placement ${placement}`;
+}
+
 function ArenaTeamBlock({
   subteamId,
   placement,
@@ -213,7 +227,7 @@ function ArenaTeamBlock({
         }`}
       >
         <span className={`text-xs font-bold ${isTopThree ? "text-lol-win" : "text-lol-loss"}`}>
-          {placement != null ? `Placement ${placement}` : `Team ${subteamId}`}
+          {placementLabel(placement, subteamId)}
           {isTopThree ? " — Victory" : " — Defeat"}
         </span>
         <div className="ml-auto flex flex-wrap items-baseline gap-x-4 gap-y-1">
@@ -238,9 +252,10 @@ function ArenaTeamBlock({
       </div>
 
       <div
-        className={`px-3 py-1 border-b border-lol-border/50 grid ${ARENA_GRID_COLS} gap-2 items-center text-[10px] text-lol-text uppercase tracking-wider`}
+        className={`px-3 py-1.5 border-b border-lol-border/50 grid ${ARENA_GRID_COLS} gap-2 items-center text-[10px] text-lol-text uppercase tracking-wider`}
       >
         <span className="text-center">#</span>
+        <span></span>
         <span>Player</span>
         <span className="text-center">KDA</span>
         <span className="text-center">Damage</span>

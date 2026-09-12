@@ -20,7 +20,7 @@ let championReady: Promise<void> | null = null;
 // this replaces recursed on Location with no limit and no timeout.
 async function fetchJson(url: string): Promise<any> {
   const res = await fetch(url, {
-    headers: { "User-Agent": "LeagueTracker/1.0.1" },
+    headers: { "User-Agent": "LeagueTracker/1.0.3" },
     signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
   });
   if (!res.ok) {
@@ -404,6 +404,23 @@ export function loadSummonerSpellData(): Promise<Record<number, SummonerSpellInf
         for (const spell of data) {
           spells[spell.id] = { name: spell.name || "", iconPath: spell.iconPath || "" };
         }
+      }
+      try {
+        const versions = await fetchJson("https://ddragon.leagueoflegends.com/api/versions.json");
+        const ddragon = await fetchJson(
+          `https://ddragon.leagueoflegends.com/cdn/${versions[0]}/data/en_US/summoner.json`,
+        );
+        for (const entry of Object.values(ddragon?.data ?? {}) as any[]) {
+          const id = Number(entry?.key);
+          if (!Number.isFinite(id) || spells[id]) continue;
+          spells[id] = {
+            name: entry.name ?? "",
+            iconPath: `/lol-game-data/assets/v1/summoner-spells/${entry.id}.png`,
+          };
+        }
+      } catch {
+        // CommunityDragon remains the source; a missing Data Dragon fetch is not
+        // fatal, it only means some spell ids stay unresolved.
       }
       spellCache = spells;
       console.log(`Loaded ${Object.keys(spells).length} summoner spells from CommunityDragon`);

@@ -398,6 +398,13 @@ export function registerIpcHandlers() {
     return result;
   });
 
+  ipcMain.handle("db:delete-searched-summoners", async (event) => {
+    await backup.backupQuietly("pre-import");
+    const result = db.deleteSearchedSummoners();
+    senderWindow(event)?.webContents.send("lcu:games-updated");
+    return result;
+  });
+
   ipcMain.handle("db:summoner-puuid", () => {
     const s = db.getSummoner();
     return s?.puuid ?? null;

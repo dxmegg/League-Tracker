@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { useSummonerSpellData } from "../hooks/useChampions";
 import { CDRAGON_ASSET_URL } from "../lib/constants";
 
@@ -8,16 +9,15 @@ interface SummonerSpellIconProps {
 
 export default function SummonerSpellIcon({ spellId, size = 16 }: SummonerSpellIconProps) {
   const spells = useSummonerSpellData();
-  const spell = spellId != null ? spells[spellId] : undefined;
+  const [broken, setBroken] = useState(false);
+  const spell = spellId != null && spellId > 0 ? spells[spellId] : undefined;
 
-  if (!spellId || !spell?.iconPath) {
-    return (
-      <div
-        className="rounded bg-white/5 border border-white/10"
-        style={{ width: size, height: size }}
-      />
-    );
+  if (spellId && !spell?.iconPath) {
+    console.log("[spell] unresolved id", spellId, "cache size", Object.keys(spells).length);
   }
+  if (!spell?.iconPath) return null;
+  if (broken) return null;
+
   return (
     <img
       src={CDRAGON_ASSET_URL("latest", spell.iconPath)}
@@ -26,6 +26,7 @@ export default function SummonerSpellIcon({ spellId, size = 16 }: SummonerSpellI
       width={size}
       height={size}
       className="rounded"
+      onError={() => setBroken(true)}
     />
   );
 }

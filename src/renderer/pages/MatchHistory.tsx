@@ -47,7 +47,6 @@ import {
   QUEUE_SCOPE_ARAM,
   QUEUE_SCOPE_ARENA,
   isAugmentQueue,
-  isArenaQueue,
 } from "../../shared/queues";
 import { parseRuneIds } from "../lib/runes";
 
@@ -104,6 +103,15 @@ const TEAM_POSITION_LABELS: Record<string, string> = {
   MIDDLE: "Mid",
   BOTTOM: "Bottom",
   UTILITY: "Support",
+};
+
+const ARENA_PLACEMENT_LABELS: Record<number, string> = {
+  1: "First place",
+  2: "Second place",
+  3: "Third place",
+  4: "Fourth place",
+  5: "Fifth place",
+  6: "Sixth place",
 };
 
 // Human label for a row's lane, or null when this queue has no lane to show.
@@ -1046,9 +1054,13 @@ export function GameRow({
   onPlayerClick,
 }: GameRowProps) {
   const isRemake = !!match.is_remake;
-  const isArena = isArenaQueue(match.queue_id);
+  console.log("[card] spells", { spell1: match.spell1, spell2: match.spell2, queue: match.queue_id });
   const isWin = !!match.win;
   const isFavorite = !!match.favorite;
+  const isArena = isAugmentQueue(match.queue_id);
+  const placement = match.player_subteam_placement;
+  const placementLabel = placement != null ? ARENA_PLACEMENT_LABELS[placement] : null;
+  const arenaWin = placement != null && placement <= 3;
   const kda = kdaRatio(match.kills, match.deaths, match.assists);
   const augmentIds = parseAugmentIds(match.augment_ids);
   const runeIds = parseRuneIds(match.rune_ids);
@@ -1080,9 +1092,17 @@ export function GameRow({
         <span className={`absolute left-0 inset-y-0 w-[3px] ${accent}`} />
         <span className={`absolute inset-0 pointer-events-none bg-gradient-to-r ${tint}`} />
         <div
-          className={`flex w-20 shrink-0 flex-col text-xs font-bold ${isRemake ? "text-gray-500" : isWin ? "text-lol-win" : "text-lol-loss"}`}
+          className={`flex w-20 shrink-0 flex-col text-xs font-bold ${isRemake ? "text-gray-500" : isArena && placementLabel ? (arenaWin ? "text-lol-win" : "text-lol-loss") : isWin ? "text-lol-win" : "text-lol-loss"}`}
         >
-          <span>{isRemake ? "RMK" : isWin ? "WIN" : "LOSS"}</span>
+          <span className="truncate">
+            {isRemake
+              ? "RMK"
+              : isArena && placementLabel
+                ? placementLabel
+                : isWin
+                  ? "WIN"
+                  : "LOSS"}
+          </span>
           <span
             className="mt-0.5 truncate text-[10px] font-normal text-lol-text"
             title={queueLabel(match.queue_id)}

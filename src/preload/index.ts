@@ -164,6 +164,7 @@ const api: ElectronAPI = {
 
   getSavedSummoners: () => ipcRenderer.invoke("db:saved-summoners"),
   deleteSummoner: (puuid: string) => ipcRenderer.invoke("db:delete-summoner", puuid),
+  deleteSearchedSummoners: () => ipcRenderer.invoke("db:delete-searched-summoners"),
 
   getProfile: () => ipcRenderer.invoke("db:profile"),
 

@@ -86,6 +86,7 @@ export interface MatchListItem {
   // "BOTTOM" | "UTILITY", or null for queues that do not have lanes (ARAM,
   // Arena, Mayhem, co-op, tutorials).
   team_position: string | null;
+  player_subteam_placement: number | null;
   game_max_dmg: number;
   game_max_taken: number;
   game_max_heal: number;
@@ -778,6 +779,7 @@ export interface ElectronAPI {
       games: number;
     }>
   >;
+  deleteSearchedSummoners: () => Promise<{ removed: number; games: number }>;
   deleteSummoner: (
     puuid: string,
   ) => Promise<{ deletedGames: number; deletedTrackedRows: number }>;

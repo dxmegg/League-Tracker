@@ -144,7 +144,21 @@ export default function Settings() {
   }, []);
 
   const refreshSavedSummoners = useCallback(() => {
-    window.api.getSavedSummoners().then(setSavedSummoners);
+    if (typeof window.api.getSavedSummoners !== "function") {
+      console.warn(
+        "[settings] getSavedSummoners is not available yet — restart the app so the new preload loads",
+      );
+      setSummonerStatus(
+        "Saved accounts is a new feature — restart the application for it to become available.",
+      );
+      return;
+    }
+    window.api
+      .getSavedSummoners()
+      .then(setSavedSummoners)
+      .catch((err: unknown) => {
+        console.error("Failed to load saved accounts:", err);
+      });
   }, []);
 
   useEffect(refreshSavedSummoners, [refreshSavedSummoners]);
@@ -153,14 +167,18 @@ export default function Settings() {
     async (puuid: string) => {
       setConfirmDeleteSummoner(null);
       setSummonerStatus(null);
+      if (typeof window.api.deleteSummoner !== "function") {
+        setSummonerStatus("Delete account is not available yet — restart the application.");
+        return;
+      }
       try {
         const result = await window.api.deleteSummoner(puuid);
         setSummonerStatus(
           `Deleted account: ${result.deletedGames} game(s) removed, ${result.deletedTrackedRows} tracked row(s) removed`,
         );
         refreshSavedSummoners();
-      } catch (err: any) {
-        setSummonerStatus(`Error: ${err.message}`);
+      } catch (err) {
+        setSummonerStatus(`Error: ${err instanceof Error ? err.message : String(err)}`);
       }
     },
     [refreshSavedSummoners],
@@ -533,6 +551,21 @@ export default function Settings() {
             })}
           </div>
         )}
+        <button
+          onClick={async () => {
+            setSummonerStatus(null);
+            const removed = await window.api.deleteSearchedSummoners();
+            setSummonerStatus(
+              removed.removed > 0
+                ? `Removed ${removed.removed} searched account(s) and ${removed.games} game(s)`
+                : "No searched accounts to remove",
+            );
+            refreshSavedSummoners();
+          }}
+          className="mt-3 px-3 py-1.5 rounded text-xs bg-lol-border/40 text-lol-text hover:bg-lol-border/60 transition-colors"
+        >
+          Clean up searched accounts
+        </button>
         {summonerStatus && <p className="mt-3 text-xs text-lol-text">{summonerStatus}</p>}
       </div>
 
