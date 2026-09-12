@@ -111,7 +111,7 @@ function TeamScoreboard({
         <span className={`text-xs font-bold ${isWin ? "text-lol-win" : "text-lol-loss"}`}>
           Team {teamId === 100 ? "1" : "2"} — {isWin ? "Victory" : "Defeat"}
         </span>
-        <div className="ml-auto flex flex-wrap items-baseline gap-x-4 gap-y-1">
+        <div className="ml-auto mr-40 flex flex-wrap items-baseline gap-x-4 gap-y-1">
           <TeamStat label="Avg score">
             <span
               className={totals.avgScore != null ? scoreColor(totals.avgScore) : "text-lol-text"}
@@ -129,6 +129,9 @@ function TeamScoreboard({
           </TeamStat>
           <TeamStat label="Taken">
             <span className="text-sky-400">{compact(totals.taken)}</span>
+          </TeamStat>
+          <TeamStat label="CS">
+            <span className="text-lol-text-bright">{totals.cs}</span>
           </TeamStat>
           <TeamStat label="Gold">
             <span className="text-lol-gold">{compact(totals.gold)}</span>
@@ -180,6 +183,7 @@ function computeTeamTotals(players: ParsedParticipant[], scores: Map<number, Sco
     assists: 0,
     dmg: 0,
     taken: 0,
+    cs: 0,
     gold: 0,
     heal: 0,
     avgScore: null as number | null,
@@ -193,6 +197,7 @@ function computeTeamTotals(players: ParsedParticipant[], scores: Map<number, Sco
     t.assists += p.assists;
     t.dmg += p.totalDamageDealtToChampions;
     t.taken += p.totalDamageTaken;
+    t.cs += p.cs;
     t.gold += p.goldEarned;
     t.heal += p.totalHeal;
     const s = scores.get(p.participantId);

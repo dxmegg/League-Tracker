@@ -4,9 +4,8 @@ import { useLcuStatus } from "../hooks/useLcuStatus";
 import { useBackfill } from "../hooks/useBackfill";
 import type { LcuStatus, UpdateInfo } from "../lib/types";
 import UpdateDialog from "./UpdateDialog";
+import { FolderIcon, SubItemIcon } from "./SidebarIcons";
 import {
-  HourglassIcon,
-  SwordsIcon,
   TrophyIcon,
   CrosshairIcon,
   UsersIcon,
@@ -31,8 +30,8 @@ const historyTabs = [
 const historySections = [
   { slug: "champions", label: "CHAMPIONS", icon: TrophyIcon },
   { slug: "augments", label: "AUGMENTS", icon: CrosshairIcon },
-  { slug: "items", label: "ITEMS", icon: CrosshairIcon },
-  { slug: "runes", label: "RUNES", icon: CrosshairIcon },
+  { slug: "items", label: "ITEMS", icon: SubItemIcon },
+  { slug: "runes", label: "RUNES", icon: SubItemIcon },
   { slug: "friends", label: "FRIENDS", icon: UsersIcon },
   { slug: "enemies", label: "ENEMIES", icon: UsersIcon },
   { slug: "trends", label: "TRENDS", icon: TrendingUpIcon },
@@ -43,6 +42,10 @@ const historySections = [
 // The app is often left open for days, so a launch-only check would never
 // surface a release cut in the meantime.
 const UPDATE_POLL_MS = 6 * 60 * 60 * 1000;
+const AVATAR_SOURCES = [
+  "https://avatars.githubusercontent.com/u/116650859?v=4",
+  "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQsniQCXbR14fpjf6BwUasK8jqYuCd5Q2PQNoh0ywLtIZGtYr_kqZa-Wek&s=10",
+] as const;
 
 const statusColors: Record<LcuStatus, string> = {
   connected: "bg-lol-win",
@@ -100,6 +103,8 @@ export default function Sidebar() {
   const [version, setVersion] = useState("");
   const [update, setUpdate] = useState<UpdateInfo | null>(null);
   const [showUpdateDialog, setShowUpdateDialog] = useState(false);
+  const [avatarSourceIndex, setAvatarSourceIndex] = useState(0);
+  const [avatarFailed, setAvatarFailed] = useState(false);
 
   // Read inside the poll instead of as an effect dep, so opening the dialog
   // doesn't restart the interval
@@ -170,9 +175,36 @@ export default function Sidebar() {
   return (
     <nav className="w-56 bg-lol-card/60 border-r border-lol-border/60 flex flex-col shrink-0">
       <div className="titlebar-drag h-14 shrink-0 flex items-center gap-2.5 px-4 border-b border-lol-border/40">
-        <div className="w-7 h-7 rounded-lg border border-lol-gold/40 bg-lol-gold/10 flex items-center justify-center shrink-0">
-          <HourglassIcon className="w-4 h-4 text-lol-gold" />
-        </div>
+        <button
+          type="button"
+          onClick={() => window.api.openUrl("https://github.com/dxmegg/League-Tracker")}
+          aria-label="Open League Tracker GitHub repository"
+          className="titlebar-no-drag w-8 h-8 rounded-full overflow-hidden shrink-0 transition-opacity hover:opacity-80 focus:outline-none focus:ring-2 focus:ring-lol-gold/60"
+        >
+          {avatarFailed ? (
+            <span
+              aria-hidden="true"
+              className="flex w-full h-full items-center justify-center bg-lol-gold/10 text-sm font-bold text-lol-gold"
+            >
+              L
+            </span>
+          ) : (
+            <img
+              src={AVATAR_SOURCES[avatarSourceIndex]}
+              alt="League Tracker avatar"
+              className="w-full h-full object-cover"
+              onError={() => {
+                const failedUrl = AVATAR_SOURCES[avatarSourceIndex];
+                console.warn("Failed to load League Tracker avatar", failedUrl);
+                if (avatarSourceIndex < AVATAR_SOURCES.length - 1) {
+                  setAvatarSourceIndex((index) => index + 1);
+                } else {
+                  setAvatarFailed(true);
+                }
+              }}
+            />
+          )}
+        </button>
         <div className="flex flex-col justify-center leading-none">
           <span className="font-bold text-[13px] tracking-[0.02em] text-lol-text-bright">
             League Tracker
@@ -183,13 +215,13 @@ export default function Sidebar() {
         </div>
       </div>
       <div className="flex flex-col gap-0.5 p-3 mt-1 flex-1">
-        <NavItem to="/live" label="LIVE GAME" icon={SwordsIcon} />
+        <NavItem to="/profile" label="PROFILE" icon={FolderIcon} />
         {historyTabs.map(({ scope, to, label }) => (
           <div key={scope} className="flex flex-col gap-0.5">
             <NavItem
               to={to}
               label={label}
-              icon={SwordsIcon}
+              icon={FolderIcon}
               active={
                 scope === "full"
                   ? location.pathname === "/" || location.pathname.startsWith("/history/full/")
@@ -275,7 +307,7 @@ export default function Sidebar() {
           <button
             onClick={() =>
               window.api.openUrl(
-                `https://github.com/Yhprum/mayhem-tracker/releases/tag/v${version}`,
+                `https://github.com/dxmegg/League-Tracker/releases/tag/v${version}`,
               )
             }
             className="text-[10px] text-lol-text/50 hover:text-lol-text transition-colors cursor-pointer"

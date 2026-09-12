@@ -567,7 +567,28 @@ export interface RiotAccountConfig {
   gameName: string;
   tagLine: string;
   platform: string;
-  hasApiKey: boolean;
+}
+
+export interface ProfileRankedEntry {
+  tier: string;
+  rank: string;
+  leaguePoints: number;
+  wins: number;
+  losses: number;
+}
+
+export interface ProfileData {
+  puuid: string;
+  gameName: string;
+  tagLine: string;
+  platform: string;
+  profileIconId: number;
+  summonerLevel: number;
+  dataDragonVersion: string;
+  masteryPoints: number;
+  masteryScore: number;
+  rankedSolo: ProfileRankedEntry | null;
+  rankedFlex: ProfileRankedEntry | null;
 }
 
 export interface ReleaseNote {
@@ -625,6 +646,11 @@ export interface ElectronAPI {
   getDashboard: (
     filters?: Pick<MatchFilters, "championId" | "patch" | "queue" | "account">,
   ) => Promise<DashboardData>;
+  getMostPlayedQueue: (
+    puuid: string,
+    gameName: string,
+    tagLine: string,
+  ) => Promise<{ queue_id: number; games: number; wins: number } | null>;
   getChampionMatchHistory: (
     championId: number,
     limit: number,
@@ -659,10 +685,15 @@ export interface ElectronAPI {
   getSummonerPuuid: () => Promise<string | null>;
   getAllSummonerPuuids: () => Promise<string[]>;
   getProfile: () => Promise<{ name: string | null; profileIcon: number | null }>;
+  getProfileData: (
+    gameName: string,
+    tagLine: string,
+    platform: string,
+  ) => Promise<ProfileData | { error: string } | null>;
   refreshGames: () => Promise<{ newGames: number; totalGames: number } | { error: string }>;
   syncRiotHistory: () => Promise<RiotSyncResult | { error: string }>;
   getRiotAccounts: () => Promise<RiotAccountConfig[]>;
-  saveRiotAccount: (account: RiotAccountConfig & { apiKey?: string }) => Promise<void>;
+  saveRiotAccount: (account: RiotAccountConfig) => Promise<void>;
   removeRiotAccount: (id: string) => Promise<void>;
   backfillHistory: () => Promise<BackfillResult | { error: string }>;
   cancelBackfill: () => Promise<void>;

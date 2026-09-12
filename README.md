@@ -1,4 +1,4 @@
-# Mayhem Tracker
+# LeagueTracker
 
 Desktop app for tracking complete League of Legends match history locally. It can connect to the League Client (LCU) for automatic detection and uses Riot's Match-V5 API for complete historical sync.
 

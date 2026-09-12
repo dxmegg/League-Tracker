@@ -9,7 +9,7 @@ import Trends from "./pages/Trends";
 import Records from "./pages/Records";
 import GlobalStats from "./pages/GlobalStats";
 import Settings from "./pages/Settings";
-import LiveGame from "./pages/LiveGame";
+import Profile from "./pages/Profile";
 import HistorySection from "./pages/HistorySection";
 import GlobalChampionDetail from "./pages/GlobalChampionDetail";
 import ItemDetail from "./pages/ItemDetail";
@@ -23,7 +23,7 @@ export default function App() {
     <HashRouter>
       <Routes>
         <Route element={<Layout />}>
-          <Route path="/live" element={<LiveGame />} />
+          <Route path="/profile" element={<Profile />} />
           <Route path="/" element={<MatchHistory />} />
           <Route path="/history/mayhem" element={<MatchHistory scope="mayhem" />} />
           <Route path="/history/rest" element={<MatchHistory scope="rest" />} />

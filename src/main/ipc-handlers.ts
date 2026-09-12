@@ -106,6 +106,25 @@ export function registerIpcHandlers() {
   );
 
   ipcMain.handle(
+    "db:most-played-queue",
+    (_event, puuid: string, gameName: string, tagLine: string) => {
+      let result = db.getMostPlayedQueue(puuid);
+      const totalRows = db
+        .getDatabase()
+        .prepare("SELECT COUNT(*) AS n FROM match_participants WHERE puuid = ?")
+        .get(puuid) as { n: number };
+      console.log("[most-played] puuid:", puuid);
+      console.log("[most-played] rows in match_participants:", totalRows.n);
+      console.log("[most-played] result:", result);
+      if (!result && gameName && tagLine) {
+        result = db.getMostPlayedQueueByName(gameName, tagLine);
+        console.log("[most-played] puuid lookup empty, fell back to name match ->", result);
+      }
+      return result;
+    },
+  );
+
+  ipcMain.handle(
     "db:champion-match-history",
     (_event, championId: number, limit: number, offset: number, patch?: string, queue?: number) => {
       return db.getChampionMatchHistory(championId, limit, offset, patch, queue);
@@ -128,9 +147,22 @@ export function registerIpcHandlers() {
       senderWindow(event)?.webContents.send("lcu:games-updated");
       return result;
     } catch (err) {
-      return { error: riot.friendlyRiotError(err) };
+      return { error: riot.friendlyRiotError(err, "match") };
     }
   });
+  ipcMain.handle(
+    "riot:profile",
+    async (_event, gameName: string, tagLine: string, platform: string) => {
+    console.log("[profile] received:", { gameName, tagLine, platform });
+    try {
+      return await riot.getProfileDataByRiotId(gameName, tagLine, platform);
+    } catch (err) {
+      if (err instanceof riot.RiotApiError && err.status === 404) return null;
+      console.error("Failed to load profile:", riot.friendlyRiotError(err, "account"));
+      return { error: riot.friendlyRiotError(err, "account") };
+    }
+    },
+  );
   ipcMain.handle("riot:accounts", () => riot.getRiotAccounts());
   ipcMain.handle("riot:save-account", (_event, account) => riot.saveRiotAccount(account));
   ipcMain.handle("riot:remove-account", (_event, id: string) => riot.removeRiotAccount(id));

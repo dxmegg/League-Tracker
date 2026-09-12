@@ -42,6 +42,9 @@ const api: ElectronAPI = {
   getDashboard: (filters?: Pick<MatchFilters, "championId" | "patch" | "queue" | "account">) =>
     ipcRenderer.invoke("db:dashboard", filters),
 
+  getMostPlayedQueue: (puuid: string, gameName: string, tagLine: string) =>
+    ipcRenderer.invoke("db:most-played-queue", puuid, gameName, tagLine),
+
   getChampionMatchHistory: (
     championId: number,
     limit: number,
@@ -54,8 +57,10 @@ const api: ElectronAPI = {
 
   syncRiotHistory: (): Promise<RiotSyncResult | { error: string }> =>
     ipcRenderer.invoke("riot:sync"),
+  getProfileData: (gameName: string, tagLine: string, platform: string) =>
+    ipcRenderer.invoke("riot:profile", gameName, tagLine, platform),
   getRiotAccounts: (): Promise<RiotAccountConfig[]> => ipcRenderer.invoke("riot:accounts"),
-  saveRiotAccount: (account: RiotAccountConfig & { apiKey?: string }) =>
+  saveRiotAccount: (account: RiotAccountConfig) =>
     ipcRenderer.invoke("riot:save-account", account),
   removeRiotAccount: (id: string) => ipcRenderer.invoke("riot:remove-account", id),
 

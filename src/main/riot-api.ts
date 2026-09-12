@@ -1,7 +1,8 @@
 import * as db from "./db";
 import { getCurrentSummoner } from "./lcu";
-import { safeStorage } from "electron";
-import type { RiotAccountConfig } from "../shared/api";
+import type { ProfileData, ProfileRankedEntry, RiotAccountConfig } from "../shared/api";
+import { PROXY_BASE_URL } from "../shared/proxy";
+import { getChampionDataVersion } from "./dragon";
 
 export type RiotRegionalRoute = "americas" | "europe" | "asia" | "sea";
 export type RiotPlatformRoute =
@@ -101,15 +102,9 @@ export function normalizeMatchPayload(match: any, matchId: number, puuid: string
   };
 }
 
-function apiKey(): string {
-  const key = process.env.RIOT_API_KEY?.trim();
-  if (!key) throw new Error("RIOT_API_KEY is not configured");
-  return key;
-}
+type StoredRiotAccount = RiotAccountConfig;
 
-type StoredRiotAccount = RiotAccountConfig & { encryptedApiKey: string };
-
-function readAccounts(): StoredRiotAccount[] {
+export function readAccounts(): StoredRiotAccount[] {
   const raw = db.getSetting("riot_accounts");
   if (!raw) return [];
   try {
@@ -138,37 +133,27 @@ function accountKey(account: Pick<StoredRiotAccount, "gameName" | "tagLine" | "p
 }
 
 export function getRiotAccounts(): RiotAccountConfig[] {
-  return readAccounts().map(({ encryptedApiKey, ...account }) => ({
-    ...account,
-    hasApiKey: Boolean(encryptedApiKey),
-  }));
+  return readAccounts();
 }
 
-export function saveRiotAccount(account: RiotAccountConfig & { apiKey?: string }): void {
+export function saveRiotAccount(account: RiotAccountConfig): void {
   const stored = readAccounts();
-  const key = accountKey(account);
-  const previous = stored.find(
-    (existing) => existing.id === account.id || accountKey(existing) === key,
-  );
-  const accounts = stored.filter(
-    (existing) => existing.id !== account.id && accountKey(existing) !== key,
-  );
-  let encryptedApiKey = previous?.encryptedApiKey ?? "";
-  if (account.apiKey?.trim()) {
-    if (!safeStorage.isEncryptionAvailable()) {
-      throw new Error("Secure local credential storage is unavailable");
-    }
-    encryptedApiKey = safeStorage.encryptString(account.apiKey.trim()).toString("base64");
-  }
-  accounts.push({
+  const normalized = {
     id: account.id,
     gameName: account.gameName.trim(),
     tagLine: account.tagLine.trim(),
     platform: account.platform.trim().toLowerCase(),
-    hasApiKey: true,
-    encryptedApiKey,
-  });
-  writeAccounts(accounts);
+  };
+  const existingIndex = stored.findIndex((existing) => existing.id === normalized.id);
+  if (existingIndex >= 0) {
+    stored[existingIndex] = normalized;
+    writeAccounts(stored);
+    return;
+  }
+
+  if (stored.some((existing) => accountKey(existing) === accountKey(normalized))) return;
+  stored.push(normalized);
+  writeAccounts(stored);
 }
 
 export function removeRiotAccount(id: string): void {
@@ -201,14 +186,21 @@ async function acquireRequestSlot(): Promise<() => void> {
   return release;
 }
 
-async function riotFetch<T>(url: string, key = apiKey()): Promise<T> {
+async function riotFetch<T>(url: string, _key?: string, tag?: string): Promise<T> {
+  const original = new URL(url);
+  const originalPlatform = original.hostname.split(".")[0];
+  const originalQuery = original.search.slice(1);
+  const proxyUrl = `${PROXY_BASE_URL}/proxy${original.pathname}?platform=${encodeURIComponent(originalPlatform)}${
+    originalQuery ? `&${originalQuery}` : ""
+  }`;
+  const logPrefix = tag ? `[sync ${tag}] ` : "";
   for (let attempt = 0; ; attempt++) {
-    console.log(`Riot API request: ${url}`);
+    console.log(`${logPrefix}Riot API request: ${proxyUrl}`);
     const release = await acquireRequestSlot();
     let response: Response;
     try {
-      response = await fetch(url, {
-        headers: { "X-Riot-Token": key, Accept: "application/json" },
+      response = await fetch(proxyUrl, {
+        headers: { Accept: "application/json" },
         signal: AbortSignal.timeout(30_000),
       });
       lastRequestAt = Date.now();
@@ -225,8 +217,12 @@ async function riotFetch<T>(url: string, key = apiKey()): Promise<T> {
     }
     const body = await response.text();
     if (!response.ok) {
-      console.error(`Riot API error ${response.status} for ${url}: ${body || "<empty response>"}`);
-      throw new RiotApiError(response.status, url);
+      if (response.status !== 404) {
+        console.error(
+          `${logPrefix}Riot API error ${response.status} for ${proxyUrl}: ${body || "<empty response>"}`,
+        );
+      }
+      throw new RiotApiError(response.status, proxyUrl);
     }
     return JSON.parse(body) as T;
   }
@@ -236,16 +232,148 @@ async function accountByRiotId(
   route: RiotRegionalRoute,
   gameName: string,
   tagLine: string,
-  key: string,
+  tag?: string,
 ): Promise<{ puuid: string; gameName: string; tagLine: string }> {
   return riotFetch(
     `https://${route}.api.riotgames.com/riot/account/v1/accounts/by-riot-id/${encodeURIComponent(gameName)}/${encodeURIComponent(tagLine)}`,
-    key,
+    undefined,
+    tag,
   );
 }
 
+export async function getProfileDataByRiotId(
+  gameName: string,
+  tagLine: string,
+  platform: string,
+): Promise<ProfileData | { error: string } | null> {
+  const normalizedGameName = gameName.trim();
+  const normalizedTagLine = tagLine.trim();
+  const normalizedPlatform = platform.trim().toLowerCase();
+  const route = regionalRoute(normalizedPlatform);
+  const accountUrl = `https://${route}.api.riotgames.com/riot/account/v1/accounts/by-riot-id/${encodeURIComponent(normalizedGameName)}/${encodeURIComponent(normalizedTagLine)}`;
+  console.log("[profile] regional route:", route);
+  console.log("[profile] account URL:", accountUrl);
+  let account: { puuid: string; gameName: string; tagLine: string };
+  try {
+    account = await accountByRiotId(route, normalizedGameName, normalizedTagLine);
+  } catch (err) {
+    console.error("[profile] accountByRiotId failed:", err);
+    throw err;
+  }
+  const profile = await getProfileData(account.puuid, normalizedPlatform);
+  return profile
+    ? {
+        ...profile,
+        gameName: account.gameName || normalizedGameName,
+        tagLine: account.tagLine || normalizedTagLine,
+      }
+    : null;
+}
+
+interface SummonerResponse {
+  profileIconId: number;
+  summonerLevel: number;
+  puuid: string;
+}
+
+interface MasteryResponse {
+  championId: number;
+  championPoints: number;
+  championLevel: number;
+}
+
+interface LeagueResponse {
+  queueType: string;
+  tier: string;
+  rank: string;
+  leaguePoints: number;
+  wins: number;
+  losses: number;
+}
+
+async function riotFetchOrNull<T>(url: string): Promise<T | null> {
+  try {
+    return await riotFetch<T>(url);
+  } catch (err) {
+    if (err instanceof RiotApiError && err.status === 404) return null;
+    throw err;
+  }
+}
+
+function rankedEntry(entries: LeagueResponse[] | null, queueType: string): ProfileRankedEntry | null {
+  const entry = entries?.find((candidate) => candidate.queueType === queueType);
+  return entry
+    ? {
+        tier: entry.tier,
+        rank: entry.rank,
+        leaguePoints: entry.leaguePoints,
+        wins: entry.wins,
+        losses: entry.losses,
+      }
+    : null;
+}
+
+export async function getProfileData(
+  puuid: string,
+  platform: string,
+): Promise<ProfileData | null> {
+  const normalizedPlatform = platform.trim().toLowerCase();
+  const base = `https://${normalizedPlatform}.api.riotgames.com`;
+  const [summoner, mastery, masteryScore, league] = await Promise.all([
+    riotFetchOrNull<SummonerResponse>(
+      `${base}/lol/summoner/v4/summoners/by-puuid/${encodeURIComponent(puuid)}`,
+    ),
+    riotFetchOrNull<MasteryResponse[]>(
+      `${base}/lol/champion-mastery/v4/champion-masteries/by-puuid/${encodeURIComponent(puuid)}`,
+    ),
+    riotFetchOrNull<number>(
+      `${base}/lol/champion-mastery/v4/scores/by-puuid/${encodeURIComponent(puuid)}`,
+    ),
+    riotFetchOrNull<LeagueResponse[]>(
+      `${base}/lol/league/v4/entries/by-puuid/${encodeURIComponent(puuid)}`,
+    ),
+  ]);
+
+  const masteryEntries = mastery ?? [];
+  const topMasteryEntries = [...masteryEntries]
+    .sort((left, right) => right.championPoints - left.championPoints)
+    .slice(0, 5)
+    .map(({ championId, championPoints, championLevel }) => ({
+      championId,
+      championPoints,
+      championLevel,
+    }));
+  const smallestMasteryEntries = [...masteryEntries]
+    .sort((left, right) => left.championPoints - right.championPoints)
+    .slice(0, 5)
+    .map(({ championId }) => championId);
+  console.log("[mastery] entry count:", masteryEntries.length);
+  console.log(
+    "[mastery] total champion points:",
+    masteryEntries.reduce((total, entry) => total + entry.championPoints, 0),
+  );
+  console.log("[mastery] top 5 entries:", topMasteryEntries);
+  console.log("[mastery] smallest 5 champion IDs:", smallestMasteryEntries);
+  console.log("[mastery] raw score response:", masteryScore);
+
+  if (!summoner) return null;
+  return {
+    puuid: summoner.puuid || puuid,
+    gameName: db.getSetting("riot_game_name") ?? "Summoner",
+    tagLine: db.getSetting("riot_tag_line") ?? "",
+    platform: normalizedPlatform,
+    profileIconId: summoner.profileIconId,
+    summonerLevel: summoner.summonerLevel,
+    dataDragonVersion: getChampionDataVersion(),
+    // Riot's live mastery totals can differ slightly from op.gg's cached snapshot.
+    masteryPoints: mastery?.reduce((total, entry) => total + entry.championPoints, 0) ?? 0,
+    masteryScore: masteryScore ?? 0,
+    rankedSolo: rankedEntry(league, "RANKED_SOLO_5x5"),
+    rankedFlex: rankedEntry(league, "RANKED_FLEX_SR"),
+  };
+}
+
 async function configuredIdentity(
-  key = apiKey(),
   configured?: Pick<StoredRiotAccount, "gameName" | "tagLine" | "platform">,
 ): Promise<{
   puuid: string;
@@ -273,19 +401,20 @@ async function configuredIdentity(
   const tagLine = configured?.tagLine.trim() || db.getSetting("riot_tag_line")?.trim();
   const platform = configured?.platform.trim() || db.getSetting("riot_platform")?.trim() || "na1";
   if (!gameName || !tagLine) {
-    const savedPuuid = db.getSetting("riot_puuid")?.trim();
-    if (savedPuuid) {
-      return {
-        puuid: savedPuuid,
-        gameName: gameName || null,
-        tagLine: tagLine || null,
-        platform,
-      };
-    }
-    throw new Error("Configure a Riot ID (game name and tag) or start the League client");
+    throw new Error("No account selected. Open the League client or enter a Riot ID in Settings.");
   }
 
-  const account = await accountByRiotId(regionalRoute(platform), gameName, tagLine, key);
+  let account: { puuid: string; gameName: string; tagLine: string };
+  try {
+    account = await accountByRiotId(
+      regionalRoute(platform),
+      gameName,
+      tagLine,
+      `${gameName}#${tagLine}`,
+    );
+  } catch (err) {
+    throw new Error(friendlyRiotError(err, "account"));
+  }
   db.setSetting("riot_puuid", account.puuid);
   db.upsertSummoner({ puuid: account.puuid, gameName: account.gameName, tagLine: account.tagLine });
   return { puuid: account.puuid, gameName: account.gameName, tagLine: account.tagLine, platform };
@@ -303,19 +432,16 @@ export async function syncRiotHistory(): Promise<RiotSyncResult> {
   const identities = stored.length
     ? await Promise.all(
         stored.map(async (account) => {
-          if (!account.encryptedApiKey)
-            throw new Error(`No API key configured for ${account.gameName}`);
-          const key = safeStorage.decryptString(Buffer.from(account.encryptedApiKey, "base64"));
-          const identity = await configuredIdentity(key, account);
-          return { identity, key };
+          const identity = await configuredIdentity(account);
+          return { identity };
         }),
       )
-    : [{ identity: await configuredIdentity(), key: apiKey() }];
+    : [{ identity: await configuredIdentity() }];
   let added = 0;
   let scanned = 0;
   let complete = true;
-  for (const { identity, key } of identities) {
-    const result = await syncRiotAccount(identity, key);
+  for (const { identity } of identities) {
+    const result = await syncRiotAccount(identity);
     added += result.added;
     scanned += result.scanned;
     complete &&= result.complete;
@@ -325,14 +451,15 @@ export async function syncRiotHistory(): Promise<RiotSyncResult> {
 
 async function syncRiotAccount(
   identity: Awaited<ReturnType<typeof configuredIdentity>>,
-  key: string,
 ): Promise<RiotSyncResult> {
   const route = regionalRoute(identity.platform);
+  const tag = `${identity.gameName ?? identity.puuid}#${identity.tagLine ?? ""}`;
   // Per-account, not the global getKnownGameIds(): a game only counts as
   // known for *this* account once it shows up among its own participants,
   // so pagination doesn't stop early just because another tracked account
   // already synced a game this account also happened to play in.
   const known = db.getKnownGameIdsForPuuid(identity.puuid);
+  const ignored = db.getIgnoredGameIds();
   const pageSize = 100;
   const configuredPage = Number(db.getSetting("riot_sync_page_size") ?? pageSize);
   const count = Math.min(
@@ -342,13 +469,19 @@ async function syncRiotAccount(
   const ids: number[] = [];
 
   for (let start = 0; start < 10_000; start += count) {
-    const page = await riotFetch<string[]>(
-      `https://${route}.api.riotgames.com/lol/match/v5/matches/by-puuid/${encodeURIComponent(identity.puuid)}/ids?start=${start}&count=${count}`,
-      key,
-    );
+    let page: string[];
+    try {
+      page = await riotFetch<string[]>(
+        `https://${route}.api.riotgames.com/lol/match/v5/matches/by-puuid/${encodeURIComponent(identity.puuid)}/ids?start=${start}&count=${count}`,
+        undefined,
+        tag,
+      );
+    } catch (err) {
+      throw new Error(friendlyRiotError(err, "match"));
+    }
     for (const raw of page) {
       const id = normalizeMatchId(raw);
-      if (id !== null && !ids.includes(id)) ids.push(id);
+      if (id !== null && !ids.includes(id) && !ignored.has(id)) ids.push(id);
     }
     if (page.length < count || page.some((id) => known.has(normalizeMatchId(id) ?? -1))) break;
   }
@@ -356,10 +489,23 @@ async function syncRiotAccount(
   let added = 0;
   for (const id of ids) {
     if (known.has(id)) continue;
-    const payload = await riotFetch<any>(
-      `https://${route}.api.riotgames.com/lol/match/v5/matches/${id}`,
-      key,
-    );
+    let payload: any;
+    try {
+      payload = await riotFetch<any>(
+        `https://${route}.api.riotgames.com/lol/match/v5/matches/${id}`,
+        undefined,
+        tag,
+      );
+    } catch (err) {
+      if (err instanceof RiotApiError && err.status === 404) {
+        console.warn(
+          `[sync ${tag}] Match ${id} not available on Riot's servers (404), skipping.`,
+        );
+        db.markIgnoredGame(id);
+        continue;
+      }
+      throw new Error(friendlyRiotError(err, "match"));
+    }
     const normalized = normalizeMatchPayload(payload, id, identity.puuid);
     if (db.insertGameFull(normalized, identity.puuid)) added++;
   }
@@ -373,11 +519,15 @@ async function syncRiotAccount(
   };
 }
 
-export function friendlyRiotError(err: unknown): string {
+export function friendlyRiotError(err: unknown, context: "account" | "match" = "match"): string {
   if (err instanceof RiotApiError) {
     if (err.status === 401 || err.status === 403)
       return "Riot API key is missing, invalid, or expired";
-    if (err.status === 404) return "Riot account or match was not found";
+    if (err.status === 404) {
+      return context === "account"
+        ? "Riot account not found. Check that the GameName#TagLine is correct and that the account exists on the selected server."
+        : "Riot match not found.";
+    }
     if (err.status === 429) return "Riot API rate limit reached — try again later";
     if (err.status >= 500) return "Riot API is temporarily unavailable";
   }

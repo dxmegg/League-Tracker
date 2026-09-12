@@ -1908,6 +1908,7 @@ export function getDashboardData(filters?: {
     where.push("ps.champion_id = ?");
     params.push(filters.championId);
   }
+
   if (filters?.account) {
     where.push("g.puuid = ?");
     params.push(filters.account);
@@ -2010,6 +2011,46 @@ export function getDashboardData(filters?: {
     },
     topAugments,
   };
+}
+
+export function getMostPlayedQueue(
+  puuid: string,
+): { queue_id: number; games: number; wins: number } | null {
+  const row = db
+    .prepare(`
+      SELECT mp.queue_id AS queue_id,
+             COUNT(*) AS games,
+             SUM(mp.win) AS wins
+      FROM match_participants mp
+      WHERE mp.puuid = ? AND mp.is_remake = 0 AND mp.queue_id IS NOT NULL
+      GROUP BY mp.queue_id
+      ORDER BY games DESC
+      LIMIT 1
+    `)
+    .get(puuid) as { queue_id: number; games: number; wins: number } | undefined;
+  return row ?? null;
+}
+
+export function getMostPlayedQueueByName(
+  gameName: string,
+  tagLine: string,
+): { queue_id: number; games: number; wins: number } | null {
+  const row = db
+    .prepare(`
+      SELECT mp.queue_id AS queue_id,
+             COUNT(*) AS games,
+             SUM(mp.win) AS wins
+      FROM match_participants mp
+      WHERE LOWER(mp.game_name) = LOWER(?)
+        AND LOWER(mp.tag_line) = LOWER(?)
+        AND mp.is_remake = 0
+        AND mp.queue_id IS NOT NULL
+      GROUP BY mp.queue_id
+      ORDER BY games DESC
+      LIMIT 1
+    `)
+    .get(gameName, tagLine) as { queue_id: number; games: number; wins: number } | undefined;
+  return row ?? null;
 }
 
 export function getAugmentStatsWithChampions(
@@ -2171,6 +2212,11 @@ export function getKnownGameIdsForPuuid(puuid: string): Set<number> {
 
 export function markIgnoredGame(gameId: number): void {
   db.prepare("INSERT OR IGNORE INTO ignored_games (game_id) VALUES (?)").run(gameId);
+}
+
+export function getIgnoredGameIds(): Set<number> {
+  const rows = db.prepare("SELECT game_id FROM ignored_games").all() as { game_id: number }[];
+  return new Set(rows.map((row) => row.game_id));
 }
 
 // The game's owner among its participant rows. participantRowsFromRaw has

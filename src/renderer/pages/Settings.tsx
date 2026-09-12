@@ -3,6 +3,7 @@ import { useBackfill } from "../hooks/useBackfill";
 import { queueLabel } from "../components/QueueSelect";
 import { setRemembering } from "../lib/viewState";
 import type { BackupInfo, RiotAccountConfig } from "../lib/types";
+import { PLATFORM_TO_NAME } from "../../shared/regions";
 
 const BACKUP_REASONS: Record<string, string> = {
   auto: "Scheduled",
@@ -22,6 +23,14 @@ function formatTaken(timestamp: number): string {
     hour: "2-digit",
     minute: "2-digit",
   })}`;
+}
+
+function splitRiotId(value: string): { gameName: string; tagLine: string } | null {
+  const separator = value.indexOf("#");
+  if (separator < 0) return null;
+  const gameName = value.slice(0, separator).trim();
+  const tagLine = value.slice(separator + 1).trim();
+  return gameName && tagLine ? { gameName, tagLine } : null;
 }
 
 function Switch({
@@ -67,19 +76,14 @@ export default function Settings() {
   const [hideRemakes, setHideRemakes] = useState(false);
   const [autoBackup, setAutoBackup] = useState(true);
   const [rememberFilters, setRememberFilters] = useState(false);
-  const [riotGameName, setRiotGameName] = useState("");
-  const [riotTagLine, setRiotTagLine] = useState("");
-  const [riotPlatform, setRiotPlatform] = useState("na1");
-  const [riotApiKey, setRiotApiKey] = useState("");
   const [riotSyncStatus, setRiotSyncStatus] = useState<string | null>(null);
   const [riotSyncing, setRiotSyncing] = useState(false);
   const [riotAccounts, setRiotAccounts] = useState<RiotAccountConfig[]>([]);
+  const [accountDraftError, setAccountDraftError] = useState<string | null>(null);
   const [accountDraft, setAccountDraft] = useState({
     id: "",
-    gameName: "",
-    tagLine: "",
+    riotId: "",
     platform: "na1",
-    apiKey: "",
   });
   const [loading, setLoading] = useState(true);
   const [exportStatus, setExportStatus] = useState<string | null>(null);
@@ -101,9 +105,6 @@ export default function Settings() {
       window.api.getSetting("hide_remakes"),
       window.api.getSetting("auto_backup"),
       window.api.getSetting("remember_filters"),
-      window.api.getSetting("riot_game_name"),
-      window.api.getSetting("riot_tag_line"),
-      window.api.getSetting("riot_platform"),
     ]).then(
       ([
         startup,
@@ -113,9 +114,6 @@ export default function Settings() {
         remakes,
         backup,
         remember,
-        gameName,
-        tagLine,
-        platform,
       ]) => {
         setAutoStart(startup === "true");
         setAutoStartSupported(startupSupported);
@@ -124,9 +122,6 @@ export default function Settings() {
         setHideRemakes(remakes === "true");
         setAutoBackup(backup !== "false");
         setRememberFilters(remember === "true");
-        setRiotGameName(gameName ?? "");
-        setRiotTagLine(tagLine ?? "");
-        setRiotPlatform(platform ?? "na1");
         setLoading(false);
       },
     );
@@ -136,34 +131,10 @@ export default function Settings() {
     window.api.getRiotAccounts().then(setRiotAccounts);
   }, []);
 
-  const saveRiotSetting = useCallback(async (key: string, value: string) => {
-    await window.api.setSetting(key, value.trim());
-  }, []);
-
   const handleRiotSync = useCallback(async () => {
     setRiotSyncing(true);
     setRiotSyncStatus(null);
     try {
-      const gameName = riotGameName.trim();
-      const tagLine = riotTagLine.trim();
-      const platform = riotPlatform.trim() || "na1";
-      if (!gameName || !tagLine) {
-        setRiotSyncStatus("Enter a Riot ID name and tag before syncing");
-        return;
-      }
-
-      // Saving the account does not require an API key. The main process
-      // preserves an existing encrypted key when apiKey is omitted.
-      await window.api.saveRiotAccount({
-        id: "primary",
-        gameName,
-        tagLine,
-        platform,
-        hasApiKey: Boolean(riotApiKey.trim()),
-        apiKey: riotApiKey.trim() || undefined,
-      });
-      setRiotAccounts(await window.api.getRiotAccounts());
-
       const result = await window.api.syncRiotHistory();
       setRiotSyncStatus(
         "error" in result
@@ -175,21 +146,24 @@ export default function Settings() {
     } finally {
       setRiotSyncing(false);
     }
-  }, [riotApiKey, riotGameName, riotPlatform, riotTagLine]);
+  }, []);
 
   const saveAccount = useCallback(async () => {
-    if (!accountDraft.gameName.trim() || !accountDraft.tagLine.trim()) return;
+    const identity = splitRiotId(accountDraft.riotId);
+    if (!identity) {
+      setAccountDraftError("Riot ID must be in GameName#TagLine format");
+      return;
+    }
+    setAccountDraftError(null);
     const account = {
       id: accountDraft.id || crypto.randomUUID(),
-      gameName: accountDraft.gameName,
-      tagLine: accountDraft.tagLine,
+      gameName: identity.gameName,
+      tagLine: identity.tagLine,
       platform: accountDraft.platform,
-      hasApiKey: true,
-      apiKey: accountDraft.apiKey,
     };
     await window.api.saveRiotAccount(account);
     setRiotAccounts(await window.api.getRiotAccounts());
-    setAccountDraft({ id: "", gameName: "", tagLine: "", platform: "na1", apiKey: "" });
+    setAccountDraft({ id: "", riotId: "", platform: "euw1" });
   }, [accountDraft]);
 
   const removeAccount = useCallback(async (id: string) => {
@@ -381,43 +355,10 @@ export default function Settings() {
 
       <div className="bg-lol-card rounded-xl border border-lol-border/60 p-5">
         <h2 className="text-sm font-semibold text-lol-text-bright mb-2">League history sync</h2>
-        <div className="mb-3 rounded-md border border-red-500/50 bg-red-500/10 px-3 py-2 text-xs font-bold tracking-wide text-red-300">
-          NOT WORKING AT THE MOMENT
-        </div>
         <p className="text-xs text-lol-text mb-4">
           Riot API sync imports every queue and keeps it available offline. The League client is
           detected automatically when running; these values are the fallback.
         </p>
-        <div className="grid grid-cols-[1fr_1fr_100px] gap-2">
-          <input
-            className="input"
-            placeholder="Riot ID name"
-            value={riotGameName}
-            onChange={(e) => setRiotGameName(e.target.value)}
-            onBlur={() => saveRiotSetting("riot_game_name", riotGameName)}
-          />
-          <input
-            className="input"
-            placeholder="Tag (without #)"
-            value={riotTagLine}
-            onChange={(e) => setRiotTagLine(e.target.value)}
-            onBlur={() => saveRiotSetting("riot_tag_line", riotTagLine)}
-          />
-          <input
-            className="input"
-            placeholder="na1"
-            value={riotPlatform}
-            onChange={(e) => setRiotPlatform(e.target.value)}
-            onBlur={() => saveRiotSetting("riot_platform", riotPlatform)}
-          />
-        </div>
-        <input
-          className="input mt-2 w-full"
-          type="password"
-          placeholder="Riot API key for sync (optional for saving the account)"
-          value={riotApiKey}
-          onChange={(e) => setRiotApiKey(e.target.value)}
-        />
         <div className="flex items-center gap-3 mt-3">
           <button
             className="rounded-md bg-lol-gold/15 border border-lol-gold/40 px-3 py-1.5 text-xs text-lol-gold disabled:opacity-50"
@@ -430,9 +371,7 @@ export default function Settings() {
           {riotSyncStatus && <span className="text-xs text-lol-text">{riotSyncStatus}</span>}
         </div>
         <p className="text-[11px] text-lol-text/70 mt-3">
-          API keys are encrypted with the operating system credential store and are only used by the
-          Electron main process. They are never returned to the renderer after saving. You can still
-          use <code>RIOT_API_KEY</code> for a single account in development.
+          This syncs every account in the Saved accounts list using the built-in API proxy.
         </p>
         {riotAccounts.length > 0 && (
           <div className="space-y-2 mt-4">
@@ -455,8 +394,7 @@ export default function Settings() {
                 className="flex items-center justify-between rounded-md border border-lol-border px-3 py-2"
               >
                 <span className="text-xs text-lol-text-bright">
-                  {account.gameName}#{account.tagLine} · {account.platform} ·{" "}
-                  {account.hasApiKey ? "API key saved" : "API key missing"}
+                  {account.gameName}#{account.tagLine} · {account.platform}
                 </span>
                 <button
                   className="text-xs text-lol-loss"
@@ -469,34 +407,30 @@ export default function Settings() {
             ))}
           </div>
         )}
-        <div className="grid grid-cols-[1fr_1fr_90px] gap-2 mt-4">
+        <div className="grid grid-cols-[1fr_220px] gap-2 mt-4">
           <input
             className="input"
-            placeholder="Additional Riot ID"
-            value={accountDraft.gameName}
-            onChange={(e) => setAccountDraft((v) => ({ ...v, gameName: e.target.value }))}
+            placeholder="GameName#TagLine"
+            value={accountDraft.riotId}
+            onChange={(e) => {
+              setAccountDraft((v) => ({ ...v, riotId: e.target.value }));
+              setAccountDraftError(null);
+            }}
           />
-          <input
-            className="input"
-            placeholder="Tag"
-            value={accountDraft.tagLine}
-            onChange={(e) => setAccountDraft((v) => ({ ...v, tagLine: e.target.value }))}
-          />
-          <input
-            className="input"
-            placeholder="na1"
+          <select
             value={accountDraft.platform}
             onChange={(e) => setAccountDraft((v) => ({ ...v, platform: e.target.value }))}
-          />
+            className="input"
+          >
+            {Object.entries(PLATFORM_TO_NAME).map(([code, name]) => (
+              <option key={code} value={code}>
+                {name}
+              </option>
+            ))}
+          </select>
         </div>
+        {accountDraftError && <p className="mt-1 text-xs text-red-300">{accountDraftError}</p>}
         <div className="flex gap-2 mt-2">
-          <input
-            className="input flex-1"
-            type="password"
-            placeholder="Riot API key for this account"
-            value={accountDraft.apiKey}
-            onChange={(e) => setAccountDraft((v) => ({ ...v, apiKey: e.target.value }))}
-          />
           <button
             className="rounded-md border border-lol-border px-3 text-xs text-lol-text"
             type="button"
@@ -765,6 +699,114 @@ export default function Settings() {
             </button>
           </div>
           {backupStatus && <p className="text-xs text-lol-text">{backupStatus}</p>}
+        </div>
+      </div>
+
+      {/* Credits */}
+      <div className="bg-lol-card rounded-xl border border-lol-border/60 p-5">
+        <h2 className="text-sm font-semibold text-lol-text-bright mb-4">
+          Credits &amp; Acknowledgements
+        </h2>
+        <div className="space-y-3 text-sm text-lol-text leading-relaxed">
+          <p>
+            <a
+              href="https://github.com/dxmegg/League-Tracker"
+              onClick={(event) => {
+                event.preventDefault();
+                window.api.openUrl("https://github.com/dxmegg/League-Tracker");
+              }}
+              className="text-lol-gold hover:underline"
+            >
+              League Tracker
+            </a>{" "}
+            - By{" "}
+            <a
+              href="https://github.com/dxmegg"
+              onClick={(event) => {
+                event.preventDefault();
+                window.api.openUrl("https://github.com/dxmegg");
+              }}
+              className="text-lol-gold hover:underline"
+            >
+              me
+            </a>
+            , for{" "}
+            <a
+              href="https://github.com/dxmegg"
+              onClick={(event) => {
+                event.preventDefault();
+                window.api.openUrl("https://github.com/dxmegg");
+              }}
+              className="text-lol-gold hover:underline"
+            >
+              me
+            </a>
+          </p>
+          <p>
+            This project is a fork of{" "}
+            <a
+              href="https://github.com/Yhprum/mayhem-tracker"
+              onClick={(event) => {
+                event.preventDefault();
+                window.api.openUrl("https://github.com/Yhprum/mayhem-tracker");
+              }}
+              className="text-lol-gold hover:underline"
+            >
+              Mayhem Tracker
+            </a>{" "}
+            by{" "}
+            <a
+              href="https://github.com/Yhprum"
+              onClick={(event) => {
+                event.preventDefault();
+                window.api.openUrl("https://github.com/Yhprum");
+              }}
+              className="text-lol-gold hover:underline"
+            >
+              Yhprum
+            </a>
+            .
+          </p>
+          <p>
+            Huge thanks to{" "}
+            <a
+              href="https://github.com/Yhprum"
+              onClick={(event) => {
+                event.preventDefault();
+                window.api.openUrl("https://github.com/Yhprum");
+              }}
+              className="text-lol-gold hover:underline"
+            >
+              Yhprum
+            </a>{" "}
+            for creating the original Mayhem Tracker. The original project inspired me to build
+            this fork and adapt it for my own needs. Without{" "}
+            <a
+              href="https://github.com/Yhprum"
+              onClick={(event) => {
+                event.preventDefault();
+                window.api.openUrl("https://github.com/Yhprum");
+              }}
+              className="text-lol-gold hover:underline"
+            >
+              Yhprum
+            </a>
+            's work, this wouldn&apos;t exist.
+          </p>
+          <p>
+            If you&apos;re looking for the original, unmodified tracker, check out it{" "}
+            <a
+              href="https://github.com/Yhprum/mayhem-tracker"
+              onClick={(event) => {
+                event.preventDefault();
+                window.api.openUrl("https://github.com/Yhprum/mayhem-tracker");
+              }}
+              className="text-lol-gold hover:underline"
+            >
+              here
+            </a>
+            .
+          </p>
         </div>
       </div>
     </div>
