@@ -258,7 +258,7 @@ export default function Sidebar() {
         ))}
       </div>
       <div className="px-3">
-        <NavItem to="/experiments" label="Experiments" icon={FolderIcon} />
+        <NavItem to="/experiments" label="EXPERIMENTS" icon={FolderIcon} />
       </div>
       <div className="px-3 pb-1">
         <NavItem to="/settings" label="Settings" icon={SettingsIcon} />

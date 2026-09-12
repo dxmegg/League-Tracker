@@ -706,9 +706,12 @@ export interface ElectronAPI {
   getRecentRiotMatches: (
     puuid: string,
     platform: string,
+    start: number,
     count: number,
-    start?: number,
   ) => Promise<RecentRiotMatch[] | { error: string }>;
+  onRecentMatchesProgress: (
+    callback: (progress: { current: number; total: number }) => void,
+  ) => () => void;
   getChampionMatchHistory: (
     championId: number,
     limit: number,

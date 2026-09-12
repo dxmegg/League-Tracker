@@ -630,8 +630,7 @@ function RecentRiotMatchesSection({
   puuid,
   onRefresh,
   onLoadMore,
-  loadingMore,
-  canLoadMore,
+  loadingMoreMatches,
 }: {
   matches: RecentRiotMatch[] | null;
   loading: boolean;
@@ -641,8 +640,7 @@ function RecentRiotMatchesSection({
   puuid: string | null;
   onRefresh: () => void;
   onLoadMore: () => void;
-  loadingMore: boolean;
-  canLoadMore: boolean;
+  loadingMoreMatches: boolean;
 }) {
   return (
     <section className="rounded-xl border border-lol-border bg-lol-card p-5">
@@ -672,7 +670,7 @@ function RecentRiotMatchesSection({
       ) : (
         <>
           <div className="mt-4 space-y-2">
-            {matches.slice(0, 20).map((match) => {
+            {matches.map((match) => {
               const champion = championData[match.championId];
               return (
                 <div
@@ -709,18 +707,16 @@ function RecentRiotMatchesSection({
               );
             })}
           </div>
-          {canLoadMore && (
-            <div className="mt-4 flex justify-center">
-              <button
-                type="button"
-                onClick={onLoadMore}
-                disabled={loadingMore}
-                className="h-9 rounded-lg border border-lol-border bg-lol-card px-4 text-sm text-lol-text transition-colors hover:border-lol-gold/60 hover:text-lol-text-bright disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                {loadingMore ? "Loading…" : "Load More"}
-              </button>
-            </div>
-          )}
+          <div className="mt-3">
+            <button
+              type="button"
+              onClick={onLoadMore}
+              disabled={loadingMoreMatches}
+              className="w-full h-9 rounded-lg border border-lol-border bg-lol-card text-sm text-lol-text transition-colors hover:border-lol-gold/60 hover:text-lol-text-bright disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {loadingMoreMatches ? "Loading…" : "Load More"}
+            </button>
+          </div>
         </>
       )}
     </section>
@@ -780,6 +776,8 @@ function ProfileForm({
 
 export default function Profile({ localMode = false }: { localMode?: boolean }) {
   const championData = useChampionData();
+  const RECENT_PAGE_SIZE = 20;
+  const RECENT_LOAD_MORE_SIZE = 10;
   const [gameNameInput, setGameNameInput] = useState("");
   const [platform, setPlatform] = useState("euw1");
   const [profile, setProfile] = useState<ProfileData | null>(null);
@@ -794,8 +792,8 @@ export default function Profile({ localMode = false }: { localMode?: boolean }) 
   const [loading, setLoading] = useState(false);
   const [refreshPhase, setRefreshPhase] = useState<string | null>(null);
   const [refreshTotal, setRefreshTotal] = useState(0);
-  const [recentMatchesStart, setRecentMatchesStart] = useState(0);
-  const [loadingMoreRecent, setLoadingMoreRecent] = useState(false);
+  const [recentMatchesCount, setRecentMatchesCount] = useState(RECENT_PAGE_SIZE);
+  const [loadingMoreMatches, setLoadingMoreMatches] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notFound, setNotFound] = useState(false);
   const [recentProfiles, setRecentProfiles] = useState<ProfileLookup[]>([]);
@@ -804,11 +802,16 @@ export default function Profile({ localMode = false }: { localMode?: boolean }) 
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
   const [favoriteMessage, setFavoriteMessage] = useState<string | null>(null);
   const [linksOpen, setLinksOpen] = useState(false);
-  const RECENT_PAGE_SIZE = 20;
-  const RECENT_LOAD_MORE_SIZE = 10;
   const hasAutoLoaded = useRef(false);
   const recentMatchesRequest = useRef(0);
   const favoriteMessageTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    return window.api.onRecentMatchesProgress(({ current, total }) => {
+      setRefreshTotal(total);
+      setRefreshPhase(`Fetching matches… ${current} / ${total}`);
+    });
+  }, []);
 
   const loadRecentMatches = useCallback(async (puuid: string, selectedPlatform: string) => {
     const requestId = ++recentMatchesRequest.current;
@@ -818,13 +821,15 @@ export default function Profile({ localMode = false }: { localMode?: boolean }) 
       const recentResult = await window.api.getRecentRiotMatches(
         puuid,
         selectedPlatform,
-        10,
+        0,
+        RECENT_PAGE_SIZE,
       );
       if (requestId !== recentMatchesRequest.current) return;
       if ("error" in recentResult) {
         setRecentMatchesError(recentResult.error);
       } else {
         setRecentMatches(recentResult);
+        setRecentMatchesCount(RECENT_PAGE_SIZE);
       }
     } catch (err: unknown) {
       if (requestId === recentMatchesRequest.current) {
@@ -855,6 +860,7 @@ export default function Profile({ localMode = false }: { localMode?: boolean }) 
     setRecentGames(null);
     setRecentAllGames(null);
     setTotalMatches(null);
+    setRecentMatchesCount(RECENT_PAGE_SIZE);
     recentMatchesRequest.current += 1;
     setRecentMatches(null);
     setRecentMatchesError(null);
@@ -893,8 +899,8 @@ export default function Profile({ localMode = false }: { localMode?: boolean }) 
                 window.api.getRecentRiotMatches(
                   result.puuid,
                   result.platform,
-                  RECENT_PAGE_SIZE,
                   0,
+                  RECENT_PAGE_SIZE,
                 ),
                 PROFILE_TIMEOUT_MS,
               ),
@@ -945,7 +951,7 @@ export default function Profile({ localMode = false }: { localMode?: boolean }) 
               }
             } else {
               setRecentMatches(recent);
-              setRecentMatchesStart(RECENT_PAGE_SIZE);
+              setRecentMatchesCount(RECENT_PAGE_SIZE);
               const derived = deriveFromRiotMatches(recent);
               setMostPlayed(localQueue ?? derived.mostPlayed);
               setTotalMatches(localTotals ?? derived.totals);
@@ -1325,40 +1331,34 @@ export default function Profile({ localMode = false }: { localMode?: boolean }) 
   );
 
   const loadMoreRecent = useCallback(async () => {
-    if (!profile || loadingMoreRecent) return;
-    setLoadingMoreRecent(true);
+    if (!profile || loadingMoreMatches) return;
+    const nextCount = recentMatchesCount + RECENT_LOAD_MORE_SIZE;
+    setLoadingMoreMatches(true);
     try {
-      setRefreshTotal(RECENT_LOAD_MORE_SIZE);
-      setRefreshPhase(`Fetching matches… 0 / ${RECENT_LOAD_MORE_SIZE}`);
+      setRefreshTotal(nextCount);
+      setRefreshPhase(`Fetching matches… 0 / ${nextCount}`);
       const more = await window.api.getRecentRiotMatches(
         profile.puuid,
         profile.platform,
-        RECENT_LOAD_MORE_SIZE,
-        recentMatchesStart,
+        0,
+        nextCount,
       );
       if ("error" in more) {
         setRecentMatchesError(more.error);
         return;
       }
-      setRefreshPhase(
-        `Fetching matches… ${more.length} / ${RECENT_LOAD_MORE_SIZE}`,
-      );
-      if (more.length === 0) {
-        setRecentMatchesStart((start) => start);
-        return;
-      }
-      setRecentMatches((prev) => [...(prev ?? []), ...more]);
-      setRecentMatchesStart((start) => start + more.length);
+      setRecentMatches(more);
+      setRecentMatchesCount(nextCount);
     } catch (err) {
       setRecentMatchesError(
         err instanceof Error ? err.message : "Could not load more matches",
       );
     } finally {
-      setLoadingMoreRecent(false);
+      setLoadingMoreMatches(false);
       setRefreshPhase(null);
       setRefreshTotal(0);
     }
-  }, [profile, recentMatchesStart, loadingMoreRecent]);
+  }, [profile, recentMatchesCount, loadingMoreMatches]);
 
   const handleRefreshProfile = useCallback(() => {
     if (!profile) return;
@@ -1392,8 +1392,7 @@ export default function Profile({ localMode = false }: { localMode?: boolean }) 
             puuid={null}
             onRefresh={() => undefined}
             onLoadMore={() => undefined}
-            loadingMore={false}
-            canLoadMore={false}
+            loadingMoreMatches={false}
           />
         )}
       </div>
@@ -1649,8 +1648,7 @@ export default function Profile({ localMode = false }: { localMode?: boolean }) 
             void loadRecentMatches(profile.puuid, profile.platform);
           }}
           onLoadMore={loadMoreRecent}
-          loadingMore={loadingMoreRecent}
-          canLoadMore={!loading && !loadingMoreRecent && (recentMatches?.length ?? 0) > 0}
+          loadingMoreMatches={loadingMoreMatches}
         />
       )}
     </div>

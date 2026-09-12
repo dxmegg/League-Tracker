@@ -56,8 +56,19 @@ const api: ElectronAPI = {
     limit: number,
   ) => ipcRenderer.invoke("db:recent-games", puuid, gameName, tagLine, queueIds, limit),
 
-  getRecentRiotMatches: (puuid: string, platform: string, count: number, start?: number) =>
-    ipcRenderer.invoke("riot:recent-matches", puuid, platform, count, start),
+  getRecentRiotMatches: (puuid: string, platform: string, start: number, count: number) =>
+    ipcRenderer.invoke("riot:recent-matches", puuid, platform, start, count),
+
+  onRecentMatchesProgress: (
+    callback: (progress: { current: number; total: number }) => void,
+  ) => {
+    const handler = (
+      _event: unknown,
+      progress: { current: number; total: number },
+    ) => callback(progress);
+    ipcRenderer.on("riot:recent-matches-progress", handler);
+    return () => ipcRenderer.removeListener("riot:recent-matches-progress", handler);
+  },
 
   getChampionMatchHistory: (
     championId: number,

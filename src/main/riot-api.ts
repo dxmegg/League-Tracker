@@ -92,47 +92,86 @@ type RecentMatchResponse = {
   };
 };
 
+type CachedIds = { ids: string[]; fetchedAt: number };
+const recentIdsCache = new Map<string, CachedIds>();
+const RECENT_IDS_TTL_MS = 5 * 60 * 1000;
+
+function recentIdsCacheKey(puuid: string, platform: string): string {
+  return `${platform.toLowerCase()}:${puuid}`;
+}
+
+type RecentMatchesProgressListener = (current: number, total: number) => void;
+let recentMatchesProgressListener: RecentMatchesProgressListener | null = null;
+
+export function setRecentMatchesProgressListener(
+  listener: RecentMatchesProgressListener | null,
+): void {
+  recentMatchesProgressListener = listener;
+}
+
 export async function getRecentRiotMatches(
   puuid: string,
   platform: string,
+  start: number,
   count: number,
-  start = 0,
 ): Promise<RecentRiotMatch[]> {
-  const route = regionalRoute(platform);
   const safeCount = Math.max(0, Math.min(Math.floor(count), 100));
   const safeStart = Math.max(0, Math.floor(start));
   if (safeCount === 0) return [];
 
-  const ids = await riotFetch<string[]>(
-    `https://${route}.api.riotgames.com/lol/match/v5/matches/by-puuid/${encodeURIComponent(puuid)}/ids?start=${safeStart}&count=${safeCount}`,
-  );
+  const route = regionalRoute(platform);
+  const cacheKey = recentIdsCacheKey(puuid, platform);
+  const cached = recentIdsCache.get(cacheKey);
+  const now = Date.now();
+  let ids: string[];
+  if (
+    cached &&
+    now - cached.fetchedAt < RECENT_IDS_TTL_MS &&
+    cached.ids.length >= safeStart + safeCount
+  ) {
+    ids = cached.ids;
+  } else {
+    const total = Math.min(100, safeStart + safeCount);
+    ids = await riotFetch<string[]>(
+      `https://${route}.api.riotgames.com/lol/match/v5/matches/by-puuid/${encodeURIComponent(puuid)}/ids?start=0&count=${total}`,
+    );
+    recentIdsCache.set(cacheKey, { ids, fetchedAt: now });
+  }
+
+  const slice = ids.slice(safeStart, safeStart + safeCount);
+  let completed = 0;
   const matches = await Promise.all(
-    ids.slice(0, safeCount).map(async (rawId): Promise<RecentRiotMatch | null> => {
-      const gameId = normalizeMatchId(rawId);
-      if (gameId === null) return null;
+    slice.map(async (rawId): Promise<RecentRiotMatch | null> => {
+      try {
+        const gameId = normalizeMatchId(rawId);
+        if (gameId === null) return null;
 
-      const payload = await riotFetch<RecentMatchResponse>(
-        `https://${route}.api.riotgames.com/lol/match/v5/matches/${encodeURIComponent(rawId)}`,
-      );
-      const info = payload.info;
-      const participant = info?.participants?.find((entry) => entry.puuid === puuid);
-      if (!info || !participant) return null;
+        const payload = await riotFetch<RecentMatchResponse>(
+          `https://${route}.api.riotgames.com/lol/match/v5/matches/${encodeURIComponent(rawId)}`,
+        );
+        const info = payload.info;
+        const participant = info?.participants?.find((entry) => entry.puuid === puuid);
+        if (!info || !participant) return null;
 
-      return {
-        gameId,
-        win: participant.win === true,
-        championId: Number(participant.championId) || 0,
-        kills: Number(participant.kills) || 0,
-        deaths: Number(participant.deaths) || 0,
-        assists: Number(participant.assists) || 0,
-        cs:
-          Number(participant.totalMinionsKilled ?? 0) +
-          Number(participant.neutralMinionsKilled ?? 0),
-        gameCreation: Number(info.gameCreation) || 0,
-        gameDuration: Number(info.gameDuration) || 0,
-        queueId: Number(info.queueId) || 0,
-        teamPosition: participant.teamPosition ?? null,
-      };
+        return {
+          gameId,
+          win: participant.win === true,
+          championId: Number(participant.championId) || 0,
+          kills: Number(participant.kills) || 0,
+          deaths: Number(participant.deaths) || 0,
+          assists: Number(participant.assists) || 0,
+          cs:
+            Number(participant.totalMinionsKilled ?? 0) +
+            Number(participant.neutralMinionsKilled ?? 0),
+          gameCreation: Number(info.gameCreation) || 0,
+          gameDuration: Number(info.gameDuration) || 0,
+          queueId: Number(info.queueId) || 0,
+          teamPosition: participant.teamPosition ?? null,
+        };
+      } finally {
+        completed += 1;
+        recentMatchesProgressListener?.(completed, slice.length);
+      }
     }),
   );
   return matches.filter((match): match is RecentRiotMatch => match !== null);
