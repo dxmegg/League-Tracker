@@ -182,6 +182,17 @@ export function registerIpcHandlers() {
     }
   });
   ipcMain.handle(
+    "riot:recent-matches",
+    async (_event, puuid: string, platform: string, count: number) => {
+      try {
+        return await riot.getRecentRiotMatches(puuid, platform, count);
+      } catch (err) {
+        if (err instanceof riot.RiotApiError && err.status === 404) return [];
+        return { error: riot.friendlyRiotError(err, "match") };
+      }
+    },
+  );
+  ipcMain.handle(
     "riot:profile",
     async (_event, gameName: string, tagLine: string, platform: string) => {
     console.log("[profile] received:", { gameName, tagLine, platform });

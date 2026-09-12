@@ -1,6 +1,11 @@
 import * as db from "./db";
 import { getCurrentSummoner } from "./lcu";
-import type { ProfileData, ProfileRankedEntry, RiotAccountConfig } from "../shared/api";
+import type {
+  ProfileData,
+  ProfileRankedEntry,
+  RecentRiotMatch,
+  RiotAccountConfig,
+} from "../shared/api";
 import { PROXY_BASE_URL } from "../shared/proxy";
 import { getChampionDataVersion } from "./dragon";
 
@@ -66,6 +71,62 @@ export function regionalRoute(platform: string): RiotRegionalRoute {
 export function normalizeMatchId(value: string): number | null {
   const id = Number(value.includes("_") ? value.slice(value.lastIndexOf("_") + 1) : value);
   return Number.isSafeInteger(id) && id > 0 ? id : null;
+}
+
+type RecentMatchResponse = {
+  info?: {
+    gameCreation?: number;
+    gameDuration?: number;
+    queueId?: number;
+    participants?: Array<{
+      puuid?: string;
+      win?: boolean;
+      championId?: number;
+      kills?: number;
+      deaths?: number;
+      assists?: number;
+    }>;
+  };
+};
+
+export async function getRecentRiotMatches(
+  puuid: string,
+  platform: string,
+  count: number,
+): Promise<RecentRiotMatch[]> {
+  const route = regionalRoute(platform);
+  const safeCount = Math.max(0, Math.min(Math.floor(count), 100));
+  if (safeCount === 0) return [];
+
+  const ids = await riotFetch<string[]>(
+    `https://${route}.api.riotgames.com/lol/match/v5/matches/by-puuid/${encodeURIComponent(puuid)}/ids?start=0&count=${safeCount}`,
+  );
+  const matches = await Promise.all(
+    ids.slice(0, safeCount).map(async (rawId): Promise<RecentRiotMatch | null> => {
+      const gameId = normalizeMatchId(rawId);
+      if (gameId === null) return null;
+
+      const payload = await riotFetch<RecentMatchResponse>(
+        `https://${route}.api.riotgames.com/lol/match/v5/matches/${encodeURIComponent(rawId)}`,
+      );
+      const info = payload.info;
+      const participant = info?.participants?.find((entry) => entry.puuid === puuid);
+      if (!info || !participant) return null;
+
+      return {
+        gameId,
+        win: participant.win === true,
+        championId: Number(participant.championId) || 0,
+        kills: Number(participant.kills) || 0,
+        deaths: Number(participant.deaths) || 0,
+        assists: Number(participant.assists) || 0,
+        gameCreation: Number(info.gameCreation) || 0,
+        gameDuration: Number(info.gameDuration) || 0,
+        queueId: Number(info.queueId) || 0,
+      };
+    }),
+  );
+  return matches.filter((match): match is RecentRiotMatch => match !== null);
 }
 
 export function normalizeMatchPayload(match: any, matchId: number, puuid: string) {
@@ -171,19 +232,17 @@ const REQUEST_PACING_MS = 60;
 const MAX_RATE_LIMIT_RETRIES = 5;
 let lastRequestAt = 0;
 let rateLimitPausedUntil = 0;
-let requestLock = Promise.resolve();
+let nextRequestStartAt = 0;
 
 async function acquireRequestSlot(): Promise<() => void> {
-  const previous = requestLock;
-  let release!: () => void;
-  requestLock = new Promise<void>((resolve) => {
-    release = resolve;
-  });
-  await previous;
-  const waitUntil = Math.max(lastRequestAt + REQUEST_PACING_MS, rateLimitPausedUntil);
-  const waitMs = waitUntil - Date.now();
+  const now = Date.now();
+  const startAt = Math.max(now, nextRequestStartAt, rateLimitPausedUntil);
+  nextRequestStartAt = startAt + REQUEST_PACING_MS;
+  const waitMs = startAt - now;
   if (waitMs > 0) await sleep(waitMs);
-  return release;
+  return () => {
+    void lastRequestAt;
+  };
 }
 
 async function riotFetch<T>(url: string, _key?: string, tag?: string): Promise<T> {

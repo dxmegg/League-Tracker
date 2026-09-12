@@ -5,10 +5,12 @@ import type {
   ChampionData,
   ProfileMasteryChampion,
   ProfileRecentGame,
+  RecentRiotMatch,
 } from "../../shared/api";
 import { MasteryCrestIcon, MasteryPointsIcon } from "../components/ProfileIcons";
 import { shortRegion, PLATFORM_TO_NAME } from "../../shared/regions";
 import { ARENA_QUEUE_IDS, isAugmentQueue, QUEUE_LABELS } from "../../shared/queues";
+import { kdaRatio } from "../lib/format";
 
 const EMBLEM_BASE_URL = "https://opgg-static.akamaized.net/images/medals_new";
 const LAST_LOOKUP_KEY = "profile:lastLookup";
@@ -446,7 +448,8 @@ function MasteryChampionIcon({
 }) {
   const [iconStage, setIconStage] = useState(0);
   const [crestFailed, setCrestFailed] = useState(false);
-  const masteryLevel = Math.min(Math.max(championLevel, 1), 10);
+  const clampedLevel = Math.min(Math.max(championLevel, 1), 10);
+  const crestLevel = clampedLevel <= 3 ? 0 : clampedLevel;
   const primaryIconUrl = `https://ddragon.leagueoflegends.com/cdn/latest/img/champion/${championKey ?? championId}.png`;
   const fallbackIconUrl = `https://raw.communitydragon.org/latest/plugins/rcp-be-lol-game-data/global/default/v1/champion-icons/${championId}.png`;
 
@@ -464,17 +467,19 @@ function MasteryChampionIcon({
           {championName.charAt(0)}
         </div>
       )}
-      <div className="absolute z-50 hidden group-hover:block top-full mt-2 left-1/2 -translate-x-1/2 whitespace-nowrap rounded border border-lol-border/70 bg-lol-dark px-2 py-1 text-xs text-lol-text-bright shadow-lg">
-        <p>{championName}</p>
-        <p>{championPoints.toLocaleString("en-US")} pts</p>
-        <p className="flex items-center gap-1">
+      <div className="absolute z-50 hidden group-hover:flex top-full mt-2 left-1/2 -translate-x-1/2 w-max max-w-none flex-col items-start whitespace-nowrap rounded border border-lol-border/70 bg-lol-dark p-3 text-xs text-lol-text-bright shadow-lg">
+        <div className="flex flex-col gap-1">
+          <p>{championName}</p>
+          <p>{championPoints.toLocaleString("en-US")} pts</p>
+        </div>
+        <p className="mt-2 flex min-h-7 items-center gap-2">
           {crestFailed ? (
             <span className="text-lol-gold">Level {championLevel}</span>
           ) : (
             <img
-              src={`https://raw.communitydragon.org/latest/game/assets/ux/mastery/mastery_level_icons/mastery_level_${masteryLevel}.png`}
+              src={`https://raw.communitydragon.org/latest/game/assets/ux/mastery/legendarychampionmastery/masterycrest_level${crestLevel}.png`}
               alt=""
-              className="h-4 w-4"
+              className="h-7 w-7 object-contain"
               onError={() => setCrestFailed(true)}
             />
           )}
@@ -482,6 +487,89 @@ function MasteryChampionIcon({
         </p>
       </div>
     </div>
+  );
+}
+
+function RecentRiotMatchesSection({
+  matches,
+  loading,
+  error,
+  championData,
+  version,
+  puuid,
+  onRefresh,
+}: {
+  matches: RecentRiotMatch[] | null;
+  loading: boolean;
+  error: string | null;
+  championData: ChampionData;
+  version: string;
+  puuid: string | null;
+  onRefresh: () => void;
+}) {
+  return (
+    <section className="rounded-xl border border-lol-border bg-lol-card p-5">
+      <div className="flex items-center justify-between gap-3">
+        <h2 className="text-sm font-semibold uppercase tracking-wide text-lol-text/70">
+          Recent Matches (Riot API)
+        </h2>
+        <button
+          type="button"
+          onClick={onRefresh}
+          disabled={!puuid || loading}
+          className="h-9 rounded-lg border border-lol-border bg-lol-card px-4 text-sm text-lol-text transition-colors hover:bg-lol-border/30 disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          {loading ? "Refreshing…" : "Refresh"}
+        </button>
+      </div>
+      {loading ? (
+        <p className="mt-4 text-sm text-lol-text">Loading…</p>
+      ) : error ? (
+        <p className="mt-4 text-sm text-lol-loss">{error}</p>
+      ) : matches === null ? (
+        <p className="mt-4 text-sm text-lol-text">
+          Click Load Profile to fetch recent matches
+        </p>
+      ) : matches.length === 0 ? (
+        <p className="mt-4 text-sm text-lol-text">No recent matches</p>
+      ) : (
+        <div className="mt-4 space-y-2">
+          {matches.slice(0, 10).map((match) => {
+            const champion = championData[match.championId];
+            return (
+              <div
+                key={match.gameId}
+                className="flex items-center gap-4 rounded-lg border border-lol-border/30 px-3 py-2"
+              >
+                <span
+                  className={`w-5 shrink-0 text-center text-xs font-bold ${
+                    match.win ? "text-lol-win" : "text-lol-loss"
+                  }`}
+                >
+                  {match.win ? "W" : "L"}
+                </span>
+                {champion ? (
+                  <img
+                    src={`https://ddragon.leagueoflegends.com/cdn/${version}/img/champion/${champion.key}.png`}
+                    alt={champion.name}
+                    className="h-9 w-9 shrink-0 object-contain"
+                  />
+                ) : null}
+                <span className="min-w-0 flex-1 truncate text-sm text-lol-text-bright">
+                  {champion?.name ?? `Champion ${match.championId}`}
+                </span>
+                <span className="shrink-0 text-sm text-lol-text">
+                  {match.kills} / {match.deaths} / {match.assists}
+                  <span className="ml-2 text-xs text-lol-text/70">
+                    {kdaRatio(match.kills, match.deaths, match.assists)} KDA
+                  </span>
+                </span>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </section>
   );
 }
 
@@ -547,6 +635,9 @@ export default function Profile() {
   const [recentAllGames, setRecentAllGames] = useState<RecentGame[] | null>(null);
   const [recentSoloGames, setRecentSoloGames] = useState<RecentGame[] | null>(null);
   const [recentFlexGames, setRecentFlexGames] = useState<RecentGame[] | null>(null);
+  const [recentMatches, setRecentMatches] = useState<RecentRiotMatch[] | null>(null);
+  const [recentMatchesLoading, setRecentMatchesLoading] = useState(false);
+  const [recentMatchesError, setRecentMatchesError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notFound, setNotFound] = useState(false);
@@ -555,9 +646,44 @@ export default function Profile() {
   const [favoriteMessage, setFavoriteMessage] = useState<string | null>(null);
   const [linksOpen, setLinksOpen] = useState(false);
   const hasAutoLoaded = useRef(false);
+  const recentMatchesRequest = useRef(0);
   const favoriteMessageTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const fetchProfile = useCallback(async (gameName: string, tagLine: string, selectedPlatform: string) => {
+  const loadRecentMatches = useCallback(async (puuid: string, selectedPlatform: string) => {
+    const requestId = ++recentMatchesRequest.current;
+    setRecentMatchesLoading(true);
+    setRecentMatchesError(null);
+    try {
+      const recentResult = await window.api.getRecentRiotMatches(
+        puuid,
+        selectedPlatform,
+        10,
+      );
+      if (requestId !== recentMatchesRequest.current) return;
+      if ("error" in recentResult) {
+        setRecentMatchesError(recentResult.error);
+      } else {
+        setRecentMatches(recentResult);
+      }
+    } catch (err: unknown) {
+      if (requestId === recentMatchesRequest.current) {
+        setRecentMatchesError(
+          err instanceof Error ? err.message : "Could not load recent matches",
+        );
+      }
+    } finally {
+      if (requestId === recentMatchesRequest.current) {
+        setRecentMatchesLoading(false);
+      }
+    }
+  }, []);
+
+  const fetchProfile = useCallback(async (
+    gameName: string,
+    tagLine: string,
+    selectedPlatform: string,
+    fetchRecentMatches = false,
+  ) => {
     setLoading(true);
     setError(null);
     setNotFound(false);
@@ -568,6 +694,10 @@ export default function Profile() {
     setRecentAllGames(null);
     setRecentSoloGames(null);
     setRecentFlexGames(null);
+    recentMatchesRequest.current += 1;
+    setRecentMatches(null);
+    setRecentMatchesError(null);
+    setRecentMatchesLoading(false);
     try {
       const result = await window.api.getProfileData(gameName, tagLine, selectedPlatform);
       if (result && "error" in result) {
@@ -576,6 +706,9 @@ export default function Profile() {
         setNotFound(true);
       } else {
         setProfile(result);
+        if (fetchRecentMatches) {
+          await loadRecentMatches(result.puuid, result.platform);
+        }
         try {
           const queue = await window.api.getMostPlayedQueue(
             result.puuid,
@@ -667,7 +800,7 @@ export default function Profile() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [loadRecentMatches]);
 
   const loadProfile = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -692,7 +825,7 @@ export default function Profile() {
       return;
     }
 
-    await fetchProfile(gameName, tagLine, platform);
+    await fetchProfile(gameName, tagLine, platform, true);
   };
 
   useEffect(() => {
@@ -715,7 +848,7 @@ export default function Profile() {
     if (!lookup) return;
     setGameNameInput(`${lookup.gameName}#${lookup.tagLine}`);
     setPlatform(lookup.platform);
-    void fetchProfile(lookup.gameName, lookup.tagLine, lookup.platform);
+    void fetchProfile(lookup.gameName, lookup.tagLine, lookup.platform, true);
   }, [fetchProfile]);
 
   const loadRecentProfile = useCallback(
@@ -838,7 +971,7 @@ export default function Profile() {
     </div>
   );
 
-  if (loading || error || notFound || !profile) {
+  if (error || notFound || !profile) {
     return (
       <div className="max-w-6xl space-y-4">
         {recentStrip}
@@ -855,6 +988,15 @@ export default function Profile() {
             Account not found. Check the spelling and server.
           </p>
         )}
+        <RecentRiotMatchesSection
+          matches={recentMatches}
+          loading={recentMatchesLoading}
+          error={recentMatchesError}
+          championData={championData}
+          version="latest"
+          puuid={null}
+          onRefresh={() => undefined}
+        />
       </div>
     );
   }
@@ -1002,6 +1144,18 @@ export default function Profile() {
           championData={championData}
         />
       </div>
+
+      <RecentRiotMatchesSection
+        matches={recentMatches}
+        loading={recentMatchesLoading}
+        error={recentMatchesError}
+        championData={championData}
+        version={version}
+        puuid={profile.puuid}
+        onRefresh={() => {
+          void loadRecentMatches(profile.puuid, profile.platform);
+        }}
+      />
     </div>
   );
 }

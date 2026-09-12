@@ -598,6 +598,18 @@ export interface ProfileMasteryChampion {
   championLevel: number;
 }
 
+export interface RecentRiotMatch {
+  gameId: number;
+  win: boolean;
+  championId: number;
+  kills: number;
+  deaths: number;
+  assists: number;
+  gameCreation: number;
+  gameDuration: number;
+  queueId: number;
+}
+
 export interface ProfileData {
   puuid: string;
   gameName: string;
@@ -685,6 +697,11 @@ export interface ElectronAPI {
     queueIds: number[],
     limit: number,
   ) => Promise<ProfileRecentGame[] | null>;
+  getRecentRiotMatches: (
+    puuid: string,
+    platform: string,
+    count: number,
+  ) => Promise<RecentRiotMatch[] | { error: string }>;
   getChampionMatchHistory: (
     championId: number,
     limit: number,
