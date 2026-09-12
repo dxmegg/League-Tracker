@@ -119,10 +119,17 @@ export function useRuneData(): RuneData {
 
   useEffect(() => {
     if (hasData(runeCache)) return;
-    window.api.getRuneData().then((d) => {
-      if (Object.keys(d).length > 0) runeCache = d;
-      setData(d);
-    });
+    window.api
+      .getRuneData()
+      .then((d) => {
+        if (Object.keys(d).length > 0) runeCache = d;
+        setData(d);
+      })
+      .catch(() => {
+        // Data Dragon is unreachable; leave the cache empty and let the next
+        // mount try again rather than looping on a rejected promise.
+        setData({});
+      });
   }, []);
 
   return data;
@@ -135,10 +142,17 @@ export function useRuneTreeData(): RuneTreeLayout {
 
   useEffect(() => {
     if (hasData(runeTreeCache)) return;
-    window.api.getRuneTrees().then((d) => {
-      if (Object.keys(d).length > 0) runeTreeCache = d;
-      setData(d);
-    });
+    window.api
+      .getRuneTrees()
+      .then((d) => {
+        if (Object.keys(d).length > 0) runeTreeCache = d;
+        setData(d);
+      })
+      .catch(() => {
+        // Data Dragon is unreachable; leave the cache empty and let the next
+        // mount try again rather than looping on a rejected promise.
+        setData({});
+      });
   }, []);
 
   return data;

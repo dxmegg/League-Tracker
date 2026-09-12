@@ -61,6 +61,10 @@ export function initDatabase() {
   }
 
   migrateHiddenQueues();
+  const purged = purgeForeignOwnedGames();
+  if (purged > 0) {
+    console.log(`[db] purged ${purged} foreign-owned game(s) imported from Search Account`);
+  }
 }
 
 // The old hide-Mayhem-Classic switch became a per-queue list. Carry the boolean
@@ -70,6 +74,46 @@ function migrateHiddenQueues() {
   if (getSetting("hidden_queues") !== null) return;
   const hidClassic = getSetting("hide_classic_games") === "true";
   setSetting("hidden_queues", hidClassic ? String(QUEUE_ID_MAYHEM_CLASSIC) : "");
+}
+
+export function purgeForeignOwnedGames(): number {
+  const foreignPuuids = db
+    .prepare(
+      `SELECT DISTINCT g.puuid
+       FROM games g
+       WHERE g.puuid != ''
+         AND g.puuid NOT IN (SELECT puuid FROM summoner)`,
+    )
+    .all() as { puuid: string }[];
+
+  if (foreignPuuids.length === 0) return 0;
+
+  const idsToPurge = db
+    .prepare(
+      `SELECT DISTINCT g.game_id
+       FROM games g
+       WHERE g.puuid != ''
+         AND g.puuid NOT IN (SELECT puuid FROM summoner)`,
+    )
+    .all() as { game_id: number }[];
+
+  if (idsToPurge.length === 0) return 0;
+
+  const gameIds = idsToPurge.map((r) => r.game_id);
+  const placeholders = gameIds.map(() => "?").join(", ");
+
+  const purgeTx = db.transaction(() => {
+    db.prepare(`DELETE FROM tracked_game_stats WHERE game_id IN (${placeholders})`).run(...gameIds);
+    db.prepare(`DELETE FROM player_stats WHERE game_id IN (${placeholders})`).run(...gameIds);
+    db.prepare(`DELETE FROM game_augments WHERE game_id IN (${placeholders})`).run(...gameIds);
+    db.prepare(
+      `DELETE FROM match_participant_augments WHERE game_id IN (${placeholders})`,
+    ).run(...gameIds);
+    db.prepare(`DELETE FROM match_participants WHERE game_id IN (${placeholders})`).run(...gameIds);
+    db.prepare(`DELETE FROM games WHERE game_id IN (${placeholders})`).run(...gameIds);
+  });
+  purgeTx();
+  return gameIds.length;
 }
 
 // Checkpoints the WAL and releases the file. Without this a quit leaves the
@@ -119,6 +163,8 @@ function createTables() {
       tag_line       TEXT,
       profile_icon   INTEGER,
       team_id        INTEGER NOT NULL DEFAULT 100,
+      player_subteam_id INTEGER,
+      player_subteam_placement INTEGER,
       champion_id    INTEGER NOT NULL DEFAULT 0,
       win            INTEGER NOT NULL DEFAULT 0,
       kills          INTEGER NOT NULL DEFAULT 0,
@@ -346,6 +392,8 @@ interface RawParticipantRow {
   tag_line: string | null;
   profile_icon: number | null;
   team_id: number;
+  player_subteam_id: number | null;
+  player_subteam_placement: number | null;
   champion_id: number;
   win: number;
   kills: number;
@@ -496,6 +544,19 @@ function participantRowsFromRaw(raw: any): RawParticipantRow[] {
     const perks = runes.runeIds.filter(
       (id) => id !== runes.primaryStyle && id !== runes.secondaryStyle,
     );
+    const subteamRaw = p.playerSubteamId ?? s.playerSubteamId ?? p.subteamId ?? s.subteamId;
+    const subteamId = Number(subteamRaw);
+    const playerSubteamId = Number.isFinite(subteamId) && subteamId > 0 ? subteamId : null;
+    const placementRaw =
+      p.playerSubteamPlacement ??
+      s.playerSubteamPlacement ??
+      p.subteamPlacement ??
+      s.subteamPlacement ??
+      p.placement ??
+      s.placement;
+    const placementNum = Number(placementRaw);
+    const playerSubteamPlacement =
+      Number.isFinite(placementNum) && placementNum > 0 ? placementNum : null;
 
     return {
       participant_id: p.participantId ?? i + 1,
@@ -505,6 +566,8 @@ function participantRowsFromRaw(raw: any): RawParticipantRow[] {
       tag_line: player.tagLine || p.riotIdTagline || null,
       profile_icon: typeof icon === "number" && icon > 0 ? icon : null,
       team_id: p.teamId ?? s.teamId ?? 100,
+      player_subteam_id: playerSubteamId,
+      player_subteam_placement: playerSubteamPlacement,
       champion_id: p.championId ?? s.championId ?? 0,
       win: s.win ? 1 : 0,
       kills: s.kills ?? 0,
@@ -529,8 +592,8 @@ function participantRowsFromRaw(raw: any): RawParticipantRow[] {
       // wants the raw everything-included number.
       total_damage_dealt_all: Number(s.totalDamageDealt ?? 0),
       true_damage_dealt: Number(s.trueDamageDealtToChampions ?? s.trueDamageDealt ?? 0),
-      spell1: p.spell1Id ?? p.summoner1Id ?? s.spell1Id ?? null,
-      spell2: p.spell2Id ?? s.spell2Id ?? null,
+      spell1: p.spell1Id ?? p.summoner1Id ?? s.spell1Id ?? s.summoner1Id ?? null,
+      spell2: p.spell2Id ?? p.summoner2Id ?? s.spell2Id ?? s.summoner2Id ?? null,
       cs:
         s.totalCreepScore != null
           ? Number(s.totalCreepScore)
@@ -572,21 +635,21 @@ function participantStatements() {
       participant: db.prepare(`
         INSERT OR REPLACE INTO match_participants (
           game_id, participant_id, puuid, game_name, tag_line, profile_icon,
-          team_id, champion_id, win, kills, deaths, assists,
+          team_id, player_subteam_id, player_subteam_placement, champion_id, win, kills, deaths, assists,
           double_kills, triple_kills, quadra_kills, penta_kills,
           total_damage_dealt, total_damage_taken, true_damage, gold_earned, total_heal,
           largest_killing_spree, largest_critical_strike, cs, early_surrender,
-          total_damage_dealt_all, true_damage_dealt, largest_critical_strike, cs,
+          total_damage_dealt_all, true_damage_dealt,
           is_remake, queue_id, game_version,
           spell1, spell2, item0, item1, item2, item3, item4, item5, item6,
           team_position
         ) VALUES (
           @game_id, @participant_id, @puuid, @game_name, @tag_line, @profile_icon,
-          @team_id, @champion_id, @win, @kills, @deaths, @assists,
+          @team_id, @player_subteam_id, @player_subteam_placement, @champion_id, @win, @kills, @deaths, @assists,
           @double_kills, @triple_kills, @quadra_kills, @penta_kills,
           @total_damage_dealt, @total_damage_taken, @true_damage, @gold_earned, @total_heal,
           @largest_killing_spree, @largest_critical_strike, @cs, @early_surrender,
-          @total_damage_dealt_all, @true_damage_dealt, @largest_critical_strike, @cs,
+          @total_damage_dealt_all, @true_damage_dealt,
           @is_remake, @queue_id, @game_version,
           @spell1, @spell2, @item0, @item1, @item2, @item3, @item4, @item5, @item6,
           @team_position
@@ -622,6 +685,8 @@ function writeParticipants(gameId: number, meta: GameDenorm, rows: RawParticipan
       tag_line: row.tag_line,
       profile_icon: row.profile_icon,
       team_id: row.team_id,
+      player_subteam_id: row.player_subteam_id,
+      player_subteam_placement: row.player_subteam_placement,
       champion_id: row.champion_id,
       win: row.win,
       kills: row.kills,
@@ -679,7 +744,7 @@ function writeParticipants(gameId: number, meta: GameDenorm, rows: RawParticipan
 // versioning, so it could be missing any subset of the columns v1 adds — which
 // is why each step checks for its column rather than assuming. A database that
 // createTables just built is also version 0, and lands on the same no-op path.
-const SCHEMA_VERSION = 9;
+const SCHEMA_VERSION = 17;
 
 function tableColumns(table: string): Set<string> {
   const rows = db.pragma(`table_info(${table})`) as { name: string }[];
@@ -690,6 +755,28 @@ function runMigrations() {
   const current = db.pragma("user_version", { simple: true }) as number;
   if (current >= SCHEMA_VERSION) return;
 
+  // A freshly created database already has every column the migrations would
+  // add, so the migrations that only ALTER TABLE and backfill are no-ops. The
+  // ones that call rebuildParticipantsFromPayloads are not: they iterate the
+  // whole library. Skip the entire chain on a database whose tables were just
+  // created by createTables above.
+  const gamesCount = db.prepare("SELECT COUNT(*) as n FROM games").get() as { n: number };
+  const currentSchemaReady =
+    ["is_remake", "puuid", "game_version", "favorite", "raw_gz"].every((column) =>
+      tableColumns("games").has(column),
+    ) &&
+    ["score", "score_badge", "score_raw", "cs", "largest_critical_strike"].every((column) =>
+      tableColumns("player_stats").has(column),
+    ) &&
+    ["team_position", "player_subteam_id", "player_subteam_placement"].every((column) =>
+      tableColumns("match_participants").has(column),
+    ) &&
+    tableColumns("summoner").has("profile_icon");
+  if (current === 0 && gamesCount.n === 0 && currentSchemaReady) {
+    db.pragma(`user_version = ${SCHEMA_VERSION}`);
+    return;
+  }
+
   if (current < 1) migrateToV1();
   if (current < 2) migrateToV2();
   if (current < 3) migrateToV3();
@@ -699,6 +786,14 @@ function runMigrations() {
   if (current < 7) migrateToV7();
   if (current < 8) migrateToV8();
   if (current < 9) migrateToV9();
+  if (current < 10) migrateToV10();
+  if (current < 11) migrateToV11();
+  if (current < 12) migrateToV12();
+  if (current < 13) migrateToV13();
+  if (current < 14) migrateToV14();
+  if (current < 15) migrateToV15();
+  if (current < 16) migrateToV16();
+  if (current < 17) migrateToV17();
 
   db.pragma(`user_version = ${SCHEMA_VERSION}`);
 }
@@ -783,6 +878,108 @@ function rebuildParticipantsFromPayloads(): NormalizeResult {
 
     const tx = db.transaction(() => {
       for (const row of rows) {
+        if (process.env.REBUILD_DEBUG === "1" && row.game_id) {
+          const raw = unpackRaw(row.raw_gz);
+          const first = raw?.participants?.[0] ?? raw?.info?.participants?.[0];
+          const firstStats = first?.stats ?? first;
+          if (first) {
+            console.log(`[rebuild] game ${row.game_id} participant spell keys:`, {
+              p_spell1Id: first.spell1Id,
+              p_spell2Id: first.spell2Id,
+              p_summoner1Id: first.summoner1Id,
+              p_summoner2Id: first.summoner2Id,
+              s_spell1Id: firstStats?.spell1Id,
+              s_spell2Id: firstStats?.spell2Id,
+              s_summoner1Id: firstStats?.summoner1Id,
+              s_summoner2Id: firstStats?.summoner2Id,
+            });
+          }
+          // One game is enough for diagnosis; do not flood the console.
+          process.env.REBUILD_DEBUG = "0";
+        }
+        const arenaDumpState = globalThis as typeof globalThis & {
+          __arenaDump?: boolean;
+        };
+        if (!arenaDumpState.__arenaDump) {
+          const raw = unpackRaw(row.raw_gz);
+          const queueId = Number(raw?.gameQueueConfigId ?? raw?.info?.queueId ?? 0);
+          if (
+            queueId === 1700 ||
+            queueId === 1740 ||
+            queueId === 1750 ||
+            queueId === 2400 ||
+            queueId === 2450
+          ) {
+            arenaDumpState.__arenaDump = true;
+            try {
+              const dir = path.join(process.cwd(), "data");
+              fs.mkdirSync(dir, { recursive: true });
+              const out = path.join(dir, "arena-payload-dump.json");
+              fs.writeFileSync(
+                out,
+                JSON.stringify(
+                  {
+                    gameId: row.game_id,
+                    queueId,
+                    participants: raw?.participants ?? raw?.info?.participants ?? [],
+                    participantIdentities:
+                      raw?.participantIdentities ?? raw?.info?.participantIdentities ?? [],
+                  },
+                  null,
+                  2,
+                ),
+              );
+              console.log(`[rebuild] dumped Arena payload to ${out}`);
+            } catch (err) {
+              console.error("[rebuild] failed to dump payload:", err);
+            }
+          }
+        }
+        const spellDumpState = globalThis as typeof globalThis & {
+          __spellDump?: boolean;
+        };
+        if (!spellDumpState.__spellDump) {
+          const raw = unpackRaw(row.raw_gz);
+          const queueId = Number(raw?.gameQueueConfigId ?? raw?.info?.queueId ?? 0);
+          if (
+            queueId === 1700 ||
+            queueId === 1740 ||
+            queueId === 1750 ||
+            queueId === 2400 ||
+            queueId === 2450
+          ) {
+            spellDumpState.__spellDump = true;
+            const first = raw?.participants?.[0] ?? raw?.info?.participants?.[0];
+            if (first) {
+              const s = first.stats ?? first;
+              const keys = new Set<string>();
+              for (const k of Object.keys(first)) {
+                if (k.toLowerCase().includes("spell") || k.toLowerCase().includes("summoner")) {
+                  keys.add(`p.${k}`);
+                }
+              }
+              for (const k of Object.keys(s)) {
+                if (k.toLowerCase().includes("spell") || k.toLowerCase().includes("summoner")) {
+                  keys.add(`s.${k}`);
+                }
+              }
+              console.log(
+                `[spell-dump] game ${row.game_id} queue ${queueId} — spell-related fields:`,
+                [...keys],
+              );
+              console.log(`[spell-dump] values:`, {
+                p_spell1Id: first.spell1Id,
+                p_spell2Id: first.spell2Id,
+                p_summoner1Id: first.summoner1Id,
+                p_summoner2Id: first.summoner2Id,
+                s_spell1Id: s.spell1Id,
+                s_spell2Id: s.spell2Id,
+                s_summoner1Id: s.summoner1Id,
+                s_summoner2Id: s.summoner2Id,
+              });
+            }
+          }
+        }
         const participants = participantRowsFromRaw(unpackRaw(row.raw_gz));
         if (participants.length === 0) {
           result.unusable++;
@@ -1250,6 +1447,14 @@ function applyQueueFilter(where: string[], params: any[], queue?: number, alias 
   }
 }
 
+// Owned accounts are the ones that have a summoner row: they were synced
+// through the running client, or added by hand in Settings. Games whose owner
+// puuid is not in summoner came from the Search Account import and must not
+// show up in the local views.
+function ownedPuuidFilter(alias: string): string {
+  return `${alias}.puuid IN (SELECT puuid FROM summoner)`;
+}
+
 // Remakes are already left out of every stat; this setting takes them out of
 // the match list as well. An absent key means they stay visible.
 function hideRemakes(): boolean {
@@ -1380,19 +1585,39 @@ function backfillScores() {
   const updateStmt = db.prepare(
     "UPDATE player_stats SET score = ?, score_raw = ?, score_badge = ? WHERE game_id = ?",
   );
+  const updateTrackedStmt = db.prepare(
+    "UPDATE tracked_game_stats SET score = ?, score_raw = ?, score_badge = ? WHERE game_id = ? AND puuid = ?",
+  );
+  const trackedPuuidsStmt = db.prepare("SELECT puuid FROM tracked_game_stats WHERE game_id = ?");
   const tx = db.transaction(() => {
     for (const row of games) {
+      const gameParticipants = participants.get(row.game_id) ?? [];
+      let result: PlayerScore | null = null;
       if (row.is_remake) {
         updateStmt.run(null, null, null, row.game_id);
-        continue;
+      } else {
+        result = computeOwnerScore(gameParticipants, row.puuid || null, row);
+        updateStmt.run(
+          result?.score ?? null,
+          result?.raw ?? null,
+          result?.badge ?? null,
+          row.game_id,
+        );
       }
-      const result = computeOwnerScore(participants.get(row.game_id) ?? [], row.puuid || null, row);
-      updateStmt.run(
-        result?.score ?? null,
-        result?.raw ?? null,
-        result?.badge ?? null,
-        row.game_id,
-      );
+
+      const trackedPuuids = trackedPuuidsStmt.all(row.game_id) as { puuid: string }[];
+      for (const { puuid: trackedPuuid } of trackedPuuids) {
+        const trackedScore = row.is_remake
+          ? null
+          : computeOwnerScore(gameParticipants, trackedPuuid, undefined);
+        updateTrackedStmt.run(
+          trackedScore?.score ?? null,
+          trackedScore?.raw ?? null,
+          trackedScore?.badge ?? null,
+          row.game_id,
+          trackedPuuid,
+        );
+      }
     }
   });
   tx();
@@ -1459,6 +1684,15 @@ const MULTIKILL_COLUMNS: Record<string, string> = {
   pentas: "ps.penta_kills",
 };
 
+function statsSource(account?: string): {
+  table: "player_stats" | "tracked_game_stats";
+  alias: "ps";
+  accountFilter: string;
+} {
+  if (account) return { table: "tracked_game_stats", alias: "ps", accountFilter: "ps.puuid = ?" };
+  return { table: "player_stats", alias: "ps", accountFilter: ownedPuuidFilter("g") };
+}
+
 export function getMatchHistory(
   limit: number,
   offset: number,
@@ -1509,12 +1743,29 @@ export function getMatchHistory(
       where.push(`(${cols.map((col) => col.replace(/^ps\./, `${statsAlias}.`) + " > 0").join(" OR ")})`);
     }
   }
+  if (!filters?.account) {
+    where.push(ownedPuuidFilter("g"));
+  }
   const whereSql = where.length > 0 ? `WHERE ${where.join(" AND ")}` : "";
   const orderBy = matchOrderBy(filters?.sort, filters?.sortDir).replaceAll(
     "ps.",
     `${statsAlias}.`,
   );
   const matchPuuid = filters?.account ? "tgs.puuid" : "g.puuid";
+  const augmentIdsSql = filters?.account
+    ? `(SELECT GROUP_CONCAT(augment_id, ',')
+        FROM (
+          SELECT mpa.augment_id
+          FROM match_participant_augments mpa
+          JOIN match_participants mp
+            ON mp.game_id = mpa.game_id AND mp.participant_id = mpa.participant_id
+          WHERE mp.game_id = g.game_id AND mp.puuid = ${matchPuuid}
+          ORDER BY mpa.slot
+        ))`
+    : `(SELECT GROUP_CONCAT(augment_id, ',')
+        FROM (SELECT augment_id FROM game_augments
+              WHERE game_id = g.game_id
+              ORDER BY slot))`;
 
   const total = db
     .prepare(`
@@ -1531,12 +1782,22 @@ export function getMatchHistory(
            ${statsAlias}.champion_id, ${statsAlias}.win, ${statsAlias}.kills, ${statsAlias}.deaths, ${statsAlias}.assists,
            ${statsAlias}.double_kills, ${statsAlias}.triple_kills, ${statsAlias}.quadra_kills, ${statsAlias}.penta_kills,
            ${statsAlias}.total_damage_dealt, ${statsAlias}.total_damage_taken, ${statsAlias}.total_heal, ${statsAlias}.gold_earned,
-           ${statsAlias}.score, ${statsAlias}.score_badge, ${statsAlias}.spell1, ${statsAlias}.spell2,
+           ${statsAlias}.score, ${statsAlias}.score_badge,
+           COALESCE(${statsAlias}.spell1, (
+             SELECT mp.spell1 FROM match_participants mp
+             WHERE mp.game_id = g.game_id AND mp.puuid = ${matchPuuid}
+           )) as spell1,
+           COALESCE(${statsAlias}.spell2, (
+             SELECT mp.spell2 FROM match_participants mp
+             WHERE mp.game_id = g.game_id AND mp.puuid = ${matchPuuid}
+           )) as spell2,
            ${statsAlias}.item0, ${statsAlias}.item1, ${statsAlias}.item2, ${statsAlias}.item3, ${statsAlias}.item4, ${statsAlias}.item5,
-           (SELECT GROUP_CONCAT(ga.augment_id) FROM game_augments ga WHERE ga.game_id = g.game_id ORDER BY ga.slot) as augment_ids,
+           ${augmentIdsSql} as augment_ids,
            g.raw_gz,
            (SELECT mp.team_position FROM match_participants mp
              WHERE mp.game_id = g.game_id AND mp.puuid = ${matchPuuid}) as team_position,
+           (SELECT mp.player_subteam_placement FROM match_participants mp
+             WHERE mp.game_id = g.game_id AND mp.puuid = ${matchPuuid}) as player_subteam_placement,
 ${GAME_MAX_STATS_SQL}
     FROM games g
     JOIN ${statsTable} ${statsAlias} ON g.game_id = ${statsAlias}.game_id
@@ -1707,7 +1968,7 @@ export function getMatchFilterOptions(filters?: {
     SELECT tgs.puuid, s.game_name, s.tag_line, s.profile_icon
     FROM tracked_game_stats tgs
     JOIN games g ON g.game_id = tgs.game_id
-    LEFT JOIN summoner s ON s.puuid = tgs.puuid
+    INNER JOIN summoner s ON s.puuid = tgs.puuid
     GROUP BY tgs.puuid
     ORDER BY MAX(g.game_creation) DESC
   `)
@@ -1722,19 +1983,31 @@ export function getMatchFilterOptions(filters?: {
   const latestGameStmt = db.prepare(
     "SELECT game_id FROM tracked_game_stats tgs JOIN games g USING (game_id) WHERE tgs.puuid = ? ORDER BY g.game_creation DESC LIMIT 1",
   );
-  const accounts = accountRows.map((r) => {
-    let name = displayName(r.game_name, r.tag_line);
-    let profileIcon = r.profile_icon;
-    if (!name || profileIcon == null) {
-      const latest = latestGameStmt.get(r.puuid) as { game_id: number } | undefined;
-      const fromGame = latest
-        ? identityFromGame(latest.game_id, r.puuid)
-        : { name: null, icon: null };
-      name = name ?? fromGame.name;
-      profileIcon = profileIcon ?? fromGame.icon;
-    }
-    return { puuid: r.puuid, name, profileIcon };
-  });
+  const seenNames = new Set<string>();
+  const accounts = accountRows
+    .map((r) => {
+      let name = displayName(r.game_name, r.tag_line);
+      let profileIcon = r.profile_icon;
+      if (!name || profileIcon == null) {
+        const latest = latestGameStmt.get(r.puuid) as { game_id: number } | undefined;
+        const fromGame = latest
+          ? identityFromGame(latest.game_id, r.puuid)
+          : { name: null, icon: null };
+        name = name ?? fromGame.name;
+        profileIcon = profileIcon ?? fromGame.icon;
+      }
+      return { puuid: r.puuid, name, profileIcon };
+    })
+    .filter((account) => {
+      // Two puuids can carry the same display name when the same Riot ID
+      // exists on different servers. Keep the first (most recent) and drop
+      // the rest so the dropdown does not grow with every platform the user
+      // has ever searched.
+      const key = (account.name ?? account.puuid).toLowerCase();
+      if (seenNames.has(key)) return false;
+      seenNames.add(key);
+      return true;
+    });
 
   // Unlike the lists above, this one ignores the other filters: the favorites
   // toggle should stay put while the user narrows the list rather than blinking
@@ -1779,7 +2052,7 @@ function getMatchParticipants(gameId: number): any[] {
   }
   const rows = db
     .prepare(`
-      SELECT participant_id, puuid, game_name, tag_line, team_id, champion_id, win,
+      SELECT participant_id, puuid, game_name, tag_line, team_id, player_subteam_id, player_subteam_placement, champion_id, win,
              kills, deaths, assists, double_kills, triple_kills, quadra_kills, penta_kills,
              total_damage_dealt, total_damage_taken, gold_earned, total_heal,
              largest_killing_spree, spell1, spell2,
@@ -1806,6 +2079,73 @@ function getMatchParticipants(gameId: number): any[] {
     else augments.set(row.participant_id, [row.augment_id]);
   }
 
+  const spellDumpState = globalThis as typeof globalThis & {
+    __spellDumpDone?: boolean;
+  };
+  if (!spellDumpState.__spellDumpDone) {
+    spellDumpState.__spellDumpDone = true;
+    try {
+     const dump = rawParticipants.map((p: any, index: number) => {
+       const s = p.stats ?? p;
+       return {
+         index,
+         participantId: p.participantId ?? index + 1,
+         championId: p.championId ?? s.championId,
+         topLevelKeys: Object.keys(p).filter(
+           (k) => k.toLowerCase().includes("spell") || k.toLowerCase().includes("summoner"),
+         ),
+         statsKeys: Object.keys(s).filter(
+           (k) => k.toLowerCase().includes("spell") || k.toLowerCase().includes("summoner"),
+         ),
+         topLevelValues: {
+           spell1Id: p.spell1Id,
+           spell2Id: p.spell2Id,
+           summoner1Id: p.summoner1Id,
+           summoner2Id: p.summoner2Id,
+         },
+         statsValues: {
+           spell1Id: s.spell1Id,
+           spell2Id: s.spell2Id,
+           summoner1Id: s.summoner1Id,
+           summoner2Id: s.summoner2Id,
+         },
+       };
+     });
+     const dbRows = rows.map((r: any) => ({
+       participantId: r.participant_id,
+       championId: r.champion_id,
+       spell1: r.spell1,
+       spell2: r.spell2,
+     }));
+     const out = path.join(process.cwd(), "data", "spell-participant-dump.json");
+     fs.mkdirSync(path.dirname(out), { recursive: true });
+     fs.writeFileSync(
+       out,
+       JSON.stringify({ gameId, rawParticipants: dump, dbRows }, null, 2),
+     );
+     console.log(`[spell-dump] wrote ${out} for game ${gameId}`);
+     console.log(
+       "[spell-dump] raw spells (top-level):",
+       dump.map((d: any) => ({
+         id: d.participantId,
+         spell1: d.topLevelValues.spell1Id ?? d.topLevelValues.summoner1Id,
+         spell2: d.topLevelValues.spell2Id ?? d.topLevelValues.summoner2Id,
+       })),
+     );
+     console.log(
+       "[spell-dump] raw spells (stats):",
+       dump.map((d: any) => ({
+         id: d.participantId,
+         spell1: d.statsValues.spell1Id ?? d.statsValues.summoner1Id,
+         spell2: d.statsValues.spell2Id ?? d.statsValues.summoner2Id,
+       })),
+     );
+     console.log("[spell-dump] db rows:", dbRows);
+    } catch (err) {
+     console.error("[spell-dump] failed:", err);
+    }
+  }
+
   return rows.map((r) => {
     const raw = rawParticipants.find((p: any) => Number(p.participantId) === r.participant_id);
     const runes = extractRunes(raw);
@@ -1816,6 +2156,8 @@ function getMatchParticipants(gameId: number): any[] {
       tagLine: r.tag_line,
       championId: r.champion_id,
       teamId: r.team_id,
+      playerSubteamId: r.player_subteam_id ?? null,
+      playerSubteamPlacement: r.player_subteam_placement ?? null,
       win: r.win === 1,
       kills: r.kills,
       deaths: r.deaths,
@@ -1853,6 +2195,58 @@ export function getMatchDetail(gameId: number): any {
     `)
     .get(gameId) as any;
   if (!game) return null;
+  const spellDumpState = globalThis as typeof globalThis & {
+    __spellDump?: boolean;
+  };
+  if (!spellDumpState.__spellDump) {
+    const q = Number(game.queue_id);
+    if (q === 1700 || q === 1740 || q === 1750) {
+      spellDumpState.__spellDump = true;
+      const rawRow = db
+        .prepare("SELECT raw_gz FROM games WHERE game_id = ?")
+        .get(gameId) as { raw_gz: Buffer | null } | undefined;
+      if (rawRow?.raw_gz) {
+        try {
+          const raw = JSON.parse(zlib.gunzipSync(rawRow.raw_gz).toString("utf8"));
+          const first = raw?.participants?.[0] ?? raw?.info?.participants?.[0];
+          if (first) {
+            const s = first.stats ?? first;
+            const spellKeys: Record<string, unknown> = {};
+            for (const k of Object.keys(first)) {
+              if (k.toLowerCase().includes("spell") || k.toLowerCase().includes("summoner")) {
+                spellKeys[`p.${k}`] = first[k];
+              }
+            }
+            for (const k of Object.keys(s)) {
+              if (k.toLowerCase().includes("spell") || k.toLowerCase().includes("summoner")) {
+                spellKeys[`s.${k}`] = s[k];
+              }
+            }
+            const out = path.join(process.cwd(), "data", "arena-spell-dump.json");
+            fs.mkdirSync(path.dirname(out), { recursive: true });
+            fs.writeFileSync(
+              out,
+              JSON.stringify(
+                {
+                  gameId,
+                  queueId: q,
+                  spellKeys,
+                  fullFirstParticipant: first,
+                },
+                null,
+                2,
+              ),
+            );
+            console.log(`[spell-dump] wrote ${out}`);
+            console.log(`[spell-dump] keys:`, Object.keys(spellKeys));
+            console.log(`[spell-dump] values:`, spellKeys);
+          }
+        } catch (err) {
+          console.error("[spell-dump] failed:", err);
+        }
+      }
+    }
+  }
   const stats = db.prepare("SELECT * FROM player_stats WHERE game_id = ?").get(gameId);
   const augments = db
     .prepare("SELECT * FROM game_augments WHERE game_id = ? ORDER BY slot")
@@ -1865,9 +2259,11 @@ export function getMatchDetail(gameId: number): any {
   };
 }
 
-export function getChampionStatsAll(patch?: string, queue?: number): any[] {
+export function getChampionStatsAll(patch?: string, queue?: number, account?: string): any[] {
+  const source = statsSource(account);
   const where = ["g.is_remake = 0"];
-  const params: any[] = [];
+  where.push(source.accountFilter);
+  const params: any[] = account ? [account] : [];
   if (patch) {
     where.push("g.game_version = ?");
     params.push(patch);
@@ -1894,8 +2290,8 @@ export function getChampionStatsAll(patch?: string, queue?: number): any[] {
       SUM(ps.triple_kills) as triple_kills,
       SUM(ps.quadra_kills) as quadra_kills,
       SUM(ps.penta_kills) as penta_kills
-    FROM player_stats ps
-    JOIN games g ON ps.game_id = g.game_id
+    FROM ${source.table} ${source.alias}
+    JOIN games g ON ${source.alias}.game_id = g.game_id
     WHERE ${where.join(" AND ")}
     GROUP BY ps.champion_id
     ORDER BY games DESC
@@ -1903,9 +2299,11 @@ export function getChampionStatsAll(patch?: string, queue?: number): any[] {
     .all(...params);
 }
 
-export function getAugmentStatsAll(championId?: number, patch?: string, queue?: number): any[] {
+export function getAugmentStatsAll(championId?: number, patch?: string, queue?: number, account?: string): any[] {
+  const source = statsSource(account);
   const where = ["g.is_remake = 0"];
-  const params: any[] = [];
+  where.push(source.accountFilter);
+  const params: any[] = account ? [account] : [];
   if (championId !== undefined) {
     where.push("ps.champion_id = ?");
     params.push(championId);
@@ -1915,14 +2313,24 @@ export function getAugmentStatsAll(championId?: number, patch?: string, queue?: 
     params.push(patch);
   }
   applyQueueFilter(where, params, queue);
+  const augmentId = account ? "mpa.augment_id" : "ga.augment_id";
+  const augmentSource = account
+    ? `FROM match_participant_augments mpa
+       JOIN match_participants mp
+         ON mp.game_id = mpa.game_id
+        AND mp.participant_id = mpa.participant_id
+        AND mp.puuid = ps.puuid
+       JOIN ${source.table} ${source.alias} ON mpa.game_id = ps.game_id
+       JOIN games g ON mpa.game_id = g.game_id`
+    : `FROM game_augments ga
+       JOIN ${source.table} ${source.alias} ON ga.game_id = ps.game_id
+       JOIN games g ON ga.game_id = g.game_id`;
   return db
     .prepare(`
-    SELECT ga.augment_id, COUNT(*) as picks, SUM(ps.win) as wins
-    FROM game_augments ga
-    JOIN player_stats ps ON ga.game_id = ps.game_id
-    JOIN games g ON ga.game_id = g.game_id
+    SELECT ${augmentId} as augment_id, COUNT(*) as picks, SUM(ps.win) as wins
+    ${augmentSource}
     WHERE ${where.join(" AND ")}
-    GROUP BY ga.augment_id
+    GROUP BY ${augmentId}
     ORDER BY picks DESC
   `)
     .all(...params);
@@ -1934,17 +2342,14 @@ export function getDashboardData(filters?: {
   queue?: number;
   account?: string;
 }): any {
-  const where: string[] = ["g.is_remake = 0"];
-  const params: any[] = [];
+  const source = statsSource(filters?.account);
+  const where: string[] = ["g.is_remake = 0", source.accountFilter];
+  const params: any[] = filters?.account ? [filters.account] : [];
   if (filters?.championId != null) {
     where.push("ps.champion_id = ?");
     params.push(filters.championId);
   }
 
-  if (filters?.account) {
-    where.push("g.puuid = ?");
-    params.push(filters.account);
-  }
   if (filters?.patch) {
     where.push("g.game_version = ?");
     params.push(filters.patch);
@@ -1971,9 +2376,9 @@ export function getDashboardData(filters?: {
            SUM(CASE WHEN ps.score IS NOT NULL AND ps.win = 0 THEN 1 ELSE 0 END) as scoredLosses,
            -- Every total here pools all tracked accounts; games whose owner was
            -- never resolved carry an empty puuid and aren't an account
-           COUNT(DISTINCT NULLIF(g.puuid, '')) as accounts
-    FROM player_stats ps
-    JOIN games g ON ps.game_id = g.game_id
+           COUNT(DISTINCT NULLIF(${filters?.account ? "ps.puuid" : "g.puuid"}, '')) as accounts
+    FROM ${source.table} ${source.alias}
+    JOIN games g ON ${source.alias}.game_id = g.game_id
     ${whereSql}
   `)
     .get(...params) as any;
@@ -1982,7 +2387,7 @@ export function getDashboardData(filters?: {
     .prepare(`
     SELECT ps.win, g.game_id
     FROM games g
-    JOIN player_stats ps ON g.game_id = ps.game_id
+    JOIN ${source.table} ${source.alias} ON g.game_id = ${source.alias}.game_id
     ${whereSql}
     ORDER BY g.game_creation DESC
     LIMIT 10
@@ -1998,8 +2403,8 @@ export function getDashboardData(filters?: {
       ROUND(AVG(ps.kills), 1) as avg_kills,
       ROUND(AVG(ps.deaths), 1) as avg_deaths,
       ROUND(AVG(ps.assists), 1) as avg_assists
-    FROM player_stats ps
-    JOIN games g ON ps.game_id = g.game_id
+    FROM ${source.table} ${source.alias}
+    JOIN games g ON ${source.alias}.game_id = g.game_id
     ${whereSql}
     GROUP BY ps.champion_id
     ORDER BY games DESC
@@ -2007,14 +2412,24 @@ export function getDashboardData(filters?: {
   `)
     .all(...params);
 
+  const augmentId = filters?.account ? "mpa.augment_id" : "ga.augment_id";
+  const augmentSource = filters?.account
+  ? `FROM match_participant_augments mpa
+     JOIN match_participants mp
+       ON mp.game_id = mpa.game_id
+      AND mp.participant_id = mpa.participant_id
+      AND mp.puuid = ps.puuid
+     JOIN ${source.table} ${source.alias} ON mpa.game_id = ps.game_id
+     JOIN games g ON mpa.game_id = g.game_id`
+  : `FROM game_augments ga
+     JOIN ${source.table} ${source.alias} ON ga.game_id = ps.game_id
+     JOIN games g ON ga.game_id = g.game_id`;
   const topAugments = db
-    .prepare(`
-    SELECT ga.augment_id, COUNT(*) as picks, SUM(ps.win) as wins
-    FROM game_augments ga
-    JOIN player_stats ps ON ga.game_id = ps.game_id
-    JOIN games g ON ga.game_id = g.game_id
-    ${whereSql}
-    GROUP BY ga.augment_id
+  .prepare(`
+  SELECT ${augmentId} as augment_id, COUNT(*) as picks, SUM(ps.win) as wins
+  ${augmentSource}
+  ${whereSql}
+  GROUP BY ${augmentId}
     ORDER BY picks DESC
     LIMIT 5
   `)
@@ -2402,6 +2817,7 @@ export function getRecentRiotMatchStubs(
 export function getAugmentStatsWithChampions(
   patch?: string,
   queue?: number,
+  account?: string,
 ): {
   totalGames: number;
   augments: {
@@ -2411,33 +2827,42 @@ export function getAugmentStatsWithChampions(
     champions: { champion_id: number; picks: number; wins: number }[];
   }[];
 } {
-  const where = ["g.is_remake = 0"];
-  const params: any[] = [];
+  const source = statsSource(account);
+  const where = ["g.is_remake = 0", source.accountFilter];
+  const params: any[] = account ? [account] : [];
   if (patch) {
     where.push("g.game_version = ?");
     params.push(patch);
   }
   applyQueueFilter(where, params, queue);
+  const augmentId = account ? "mpa.augment_id" : "ga.augment_id";
+  const augmentSource = account
+    ? `FROM match_participant_augments mpa
+       JOIN match_participants mp
+         ON mp.game_id = mpa.game_id
+        AND mp.participant_id = mpa.participant_id
+        AND mp.puuid = ps.puuid
+       JOIN ${source.table} ${source.alias} ON mpa.game_id = ps.game_id
+       JOIN games g ON mpa.game_id = g.game_id`
+    : `FROM game_augments ga
+       JOIN ${source.table} ${source.alias} ON ga.game_id = ps.game_id
+       JOIN games g ON ga.game_id = g.game_id`;
   const augments = db
     .prepare(`
-    SELECT ga.augment_id, COUNT(*) as picks, SUM(ps.win) as wins
-    FROM game_augments ga
-    JOIN player_stats ps ON ga.game_id = ps.game_id
-    JOIN games g ON ga.game_id = g.game_id
+    SELECT ${augmentId} as augment_id, COUNT(*) as picks, SUM(ps.win) as wins
+    ${augmentSource}
     WHERE ${where.join(" AND ")}
-    GROUP BY ga.augment_id
+    GROUP BY ${augmentId}
     ORDER BY picks DESC
   `)
     .all(...params) as { augment_id: number; picks: number; wins: number }[];
 
   const champBreakdown = db
     .prepare(`
-    SELECT ga.augment_id, ps.champion_id, COUNT(*) as picks, SUM(ps.win) as wins
-    FROM game_augments ga
-    JOIN player_stats ps ON ga.game_id = ps.game_id
-    JOIN games g ON ga.game_id = g.game_id
+    SELECT ${augmentId} as augment_id, ps.champion_id, COUNT(*) as picks, SUM(ps.win) as wins
+    ${augmentSource}
     WHERE ${where.join(" AND ")}
-    GROUP BY ga.augment_id, ps.champion_id
+    GROUP BY ${augmentId}, ps.champion_id
     ORDER BY picks DESC
   `)
     .all(...params) as { augment_id: number; champion_id: number; picks: number; wins: number }[];
@@ -2457,7 +2882,7 @@ export function getAugmentStatsWithChampions(
   const { totalGames } = db
     .prepare(`
     SELECT COUNT(*) as totalGames
-    FROM player_stats ps
+    FROM ${source.table} ps
     JOIN games g ON ps.game_id = g.game_id
     WHERE ${where.join(" AND ")}
   `)
@@ -2478,37 +2903,64 @@ export function getChampionMatchHistory(
   offset: number,
   patch?: string,
   queue?: number,
+  account?: string,
 ): { matches: any[]; total: number } {
+  const source = statsSource(account);
   const where = ["ps.champion_id = ?"];
-  const params: any[] = [championId];
+  where.push(source.accountFilter);
+  const params: any[] = [championId, ...(account ? [account] : [])];
   if (patch) {
     where.push("g.game_version = ?");
     params.push(patch);
   }
   applyQueueFilter(where, params, queue);
   const whereSql = `WHERE ${where.join(" AND ")}`;
+  const augmentIdsSql = account
+    ? `(SELECT GROUP_CONCAT(augment_id, ',')
+        FROM (
+          SELECT mpa.augment_id
+          FROM match_participant_augments mpa
+          JOIN match_participants mp
+            ON mp.game_id = mpa.game_id AND mp.participant_id = mpa.participant_id
+          WHERE mp.game_id = g.game_id AND mp.puuid = ps.puuid
+          ORDER BY mpa.slot
+        ))`
+    : `(SELECT GROUP_CONCAT(augment_id, ',')
+        FROM (SELECT augment_id FROM game_augments
+              WHERE game_id = g.game_id
+              ORDER BY slot))`;
   const total = db
     .prepare(`
     SELECT COUNT(*) as count
     FROM games g
-    JOIN player_stats ps ON g.game_id = ps.game_id
+    JOIN ${source.table} ps ON g.game_id = ps.game_id
     ${whereSql}
   `)
     .get(...params) as any;
   const matches = db
     .prepare(`
-    SELECT g.game_id, g.game_creation, g.game_duration, g.is_remake, g.favorite, g.puuid,
+    SELECT g.game_id, g.game_creation, g.game_duration, g.is_remake, g.favorite, ps.puuid,
            ps.champion_id, ps.win, ps.kills, ps.deaths, ps.assists,
            ps.double_kills, ps.triple_kills, ps.quadra_kills, ps.penta_kills,
            ps.total_damage_dealt, ps.total_damage_taken, ps.total_heal, ps.gold_earned,
-           ps.score, ps.score_badge, ps.spell1, ps.spell2,
+           ps.score, ps.score_badge,
+           COALESCE(ps.spell1, (
+             SELECT mp.spell1 FROM match_participants mp
+             WHERE mp.game_id = g.game_id AND mp.puuid = ps.puuid
+           )) as spell1,
+           COALESCE(ps.spell2, (
+             SELECT mp.spell2 FROM match_participants mp
+             WHERE mp.game_id = g.game_id AND mp.puuid = ps.puuid
+           )) as spell2,
            ps.item0, ps.item1, ps.item2, ps.item3, ps.item4, ps.item5,
-           (SELECT GROUP_CONCAT(ga.augment_id) FROM game_augments ga WHERE ga.game_id = g.game_id ORDER BY ga.slot) as augment_ids,
+           ${augmentIdsSql} as augment_ids,
            (SELECT mp.team_position FROM match_participants mp
              WHERE mp.game_id = g.game_id AND mp.puuid = g.puuid) as team_position,
+           (SELECT mp.player_subteam_placement FROM match_participants mp
+             WHERE mp.game_id = g.game_id AND mp.puuid = g.puuid) as player_subteam_placement,
 ${GAME_MAX_STATS_SQL}
     FROM games g
-    JOIN player_stats ps ON g.game_id = ps.game_id
+    JOIN ${source.table} ps ON g.game_id = ps.game_id
     ${whereSql}
     ORDER BY g.game_creation DESC
     LIMIT ? OFFSET ?
@@ -2721,7 +3173,7 @@ function insertTrackedStatsOnly(gameId: number, puuid: string): TrackedOnlyResul
   return result.changes > 0 ? "inserted" : "duplicate";
 }
 
-export function insertGameFull(gameData: any, puuid: string): boolean {
+export function insertGameFull(gameData: any, puuid: string, foreign = false): boolean {
   if (gameExists(gameData.gameId)) {
     const fast = insertTrackedStatsOnly(gameData.gameId, puuid);
     if (fast === "no-owner-row") {
@@ -2828,6 +3280,7 @@ export function insertGameFull(gameData: any, puuid: string): boolean {
   };
 
   const tx = db.transaction(() => {
+    const ownerPuuidForGamesRow = foreign ? "" : puuid;
     const result = insertGameStmt.run(
       gameData.gameId,
       gameData.queueId,
@@ -2835,7 +3288,7 @@ export function insertGameFull(gameData: any, puuid: string): boolean {
       gameData.gameCreation,
       gameData.gameDuration,
       isRemake,
-      puuid,
+      ownerPuuidForGamesRow,
       gameVersion,
       packRaw(gameData),
     );
@@ -2860,39 +3313,41 @@ export function insertGameFull(gameData: any, puuid: string): boolean {
       rows,
     );
 
-    insertStatsStmt.run(
-      gameData.gameId,
-      owner.champion_id,
-      owner.win,
-      owner.kills,
-      owner.deaths,
-      owner.assists,
-      owner.double_kills,
-      owner.triple_kills,
-      owner.quadra_kills,
-      owner.penta_kills,
-      owner.total_damage_dealt,
-      owner.total_damage_taken,
-      owner.gold_earned,
-      owner.total_heal,
-      owner.largest_killing_spree,
-      owner.total_damage_dealt_all,
-      owner.true_damage_dealt,
-      owner.cs,
-      owner.largest_critical_strike,
-      owner.spell1,
-      owner.spell2,
-      owner.items[0],
-      owner.items[1],
-      owner.items[2],
-      owner.items[3],
-      owner.items[4],
-      owner.items[5],
-      owner.items[6],
-      ownerScore?.score ?? null,
-      ownerScore?.raw ?? null,
-      ownerScore?.badge ?? null,
-    );
+    if (!foreign) {
+      insertStatsStmt.run(
+        gameData.gameId,
+        owner.champion_id,
+        owner.win,
+        owner.kills,
+        owner.deaths,
+        owner.assists,
+        owner.double_kills,
+        owner.triple_kills,
+        owner.quadra_kills,
+        owner.penta_kills,
+        owner.total_damage_dealt,
+        owner.total_damage_taken,
+        owner.gold_earned,
+        owner.total_heal,
+        owner.largest_killing_spree,
+        owner.total_damage_dealt_all,
+        owner.true_damage_dealt,
+        owner.cs,
+        owner.largest_critical_strike,
+        owner.spell1,
+        owner.spell2,
+        owner.items[0],
+        owner.items[1],
+        owner.items[2],
+        owner.items[3],
+        owner.items[4],
+        owner.items[5],
+        owner.items[6],
+        ownerScore?.score ?? null,
+        ownerScore?.raw ?? null,
+        ownerScore?.badge ?? null,
+      );
+    }
     insertTrackedStatsStmt.run({ game_id: gameData.gameId, puuid, ...ownerStats });
 
     // Augments
@@ -2985,6 +3440,114 @@ export function getProfile(): { name: string | null; profileIcon: number | null 
 export function getAllPuuids(): string[] {
   const rows = db.prepare("SELECT puuid FROM summoner").all() as { puuid: string }[];
   return rows.map((r) => r.puuid);
+}
+
+export function listSavedSummoners(): Array<{
+  puuid: string;
+  game_name: string | null;
+  tag_line: string | null;
+  profile_icon: number | null;
+  updated_at: number;
+  games: number;
+}> {
+  return db
+    .prepare(
+      `SELECT s.puuid, s.game_name, s.tag_line, s.profile_icon, s.updated_at,
+              (SELECT COUNT(*) FROM tracked_game_stats tgs WHERE tgs.puuid = s.puuid) AS games
+       FROM summoner s
+       ORDER BY s.updated_at DESC`,
+    )
+    .all() as Array<{
+    puuid: string;
+    game_name: string | null;
+    tag_line: string | null;
+    profile_icon: number | null;
+    updated_at: number;
+    games: number;
+  }>;
+}
+
+export function deleteSavedSummoner(puuid: string): {
+  deletedGames: number;
+  deletedTrackedRows: number;
+} {
+  const gameIds = db
+    .prepare("SELECT game_id FROM tracked_game_stats WHERE puuid = ?")
+    .all(puuid) as { game_id: number }[];
+  const ids = gameIds.map((row) => row.game_id);
+  let deletedGames = 0;
+  let deletedTrackedRows = 0;
+
+  const tx = db.transaction(() => {
+    deletedTrackedRows = db
+      .prepare("DELETE FROM tracked_game_stats WHERE puuid = ?")
+      .run(puuid).changes;
+
+    if (ids.length > 0) {
+      const placeholders = ids.map(() => "?").join(", ");
+      const orphanIds = (
+        db
+          .prepare(
+            `SELECT g.game_id
+             FROM games g
+             WHERE g.game_id IN (${placeholders})
+               AND NOT EXISTS (
+                 SELECT 1 FROM tracked_game_stats tgs WHERE tgs.game_id = g.game_id
+               )`,
+          )
+          .all(...ids) as { game_id: number }[]
+      ).map((row) => row.game_id);
+
+      if (orphanIds.length > 0) {
+        const orphanPlaceholders = orphanIds.map(() => "?").join(", ");
+        db.prepare(`DELETE FROM player_stats WHERE game_id IN (${orphanPlaceholders})`).run(
+          ...orphanIds,
+        );
+        db.prepare(`DELETE FROM game_augments WHERE game_id IN (${orphanPlaceholders})`).run(
+          ...orphanIds,
+        );
+        db.prepare(
+          `DELETE FROM match_participant_augments WHERE game_id IN (${orphanPlaceholders})`,
+        ).run(...orphanIds);
+        db.prepare(`DELETE FROM match_participants WHERE game_id IN (${orphanPlaceholders})`).run(
+          ...orphanIds,
+        );
+        db.prepare(`DELETE FROM games WHERE game_id IN (${orphanPlaceholders})`).run(...orphanIds);
+      }
+      deletedGames = orphanIds.length;
+    }
+
+    db.prepare("DELETE FROM summoner WHERE puuid = ?").run(puuid);
+  });
+  tx();
+
+  return { deletedGames, deletedTrackedRows };
+}
+
+export function deleteSearchedSummoners(): { removed: number; games: number } {
+  // A searched summoner has no LCU-sourced identity fields. Keep this
+  // conservative so real saved accounts are not removed accidentally.
+  const candidates = db
+    .prepare(
+      `SELECT s.puuid,
+              (SELECT COUNT(*) FROM tracked_game_stats t WHERE t.puuid = s.puuid) as games
+         FROM summoner s
+        WHERE s.summoner_id IS NULL
+          AND s.account_id IS NULL`,
+    )
+    .all() as { puuid: string; games: number }[];
+
+  let removed = 0;
+  let removedGames = 0;
+  const tx = db.transaction(() => {
+    for (const candidate of candidates) {
+      const result = deleteSavedSummoner(candidate.puuid);
+      removed++;
+      removedGames += result.deletedGames;
+    }
+  });
+  tx();
+  return { removed, games: removedGames };
 }
 
 // Someone we queued with once is a stranger, not a friend — the list only
@@ -3181,7 +3744,10 @@ export function getTeammateDetail(
              ps.total_damage_dealt, ps.total_damage_taken, ps.total_heal, ps.gold_earned,
              ps.score, ps.score_badge, ps.spell1, ps.spell2,
              ps.item0, ps.item1, ps.item2, ps.item3, ps.item4, ps.item5,
-             (SELECT GROUP_CONCAT(ga.augment_id) FROM game_augments ga WHERE ga.game_id = g.game_id ORDER BY ga.slot) as augment_ids,
+             (SELECT GROUP_CONCAT(augment_id, ',')
+              FROM (SELECT augment_id FROM game_augments
+                    WHERE game_id = g.game_id
+                    ORDER BY slot)) as augment_ids,
 ${GAME_MAX_STATS_SQL}
       FROM games g
       JOIN player_stats ps ON g.game_id = ps.game_id
@@ -3310,6 +3876,7 @@ export function getChampionItemStats(
   queue?: number,
 ): { item_id: number; picks: number; wins: number }[] {
   const extraWhere: string[] = [];
+  extraWhere.push(ownedPuuidFilter("g"));
   const extraParams: any[] = [];
   if (patch) {
     extraWhere.push("g.game_version = ?");
@@ -3345,6 +3912,9 @@ function participantFilter(patch?: string, queue?: number, alias = "mp") {
     params.push(patch);
   }
   applyQueueFilter(where, params, queue, alias);
+  where.push(
+    `EXISTS (SELECT 1 FROM games g WHERE g.game_id = ${alias}.game_id AND ${ownedPuuidFilter("g")})`,
+  );
   return { where, params, sql: where.join(" AND ") };
 }
 
@@ -3415,9 +3985,11 @@ export function getGlobalStats(
   return { champions, augments, items, totalParticipantSlots: slots.count };
 }
 
-export function getOwnedItemStats(patch?: string, queue?: number): ItemStats[] {
+export function getOwnedItemStats(patch?: string, queue?: number, account?: string): ItemStats[] {
+  const source = statsSource(account);
   const where = ["g.is_remake = 0"];
-  const params: any[] = [];
+  where.push(source.accountFilter);
+  const params: any[] = account ? [account] : [];
   if (patch) {
     where.push("g.game_version = ?");
     params.push(patch);
@@ -3433,7 +4005,7 @@ export function getOwnedItemStats(patch?: string, queue?: number): ItemStats[] {
         ${columns
           .map(
             (i) => `SELECT ps.item${i} AS item_id, ps.win
-                    FROM player_stats ps JOIN games g ON g.game_id = ps.game_id
+                    FROM ${source.table} ps JOIN games g ON g.game_id = ps.game_id
                     WHERE ${where.join(" AND ")}
                       AND ps.item${i} > 0 AND ps.item${i} NOT IN (${excluded})`,
           )
@@ -3450,6 +4022,7 @@ export function getOwnedItemDetail(itemId: number, patch?: string, queue?: numbe
     "g.is_remake = 0",
     "(ps.item0 = ? OR ps.item1 = ? OR ps.item2 = ? OR ps.item3 = ? OR ps.item4 = ? OR ps.item5 = ? OR ps.item6 = ?)",
   ];
+  where.push(ownedPuuidFilter("g"));
   const params: any[] = Array(7).fill(itemId);
   if (patch) {
     where.push("g.game_version = ?");
@@ -3472,6 +4045,7 @@ export function getOwnedItemDetail(itemId: number, patch?: string, queue?: numbe
     assists: number;
   }[];
   const totalWhere = ["g.is_remake = 0"];
+  totalWhere.push(ownedPuuidFilter("g"));
   const totalParams: any[] = [];
   if (patch) {
     totalWhere.push("g.game_version = ?");
@@ -3519,6 +4093,7 @@ export function getOwnedItemDetail(itemId: number, patch?: string, queue?: numbe
 
 export function getOwnedRuneStats(queue?: number, patch?: string) {
   const where = ["g.is_remake = 0", "g.raw_gz IS NOT NULL"];
+  where.push(ownedPuuidFilter("g"));
   const params: any[] = [];
   if (patch) {
     where.push("g.game_version = ?");
@@ -3792,12 +4367,14 @@ export function getGlobalChampionDetail(
 // itself instead of asking again; patches and clock buckets can't be derived
 // from days and come as their own aggregates. All local time — "games per day"
 // means the player's day, not UTC's.
-export function getTrendsData(queue?: number): any {
+export function getTrendsData(queue?: number, account?: string): any {
+  const source = statsSource(account);
   const where = ["g.is_remake = 0"];
-  const params: any[] = [];
+  where.push(source.accountFilter);
+  const params: any[] = account ? [account] : [];
   applyQueueFilter(where, params, queue);
   const whereSql = `WHERE ${where.join(" AND ")}`;
-  const fromSql = `FROM games g JOIN player_stats ps ON g.game_id = ps.game_id`;
+  const fromSql = `FROM games g JOIN ${source.table} ps ON g.game_id = ps.game_id`;
 
   // SUM/COUNT over ps.score skip NULLs, so score averages stay honest for
   // days where only some games have a stored score.
@@ -3866,9 +4443,11 @@ export function getTrendsData(queue?: number): any {
 // chronological pass over our own rows — streaks need the ordering anyway, and
 // the maxima fall out of the same loop. On ties the earliest game keeps the
 // record, so a mark has to be strictly beaten to change hands.
-export function getRecords(queue?: number): any {
+export function getRecords(queue?: number, account?: string): any {
+  const source = statsSource(account);
   const where = ["g.is_remake = 0"];
-  const params: any[] = [];
+  where.push(source.accountFilter);
+  const params: any[] = account ? [account] : [];
   applyQueueFilter(where, params, queue);
 
   const rows = db
@@ -3879,7 +4458,7 @@ export function getRecords(queue?: number): any {
              ps.gold_earned, ps.total_heal, ps.largest_killing_spree, ps.score,
              ps.total_damage_dealt_all, ps.true_damage_dealt, ps.cs, ps.largest_critical_strike
       FROM games g
-      JOIN player_stats ps ON g.game_id = ps.game_id
+      JOIN ${source.table} ps ON g.game_id = ps.game_id
       WHERE ${where.join(" AND ")}
       ORDER BY g.game_creation ASC
     `)
@@ -4109,6 +4688,20 @@ export function importData(data: any): number {
 // during repair (their stored stats still described the old participant) and
 // doubles as a manual "rescore now" for formula changes.
 function rebuildDerivedStats(): number {
+  const staleGames = db
+    .prepare(
+      `SELECT COUNT(*) as n FROM games g
+       LEFT JOIN player_stats ps ON ps.game_id = g.game_id
+       WHERE ps.game_id IS NULL`,
+    )
+    .get() as { n: number };
+
+  if (staleGames.n === 0) {
+    setSetting("score_formula_version", scoreFormulaKey());
+    setSetting("augment_slots", String(AUGMENT_SLOTS));
+    return 0;
+  }
+
   const games = db
     .prepare(`
       SELECT g.game_id, g.puuid, g.game_duration,
@@ -4182,6 +4775,10 @@ function rebuildDerivedStats(): number {
   const insertAugment = db.prepare(
     "INSERT OR IGNORE INTO game_augments (game_id, slot, augment_id) VALUES (?, ?, ?)",
   );
+  const updateTrackedScore = db.prepare(
+    "UPDATE tracked_game_stats SET score = ?, score_raw = ?, score_badge = ? WHERE game_id = ? AND puuid = ?",
+  );
+  const trackedPuuidsStmt = db.prepare("SELECT puuid FROM tracked_game_stats WHERE game_id = ?");
 
   let rebuilt = 0;
   const tx = db.transaction(() => {
@@ -4251,6 +4848,18 @@ function rebuildDerivedStats(): number {
         ownerScore?.raw ?? null,
         ownerScore?.badge ?? null,
       );
+
+      const trackedPuuids = trackedPuuidsStmt.all(row.game_id) as { puuid: string }[];
+      for (const { puuid: trackedPuuid } of trackedPuuids) {
+        const trackedScore = isRemake ? null : computeOwnerScore(rows, trackedPuuid, undefined);
+        updateTrackedScore.run(
+          trackedScore?.score ?? null,
+          trackedScore?.raw ?? null,
+          trackedScore?.badge ?? null,
+          row.game_id,
+          trackedPuuid,
+        );
+      }
 
       deleteAugments.run(row.game_id);
       for (const aug of augmentsByGame.get(row.game_id) ?? []) {
@@ -4438,4 +5047,107 @@ function migrateToV9() {
     db.exec("ALTER TABLE match_participants ADD COLUMN team_position TEXT");
   }
   rebuildParticipantsFromPayloads();
+}
+
+function migrateToV10() {
+  if (!tableColumns("match_participants").has("player_subteam_id")) {
+    db.exec("ALTER TABLE match_participants ADD COLUMN player_subteam_id INTEGER");
+  }
+}
+
+function migrateToV11() {
+  if (!tableColumns("match_participants").has("player_subteam_placement")) {
+    db.exec("ALTER TABLE match_participants ADD COLUMN player_subteam_placement INTEGER");
+  }
+  rebuildParticipantsFromPayloads();
+}
+
+function migrateToV12() {
+  // v11 and earlier could miss Match-V5's summoner2Id spelling when
+  // normalizing participant spells. Rebuild stored payloads so spell2 is
+  // populated for existing Arena and ARAM games.
+  rebuildParticipantsFromPayloads();
+}
+
+function migrateToV13() {
+  // v12 and earlier called rebuildParticipantsFromPayloads, which skipped
+  // the walk entirely when every game already had participant rows. That
+  // made those migrations no-ops on populated databases. This one always
+  // walks, so the spell1/spell2 and subteam columns are re-extracted from
+  // the stored payloads.
+  const result = rebuildParticipantsFromPayloads();
+  console.log(
+    `[db] v13 rebuild: ${result.normalized} rows rewritten, ${result.unusable} unreadable payloads`,
+  );
+}
+
+function migrateToV14() {
+  const result = rebuildParticipantsFromPayloads();
+  console.log(`[db] v14 rebuild: ${result.normalized} rows rewritten`);
+}
+
+function migrateToV15() {
+  const cleared = db
+    .prepare(
+      `UPDATE games
+          SET puuid = ''
+        WHERE puuid != ''
+          AND puuid NOT IN (SELECT puuid FROM summoner)`,
+    )
+    .run().changes;
+
+  const backfilled = db
+    .prepare(
+      `UPDATE games
+          SET puuid = (
+            SELECT mp.puuid FROM match_participants mp
+            WHERE mp.game_id = games.game_id
+              AND mp.puuid IN (SELECT puuid FROM summoner)
+            LIMIT 1
+          )
+        WHERE puuid = ''
+          AND EXISTS (
+            SELECT 1 FROM match_participants mp
+            WHERE mp.game_id = games.game_id
+              AND mp.puuid IN (SELECT puuid FROM summoner)
+          )`,
+    )
+    .run().changes;
+
+  console.log(
+    `[db] v15 cleanup: cleared ${cleared} foreign-owned game(s), backfilled ${backfilled} owned game(s)`,
+  );
+}
+
+function migrateToV16() {
+  const result = rebuildParticipantsFromPayloads();
+  console.log(`[db] v16 rebuild: ${result.normalized} rows rewritten`);
+}
+
+function migrateToV17() {
+  backfillPlayerStatsSpells();
+  const result = db
+    .prepare(
+      `UPDATE tracked_game_stats
+          SET spell1 = (
+                SELECT mp.spell1
+                FROM match_participants mp
+                WHERE mp.game_id = tracked_game_stats.game_id
+                  AND mp.puuid = tracked_game_stats.puuid
+              ),
+              spell2 = (
+                SELECT mp.spell2
+                FROM match_participants mp
+                WHERE mp.game_id = tracked_game_stats.game_id
+                  AND mp.puuid = tracked_game_stats.puuid
+              )
+        WHERE EXISTS (
+          SELECT 1
+          FROM match_participants mp
+          WHERE mp.game_id = tracked_game_stats.game_id
+            AND mp.puuid = tracked_game_stats.puuid
+        )`,
+    )
+    .run();
+  console.log(`[db] v17 spell sync: ${result.changes} tracked row(s) updated`);
 }

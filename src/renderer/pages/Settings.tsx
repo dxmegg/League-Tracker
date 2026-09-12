@@ -95,6 +95,18 @@ export default function Settings() {
   const [backupBusy, setBackupBusy] = useState(false);
   // Restoring replaces the whole database, so the row asks a second time
   const [confirmRestore, setConfirmRestore] = useState<string | null>(null);
+  const [savedSummoners, setSavedSummoners] = useState<
+    Array<{
+      puuid: string;
+      game_name: string | null;
+      tag_line: string | null;
+      profile_icon: number | null;
+      updated_at: number;
+      games: number;
+    }>
+  >([]);
+  const [confirmDeleteSummoner, setConfirmDeleteSummoner] = useState<string | null>(null);
+  const [summonerStatus, setSummonerStatus] = useState<string | null>(null);
 
   useEffect(() => {
     Promise.all([
@@ -130,6 +142,47 @@ export default function Settings() {
   useEffect(() => {
     window.api.getRiotAccounts().then(setRiotAccounts);
   }, []);
+
+  const refreshSavedSummoners = useCallback(() => {
+    if (typeof window.api.getSavedSummoners !== "function") {
+      console.warn(
+        "[settings] getSavedSummoners is not available yet — restart the app so the new preload loads",
+      );
+      setSummonerStatus(
+        "Saved accounts is a new feature — restart the application for it to become available.",
+      );
+      return;
+    }
+    window.api
+      .getSavedSummoners()
+      .then(setSavedSummoners)
+      .catch((err: unknown) => {
+        console.error("Failed to load saved accounts:", err);
+      });
+  }, []);
+
+  useEffect(refreshSavedSummoners, [refreshSavedSummoners]);
+
+  const handleDeleteSummoner = useCallback(
+    async (puuid: string) => {
+      setConfirmDeleteSummoner(null);
+      setSummonerStatus(null);
+      if (typeof window.api.deleteSummoner !== "function") {
+        setSummonerStatus("Delete account is not available yet — restart the application.");
+        return;
+      }
+      try {
+        const result = await window.api.deleteSummoner(puuid);
+        setSummonerStatus(
+          `Deleted account: ${result.deletedGames} game(s) removed, ${result.deletedTrackedRows} tracked row(s) removed`,
+        );
+        refreshSavedSummoners();
+      } catch (err) {
+        setSummonerStatus(`Error: ${err instanceof Error ? err.message : String(err)}`);
+      }
+    },
+    [refreshSavedSummoners],
+  );
 
   const handleRiotSync = useCallback(async () => {
     setRiotSyncing(true);
@@ -333,6 +386,30 @@ export default function Settings() {
     }
   }, []);
 
+  const handleForceFullBackfill = useCallback(async () => {
+    setBackfillStatus(
+      "Walking the entire Riot match history from page 0 — this may take a while...",
+    );
+    try {
+      const result = await window.api.backfillHistory(true);
+      if ("error" in result) {
+        setBackfillStatus(`Error: ${result.error}`);
+      } else {
+        const summary =
+          result.added > 0
+            ? `Added ${result.added} game(s) from ${result.scanned} found in your Riot history`
+            : `No new games found (${result.scanned} games checked)`;
+        setBackfillStatus(
+          result.truncated
+            ? `${summary}. Stopped at the ${result.scanned}-game paging limit — this is our own cap, not Riot's.`
+            : `${summary}. Riot returned an empty page, so this is the full history.`,
+        );
+      }
+    } catch (err: any) {
+      setBackfillStatus(`Error: ${err.message}`);
+    }
+  }, []);
+
   const handleRepair = useCallback(async () => {
     setRepairStatus(null);
     try {
@@ -441,6 +518,81 @@ export default function Settings() {
         </div>
       </div>
 
+      <div className="bg-lol-card rounded-xl border border-lol-border/60 p-5">
+        <h2 className="text-sm font-semibold text-lol-text-bright mb-2">Saved accounts</h2>
+        <p className="text-xs text-lol-text mb-4">
+          Accounts that can appear in the Local Account and Match History views. Deleting one
+          removes its summoner row and every game stored for it; games still owned by another saved
+          account are kept.
+        </p>
+        {savedSummoners.length === 0 ? (
+          <p className="text-xs text-lol-text">No saved accounts yet.</p>
+        ) : (
+          <div className="space-y-2">
+            {savedSummoners.map((summoner) => {
+              const name =
+                summoner.game_name && summoner.tag_line
+                  ? `${summoner.game_name}#${summoner.tag_line}`
+                  : summoner.game_name ?? summoner.puuid;
+              const confirming = confirmDeleteSummoner === summoner.puuid;
+              return (
+                <div
+                  key={summoner.puuid}
+                  className="flex items-center justify-between gap-3 rounded-md border border-lol-border px-3 py-2"
+                >
+                  <div className="min-w-0">
+                    <p className="text-xs text-lol-text-bright truncate">{name}</p>
+                    <p className="text-[11px] text-lol-text">
+                      {summoner.games} game{summoner.games === 1 ? "" : "s"} stored
+                    </p>
+                  </div>
+                  {confirming ? (
+                    <div className="flex items-center gap-2 shrink-0">
+                      <span className="text-[11px] text-lol-text">Delete all data?</span>
+                      <button
+                        onClick={() => handleDeleteSummoner(summoner.puuid)}
+                        className="px-3 py-1 rounded bg-red-500/20 text-red-300 hover:bg-red-500/30 transition-colors"
+                      >
+                        Delete
+                      </button>
+                      <button
+                        onClick={() => setConfirmDeleteSummoner(null)}
+                        className="px-3 py-1 rounded bg-lol-border/40 text-lol-text hover:bg-lol-border/60 transition-colors"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  ) : (
+                    <button
+                      onClick={() => setConfirmDeleteSummoner(summoner.puuid)}
+                      className="shrink-0 px-3 py-1 rounded text-xs bg-red-500/10 text-red-300 hover:bg-red-500/20 transition-colors"
+                    >
+                      Delete
+                    </button>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
+        <button
+          onClick={async () => {
+            setSummonerStatus(null);
+            const removed = await window.api.deleteSearchedSummoners();
+            setSummonerStatus(
+              removed.removed > 0
+                ? `Removed ${removed.removed} searched account(s) and ${removed.games} game(s)`
+                : "No searched accounts to remove",
+            );
+            refreshSavedSummoners();
+          }}
+          className="mt-3 px-3 py-1.5 rounded text-xs bg-lol-border/40 text-lol-text hover:bg-lol-border/60 transition-colors"
+        >
+          Clean up searched accounts
+        </button>
+        {summonerStatus && <p className="mt-3 text-xs text-lol-text">{summonerStatus}</p>}
+      </div>
+
       {/* General */}
       <div className="bg-lol-card rounded-xl border border-lol-border/60 p-5">
         <h2 className="text-sm font-semibold text-lol-text-bright mb-4">General</h2>
@@ -545,17 +697,28 @@ export default function Settings() {
               <p className="text-sm text-lol-text-bright">Backfill match history</p>
               <p className="text-xs text-lol-text mt-0.5">
                 Pull your older Mayhem games from Riot and add any that aren't stored yet. This runs
-                automatically the first time an account connects; use this to run it again, or to
-                finish an import you cancelled.
+                automatically the first time an account connects; use this to run it again, or to finish an
+                import you cancelled. <strong>Force full walk</strong> ignores the "already walked" flag and
+                re-scans the whole history from page 0 — use it if games are missing that you know you played.
               </p>
             </div>
-            <button
-              onClick={handleBackfill}
-              disabled={backfilling}
-              className="px-4 py-1.5 rounded text-sm bg-lol-gold/20 text-lol-gold hover:bg-lol-gold/30 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {backfilling ? "Working..." : "Backfill"}
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={handleBackfill}
+                disabled={backfilling}
+                className="px-4 py-1.5 rounded text-sm bg-lol-gold/20 text-lol-gold hover:bg-lol-gold/30 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {backfilling ? "Working..." : "Backfill"}
+              </button>
+              <button
+                onClick={handleForceFullBackfill}
+                disabled={backfilling}
+                title="Walk the entire Riot history from page 0, ignoring the cached completion flag. Use this to test whether the current cap is our page limit or Riot's own cutoff."
+                className="px-4 py-1.5 rounded text-sm border border-lol-border text-lol-text hover:border-lol-gold/60 hover:text-lol-text-bright transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Force full walk
+              </button>
+            </div>
           </div>
           {backfillStatus && <p className="text-xs text-lol-text">{backfillStatus}</p>}
 

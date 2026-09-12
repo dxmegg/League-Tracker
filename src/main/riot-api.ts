@@ -343,7 +343,7 @@ export async function importRecentRiotMatches(
       }
     }
     const normalized = normalizeMatchPayload(payload, gameId, puuid);
-    const inserted = db.insertGameFull(normalized, puuid);
+    const inserted = db.insertGameFull(normalized, puuid, true);
     console.log(
       `[import] worker ${gameId} insertGameFull returned ${
         inserted ? "new tracked row" : "already tracked or duplicate"

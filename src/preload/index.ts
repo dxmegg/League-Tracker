@@ -30,14 +30,14 @@ const api: ElectronAPI = {
 
   toggleFavorite: (gameId: number) => ipcRenderer.invoke("db:toggle-favorite", gameId),
 
-  getChampionStats: (patch?: string, queue?: number) =>
-    ipcRenderer.invoke("db:champion-stats", patch, queue),
+  getChampionStats: (patch?: string, queue?: number, account?: string) =>
+    ipcRenderer.invoke("db:champion-stats", patch, queue, account),
 
-  getAugmentStats: (championId?: number, patch?: string, queue?: number) =>
-    ipcRenderer.invoke("db:augment-stats", championId, patch, queue),
+  getAugmentStats: (championId?: number, patch?: string, queue?: number, account?: string) =>
+    ipcRenderer.invoke("db:augment-stats", championId, patch, queue, account),
 
-  getAugmentStatsDetailed: (patch?: string, queue?: number) =>
-    ipcRenderer.invoke("db:augment-stats-detailed", patch, queue),
+  getAugmentStatsDetailed: (patch?: string, queue?: number, account?: string) =>
+    ipcRenderer.invoke("db:augment-stats-detailed", patch, queue, account),
 
   getDashboard: (filters?: Pick<MatchFilters, "championId" | "patch" | "queue" | "account">) =>
     ipcRenderer.invoke("db:dashboard", filters),
@@ -86,7 +86,8 @@ const api: ElectronAPI = {
     offset: number,
     patch?: string,
     queue?: number,
-  ) => ipcRenderer.invoke("db:champion-match-history", championId, limit, offset, patch, queue),
+    account?: string,
+  ) => ipcRenderer.invoke("db:champion-match-history", championId, limit, offset, patch, queue, account),
 
   refreshGames: () => ipcRenderer.invoke("lcu:refresh"),
 
@@ -99,7 +100,7 @@ const api: ElectronAPI = {
     ipcRenderer.invoke("riot:save-account", account),
   removeRiotAccount: (id: string) => ipcRenderer.invoke("riot:remove-account", id),
 
-  backfillHistory: () => ipcRenderer.invoke("lcu:backfill"),
+  backfillHistory: (forceFull = false) => ipcRenderer.invoke("lcu:backfill", forceFull),
 
   cancelBackfill: () => ipcRenderer.invoke("lcu:cancel-backfill"),
 
@@ -141,8 +142,8 @@ const api: ElectronAPI = {
 
   getGlobalStats: (patch?: string, queue?: number) =>
     ipcRenderer.invoke("db:global-stats", patch, queue),
-  getOwnedItemStats: (patch?: string, queue?: number) =>
-    ipcRenderer.invoke("db:owned-item-stats", patch, queue),
+  getOwnedItemStats: (patch?: string, queue?: number, account?: string) =>
+    ipcRenderer.invoke("db:owned-item-stats", patch, queue, account),
   getOwnedRuneStats: (queue?: number, patch?: string) =>
     ipcRenderer.invoke("db:owned-rune-stats", queue, patch),
   getRuneData: () => ipcRenderer.invoke("dragon:runes"),
@@ -150,9 +151,9 @@ const api: ElectronAPI = {
   getOwnedItemDetail: (itemId: number, patch?: string, queue?: number) =>
     ipcRenderer.invoke("db:owned-item-detail", itemId, patch, queue),
 
-  getTrends: (queue?: number) => ipcRenderer.invoke("db:trends", queue),
+  getTrends: (queue?: number, account?: string) => ipcRenderer.invoke("db:trends", queue, account),
 
-  getRecords: (queue?: number) => ipcRenderer.invoke("db:records", queue),
+  getRecords: (queue?: number, account?: string) => ipcRenderer.invoke("db:records", queue, account),
 
   getGlobalChampionDetail: (championId: number, patch?: string, queue?: number) =>
     ipcRenderer.invoke("db:global-champion-detail", championId, patch, queue),
@@ -160,6 +161,10 @@ const api: ElectronAPI = {
   getSummonerPuuid: () => ipcRenderer.invoke("db:summoner-puuid"),
 
   getAllSummonerPuuids: () => ipcRenderer.invoke("db:all-summoner-puuids"),
+
+  getSavedSummoners: () => ipcRenderer.invoke("db:saved-summoners"),
+  deleteSummoner: (puuid: string) => ipcRenderer.invoke("db:delete-summoner", puuid),
+  deleteSearchedSummoners: () => ipcRenderer.invoke("db:delete-searched-summoners"),
 
   getProfile: () => ipcRenderer.invoke("db:profile"),
 

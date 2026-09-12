@@ -86,6 +86,7 @@ export interface MatchListItem {
   // "BOTTOM" | "UTILITY", or null for queues that do not have lanes (ARAM,
   // Arena, Mayhem, co-op, tutorials).
   team_position: string | null;
+  player_subteam_placement: number | null;
   game_max_dmg: number;
   game_max_taken: number;
   game_max_heal: number;
@@ -140,6 +141,8 @@ export interface MatchParticipantRecord {
   tagLine: string | null;
   championId: number;
   teamId: number;
+  playerSubteamId: number | null;
+  playerSubteamPlacement: number | null;
   win: boolean;
   kills: number;
   deaths: number;
@@ -531,6 +534,8 @@ export interface ParsedParticipant {
   participantId: number;
   championId: number;
   teamId: number;
+  playerSubteamId: number | null;
+  playerSubteamPlacement: number | null;
   puuid: string | null;
   gameName: string | null;
   tagLine: string | null;
@@ -684,9 +689,9 @@ export interface ElectronAPI {
   getStoredQueues: () => Promise<number[]>;
   getMatchDetail: (gameId: number) => Promise<MatchDetail>;
   toggleFavorite: (gameId: number) => Promise<boolean>;
-  getChampionStats: (patch?: string, queue?: number) => Promise<ChampionStats[]>;
-  getAugmentStats: (championId?: number, patch?: string, queue?: number) => Promise<AugmentStats[]>;
-  getAugmentStatsDetailed: (patch?: string, queue?: number) => Promise<AugmentStatsDetailedResult>;
+  getChampionStats: (patch?: string, queue?: number, account?: string) => Promise<ChampionStats[]>;
+  getAugmentStats: (championId?: number, patch?: string, queue?: number, account?: string) => Promise<AugmentStats[]>;
+  getAugmentStatsDetailed: (patch?: string, queue?: number, account?: string) => Promise<AugmentStatsDetailedResult>;
   getDashboard: (
     filters?: Pick<MatchFilters, "championId" | "patch" | "queue" | "account">,
   ) => Promise<DashboardData>;
@@ -736,6 +741,7 @@ export interface ElectronAPI {
     offset: number,
     patch?: string,
     queue?: number,
+    account?: string,
   ) => Promise<{ matches: MatchListItem[]; total: number }>;
   getChampionItemStats: (
     championId: number,
@@ -749,13 +755,13 @@ export interface ElectronAPI {
     relation?: "friends" | "enemies",
   ) => Promise<TeammateDetail | null>;
   getGlobalStats: (patch?: string, queue?: number) => Promise<GlobalStats>;
-  getOwnedItemStats: (patch?: string, queue?: number) => Promise<ItemStats[]>;
+  getOwnedItemStats: (patch?: string, queue?: number, account?: string) => Promise<ItemStats[]>;
   getOwnedRuneStats: (queue?: number, patch?: string) => Promise<RuneOverview>;
   getRuneData: () => Promise<RuneData>;
   getRuneTrees: () => Promise<RuneTreeLayout>;
   getOwnedItemDetail: (itemId: number, patch?: string, queue?: number) => Promise<ItemDetail>;
-  getTrends: (queue?: number) => Promise<TrendsData>;
-  getRecords: (queue?: number) => Promise<RecordsData>;
+  getTrends: (queue?: number, account?: string) => Promise<TrendsData>;
+  getRecords: (queue?: number, account?: string) => Promise<RecordsData>;
   getGlobalChampionDetail: (
     championId: number,
     patch?: string,
@@ -763,6 +769,20 @@ export interface ElectronAPI {
   ) => Promise<GlobalChampionDetail>;
   getSummonerPuuid: () => Promise<string | null>;
   getAllSummonerPuuids: () => Promise<string[]>;
+  getSavedSummoners: () => Promise<
+    Array<{
+      puuid: string;
+      game_name: string | null;
+      tag_line: string | null;
+      profile_icon: number | null;
+      updated_at: number;
+      games: number;
+    }>
+  >;
+  deleteSearchedSummoners: () => Promise<{ removed: number; games: number }>;
+  deleteSummoner: (
+    puuid: string,
+  ) => Promise<{ deletedGames: number; deletedTrackedRows: number }>;
   getProfile: () => Promise<{ name: string | null; profileIcon: number | null }>;
   getProfileData: (
     gameName: string,
@@ -775,7 +795,7 @@ export interface ElectronAPI {
   getRiotAccounts: () => Promise<RiotAccountConfig[]>;
   saveRiotAccount: (account: RiotAccountConfig) => Promise<void>;
   removeRiotAccount: (id: string) => Promise<void>;
-  backfillHistory: () => Promise<BackfillResult | { error: string }>;
+  backfillHistory: (forceFull?: boolean) => Promise<BackfillResult | { error: string }>;
   cancelBackfill: () => Promise<void>;
   isBackfillRunning: () => Promise<boolean>;
   onBackfillProgress: (callback: (progress: BackfillProgress) => void) => () => void;

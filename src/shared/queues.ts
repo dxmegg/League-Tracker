@@ -13,6 +13,11 @@ export function isAugmentQueue(queueId?: number | null): boolean {
   return MAYHEM_QUEUE_IDS.includes(queueId) || ARENA_QUEUE_IDS.includes(queueId);
 }
 
+export function isArenaQueue(queueId?: number | null): boolean {
+  if (queueId == null) return false;
+  return ARENA_QUEUE_IDS.includes(queueId);
+}
+
 // UI-only queue scopes used by the history tabs.
 export const QUEUE_SCOPE_MAYHEM = -1;
 export const QUEUE_SCOPE_REST = -2;

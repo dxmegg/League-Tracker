@@ -1,6 +1,6 @@
 {
   "name": "league-tracker",
-  "version": "1.0.1",
+  "version": "1.0.3",
   "description": "ARAM Mayhem match history tracker",
   "license": "MIT",
   "main": "./out/main/index.js",

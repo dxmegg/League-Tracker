@@ -4,7 +4,12 @@ import { closeDatabase, getSetting, checkScoreBackfill } from "./db";
 import { initDatabaseWithRecovery, startBackupSchedule, stopBackupSchedule } from "./backup";
 import { registerIpcHandlers } from "./ipc-handlers";
 import { startPolling, stopPolling, isClientConnected, fetchNewGames } from "./lcu";
-import { loadChampionData, loadAugmentData, waitForChampionData } from "./dragon";
+import {
+  loadChampionData,
+  loadAugmentData,
+  waitForChampionData,
+  flushAugmentIconCache,
+} from "./dragon";
 import { applySecurityPolicy } from "./security";
 import { ensureStartMenuShortcut } from "./shortcut";
 import { syncAutoStart, HIDDEN_FLAG } from "./autostart";
@@ -267,6 +272,10 @@ app.on("before-quit", async (event) => {
 // whatever it found by the time the database closes.
 app.on("will-quit", () => {
   stopBackupSchedule();
+  // The augment icon cache batches its writes; flush the pending batch so a
+  // resolved icon does not have to be re-resolved next launch.
+  // (augmentIconFlushTimer is a no-op if there is nothing pending.)
+  flushAugmentIconCache();
   closeDatabase();
 });
 
