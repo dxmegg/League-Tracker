@@ -1,7 +1,7 @@
 # LeagueTracker
 
 Desktop app for tracking complete League of Legends match history locally. It can connect to the League Client (LCU) for automatic detection. It was made solely for myself—for my own use—though I did want to share it with a specific person, which is why it is here.
-<img width="1280" height="820" alt="image" src="https://raw.githubusercontent.com/dxmegg/League-Tracker/refs/heads/fork/1.png" />
+<img width="1280" height="820" alt="image" src="https://raw.githubusercontent.com/dxmegg/League-Tracker/refs/heads/main/1.png" />
 
 ## Important
 
@@ -19,10 +19,10 @@ Original project can be found here: [https://github.com/Yhprum/mayhem-tracker](h
 - Item and Runes statistics
 - More
 
-<img width="1280" height="820" alt="image" src="https://raw.githubusercontent.com/dxmegg/League-Tracker/refs/heads/fork/2.png" />
-<img width="1280" height="820" alt="image" src="https://raw.githubusercontent.com/dxmegg/League-Tracker/refs/heads/fork/3.png" />
-<img width="1280" height="820" alt="image" src="https://raw.githubusercontent.com/dxmegg/League-Tracker/refs/heads/fork/4.png" />
-<img width="1280" height="820" alt="image" src="https://raw.githubusercontent.com/dxmegg/League-Tracker/refs/heads/fork/5.png" />
+<img width="1280" height="820" alt="image" src="https://raw.githubusercontent.com/dxmegg/League-Tracker/refs/heads/main/2.png" />
+<img width="1280" height="820" alt="image" src="https://raw.githubusercontent.com/dxmegg/League-Tracker/refs/heads/main/3.png" />
+<img width="1280" height="820" alt="image" src="https://raw.githubusercontent.com/dxmegg/League-Tracker/refs/heads/main/4.png" />
+<img width="1280" height="820" alt="image" src="https://raw.githubusercontent.com/dxmegg/League-Tracker/refs/heads/main/5.png" />
 
 ## Tech Stack
 
