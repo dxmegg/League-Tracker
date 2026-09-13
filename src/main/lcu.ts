@@ -421,7 +421,7 @@ export async function backfillHistory(
         continue;
       }
 
-      if (db.insertGameFull(game, summoner.puuid)) {
+      if (db.insertGameFull(game, summoner.puuid, "lcu")) {
         added++;
         console.log(`Backfilled League game ${gameId}`);
       }
@@ -508,7 +508,7 @@ export async function fetchNewGames(
       fullGame = game;
     }
 
-    const inserted = db.insertGameFull(fullGame, summoner.puuid);
+    const inserted = db.insertGameFull(fullGame, summoner.puuid, "lcu");
     if (inserted) {
       newGamesCount++;
       console.log(`Stored League game ${fullGame.gameId}`);
@@ -608,7 +608,7 @@ async function captureEogGame(
 
     const game = await fetchGameDetails(gameId);
 
-    if (db.insertGameFull(game, summoner.puuid)) {
+    if (db.insertGameFull(game, summoner.puuid, "lcu")) {
       console.log(`Stored League game ${gameId} from the post-game screen`);
       notifyGamesUpdated(win);
     }

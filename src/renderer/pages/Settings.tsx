@@ -89,6 +89,7 @@ export default function Settings() {
   const [exportStatus, setExportStatus] = useState<string | null>(null);
   const [importStatus, setImportStatus] = useState<string | null>(null);
   const [repairStatus, setRepairStatus] = useState<string | null>(null);
+  const [hasLocalAccount, setHasLocalAccount] = useState<boolean | null>(null);
   const [backfillStatus, setBackfillStatus] = useState<string | null>(null);
   const [backups, setBackups] = useState<BackupInfo[]>([]);
   const [backupStatus, setBackupStatus] = useState<string | null>(null);
@@ -117,6 +118,7 @@ export default function Settings() {
       window.api.getSetting("hide_remakes"),
       window.api.getSetting("auto_backup"),
       window.api.getSetting("remember_filters"),
+      window.api.hasLocalAccount(),
     ]).then(
       ([
         startup,
@@ -126,6 +128,7 @@ export default function Settings() {
         remakes,
         backup,
         remember,
+        localAccount,
       ]) => {
         setAutoStart(startup === "true");
         setAutoStartSupported(startupSupported);
@@ -134,6 +137,7 @@ export default function Settings() {
         setHideRemakes(remakes === "true");
         setAutoBackup(backup !== "false");
         setRememberFilters(remember === "true");
+        setHasLocalAccount(localAccount);
         setLoading(false);
       },
     );
@@ -769,12 +773,26 @@ export default function Settings() {
                 are attributed to the wrong account or scores look stale.
               </p>
             </div>
-            <button
-              onClick={handleRepair}
-              className="px-4 py-1.5 rounded text-sm bg-lol-gold/20 text-lol-gold hover:bg-lol-gold/30 transition-colors"
-            >
-              Repair
-            </button>
+            {hasLocalAccount === false ? (
+              <div>
+                <button
+                  disabled
+                  className="px-4 py-1.5 rounded text-sm bg-lol-gold/20 text-lol-gold opacity-50 cursor-not-allowed"
+                >
+                  Repair
+                </button>
+                <p className="text-xs text-lol-text mt-1">
+                  No local account yet — connect to the League client first.
+                </p>
+              </div>
+            ) : (
+              <button
+                onClick={handleRepair}
+                className="px-4 py-1.5 rounded text-sm bg-lol-gold/20 text-lol-gold hover:bg-lol-gold/30 transition-colors"
+              >
+                Repair
+              </button>
+            )}
           </div>
           {repairStatus && <p className="text-xs text-lol-text">{repairStatus}</p>}
         </div>

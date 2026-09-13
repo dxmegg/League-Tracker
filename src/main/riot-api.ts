@@ -175,6 +175,7 @@ export async function getRecentRiotMatches(
   const alreadyHave = ttlOk ? cached!.matches.length : 0;
   const ids = await riotFetch<string[]>(
     `https://${route}.api.riotgames.com/lol/match/v5/matches/by-puuid/${encodeURIComponent(puuid)}/ids?start=0&count=${needed}`,
+    platform,
   );
   const haveIds = new Set(ttlOk ? cached!.matches.map((match) => match.gameId) : []);
   const knownLocally = db.getKnownGameIdsForPuuid(puuid);
@@ -198,6 +199,7 @@ export async function getRecentRiotMatches(
 
         const payload = await riotFetch<RecentMatchResponse>(
           `https://${route}.api.riotgames.com/lol/match/v5/matches/${encodeURIComponent(rawId)}`,
+          platform,
         );
         cachePayload(gameId, payload);
         const info = payload.info;
@@ -310,6 +312,7 @@ export async function importRecentRiotMatches(
 
   const ids = await riotFetch<string[]>(
     `https://${route}.api.riotgames.com/lol/match/v5/matches/by-puuid/${encodeURIComponent(puuid)}/ids?start=0&count=${safeCount}`,
+    platform,
   );
   console.log("[import] Riot returned", ids.length, "ids, first 3:", ids.slice(0, 3));
 
@@ -329,6 +332,7 @@ export async function importRecentRiotMatches(
         try {
           payload = await riotFetch<any>(
             `https://${route}.api.riotgames.com/lol/match/v5/matches/${encodeURIComponent(rawId)}`,
+            platform,
           );
           cachePayload(gameId, payload);
           console.log(`[import] worker fetched ${gameId}`);
@@ -343,7 +347,7 @@ export async function importRecentRiotMatches(
       }
     }
     const normalized = normalizeMatchPayload(payload, gameId, puuid);
-    const inserted = db.insertGameFull(normalized, puuid, true);
+    const inserted = db.insertGameFull(normalized, puuid, "search-import", true);
     console.log(
       `[import] worker ${gameId} insertGameFull returned ${
         inserted ? "new tracked row" : "already tracked or duplicate"
@@ -480,11 +484,14 @@ function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-// A small gap between requests keeps a full history sync (which can issue
-// thousands of calls) well under Riot's short per-second rate window instead
-// of bursting and immediately drawing a 429.
-const REQUEST_PACING_MS = 30;
-const MAX_RATE_LIMIT_RETRIES = 3;
+// A personal dev key allows roughly one request per second sustained; 150 ms is
+// a safety margin above that so a full sync does not trip the 429 window, and
+// the loss is measured in seconds per sync, not minutes.
+const REQUEST_PACING_MS = 150;
+// A personal key's window is long enough that three retries of two, four and
+// eight seconds do not cover it; the loop must stay alive long enough for the
+// window to clear.
+const MAX_RATE_LIMIT_RETRIES = 20;
 let lastRequestAt = 0;
 let rateLimitPausedUntil = 0;
 let nextRequestStartAt = 0;
@@ -500,11 +507,16 @@ async function acquireRequestSlot(): Promise<() => void> {
   };
 }
 
-async function riotFetch<T>(url: string, _key?: string, tag?: string): Promise<T> {
+async function riotFetch<T>(
+  url: string,
+  platform: string,
+  _key?: string,
+  tag?: string,
+): Promise<T> {
   const original = new URL(url);
-  const originalPlatform = original.hostname.split(".")[0];
   const originalQuery = original.search.slice(1);
-  const proxyUrl = `${PROXY_BASE_URL}/proxy${original.pathname}?platform=${encodeURIComponent(originalPlatform)}${
+  // The Worker speaks platform ids (na1, euw1); the regional route lives only in the URL hostname, because Riot itself needs it there.
+  const proxyUrl = `${PROXY_BASE_URL}/proxy${original.pathname}?platform=${encodeURIComponent(platform)}${
     originalQuery ? `&${originalQuery}` : ""
   }`;
   const logPrefix = tag ? `[sync ${tag}] ` : "";
@@ -527,7 +539,7 @@ async function riotFetch<T>(url: string, _key?: string, tag?: string): Promise<T
       const retryAfterMs =
         Number.isFinite(retryAfterSeconds) && retryAfterSeconds > 0
           ? retryAfterSeconds * 1000
-          : 2 ** attempt * 1000;
+          : Math.min(2 ** attempt * 1000, 60_000);
       rateLimitPausedUntil = Math.max(rateLimitPausedUntil, Date.now() + retryAfterMs);
       console.warn(
         `${logPrefix}Riot API 429 on ${proxyUrl}, pausing for ${Math.round(retryAfterMs / 1000)}s (attempt ${attempt + 1}/${MAX_RATE_LIMIT_RETRIES})`,
@@ -549,12 +561,14 @@ async function riotFetch<T>(url: string, _key?: string, tag?: string): Promise<T
 
 async function accountByRiotId(
   route: RiotRegionalRoute,
+  platform: string,
   gameName: string,
   tagLine: string,
   tag?: string,
 ): Promise<{ puuid: string; gameName: string; tagLine: string }> {
   return riotFetch(
     `https://${route}.api.riotgames.com/riot/account/v1/accounts/by-riot-id/${encodeURIComponent(gameName)}/${encodeURIComponent(tagLine)}`,
+    platform,
     undefined,
     tag,
   );
@@ -575,7 +589,12 @@ export async function getProfileDataByRiotId(
   console.log("[profile] account URL:", accountUrl);
   let account: { puuid: string; gameName: string; tagLine: string };
   try {
-    account = await accountByRiotId(route, normalizedGameName, normalizedTagLine);
+    account = await accountByRiotId(
+      route,
+      normalizedPlatform,
+      normalizedGameName,
+      normalizedTagLine,
+    );
   } catch (err) {
     console.error("[profile] accountByRiotId failed:", err);
     throw err;
@@ -612,9 +631,9 @@ interface LeagueResponse {
   losses: number;
 }
 
-async function riotFetchOrNull<T>(url: string): Promise<T | null> {
+async function riotFetchOrNull<T>(url: string, platform: string): Promise<T | null> {
   try {
-    return await riotFetch<T>(url);
+    return await riotFetch<T>(url, platform);
   } catch (err) {
     if (err instanceof RiotApiError && err.status === 404) return null;
     throw err;
@@ -623,11 +642,12 @@ async function riotFetchOrNull<T>(url: string): Promise<T | null> {
 
 async function riotFetchOrNullCached<T>(
   url: string,
+  platform: string,
   cachedValue: T | null,
   logLabel: string,
 ): Promise<T | null> {
   try {
-    return await riotFetchOrNull<T>(url);
+    return await riotFetchOrNull<T>(url, platform);
   } catch (err) {
     if (err instanceof RiotApiError && err.status === 429 && cachedValue !== null) {
       console.warn(`[profile] 429 on ${logLabel}, falling back to cached value`);
@@ -724,16 +744,19 @@ export async function getProfileData(
     const [freshSummoner, freshMastery, freshScore] = await Promise.all([
       riotFetchOrNullCached<SummonerResponse>(
         `${base}/lol/summoner/v4/summoners/by-puuid/${encodeURIComponent(puuid)}`,
+        normalizedPlatform,
         cachedMaster?.summoner ?? null,
         "summoner",
       ),
       riotFetchOrNullCached<MasteryResponse[]>(
         `${base}/lol/champion-mastery/v4/champion-masteries/by-puuid/${encodeURIComponent(puuid)}`,
+        normalizedPlatform,
         cachedMaster?.mastery ?? null,
         "mastery",
       ),
       riotFetchOrNullCached<number>(
         `${base}/lol/champion-mastery/v4/scores/by-puuid/${encodeURIComponent(puuid)}`,
+        normalizedPlatform,
         cachedMaster?.masteryScore ?? null,
         "mastery score",
       ),
@@ -744,12 +767,14 @@ export async function getProfileData(
 
     let freshLeague = await riotFetchOrNullCached<LeagueResponse[]>(
       `${base}/lol/league/v4/entries/by-puuid/${encodeURIComponent(puuid)}`,
+      normalizedPlatform,
       cachedMaster?.league ?? null,
       "league by-puuid",
     );
     if (!freshLeague && summoner?.id) {
       freshLeague = await riotFetchOrNullCached<LeagueResponse[]>(
         `${base}/lol/league/v4/entries/by-summoner/${encodeURIComponent(summoner.id)}`,
+        normalizedPlatform,
         cachedMaster?.league ?? null,
         "league by-summoner",
       );
@@ -845,6 +870,7 @@ async function configuredIdentity(
   try {
     account = await accountByRiotId(
       regionalRoute(platform),
+      platform,
       gameName,
       tagLine,
       `${gameName}#${tagLine}`,
@@ -910,6 +936,7 @@ async function syncRiotAccount(
     try {
       page = await riotFetch<string[]>(
         `https://${route}.api.riotgames.com/lol/match/v5/matches/by-puuid/${encodeURIComponent(identity.puuid)}/ids?start=${start}&count=${count}`,
+        identity.platform,
         undefined,
         tag,
       );
@@ -930,6 +957,7 @@ async function syncRiotAccount(
     try {
       payload = await riotFetch<any>(
         `https://${route}.api.riotgames.com/lol/match/v5/matches/${id}`,
+        identity.platform,
         undefined,
         tag,
       );
@@ -944,7 +972,7 @@ async function syncRiotAccount(
       throw new Error(friendlyRiotError(err, "match"));
     }
     const normalized = normalizeMatchPayload(payload, id, identity.puuid);
-    if (db.insertGameFull(normalized, identity.puuid)) added++;
+    if (db.insertGameFull(normalized, identity.puuid, "riot-sync")) added++;
   }
 
   db.setRiotSyncState(identity.puuid, identity.platform, ids[0] ?? null, ids.length < 10_000);

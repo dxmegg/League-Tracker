@@ -19,6 +19,7 @@
     "gen:augments": "node scripts/generate-augment-descriptions.mjs"
   },
   "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.30.0",
     "better-sqlite3": "^12.6.2",
     "league-connect": "^6.0.0-rc13",
     "react": "^19.2.4",

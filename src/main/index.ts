@@ -1,6 +1,12 @@
 import { app, BrowserWindow, Tray, Menu, nativeImage, screen } from "electron";
 import path from "path";
-import { closeDatabase, getSetting, checkScoreBackfill } from "./db";
+import {
+  closeDatabase,
+  getSetting,
+  checkScoreBackfill,
+  backfillMissingTrackedRows,
+  reconcileOwnerPuuids,
+} from "./db";
 import { initDatabaseWithRecovery, startBackupSchedule, stopBackupSchedule } from "./backup";
 import { registerIpcHandlers } from "./ipc-handlers";
 import { startPolling, stopPolling, isClientConnected, fetchNewGames } from "./lcu";
@@ -211,6 +217,13 @@ app.whenReady().then(async () => {
     console.error("Database initialization failed:", err);
     app.quit();
     return;
+  }
+
+  try {
+    reconcileOwnerPuuids();
+    backfillMissingTrackedRows();
+  } catch (err: unknown) {
+    console.error("[startup] Failed to run tracked-row diagnostic:", err);
   }
 
   // Needs the database, which holds the answer. Keeps the login item pointing at

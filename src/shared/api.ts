@@ -504,6 +504,7 @@ export interface GlobalStats {
   augments: { augment_id: number; picks: number; wins: number }[];
   items: { item_id: number; picks: number; wins: number }[];
   totalParticipantSlots: number;
+  totalGames: number;
 }
 
 // One champion across every stored game, counting all ten players per game.
@@ -790,6 +791,11 @@ export interface ElectronAPI {
     platform: string,
     force?: boolean,
   ) => Promise<ProfileData | { error: string } | null>;
+  getSummonerGameHistoryFromMcp: (
+    gameName: string,
+    tagLine: string,
+    region: string,
+  ) => Promise<unknown | { error: string }>;
   refreshGames: () => Promise<{ newGames: number; totalGames: number } | { error: string }>;
   syncRiotHistory: () => Promise<RiotSyncResult | { error: string }>;
   getRiotAccounts: () => Promise<RiotAccountConfig[]>;
@@ -823,6 +829,7 @@ export interface ElectronAPI {
     discoveredAccounts: number;
     rebuiltGames: number;
   }>;
+  hasLocalAccount: () => Promise<boolean>;
   listBackups: () => Promise<BackupInfo[]>;
   createBackup: () => Promise<{ success: boolean; backup?: BackupInfo; error?: string }>;
   restoreBackup: (file: string) => Promise<{ success: boolean; games?: number; error?: string }>;
