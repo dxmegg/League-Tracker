@@ -95,6 +95,8 @@ const api: ElectronAPI = {
     ipcRenderer.invoke("riot:sync"),
   getProfileData: (gameName: string, tagLine: string, platform: string, force = false) =>
     ipcRenderer.invoke("riot:profile", gameName, tagLine, platform, force),
+  getSummonerGameHistoryFromMcp: (gameName: string, tagLine: string, region: string) =>
+    ipcRenderer.invoke("mcp:summoner-game-history", gameName, tagLine, region),
   getRiotAccounts: (): Promise<RiotAccountConfig[]> => ipcRenderer.invoke("riot:accounts"),
   saveRiotAccount: (account: RiotAccountConfig) =>
     ipcRenderer.invoke("riot:save-account", account),
@@ -191,6 +193,8 @@ const api: ElectronAPI = {
   importData: () => ipcRenderer.invoke("data:import"),
 
   repairPuuids: () => ipcRenderer.invoke("data:repair-puuids"),
+
+  hasLocalAccount: () => ipcRenderer.invoke("db:has-local-account"),
 
   listBackups: () => ipcRenderer.invoke("backup:list"),
 

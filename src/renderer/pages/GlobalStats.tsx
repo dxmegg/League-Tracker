@@ -157,7 +157,7 @@ export default function GlobalStats() {
     return unsub;
   }, [refetch]);
 
-  const totalGames = data ? Math.round(data.totalParticipantSlots / 10) : 0;
+  const totalGames = data ? data.totalGames : 0;
 
   const handleChampSort = (key: ChampSortKey) => {
     if (champSortKey === key) {

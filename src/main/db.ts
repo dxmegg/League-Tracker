@@ -24,6 +24,8 @@ import { getDataDir } from "./paths";
 import { getChampionClasses, getChampionDataVersion } from "./dragon";
 import type { ItemStats } from "../shared/api";
 
+export type GameSource = "lcu" | "riot-sync" | "search-import";
+
 // Poro-Snax (base and upgraded) is handed out for free, so it skews item stats
 const EXCLUDED_ITEM_IDS = [2052, 220013];
 
@@ -81,8 +83,7 @@ export function purgeForeignOwnedGames(): number {
     .prepare(
       `SELECT DISTINCT g.puuid
        FROM games g
-       WHERE g.puuid != ''
-         AND g.puuid NOT IN (SELECT puuid FROM summoner)`,
+       WHERE g.source = 'search-import'`,
     )
     .all() as { puuid: string }[];
 
@@ -92,8 +93,7 @@ export function purgeForeignOwnedGames(): number {
     .prepare(
       `SELECT DISTINCT g.game_id
        FROM games g
-       WHERE g.puuid != ''
-         AND g.puuid NOT IN (SELECT puuid FROM summoner)`,
+       WHERE g.source = 'search-import'`,
     )
     .all() as { game_id: number }[];
 
@@ -142,6 +142,7 @@ function createTables() {
       is_remake     INTEGER NOT NULL DEFAULT 0,
       puuid         TEXT NOT NULL DEFAULT '',
       game_version  TEXT,
+      source        TEXT NOT NULL DEFAULT 'lcu',
       favorite      INTEGER NOT NULL DEFAULT 0,
       -- The match exactly as the client handed it to us, gzipped. Nothing on a
       -- query path reads it: match_participants below answers every question
@@ -744,7 +745,7 @@ function writeParticipants(gameId: number, meta: GameDenorm, rows: RawParticipan
 // versioning, so it could be missing any subset of the columns v1 adds — which
 // is why each step checks for its column rather than assuming. A database that
 // createTables just built is also version 0, and lands on the same no-op path.
-const SCHEMA_VERSION = 17;
+const SCHEMA_VERSION = 18;
 
 function tableColumns(table: string): Set<string> {
   const rows = db.pragma(`table_info(${table})`) as { name: string }[];
@@ -794,6 +795,7 @@ function runMigrations() {
   if (current < 15) migrateToV15();
   if (current < 16) migrateToV16();
   if (current < 17) migrateToV17();
+  if (current < 18) migrateToV18();
 
   db.pragma(`user_version = ${SCHEMA_VERSION}`);
 }
@@ -878,108 +880,6 @@ function rebuildParticipantsFromPayloads(): NormalizeResult {
 
     const tx = db.transaction(() => {
       for (const row of rows) {
-        if (process.env.REBUILD_DEBUG === "1" && row.game_id) {
-          const raw = unpackRaw(row.raw_gz);
-          const first = raw?.participants?.[0] ?? raw?.info?.participants?.[0];
-          const firstStats = first?.stats ?? first;
-          if (first) {
-            console.log(`[rebuild] game ${row.game_id} participant spell keys:`, {
-              p_spell1Id: first.spell1Id,
-              p_spell2Id: first.spell2Id,
-              p_summoner1Id: first.summoner1Id,
-              p_summoner2Id: first.summoner2Id,
-              s_spell1Id: firstStats?.spell1Id,
-              s_spell2Id: firstStats?.spell2Id,
-              s_summoner1Id: firstStats?.summoner1Id,
-              s_summoner2Id: firstStats?.summoner2Id,
-            });
-          }
-          // One game is enough for diagnosis; do not flood the console.
-          process.env.REBUILD_DEBUG = "0";
-        }
-        const arenaDumpState = globalThis as typeof globalThis & {
-          __arenaDump?: boolean;
-        };
-        if (!arenaDumpState.__arenaDump) {
-          const raw = unpackRaw(row.raw_gz);
-          const queueId = Number(raw?.gameQueueConfigId ?? raw?.info?.queueId ?? 0);
-          if (
-            queueId === 1700 ||
-            queueId === 1740 ||
-            queueId === 1750 ||
-            queueId === 2400 ||
-            queueId === 2450
-          ) {
-            arenaDumpState.__arenaDump = true;
-            try {
-              const dir = path.join(process.cwd(), "data");
-              fs.mkdirSync(dir, { recursive: true });
-              const out = path.join(dir, "arena-payload-dump.json");
-              fs.writeFileSync(
-                out,
-                JSON.stringify(
-                  {
-                    gameId: row.game_id,
-                    queueId,
-                    participants: raw?.participants ?? raw?.info?.participants ?? [],
-                    participantIdentities:
-                      raw?.participantIdentities ?? raw?.info?.participantIdentities ?? [],
-                  },
-                  null,
-                  2,
-                ),
-              );
-              console.log(`[rebuild] dumped Arena payload to ${out}`);
-            } catch (err) {
-              console.error("[rebuild] failed to dump payload:", err);
-            }
-          }
-        }
-        const spellDumpState = globalThis as typeof globalThis & {
-          __spellDump?: boolean;
-        };
-        if (!spellDumpState.__spellDump) {
-          const raw = unpackRaw(row.raw_gz);
-          const queueId = Number(raw?.gameQueueConfigId ?? raw?.info?.queueId ?? 0);
-          if (
-            queueId === 1700 ||
-            queueId === 1740 ||
-            queueId === 1750 ||
-            queueId === 2400 ||
-            queueId === 2450
-          ) {
-            spellDumpState.__spellDump = true;
-            const first = raw?.participants?.[0] ?? raw?.info?.participants?.[0];
-            if (first) {
-              const s = first.stats ?? first;
-              const keys = new Set<string>();
-              for (const k of Object.keys(first)) {
-                if (k.toLowerCase().includes("spell") || k.toLowerCase().includes("summoner")) {
-                  keys.add(`p.${k}`);
-                }
-              }
-              for (const k of Object.keys(s)) {
-                if (k.toLowerCase().includes("spell") || k.toLowerCase().includes("summoner")) {
-                  keys.add(`s.${k}`);
-                }
-              }
-              console.log(
-                `[spell-dump] game ${row.game_id} queue ${queueId} — spell-related fields:`,
-                [...keys],
-              );
-              console.log(`[spell-dump] values:`, {
-                p_spell1Id: first.spell1Id,
-                p_spell2Id: first.spell2Id,
-                p_summoner1Id: first.summoner1Id,
-                p_summoner2Id: first.summoner2Id,
-                s_spell1Id: s.spell1Id,
-                s_spell2Id: s.spell2Id,
-                s_summoner1Id: s.summoner1Id,
-                s_summoner2Id: s.summoner2Id,
-              });
-            }
-          }
-        }
         const participants = participantRowsFromRaw(unpackRaw(row.raw_gz));
         if (participants.length === 0) {
           result.unusable++;
@@ -1447,12 +1347,11 @@ function applyQueueFilter(where: string[], params: any[], queue?: number, alias 
   }
 }
 
-// Owned accounts are the ones that have a summoner row: they were synced
-// through the running client, or added by hand in Settings. Games whose owner
-// puuid is not in summoner came from the Search Account import and must not
-// show up in the local views.
-function ownedPuuidFilter(alias: string): string {
-  return `${alias}.puuid IN (SELECT puuid FROM summoner)`;
+// A locally-owned game came from the client or a Riot sync and its owner puuid
+// still has a summoner row. A deleted owner leaves an orphaned game that must
+// not appear in any local view.
+function localGamesFilter(alias: string): string {
+  return `${alias}.source != 'search-import' AND ${alias}.puuid IN (SELECT puuid FROM summoner)`;
 }
 
 // Remakes are already left out of every stat; this setting takes them out of
@@ -1690,7 +1589,7 @@ function statsSource(account?: string): {
   accountFilter: string;
 } {
   if (account) return { table: "tracked_game_stats", alias: "ps", accountFilter: "ps.puuid = ?" };
-  return { table: "player_stats", alias: "ps", accountFilter: ownedPuuidFilter("g") };
+  return { table: "player_stats", alias: "ps", accountFilter: localGamesFilter("g") };
 }
 
 export function getMatchHistory(
@@ -1744,7 +1643,7 @@ export function getMatchHistory(
     }
   }
   if (!filters?.account) {
-    where.push(ownedPuuidFilter("g"));
+    where.push(localGamesFilter("g"));
   }
   const whereSql = where.length > 0 ? `WHERE ${where.join(" AND ")}` : "";
   const orderBy = matchOrderBy(filters?.sort, filters?.sortDir).replaceAll(
@@ -2079,73 +1978,6 @@ function getMatchParticipants(gameId: number): any[] {
     else augments.set(row.participant_id, [row.augment_id]);
   }
 
-  const spellDumpState = globalThis as typeof globalThis & {
-    __spellDumpDone?: boolean;
-  };
-  if (!spellDumpState.__spellDumpDone) {
-    spellDumpState.__spellDumpDone = true;
-    try {
-     const dump = rawParticipants.map((p: any, index: number) => {
-       const s = p.stats ?? p;
-       return {
-         index,
-         participantId: p.participantId ?? index + 1,
-         championId: p.championId ?? s.championId,
-         topLevelKeys: Object.keys(p).filter(
-           (k) => k.toLowerCase().includes("spell") || k.toLowerCase().includes("summoner"),
-         ),
-         statsKeys: Object.keys(s).filter(
-           (k) => k.toLowerCase().includes("spell") || k.toLowerCase().includes("summoner"),
-         ),
-         topLevelValues: {
-           spell1Id: p.spell1Id,
-           spell2Id: p.spell2Id,
-           summoner1Id: p.summoner1Id,
-           summoner2Id: p.summoner2Id,
-         },
-         statsValues: {
-           spell1Id: s.spell1Id,
-           spell2Id: s.spell2Id,
-           summoner1Id: s.summoner1Id,
-           summoner2Id: s.summoner2Id,
-         },
-       };
-     });
-     const dbRows = rows.map((r: any) => ({
-       participantId: r.participant_id,
-       championId: r.champion_id,
-       spell1: r.spell1,
-       spell2: r.spell2,
-     }));
-     const out = path.join(process.cwd(), "data", "spell-participant-dump.json");
-     fs.mkdirSync(path.dirname(out), { recursive: true });
-     fs.writeFileSync(
-       out,
-       JSON.stringify({ gameId, rawParticipants: dump, dbRows }, null, 2),
-     );
-     console.log(`[spell-dump] wrote ${out} for game ${gameId}`);
-     console.log(
-       "[spell-dump] raw spells (top-level):",
-       dump.map((d: any) => ({
-         id: d.participantId,
-         spell1: d.topLevelValues.spell1Id ?? d.topLevelValues.summoner1Id,
-         spell2: d.topLevelValues.spell2Id ?? d.topLevelValues.summoner2Id,
-       })),
-     );
-     console.log(
-       "[spell-dump] raw spells (stats):",
-       dump.map((d: any) => ({
-         id: d.participantId,
-         spell1: d.statsValues.spell1Id ?? d.statsValues.summoner1Id,
-         spell2: d.statsValues.spell2Id ?? d.statsValues.summoner2Id,
-       })),
-     );
-     console.log("[spell-dump] db rows:", dbRows);
-    } catch (err) {
-     console.error("[spell-dump] failed:", err);
-    }
-  }
-
   return rows.map((r) => {
     const raw = rawParticipants.find((p: any) => Number(p.participantId) === r.participant_id);
     const runes = extractRunes(raw);
@@ -2193,61 +2025,9 @@ export function getMatchDetail(gameId: number): any {
              is_remake, puuid, game_version, favorite
       FROM games WHERE game_id = ?
     `)
-    .get(gameId) as any;
-  if (!game) return null;
-  const spellDumpState = globalThis as typeof globalThis & {
-    __spellDump?: boolean;
-  };
-  if (!spellDumpState.__spellDump) {
-    const q = Number(game.queue_id);
-    if (q === 1700 || q === 1740 || q === 1750) {
-      spellDumpState.__spellDump = true;
-      const rawRow = db
-        .prepare("SELECT raw_gz FROM games WHERE game_id = ?")
-        .get(gameId) as { raw_gz: Buffer | null } | undefined;
-      if (rawRow?.raw_gz) {
-        try {
-          const raw = JSON.parse(zlib.gunzipSync(rawRow.raw_gz).toString("utf8"));
-          const first = raw?.participants?.[0] ?? raw?.info?.participants?.[0];
-          if (first) {
-            const s = first.stats ?? first;
-            const spellKeys: Record<string, unknown> = {};
-            for (const k of Object.keys(first)) {
-              if (k.toLowerCase().includes("spell") || k.toLowerCase().includes("summoner")) {
-                spellKeys[`p.${k}`] = first[k];
-              }
-            }
-            for (const k of Object.keys(s)) {
-              if (k.toLowerCase().includes("spell") || k.toLowerCase().includes("summoner")) {
-                spellKeys[`s.${k}`] = s[k];
-              }
-            }
-            const out = path.join(process.cwd(), "data", "arena-spell-dump.json");
-            fs.mkdirSync(path.dirname(out), { recursive: true });
-            fs.writeFileSync(
-              out,
-              JSON.stringify(
-                {
-                  gameId,
-                  queueId: q,
-                  spellKeys,
-                  fullFirstParticipant: first,
-                },
-                null,
-                2,
-              ),
-            );
-            console.log(`[spell-dump] wrote ${out}`);
-            console.log(`[spell-dump] keys:`, Object.keys(spellKeys));
-            console.log(`[spell-dump] values:`, spellKeys);
-          }
-        } catch (err) {
-          console.error("[spell-dump] failed:", err);
-        }
-      }
-    }
-  }
-  const stats = db.prepare("SELECT * FROM player_stats WHERE game_id = ?").get(gameId);
+      .get(gameId) as any;
+    if (!game) return null;
+    const stats = db.prepare("SELECT * FROM player_stats WHERE game_id = ?").get(gameId);
   const augments = db
     .prepare("SELECT * FROM game_augments WHERE game_id = ? ORDER BY slot")
     .all(gameId);
@@ -3173,7 +2953,19 @@ function insertTrackedStatsOnly(gameId: number, puuid: string): TrackedOnlyResul
   return result.changes > 0 ? "inserted" : "duplicate";
 }
 
-export function insertGameFull(gameData: any, puuid: string, foreign = false): boolean {
+export function insertGameFull(
+  gameData: any,
+  puuid: string,
+  source: GameSource,
+  foreign = false,
+): boolean {
+  // 'search-import' and foreign=true are two views of the same fact: this
+  // game was pulled from a searched player's history and must never be
+  // treated as locally owned. Keep them in lockstep.
+  if ((source === "search-import") !== foreign) {
+    throw new Error(`insertGameFull: source ${source} disagrees with foreign=${foreign}`);
+  }
+
   if (gameExists(gameData.gameId)) {
     const fast = insertTrackedStatsOnly(gameData.gameId, puuid);
     if (fast === "no-owner-row") {
@@ -3209,8 +3001,8 @@ export function insertGameFull(gameData: any, puuid: string, foreign = false): b
   const gameVersion = parsePatch(gameData.gameVersion);
 
   const insertGameStmt = db.prepare(`
-    INSERT OR IGNORE INTO games (game_id, queue_id, game_mode, game_creation, game_duration, is_remake, puuid, game_version, raw_gz)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+    INSERT OR IGNORE INTO games (game_id, queue_id, game_mode, game_creation, game_duration, is_remake, puuid, game_version, source, raw_gz)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `);
 
   const insertStatsStmt = db.prepare(`
@@ -3290,6 +3082,7 @@ export function insertGameFull(gameData: any, puuid: string, foreign = false): b
       isRemake,
       ownerPuuidForGamesRow,
       gameVersion,
+      source,
       packRaw(gameData),
     );
 
@@ -3453,7 +3246,11 @@ export function listSavedSummoners(): Array<{
   return db
     .prepare(
       `SELECT s.puuid, s.game_name, s.tag_line, s.profile_icon, s.updated_at,
-              (SELECT COUNT(*) FROM tracked_game_stats tgs WHERE tgs.puuid = s.puuid) AS games
+              (SELECT COUNT(*)
+                 FROM tracked_game_stats tgs
+                 JOIN games g ON g.game_id = tgs.game_id
+                WHERE tgs.puuid = s.puuid
+                  AND g.source != 'search-import') AS games
        FROM summoner s
        ORDER BY s.updated_at DESC`,
     )
@@ -3471,9 +3268,18 @@ export function deleteSavedSummoner(puuid: string): {
   deletedGames: number;
   deletedTrackedRows: number;
 } {
+  // A game is tied to an account two ways: through its own puuid column (the
+  // owner), or through a tracked_game_stats row (a tracked participant).
+  // An older Repair pass wrote games.puuid without creating a tracked row, so
+  // reading only tracked_game_stats left those games behind when the account
+  // was deleted. Both sources must feed the orphan check below.
   const gameIds = db
-    .prepare("SELECT game_id FROM tracked_game_stats WHERE puuid = ?")
-    .all(puuid) as { game_id: number }[];
+    .prepare(`
+      SELECT game_id FROM tracked_game_stats WHERE puuid = ?
+      UNION
+      SELECT game_id FROM games WHERE puuid = ?
+    `)
+    .all(puuid, puuid) as { game_id: number }[];
   const ids = gameIds.map((row) => row.game_id);
   let deletedGames = 0;
   let deletedTrackedRows = 0;
@@ -3532,8 +3338,12 @@ export function deleteSearchedSummoners(): { removed: number; games: number } {
       `SELECT s.puuid,
               (SELECT COUNT(*) FROM tracked_game_stats t WHERE t.puuid = s.puuid) as games
          FROM summoner s
-        WHERE s.summoner_id IS NULL
-          AND s.account_id IS NULL`,
+        WHERE s.puuid IN (
+          SELECT DISTINCT t.puuid
+          FROM tracked_game_stats t
+          JOIN games g ON g.game_id = t.game_id
+          WHERE g.source = 'search-import'
+        )`,
     )
     .all() as { puuid: string; games: number }[];
 
@@ -3876,7 +3686,7 @@ export function getChampionItemStats(
   queue?: number,
 ): { item_id: number; picks: number; wins: number }[] {
   const extraWhere: string[] = [];
-  extraWhere.push(ownedPuuidFilter("g"));
+  extraWhere.push(localGamesFilter("g"));
   const extraParams: any[] = [];
   if (patch) {
     extraWhere.push("g.game_version = ?");
@@ -3913,7 +3723,7 @@ function participantFilter(patch?: string, queue?: number, alias = "mp") {
   }
   applyQueueFilter(where, params, queue, alias);
   where.push(
-    `EXISTS (SELECT 1 FROM games g WHERE g.game_id = ${alias}.game_id AND ${ownedPuuidFilter("g")})`,
+    `EXISTS (SELECT 1 FROM games g WHERE g.game_id = ${alias}.game_id AND ${localGamesFilter("g")})`,
   );
   return { where, params, sql: where.join(" AND ") };
 }
@@ -3926,6 +3736,7 @@ export function getGlobalStats(
   augments: { augment_id: number; picks: number; wins: number }[];
   items: { item_id: number; picks: number; wins: number }[];
   totalParticipantSlots: number;
+  totalGames: number;
 } {
   const mp = participantFilter(patch, queue);
   const mpa = participantFilter(patch, queue, "mpa");
@@ -3982,7 +3793,21 @@ export function getGlobalStats(
     `)
     .get(...mp.params) as { count: number };
 
-  return { champions, augments, items, totalParticipantSlots: slots.count };
+  const games = db
+    .prepare(`
+      SELECT COUNT(DISTINCT mp.game_id) as count
+      FROM match_participants mp
+      WHERE ${mp.sql} AND mp.champion_id > 0
+    `)
+    .get(...mp.params) as { count: number };
+
+  return {
+    champions,
+    augments,
+    items,
+    totalParticipantSlots: slots.count,
+    totalGames: games.count,
+  };
 }
 
 export function getOwnedItemStats(patch?: string, queue?: number, account?: string): ItemStats[] {
@@ -4022,7 +3847,7 @@ export function getOwnedItemDetail(itemId: number, patch?: string, queue?: numbe
     "g.is_remake = 0",
     "(ps.item0 = ? OR ps.item1 = ? OR ps.item2 = ? OR ps.item3 = ? OR ps.item4 = ? OR ps.item5 = ? OR ps.item6 = ?)",
   ];
-  where.push(ownedPuuidFilter("g"));
+  where.push(localGamesFilter("g"));
   const params: any[] = Array(7).fill(itemId);
   if (patch) {
     where.push("g.game_version = ?");
@@ -4045,7 +3870,7 @@ export function getOwnedItemDetail(itemId: number, patch?: string, queue?: numbe
     assists: number;
   }[];
   const totalWhere = ["g.is_remake = 0"];
-  totalWhere.push(ownedPuuidFilter("g"));
+  totalWhere.push(localGamesFilter("g"));
   const totalParams: any[] = [];
   if (patch) {
     totalWhere.push("g.game_version = ?");
@@ -4093,7 +3918,7 @@ export function getOwnedItemDetail(itemId: number, patch?: string, queue?: numbe
 
 export function getOwnedRuneStats(queue?: number, patch?: string) {
   const where = ["g.is_remake = 0", "g.raw_gz IS NOT NULL"];
-  where.push(ownedPuuidFilter("g"));
+  where.push(localGamesFilter("g"));
   const params: any[] = [];
   if (patch) {
     where.push("g.game_version = ?");
@@ -4665,7 +4490,7 @@ export function importData(data: any): number {
     for (const game of data.games ?? []) {
       const puuid = game._ownerPuuid || data.summoners?.[0]?.puuid;
       if (!puuid) continue;
-      if (insertGameFull(game, puuid)) imported++;
+      if (insertGameFull(game, puuid, "lcu")) imported++;
     }
     return imported;
   }
@@ -4675,7 +4500,7 @@ export function importData(data: any): number {
   upsertSummoner(data.summoner);
   let imported = 0;
   for (const game of data.games ?? []) {
-    if (insertGameFull(game, puuid)) imported++;
+    if (insertGameFull(game, puuid, "lcu")) imported++;
   }
   return imported;
 }
@@ -4895,20 +4720,51 @@ export function repairPuuids(): {
 
   // Step 1: Collect participant puuids per game. Bots and unresolved players
   // were already filtered to NULL on the way into match_participants.
-  const rows = db
-    .prepare(`
-      SELECT mp.game_id, mp.puuid, mp.game_name, mp.tag_line, g.game_creation
-      FROM match_participants mp
-      JOIN games g ON g.game_id = mp.game_id
-      WHERE mp.puuid IS NOT NULL
-    `)
-    .all() as {
-    game_id: number;
-    puuid: string;
-    game_name: string | null;
-    tag_line: string | null;
-    game_creation: number;
-  }[];
+  // Search Account imports are identified by the authoritative games.source
+  // marker; the summoner table is not used to infer game ownership here.
+  const foreignImportedPuuids = new Set(
+    (
+      db
+        .prepare(`
+          SELECT DISTINCT t.puuid
+          FROM tracked_game_stats t
+          JOIN games g ON g.game_id = t.game_id
+          WHERE g.source = 'search-import'
+            AND t.puuid NOT IN (SELECT puuid FROM summoner)
+        `)
+        .all() as { puuid: string }[]
+    ).map((row) => row.puuid),
+  );
+
+  const knownAccounts = getAllPuuids();
+  if (knownAccounts.length === 0) {
+    // Repair only makes sense with a locally-owned account to anchor the
+    // greedy pass; otherwise it would nominate a stranger.
+    return { repairedGames: 0, discoveredAccounts: 0, rebuiltGames: 0 };
+  }
+
+  // Search Account imports are not part of the local library, so Repair has no
+  // business assigning them an owner. The foreignImportedPuuids filter below
+  // catches their puuids only when those puuids lack a summoner row; a game
+  // whose games.puuid was previously written by an older Repair would slip
+  // past it without this condition.
+  const rows = (
+    db
+      .prepare(`
+        SELECT mp.game_id, mp.puuid, mp.game_name, mp.tag_line, g.game_creation
+        FROM match_participants mp
+        JOIN games g ON g.game_id = mp.game_id
+        WHERE mp.puuid IS NOT NULL
+          AND g.source != 'search-import'
+      `)
+      .all() as {
+      game_id: number;
+      puuid: string;
+      game_name: string | null;
+      tag_line: string | null;
+      game_creation: number;
+    }[]
+  ).filter((row) => !foreignImportedPuuids.has(row.puuid));
 
   const puuidToGames = new Map<string, Set<number>>();
   const gameToPuuids = new Map<number, Set<string>>();
@@ -4936,7 +4792,8 @@ export function repairPuuids(): {
   // never co-occurs in the same game as an already-identified user account.
   // This filters out friends (who always appear alongside a user account)
   // while correctly identifying alt accounts (which never share a game).
-  const userPuuids = new Set<string>();
+  // Seed with owned accounts so the first candidate must co-occur before admission.
+  const userPuuids = new Set<string>(knownAccounts);
 
   for (const [puuid, gameIds] of sortedPuuids) {
     let coOccurs = false;
@@ -4964,8 +4821,22 @@ export function repairPuuids(): {
     for (const [gameId, puuidsInGame] of gameToPuuids) {
       for (const puuid of puuidsInGame) {
         if (userPuuids.has(puuid)) {
-          updateStmt.run(puuid, gameId);
-          repairedGames++;
+          // Two independent repairs, deliberately not gated on each other. A game
+          // can have the right games.puuid and still be missing its tracked row —
+          // that is the exact shape left behind by an older Repair that reassigned
+          // ownership without touching tracked_game_stats. The guard only affects
+          // the counter: a pass that changes nothing must report zero.
+          const before = db
+            .prepare("SELECT puuid FROM games WHERE game_id = ?")
+            .get(gameId) as { puuid: string } | undefined;
+          const puuidChanged = before?.puuid !== puuid;
+          if (puuidChanged) {
+            updateStmt.run(puuid, gameId);
+          }
+          const tracked = insertTrackedStatsOnly(gameId, puuid);
+          if (puuidChanged || tracked === "inserted") {
+            repairedGames++;
+          }
           break;
         }
       }
@@ -5005,6 +4876,120 @@ export function repairPuuids(): {
   const rebuiltGames = rebuildDerivedStats();
 
   return { repairedGames, discoveredAccounts: userPuuids.size, rebuiltGames };
+}
+
+// A game whose owner is correct but whose tracked_game_stats row is missing
+// is the shape left behind by a partial LCU payload: the participants table
+// gets one row (the owner), player_stats gets one row, and tracked_game_stats
+// gets nothing. Repair fixes it, but Repair is O(all games) and rewrites
+// every derived row — too heavy to run at every launch for a problem that is
+// usually a handful of games. This narrows the work to exactly the missing
+// rows so it can run on startup without cost. If the participant row is
+// missing, the same-shaped player_stats row is copied instead of skipped.
+export function backfillMissingTrackedRows(): number {
+  const missing = db
+    .prepare(`
+      SELECT g.game_id, g.puuid
+      FROM games g
+      WHERE g.puuid != ''
+        AND g.puuid IN (SELECT puuid FROM summoner)
+        AND g.source != 'search-import'
+        AND NOT EXISTS (
+          SELECT 1 FROM tracked_game_stats tgs
+          WHERE tgs.game_id = g.game_id AND tgs.puuid = g.puuid
+        )
+    `)
+    .all() as { game_id: number; puuid: string }[];
+
+  if (missing.length === 0) return 0;
+
+  let added = 0;
+  const tx = db.transaction(() => {
+    for (const row of missing) {
+      const result = insertTrackedStatsOnly(row.game_id, row.puuid);
+      if (result === "inserted") added++;
+      else if (result === "no-owner-row") {
+        // The owner's participant row is genuinely missing — the game was
+        // written before reconcileOwnerPuuids ran, or the payload never had it.
+        // player_stats already holds everything tracked_game_stats needs for
+        // this game (same column list, one row per game, keyed on the owner's
+        // line), so copy it across rather than skip the game.
+        const copied = db
+          .prepare(`
+            INSERT OR IGNORE INTO tracked_game_stats (
+              game_id, puuid, champion_id, win, kills, deaths, assists,
+              double_kills, triple_kills, quadra_kills, penta_kills,
+              total_damage_dealt, total_damage_taken, gold_earned, total_heal,
+              largest_killing_spree, total_damage_dealt_all, true_damage_dealt, cs,
+              largest_critical_strike, score, score_raw, score_badge, spell1, spell2,
+              item0, item1, item2, item3, item4, item5, item6
+            )
+            SELECT
+              ps.game_id, ?, ps.champion_id, ps.win, ps.kills, ps.deaths, ps.assists,
+              ps.double_kills, ps.triple_kills, ps.quadra_kills, ps.penta_kills,
+              ps.total_damage_dealt, ps.total_damage_taken, ps.gold_earned, ps.total_heal,
+              ps.largest_killing_spree, ps.total_damage_dealt_all, ps.true_damage_dealt, ps.cs,
+              ps.largest_critical_strike, ps.score, ps.score_raw, ps.score_badge, ps.spell1, ps.spell2,
+              ps.item0, ps.item1, ps.item2, ps.item3, ps.item4, ps.item5, ps.item6
+            FROM player_stats ps
+            WHERE ps.game_id = ?
+          `)
+          .run(row.puuid, row.game_id);
+        if (copied.changes > 0) added++;
+      }
+    }
+  });
+  tx();
+
+  if (added > 0) {
+    console.log(`[backfill-tracked] created ${added} missing tracked_game_stats row(s)`);
+  }
+  return added;
+}
+
+// Riot has shipped more than one puuid format over the years, and a single
+// account's rows can end up split between them: summoner and games hold the
+// current UUID form, while some older match_participants rows still carry the
+// long base64url form. Those rows cannot be matched to their owner by puuid,
+// which makes insertTrackedStatsOnly return no-owner-row and leaves games
+// without a tracked_game_stats entry. The fix is to align match_participants
+// with summoner by name, not by puuid — the name is what stayed the same.
+//
+// Idempotent: after the first pass no rows match the WHERE clause, so a
+// second call does nothing. Safe to run on every startup, but a settings
+// flag guards it anyway so a regression is visible in the log.
+export function reconcileOwnerPuuids(): number {
+  if (getSetting("puuid_reconciled_v1") === "1") return 0;
+
+  const summoners = db
+    .prepare("SELECT puuid, game_name, tag_line FROM summoner WHERE game_name IS NOT NULL")
+    .all() as { puuid: string; game_name: string; tag_line: string | null }[];
+
+  let updated = 0;
+  const tx = db.transaction(() => {
+    for (const s of summoners) {
+      const result = db
+        .prepare(`
+          UPDATE match_participants
+             SET puuid = ?
+           WHERE game_name = ?
+             AND (tag_line IS ? OR tag_line = ?)
+             AND puuid IS NOT NULL
+             AND puuid != ?
+        `)
+        .run(s.puuid, s.game_name, s.tag_line, s.tag_line, s.puuid);
+      updated += result.changes;
+    }
+  });
+  tx();
+
+  setSetting("puuid_reconciled_v1", "1");
+  if (updated > 0) {
+    console.log(
+      `[reconcile-puuids] rewrote ${updated} match_participants row(s) to their summoner puuid`,
+    );
+  }
+  return updated;
 }
 
 // Preserve the owner line already stored in player_stats, then allow later
@@ -5150,4 +5135,18 @@ function migrateToV17() {
     )
     .run();
   console.log(`[db] v17 spell sync: ${result.changes} tracked row(s) updated`);
+}
+
+function migrateToV18() {
+  if (!tableColumns("games").has("source")) {
+    db.exec("ALTER TABLE games ADD COLUMN source TEXT NOT NULL DEFAULT 'lcu'");
+  }
+
+  // Existing rows predate the source column. The only split we can prove
+  // from stored data is whether the game had an owner puuid at all:
+  // games with no puuid were Search Account imports, everything else was
+  // recorded through the local client. LCU and Riot sync are not
+  // distinguishable in historical data, so both backfill as 'lcu'.
+  db.exec(`UPDATE games SET source = 'search-import' WHERE puuid = ''`);
+  console.log(`[db] v18 backfilled source column`);
 }

@@ -6,6 +6,7 @@ import * as riot from "./riot-api";
 import * as dragon from "./dragon";
 import * as updater from "./updater";
 import * as backup from "./backup";
+import * as mcp from "./mcp";
 import { getBackupDir } from "./paths";
 import { openExternalUrl } from "./security";
 import { applyAutoStart, isAutoStartSupported } from "./autostart";
@@ -239,6 +240,16 @@ export function registerIpcHandlers() {
           return { error: riot.friendlyRiotError(err, "account") };
         }
       });
+    },
+  );
+  ipcMain.handle(
+    "mcp:summoner-game-history",
+    async (_event, gameName: string, tagLine: string, region: string) => {
+      try {
+        return await mcp.fetchSummonerGameHistory(gameName, tagLine, region);
+      } catch (err) {
+        return { error: err instanceof Error ? err.message : "MCP request failed" };
+      }
     },
   );
   ipcMain.handle(
@@ -543,6 +554,10 @@ export function registerIpcHandlers() {
     // there is no undo for it short of the snapshot taken here.
     await backup.backupQuietly("pre-repair");
     return db.repairPuuids();
+  });
+
+  ipcMain.handle("db:has-local-account", () => {
+    return db.getAllPuuids().length > 0;
   });
 
   // Backups
