@@ -1,8 +1,10 @@
 export const CHAMPION_ICON_URL = (id: number): string =>
   `https://raw.communitydragon.org/latest/plugins/rcp-be-lol-game-data/global/default/v1/champion-icons/${id}.png`;
 
-export const PROFILE_ICON_URL = (id: number): string =>
-  `https://raw.communitydragon.org/latest/plugins/rcp-be-lol-game-data/global/default/v1/profile-icons/${id}.jpg`;
+export const PROFILE_ICON_URL = (id: number): string => {
+  const safeId = Number.isInteger(id) && id > 0 ? id : 29;
+  return `https://raw.communitydragon.org/latest/plugins/rcp-be-lol-game-data/global/default/v1/profile-icons/${safeId}.jpg`;
+};
 
 // Converts a CommunityDragon game-data icon path (e.g. from items.json) to a
 // raw asset URL on the given branch ("latest", "pbe", or a patch like "16.14")

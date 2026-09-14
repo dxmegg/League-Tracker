@@ -10,7 +10,7 @@ import {
 } from "league-connect";
 import { BrowserWindow } from "electron";
 import * as db from "./db";
-import type { LcuStatus } from "../shared/api";
+import type { CurrentSummoner, LcuStatus } from "../shared/api";
 
 let credentials: Credentials | null = null;
 let status: LcuStatus = "disconnected";
@@ -71,8 +71,28 @@ async function fetchCurrentSummoner(): Promise<any> {
 // Used by the Riot API sync as a best-effort account detector. Historical
 // syncing never depends on this endpoint; configured Riot ID settings remain
 // the fallback when the client is closed.
-export async function getCurrentSummoner(): Promise<any> {
-  return fetchCurrentSummoner();
+export async function getCurrentSummoner(): Promise<CurrentSummoner> {
+  console.log("[lcu] getCurrentSummoner called");
+  await connect();
+  const rawSummoner = await fetchCurrentSummoner();
+  const summoner: CurrentSummoner = {
+    ...rawSummoner,
+    puuid: String(rawSummoner?.puuid ?? ""),
+    gameName: String(rawSummoner?.gameName ?? ""),
+    tagLine: String(rawSummoner?.tagLine ?? ""),
+    displayName: String(rawSummoner?.displayName ?? ""),
+    internalName: String(rawSummoner?.internalName ?? ""),
+    region: String(rawSummoner?.region ?? ""),
+    platform: String(rawSummoner?.platform ?? ""),
+    profileIconId: Number(rawSummoner?.profileIconId) || 0,
+    summonerLevel: Number(rawSummoner?.summonerLevel) || 0,
+  };
+  console.log("[lcu] getCurrentSummoner done:", {
+    profileIconId: summoner.profileIconId,
+    summonerLevel: summoner.summonerLevel,
+    hasDisplayName: Boolean(summoner.displayName),
+  });
+  return summoner;
 }
 
 async function fetchMatchHistoryByPuuid(puuid: string, begIndex = 0, endIndex = 19): Promise<any> {

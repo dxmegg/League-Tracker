@@ -69,6 +69,8 @@ export default function Settings() {
   const [rememberFilters, setRememberFilters] = useState(false);
   const [loading, setLoading] = useState(true);
   const [backfillStatus, setBackfillStatus] = useState<string | null>(null);
+  const [repairing, setRepairing] = useState(false);
+  const [restoring, setRestoring] = useState(false);
   const [backups, setBackups] = useState<BackupInfo[]>([]);
   const [backupStatus, setBackupStatus] = useState<string | null>(null);
   const [backupBusy, setBackupBusy] = useState(false);
@@ -161,6 +163,46 @@ export default function Settings() {
 
   const handleRiotSync = useCallback(async () => {
     // TODO: rewrite Riot history sync from scratch
+  }, []);
+
+  const handleRepair = useCallback(async () => {
+    setRepairing(true);
+    setBackfillStatus("Repairing game data...");
+    try {
+      const result = await window.api.repairPuuids();
+      if ("error" in result) {
+        setBackfillStatus(`Error: ${result.error}`);
+      } else {
+        setBackfillStatus(
+          `Repaired ${result.repairedGames} game(s), rebuilt ${result.rebuiltGames} game(s)`,
+        );
+      }
+    } catch (err: unknown) {
+      setBackfillStatus(`Error: ${err instanceof Error ? err.message : String(err)}`);
+    } finally {
+      setRepairing(false);
+    }
+  }, []);
+
+  const handleRestoreOlderGames = useCallback(async () => {
+    setRestoring(true);
+    setBackfillStatus("Restoring ignored games...");
+    try {
+      const result = await window.api.restoreOlderGames();
+      if ("error" in result) {
+        setBackfillStatus(`Error: ${result.error}`);
+      } else if (result.restored === 0) {
+        setBackfillStatus(`Nothing to restore (${result.remaining} still ignored)`);
+      } else {
+        setBackfillStatus(
+          `Restored ${result.restored} game(s). Run Force Backfill to re-scan them.`,
+        );
+      }
+    } catch (err: unknown) {
+      setBackfillStatus(`Error: ${err instanceof Error ? err.message : String(err)}`);
+    } finally {
+      setRestoring(false);
+    }
   }, []);
 
   // Kept current the same way the queue dropdown is: a game from a queue that
@@ -347,6 +389,22 @@ export default function Settings() {
             onClick={handleRiotSync}
           >
             Sync from Riot History
+          </button>
+          <button
+            type="button"
+            onClick={handleRestoreOlderGames}
+            disabled={restoring}
+            className="rounded-md bg-lol-gold/15 border border-lol-gold/40 px-3 py-1.5 text-xs text-lol-gold"
+          >
+            {restoring ? "Restoring..." : "Restore older games"}
+          </button>
+          <button
+            type="button"
+            onClick={handleRepair}
+            disabled={repairing}
+            className="rounded-md bg-lol-gold/15 border border-lol-gold/40 px-3 py-1.5 text-xs text-lol-gold"
+          >
+            {repairing ? "Repairing..." : "Repair"}
           </button>
         </div>
         {backfillStatus && (

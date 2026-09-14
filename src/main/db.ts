@@ -2837,6 +2837,27 @@ export function getIgnoredGameIds(): Set<number> {
   return new Set(rows.map((row) => row.game_id));
 }
 
+export function restoreOlderGames(): { restored: number; remaining: number } {
+  console.log("[db] restoreOlderGames called");
+  const tx = db.transaction(() => {
+    const before = (
+      db.prepare("SELECT COUNT(*) AS n FROM ignored_games").get() as { n: number }
+    ).n;
+    db.prepare(`
+      DELETE FROM ignored_games
+      WHERE game_id IN (SELECT game_id FROM games)
+         OR game_id IN (SELECT game_id FROM match_participants)
+    `).run();
+    const after = (
+      db.prepare("SELECT COUNT(*) AS n FROM ignored_games").get() as { n: number }
+    ).n;
+    return { restored: before - after, remaining: after };
+  });
+  const result = tx();
+  console.log("[db] restoreOlderGames done:", result);
+  return result;
+}
+
 // The game's owner among its participant rows. participantRowsFromRaw has
 // already folded participantIdentities into each row's puuid, so one lookup
 // covers both the LCU and SGP shapes.
@@ -3172,6 +3193,16 @@ export function upsertSummoner(summoner: any): void {
   );
 }
 
+export function updateSummonerProfileIcon(puuid: string, profileIcon: number): void {
+  db.prepare(`
+    INSERT INTO summoner (puuid, profile_icon, updated_at)
+    VALUES (?, ?, ?)
+    ON CONFLICT(puuid) DO UPDATE SET
+      profile_icon = excluded.profile_icon,
+      updated_at = excluded.updated_at
+  `).run(puuid, profileIcon, Date.now());
+}
+
 export function getSummoner(): any {
   return db.prepare("SELECT * FROM summoner ORDER BY updated_at DESC LIMIT 1").get();
 }
@@ -3201,7 +3232,12 @@ function identityFromGame(
 // always come from the same place. Keying off the summoner table's updated_at
 // instead would name the account the client last synced — which need not be the
 // one that played, and which repairPuuids rewrites for every account at once.
-export function getProfile(): { name: string | null; profileIcon: number | null } {
+export function getProfile(): {
+  puuid: string | null;
+  name: string | null;
+  profileIcon: number | null;
+  platform: string | null;
+} {
   const latest = db
     .prepare(
       "SELECT game_id, puuid FROM games WHERE puuid != '' ORDER BY game_creation DESC LIMIT 1",
@@ -3212,6 +3248,16 @@ export function getProfile(): { name: string | null; profileIcon: number | null 
   const row = latest
     ? (db.prepare("SELECT * FROM summoner WHERE puuid = ?").get(latest.puuid) as any)
     : getSummoner();
+  const profilePuuid = latest?.puuid ?? row?.puuid ?? null;
+  const platform = profilePuuid
+    ? (
+        db
+          .prepare(
+            "SELECT platform FROM riot_sync_state WHERE puuid = ? ORDER BY last_sync_at DESC LIMIT 1",
+          )
+          .get(profilePuuid) as { platform: string } | undefined
+      )?.platform ?? getSetting("riot_platform") ?? null
+    : getSetting("riot_platform") ?? null;
 
   const name = row?.game_name
     ? row.tag_line
@@ -3219,7 +3265,9 @@ export function getProfile(): { name: string | null; profileIcon: number | null 
       : row.game_name
     : null;
   const icon = row?.profile_icon ?? null;
-  if (name && icon != null) return { name, profileIcon: icon };
+  if (name && icon != null) {
+    return { puuid: profilePuuid, name, profileIcon: icon, platform };
+  }
 
   // profile_icon only fills in once the client has synced this account, and an
   // imported game may have no summoner row at all — read both off the game
@@ -3227,7 +3275,12 @@ export function getProfile(): { name: string | null; profileIcon: number | null 
   const fallback = latest
     ? identityFromGame(latest.game_id, latest.puuid)
     : { name: null, icon: null };
-  return { name: name ?? fallback.name, profileIcon: icon ?? fallback.icon };
+  return {
+    puuid: profilePuuid,
+    name: name ?? fallback.name,
+    profileIcon: icon ?? fallback.icon,
+    platform,
+  };
 }
 
 export function getAllPuuids(): string[] {
