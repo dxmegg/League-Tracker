@@ -7,6 +7,7 @@ import * as dragon from "./dragon";
 import * as updater from "./updater";
 import * as backup from "./backup";
 import * as mcp from "./mcp";
+import * as opgg from "./opgg";
 import { getBackupDir } from "./paths";
 import { openExternalUrl } from "./security";
 import { applyAutoStart, isAutoStartSupported } from "./autostart";
@@ -249,6 +250,36 @@ export function registerIpcHandlers() {
         return await mcp.fetchSummonerGameHistory(gameName, tagLine, region);
       } catch (err) {
         return { error: err instanceof Error ? err.message : "MCP request failed" };
+      }
+    },
+  );
+  ipcMain.handle(
+    "opgg:search",
+    async (_event, region: string, gameName: string, tagLine: string) => {
+      try {
+        return await opgg.searchSummoner(region, gameName, tagLine);
+      } catch (err) {
+        return { error: err instanceof Error ? err.message : "OP.GG search failed" };
+      }
+    },
+  );
+  ipcMain.handle(
+    "opgg:summary",
+    async (_event, region: string, summonerId: string) => {
+      try {
+        return await opgg.getSummonerSummary(region, summonerId);
+      } catch (err) {
+        return { error: err instanceof Error ? err.message : "OP.GG summary failed" };
+      }
+    },
+  );
+  ipcMain.handle(
+    "opgg:games",
+    async (_event, region: string, summonerId: string, limit: number) => {
+      try {
+        return await opgg.getRecentGames(region, summonerId, limit);
+      } catch (err) {
+        return { error: err instanceof Error ? err.message : "OP.GG games failed" };
       }
     },
   );

@@ -796,6 +796,20 @@ export interface ElectronAPI {
     tagLine: string,
     region: string,
   ) => Promise<unknown | { error: string }>;
+  searchOpggSummoner: (
+    region: string,
+    gameName: string,
+    tagLine: string,
+  ) => Promise<unknown | { error: string }>;
+  getOpggSummonerSummary: (
+    region: string,
+    summonerId: string,
+  ) => Promise<unknown | { error: string }>;
+  getOpggRecentGames: (
+    region: string,
+    summonerId: string,
+    limit: number,
+  ) => Promise<unknown | { error: string }>;
   refreshGames: () => Promise<{ newGames: number; totalGames: number } | { error: string }>;
   syncRiotHistory: () => Promise<RiotSyncResult | { error: string }>;
   getRiotAccounts: () => Promise<RiotAccountConfig[]>;

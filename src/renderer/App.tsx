@@ -14,6 +14,7 @@ import Profile from "./pages/Profile";
 import HistorySection from "./pages/HistorySection";
 import GlobalChampionDetail from "./pages/GlobalChampionDetail";
 import ItemDetail from "./pages/ItemDetail";
+import Home from "./pages/Home";
 
 function ScopedFriendDetail() {
   return <FriendDetail />;
@@ -24,9 +25,9 @@ export default function App() {
     <HashRouter>
       <Routes>
         <Route element={<Layout />}>
-          <Route path="/profile" element={<Profile key="profile-search" />} />
-          <Route path="/local" element={<Profile key="profile-local" localMode />} />
-          <Route path="/" element={<MatchHistory />} />
+        <Route path="/home" element={<Home />} />
+        <Route path="/local" element={<Profile />} />
+        <Route path="/" element={<MatchHistory />} />
           <Route path="/history/mayhem" element={<MatchHistory scope="mayhem" />} />
           <Route path="/history/rest" element={<MatchHistory scope="rest" />} />
           <Route path="/history/ranked" element={<MatchHistory scope="ranked" />} />
