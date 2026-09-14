@@ -2,8 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import { useBackfill } from "../hooks/useBackfill";
 import { queueLabel } from "../components/QueueSelect";
 import { setRemembering } from "../lib/viewState";
-import type { BackupInfo, RiotAccountConfig } from "../lib/types";
-import { PLATFORM_TO_NAME } from "../../shared/regions";
+import type { BackupInfo } from "../lib/types";
 
 const BACKUP_REASONS: Record<string, string> = {
   auto: "Scheduled",
@@ -23,14 +22,6 @@ function formatTaken(timestamp: number): string {
     hour: "2-digit",
     minute: "2-digit",
   })}`;
-}
-
-function splitRiotId(value: string): { gameName: string; tagLine: string } | null {
-  const separator = value.indexOf("#");
-  if (separator < 0) return null;
-  const gameName = value.slice(0, separator).trim();
-  const tagLine = value.slice(separator + 1).trim();
-  return gameName && tagLine ? { gameName, tagLine } : null;
 }
 
 function Switch({
@@ -64,7 +55,7 @@ function Switch({
 
 export default function Settings() {
   // Shared so a backfill started automatically on first connect shows here too
-  const { running: backfilling, progress } = useBackfill();
+  const { running: backfilling } = useBackfill();
   const [autoStart, setAutoStart] = useState(false);
   // Only the packaged program has a path worth registering, so the switch says
   // so instead of pretending in a dev build
@@ -76,20 +67,7 @@ export default function Settings() {
   const [hideRemakes, setHideRemakes] = useState(false);
   const [autoBackup, setAutoBackup] = useState(true);
   const [rememberFilters, setRememberFilters] = useState(false);
-  const [riotSyncStatus, setRiotSyncStatus] = useState<string | null>(null);
-  const [riotSyncing, setRiotSyncing] = useState(false);
-  const [riotAccounts, setRiotAccounts] = useState<RiotAccountConfig[]>([]);
-  const [accountDraftError, setAccountDraftError] = useState<string | null>(null);
-  const [accountDraft, setAccountDraft] = useState({
-    id: "",
-    riotId: "",
-    platform: "na1",
-  });
   const [loading, setLoading] = useState(true);
-  const [exportStatus, setExportStatus] = useState<string | null>(null);
-  const [importStatus, setImportStatus] = useState<string | null>(null);
-  const [repairStatus, setRepairStatus] = useState<string | null>(null);
-  const [hasLocalAccount, setHasLocalAccount] = useState<boolean | null>(null);
   const [backfillStatus, setBackfillStatus] = useState<string | null>(null);
   const [backups, setBackups] = useState<BackupInfo[]>([]);
   const [backupStatus, setBackupStatus] = useState<string | null>(null);
@@ -118,7 +96,6 @@ export default function Settings() {
       window.api.getSetting("hide_remakes"),
       window.api.getSetting("auto_backup"),
       window.api.getSetting("remember_filters"),
-      window.api.hasLocalAccount(),
     ]).then(
       ([
         startup,
@@ -128,7 +105,6 @@ export default function Settings() {
         remakes,
         backup,
         remember,
-        localAccount,
       ]) => {
         setAutoStart(startup === "true");
         setAutoStartSupported(startupSupported);
@@ -137,14 +113,9 @@ export default function Settings() {
         setHideRemakes(remakes === "true");
         setAutoBackup(backup !== "false");
         setRememberFilters(remember === "true");
-        setHasLocalAccount(localAccount);
         setLoading(false);
       },
     );
-  }, []);
-
-  useEffect(() => {
-    window.api.getRiotAccounts().then(setRiotAccounts);
   }, []);
 
   const refreshSavedSummoners = useCallback(() => {
@@ -189,43 +160,7 @@ export default function Settings() {
   );
 
   const handleRiotSync = useCallback(async () => {
-    setRiotSyncing(true);
-    setRiotSyncStatus(null);
-    try {
-      const result = await window.api.syncRiotHistory();
-      setRiotSyncStatus(
-        "error" in result
-          ? `Error: ${result.error}`
-          : result.added > 0
-            ? `Imported ${result.added} new League game(s)`
-            : `No new games found (${result.scanned} match IDs checked)`,
-      );
-    } finally {
-      setRiotSyncing(false);
-    }
-  }, []);
-
-  const saveAccount = useCallback(async () => {
-    const identity = splitRiotId(accountDraft.riotId);
-    if (!identity) {
-      setAccountDraftError("Riot ID must be in GameName#TagLine format");
-      return;
-    }
-    setAccountDraftError(null);
-    const account = {
-      id: accountDraft.id || crypto.randomUUID(),
-      gameName: identity.gameName,
-      tagLine: identity.tagLine,
-      platform: accountDraft.platform,
-    };
-    await window.api.saveRiotAccount(account);
-    setRiotAccounts(await window.api.getRiotAccounts());
-    setAccountDraft({ id: "", riotId: "", platform: "euw1" });
-  }, [accountDraft]);
-
-  const removeAccount = useCallback(async (id: string) => {
-    await window.api.removeRiotAccount(id);
-    setRiotAccounts(await window.api.getRiotAccounts());
+    // TODO: rewrite Riot history sync from scratch
   }, []);
 
   // Kept current the same way the queue dropdown is: a game from a queue that
@@ -326,67 +261,33 @@ export default function Settings() {
     [refreshBackups],
   );
 
-  const handleExport = useCallback(async () => {
-    setExportStatus(null);
-    try {
-      const result = await window.api.exportData();
-      if (result.success) {
-        setExportStatus(`Exported ${result.games} game(s) to ${result.path}`);
-      } else {
-        // No error means the file dialog was dismissed, which needs no message
-        setExportStatus(result.error ? `Error: ${result.error}` : null);
-      }
-    } catch (err: any) {
-      setExportStatus(`Error: ${err.message}`);
-    }
-  }, []);
-
-  const handleImport = useCallback(async () => {
-    setImportStatus(null);
-    try {
-      const result = await window.api.importData();
-      if (result.success) {
-        setImportStatus(`Imported ${result.imported} new game(s)`);
-      } else {
-        setImportStatus(result.error ? `Error: ${result.error}` : null);
-      }
-      // An import takes a snapshot on its way in
-      refreshBackups();
-    } catch (err: any) {
-      setImportStatus(`Error: ${err.message}`);
-    }
-  }, [refreshBackups]);
-
-  useEffect(() => {
-    if (!progress) return;
-    setBackfillStatus(
-      progress.total === 0
-        ? "Nothing new to check"
-        : `Checking game ${progress.current} of ${progress.total}, ${progress.added} added so far`,
-    );
-  }, [progress]);
-
   const handleBackfill = useCallback(async () => {
     setBackfillStatus("Fetching your match list from Riot...");
     try {
       const result = await window.api.backfillHistory();
       if ("error" in result) {
         setBackfillStatus(`Error: ${result.error}`);
-      } else {
-        const summary =
-          result.added > 0
-            ? `Added ${result.added} game(s) from ${result.scanned} found in your Riot history`
-            : `No new Mayhem games found (${result.scanned} games checked)`;
+        console.warn("[settings] Backfill failed:", result.error);
+        return;
+      }
+      const summary =
+        result.added > 0
+          ? `Added ${result.added} game(s) from ${result.scanned} found in your Riot history`
+          : `No new Mayhem games found (${result.scanned} games checked)`;
+      if (result.cancelled) {
         setBackfillStatus(
-          result.cancelled
-            ? `Stopped after adding ${result.added} game(s). Run it again to finish.`
-            : result.truncated
-              ? `${summary}. Stopped at the ${result.scanned}-game paging limit, so anything older was not checked.`
-              : summary,
+          `Stopped after adding ${result.added} game(s). Run it again to finish.`,
+        );
+      } else {
+        setBackfillStatus(
+          result.truncated
+            ? `${summary}. Stopped at the page limit, so anything older was not checked.`
+            : summary,
         );
       }
     } catch (err: any) {
       setBackfillStatus(`Error: ${err.message}`);
+      console.warn("[settings] Backfill failed:", err.message);
     }
   }, []);
 
@@ -398,35 +299,23 @@ export default function Settings() {
       const result = await window.api.backfillHistory(true);
       if ("error" in result) {
         setBackfillStatus(`Error: ${result.error}`);
-      } else {
-        const summary =
-          result.added > 0
-            ? `Added ${result.added} game(s) from ${result.scanned} found in your Riot history`
-            : `No new games found (${result.scanned} games checked)`;
-        setBackfillStatus(
-          result.truncated
-            ? `${summary}. Stopped at the ${result.scanned}-game paging limit — this is our own cap, not Riot's.`
-            : `${summary}. Riot returned an empty page, so this is the full history.`,
-        );
+        console.warn("[settings] Force backfill failed:", result.error);
+        return;
       }
+      const summary =
+        result.added > 0
+          ? `Added ${result.added} game(s) from ${result.scanned} found in your Riot history`
+          : `No new games found (${result.scanned} games checked)`;
+      setBackfillStatus(
+        result.truncated
+          ? `${summary}. Stopped at the page limit — this is our own cap, not Riot's.`
+          : `${summary}. Riot returned an empty page, so this is the full history.`,
+      );
     } catch (err: any) {
       setBackfillStatus(`Error: ${err.message}`);
+      console.warn("[settings] Force backfill failed:", err.message);
     }
   }, []);
-
-  const handleRepair = useCallback(async () => {
-    setRepairStatus(null);
-    try {
-      const result = await window.api.repairPuuids();
-      setRepairStatus(
-        `Repaired ${result.repairedGames} game(s), found ${result.discoveredAccounts} account(s), rebuilt stats and scores for ${result.rebuiltGames} game(s)`,
-      );
-      // A repair takes a snapshot on its way in
-      refreshBackups();
-    } catch (err: any) {
-      setRepairStatus(`Error: ${err.message}`);
-    }
-  }, [refreshBackups]);
 
   if (loading) return null;
 
@@ -436,90 +325,33 @@ export default function Settings() {
 
       <div className="bg-lol-card rounded-xl border border-lol-border/60 p-5">
         <h2 className="text-sm font-semibold text-lol-text-bright mb-2">League history sync</h2>
-        <p className="text-xs text-lol-text mb-4">
-          Riot API sync imports every queue and keeps it available offline. The League client is
-          detected automatically when running; these values are the fallback.
-        </p>
-        <div className="flex items-center gap-3 mt-3">
+        <div className="flex items-center gap-2 mt-3">
           <button
-            className="rounded-md bg-lol-gold/15 border border-lol-gold/40 px-3 py-1.5 text-xs text-lol-gold disabled:opacity-50"
+            onClick={handleBackfill}
+            disabled={backfilling}
+            className="px-4 py-1.5 rounded text-sm bg-lol-gold/20 text-lol-gold hover:bg-lol-gold/30 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {backfilling ? "Working..." : "Backfill"}
+          </button>
+          <button
+            onClick={handleForceFullBackfill}
+            disabled={backfilling}
+            title="Walk the entire Riot history from page 0, ignoring the cached completion flag. Use this to test whether the current cap is our page limit or Riot's own cutoff."
+            className="px-4 py-1.5 rounded text-sm border border-lol-border text-lol-text hover:border-lol-gold/60 hover:text-lol-text-bright transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            Force Backfill
+          </button>
+          <button
+            className="rounded-md bg-lol-gold/15 border border-lol-gold/40 px-3 py-1.5 text-xs text-lol-gold"
             type="button"
-            disabled={riotSyncing}
             onClick={handleRiotSync}
           >
-            {riotSyncing ? "Syncing..." : "Sync all League games"}
+            Sync from Riot History
           </button>
-          {riotSyncStatus && <span className="text-xs text-lol-text">{riotSyncStatus}</span>}
         </div>
-        <p className="text-[11px] text-lol-text/70 mt-3">
-          This syncs every account in the Saved accounts list using the built-in API proxy.
-        </p>
-        {riotAccounts.length > 0 && (
-          <div className="space-y-2 mt-4">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-semibold text-lol-text-bright">
-                Saved accounts ({riotAccounts.length})
-              </span>
-              <button
-                className="rounded-md border border-lol-gold/40 bg-lol-gold/10 px-3 py-1.5 text-xs text-lol-gold disabled:opacity-50"
-                type="button"
-                disabled={riotSyncing}
-                onClick={handleRiotSync}
-              >
-                {riotSyncing ? "Syncing saved accounts..." : "Sync saved accounts"}
-              </button>
-            </div>
-            {riotAccounts.map((account) => (
-              <div
-                key={account.id}
-                className="flex items-center justify-between rounded-md border border-lol-border px-3 py-2"
-              >
-                <span className="text-xs text-lol-text-bright">
-                  {account.gameName}#{account.tagLine} · {account.platform}
-                </span>
-                <button
-                  className="text-xs text-lol-loss"
-                  type="button"
-                  onClick={() => removeAccount(account.id)}
-                >
-                  Remove
-                </button>
-              </div>
-            ))}
-          </div>
+        {backfillStatus && (
+          <p className="text-xs text-lol-text mt-2">{backfillStatus}</p>
         )}
-        <div className="grid grid-cols-[1fr_220px] gap-2 mt-4">
-          <input
-            className="input"
-            placeholder="GameName#TagLine"
-            value={accountDraft.riotId}
-            onChange={(e) => {
-              setAccountDraft((v) => ({ ...v, riotId: e.target.value }));
-              setAccountDraftError(null);
-            }}
-          />
-          <select
-            value={accountDraft.platform}
-            onChange={(e) => setAccountDraft((v) => ({ ...v, platform: e.target.value }))}
-            className="input"
-          >
-            {Object.entries(PLATFORM_TO_NAME).map(([code, name]) => (
-              <option key={code} value={code}>
-                {name}
-              </option>
-            ))}
-          </select>
-        </div>
-        {accountDraftError && <p className="mt-1 text-xs text-red-300">{accountDraftError}</p>}
-        <div className="flex gap-2 mt-2">
-          <button
-            className="rounded-md border border-lol-border px-3 text-xs text-lol-text"
-            type="button"
-            onClick={saveAccount}
-          >
-            Save account
-          </button>
-        </div>
       </div>
 
       <div className="bg-lol-card rounded-xl border border-lol-border/60 p-5">
@@ -689,112 +521,6 @@ export default function Settings() {
               </div>
             </>
           )}
-        </div>
-      </div>
-
-      {/* Data Management */}
-      <div className="bg-lol-card rounded-xl border border-lol-border/60 p-5">
-        <h2 className="text-sm font-semibold text-lol-text-bright mb-4">Data Management</h2>
-        <div className="space-y-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-lol-text-bright">Backfill match history</p>
-              <p className="text-xs text-lol-text mt-0.5">
-                Pull your older Mayhem games from Riot and add any that aren't stored yet. This runs
-                automatically the first time an account connects; use this to run it again, or to finish an
-                import you cancelled. <strong>Force full walk</strong> ignores the "already walked" flag and
-                re-scans the whole history from page 0 — use it if games are missing that you know you played.
-              </p>
-            </div>
-            <div className="flex items-center gap-2">
-              <button
-                onClick={handleBackfill}
-                disabled={backfilling}
-                className="px-4 py-1.5 rounded text-sm bg-lol-gold/20 text-lol-gold hover:bg-lol-gold/30 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {backfilling ? "Working..." : "Backfill"}
-              </button>
-              <button
-                onClick={handleForceFullBackfill}
-                disabled={backfilling}
-                title="Walk the entire Riot history from page 0, ignoring the cached completion flag. Use this to test whether the current cap is our page limit or Riot's own cutoff."
-                className="px-4 py-1.5 rounded text-sm border border-lol-border text-lol-text hover:border-lol-gold/60 hover:text-lol-text-bright transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                Force full walk
-              </button>
-            </div>
-          </div>
-          {backfillStatus && <p className="text-xs text-lol-text">{backfillStatus}</p>}
-
-          <div className="border-t border-lol-border" />
-
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-lol-text-bright">Export data</p>
-              <p className="text-xs text-lol-text mt-0.5">
-                Save all match data to a JSON file for backup
-              </p>
-            </div>
-            <button
-              onClick={handleExport}
-              className="px-4 py-1.5 rounded text-sm bg-lol-gold/20 text-lol-gold hover:bg-lol-gold/30 transition-colors"
-            >
-              Export
-            </button>
-          </div>
-          {exportStatus && <p className="text-xs text-lol-text">{exportStatus}</p>}
-
-          <div className="border-t border-lol-border" />
-
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-lol-text-bright">Import data</p>
-              <p className="text-xs text-lol-text mt-0.5">
-                Load match data from a previously exported file
-              </p>
-            </div>
-            <button
-              onClick={handleImport}
-              className="px-4 py-1.5 rounded text-sm bg-lol-gold/20 text-lol-gold hover:bg-lol-gold/30 transition-colors"
-            >
-              Import
-            </button>
-          </div>
-          {importStatus && <p className="text-xs text-lol-text">{importStatus}</p>}
-
-          <div className="border-t border-lol-border" />
-
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-lol-text-bright">Repair account data</p>
-              <p className="text-xs text-lol-text mt-0.5">
-                Re-detect which accounts are yours by analyzing game history, then rebuild stored
-                stats, augments, and performance scores from the raw game data. Use this if games
-                are attributed to the wrong account or scores look stale.
-              </p>
-            </div>
-            {hasLocalAccount === false ? (
-              <div>
-                <button
-                  disabled
-                  className="px-4 py-1.5 rounded text-sm bg-lol-gold/20 text-lol-gold opacity-50 cursor-not-allowed"
-                >
-                  Repair
-                </button>
-                <p className="text-xs text-lol-text mt-1">
-                  No local account yet — connect to the League client first.
-                </p>
-              </div>
-            ) : (
-              <button
-                onClick={handleRepair}
-                className="px-4 py-1.5 rounded text-sm bg-lol-gold/20 text-lol-gold hover:bg-lol-gold/30 transition-colors"
-              >
-                Repair
-              </button>
-            )}
-          </div>
-          {repairStatus && <p className="text-xs text-lol-text">{repairStatus}</p>}
         </div>
       </div>
 
