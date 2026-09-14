@@ -559,7 +559,7 @@ async function riotFetch<T>(
   }
 }
 
-async function accountByRiotId(
+export async function accountByRiotId(
   route: RiotRegionalRoute,
   platform: string,
   gameName: string,

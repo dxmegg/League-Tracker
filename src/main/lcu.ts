@@ -11,6 +11,7 @@ import {
 import { BrowserWindow } from "electron";
 import * as db from "./db";
 import type { CurrentSummoner, LcuStatus } from "../shared/api";
+import { accountByRiotId, regionalRoute } from "./riot-api";
 
 let credentials: Credentials | null = null;
 let status: LcuStatus = "disconnected";
@@ -155,7 +156,7 @@ const SGP_PAGE_SIZE = 100;
 // Safety bound only. Paging normally ends when the service returns a short
 // page; this just stops a runaway loop, and hitting it is reported rather than
 // silently trimming someone's history.
-const SGP_MAX_PAGES = 200;
+const SGP_MAX_PAGES = 2000;
 
 // How many new games to accumulate before nudging the UI to re-query, so a long
 // import fills the app in as it runs instead of landing all at once.
@@ -374,20 +375,36 @@ export async function backfillHistory(
     const summoner = await fetchCurrentSummoner();
     db.upsertSummoner(summoner);
 
+    const platform = db.getSetting("riot_platform") ?? "eun1";
+    const [gameName, tagLine] = String(summoner.displayName ?? "").split("#");
+    let realPuuid = summoner.puuid;
+    if (gameName && tagLine) {
+      try {
+        const account = await accountByRiotId(
+          regionalRoute(platform),
+          platform,
+          gameName,
+          tagLine,
+        );
+        realPuuid = account.puuid;
+        console.log(`[backfill] resolved real Riot PUUID: ${realPuuid.slice(0, 12)}...`);
+      } catch (err) {
+        console.log(`[backfill] could not resolve Riot PUUID, using LCU UUID:`, err);
+      }
+    }
+
     const token = await fetchSgpToken();
     const host = await resolveSgpHost(summoner.puuid, token);
 
-    const known = db.getKnownGameIds();
+    const known = db.getKnownGameIdsForPuuid(realPuuid);
 
     // Once an account has been walked all the way back, a later run only needs
     // the new games at the front. Results are newest-first, so the first page
     // we've already fully accounted for means everything older is accounted for
     // too. Tracked per account, since a newly added one still needs a full walk.
-    const completedKey = `backfill_complete_${summoner.puuid}`;
+    const completedKey = `backfill_complete_${realPuuid}`;
     const walkedBefore = !forceFull && db.getSetting(completedKey) === "1";
-    console.log(
-      `[backfill] starting walk for ${summoner.puuid} — completed flag: ${walkedBefore}`,
-    );
+    console.log(`[backfill] start: puuid=${realPuuid.slice(0, 12)} platform=${platform}`);
 
     const walk = (from: string) =>
       fetchAllMatchIds(
@@ -441,7 +458,7 @@ export async function backfillHistory(
         continue;
       }
 
-      if (db.insertGameFull(game, summoner.puuid, "lcu")) {
+      if (db.insertGameFull(game, realPuuid, "lcu")) {
         added++;
         console.log(`Backfilled League game ${gameId}`);
       }
