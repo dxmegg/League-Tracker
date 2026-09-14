@@ -215,7 +215,7 @@ export default function Sidebar() {
         </div>
       </div>
       <div className="flex flex-col gap-0.5 p-3 mt-1 flex-1">
-        <NavItem to="/profile" label="SEARCH ACCOUNT" icon={FolderIcon} />
+        <NavItem to="/home" label="HOME" icon={FolderIcon} />
         <NavItem to="/local" label="LOCAL ACCOUNT" icon={FolderIcon} />
         {historyTabs.map(({ scope, to, label }) => (
           <div key={scope} className="flex flex-col gap-0.5">

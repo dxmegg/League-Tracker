@@ -76,6 +76,31 @@ If a task says "add a channel for X", produce all four edits in the same respons
 ### Comments
 Comments are English, dense, and explain **why** — the surprising constraint, the bug being avoided, the reason the obvious alternative was rejected. Read the comment style in `src/main/db.ts` and `src/main/backup.ts` before adding new ones. Do not add comments that restate the code.
 
+
+### Diagnostics on new code
+Every new function that performs I/O or returns a non-trivial value must log its entry and its outcome on the console. This is a standing rule, not a debugging aid — the logs stay in the code.
+
+- At the top of the function body, log the arguments:
+  `console.log("[<area>] <functionName> called:", { arg1, arg2 });`
+- Before each `return`, log the result shape (not the full payload if it can be large — log a length, count, or the key identifier):
+  `console.log("[<area>] <functionName> done:", { count: rows.length });`
+- In the error branch, use `console.warn` if the failure is expected (missing data, empty result) and `console.error` if it is a bug (unexpected exception, invariant broken).
+
+`<area>` is the subsystem name in lowercase: `opgg`, `mcp`, `riot`, `db`, `lcu`, `dragon`, `backup`, `update`, `settings`. It must match the IPC namespace when the function backs a channel.
+
+The rule applies to:
+- New functions in `src/main/*.ts` that read the database, call an external API, or return a value.
+- New IPC handlers in `src/main/ipc-handlers.ts`.
+- New helper functions that have branching logic the caller cannot see from the outside.
+
+The rule does NOT apply to:
+- Pure formatting helpers (date, number, string).
+- React components and hooks in `src/renderer/`.
+- One-line wrappers with no branching.
+- Existing code — do not add logs retroactively unless asked.
+
+When a diagnostic log is added for a specific investigation (like the `[repair-diag]` and `[dump-payload]` logs from recent work), it must be marked with a `// TEMPORARY` comment so it can be found and removed later. Standing diagnostics per this rule do not carry that comment.
+
 ### React
 - Function components, hooks only.
 - Do not lift state unnecessarily. Small child components with their own state are the preferred pattern for anything rendered inside a `.map()`.
