@@ -789,6 +789,7 @@ export default function Profile() {
   const [recentDetailLoading, setRecentDetailLoading] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [profileIconFailed, setProfileIconFailed] = useState(false);
   const hasAutoLoaded = useRef(false);
 
   const loadLocalProfile = useCallback(async () => {
@@ -796,9 +797,11 @@ export default function Profile() {
     setError(null);
     setProfile(null);
     try {
-      const [localProfile, puuid] = await Promise.all([
+      const [localProfile, puuid, currentProfileIcon, dataDragonVersion] = await Promise.all([
         window.api.getProfile(),
         window.api.getSummonerPuuid(),
+        window.api.getCurrentSummonerProfileIcon(),
+        window.api.getChampionDataVersion(),
       ]);
       if (!puuid) {
         setError("No local account data. Connect to the League client or import history.");
@@ -812,9 +815,9 @@ export default function Profile() {
         gameName: localName,
         tagLine: "",
         platform: "",
-        profileIconId: localProfile.profileIcon ?? 0,
+        profileIconId: currentProfileIcon ?? 0,
         summonerLevel: 0,
-        dataDragonVersion: "none",
+        dataDragonVersion,
         masteryPoints: 0,
         masteryScore: 0,
         topMasteryChampions: null,
@@ -869,18 +872,32 @@ export default function Profile() {
   }
 
   const version = profile.dataDragonVersion === "none" ? "latest" : profile.dataDragonVersion;
-  const profileIconUrl = `https://ddragon.leagueoflegends.com/cdn/${version}/img/profileicon/${profile.profileIconId}.png`;
+  const profileIconUrl =
+    profile.profileIconId > 0
+      ? `https://ddragon.leagueoflegends.com/cdn/${version}/img/profileicon/${profile.profileIconId}.png`
+      : null;
+  const profileInitial = profile.gameName.trim().charAt(0).toUpperCase() || "?";
 
   return (
     <div className="max-w-6xl space-y-8">
           <div className="grid grid-cols-[220px_minmax(0,1fr)_256px_auto] items-start gap-8">
             <div>
               <div className="h-[220px] w-[220px] rounded-xl bg-[linear-gradient(138deg,#c89b37_0%,#ffe09b_50%,#c89b37_100%)] p-[5px]">
-                <img
-                  src={profileIconUrl}
-                  alt={`${profile.gameName} profile icon`}
-                  className="h-full w-full rounded-lg object-cover"
-                />
+                {profileIconUrl && !profileIconFailed ? (
+                  <img
+                    src={profileIconUrl}
+                    alt={`${profile.gameName} profile icon`}
+                    className="h-full w-full rounded-lg object-cover"
+                    onError={() => setProfileIconFailed(true)}
+                  />
+                ) : (
+                  <div
+                    className="flex h-full w-full items-center justify-center rounded-lg bg-lol-dark text-6xl font-semibold text-lol-text-bright"
+                    aria-label={`${profile.gameName} profile icon placeholder`}
+                  >
+                    {profileInitial}
+                  </div>
+                )}
               </div>
               <p className="mt-3 text-sm text-lol-text">Level {profile.summonerLevel}</p>
             </div>

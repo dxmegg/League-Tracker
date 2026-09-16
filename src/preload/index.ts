@@ -128,6 +128,7 @@ const api: ElectronAPI = {
   },
 
   getLcuStatus: () => ipcRenderer.invoke("lcu:status"),
+  getChampionDataVersion: () => ipcRenderer.invoke("dragon:version"),
 
   getChampionData: () => ipcRenderer.invoke("dragon:champions"),
 
@@ -175,6 +176,7 @@ const api: ElectronAPI = {
   deleteSearchedSummoners: () => ipcRenderer.invoke("db:delete-searched-summoners"),
 
   getProfile: () => ipcRenderer.invoke("db:profile"),
+  getCurrentSummonerProfileIcon: () => ipcRenderer.invoke("lcu:current-summoner-icon"),
 
   onStatusChanged: (callback: (status: LcuStatus) => void) => {
     const handler = (_event: unknown, status: LcuStatus) => callback(status);

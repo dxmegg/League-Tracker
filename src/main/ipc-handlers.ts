@@ -320,9 +320,33 @@ export function registerIpcHandlers() {
     return lcu.getStatus();
   });
 
+  ipcMain.handle("lcu:current-summoner-icon", async () => {
+    console.log("[lcu] currentSummonerProfileIcon called:", {});
+    try {
+      const summoner = await lcu.getCurrentSummoner();
+      const profileIconId =
+        typeof summoner?.profileIconId === "number" && summoner.profileIconId > 0
+          ? summoner.profileIconId
+          : null;
+      console.log("[lcu] currentSummonerProfileIcon done:", { profileIconId });
+      return profileIconId;
+    } catch (err) {
+      console.warn("[lcu] currentSummonerProfileIcon failed:", err);
+      return null;
+    }
+  });
+
   ipcMain.handle("dragon:champions", async () => {
     await dragon.waitForChampionData();
     return dragon.getChampionData();
+  });
+
+  ipcMain.handle("dragon:version", async () => {
+    console.log("[dragon] championDataVersion called:", {});
+    await dragon.waitForChampionData();
+    const version = dragon.getChampionDataVersion();
+    console.log("[dragon] championDataVersion done:", { version });
+    return version;
   });
 
   ipcMain.handle("dragon:augments", async (_event, patch?: string) => {
