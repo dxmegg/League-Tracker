@@ -39,6 +39,30 @@ export interface PlayerStatsRecord {
   item6: number | null;
 }
 
+export interface CurrentSummoner {
+  puuid: string;
+  gameName: string;
+  tagLine: string;
+  displayName: string;
+  internalName: string;
+  region: string;
+  platform: string;
+  profileIconId: number;
+  summonerLevel: number;
+}
+
+export interface LocalProfile {
+  puuid: string | null;
+  name: string | null;
+  profileIcon: number | null;
+  platform: string | null;
+}
+
+export interface RestoreOlderGamesResult {
+  restored: number;
+  remaining: number;
+}
+
 export interface GameAugment {
   game_id: number;
   slot: number;
@@ -784,8 +808,11 @@ export interface ElectronAPI {
   deleteSummoner: (
     puuid: string,
   ) => Promise<{ deletedGames: number; deletedTrackedRows: number }>;
-  getProfile: () => Promise<{ name: string | null; profileIcon: number | null }>;
+  getProfile: () => Promise<LocalProfile>;
   getCurrentSummonerProfileIcon: () => Promise<number | null>;
+  getProfileIcon: (puuid: string, platform?: string) => Promise<number | null>;
+  getDebugEnabled: () => Promise<boolean>;
+  setDebugEnabled: (enabled: boolean) => Promise<void>;
   getProfileData: (
     gameName: string,
     tagLine: string,
@@ -845,6 +872,7 @@ export interface ElectronAPI {
     discoveredAccounts: number;
     rebuiltGames: number;
   }>;
+  restoreOlderGames: () => Promise<RestoreOlderGamesResult | { error: string }>;
   hasLocalAccount: () => Promise<boolean>;
   listBackups: () => Promise<BackupInfo[]>;
   createBackup: () => Promise<{ success: boolean; backup?: BackupInfo; error?: string }>;

@@ -11,6 +11,7 @@ import * as opgg from "./opgg";
 import { getBackupDir } from "./paths";
 import { openExternalUrl } from "./security";
 import { applyAutoStart, isAutoStartSupported } from "./autostart";
+import { dbg } from "../shared/debug";
 
 // The settings table doubles as internal bookkeeping — sgp_host, the
 // per-account backfill_complete_* flags, score_formula_version — none of which
@@ -174,8 +175,14 @@ export function registerIpcHandlers() {
   ipcMain.handle("lcu:refresh", async (event) => {
     // Return errors as data instead of throwing, so the renderer gets a clean
     // message rather than Electron's "Error invoking remote method" wrapper
+    const startedAt = Date.now();
+    const win = senderWindow(event);
+    console.log("[bottom-sync] running pollTick");
     try {
-      return await lcu.fetchNewGames(senderWindow(event));
+      await lcu.pollTick(win!);
+      win?.webContents.send("lcu:games-updated");
+      console.log("[bottom-sync] done", { elapsedMs: Date.now() - startedAt });
+      return { newGames: 0, totalGames: 0 };
     } catch (err) {
       return { error: lcu.friendlyErrorMessage(err) };
     }
@@ -243,6 +250,17 @@ export function registerIpcHandlers() {
       });
     },
   );
+  ipcMain.handle("riot:profile-icon", async (_event, puuid: string, platform?: string) => {
+    console.log("[riot] profile-icon handler called:", { puuid, platform });
+    try {
+      const profileIconId = await riot.getProfileIcon(puuid, platform);
+      console.log("[riot] profile-icon handler done:", { puuid, profileIconId });
+      return profileIconId;
+    } catch (err) {
+      console.error("[riot] profile-icon handler failed:", err);
+      throw err;
+    }
+  });
   ipcMain.handle(
     "mcp:summoner-game-history",
     async (_event, gameName: string, tagLine: string, region: string) => {
@@ -471,6 +489,8 @@ export function registerIpcHandlers() {
     return result;
   });
 
+  ipcMain.handle("db:restore-older-games", () => db.restoreOlderGames());
+
   ipcMain.handle("db:summoner-puuid", () => {
     const s = db.getSummoner();
     return s?.puuid ?? null;
@@ -496,6 +516,16 @@ export function registerIpcHandlers() {
     // The one setting with a home outside the database: the login item has to be
     // rewritten to match, and only this handler knows the answer just changed.
     if (key === "auto_start") applyAutoStart(value === "true");
+  });
+  ipcMain.handle("dbg:get", () => {
+    const enabled = db.getSetting("debug_enabled") === "true";
+    dbg.setEnabled(enabled);
+    return enabled;
+  });
+  ipcMain.handle("dbg:set", (_event, enabled: boolean) => {
+    const value = enabled === true;
+    db.setSetting("debug_enabled", String(value));
+    dbg.setEnabled(value);
   });
 
   // Auto-start registers the app by its own path, which an unpackaged run does

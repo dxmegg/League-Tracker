@@ -51,6 +51,72 @@ export function initDatabase() {
 
   createTables();
   runMigrations();
+  if (getSetting("puuid_to_lcu_v1") !== "1") {
+    // Convert locally owned games to the same LCU key used by recent sync.
+    const summoners = db
+      .prepare(
+        "SELECT puuid, game_name, tag_line FROM summoner WHERE game_name IS NOT NULL AND tag_line IS NOT NULL",
+      )
+      .all() as { puuid: string; game_name: string; tag_line: string }[];
+    let fixed = 0;
+    const update = db.prepare("UPDATE games SET puuid = ? WHERE game_id = ?");
+    const tx = db.transaction(() => {
+      for (const s of summoners) {
+        const targetName = s.game_name.trim().toLowerCase();
+        const targetTag = s.tag_line.trim().toLowerCase();
+        const rows = db
+          .prepare(`
+            SELECT g.game_id FROM games g
+            WHERE LENGTH(g.puuid) = 78
+              AND EXISTS (
+                SELECT 1 FROM match_participants mp
+                WHERE mp.game_id = g.game_id
+                  AND LOWER(TRIM(mp.game_name)) = ?
+                  AND LOWER(TRIM(mp.tag_line)) = ?
+              )
+          `)
+          .all(targetName, targetTag) as { game_id: number }[];
+        for (const row of rows) {
+          update.run(s.puuid, row.game_id);
+          fixed++;
+        }
+      }
+    });
+    tx();
+    console.log(`[migration] converted ${fixed} games from Riot PUUID to LCU UUID`);
+    setSetting("puuid_to_lcu_v1", "1");
+  }
+  // TEMPORARY: verify ownership key formats while migrating existing libraries.
+  try {
+    const rows = db
+      .prepare(`
+        SELECT LENGTH(puuid) AS len, COUNT(*) AS n FROM games
+        WHERE puuid IS NOT NULL AND puuid != '' GROUP BY LENGTH(puuid)
+      `)
+      .all() as { len: number; n: number }[];
+    console.log("[db-diag] games.puuid lengths:", JSON.stringify(rows));
+
+    const summoners = db
+      .prepare("SELECT puuid, game_name, tag_line FROM summoner")
+      .all() as { puuid: string; game_name: string | null; tag_line: string | null }[];
+    console.log(
+      "[db-diag] summoner rows:",
+      summoners.map((s) => ({
+        len: s.puuid.length,
+        name: `${s.game_name}#${s.tag_line}`,
+      })),
+    );
+
+    const mp = db
+      .prepare(`
+        SELECT LENGTH(puuid) AS len, COUNT(*) AS n FROM match_participants
+        WHERE puuid IS NOT NULL AND puuid != '' GROUP BY LENGTH(puuid)
+      `)
+      .all() as { len: number; n: number }[];
+    console.log("[db-diag] match_participants.puuid lengths:", JSON.stringify(mp));
+  } catch (err) {
+    console.log("[db-diag] failed:", err);
+  }
   // After migrations: on a database from before a column existed, the index
   // covering it can only be built once that column has been added.
   createIndexes();
@@ -2837,12 +2903,52 @@ export function getIgnoredGameIds(): Set<number> {
   return new Set(rows.map((row) => row.game_id));
 }
 
+export function restoreOlderGames(): { restored: number; remaining: number } {
+  console.log("[db] restoreOlderGames called");
+  const tx = db.transaction(() => {
+    const before = (
+      db.prepare("SELECT COUNT(*) AS n FROM ignored_games").get() as { n: number }
+    ).n;
+    db.prepare(`
+      DELETE FROM ignored_games
+      WHERE game_id IN (SELECT game_id FROM games)
+         OR game_id IN (SELECT game_id FROM match_participants)
+    `).run();
+    const after = (
+      db.prepare("SELECT COUNT(*) AS n FROM ignored_games").get() as { n: number }
+    ).n;
+    return { restored: before - after, remaining: after };
+  });
+  const result = tx();
+  console.log("[db] restoreOlderGames done:", result);
+  return result;
+}
+
 // The game's owner among its participant rows. participantRowsFromRaw has
 // already folded participantIdentities into each row's puuid, so one lookup
 // covers both the LCU and SGP shapes.
-function findOwnerRow(rows: RawParticipantRow[], puuid: string): RawParticipantRow | null {
-  if (!puuid) return null;
-  return rows.find((r) => r.puuid === puuid) ?? null;
+function findOwnerRow(
+  rows: RawParticipantRow[],
+  puuid: string,
+  gameName?: string | null,
+  tagLine?: string | null,
+): RawParticipantRow | null {
+  if (puuid) {
+    const byPuuid = rows.find((r) => r.puuid === puuid);
+    if (byPuuid) return byPuuid;
+  }
+  if (gameName && tagLine) {
+    const targetName = gameName.trim().toLowerCase();
+    const targetTag = tagLine.trim().toLowerCase();
+    return (
+      rows.find(
+        (r) =>
+          (r.game_name ?? "").trim().toLowerCase() === targetName &&
+          (r.tag_line ?? "").trim().toLowerCase() === targetTag,
+      ) ?? null
+    );
+  }
+  return null;
 }
 
 type TrackedOnlyResult = "inserted" | "duplicate" | "no-owner-row";
@@ -2958,6 +3064,7 @@ export function insertGameFull(
   puuid: string,
   source: GameSource,
   foreign = false,
+  ownerIdentity?: { gameName: string | null; tagLine: string | null },
 ): boolean {
   // 'search-import' and foreign=true are two views of the same fact: this
   // game was pulled from a searched player's history and must never be
@@ -2983,7 +3090,7 @@ export function insertGameFull(
   }
 
   const rows = participantRowsFromRaw(gameData);
-  const owner = findOwnerRow(rows, puuid);
+  const owner = findOwnerRow(rows, puuid, ownerIdentity?.gameName, ownerIdentity?.tagLine);
   if (!owner) return false;
 
   const isRemake = detectRemake(gameData.gameDuration, rows) ? 1 : 0;
@@ -3172,6 +3279,16 @@ export function upsertSummoner(summoner: any): void {
   );
 }
 
+export function updateSummonerProfileIcon(puuid: string, profileIcon: number): void {
+  db.prepare(`
+    INSERT INTO summoner (puuid, profile_icon, updated_at)
+    VALUES (?, ?, ?)
+    ON CONFLICT(puuid) DO UPDATE SET
+      profile_icon = excluded.profile_icon,
+      updated_at = excluded.updated_at
+  `).run(puuid, profileIcon, Date.now());
+}
+
 export function getSummoner(): any {
   return db.prepare("SELECT * FROM summoner ORDER BY updated_at DESC LIMIT 1").get();
 }
@@ -3201,7 +3318,12 @@ function identityFromGame(
 // always come from the same place. Keying off the summoner table's updated_at
 // instead would name the account the client last synced — which need not be the
 // one that played, and which repairPuuids rewrites for every account at once.
-export function getProfile(): { name: string | null; profileIcon: number | null } {
+export function getProfile(): {
+  puuid: string | null;
+  name: string | null;
+  profileIcon: number | null;
+  platform: string | null;
+} {
   const latest = db
     .prepare(
       "SELECT game_id, puuid FROM games WHERE puuid != '' ORDER BY game_creation DESC LIMIT 1",
@@ -3212,6 +3334,16 @@ export function getProfile(): { name: string | null; profileIcon: number | null 
   const row = latest
     ? (db.prepare("SELECT * FROM summoner WHERE puuid = ?").get(latest.puuid) as any)
     : getSummoner();
+  const profilePuuid = latest?.puuid ?? row?.puuid ?? null;
+  const platform = profilePuuid
+    ? (
+        db
+          .prepare(
+            "SELECT platform FROM riot_sync_state WHERE puuid = ? ORDER BY last_sync_at DESC LIMIT 1",
+          )
+          .get(profilePuuid) as { platform: string } | undefined
+      )?.platform ?? getSetting("riot_platform") ?? null
+    : getSetting("riot_platform") ?? null;
 
   const name = row?.game_name
     ? row.tag_line
@@ -3219,7 +3351,9 @@ export function getProfile(): { name: string | null; profileIcon: number | null 
       : row.game_name
     : null;
   const icon = row?.profile_icon ?? null;
-  if (name && icon != null) return { name, profileIcon: icon };
+  if (name && icon != null) {
+    return { puuid: profilePuuid, name, profileIcon: icon, platform };
+  }
 
   // profile_icon only fills in once the client has synced this account, and an
   // imported game may have no summoner row at all — read both off the game
@@ -3227,7 +3361,12 @@ export function getProfile(): { name: string | null; profileIcon: number | null 
   const fallback = latest
     ? identityFromGame(latest.game_id, latest.puuid)
     : { name: null, icon: null };
-  return { name: name ?? fallback.name, profileIcon: icon ?? fallback.icon };
+  return {
+    puuid: profilePuuid,
+    name: name ?? fallback.name,
+    profileIcon: icon ?? fallback.icon,
+    platform,
+  };
 }
 
 export function getAllPuuids(): string[] {
