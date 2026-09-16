@@ -51,6 +51,72 @@ export function initDatabase() {
 
   createTables();
   runMigrations();
+  if (getSetting("puuid_to_lcu_v1") !== "1") {
+    // Convert locally owned games to the same LCU key used by recent sync.
+    const summoners = db
+      .prepare(
+        "SELECT puuid, game_name, tag_line FROM summoner WHERE game_name IS NOT NULL AND tag_line IS NOT NULL",
+      )
+      .all() as { puuid: string; game_name: string; tag_line: string }[];
+    let fixed = 0;
+    const update = db.prepare("UPDATE games SET puuid = ? WHERE game_id = ?");
+    const tx = db.transaction(() => {
+      for (const s of summoners) {
+        const targetName = s.game_name.trim().toLowerCase();
+        const targetTag = s.tag_line.trim().toLowerCase();
+        const rows = db
+          .prepare(`
+            SELECT g.game_id FROM games g
+            WHERE LENGTH(g.puuid) = 78
+              AND EXISTS (
+                SELECT 1 FROM match_participants mp
+                WHERE mp.game_id = g.game_id
+                  AND LOWER(TRIM(mp.game_name)) = ?
+                  AND LOWER(TRIM(mp.tag_line)) = ?
+              )
+          `)
+          .all(targetName, targetTag) as { game_id: number }[];
+        for (const row of rows) {
+          update.run(s.puuid, row.game_id);
+          fixed++;
+        }
+      }
+    });
+    tx();
+    console.log(`[migration] converted ${fixed} games from Riot PUUID to LCU UUID`);
+    setSetting("puuid_to_lcu_v1", "1");
+  }
+  // TEMPORARY: verify ownership key formats while migrating existing libraries.
+  try {
+    const rows = db
+      .prepare(`
+        SELECT LENGTH(puuid) AS len, COUNT(*) AS n FROM games
+        WHERE puuid IS NOT NULL AND puuid != '' GROUP BY LENGTH(puuid)
+      `)
+      .all() as { len: number; n: number }[];
+    console.log("[db-diag] games.puuid lengths:", JSON.stringify(rows));
+
+    const summoners = db
+      .prepare("SELECT puuid, game_name, tag_line FROM summoner")
+      .all() as { puuid: string; game_name: string | null; tag_line: string | null }[];
+    console.log(
+      "[db-diag] summoner rows:",
+      summoners.map((s) => ({
+        len: s.puuid.length,
+        name: `${s.game_name}#${s.tag_line}`,
+      })),
+    );
+
+    const mp = db
+      .prepare(`
+        SELECT LENGTH(puuid) AS len, COUNT(*) AS n FROM match_participants
+        WHERE puuid IS NOT NULL AND puuid != '' GROUP BY LENGTH(puuid)
+      `)
+      .all() as { len: number; n: number }[];
+    console.log("[db-diag] match_participants.puuid lengths:", JSON.stringify(mp));
+  } catch (err) {
+    console.log("[db-diag] failed:", err);
+  }
   // After migrations: on a database from before a column existed, the index
   // covering it can only be built once that column has been added.
   createIndexes();
@@ -2861,9 +2927,28 @@ export function restoreOlderGames(): { restored: number; remaining: number } {
 // The game's owner among its participant rows. participantRowsFromRaw has
 // already folded participantIdentities into each row's puuid, so one lookup
 // covers both the LCU and SGP shapes.
-function findOwnerRow(rows: RawParticipantRow[], puuid: string): RawParticipantRow | null {
-  if (!puuid) return null;
-  return rows.find((r) => r.puuid === puuid) ?? null;
+function findOwnerRow(
+  rows: RawParticipantRow[],
+  puuid: string,
+  gameName?: string | null,
+  tagLine?: string | null,
+): RawParticipantRow | null {
+  if (puuid) {
+    const byPuuid = rows.find((r) => r.puuid === puuid);
+    if (byPuuid) return byPuuid;
+  }
+  if (gameName && tagLine) {
+    const targetName = gameName.trim().toLowerCase();
+    const targetTag = tagLine.trim().toLowerCase();
+    return (
+      rows.find(
+        (r) =>
+          (r.game_name ?? "").trim().toLowerCase() === targetName &&
+          (r.tag_line ?? "").trim().toLowerCase() === targetTag,
+      ) ?? null
+    );
+  }
+  return null;
 }
 
 type TrackedOnlyResult = "inserted" | "duplicate" | "no-owner-row";
@@ -2979,6 +3064,7 @@ export function insertGameFull(
   puuid: string,
   source: GameSource,
   foreign = false,
+  ownerIdentity?: { gameName: string | null; tagLine: string | null },
 ): boolean {
   // 'search-import' and foreign=true are two views of the same fact: this
   // game was pulled from a searched player's history and must never be
@@ -3004,7 +3090,7 @@ export function insertGameFull(
   }
 
   const rows = participantRowsFromRaw(gameData);
-  const owner = findOwnerRow(rows, puuid);
+  const owner = findOwnerRow(rows, puuid, ownerIdentity?.gameName, ownerIdentity?.tagLine);
   if (!owner) return false;
 
   const isRemake = detectRemake(gameData.gameDuration, rows) ? 1 : 0;

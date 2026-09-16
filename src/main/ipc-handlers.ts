@@ -175,8 +175,14 @@ export function registerIpcHandlers() {
   ipcMain.handle("lcu:refresh", async (event) => {
     // Return errors as data instead of throwing, so the renderer gets a clean
     // message rather than Electron's "Error invoking remote method" wrapper
+    const startedAt = Date.now();
+    const win = senderWindow(event);
+    console.log("[bottom-sync] running pollTick");
     try {
-      return await lcu.fetchNewGames(senderWindow(event));
+      await lcu.pollTick(win!);
+      win?.webContents.send("lcu:games-updated");
+      console.log("[bottom-sync] done", { elapsedMs: Date.now() - startedAt });
+      return { newGames: 0, totalGames: 0 };
     } catch (err) {
       return { error: lcu.friendlyErrorMessage(err) };
     }

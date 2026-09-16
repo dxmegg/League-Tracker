@@ -373,13 +373,35 @@ export async function backfillHistory(
     await connect();
 
     const summoner = await fetchCurrentSummoner();
+    // TEMPORARY: compare the LCU identity shape with the game payload.
+    console.log("[lcu-payload] current summoner fields:", {
+      puuid: summoner?.puuid
+        ? `${String(summoner.puuid).slice(0, 12)}... (len=${String(summoner.puuid).length})`
+        : "MISSING",
+      summonerId: summoner?.summonerId ?? "MISSING",
+      accountId: summoner?.accountId ?? "MISSING",
+      gameName: summoner?.gameName ?? "MISSING",
+      tagLine: summoner?.tagLine ?? "MISSING",
+    });
     db.upsertSummoner(summoner);
 
     const platform = db.getSetting("riot_platform") ?? "eun1";
-    const [gameName, tagLine] = String(summoner.displayName ?? "").split("#");
+    const gameName =
+      summoner.gameName ??
+      (typeof summoner.displayName === "string" && summoner.displayName.includes("#")
+        ? summoner.displayName.split("#")[0]
+        : undefined);
+    const tagLine =
+      summoner.tagLine ??
+      (typeof summoner.displayName === "string" && summoner.displayName.includes("#")
+        ? summoner.displayName.split("#")[1]
+        : undefined);
     let realPuuid = summoner.puuid;
     if (gameName && tagLine) {
       try {
+        console.log(
+          `[backfill] puuid resolve: gameName=${gameName} tagLine=${tagLine} lcuPuuidLen=${summoner.puuid?.length}`,
+        );
         const account = await accountByRiotId(
           regionalRoute(platform),
           platform,
@@ -387,24 +409,40 @@ export async function backfillHistory(
           tagLine,
         );
         realPuuid = account.puuid;
-        console.log(`[backfill] resolved real Riot PUUID: ${realPuuid.slice(0, 12)}...`);
+        console.log(
+          `[backfill] resolved real Riot PUUID: ${realPuuid.slice(0, 12)}... (len=${realPuuid.length})`,
+        );
+        if (realPuuid.length !== 78) {
+          console.warn(
+            `[backfill] WARNING: resolved puuid has length ${realPuuid.length}, expected 78 — Riot API may reject it`,
+          );
+        }
       } catch (err) {
-        console.log(`[backfill] could not resolve Riot PUUID, using LCU UUID:`, err);
+        console.warn(
+          `[backfill] FAILED to resolve real Riot PUUID — falling back to LCU UUID (len=${summoner.puuid?.length}). DB writes will use a 36-char key.`,
+          err,
+        );
       }
+    } else {
+      console.warn(
+        `[backfill] FAILED to resolve real Riot PUUID — LCU response has no usable gameName/tagLine; falling back to LCU UUID (len=${summoner.puuid?.length}). DB writes will use a 36-char key.`,
+      );
     }
 
     const token = await fetchSgpToken();
     const host = await resolveSgpHost(summoner.puuid, token);
 
-    const known = db.getKnownGameIdsForPuuid(realPuuid);
+    const known = db.getKnownGameIdsForPuuid(summoner.puuid);
 
     // Once an account has been walked all the way back, a later run only needs
     // the new games at the front. Results are newest-first, so the first page
     // we've already fully accounted for means everything older is accounted for
     // too. Tracked per account, since a newly added one still needs a full walk.
-    const completedKey = `backfill_complete_${realPuuid}`;
+    const completedKey = `backfill_complete_${summoner.puuid}`;
     const walkedBefore = !forceFull && db.getSetting(completedKey) === "1";
-    console.log(`[backfill] start: puuid=${realPuuid.slice(0, 12)} platform=${platform}`);
+    console.log(
+      `[backfill] start: puuid=${realPuuid.slice(0, 12)}... (len=${realPuuid.length}) platform=${platform}`,
+    );
 
     const walk = (from: string) =>
       fetchAllMatchIds(
@@ -452,13 +490,49 @@ export async function backfillHistory(
       let game: any;
       try {
         game = await fetchGameDetails(gameId);
+        // TEMPORARY: inspect one LCU by-id payload before choosing an identity mapping.
+        if (added === 0 && !(globalThis as any).__lcuPayloadLogged) {
+          (globalThis as any).__lcuPayloadLogged = true;
+          const p0 = game?.participants?.[0];
+          const id0 = game?.participantIdentities?.[0];
+          console.log("[lcu-payload] first participant keys:", p0 ? Object.keys(p0) : "none");
+          console.log("[lcu-payload] participant.puuid:", p0?.puuid ?? "MISSING");
+          console.log("[lcu-payload] participant.summonerId:", p0?.summonerId ?? "MISSING");
+          console.log("[lcu-payload] participant.accountId:", p0?.accountId ?? "MISSING");
+          console.log(
+            "[lcu-payload] first identity keys:",
+            id0 ? Object.keys(id0) : "none",
+          );
+          console.log(
+            "[lcu-payload] identity.player keys:",
+            id0?.player ? Object.keys(id0.player) : "none",
+          );
+          console.log("[lcu-payload] identity.player.puuid:", id0?.player?.puuid ?? "MISSING");
+          console.log(
+            "[lcu-payload] identity.player.summonerId:",
+            id0?.player?.summonerId ?? "MISSING",
+          );
+          console.log(
+            "[lcu-payload] identity.player.gameName:",
+            id0?.player?.gameName ?? "MISSING",
+          );
+          console.log(
+            "[lcu-payload] identity.player.tagLine:",
+            id0?.player?.tagLine ?? "MISSING",
+          );
+        }
       } catch {
         // Leave it unrecorded so a later run retries it
         progress(i + 1, added);
         continue;
       }
 
-      if (db.insertGameFull(game, realPuuid, "lcu")) {
+      if (
+        db.insertGameFull(game, summoner.puuid, "lcu", false, {
+          gameName: summoner.gameName ?? null,
+          tagLine: summoner.tagLine ?? null,
+        })
+      ) {
         added++;
         console.log(`Backfilled League game ${gameId}`);
       }
@@ -916,7 +990,7 @@ let syncing = false;
 // Everything the poll does on a tick, also used for the first pass right after
 // connecting. Errors are handled here rather than by the caller, so a failure
 // costs a reconnect instead of the timers that drive the app.
-async function pollTick(win: BrowserWindow) {
+export async function pollTick(win: BrowserWindow) {
   // A socket that dropped on its own doesn't fail the poll, so without this the
   // instant capture would stay down for the rest of the session
   if (!eogSocket) {
