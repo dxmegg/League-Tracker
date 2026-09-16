@@ -13,7 +13,6 @@ import { ARENA_QUEUE_IDS, isAugmentQueue, QUEUE_LABELS } from "../../shared/queu
 import { kdaRatio } from "../lib/format";
 import { CHAMPION_ICON_URL } from "../lib/constants";
 import { dbg } from "../../shared/debug";
-import SummonerIcon from "../components/SummonerIcon";
 
 const EMBLEM_BASE_URL = "https://opgg-static.akamaized.net/images/medals_new";
 
@@ -792,6 +791,7 @@ export default function Profile() {
   const [recentDetailLoading, setRecentDetailLoading] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [profileIconFailed, setProfileIconFailed] = useState(false);
   const hasAutoLoaded = useRef(false);
 
   const loadLocalProfile = useCallback(() => log.safe("load profile", async () => {
@@ -807,14 +807,11 @@ export default function Profile() {
       }
 
       const localName = localProfile.name ?? "Local account";
-      let profileIconId = localProfile.profileIcon ?? 0;
-      if (profileIconId <= 0) {
-        try {
-          profileIconId =
-            (await window.api.getProfileIcon(profilePuuid, localProfile.platform ?? undefined)) ?? 0;
-        } catch (err: unknown) {
-          console.warn("Could not refresh displayed account profile icon:", err);
-        }
+      let profileIconId = 0;
+      try {
+        profileIconId = (await window.api.getCurrentSummonerProfileIcon()) ?? 0;
+      } catch (err: unknown) {
+        console.warn("Could not read current League client profile icon:", err);
       }
       const localRecentMatches = await readRecentHistoryFromDb(profilePuuid, 20);
       setProfile({
@@ -824,7 +821,7 @@ export default function Profile() {
         platform: localProfile.platform ?? "",
         profileIconId,
         summonerLevel: 0,
-        dataDragonVersion: "none",
+        dataDragonVersion: await window.api.getChampionDataVersion(),
         masteryPoints: 0,
         masteryScore: 0,
         topMasteryChampions: null,
@@ -879,16 +876,33 @@ export default function Profile() {
     );
   }
 
+  const version = profile.dataDragonVersion === "none" ? "latest" : profile.dataDragonVersion;
+  const profileIconUrl =
+    profile.profileIconId > 0
+      ? `https://ddragon.leagueoflegends.com/cdn/${version}/img/profileicon/${profile.profileIconId}.png`
+      : null;
+  const profileInitial = profile.gameName.trim().charAt(0).toUpperCase() || "?";
+
   return (
     <div className="max-w-6xl space-y-8">
           <div className="grid grid-cols-[220px_minmax(0,1fr)_256px_auto] items-start gap-8">
             <div>
               <div className="h-[220px] w-[220px] rounded-xl bg-[linear-gradient(138deg,#c89b37_0%,#ffe09b_50%,#c89b37_100%)] p-[5px]">
-                <SummonerIcon
-                  iconId={profile.profileIconId > 0 ? profile.profileIconId : null}
-                  size={210}
-                  className="h-full w-full rounded-lg object-cover"
-                />
+                {profileIconUrl && !profileIconFailed ? (
+                  <img
+                    src={profileIconUrl}
+                    alt={`${profile.gameName} profile icon`}
+                    className="h-full w-full rounded-lg object-cover"
+                    onError={() => setProfileIconFailed(true)}
+                  />
+                ) : (
+                  <div
+                    className="flex h-full w-full items-center justify-center rounded-lg bg-lol-dark text-6xl font-semibold text-lol-text-bright"
+                    aria-label={`${profile.gameName} profile icon placeholder`}
+                  >
+                    {profileInitial}
+                  </div>
+                )}
               </div>
               <p className="mt-3 text-sm text-lol-text">Level {profile.summonerLevel}</p>
             </div>

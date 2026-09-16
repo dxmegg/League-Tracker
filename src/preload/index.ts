@@ -129,6 +129,7 @@ const api: ElectronAPI = {
   },
 
   getLcuStatus: () => ipcRenderer.invoke("lcu:status"),
+  getChampionDataVersion: () => ipcRenderer.invoke("dragon:version"),
 
   getChampionData: () => ipcRenderer.invoke("dragon:champions"),
 
@@ -176,6 +177,7 @@ const api: ElectronAPI = {
   deleteSearchedSummoners: () => ipcRenderer.invoke("db:delete-searched-summoners"),
 
   getProfile: () => ipcRenderer.invoke("db:profile"),
+  getCurrentSummonerProfileIcon: () => ipcRenderer.invoke("lcu:current-summoner-icon"),
   getProfileIcon: (puuid: string, platform?: string) =>
     ipcRenderer.invoke("riot:profile-icon", puuid, platform),
   getDebugEnabled: () => ipcRenderer.invoke("dbg:get"),

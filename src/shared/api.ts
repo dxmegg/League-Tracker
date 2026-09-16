@@ -809,6 +809,7 @@ export interface ElectronAPI {
     puuid: string,
   ) => Promise<{ deletedGames: number; deletedTrackedRows: number }>;
   getProfile: () => Promise<LocalProfile>;
+  getCurrentSummonerProfileIcon: () => Promise<number | null>;
   getProfileIcon: (puuid: string, platform?: string) => Promise<number | null>;
   getDebugEnabled: () => Promise<boolean>;
   setDebugEnabled: (enabled: boolean) => Promise<void>;
@@ -848,6 +849,7 @@ export interface ElectronAPI {
   onBackfillProgress: (callback: (progress: BackfillProgress) => void) => () => void;
   onBackfillDone: (result: (result: BackfillResult | { error: string }) => void) => () => void;
   getLcuStatus: () => Promise<LcuStatus>;
+  getChampionDataVersion: () => Promise<string>;
   getChampionData: () => Promise<ChampionData>;
   getAugmentData: (patch?: string) => Promise<AugmentData>;
   resolveAugmentIcon: (id: number, patch?: string) => Promise<string | null>;
