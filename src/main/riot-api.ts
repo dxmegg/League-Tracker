@@ -559,7 +559,7 @@ async function riotFetch<T>(
   }
 }
 
-async function accountByRiotId(
+export async function accountByRiotId(
   route: RiotRegionalRoute,
   platform: string,
   gameName: string,
@@ -835,6 +835,34 @@ export async function getProfileData(
   };
 }
 
+export async function getProfileIcon(
+  puuid: string,
+  platform?: string,
+): Promise<number | null> {
+  const normalizedPlatform =
+    platform?.trim().toLowerCase() || db.getSetting("riot_platform")?.trim().toLowerCase();
+  if (!normalizedPlatform) {
+    console.warn("[riot] getProfileIcon missing platform:", { puuid });
+    return null;
+  }
+
+  console.log("[riot] getProfileIcon called:", { puuid, platform: normalizedPlatform });
+  const base = `https://${normalizedPlatform}.api.riotgames.com`;
+  const summoner = await riotFetchOrNull<SummonerResponse>(
+    `${base}/lol/summoner/v4/summoners/by-puuid/${encodeURIComponent(puuid)}`,
+    normalizedPlatform,
+  );
+  const profileIconId = summoner?.profileIconId ?? null;
+  if (profileIconId === null || !Number.isInteger(profileIconId) || profileIconId <= 0) {
+    console.warn("[riot] getProfileIcon empty result:", { puuid });
+    return null;
+  }
+
+  db.updateSummonerProfileIcon(puuid, profileIconId);
+  console.log("[riot] getProfileIcon done:", { puuid, profileIconId });
+  return profileIconId;
+}
+
 async function configuredIdentity(
   configured?: Pick<StoredRiotAccount, "gameName" | "tagLine" | "platform">,
 ): Promise<{
@@ -947,7 +975,7 @@ async function syncRiotAccount(
       const id = normalizeMatchId(raw);
       if (id !== null && !ids.includes(id) && !ignored.has(id)) ids.push(id);
     }
-    if (page.length < count || page.some((id) => known.has(normalizeMatchId(id) ?? -1))) break;
+    if (page.length < count || page.every((id) => known.has(normalizeMatchId(id) ?? -1))) break;
   }
 
   let added = 0;

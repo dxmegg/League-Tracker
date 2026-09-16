@@ -12,6 +12,8 @@ import { shortRegion } from "../../shared/regions";
 import { ARENA_QUEUE_IDS, isAugmentQueue, QUEUE_LABELS } from "../../shared/queues";
 import { kdaRatio } from "../lib/format";
 import { CHAMPION_ICON_URL } from "../lib/constants";
+import { dbg } from "../../shared/debug";
+import SummonerIcon from "../components/SummonerIcon";
 
 const EMBLEM_BASE_URL = "https://opgg-static.akamaized.net/images/medals_new";
 
@@ -778,6 +780,7 @@ async function readRecentHistoryFromDb(
 }
 
 export default function Profile() {
+  const log = dbg.scope("profile");
   const championData = useChampionData();
   const [profile, setProfile] = useState<ProfileData | null>(null);
   const [recentMatches, setRecentMatches] = useState<MatchListItem[] | null>(null);
@@ -791,28 +794,35 @@ export default function Profile() {
   const [error, setError] = useState<string | null>(null);
   const hasAutoLoaded = useRef(false);
 
-  const loadLocalProfile = useCallback(async () => {
+  const loadLocalProfile = useCallback(() => log.safe("load profile", async () => {
     setLoading(true);
     setError(null);
     setProfile(null);
     try {
-      const [localProfile, puuid] = await Promise.all([
-        window.api.getProfile(),
-        window.api.getSummonerPuuid(),
-      ]);
-      if (!puuid) {
+      const localProfile = await window.api.getProfile();
+      const profilePuuid = localProfile.puuid;
+      if (!profilePuuid) {
         setError("No local account data. Connect to the League client or import history.");
         return;
       }
 
       const localName = localProfile.name ?? "Local account";
-      const localRecentMatches = await readRecentHistoryFromDb(puuid, 20);
+      let profileIconId = localProfile.profileIcon ?? 0;
+      if (profileIconId <= 0) {
+        try {
+          profileIconId =
+            (await window.api.getProfileIcon(profilePuuid, localProfile.platform ?? undefined)) ?? 0;
+        } catch (err: unknown) {
+          console.warn("Could not refresh displayed account profile icon:", err);
+        }
+      }
+      const localRecentMatches = await readRecentHistoryFromDb(profilePuuid, 20);
       setProfile({
-        puuid,
+        puuid: profilePuuid,
         gameName: localName,
         tagLine: "",
-        platform: "",
-        profileIconId: localProfile.profileIcon ?? 0,
+        platform: localProfile.platform ?? "",
+        profileIconId,
         summonerLevel: 0,
         dataDragonVersion: "none",
         masteryPoints: 0,
@@ -821,6 +831,7 @@ export default function Profile() {
         rankedSolo: null,
         rankedFlex: null,
       });
+      log.log("profile loaded", { puuid: profile?.puuid, icon: profile?.profileIconId });
       setRecentMatches(localRecentMatches.matches);
       setRecentMatchesAvailable(localRecentMatches.total);
     } catch (err: unknown) {
@@ -829,7 +840,7 @@ export default function Profile() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }), [log]);
 
   const handleToggleRecentMatch = useCallback(
     async (gameId: number) => {
@@ -868,17 +879,14 @@ export default function Profile() {
     );
   }
 
-  const version = profile.dataDragonVersion === "none" ? "latest" : profile.dataDragonVersion;
-  const profileIconUrl = `https://ddragon.leagueoflegends.com/cdn/${version}/img/profileicon/${profile.profileIconId}.png`;
-
   return (
     <div className="max-w-6xl space-y-8">
           <div className="grid grid-cols-[220px_minmax(0,1fr)_256px_auto] items-start gap-8">
             <div>
               <div className="h-[220px] w-[220px] rounded-xl bg-[linear-gradient(138deg,#c89b37_0%,#ffe09b_50%,#c89b37_100%)] p-[5px]">
-                <img
-                  src={profileIconUrl}
-                  alt={`${profile.gameName} profile icon`}
+                <SummonerIcon
+                  iconId={profile.profileIconId > 0 ? profile.profileIconId : null}
+                  size={210}
                   className="h-full w-full rounded-lg object-cover"
                 />
               </div>

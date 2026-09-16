@@ -69,9 +69,19 @@ export default function Settings() {
   const [rememberFilters, setRememberFilters] = useState(false);
   const [loading, setLoading] = useState(true);
   const [backfillStatus, setBackfillStatus] = useState<string | null>(null);
+  const [repairing, setRepairing] = useState(false);
+  const [restoring, setRestoring] = useState(false);
   const [backups, setBackups] = useState<BackupInfo[]>([]);
   const [backupStatus, setBackupStatus] = useState<string | null>(null);
   const [backupBusy, setBackupBusy] = useState(false);
+  const [exportStatus, setExportStatus] = useState<{ message: string; error: boolean } | null>(
+    null,
+  );
+  const [importStatus, setImportStatus] = useState<{ message: string; error: boolean } | null>(
+    null,
+  );
+  const [exporting, setExporting] = useState(false);
+  const [importing, setImporting] = useState(false);
   // Restoring replaces the whole database, so the row asks a second time
   const [confirmRestore, setConfirmRestore] = useState<string | null>(null);
   const [savedSummoners, setSavedSummoners] = useState<
@@ -163,6 +173,46 @@ export default function Settings() {
     // TODO: rewrite Riot history sync from scratch
   }, []);
 
+  const handleRepair = useCallback(async () => {
+    setRepairing(true);
+    setBackfillStatus("Repairing game data...");
+    try {
+      const result = await window.api.repairPuuids();
+      if ("error" in result) {
+        setBackfillStatus(`Error: ${result.error}`);
+      } else {
+        setBackfillStatus(
+          `Repaired ${result.repairedGames} game(s), rebuilt ${result.rebuiltGames} game(s)`,
+        );
+      }
+    } catch (err: unknown) {
+      setBackfillStatus(`Error: ${err instanceof Error ? err.message : String(err)}`);
+    } finally {
+      setRepairing(false);
+    }
+  }, []);
+
+  const handleRestoreOlderGames = useCallback(async () => {
+    setRestoring(true);
+    setBackfillStatus("Restoring ignored games...");
+    try {
+      const result = await window.api.restoreOlderGames();
+      if ("error" in result) {
+        setBackfillStatus(`Error: ${result.error}`);
+      } else if (result.restored === 0) {
+        setBackfillStatus(`Nothing to restore (${result.remaining} still ignored)`);
+      } else {
+        setBackfillStatus(
+          `Restored ${result.restored} game(s). Run Force Backfill to re-scan them.`,
+        );
+      }
+    } catch (err: unknown) {
+      setBackfillStatus(`Error: ${err instanceof Error ? err.message : String(err)}`);
+    } finally {
+      setRestoring(false);
+    }
+  }, []);
+
   // Kept current the same way the queue dropdown is: a game from a queue that
   // wasn't in the database yet adds a switch for it without a reload.
   useEffect(() => {
@@ -176,6 +226,18 @@ export default function Settings() {
   }, []);
 
   useEffect(refreshBackups, [refreshBackups]);
+
+  useEffect(() => {
+    if (!exportStatus) return;
+    const timer = window.setTimeout(() => setExportStatus(null), 8_000);
+    return () => window.clearTimeout(timer);
+  }, [exportStatus]);
+
+  useEffect(() => {
+    if (!importStatus) return;
+    const timer = window.setTimeout(() => setImportStatus(null), 8_000);
+    return () => window.clearTimeout(timer);
+  }, [importStatus]);
 
   const handleAutoStartToggle = useCallback(async () => {
     const next = !autoStart;
@@ -260,6 +322,53 @@ export default function Settings() {
     },
     [refreshBackups],
   );
+
+  const handleExportData = useCallback(async () => {
+    setExporting(true);
+    setExportStatus(null);
+    try {
+      const result = await window.api.exportData();
+      if (result.success) {
+        const filename = result.path?.split(/[\\/]/).pop() ?? "backup.json";
+        setExportStatus({
+          message: `Exported ${result.games ?? 0} games to ${filename}`,
+          error: false,
+        });
+      } else if (result.error) {
+        setExportStatus({ message: result.error, error: true });
+      }
+    } catch (err: unknown) {
+      setExportStatus({
+        message: err instanceof Error ? err.message : String(err),
+        error: true,
+      });
+    } finally {
+      setExporting(false);
+    }
+  }, []);
+
+  const handleImportData = useCallback(async () => {
+    setImporting(true);
+    setImportStatus(null);
+    try {
+      const result = await window.api.importData();
+      if (result.success) {
+        setImportStatus({
+          message: `Imported ${result.imported ?? 0} games`,
+          error: false,
+        });
+      } else if (result.error) {
+        setImportStatus({ message: result.error, error: true });
+      }
+    } catch (err: unknown) {
+      setImportStatus({
+        message: err instanceof Error ? err.message : String(err),
+        error: true,
+      });
+    } finally {
+      setImporting(false);
+    }
+  }, []);
 
   const handleBackfill = useCallback(async () => {
     setBackfillStatus("Fetching your match list from Riot...");
@@ -348,10 +457,77 @@ export default function Settings() {
           >
             Sync from Riot History
           </button>
+          <button
+            type="button"
+            onClick={handleRestoreOlderGames}
+            disabled={restoring}
+            className="rounded-md bg-lol-gold/15 border border-lol-gold/40 px-3 py-1.5 text-xs text-lol-gold"
+          >
+            {restoring ? "Restoring..." : "Restore older games"}
+          </button>
+          <button
+            type="button"
+            onClick={handleRepair}
+            disabled={repairing}
+            className="rounded-md bg-lol-gold/15 border border-lol-gold/40 px-3 py-1.5 text-xs text-lol-gold"
+          >
+            {repairing ? "Repairing..." : "Repair"}
+          </button>
         </div>
         {backfillStatus && (
           <p className="text-xs text-lol-text mt-2">{backfillStatus}</p>
         )}
+      </div>
+
+      <div className="bg-lol-card rounded-xl border border-lol-border/60 p-5">
+        <h2 className="text-sm font-semibold text-lol-text-bright mb-4">Data Management</h2>
+        <div className="space-y-4">
+          <div className="flex items-center justify-between gap-4">
+            <div>
+              <p className="text-sm text-lol-text-bright">Export data</p>
+              <p className="text-xs text-lol-text mt-0.5">
+                Save all match data to a JSON file for backup.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={handleExportData}
+              disabled={exporting}
+              className="shrink-0 px-4 py-1.5 rounded text-sm bg-lol-gold/20 text-lol-gold hover:bg-lol-gold/30 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {exporting ? "Exporting…" : "Export"}
+            </button>
+          </div>
+          {exportStatus && (
+            <p className={`text-xs ${exportStatus.error ? "text-red-300" : "text-green-300"}`}>
+              {exportStatus.message}
+            </p>
+          )}
+
+          <div className="border-t border-lol-border" />
+
+          <div className="flex items-center justify-between gap-4">
+            <div>
+              <p className="text-sm text-lol-text-bright">Import data</p>
+              <p className="text-xs text-lol-text mt-0.5">
+                Load match data from a previously exported file.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={handleImportData}
+              disabled={importing}
+              className="shrink-0 px-4 py-1.5 rounded text-sm bg-lol-gold/20 text-lol-gold hover:bg-lol-gold/30 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {importing ? "Importing…" : "Import"}
+            </button>
+          </div>
+          {importStatus && (
+            <p className={`text-xs ${importStatus.error ? "text-red-300" : "text-green-300"}`}>
+              {importStatus.message}
+            </p>
+          )}
+        </div>
       </div>
 
       <div className="bg-lol-card rounded-xl border border-lol-border/60 p-5">

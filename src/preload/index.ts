@@ -7,6 +7,7 @@ import type {
   MatchFilters,
   RiotSyncResult,
   RiotAccountConfig,
+  RestoreOlderGamesResult,
 } from "../shared/api";
 
 // Annotated rather than inferred, so the compiler checks this object against
@@ -175,6 +176,10 @@ const api: ElectronAPI = {
   deleteSearchedSummoners: () => ipcRenderer.invoke("db:delete-searched-summoners"),
 
   getProfile: () => ipcRenderer.invoke("db:profile"),
+  getProfileIcon: (puuid: string, platform?: string) =>
+    ipcRenderer.invoke("riot:profile-icon", puuid, platform),
+  getDebugEnabled: () => ipcRenderer.invoke("dbg:get"),
+  setDebugEnabled: (enabled: boolean) => ipcRenderer.invoke("dbg:set", enabled),
 
   onStatusChanged: (callback: (status: LcuStatus) => void) => {
     const handler = (_event: unknown, status: LcuStatus) => callback(status);
@@ -199,6 +204,9 @@ const api: ElectronAPI = {
   importData: () => ipcRenderer.invoke("data:import"),
 
   repairPuuids: () => ipcRenderer.invoke("data:repair-puuids"),
+
+  restoreOlderGames: (): Promise<RestoreOlderGamesResult | { error: string }> =>
+    ipcRenderer.invoke("db:restore-older-games"),
 
   hasLocalAccount: () => ipcRenderer.invoke("db:has-local-account"),
 
