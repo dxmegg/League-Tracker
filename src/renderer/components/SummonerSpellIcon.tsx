@@ -5,9 +5,10 @@ import { CDRAGON_ASSET_URL } from "../lib/constants";
 interface SummonerSpellIconProps {
   spellId: number | null;
   size?: number;
+  className?: string;
 }
 
-export default function SummonerSpellIcon({ spellId, size = 16 }: SummonerSpellIconProps) {
+export default function SummonerSpellIcon({ spellId, size = 16, className = "rounded" }: SummonerSpellIconProps) {
   const spells = useSummonerSpellData();
   const [broken, setBroken] = useState(false);
   const spell = spellId != null && spellId > 0 ? spells[spellId] : undefined;
@@ -25,7 +26,7 @@ export default function SummonerSpellIcon({ spellId, size = 16 }: SummonerSpellI
       title={spell.name}
       width={size}
       height={size}
-      className="rounded"
+      className={className}
       onError={() => setBroken(true)}
     />
   );

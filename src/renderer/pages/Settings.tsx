@@ -56,6 +56,7 @@ function Switch({
 export default function Settings() {
   // Shared so a backfill started automatically on first connect shows here too
   const { running: backfilling } = useBackfill();
+  const [theme, setTheme] = useState("test");
   const [autoStart, setAutoStart] = useState(false);
   // Only the packaged program has a path worth registering, so the switch says
   // so instead of pretending in a dev build
@@ -106,6 +107,7 @@ export default function Settings() {
       window.api.getSetting("hide_remakes"),
       window.api.getSetting("auto_backup"),
       window.api.getSetting("remember_filters"),
+      window.api.getSetting("theme"),
     ]).then(
       ([
         startup,
@@ -115,7 +117,13 @@ export default function Settings() {
         remakes,
         backup,
         remember,
+        storedTheme,
       ]) => {
+        setTheme(
+          storedTheme === "default" || storedTheme === "test" || storedTheme === "pink"
+            ? storedTheme
+            : "test",
+        );
         setAutoStart(startup === "true");
         setAutoStartSupported(startupSupported);
         setMinimizeToTray(tray !== "false");
@@ -431,6 +439,31 @@ export default function Settings() {
   return (
     <div className="max-w-2xl space-y-6">
       <h1 className="text-xl font-bold text-lol-text-bright">Settings</h1>
+
+      <div className="bg-lol-card rounded-xl border border-lol-border/60 p-5">
+        <h2 className="text-sm font-semibold text-lol-text-bright mb-4">Appearance</h2>
+        <div className="flex items-center justify-between gap-4">
+          <label htmlFor="theme-select" className="text-sm text-lol-text-bright">
+            Theme
+          </label>
+          <select
+            id="theme-select"
+            className="select"
+            value={theme}
+            onChange={(event) => {
+              const value = event.target.value;
+              if (value !== "default" && value !== "test" && value !== "pink") return;
+              setTheme(value);
+              void window.api.setSetting("theme", value);
+              document.documentElement.setAttribute("data-theme", value);
+            }}
+          >
+            <option value="test">Noxian (Default)</option>
+            <option value="default">Default (Legacy)</option>
+            <option value="pink">Pink</option>
+          </select>
+        </div>
+      </div>
 
       <div className="bg-lol-card rounded-xl border border-lol-border/60 p-5">
         <h2 className="text-sm font-semibold text-lol-text-bright mb-2">League history sync</h2>

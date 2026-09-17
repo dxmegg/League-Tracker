@@ -86,37 +86,6 @@ export function initDatabase() {
     console.log(`[migration] converted ${fixed} games from Riot PUUID to LCU UUID`);
     setSetting("puuid_to_lcu_v1", "1");
   }
-  // TEMPORARY: verify ownership key formats while migrating existing libraries.
-  try {
-    const rows = db
-      .prepare(`
-        SELECT LENGTH(puuid) AS len, COUNT(*) AS n FROM games
-        WHERE puuid IS NOT NULL AND puuid != '' GROUP BY LENGTH(puuid)
-      `)
-      .all() as { len: number; n: number }[];
-    console.log("[db-diag] games.puuid lengths:", JSON.stringify(rows));
-
-    const summoners = db
-      .prepare("SELECT puuid, game_name, tag_line FROM summoner")
-      .all() as { puuid: string; game_name: string | null; tag_line: string | null }[];
-    console.log(
-      "[db-diag] summoner rows:",
-      summoners.map((s) => ({
-        len: s.puuid.length,
-        name: `${s.game_name}#${s.tag_line}`,
-      })),
-    );
-
-    const mp = db
-      .prepare(`
-        SELECT LENGTH(puuid) AS len, COUNT(*) AS n FROM match_participants
-        WHERE puuid IS NOT NULL AND puuid != '' GROUP BY LENGTH(puuid)
-      `)
-      .all() as { len: number; n: number }[];
-    console.log("[db-diag] match_participants.puuid lengths:", JSON.stringify(mp));
-  } catch (err) {
-    console.log("[db-diag] failed:", err);
-  }
   // After migrations: on a database from before a column existed, the index
   // covering it can only be built once that column has been added.
   createIndexes();
