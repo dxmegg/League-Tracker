@@ -9,21 +9,74 @@ import Runes from "./Runes";
 import WorkInProgress from "./WorkInProgress";
 import { useParams } from "react-router-dom";
 import { queueForHistoryScope } from "../lib/historyScope";
+import { SectionChrome } from "../components/SectionChrome";
 
 export default function HistorySection() {
   const { scope, section } = useParams<{ scope?: string; section?: string }>();
-  if (section === "champions") return <Champions />;
-  if (section === "augments") return <Augments />;
+  const displayScope = scope?.toUpperCase();
+
+  if (section === "champions") {
+    return (
+      <SectionChrome title="CHAMPIONS" scope={displayScope}>
+        <Champions />
+      </SectionChrome>
+    );
+  }
+  if (section === "augments") {
+    return (
+      <SectionChrome title="AUGMENTS" scope={displayScope}>
+        <Augments />
+      </SectionChrome>
+    );
+  }
   if (section === "friends") {
-    return <Friends relation="friends" historyScope={scope} historySection={section} />;
+    return (
+      <SectionChrome title="FRIENDS & FOES" scope={displayScope}>
+        <Friends relation="friends" historyScope={scope} historySection={section} />
+      </SectionChrome>
+    );
   }
   if (section === "enemies") {
-    return <Friends relation="enemies" historyScope={scope} historySection={section} />;
+    return (
+      <SectionChrome title="FRIENDS & FOES" scope={displayScope}>
+        <Friends relation="enemies" historyScope={scope} historySection={section} />
+      </SectionChrome>
+    );
   }
-  if (section === "trends") return <Trends />;
-  if (section === "records") return <Records />;
-  if (section === "total-stats") return <GlobalStats />;
-  if (section === "items") return <Items />;
-  if (section === "runes") return <Runes queue={queueForHistoryScope(scope)} />;
+  if (section === "trends") {
+    return (
+      <SectionChrome title="TRENDS" scope={displayScope}>
+        <Trends />
+      </SectionChrome>
+    );
+  }
+  if (section === "records") {
+    return (
+      <SectionChrome title="RECORDS" scope={displayScope}>
+        <Records />
+      </SectionChrome>
+    );
+  }
+  if (section === "total-stats") {
+    return (
+      <SectionChrome title="MISC. DATA" scope={displayScope}>
+        <GlobalStats />
+      </SectionChrome>
+    );
+  }
+  if (section === "items") {
+    return (
+      <SectionChrome title="ITEMS" scope={displayScope}>
+        <Items />
+      </SectionChrome>
+    );
+  }
+  if (section === "runes") {
+    return (
+      <SectionChrome title="RUNES" scope={displayScope}>
+        <Runes queue={queueForHistoryScope(scope)} />
+      </SectionChrome>
+    );
+  }
   return <WorkInProgress />;
 }

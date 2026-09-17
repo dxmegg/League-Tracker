@@ -130,9 +130,9 @@ function Card({
   children: React.ReactNode;
 }) {
   return (
-    <div className="bg-lol-card rounded-xl border border-lol-border/60 p-4">
-      <div className="flex items-center justify-between mb-3">
-        <h2 className="text-sm font-semibold text-lol-text-bright">{title}</h2>
+    <div className="rounded-lg border border-lol-crimson/40 bg-[linear-gradient(145deg,#0c0e11_0%,#090b0d_48%,#060809_100%)] shadow-[0_0_3px_rgba(150,30,30,0.55),0_0_10px_rgba(90,15,15,0.35),0_0_20px_rgba(60,10,10,0.20)] ring-1 ring-inset ring-white/[0.03] overflow-hidden p-4">
+      <div className="flex items-center justify-between">
+        <h2 className="text-xs font-bold uppercase tracking-wider text-lol-gold mb-3">{title}</h2>
         {right}
       </div>
       {children}
@@ -158,15 +158,15 @@ function HoverTooltip({
 }) {
   return (
     <div
-      className="absolute top-1 pointer-events-none bg-lol-dark border border-lol-border rounded-lg px-2.5 py-1.5 text-xs shadow-lg z-10 whitespace-nowrap"
+      className="absolute top-1 pointer-events-none rounded-lg border border-[rgba(165,15,21,0.4)] bg-[#0c0e11] px-2.5 py-1.5 text-xs shadow-lg z-10 whitespace-nowrap"
       style={{
         left: Math.min(Math.max(x, 70), Math.max(width - 70, 70)),
         transform: "translateX(-50%)",
       }}
     >
-      <div className="text-lol-text-bright font-medium">{label}</div>
-      <div className="text-lol-text">{detail}</div>
-      {value != null && <div className="text-lol-gold font-medium">{value}</div>}
+      <div className="font-medium text-[#f5efe0]">{label}</div>
+      <div className="text-[#f5efe0]">{detail}</div>
+      {value != null && <div className="font-medium text-[#f5efe0]">{value}</div>}
     </div>
   );
 }
@@ -256,16 +256,9 @@ function TimeSeriesChart({
                 x2={width - M.right}
                 y1={y(t)}
                 y2={y(t)}
-                stroke="var(--color-lol-border)"
-                strokeOpacity={0.5}
+                stroke="rgba(255,255,255,0.06)"
               />
-              <text
-                x={M.left - 6}
-                y={y(t) + 3}
-                textAnchor="end"
-                fontSize={10}
-                fill="var(--color-lol-text)"
-              >
+              <text x={M.left - 6} y={y(t) + 3} textAnchor="end" fontSize={10} fill="#8a8f95">
                 {format(t)}
               </text>
             </g>
@@ -276,8 +269,7 @@ function TimeSeriesChart({
               x2={width - M.right}
               y1={y(refValue)}
               y2={y(refValue)}
-              stroke="var(--color-lol-text)"
-              strokeOpacity={0.35}
+              stroke="rgba(255,255,255,0.08)"
               strokeDasharray="4 4"
             />
           )}
@@ -287,8 +279,7 @@ function TimeSeriesChart({
               y={M.top}
               width={step}
               height={ih}
-              fill="white"
-              fillOpacity={0.05}
+              fill="rgba(255,255,255,0.03)"
             />
           )}
           {points.map((p, i) =>
@@ -300,8 +291,7 @@ function TimeSeriesChart({
                 width={barWidth}
                 height={(p.games / maxGames) * ih * 0.45}
                 rx={2}
-                fill="white"
-                fillOpacity={hover === i ? 0.16 : 0.08}
+                fill={hover === i ? "rgba(165,15,21,0.55)" : "rgba(165,15,21,0.35)"}
               />
             ) : null,
           )}
@@ -310,7 +300,7 @@ function TimeSeriesChart({
               key={i}
               points={seg.map(([px, py]) => `${px},${py}`).join(" ")}
               fill="none"
-              stroke="var(--color-lol-gold)"
+              stroke="var(--theme-accent)"
               strokeWidth={2}
               strokeLinejoin="round"
             />
@@ -322,7 +312,7 @@ function TimeSeriesChart({
                 cx={x(i)}
                 cy={y(p.value)}
                 r={hover === i ? 4 : 2.5}
-                fill="var(--color-lol-gold)"
+                fill="var(--theme-accent-bright)"
                 stroke="var(--color-lol-card)"
                 strokeWidth={1.5}
               />
@@ -336,7 +326,7 @@ function TimeSeriesChart({
                 y={height - 5}
                 textAnchor="middle"
                 fontSize={10}
-                fill="var(--color-lol-text)"
+                fill="#8a8f95"
               >
                 {p.label}
               </text>
@@ -363,7 +353,13 @@ const HEATMAP_CELL = 11;
 const HEATMAP_GAP = 2;
 const HEATMAP_PITCH = HEATMAP_CELL + HEATMAP_GAP;
 const HEATMAP_WEEKS = 53;
-const HEATMAP_LEVELS = [0.25, 0.45, 0.7, 1];
+const HEATMAP_COLORS = [
+  "rgba(255,255,255,0.03)",
+  "rgba(165,15,21,0.20)",
+  "rgba(165,15,21,0.45)",
+  "rgba(196,30,40,0.70)",
+  "rgba(196,30,40,0.95)",
+];
 
 function ActivityHeatmap({ daily }: { daily: TrendsDay[] }) {
   const byDay = useMemo(() => new Map(daily.map((d) => [d.day, d])), [daily]);
@@ -399,13 +395,7 @@ function ActivityHeatmap({ daily }: { daily: TrendsDay[] }) {
       next.setDate(next.getDate() + 7);
       if (!(w === 0 && next.getMonth() !== colDate.getMonth())) {
         monthLabels.push(
-          <text
-            key={w}
-            x={left + w * HEATMAP_PITCH}
-            y={9}
-            fontSize={9}
-            fill="var(--color-lol-text)"
-          >
+          <text key={w} x={left + w * HEATMAP_PITCH} y={9} fontSize={9} fill="#8a8f95">
             {colDate.toLocaleDateString(undefined, { month: "short" })}
           </text>,
         );
@@ -431,8 +421,7 @@ function ActivityHeatmap({ daily }: { daily: TrendsDay[] }) {
           width={HEATMAP_CELL}
           height={HEATMAP_CELL}
           rx={2}
-          fill={level === 0 ? "white" : "var(--color-lol-gold)"}
-          fillOpacity={level === 0 ? 0.05 : HEATMAP_LEVELS[level - 1]}
+          fill={HEATMAP_COLORS[level]}
         >
           <title>{label}</title>
         </rect>,
@@ -451,7 +440,7 @@ function ActivityHeatmap({ daily }: { daily: TrendsDay[] }) {
             y={top + (i * 2 + 1) * HEATMAP_PITCH + 9}
             textAnchor="end"
             fontSize={9}
-            fill="var(--color-lol-text)"
+            fill="#8a8f95"
           >
             {label}
           </text>
@@ -460,13 +449,8 @@ function ActivityHeatmap({ daily }: { daily: TrendsDay[] }) {
       </svg>
       <div className="flex items-center justify-end gap-1 mt-2 text-[10px] text-lol-text">
         <span className="mr-1">Less</span>
-        <span className="w-2.5 h-2.5 rounded-xs bg-white/5" />
-        {HEATMAP_LEVELS.map((opacity) => (
-          <span
-            key={opacity}
-            className="w-2.5 h-2.5 rounded-xs"
-            style={{ backgroundColor: "var(--color-lol-gold)", opacity }}
-          />
+        {HEATMAP_COLORS.map((color) => (
+          <span key={color} className="w-2.5 h-2.5 rounded-xs" style={{ backgroundColor: color }} />
         ))}
         <span className="ml-1">More</span>
       </div>
@@ -519,8 +503,7 @@ function PatchBars({ patches }: { patches: TrendsData["patches"] }) {
               x2={chartWidth}
               y1={y(50)}
               y2={y(50)}
-              stroke="var(--color-lol-text)"
-              strokeOpacity={0.3}
+              stroke="rgba(255,255,255,0.06)"
               strokeDasharray="4 4"
             />
             {patches.map((p, i) => {
@@ -561,7 +544,7 @@ function PatchBars({ patches }: { patches: TrendsData["patches"] }) {
                     y={top + plotHeight + 27}
                     textAnchor="middle"
                     fontSize={9}
-                    fill="var(--color-lol-text)"
+                    fill="#8a8f95"
                   >
                     {p.games} games
                   </text>
@@ -736,16 +719,18 @@ export default function Trends() {
   }, [scorePoints]);
 
   if (!data) {
-    return <div className="text-lol-text text-center mt-20">Loading...</div>;
+    return (
+      <div className="rounded-lg border border-lol-crimson/40 bg-[linear-gradient(145deg,#0c0e11_0%,#090b0d_48%,#060809_100%)] shadow-[0_0_3px_rgba(150,30,30,0.55),0_0_10px_rgba(90,15,15,0.35),0_0_20px_rgba(60,10,10,0.20)] ring-1 ring-inset ring-white/[0.03] p-12 text-center">
+        <p className="text-sm text-lol-text">Loading trends…</p>
+      </div>
+    );
   }
 
   if (data.daily.length === 0) {
     return (
-      <div className="max-w-7xl space-y-4">
-        <h1 className="text-xl font-bold text-lol-text-bright">Trends</h1>
-        <div className="bg-lol-card rounded-xl border border-lol-border/60 py-16 text-center text-sm text-lol-text">
-          No games recorded yet — sync your match history to start tracking trends.
-        </div>
+      <div className="rounded-lg border border-lol-crimson/40 bg-[linear-gradient(145deg,#0c0e11_0%,#090b0d_48%,#060809_100%)] shadow-[0_0_3px_rgba(150,30,30,0.55),0_0_10px_rgba(90,15,15,0.35),0_0_20px_rgba(60,10,10,0.20)] ring-1 ring-inset ring-white/[0.03] p-12 text-center">
+        <p className="text-sm font-semibold text-lol-text-bright">No trend data for this scope</p>
+        <p className="text-xs text-lol-text mt-1">Try a different queue or sync more matches.</p>
       </div>
     );
   }
@@ -753,40 +738,43 @@ export default function Trends() {
   const totalGames = data.daily.reduce((sum, d) => sum + d.games, 0);
 
   const granularityToggle = (
-    <div className="flex items-center gap-1">
+    <div className="flex items-center gap-0 rounded-md border border-lol-border/60 bg-lol-card/40 p-0.5">
       {(["month", "week"] as const).map((g) => (
         <button
+          type="button"
           key={g}
           onClick={() => setGranularity(g)}
-          className={`px-2.5 py-1 text-xs font-medium rounded-md border transition-colors ${
+          className={`h-8 rounded px-3 text-xs font-semibold tracking-wider transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-lol-gold/60 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--theme-bg-deep)] ${
             effectiveGranularity === g
-              ? "bg-lol-gold/20 text-lol-gold border-lol-gold/50"
-              : "text-lol-text border-lol-border bg-lol-card hover:border-lol-border/80"
+              ? "bg-lol-gold/20 text-lol-gold"
+              : "text-lol-text hover:text-lol-text-bright"
           }`}
         >
-          {g === "month" ? "Monthly" : "Weekly"}
+          {g === "month" ? "MONTHLY" : "WEEKLY"}
         </button>
       ))}
     </div>
   );
 
   return (
-    <div className="max-w-7xl space-y-4">
-      <div className="flex items-center justify-between">
-        <h1 className="text-xl font-bold text-lol-text-bright">Trends</h1>
+    <div className="flex flex-col gap-4">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-3">
           <span className="text-xs text-lol-text">
             {totalGames} games over {data.daily.length} days
           </span>
-          <QueueSelect value={queue} onChange={setQueue} />
+          <div className="[&_select]:h-9 [&_select]:rounded-md [&_select]:border [&_select]:border-lol-border/60 [&_select]:bg-lol-card/40 [&_select]:px-3 [&_select]:text-xs [&_select]:text-lol-text-bright [&_select]:focus-visible:outline-none [&_select]:focus-visible:border-lol-gold/60 [&_select]:focus-visible:ring-1 [&_select]:focus-visible:ring-lol-gold/40 [&_select]:transition-colors">
+            <QueueSelect value={queue} onChange={setQueue} />
+          </div>
         </div>
+        {granularityToggle}
       </div>
 
       <Card title="Activity">
         <ActivityHeatmap daily={data.daily} />
       </Card>
 
-      <Card title="Win Rate Over Time" right={granularityToggle}>
+      <Card title="Win Rate Over Time">
         <TimeSeriesChart
           points={winRatePoints}
           yMin={0}

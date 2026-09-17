@@ -31,7 +31,7 @@ interface StatCardProps {
   icon?: ReactNode;
   accent?: StatAccent;
   className?: string;
-  // Footer content — pinned to the bottom so cards in a grid line up
+  // Footer content — rendered below the main card content
   children?: ReactNode;
 }
 
@@ -47,22 +47,30 @@ export default function StatCard({
   const a = accent ? ACCENTS[accent] : null;
 
   return (
-    <div
-      className={`noxus-card flex flex-col p-6 min-h-[120px] ${className}`}
-    >
-      <div className="relative flex items-center gap-1.5 mb-1">
-        {icon && a && (
-          <span className={`flex h-5 w-5 items-center justify-center rounded-md ${a.chip}`}>
-            {icon}
+    <div className={`noxus-card flex flex-col p-5 xl:p-6 2xl:p-7 ${className}`}>
+      <div className="flex flex-col h-full justify-center gap-2 min-h-0">
+        <div className="relative flex items-center gap-1.5 mb-1">
+          {icon && a && (
+            <span className={`flex h-5 w-5 2xl:h-6 2xl:w-6 items-center justify-center rounded-md ${a.chip}`}>
+              {icon}
+            </span>
+          )}
+          <span className="text-[10px] xl:text-[11px] 2xl:text-xs font-bold tracking-wider text-lol-text uppercase">
+            {label}
           </span>
+        </div>
+        {value !== undefined && (
+          <div className="relative flex items-center min-w-0 mt-1 text-2xl xl:text-[26px] 2xl:text-3xl font-bold text-lol-text-bright leading-none">
+            {value}
+          </div>
         )}
-        <span className="text-[11px] text-lol-text uppercase tracking-wider">{label}</span>
+        {subtext && (
+          <div className="relative text-xs xl:text-[13px] 2xl:text-sm text-lol-text mt-0.5">
+            {subtext}
+          </div>
+        )}
+        {children && <div className="relative mt-0">{children}</div>}
       </div>
-      {value !== undefined && (
-        <div className="relative text-2xl font-bold text-lol-text-bright">{value}</div>
-      )}
-      {subtext && <div className="relative text-xs text-lol-text mt-1">{subtext}</div>}
-      {children && <div className="relative mt-2">{children}</div>}
     </div>
   );
 }

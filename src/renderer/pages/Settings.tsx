@@ -1,4 +1,10 @@
-import { useState, useEffect, useCallback } from "react";
+import {
+  useState,
+  useEffect,
+  useCallback,
+  type ButtonHTMLAttributes,
+  type ReactNode,
+} from "react";
 import { useBackfill } from "../hooks/useBackfill";
 import { queueLabel } from "../components/QueueSelect";
 import { setRemembering } from "../lib/viewState";
@@ -24,6 +30,32 @@ function formatTaken(timestamp: number): string {
   })}`;
 }
 
+type ButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & {
+  variant?: "primary" | "secondary" | "subtle" | "neutral" | "destructive";
+  children: ReactNode;
+};
+
+function Button({ variant = "primary", children, className = "", ...props }: ButtonProps) {
+  const variantClasses = {
+    primary: "bg-lol-gold/20 text-lol-gold hover:bg-lol-gold/30 border border-lol-gold/40",
+    secondary:
+      "border border-lol-border text-lol-text hover:border-lol-gold/60 hover:text-lol-text-bright",
+    subtle: "bg-lol-gold/10 border border-lol-gold/30 text-lol-gold hover:bg-lol-gold/20",
+    neutral: "bg-lol-border/30 text-lol-text hover:bg-lol-border/50",
+    destructive:
+      "bg-lol-crimson/15 text-lol-crimson-bright border border-lol-crimson/40 hover:bg-lol-crimson/25",
+  };
+
+  return (
+    <button
+      {...props}
+      className={`inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-semibold tracking-wider transition-colors disabled:opacity-50 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-lol-gold/60 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--theme-bg-deep)] ${variantClasses[variant]} ${className}`}
+    >
+      {children}
+    </button>
+  );
+}
+
 function Switch({
   checked,
   onChange,
@@ -40,16 +72,37 @@ function Switch({
       aria-checked={checked}
       disabled={disabled}
       onClick={onChange}
-      className={`relative inline-flex h-6 w-11 shrink-0 rounded-full border-2 border-transparent transition-colors duration-200 ${
+      className={`relative inline-flex h-6 w-11 shrink-0 rounded-full border-2 border-transparent transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-lol-gold/60 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--theme-bg-deep)] ${
         disabled ? "cursor-not-allowed opacity-40" : "cursor-pointer"
-      } ${checked ? "bg-lol-gold" : "bg-lol-border"}`}
+      } ${checked ? "bg-lol-gold shadow-[0_0_8px_var(--theme-accent-glow)]" : "bg-lol-border/60"}`}
     >
       <span
-        className={`pointer-events-none inline-block h-5 w-5 rounded-full bg-white shadow transform transition-transform duration-200 ${
+        className={`pointer-events-none inline-block h-5 w-5 rounded-full transform transition-transform duration-200 ${
+          checked ? "bg-lol-gold-light shadow-sm" : "bg-white shadow"
+        } ${
           checked ? "translate-x-5" : "translate-x-0"
         }`}
       />
     </button>
+  );
+}
+
+function Section({
+  title,
+  children,
+  className = "",
+}: {
+  title: string;
+  children: ReactNode;
+  className?: string;
+}) {
+  return (
+    <section
+      className={`relative flex flex-col rounded-lg p-5 xl:p-6 2xl:p-7 bg-[linear-gradient(145deg,#0c0e11_0%,#090b0d_48%,#060809_100%)] border border-lol-crimson/40 shadow-[0_0_3px_rgba(150,30,30,0.55),0_0_10px_rgba(90,15,15,0.35),0_0_20px_rgba(60,10,10,0.20)] ring-1 ring-inset ring-white/[0.03] ${className}`}
+    >
+      <h2 className="text-xs font-bold uppercase tracking-wider text-lol-gold mb-4">{title}</h2>
+      <div className="flex flex-col gap-3">{children}</div>
+    </section>
   );
 }
 
@@ -437,11 +490,10 @@ export default function Settings() {
   if (loading) return null;
 
   return (
-    <div className="max-w-2xl space-y-6">
+    <div className="w-full max-w-3xl xl:max-w-4xl 2xl:max-w-5xl space-y-5 2xl:space-y-6">
       <h1 className="text-xl font-bold text-lol-text-bright">Settings</h1>
 
-      <div className="bg-lol-card rounded-xl border border-lol-border/60 p-5">
-        <h2 className="text-sm font-semibold text-lol-text-bright mb-4">Appearance</h2>
+      <Section title="Appearance">
         <div className="flex items-center justify-between gap-4">
           <label htmlFor="theme-select" className="text-sm text-lol-text-bright">
             Theme
@@ -463,73 +515,72 @@ export default function Settings() {
             <option value="pink">Pink</option>
           </select>
         </div>
-      </div>
+      </Section>
 
-      <div className="bg-lol-card rounded-xl border border-lol-border/60 p-5">
-        <h2 className="text-sm font-semibold text-lol-text-bright mb-2">League history sync</h2>
+      <Section title="League history sync">
         <div className="flex items-center gap-2 mt-3">
-          <button
+          <Button
+            variant="primary"
             onClick={handleBackfill}
             disabled={backfilling}
-            className="px-4 py-1.5 rounded text-sm bg-lol-gold/20 text-lol-gold hover:bg-lol-gold/30 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {backfilling ? "Working..." : "Backfill"}
-          </button>
-          <button
+          </Button>
+          <Button
+            variant="secondary"
             onClick={handleForceFullBackfill}
             disabled={backfilling}
             title="Walk the entire Riot history from page 0, ignoring the cached completion flag. Use this to test whether the current cap is our page limit or Riot's own cutoff."
-            className="px-4 py-1.5 rounded text-sm border border-lol-border text-lol-text hover:border-lol-gold/60 hover:text-lol-text-bright transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
             Force Backfill
-          </button>
-          <button
-            className="rounded-md bg-lol-gold/15 border border-lol-gold/40 px-3 py-1.5 text-xs text-lol-gold"
+          </Button>
+          <Button
+            variant="subtle"
             type="button"
             onClick={handleRiotSync}
           >
             Sync from Riot History
-          </button>
-          <button
+          </Button>
+          <Button
+            variant="subtle"
             type="button"
             onClick={handleRestoreOlderGames}
             disabled={restoring}
-            className="rounded-md bg-lol-gold/15 border border-lol-gold/40 px-3 py-1.5 text-xs text-lol-gold"
           >
             {restoring ? "Restoring..." : "Restore older games"}
-          </button>
-          <button
+          </Button>
+          <Button
+            variant="subtle"
             type="button"
             onClick={handleRepair}
             disabled={repairing}
-            className="rounded-md bg-lol-gold/15 border border-lol-gold/40 px-3 py-1.5 text-xs text-lol-gold"
           >
             {repairing ? "Repairing..." : "Repair"}
-          </button>
+          </Button>
         </div>
         {backfillStatus && (
           <p className="text-xs text-lol-text mt-2">{backfillStatus}</p>
         )}
-      </div>
+      </Section>
 
-      <div className="bg-lol-card rounded-xl border border-lol-border/60 p-5">
-        <h2 className="text-sm font-semibold text-lol-text-bright mb-4">Data Management</h2>
+      <Section title="Data Management">
         <div className="space-y-4">
-          <div className="flex items-center justify-between gap-4">
+          <div className="w-full flex items-center justify-between gap-4 px-3 py-2 xl:px-4 xl:py-3">
             <div>
               <p className="text-sm text-lol-text-bright">Export data</p>
               <p className="text-xs text-lol-text mt-0.5">
                 Save all match data to a JSON file for backup.
               </p>
             </div>
-            <button
+            <Button
+              variant="primary"
               type="button"
               onClick={handleExportData}
               disabled={exporting}
-              className="shrink-0 px-4 py-1.5 rounded text-sm bg-lol-gold/20 text-lol-gold hover:bg-lol-gold/30 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className="shrink-0"
             >
               {exporting ? "Exporting…" : "Export"}
-            </button>
+            </Button>
           </div>
           {exportStatus && (
             <p className={`text-xs ${exportStatus.error ? "text-red-300" : "text-green-300"}`}>
@@ -539,21 +590,22 @@ export default function Settings() {
 
           <div className="border-t border-lol-border" />
 
-          <div className="flex items-center justify-between gap-4">
+          <div className="w-full flex items-center justify-between gap-4 px-3 py-2 xl:px-4 xl:py-3">
             <div>
               <p className="text-sm text-lol-text-bright">Import data</p>
               <p className="text-xs text-lol-text mt-0.5">
                 Load match data from a previously exported file.
               </p>
             </div>
-            <button
+            <Button
+              variant="primary"
               type="button"
               onClick={handleImportData}
               disabled={importing}
-              className="shrink-0 px-4 py-1.5 rounded text-sm bg-lol-gold/20 text-lol-gold hover:bg-lol-gold/30 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className="shrink-0"
             >
               {importing ? "Importing…" : "Import"}
-            </button>
+            </Button>
           </div>
           {importStatus && (
             <p className={`text-xs ${importStatus.error ? "text-red-300" : "text-green-300"}`}>
@@ -561,10 +613,9 @@ export default function Settings() {
             </p>
           )}
         </div>
-      </div>
+      </Section>
 
-      <div className="bg-lol-card rounded-xl border border-lol-border/60 p-5">
-        <h2 className="text-sm font-semibold text-lol-text-bright mb-2">Saved accounts</h2>
+      <Section title="Saved accounts">
         <p className="text-xs text-lol-text mb-4">
           Accounts that can appear in the Local Account and Match History views. Deleting one
           removes its summoner row and every game stored for it; games still owned by another saved
@@ -583,7 +634,7 @@ export default function Settings() {
               return (
                 <div
                   key={summoner.puuid}
-                  className="flex items-center justify-between gap-3 rounded-md border border-lol-border px-3 py-2"
+                  className="w-full flex items-center justify-between gap-3 rounded-md border border-lol-border px-3 py-2 xl:px-4 xl:py-3"
                 >
                   <div className="min-w-0">
                     <p className="text-xs text-lol-text-bright truncate">{name}</p>
@@ -594,33 +645,35 @@ export default function Settings() {
                   {confirming ? (
                     <div className="flex items-center gap-2 shrink-0">
                       <span className="text-[11px] text-lol-text">Delete all data?</span>
-                      <button
+                      <Button
+                        variant="destructive"
                         onClick={() => handleDeleteSummoner(summoner.puuid)}
-                        className="px-3 py-1 rounded bg-red-500/20 text-red-300 hover:bg-red-500/30 transition-colors"
                       >
                         Delete
-                      </button>
-                      <button
+                      </Button>
+                      <Button
+                        variant="neutral"
                         onClick={() => setConfirmDeleteSummoner(null)}
-                        className="px-3 py-1 rounded bg-lol-border/40 text-lol-text hover:bg-lol-border/60 transition-colors"
                       >
                         Cancel
-                      </button>
+                      </Button>
                     </div>
                   ) : (
-                    <button
+                    <Button
+                      variant="destructive"
                       onClick={() => setConfirmDeleteSummoner(summoner.puuid)}
-                      className="shrink-0 px-3 py-1 rounded text-xs bg-red-500/10 text-red-300 hover:bg-red-500/20 transition-colors"
+                      className="shrink-0"
                     >
                       Delete
-                    </button>
+                    </Button>
                   )}
                 </div>
               );
             })}
           </div>
         )}
-        <button
+        <Button
+          variant="neutral"
           onClick={async () => {
             setSummonerStatus(null);
             const removed = await window.api.deleteSearchedSummoners();
@@ -631,16 +684,15 @@ export default function Settings() {
             );
             refreshSavedSummoners();
           }}
-          className="mt-3 px-3 py-1.5 rounded text-xs bg-lol-border/40 text-lol-text hover:bg-lol-border/60 transition-colors"
+          className="mt-3"
         >
           Clean up searched accounts
-        </button>
+        </Button>
         {summonerStatus && <p className="mt-3 text-xs text-lol-text">{summonerStatus}</p>}
-      </div>
+      </Section>
 
       {/* General */}
-      <div className="bg-lol-card rounded-xl border border-lol-border/60 p-5">
-        <h2 className="text-sm font-semibold text-lol-text-bright mb-4">General</h2>
+      <Section title="General">
         <div className="space-y-4">
           <div className="flex items-center justify-between">
             <div>
@@ -704,7 +756,10 @@ export default function Settings() {
               <div className="border-t border-lol-border" />
 
               <div>
-                <p className="text-sm text-lol-text-bright">Queues to include</p>
+                <div className="h-px bg-gradient-to-r from-lol-gold/30 via-lol-gold/10 to-transparent" />
+                <p className="text-xs font-bold uppercase tracking-wider text-lol-text">
+                  Queues to include
+                </p>
                 <p className="text-xs text-lol-text mt-0.5">
                   Stats and match history only count the queues switched on here. Games from the
                   others are still recorded, and can be counted again by switching their queue back
@@ -715,7 +770,7 @@ export default function Settings() {
                     const shown = !hiddenQueues.has(q);
                     const shownCount = all.filter((id) => !hiddenQueues.has(id)).length;
                     return (
-                      <div key={q} className="flex items-center justify-between">
+                      <div key={q} className="w-full flex items-center justify-between py-1.5 xl:py-2">
                         <p className="text-sm text-lol-text">{queueLabel(q)}</p>
                         {/* Switching off the last one would empty every page */}
                         <Switch
@@ -731,11 +786,10 @@ export default function Settings() {
             </>
           )}
         </div>
-      </div>
+      </Section>
 
       {/* Backups */}
-      <div className="bg-lol-card rounded-xl border border-lol-border/60 p-5">
-        <h2 className="text-sm font-semibold text-lol-text-bright mb-4">Backups</h2>
+      <Section title="Backups">
         <div className="space-y-4">
           <div className="flex items-center justify-between">
             <div>
@@ -758,7 +812,7 @@ export default function Settings() {
               {backups.map((backup) => (
                 <div
                   key={backup.file}
-                  className="flex items-center justify-between gap-3 text-xs py-1"
+                  className="w-full flex items-center justify-between gap-3 px-3 py-2 text-xs xl:px-4 xl:py-3"
                 >
                   <div className="min-w-0">
                     <p className="text-lol-text-bright">{formatTaken(backup.created)}</p>
@@ -771,28 +825,29 @@ export default function Settings() {
                   {confirmRestore === backup.file ? (
                     <div className="flex items-center gap-2 shrink-0">
                       <span className="text-lol-text">Replace current data?</span>
-                      <button
+                      <Button
+                        variant="destructive"
                         onClick={() => handleRestore(backup.file)}
                         disabled={backupBusy}
-                        className="px-3 py-1 rounded bg-red-500/20 text-red-300 hover:bg-red-500/30 transition-colors disabled:opacity-50"
                       >
                         Restore
-                      </button>
-                      <button
+                      </Button>
+                      <Button
+                        variant="neutral"
                         onClick={() => setConfirmRestore(null)}
-                        className="px-3 py-1 rounded bg-lol-border/40 text-lol-text hover:bg-lol-border/60 transition-colors"
                       >
                         Cancel
-                      </button>
+                      </Button>
                     </div>
                   ) : (
-                    <button
+                    <Button
+                      variant="primary"
                       onClick={() => setConfirmRestore(backup.file)}
                       disabled={backupBusy || backup.games === null}
-                      className="px-3 py-1 rounded shrink-0 bg-lol-gold/20 text-lol-gold hover:bg-lol-gold/30 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                      className="shrink-0"
                     >
                       Restore
-                    </button>
+                    </Button>
                   )}
                 </div>
               ))}
@@ -800,29 +855,26 @@ export default function Settings() {
           )}
 
           <div className="flex items-center gap-2">
-            <button
+            <Button
+              variant="primary"
               onClick={handleBackupNow}
               disabled={backupBusy}
-              className="px-4 py-1.5 rounded text-sm bg-lol-gold/20 text-lol-gold hover:bg-lol-gold/30 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {backupBusy ? "Working..." : "Back up now"}
-            </button>
-            <button
+            </Button>
+            <Button
+              variant="neutral"
               onClick={() => window.api.openBackupFolder()}
-              className="px-4 py-1.5 rounded text-sm bg-lol-border/40 text-lol-text hover:bg-lol-border/60 transition-colors"
             >
               Open folder
-            </button>
+            </Button>
           </div>
           {backupStatus && <p className="text-xs text-lol-text">{backupStatus}</p>}
         </div>
-      </div>
+      </Section>
 
       {/* Credits */}
-      <div className="bg-lol-card rounded-xl border border-lol-border/60 p-5">
-        <h2 className="text-sm font-semibold text-lol-text-bright mb-4">
-          Credits &amp; Acknowledgements
-        </h2>
+      <Section title="Credits & Acknowledgements">
         <div className="space-y-3 text-sm text-lol-text leading-relaxed">
           <p>
             <a
@@ -924,7 +976,7 @@ export default function Settings() {
             .
           </p>
         </div>
-      </div>
+      </Section>
     </div>
   );
 }

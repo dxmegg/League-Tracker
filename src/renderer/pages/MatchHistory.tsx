@@ -81,7 +81,8 @@ const SORT_OPTIONS: { value: MatchSort; label: string }[] = [
   { value: "healing", label: "Healing" },
 ];
 
-const SELECT_CLASS = "select";
+const SELECT_CLASS =
+  "select focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-lol-gold/60 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--theme-bg-deep)]";
 
 // A session is a day of play, but the day doesn't end at midnight: games before
 // this hour belong to the night that started the evening before.
@@ -91,11 +92,24 @@ const DAY_START_HOUR = 5;
 // these (usually "NONE" or an empty string), so the UI has to drop them by
 // queue id rather than by position.
 const NO_LANE_QUEUES = new Set([
-  65, 67, 100, 450, // ARAM
-  31, 32, 33, 52, 83, 880, // Co-op vs AI
-  1700, 1740, 1750, // Arena
-  2000, 2010, 2020, // Tutorials
-  2400, 2450, // ARAM Mayhem, Mayhem Classic
+  65,
+  67,
+  100,
+  450, // ARAM
+  31,
+  32,
+  33,
+  52,
+  83,
+  880, // Co-op vs AI
+  1700,
+  1740,
+  1750, // Arena
+  2000,
+  2010,
+  2020, // Tutorials
+  2400,
+  2450, // ARAM Mayhem, Mayhem Classic
   3140, // Training Tool
 ]);
 
@@ -475,21 +489,21 @@ export default function MatchHistory({
     : 0;
 
   return (
-    <div className="max-w-7xl space-y-4">
+    <div className="space-y-4 w-full">
       {/* Stat Cards */}
       {dashboard && dashboard.totalGames > 0 && (
-        <div className="grid grid-cols-[minmax(0,1.3fr)_repeat(3,minmax(0,1fr))] gap-5 items-stretch">
+        <div className="grid grid-cols-[minmax(240px,1.4fr)_repeat(3,minmax(170px,1fr))] gap-3 items-stretch max-w-[1800px]">
           <ProfileCard profile={profileShown} dashboard={dashboard} />
 
           <StatCard
             label="Avg Score"
             accent="gold"
-            icon={<StarIcon className="w-3 h-3" />}
+            icon={<StarIcon className="w-3 h-3 2xl:w-4 2xl:h-4" />}
             value={
               dashboard.avgScore != null ? (
                 <span className={scoreColor(dashboard.avgScore)}>
                   {dashboard.avgScore.toFixed(1)}
-                  <span className="text-sm font-semibold text-lol-text/60"> / 10</span>
+                  <span className="text-lg font-semibold text-lol-text/60"> / 10</span>
                 </span>
               ) : (
                 "—"
@@ -508,11 +522,11 @@ export default function MatchHistory({
           <StatCard
             label="Avg KDA"
             accent="sky"
-            icon={<SwordsIcon className="w-3 h-3" />}
+            icon={<SwordsIcon className="w-3 h-3 2xl:w-4 2xl:h-4" />}
             value={
               /* Three numbers where the other cards show one — a notch smaller
                  keeps it on one line in the narrowest column */
-              <span className="text-xl">
+              <span>
                 {avgKills}
                 <Slash />
                 {avgDeaths}
@@ -521,12 +535,12 @@ export default function MatchHistory({
               </span>
             }
             subtext={
-              <span className={kdaColor(kdaValue)}>
+              <span className={`text-base font-semibold ${kdaColor(kdaValue)}`}>
                 {kdaRatio(dashboard.totalKills, dashboard.totalDeaths, dashboard.totalAssists)} KDA
               </span>
             }
           >
-            <div className="text-[11px] text-lol-text">
+            <div className="text-xs text-lol-text">
               {dashboard.totalKills} / {dashboard.totalDeaths} / {dashboard.totalAssists} total
             </div>
           </StatCard>
@@ -534,10 +548,10 @@ export default function MatchHistory({
           <StatCard
             label="Multikills"
             accent="purple"
-            icon={<ZapIcon className="w-3 h-3" />}
+            icon={<ZapIcon className="w-3 h-3 2xl:w-4 2xl:h-4" />}
             value={totalMultikills}
           >
-            <div className="grid grid-cols-4 gap-1">
+            <div className="grid grid-cols-4 gap-0.5 xl:gap-1 min-w-0">
               {(
                 [
                   {
@@ -582,14 +596,18 @@ export default function MatchHistory({
                     key={label}
                     onClick={() => toggleMultikill(kind)}
                     title={`Only show games with a ${name} kill`}
-                    className={`text-center rounded-md border px-1 py-0.5 transition-colors ${
+                    className={`min-w-0 text-center rounded-md border px-1 py-0.5 xl:px-1.5 xl:py-1 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-lol-gold/60 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--theme-bg-deep)] ${
                       active
                         ? "border-lol-gold/60 bg-lol-gold/10"
                         : "border-transparent hover:border-lol-border hover:bg-white/5"
                     }`}
                   >
-                    <div className={`text-base font-bold ${color}`}>{value}</div>
-                    <div className="text-[10px] text-lol-text">{label}</div>
+                    <div className={`text-base xl:text-lg 2xl:text-xl font-bold leading-tight ${color}`}>
+                      {value}
+                    </div>
+                    <div className="text-[9px] xl:text-[10px] font-semibold text-lol-text">
+                      {label}
+                    </div>
                   </button>
                 );
               })}
@@ -718,7 +736,7 @@ export default function MatchHistory({
                     ? "Highest first"
                     : "Lowest first"
               }
-              className="flex items-center rounded-lg border border-lol-border bg-lol-card px-2 py-1.5 text-lol-text transition-colors hover:border-lol-gold/60 hover:text-lol-text-bright"
+              className="flex items-center rounded-lg border border-lol-border bg-lol-card px-2 py-1.5 text-lol-text transition-colors hover:border-lol-gold/60 hover:text-lol-text-bright focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-lol-gold/60 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--theme-bg-deep)]"
             >
               {/* h-5 matches the selects' line-height so the boxes end up the same height */}
               <span className="flex h-5 items-center">
@@ -810,6 +828,22 @@ export default function MatchHistory({
   );
 }
 
+function getResponsiveIconSize() {
+  return window.innerWidth >= 1536 ? 72 : window.innerWidth >= 1280 ? 56 : 48;
+}
+
+function useResponsiveIconSize() {
+  const [size, setSize] = useState(getResponsiveIconSize);
+
+  useEffect(() => {
+    const handleResize = () => setSize(getResponsiveIconSize());
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
+
+  return size;
+}
+
 // The identity half of the top row: who we are, how the record stands, and how
 // the last handful of games went.
 function ProfileCard({
@@ -820,12 +854,13 @@ function ProfileCard({
   dashboard: DashboardData;
 }) {
   const losses = dashboard.totalGames - dashboard.wins;
+  const avatarSize = useResponsiveIconSize();
   // Oldest on the left so the strip reads left-to-right in time
   const pips = dashboard.recentForm.slice().reverse();
 
   return (
-    <div className="noxus-card flex flex-col gap-3 p-6 min-h-[120px]">
-      <div className="relative flex items-center gap-3">
+    <div className="noxus-card flex flex-col h-full justify-center gap-2 xl:gap-3 p-5 xl:p-6 2xl:p-7">
+      <div className="relative flex items-center gap-4">
         <div
           className="shrink-0 rounded-full p-[2px]"
           style={{
@@ -835,17 +870,17 @@ function ProfileCard({
         >
           <SummonerIcon
             iconId={profile?.profileIcon ?? null}
-            size={56}
+            size={avatarSize}
             className="rounded-full bg-lol-dark object-cover"
           />
         </div>
         <div className="min-w-0 flex-1">
-          <div className="text-sm font-bold text-lol-text-bright truncate">
+          <div className="text-lg xl:text-xl 2xl:text-xl font-bold text-lol-text-bright truncate leading-tight">
             {profile?.name ?? "Summoner"}
           </div>
           {/* The totals below pool every tracked account, so say when the name
               above only accounts for part of them */}
-          <div className="text-[11px] text-lol-text truncate">
+          <div className="text-xs xl:text-[13px] 2xl:text-sm text-lol-text truncate">
             {dashboard.totalGames} {dashboard.totalGames === 1 ? "game" : "games"}
             {dashboard.totalDuration > 0 && ` · ${formatPlaytime(dashboard.totalDuration)} played`}
             {dashboard.accounts > 1 && ` · ${dashboard.accounts} accounts`}
@@ -853,20 +888,20 @@ function ProfileCard({
         </div>
       </div>
 
-      <div className="relative mt-auto">
-        <div className="flex items-end justify-between gap-3 mb-1.5">
-          <div className="text-2xl font-bold leading-none">
+      <div className="relative">
+        <div className="min-h-[48px] flex items-center justify-between gap-3 mb-1.5">
+          <div className="text-2xl xl:text-[26px] 2xl:text-2xl font-bold leading-none">
             <span className="text-lol-win">{dashboard.wins}W</span>{" "}
             <span className="text-lol-loss/70">{losses}L</span>
           </div>
           <div
-            className="flex items-end gap-1"
+            className="flex items-end gap-1.5"
             title={`Last ${pips.length} ${pips.length === 1 ? "game" : "games"}`}
           >
             {pips.map((g) => (
               <span
                 key={g.game_id}
-                className={`h-5 w-1.5 rounded-full ${g.win ? "bg-lol-win" : "bg-lol-loss/70"}`}
+                className={`h-5 w-1.5 xl:h-6 xl:w-2 rounded-full ${g.win ? "bg-lol-win" : "bg-lol-loss/70"}`}
                 title={g.win ? "Win" : "Loss"}
               />
             ))}
@@ -890,7 +925,7 @@ function Slash() {
 // 0-10 track for the average score, warming up as the score climbs
 function ScoreMeter({ score }: { score: number | null }) {
   return (
-    <div className="h-1.5 rounded-full bg-lol-border/60 overflow-hidden">
+    <div className="h-2 rounded-full bg-lol-border/60 overflow-hidden">
       <div
         className="h-full rounded-full bg-gradient-to-r from-emerald-400 via-sky-400 to-lol-gold transition-all"
         style={{ width: `${Math.min(100, Math.max(0, (score ?? 0) * 10))}%` }}
@@ -916,19 +951,19 @@ function BadgeCounts({
 
   return (
     <div className="grid grid-cols-[auto_1fr_auto] items-center gap-x-2 gap-y-1">
-      <span className="rounded bg-amber-400/20 px-1 text-[9px] font-bold leading-[15px] text-amber-300">
+      <span className="rounded bg-amber-400/20 px-1 text-[11px] font-bold leading-[17px] text-amber-300">
         MVP
       </span>
-      <span className="text-xs font-semibold text-lol-text-bright">{mvps}</span>
-      <span className="text-[11px] text-lol-text" title="Share of wins">
+      <span className="text-sm font-semibold text-lol-text-bright">{mvps}</span>
+      <span className="text-xs text-lol-text" title="Share of wins">
         {rate(mvps, scoredWins)}
       </span>
 
-      <span className="rounded bg-purple-500/20 px-1 text-[9px] font-bold leading-[15px] text-purple-400">
+      <span className="rounded bg-purple-500/20 px-1 text-[11px] font-bold leading-[17px] text-purple-400">
         ACE
       </span>
-      <span className="text-xs font-semibold text-lol-text-bright">{aces}</span>
-      <span className="text-[11px] text-lol-text" title="Share of losses">
+      <span className="text-sm font-semibold text-lol-text-bright">{aces}</span>
+      <span className="text-xs text-lol-text" title="Share of losses">
         {rate(aces, scoredLosses)}
       </span>
     </div>
@@ -1069,12 +1104,14 @@ function MatchMultikillBadges({
   quadras: number;
   pentas: number;
 }) {
-  const badges = ([
-    ["DOUBLE", doubles],
-    ["TRIPLE", triples],
-    ["QUADRA", quadras],
-    ["PENTA", pentas],
-  ] as [string, number][]).filter(([, count]) => count > 0);
+  const badges = (
+    [
+      ["DOUBLE", doubles],
+      ["TRIPLE", triples],
+      ["QUADRA", quadras],
+      ["PENTA", pentas],
+    ] as [string, number][]
+  ).filter(([, count]) => count > 0);
 
   return (
     <div className="flex flex-wrap gap-1">
@@ -1096,18 +1133,12 @@ function AugmentGrid({ augmentIds, patch }: { augmentIds: number[]; patch?: stri
   const cols = augmentIds.length <= 3 ? augmentIds.length : augmentIds.length === 4 ? 2 : 3;
 
   return (
-    <div
-      className="grid gap-1 shrink-0"
-      style={{ gridTemplateColumns: `repeat(${cols}, 24px)` }}
-    >
-      {augmentIds.map((id, i) =>
-        <div
-          key={i}
-          className="w-6 h-6 rounded-md border border-lol-gold/30 overflow-hidden"
-        >
+    <div className="grid gap-1 shrink-0" style={{ gridTemplateColumns: `repeat(${cols}, 24px)` }}>
+      {augmentIds.map((id, i) => (
+        <div key={i} className="w-6 h-6 rounded-md border border-lol-gold/30 overflow-hidden">
           <AugmentIcon augmentId={id} size={24} patch={patch} />
-        </div>,
-      )}
+        </div>
+      ))}
     </div>
   );
 }
@@ -1124,7 +1155,11 @@ export function GameRow({
   onPlayerClick,
 }: GameRowProps) {
   const isRemake = !!match.is_remake;
-  console.log("[card] spells", { spell1: match.spell1, spell2: match.spell2, queue: match.queue_id });
+  console.log("[card] spells", {
+    spell1: match.spell1,
+    spell2: match.spell2,
+    queue: match.queue_id,
+  });
   const isWin = !!match.win;
   const isArena = isAugmentQueue(match.queue_id);
   const placement = match.player_subteam_placement;
@@ -1145,7 +1180,7 @@ export function GameRow({
       <button
         onClick={onToggle}
         onContextMenu={onContextMenu}
-        className={`group relative grid w-full items-center gap-x-3 gap-y-0.5 px-5 py-3 rounded-2xl text-left transition-colors ${
+        className={`group relative grid w-full items-center gap-x-3 gap-y-0.5 px-5 py-3 rounded-2xl text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-lol-gold/60 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--theme-bg-deep)] ${
           isWin
             ? "border border-lol-win/35 hover:border-lol-win/60"
             : "border border-lol-loss/32 hover:border-lol-loss/60"
@@ -1168,13 +1203,7 @@ export function GameRow({
           className={`flex w-20 shrink-0 flex-col text-xs font-bold ${isRemake ? "text-gray-500" : isArena && placementLabel ? (arenaWin ? "text-lol-win" : "text-lol-loss") : isWin ? "text-lol-win" : "text-lol-loss"}`}
         >
           <span className="truncate">
-            {isRemake
-              ? "RMK"
-              : isArena && placementLabel
-                ? placementLabel
-                : isWin
-                  ? "WIN"
-                  : "LOSS"}
+            {isRemake ? "RMK" : isArena && placementLabel ? placementLabel : isWin ? "WIN" : "LOSS"}
           </span>
           <span
             className="mt-0.5 truncate text-[10px] font-normal text-lol-text"
@@ -1268,7 +1297,10 @@ export function GameRow({
             const numericMax = max as number;
             const percent = numericMax > 0 ? (numericValue / numericMax) * 100 : 0;
             return (
-              <div key={label as string} className="grid grid-cols-[56px_1fr_48px] items-center gap-1.5">
+              <div
+                key={label as string}
+                className="grid grid-cols-[56px_1fr_48px] items-center gap-1.5"
+              >
                 <span className="text-[10px] text-lol-text">{label as string}</span>
                 <div className="relative h-1 overflow-hidden rounded-sm bg-white/5">
                   <div

@@ -2721,6 +2721,7 @@ export function getChampionMatchHistory(
   account?: string,
 ): { matches: any[]; total: number } {
   const source = statsSource(account);
+  const playerPuuidSql = account ? "ps.puuid" : "g.puuid";
   const where = ["ps.champion_id = ?"];
   where.push(source.accountFilter);
   const params: any[] = [championId, ...(account ? [account] : [])];
@@ -2737,7 +2738,7 @@ export function getChampionMatchHistory(
           FROM match_participant_augments mpa
           JOIN match_participants mp
             ON mp.game_id = mpa.game_id AND mp.participant_id = mpa.participant_id
-          WHERE mp.game_id = g.game_id AND mp.puuid = ps.puuid
+          WHERE mp.game_id = g.game_id AND mp.puuid = ${playerPuuidSql}
           ORDER BY mpa.slot
         ))`
     : `(SELECT GROUP_CONCAT(augment_id, ',')
@@ -2754,18 +2755,19 @@ export function getChampionMatchHistory(
     .get(...params) as any;
   const matches = db
     .prepare(`
-    SELECT g.game_id, g.game_creation, g.game_duration, g.is_remake, g.favorite, ps.puuid,
+    SELECT g.game_id, g.game_creation, g.game_duration, g.is_remake, g.favorite,
+           ${playerPuuidSql} as puuid,
            ps.champion_id, ps.win, ps.kills, ps.deaths, ps.assists,
            ps.double_kills, ps.triple_kills, ps.quadra_kills, ps.penta_kills,
            ps.total_damage_dealt, ps.total_damage_taken, ps.total_heal, ps.gold_earned,
            ps.score, ps.score_badge,
            COALESCE(ps.spell1, (
              SELECT mp.spell1 FROM match_participants mp
-             WHERE mp.game_id = g.game_id AND mp.puuid = ps.puuid
+             WHERE mp.game_id = g.game_id AND mp.puuid = ${playerPuuidSql}
            )) as spell1,
            COALESCE(ps.spell2, (
              SELECT mp.spell2 FROM match_participants mp
-             WHERE mp.game_id = g.game_id AND mp.puuid = ps.puuid
+             WHERE mp.game_id = g.game_id AND mp.puuid = ${playerPuuidSql}
            )) as spell2,
            ps.item0, ps.item1, ps.item2, ps.item3, ps.item4, ps.item5,
            ${augmentIdsSql} as augment_ids,
@@ -3468,9 +3470,6 @@ export function deleteSearchedSummoners(): { removed: number; games: number } {
   return { removed, games: removedGames };
 }
 
-// Someone we queued with once is a stranger, not a friend — the list only
-// counts players we've shared at least this many games with.
-const MIN_SHARED_GAMES = 2;
 // The id the Friends list keys a teammate on — puuid when we know it, so name
 // changes don't split a player in two.
 function teammateKey(puuid: string | null, name: string): string {
@@ -3600,7 +3599,7 @@ export function getTeammateStats(
   }
 
   return Array.from(playerMap.entries())
-    .filter(([, p]) => p.games >= MIN_SHARED_GAMES)
+    .filter(([, p]) => p.games >= 1)
     .map(([key, p]) => ({
       key,
       name: p.name,

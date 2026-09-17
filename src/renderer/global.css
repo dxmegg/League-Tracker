@@ -16,11 +16,11 @@
   --color-bg-deep: var(--theme-bg-deep, #08070a);
   --color-bg-base: var(--theme-bg-base, #0e0c11);
   --color-bg-elevated: var(--theme-bg-elevated, #17141c);
-  --color-surface: var(--theme-surface, rgba(255,255,255,0.05));
-  --color-surface-hover: var(--theme-surface-hover, rgba(255,255,255,0.08));
+  --color-surface: var(--theme-surface, rgba(255, 255, 255, 0.05));
+  --color-surface-hover: var(--theme-surface-hover, rgba(255, 255, 255, 0.08));
   --color-fg: var(--theme-foreground, #ededef);
   --color-fg-muted: var(--theme-foreground-muted, #8a8f98);
-  --color-fg-subtle: var(--theme-foreground-subtle, rgba(255,255,255,0.6));
+  --color-fg-subtle: var(--theme-foreground-subtle, rgba(255, 255, 255, 0.6));
   --color-accent: var(--theme-accent, #c9a24d);
   --color-accent-bright: var(--theme-accent-bright, #e8c46a);
   --color-crimson: var(--theme-crimson, #a50f15);
@@ -120,21 +120,9 @@ html[data-theme="test"] body::after {
 
 html[data-theme="test"] body::before {
   background:
-    radial-gradient(
-      ellipse 80% 40% at 0% 0%,
-      var(--theme-crimson-glow) 0%,
-      transparent 55%
-    ),
-    radial-gradient(
-      ellipse 70% 50% at 100% 100%,
-      var(--theme-accent-glow) 0%,
-      transparent 60%
-    ),
-    radial-gradient(
-      ellipse 60% 40% at 100% 0%,
-      var(--theme-crimson-glow) 0%,
-      transparent 65%
-    );
+    radial-gradient(ellipse 80% 40% at 0% 0%, var(--theme-crimson-glow) 0%, transparent 55%),
+    radial-gradient(ellipse 70% 50% at 100% 100%, var(--theme-accent-glow) 0%, transparent 60%),
+    radial-gradient(ellipse 60% 40% at 100% 0%, var(--theme-crimson-glow) 0%, transparent 65%);
   opacity: 0.55;
 }
 
@@ -196,32 +184,40 @@ html[data-theme="test"] #root {
     box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-lol-gold) 10%, transparent);
   }
 
+  select,
+  select option {
+    color-scheme: dark;
+  }
+
+  select {
+    accent-color: #c9a24d;
+  }
+
+  select option {
+    background-color: #0c0e11 !important;
+    color: #f5efe0 !important;
+  }
+
+  select option:checked,
+  select option:hover {
+    background-color: #c9a24d !important;
+    color: #08070a !important;
+  }
+
   .noxus-card {
     position: relative;
     isolation: isolate;
-    filter:
-      drop-shadow(0 0 3px rgba(150, 30, 30, 0.55))
-      drop-shadow(0 0 10px rgba(90, 15, 15, 0.35))
-      drop-shadow(0 0 20px rgba(60, 10, 10, 0.20));
-    background:
-      linear-gradient(
-        145deg,
-        #7d2424 0%,
-        #481313 24%,
-        #681b1b 52%,
-        #350c0c 78%,
-        #762020 100%
-      );
-    clip-path: polygon(
-      7% 0%,
-      93% 0%,
-      100% 15%,
-      100% 85%,
-      93% 100%,
-      7% 100%,
-      0% 85%,
-      0% 15%
+    filter: drop-shadow(0 0 3px rgba(150, 30, 30, 0.55))
+      drop-shadow(0 0 10px rgba(90, 15, 15, 0.35)) drop-shadow(0 0 20px rgba(60, 10, 10, 0.2));
+    background: linear-gradient(
+      145deg,
+      #7d2424 0%,
+      #481313 24%,
+      #681b1b 52%,
+      #350c0c 78%,
+      #762020 100%
     );
+    clip-path: polygon(7% 0%, 93% 0%, 100% 15%, 100% 85%, 93% 100%, 7% 100%, 0% 85%, 0% 15%);
   }
 
   .noxus-card::before {

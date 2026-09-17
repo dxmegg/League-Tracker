@@ -1,0 +1,50 @@
+[     260ms] [INFO] %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold @ http://localhost:5173/@fs/C:/Users/Dxmeg/scoop/buckets/copilot-worktrees/League-Tracker/dxmegg-cuddly-happiness/node_modules/.vite/deps/react-dom_client.js?v=926487c5:20100
+[     351ms] TypeError: Cannot read properties of undefined (reading 'getRecoveryReport')
+    at http://localhost:5173/components/RecoveryBanner.tsx:9:16
+    at Object.react_stack_bottom_frame (http://localhost:5173/@fs/C:/Users/Dxmeg/scoop/buckets/copilot-worktrees/League-Tracker/dxmegg-cuddly-happiness/node_modules/.vite/deps/react-dom_client.js?v=926487c5:18565:20)
+    at runWithFiberInDEV (http://localhost:5173/@fs/C:/Users/Dxmeg/scoop/buckets/copilot-worktrees/League-Tracker/dxmegg-cuddly-happiness/node_modules/.vite/deps/react-dom_client.js?v=926487c5:995:72)
+    at commitHookEffectListMount (http://localhost:5173/@fs/C:/Users/Dxmeg/scoop/buckets/copilot-worktrees/League-Tracker/dxmegg-cuddly-happiness/node_modules/.vite/deps/react-dom_client.js?v=926487c5:9409:163)
+    at commitHookPassiveMountEffects (http://localhost:5173/@fs/C:/Users/Dxmeg/scoop/buckets/copilot-worktrees/League-Tracker/dxmegg-cuddly-happiness/node_modules/.vite/deps/react-dom_client.js?v=926487c5:9463:60)
+    at commitPassiveMountOnFiber (http://localhost:5173/@fs/C:/Users/Dxmeg/scoop/buckets/copilot-worktrees/League-Tracker/dxmegg-cuddly-happiness/node_modules/.vite/deps/react-dom_client.js?v=926487c5:11038:29)
+    at recursivelyTraversePassiveMountEffects (http://localhost:5173/@fs/C:/Users/Dxmeg/scoop/buckets/copilot-worktrees/League-Tracker/dxmegg-cuddly-happiness/node_modules/.vite/deps/react-dom_client.js?v=926487c5:11008:13)
+    at commitPassiveMountOnFiber (http://localhost:5173/@fs/C:/Users/Dxmeg/scoop/buckets/copilot-worktrees/League-Tracker/dxmegg-cuddly-happiness/node_modules/.vite/deps/react-dom_client.js?v=926487c5:11199:13)
+    at recursivelyTraversePassiveMountEffects (http://localhost:5173/@fs/C:/Users/Dxmeg/scoop/buckets/copilot-worktrees/League-Tracker/dxmegg-cuddly-happiness/node_modules/.vite/deps/react-dom_client.js?v=926487c5:11008:13)
+    at commitPassiveMountOnFiber (http://localhost:5173/@fs/C:/Users/Dxmeg/scoop/buckets/copilot-worktrees/League-Tracker/dxmegg-cuddly-happiness/node_modules/.vite/deps/react-dom_client.js?v=926487c5:11031:13)
+[     327ms] [WARNING] %s
+
+%s
+ An error occurred in the <RecoveryBanner> component. Consider adding an error boundary to your tree to customize error handling behavior.
+Visit https://react.dev/link/error-boundaries to learn more about error boundaries. @ http://localhost:5173/@fs/C:/Users/Dxmeg/scoop/buckets/copilot-worktrees/League-Tracker/dxmegg-cuddly-happiness/node_modules/.vite/deps/react-dom_client.js?v=926487c5:6963
+[     357ms] TypeError: Cannot read properties of undefined (reading 'getLcuStatus')
+    at http://localhost:5173/hooks/useLcuStatus.ts:5:16
+    at Object.react_stack_bottom_frame (http://localhost:5173/@fs/C:/Users/Dxmeg/scoop/buckets/copilot-worktrees/League-Tracker/dxmegg-cuddly-happiness/node_modules/.vite/deps/react-dom_client.js?v=926487c5:18565:20)
+    at runWithFiberInDEV (http://localhost:5173/@fs/C:/Users/Dxmeg/scoop/buckets/copilot-worktrees/League-Tracker/dxmegg-cuddly-happiness/node_modules/.vite/deps/react-dom_client.js?v=926487c5:995:72)
+    at commitHookEffectListMount (http://localhost:5173/@fs/C:/Users/Dxmeg/scoop/buckets/copilot-worktrees/League-Tracker/dxmegg-cuddly-happiness/node_modules/.vite/deps/react-dom_client.js?v=926487c5:9409:163)
+    at commitHookPassiveMountEffects (http://localhost:5173/@fs/C:/Users/Dxmeg/scoop/buckets/copilot-worktrees/League-Tracker/dxmegg-cuddly-happiness/node_modules/.vite/deps/react-dom_client.js?v=926487c5:9463:60)
+    at commitPassiveMountOnFiber (http://localhost:5173/@fs/C:/Users/Dxmeg/scoop/buckets/copilot-worktrees/League-Tracker/dxmegg-cuddly-happiness/node_modules/.vite/deps/react-dom_client.js?v=926487c5:11038:29)
+    at recursivelyTraversePassiveMountEffects (http://localhost:5173/@fs/C:/Users/Dxmeg/scoop/buckets/copilot-worktrees/League-Tracker/dxmegg-cuddly-happiness/node_modules/.vite/deps/react-dom_client.js?v=926487c5:11008:13)
+    at commitPassiveMountOnFiber (http://localhost:5173/@fs/C:/Users/Dxmeg/scoop/buckets/copilot-worktrees/League-Tracker/dxmegg-cuddly-happiness/node_modules/.vite/deps/react-dom_client.js?v=926487c5:11199:13)
+    at recursivelyTraversePassiveMountEffects (http://localhost:5173/@fs/C:/Users/Dxmeg/scoop/buckets/copilot-worktrees/League-Tracker/dxmegg-cuddly-happiness/node_modules/.vite/deps/react-dom_client.js?v=926487c5:11008:13)
+    at commitPassiveMountOnFiber (http://localhost:5173/@fs/C:/Users/Dxmeg/scoop/buckets/copilot-worktrees/League-Tracker/dxmegg-cuddly-happiness/node_modules/.vite/deps/react-dom_client.js?v=926487c5:11031:13)
+[     327ms] [WARNING] %s
+
+%s
+ An error occurred in the <TopNav> component. Consider adding an error boundary to your tree to customize error handling behavior.
+Visit https://react.dev/link/error-boundaries to learn more about error boundaries. @ http://localhost:5173/@fs/C:/Users/Dxmeg/scoop/buckets/copilot-worktrees/League-Tracker/dxmegg-cuddly-happiness/node_modules/.vite/deps/react-dom_client.js?v=926487c5:6963
+[     357ms] TypeError: Cannot read properties of undefined (reading 'getChampionData')
+    at http://localhost:5173/hooks/useChampions.ts:17:16
+    at Object.react_stack_bottom_frame (http://localhost:5173/@fs/C:/Users/Dxmeg/scoop/buckets/copilot-worktrees/League-Tracker/dxmegg-cuddly-happiness/node_modules/.vite/deps/react-dom_client.js?v=926487c5:18565:20)
+    at runWithFiberInDEV (http://localhost:5173/@fs/C:/Users/Dxmeg/scoop/buckets/copilot-worktrees/League-Tracker/dxmegg-cuddly-happiness/node_modules/.vite/deps/react-dom_client.js?v=926487c5:995:72)
+    at commitHookEffectListMount (http://localhost:5173/@fs/C:/Users/Dxmeg/scoop/buckets/copilot-worktrees/League-Tracker/dxmegg-cuddly-happiness/node_modules/.vite/deps/react-dom_client.js?v=926487c5:9409:163)
+    at commitHookPassiveMountEffects (http://localhost:5173/@fs/C:/Users/Dxmeg/scoop/buckets/copilot-worktrees/League-Tracker/dxmegg-cuddly-happiness/node_modules/.vite/deps/react-dom_client.js?v=926487c5:9463:60)
+    at commitPassiveMountOnFiber (http://localhost:5173/@fs/C:/Users/Dxmeg/scoop/buckets/copilot-worktrees/League-Tracker/dxmegg-cuddly-happiness/node_modules/.vite/deps/react-dom_client.js?v=926487c5:11038:29)
+    at recursivelyTraversePassiveMountEffects (http://localhost:5173/@fs/C:/Users/Dxmeg/scoop/buckets/copilot-worktrees/League-Tracker/dxmegg-cuddly-happiness/node_modules/.vite/deps/react-dom_client.js?v=926487c5:11008:13)
+    at commitPassiveMountOnFiber (http://localhost:5173/@fs/C:/Users/Dxmeg/scoop/buckets/copilot-worktrees/League-Tracker/dxmegg-cuddly-happiness/node_modules/.vite/deps/react-dom_client.js?v=926487c5:11199:13)
+    at recursivelyTraversePassiveMountEffects (http://localhost:5173/@fs/C:/Users/Dxmeg/scoop/buckets/copilot-worktrees/League-Tracker/dxmegg-cuddly-happiness/node_modules/.vite/deps/react-dom_client.js?v=926487c5:11008:13)
+    at commitPassiveMountOnFiber (http://localhost:5173/@fs/C:/Users/Dxmeg/scoop/buckets/copilot-worktrees/League-Tracker/dxmegg-cuddly-happiness/node_modules/.vite/deps/react-dom_client.js?v=926487c5:11199:13)
+[     327ms] [WARNING] %s
+
+%s
+ An error occurred in the <Records> component. Consider adding an error boundary to your tree to customize error handling behavior.
+Visit https://react.dev/link/error-boundaries to learn more about error boundaries. @ http://localhost:5173/@fs/C:/Users/Dxmeg/scoop/buckets/copilot-worktrees/League-Tracker/dxmegg-cuddly-happiness/node_modules/.vite/deps/react-dom_client.js?v=926487c5:6963
+[     386ms] [ERROR] Failed to load resource: the server responded with a status of 404 (Not Found) @ http://localhost:5173/favicon.ico:0

@@ -64,8 +64,9 @@ function ChampionExpanded({
   const topItems = itemStats.slice(0, 6);
 
   return (
-    <td colSpan={11} className="px-4 py-4">
-      <div className="grid grid-cols-3 gap-6">
+    <td colSpan={COLUMN_COUNT} className="px-3 py-4">
+      <div className="flex flex-col gap-3 rounded-md border border-lol-border/30 bg-white/[0.02] p-3">
+        <div className="grid grid-cols-3 gap-6">
         {/* Augments */}
         <div className="min-w-0">
           <h3 className="text-xs text-lol-text uppercase tracking-wider mb-2">Top Augments</h3>
@@ -153,6 +154,7 @@ function ChampionExpanded({
             )}
           </div>
         </div>
+        </div>
       </div>
     </td>
   );
@@ -226,23 +228,28 @@ export default function Champions() {
   }, [data, search, sortKey, sortDir, champData]);
 
   if (!data) {
-    return <div className="text-lol-text text-center mt-20">Loading...</div>;
+    return (
+      <div className="flex items-center justify-center rounded-lg border border-lol-crimson/40 bg-[linear-gradient(145deg,#0c0e11_0%,#090b0d_48%,#060809_100%)] p-12">
+        <p className="text-sm text-lol-text">Loading champions…</p>
+      </div>
+    );
   }
 
   const SortHeader = ({ label, field }: { label: string; field: SortKey }) => (
     <th
       onClick={() => handleSort(field)}
-      className="px-3 py-2 text-left text-xs font-medium text-lol-text uppercase tracking-wider cursor-pointer hover:text-lol-gold select-none"
+      className={`px-3 py-2.5 text-left text-[10px] font-bold uppercase tracking-wider cursor-pointer select-none transition-colors hover:text-lol-text-bright focus-visible:outline-none focus-visible:text-lol-gold ${
+        sortKey === field ? "text-lol-gold" : "text-lol-text"
+      }`}
     >
       {label} {sortKey === field ? (sortDir === "desc" ? "▼" : "▲") : ""}
     </th>
   );
 
   return (
-    <div className="max-w-6xl space-y-4">
-      <div className="flex items-center justify-between">
-        <h1 className="text-xl font-bold text-lol-text-bright">Champions</h1>
-        <div className="flex items-center gap-2">
+    <div className="flex flex-col gap-4">
+      <div className="flex flex-wrap items-center gap-3">
+        <div className="flex items-center gap-2 [&_select]:h-9 [&_select]:rounded-md [&_select]:border [&_select]:border-lol-border/60 [&_select]:bg-lol-card/40 [&_select]:px-3 [&_select]:text-xs [&_select]:text-lol-text-bright [&_select]:focus-visible:outline-none [&_select]:focus-visible:border-lol-gold/60 [&_select]:focus-visible:ring-1 [&_select]:focus-visible:ring-lol-gold/40 [&_select]:transition-colors">
           <QueueSelect value={queue} onChange={setQueue} />
           <PatchSelect value={patch} onChange={setPatch} />
           <div className="relative">
@@ -251,12 +258,12 @@ export default function Champions() {
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Search champion..."
-              className="input w-48 pr-7"
+              className="h-9 w-56 rounded-md border border-lol-border/60 bg-lol-card/40 px-3 text-xs text-lol-text-bright placeholder:text-lol-text/50 focus-visible:outline-none focus-visible:border-lol-gold/60 focus-visible:ring-1 focus-visible:ring-lol-gold/40 transition-colors"
             />
             {search && (
               <button
                 onClick={() => setSearch("")}
-                className="absolute right-2 top-1/2 -translate-y-1/2 text-lol-text/50 hover:text-lol-text-bright transition-colors"
+                className="absolute right-2 top-1/2 -translate-y-1/2 inline-flex h-9 items-center rounded-md border border-lol-gold/30 bg-lol-gold/10 px-3 text-xs font-semibold tracking-wider text-lol-gold transition-colors hover:bg-lol-gold/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-lol-gold/60 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--theme-bg-deep)]"
               >
                 <svg
                   xmlns="http://www.w3.org/2000/svg"
@@ -276,14 +283,14 @@ export default function Champions() {
         </div>
       </div>
 
-      <div className="bg-lol-card rounded-xl border border-lol-border/60 overflow-hidden">
+      <div className="rounded-lg border border-lol-crimson/40 bg-[linear-gradient(145deg,#0c0e11_0%,#090b0d_48%,#060809_100%)] shadow-[0_0_3px_rgba(150,30,30,0.55),0_0_10px_rgba(90,15,15,0.35),0_0_20px_rgba(60,10,10,0.20)] ring-1 ring-inset ring-white/[0.03] overflow-hidden">
         <table className="w-full">
-          <thead className="bg-lol-dark/50">
+          <thead className="border-b border-lol-border/40">
             <tr>
-              <th className="px-3 py-2 text-left text-xs font-medium text-lol-text uppercase tracking-wider w-12">
+              <th className="px-3 py-2.5 text-left text-[10px] font-bold uppercase tracking-wider text-lol-text">
                 #
               </th>
-              <th className="px-3 py-2 text-left text-xs font-medium text-lol-text uppercase tracking-wider">
+              <th className="px-3 py-2.5 text-left text-[10px] font-bold uppercase tracking-wider text-lol-text">
                 Champion
               </th>
               <SortHeader label="Games" field="games" />
@@ -304,39 +311,37 @@ export default function Champions() {
               <Fragment key={c.champion_id}>
                 <tr
                   onClick={() => toggleExpand(c.champion_id)}
-                  className={`border-t border-lol-border/50 hover:bg-lol-card-hover cursor-pointer transition-colors ${
-                    expandedId === c.champion_id ? "bg-lol-card-hover" : ""
-                  }`}
+                  className="group border-b border-lol-border/20 transition-colors hover:bg-white/[0.03] cursor-pointer"
                 >
-                  <td className="px-3 py-2 text-xs text-lol-text">{i + 1}</td>
-                  <td className="px-3 py-2">
-                    <div className="flex items-center gap-2">
+                  <td className="px-3 py-2 text-right text-xs text-lol-text tabular-nums">{i + 1}</td>
+                  <td className="flex items-center gap-3 px-3 py-2">
                       <ChampionIcon championId={c.champion_id} size={28} />
-                      <span className="text-sm text-lol-text-bright">
+                      <span className="text-sm font-bold text-lol-text-bright">
                         {getChampionName(champData, c.champion_id)}
                       </span>
+                  </td>
+                  <td className="px-3 py-2 text-right text-xs text-lol-text tabular-nums">{c.games}</td>
+                  <td className="min-w-0 px-3 py-2 text-right text-xs text-lol-text font-semibold tabular-nums">
+                    <div className="min-w-0">
+                      <WinRateBar wins={c.wins} total={c.games} />
                     </div>
                   </td>
-                  <td className="px-3 py-2 text-sm text-lol-text-bright">{c.games}</td>
-                  <td className="px-3 py-2 w-32">
-                    <WinRateBar wins={c.wins} total={c.games} />
-                  </td>
-                  <td className="px-3 py-2 text-sm text-lol-text">{c.avg_kills}</td>
-                  <td className="px-3 py-2 text-sm text-lol-text">{c.avg_deaths}</td>
-                  <td className="px-3 py-2 text-sm text-lol-text">{c.avg_assists}</td>
+                  <td className="px-3 py-2 text-right text-xs text-lol-text tabular-nums">{c.avg_kills}</td>
+                  <td className="px-3 py-2 text-right text-xs text-lol-text tabular-nums">{c.avg_deaths}</td>
+                  <td className="px-3 py-2 text-right text-xs text-lol-text tabular-nums">{c.avg_assists}</td>
                   <td
-                    className={`px-3 py-2 text-sm ${kdaColor(c.deaths > 0 ? (c.kills + c.assists) / c.deaths : Infinity)}`}
+                    className={`px-3 py-2 text-right text-xs tabular-nums ${kdaColor(c.deaths > 0 ? (c.kills + c.assists) / c.deaths : Infinity)}`}
                   >
                     {kdaRatio(c.kills, c.deaths, c.assists)}
                   </td>
                   <td
-                    className={`px-3 py-2 text-sm font-semibold ${
+                    className={`px-3 py-2 text-right text-xs font-semibold tabular-nums ${
                       c.avg_score != null ? scoreColor(c.avg_score) : "text-lol-text"
                     }`}
                   >
                     {c.avg_score != null ? c.avg_score.toFixed(1) : "—"}
                   </td>
-                  <td className="px-3 py-2 text-sm">
+                  <td className="px-3 py-2 text-right text-xs text-lol-text tabular-nums">
                     <span className={c.mvps > 0 ? "text-amber-300" : "text-lol-text/40"}>
                       {c.mvps}
                     </span>
@@ -345,14 +350,14 @@ export default function Champions() {
                       {c.aces}
                     </span>
                   </td>
-                  <td className="px-3 py-2 text-sm text-lol-text">
+                  <td className="px-3 py-2 text-right text-xs text-lol-text tabular-nums">
                     {(c.avg_damage ?? 0).toLocaleString()}
                   </td>
-                  <td className="px-3 py-2 text-sm text-lol-gold">
+                  <td className="px-3 py-2 text-right text-xs text-lol-gold tabular-nums">
                     {(c.avg_gold ?? 0).toLocaleString()}
                   </td>
-                  <td className="px-3 py-2">
-                    <div className="flex gap-1 text-[10px] tabular-nums">
+                  <td className="min-w-0 px-3 py-2 text-right text-xs text-lol-text tabular-nums">
+                    <div className="min-w-0 flex justify-end gap-1 text-[10px] tabular-nums">
                       <span
                         className={`w-7 shrink-0 text-center ${c.double_kills > 0 ? "text-sky-400" : "text-transparent"}`}
                       >
@@ -377,7 +382,7 @@ export default function Champions() {
                   </td>
                 </tr>
                 {expandedId === c.champion_id && (
-                  <tr className="border-t border-lol-border/30 bg-lol-dark/30">
+                  <tr className="bg-black/20">
                     <ChampionExpanded
                       championId={c.champion_id}
                       patch={patch}
@@ -390,7 +395,12 @@ export default function Champions() {
           </tbody>
         </table>
         {sorted.length === 0 && (
-          <div className="py-8 text-center text-sm text-lol-text">No champions found</div>
+          <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-lol-crimson/40 bg-[linear-gradient(145deg,#0c0e11_0%,#090b0d_48%,#060809_100%)] p-12">
+            <p className="text-sm font-semibold text-lol-text-bright">
+              No champions match your filters
+            </p>
+            <p className="text-xs text-lol-text">Try adjusting the queue, patch, or search.</p>
+          </div>
         )}
       </div>
     </div>
