@@ -64,6 +64,7 @@ function createWindow(): BrowserWindow {
   const { width: workAreaWidth } = screen.getPrimaryDisplay().workAreaSize;
 
   mainWindow = new BrowserWindow({
+    title: "League Tracker",
     width: Math.min(1440, workAreaWidth - 40),
     height: 820,
     minWidth: 1366,

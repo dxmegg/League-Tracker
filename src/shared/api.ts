@@ -116,6 +116,13 @@ export interface MatchListItem {
   game_max_heal: number;
 }
 
+export interface QueueStat {
+  queueId: number;
+  count: number;
+  wins: number;
+  losses: number;
+}
+
 export type MatchSort =
   | "date"
   | "kda"
@@ -677,6 +684,8 @@ export interface ProfileExtras {
   rankedSolo: RankEntry | null;
   rankedFlex: RankEntry | null;
   topMasteryChampions: MasteryChampion[];
+  totalMasteryPoints: number;
+  totalMasteryScore: number;
 }
 
 export interface RecentRiotMatch {
@@ -704,6 +713,8 @@ export interface ProfileData {
   dataDragonVersion: string;
   masteryPoints: number;
   masteryScore: number;
+  totalMasteryPoints: number;
+  totalMasteryScore: number;
   topMasteryChampions: ProfileMasteryChampion[] | null;
   rankedSolo: ProfileRankedEntry | null;
   rankedFlex: ProfileRankedEntry | null;
@@ -752,6 +763,7 @@ export interface ElectronAPI {
     offset: number,
     filters?: MatchFilters,
   ) => Promise<{ matches: MatchListItem[]; total: number }>;
+  getQueueStatsForAccount: (puuid: string) => Promise<QueueStat[]>;
   getMatchFilterOptions: (
     filters?: Pick<MatchFilters, "championId" | "patch" | "queue" | "account">,
   ) => Promise<MatchFilterOptions>;

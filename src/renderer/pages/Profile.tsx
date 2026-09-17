@@ -9,9 +9,11 @@ import type {
   CurrentSummoner,
   ProfileMasteryChampion,
   ProfileRecentGame,
+  QueueStat,
   RankEntry,
 } from "../../shared/api";
 import ChampionIcon from "../components/ChampionIcon";
+import { queueLabel } from "../components/QueueSelect";
 import { shortRegion } from "../../shared/regions";
 import { isAugmentQueue, QUEUE_LABELS } from "../../shared/queues";
 import { formatTimeAgo, kdaRatio } from "../lib/format";
@@ -19,6 +21,22 @@ import { CHAMPION_ICON_URL } from "../lib/constants";
 import { dbg } from "../../shared/debug";
 
 const EMBLEM_BASE_URL = "https://opgg-static.akamaized.net/images/medals_new";
+
+function formatCompactNumber(n: number): string {
+  if (n >= 1_000_000) {
+    const v = n / 1_000_000;
+    return `${v.toFixed(v >= 10 ? 1 : 2).replace(/\.?0+$/, "")}M`;
+  }
+  if (n >= 1_000) {
+    const v = n / 1_000;
+    return `${v.toFixed(v >= 100 ? 0 : 1).replace(/\.?0+$/, "")}K`;
+  }
+  return n.toString();
+}
+
+function formatFullNumber(n: number): string {
+  return n.toLocaleString("en-US");
+}
 
 function getPercentColor(percent: number): string {
   return percent >= 54.5
@@ -56,6 +74,8 @@ function profileDataFromSnapshot(
     dataDragonVersion,
     masteryPoints: 0,
     masteryScore: 0,
+    totalMasteryPoints: 0,
+    totalMasteryScore: 0,
     topMasteryChampions: snapshot.topMasteryChampions.map((champion) => ({
       championId: champion.championId,
       championPoints: champion.points,
@@ -292,7 +312,7 @@ function LastPlayedChampionsBox({
 }) {
   if (loading) {
     return (
-      <div className="min-w-[220px] flex-1 rounded-lg border border-lol-crimson/40 bg-[linear-gradient(145deg,#0c0e11_0%,#090b0d_48%,#060809_100%)] p-3 shadow-[0_0_3px_rgba(150,30,30,0.55),0_0_10px_rgba(90,15,15,0.35),0_0_20px_rgba(60,10,10,0.20)] ring-1 ring-inset ring-white/[0.03]">
+      <div className="min-w-[220px] flex flex-1 flex-col rounded-lg border border-lol-crimson/40 bg-[linear-gradient(145deg,#0c0e11_0%,#090b0d_48%,#060809_100%)] p-3 shadow-[0_0_3px_rgba(150,30,30,0.55),0_0_10px_rgba(90,15,15,0.35),0_0_20px_rgba(60,10,10,0.20)] ring-1 ring-inset ring-white/[0.03]">
         <p className="mb-2 text-[10px] font-bold uppercase tracking-wider text-lol-gold">
           Last played champions
         </p>
@@ -323,7 +343,7 @@ function LastPlayedChampionsBox({
     .sort(
       (left, right) => right.games.length - left.games.length || left.championId - right.championId,
     )
-    .slice(0, 5);
+    .slice(0, 10);
 
   return (
     <div className="min-w-[280px] flex-1 rounded-lg border border-lol-crimson/40 bg-[linear-gradient(145deg,#0c0e11_0%,#090b0d_48%,#060809_100%)] p-3 shadow-[0_0_3px_rgba(150,30,30,0.55),0_0_10px_rgba(90,15,15,0.35),0_0_20px_rgba(60,10,10,0.20)] ring-1 ring-inset ring-white/[0.03]">
@@ -331,7 +351,7 @@ function LastPlayedChampionsBox({
         Last played champions
       </p>
       <PipsRow matches={matches} />
-      <div className="mt-2 space-y-1">
+      <div className="mt-2 max-h-[285px] space-y-1 overflow-y-auto">
         {top5.map(({ championId, games }) => {
           const wins = games.filter((game) => game.win).length;
           const losses = games.length - wins;
@@ -368,55 +388,66 @@ function LastPlayedChampionsBox({
   );
 }
 
-function LastGamesBox({ matches, loading }: { matches: MatchListItem[]; loading: boolean }) {
-  const games = matches.length;
+function queueWinRate(wins: number, count: number): number {
+  return count > 0 ? wins / count : 0;
+}
+
+function LastGamesBox({ queueStats, loading }: { queueStats: QueueStat[]; loading: boolean }) {
   if (loading) {
     return (
-      <div className="min-w-[220px] flex-1 rounded-lg border border-lol-crimson/40 bg-[linear-gradient(145deg,#0c0e11_0%,#090b0d_48%,#060809_100%)] p-3 shadow-[0_0_3px_rgba(150,30,30,0.55),0_0_10px_rgba(90,15,15,0.35),0_0_20px_rgba(60,10,10,0.20)] ring-1 ring-inset ring-white/[0.03]">
+      <div className="min-w-[220px] flex flex-1 flex-col rounded-lg border border-lol-crimson/40 bg-[linear-gradient(145deg,#0c0e11_0%,#090b0d_48%,#060809_100%)] p-3 shadow-[0_0_3px_rgba(150,30,30,0.55),0_0_10px_rgba(90,15,15,0.35),0_0_20px_rgba(60,10,10,0.20)] ring-1 ring-inset ring-white/[0.03]">
         <p className="mb-2 text-[10px] font-bold uppercase tracking-wider text-lol-gold">
-          Last games
+          Most played queues
         </p>
         <p className="text-xs text-lol-text">Loading…</p>
       </div>
     );
   }
 
-  if (games === 0) {
+  if (queueStats.length === 0) {
     return (
       <div className="min-w-[220px] flex-1 rounded-lg border border-lol-crimson/40 bg-[linear-gradient(145deg,#0c0e11_0%,#090b0d_48%,#060809_100%)] p-3 shadow-[0_0_3px_rgba(150,30,30,0.55),0_0_10px_rgba(90,15,15,0.35),0_0_20px_rgba(60,10,10,0.20)] ring-1 ring-inset ring-white/[0.03]">
         <p className="mb-2 text-[10px] font-bold uppercase tracking-wider text-lol-gold">
-          Last 0 games
+          Most played queues
         </p>
-        <p className="text-xs text-lol-text">No games recorded</p>
+        <p className="py-2 text-center text-xs text-lol-text">No recent matches</p>
       </div>
     );
   }
 
-  const wins = matches.filter((match) => match.win).length;
-  const losses = games - wins;
-  const winRate = (wins / games) * 100;
-  const kills = matches.reduce((sum, match) => sum + match.kills, 0);
-  const deaths = matches.reduce((sum, match) => sum + match.deaths, 0);
-  const assists = matches.reduce((sum, match) => sum + match.assists, 0);
-
   return (
     <div className="min-w-[220px] flex-1 rounded-lg border border-lol-crimson/40 bg-[linear-gradient(145deg,#0c0e11_0%,#090b0d_48%,#060809_100%)] p-3 shadow-[0_0_3px_rgba(150,30,30,0.55),0_0_10px_rgba(90,15,15,0.35),0_0_20px_rgba(60,10,10,0.20)] ring-1 ring-inset ring-white/[0.03]">
       <p className="mb-2 text-[10px] font-bold uppercase tracking-wider text-lol-gold">
-        Last {games} games
+        Most played queues
       </p>
-      <PipsRow matches={matches} />
-      <div className="mt-2 flex h-1.5 overflow-hidden rounded-full bg-lol-loss/30">
-        <div className="h-full bg-lol-win" style={{ width: `${winRate}%` }} />
+      <div className="flex items-center gap-2 border-b border-lol-border/30 pb-1 text-[9px] font-bold uppercase tracking-wider text-lol-text">
+        <span className="flex-1">Queue</span>
+        <span className="w-8 text-right">G</span>
+        <span className="w-16 text-right">W/L</span>
+        <span className="w-12 text-right">WR</span>
       </div>
-      <div className="mt-2 grid grid-cols-3 text-xs">
-        <span className="text-lol-win">{wins}W</span>
-        <span className="text-center text-lol-text">{winRate.toFixed(1)}% WR</span>
-        <span className="text-right text-lol-loss">{losses}L</span>
-      </div>
-      <div className="mt-1 text-xs text-lol-text tabular-nums">
-        {(kills / games).toFixed(1)}/{(deaths / games).toFixed(1)}/{(assists / games).toFixed(1)}
-        <span className="text-lol-text/40"> · </span>
-        <span className="text-lol-text-bright">{kdaRatio(kills, deaths, assists)} KDA</span>
+      <div className="scrollbar-edge flex min-h-0 max-h-[252px] flex-1 flex-col overflow-y-auto">
+        {queueStats.map(({ queueId, count, wins, losses }) => (
+          <div
+            key={queueId}
+            className={`flex items-center gap-2 border-t border-lol-border/20 py-1.5 text-[11px] first:border-t-0 ${
+              queueStats.length <= 6 ? "flex-1" : ""
+            }`}
+          >
+            <span className="min-w-0 flex-1 truncate font-semibold text-lol-text-bright">
+              {queueLabel(queueId)}
+            </span>
+            <span className="w-8 shrink-0 text-right tabular-nums text-lol-text">{count}</span>
+            <span className="shrink-0 tabular-nums text-right">
+              <span className="text-lol-win">{wins}W</span>
+              <span className="mx-0.5 text-lol-text/40">/</span>
+              <span className="text-lol-loss">{losses}L</span>
+            </span>
+            <span className="w-12 shrink-0 text-right font-semibold tabular-nums text-lol-gold">
+              {(queueWinRate(wins, count) * 100).toFixed(1)}%
+            </span>
+          </div>
+        ))}
       </div>
     </div>
   );
@@ -432,87 +463,35 @@ function MasteryChampionStrip({
   if (!champions || champions.length === 0) return null;
 
   return (
-    <div className="mt-4 flex justify-center gap-1.5">
+    <div className="flex flex-1 flex-col">
       {champions.slice(0, 5).map((masteryChampion) => {
-        const champ = championData[masteryChampion.championId];
-        const champKey = champ?.key ?? champ?.name;
-        const iconUrl = `https://ddragon.leagueoflegends.com/cdn/latest/img/champion/${champKey}.png`;
-        console.log(
-          "[mastery-icon] id:",
-          masteryChampion.championId,
-          "key:",
-          champKey,
-          "url:",
-          iconUrl,
-        );
         return (
-          <MasteryChampionIcon
+          <div
             key={masteryChampion.championId}
-            championId={masteryChampion.championId}
-            championKey={champKey}
-            championName={champ?.name ?? `Champion ${masteryChampion.championId}`}
-            championPoints={masteryChampion.championPoints}
-            championLevel={masteryChampion.championLevel}
-          />
+            className="flex flex-1 items-center gap-1.5 border-t border-lol-border/20 py-2 first:border-t-0"
+          >
+            <div className="shrink-0">
+              <div className="rounded-full overflow-hidden border border-lol-border/40">
+                <ChampionIcon championId={masteryChampion.championId} size={28} />
+              </div>
+            </div>
+            <span className="min-w-0 truncate text-sm font-bold text-lol-text-bright">
+              {getChampionName(championData, masteryChampion.championId)}
+            </span>
+            <span className="ml-auto flex shrink-0 items-center gap-2 text-sm tabular-nums">
+              <span
+                className="cursor-help text-lol-text"
+                title={`${formatFullNumber(masteryChampion.championPoints)} mastery points`}
+              >
+                {formatCompactNumber(masteryChampion.championPoints)} pts
+              </span>
+              <span className="font-semibold text-lol-gold">
+                Level {masteryChampion.championLevel}
+              </span>
+            </span>
+          </div>
         );
       })}
-    </div>
-  );
-}
-
-function MasteryChampionIcon({
-  championId,
-  championKey,
-  championName,
-  championPoints,
-  championLevel,
-}: {
-  championId: number;
-  championKey: string | undefined;
-  championName: string;
-  championPoints: number;
-  championLevel: number;
-}) {
-  const [iconStage, setIconStage] = useState(0);
-  const [crestFailed, setCrestFailed] = useState(false);
-  const clampedLevel = Math.min(Math.max(championLevel, 1), 10);
-  const crestLevel = clampedLevel <= 3 ? 0 : clampedLevel;
-  const primaryIconUrl = `https://ddragon.leagueoflegends.com/cdn/latest/img/champion/${championKey ?? championId}.png`;
-  const fallbackIconUrl = `https://raw.communitydragon.org/latest/plugins/rcp-be-lol-game-data/global/default/v1/champion-icons/${championId}.png`;
-
-  return (
-    <div className="relative group cursor-default">
-      {iconStage < 2 ? (
-        <img
-          src={iconStage === 0 ? primaryIconUrl : fallbackIconUrl}
-          alt={championName}
-          className="h-8 w-8 rounded object-cover"
-          onError={() => setIconStage((stage) => stage + 1)}
-        />
-      ) : (
-        <div className="flex h-8 w-8 items-center justify-center rounded bg-lol-dark text-lg text-lol-gold">
-          {championName.charAt(0)}
-        </div>
-      )}
-      <div className="absolute z-50 hidden group-hover:flex top-full mt-2 left-1/2 -translate-x-1/2 w-max max-w-none flex-col items-start whitespace-nowrap rounded border border-lol-border/70 bg-lol-dark p-3 text-xs text-lol-text-bright shadow-lg">
-        <div className="flex flex-col gap-1">
-          <p>{championName}</p>
-          <p>{championPoints.toLocaleString("en-US")} pts</p>
-        </div>
-        <p className="mt-2 flex min-h-7 items-center gap-2">
-          {crestFailed ? (
-            <span className="text-lol-gold">Level {championLevel}</span>
-          ) : (
-            <img
-              src={`https://raw.communitydragon.org/latest/game/assets/ux/mastery/legendarychampionmastery/masterycrest_level${crestLevel}.png`}
-              alt=""
-              className="h-7 w-7 object-contain"
-              onError={() => setCrestFailed(true)}
-            />
-          )}
-          {!crestFailed && `Level ${championLevel}`}
-        </p>
-      </div>
     </div>
   );
 }
@@ -665,6 +644,8 @@ export default function Profile() {
   const selectedPuuidRef = useRef(selectedPuuid);
   const profileRef = useRef(profile);
 
+  const [queueStats, setQueueStats] = useState<QueueStat[]>([]);
+
   useEffect(() => {
     selectedPuuidRef.current = selectedPuuid;
   }, [selectedPuuid]);
@@ -788,6 +769,8 @@ export default function Profile() {
               dataDragonVersion,
               masteryPoints: 0,
               masteryScore: 0,
+              totalMasteryPoints: profileExtras.totalMasteryPoints ?? 0,
+              totalMasteryScore: profileExtras.totalMasteryScore ?? 0,
               topMasteryChampions: profileExtras.topMasteryChampions.map((champion) => ({
                 championId: champion.championId,
                 championPoints: champion.points,
@@ -813,6 +796,8 @@ export default function Profile() {
 
           const localRecentMatches = await readRecentHistoryFromDb(puuid, 20);
           if (requestId !== loadRequestIdRef.current) return;
+          const queueStatsData = await window.api.getQueueStatsForAccount(puuid);
+          if (requestId !== loadRequestIdRef.current) return;
           if (profileData.puuid !== selectedPuuidRef.current) {
             console.warn("[profile] stale load ignored:", {
               loaded: profileData.puuid,
@@ -824,6 +809,7 @@ export default function Profile() {
           log.log("profile loaded", { puuid, icon: profileData.profileIconId });
           setRecentMatches(localRecentMatches.matches);
           setRecentMatchesAvailable(localRecentMatches.total);
+          setQueueStats(queueStatsData);
         } catch (err: unknown) {
           if (requestId !== loadRequestIdRef.current) return;
           console.error("Failed to load local profile:", err);
@@ -974,7 +960,7 @@ export default function Profile() {
           </button>
         </div>
       )}
-      <div className="grid grid-cols-[220px_minmax(0,1fr)_256px_auto] items-start gap-8">
+      <div className="grid grid-cols-[220px_minmax(0,1fr)] items-stretch gap-8">
         <div>
           <div className="h-[220px] w-[220px] rounded-lg border border-lol-crimson/40 bg-[linear-gradient(138deg,#c89b37_0%,#ffe09b_50%,#c89b37_100%)] p-[4px] shadow-[0_0_3px_rgba(150,30,30,0.55),0_0_10px_rgba(90,15,15,0.35),0_0_20px_rgba(60,10,10,0.20)]">
             {profileIconUrl && !profileIconFailed ? (
@@ -1122,29 +1108,51 @@ export default function Profile() {
                 </span>
               )}
             </div>
-            <div className="mt-4 flex flex-wrap items-stretch gap-3">
-              <LastPlayedChampionsBox
-                matches={recentMatches ?? []}
-                loading={loading}
-                champData={championData}
-              />
-              <LastGamesBox matches={recentMatches ?? []} loading={loading} />
+            <div className="mt-4 grid grid-cols-[minmax(0,1fr)_256px] items-stretch gap-3">
+              <div className="flex items-stretch gap-3">
+                <LastPlayedChampionsBox
+                  matches={recentMatches ?? []}
+                  loading={loading}
+                  champData={championData}
+                />
+                <LastGamesBox queueStats={queueStats} loading={loading} />
+              </div>
+              <div className="flex h-full w-64 flex-col rounded-lg border border-lol-crimson/40 bg-[linear-gradient(145deg,#0c0e11_0%,#090b0d_48%,#060809_100%)] px-4 py-3 shadow-[0_0_3px_rgba(150,30,30,0.55),0_0_10px_rgba(90,15,15,0.35),0_0_20px_rgba(60,10,10,0.20)] ring-1 ring-inset ring-white/[0.03]">
+                <h2 className="text-center text-xs font-bold uppercase tracking-wider text-lol-gold">
+                  Champion Mastery
+                </h2>
+                {profile.totalMasteryPoints > 0 && (
+                  <div className="mt-1 text-center text-[10px] text-lol-text">
+                    <span
+                      className="cursor-help font-semibold tabular-nums text-lol-text-bright"
+                      title={`${formatFullNumber(profile.totalMasteryPoints)} mastery points`}
+                    >
+                      {formatCompactNumber(profile.totalMasteryPoints)} pts
+                    </span>
+                    <span className="mx-1.5 text-lol-text/40">·</span>
+                    <span
+                      className="tabular-nums"
+                      title={`Mastery score: ${profile.totalMasteryScore}`}
+                    >
+                      {profile.totalMasteryScore} score
+                    </span>
+                  </div>
+                )}
+                <div className="mt-3 flex flex-1 flex-col">
+                  {profile.topMasteryChampions?.length ? (
+                    <MasteryChampionStrip
+                      champions={profile.topMasteryChampions}
+                      championData={championData}
+                    />
+                  ) : selectedPuuid !== livePuuid ? (
+                    <p className="py-2 text-center text-xs text-lol-text">Log in to sync mastery</p>
+                  ) : (
+                    <p className="py-2 text-center text-xs text-lol-text">No mastery data</p>
+                  )}
+                </div>
+              </div>
             </div>
           </div>
-        </div>
-
-        <div className="mt-[84px] w-64 rounded-lg border border-lol-crimson/40 bg-[linear-gradient(145deg,#0c0e11_0%,#090b0d_48%,#060809_100%)] px-5 py-4 shadow-[0_0_3px_rgba(150,30,30,0.55),0_0_10px_rgba(90,15,15,0.35),0_0_20px_rgba(60,10,10,0.20)] ring-1 ring-inset ring-white/[0.03]">
-          <h2 className="mb-3 text-center text-xs font-bold uppercase tracking-wider text-lol-gold">
-            Champion Mastery
-          </h2>
-          {profile.topMasteryChampions?.length === 0 && selectedPuuid !== livePuuid ? (
-            <p className="py-2 text-center text-xs text-lol-text">Log in to sync mastery</p>
-          ) : (
-            <MasteryChampionStrip
-              champions={profile.topMasteryChampions}
-              championData={championData}
-            />
-          )}
         </div>
       </div>
 

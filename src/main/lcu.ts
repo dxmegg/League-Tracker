@@ -128,6 +128,8 @@ export async function getProfileExtras(): Promise<ProfileExtras> {
   let rankedSolo: RankEntry | null = null;
   let rankedFlex: RankEntry | null = null;
   let topMasteryChampions: ProfileExtras["topMasteryChampions"] = [];
+  let totalMasteryPoints = 0;
+  let totalMasteryScore = 0;
 
   try {
     const ranked = recordPayload(await lcuRequest("/lol-ranked/v1/current-ranked-stats"));
@@ -142,7 +144,7 @@ export async function getProfileExtras(): Promise<ProfileExtras> {
     const masteryPayload = await lcuRequest(
       "/lol-champion-mastery/v1/local-player/champion-mastery",
     );
-    topMasteryChampions = (Array.isArray(masteryPayload) ? masteryPayload : [])
+    const fullMasteryList = (Array.isArray(masteryPayload) ? masteryPayload : [])
       .map((entry) => {
         const mastery = recordPayload(entry);
         return {
@@ -151,18 +153,29 @@ export async function getProfileExtras(): Promise<ProfileExtras> {
           points: numberField(mastery.championPoints),
         };
       })
-      .filter((entry) => entry.championId > 0 && entry.points >= 0)
+      .filter((entry) => entry.championId > 0 && entry.points >= 0);
+    totalMasteryPoints = fullMasteryList.reduce((sum, entry) => sum + entry.points, 0);
+    totalMasteryScore = fullMasteryList.reduce((sum, entry) => sum + entry.level, 0);
+    topMasteryChampions = fullMasteryList
       .sort((left, right) => right.points - left.points)
       .slice(0, 5);
   } catch (err) {
     console.warn("[lcu] profile mastery unavailable:", err);
   }
 
-  const result = { rankedSolo, rankedFlex, topMasteryChampions };
+  const result = {
+    rankedSolo,
+    rankedFlex,
+    topMasteryChampions,
+    totalMasteryPoints,
+    totalMasteryScore,
+  };
   console.log("[lcu] getProfileExtras done:", {
     hasRankedSolo: Boolean(rankedSolo),
     hasRankedFlex: Boolean(rankedFlex),
     masteryCount: topMasteryChampions.length,
+    totalMasteryPoints,
+    totalMasteryScore,
   });
   return result;
 }
