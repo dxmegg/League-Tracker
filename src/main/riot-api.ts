@@ -835,6 +835,8 @@ export async function getProfileData(
     // Riot's live mastery totals can differ slightly from op.gg's cached snapshot.
     masteryPoints: mastery?.reduce((total, entry) => total + entry.championPoints, 0) ?? 0,
     masteryScore: masteryScore ?? 0,
+    totalMasteryPoints: 0,
+    totalMasteryScore: 0,
     topMasteryChampions: topMasteryEntries,
     rankedSolo: rankedEntry(league, "RANKED_SOLO_5x5"),
     rankedFlex: rankedEntry(league, "RANKED_FLEX_SR"),

@@ -74,6 +74,16 @@ export function registerIpcHandlers() {
     },
   );
 
+  ipcMain.handle("db:queue-stats", (_event, puuid: string) => {
+    if (typeof puuid !== "string" || puuid.trim().length === 0) {
+      throw new TypeError("puuid must be a non-empty string");
+    }
+    console.log("[db] queue-stats handler called:", { puuid });
+    const result = db.getQueueStatsForAccount(puuid);
+    console.log("[db] queue-stats handler done:", { count: result.length });
+    return result;
+  });
+
   ipcMain.handle(
     "db:match-filters",
     (

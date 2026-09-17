@@ -318,8 +318,12 @@ function ArenaPlayerRow({
       <div className="flex items-center gap-0.5">
         <ChampionIcon championId={p.championId} size={32} />
         <div className="flex flex-col gap-0.5">
-          <SummonerSpellIcon spellId={p.spell1Id} size={15} />
-          <SummonerSpellIcon spellId={p.spell2Id} size={15} />
+          <div className="rounded border border-lol-border/30 bg-white/[0.02] p-0.5">
+            <SummonerSpellIcon spellId={p.spell1Id} size={15} />
+          </div>
+          <div className="rounded border border-lol-border/30 bg-white/[0.02] p-0.5">
+            <SummonerSpellIcon spellId={p.spell2Id} size={15} />
+          </div>
         </div>
       </div>
 
@@ -342,7 +346,7 @@ function ArenaPlayerRow({
         >
           {p.summonerName}
         </button>
-        <div className="text-[10px] text-lol-text truncate">
+        <div className="text-[10px] text-lol-text truncate transition-colors hover:text-lol-gold">
           {getChampionName(champData, p.championId)}
         </div>
       </div>
@@ -378,16 +382,20 @@ function ArenaPlayerRow({
 
       <div className="flex gap-0.5">
         {p.items.slice(0, 6).map((itemId, i) => (
-          <ItemIcon key={i} itemId={itemId} size={22} patch={patch} />
+          <div key={i} className="rounded border border-lol-border/30 bg-white/[0.02] p-0.5">
+            <ItemIcon itemId={itemId} size={22} patch={patch} />
+          </div>
         ))}
-        <div className="ml-0.5">
+        <div className="ml-0.5 rounded border border-lol-border/30 bg-white/[0.02] p-0.5">
           <ItemIcon itemId={p.items[6] ?? 0} size={22} patch={patch} />
         </div>
       </div>
 
       <div className="flex items-center gap-1">
         {p.augments.map((augId, i) => (
-          <AugmentIcon key={i} augmentId={augId} size={22} patch={patch} />
+          <div key={i} className="rounded border border-lol-border/30 bg-white/[0.02] p-0.5">
+            <AugmentIcon augmentId={augId} size={22} patch={patch} />
+          </div>
         ))}
       </div>
     </div>
@@ -424,15 +432,17 @@ function TeamScoreboard({
   const totals = useMemo(() => computeTeamTotals(players, scores), [players, scores]);
 
   return (
-    <div className="rounded-lg border border-lol-border overflow-hidden">
+    <div className="rounded-lg border border-lol-crimson/30 bg-[linear-gradient(145deg,#0c0e11_0%,#090b0d_48%,#060809_100%)] shadow-[0_0_3px_rgba(150,30,30,0.35),0_0_10px_rgba(90,15,15,0.25)] ring-1 ring-inset ring-white/[0.02] overflow-hidden">
       {/* Team header: name on the left, team totals filling the rest of the bar */}
       <div
-        className={`px-3 py-1.5 border-b border-lol-border flex flex-wrap items-baseline gap-x-4 gap-y-1 ${isWin ? "bg-lol-win/10" : "bg-lol-loss/10"}`}
+        className={`px-4 py-2 flex flex-wrap items-baseline gap-x-4 gap-y-1 ${isWin ? "bg-gradient-to-r from-lol-win/15 via-lol-win/5 to-transparent" : "bg-gradient-to-r from-lol-loss/15 via-lol-loss/5 to-transparent"}`}
       >
-        <span className={`text-xs font-bold ${isWin ? "text-lol-win" : "text-lol-loss"}`}>
+        <span
+          className={`text-sm font-bold uppercase tracking-wider ${isWin ? "text-lol-win" : "text-lol-loss"}`}
+        >
           Team {teamId === 100 ? "1" : "2"} — {isWin ? "Victory" : "Defeat"}
         </span>
-        <div className="ml-auto mr-40 flex flex-wrap items-baseline gap-x-4 gap-y-1">
+        <div className="ml-auto mr-40 flex flex-wrap items-baseline gap-x-5 gap-y-1">
           <TeamStat label="Avg score">
             <span
               className={totals.avgScore != null ? scoreColor(totals.avgScore) : "text-lol-text"}
@@ -462,10 +472,17 @@ function TeamScoreboard({
           </TeamStat>
         </div>
       </div>
+      <div
+        className={`h-0.5 bg-gradient-to-r ${
+          isWin
+            ? "from-lol-win/40 via-lol-win/15 to-transparent"
+            : "from-lol-loss/40 via-lol-loss/15 to-transparent"
+        }`}
+      />
 
       {/* Column headers */}
       <div
-        className={`px-3 py-1 border-b border-lol-border/50 grid ${GRID_COLS} gap-2 items-center text-[10px] text-lol-text uppercase tracking-wider`}
+        className={`px-4 py-1.5 border-b border-lol-border/40 grid ${GRID_COLS} gap-2 items-center text-[10px] font-bold text-lol-text uppercase tracking-wider bg-white/[0.015]`}
       >
         <span></span>
         <span>Player</span>
@@ -535,7 +552,7 @@ function computeTeamTotals(players: ParsedParticipant[], scores: Map<number, Sco
 function TeamStat({ label, children }: { label: string; children: ReactNode }) {
   return (
     <div className="flex items-baseline gap-1.5 whitespace-nowrap">
-      <span className="text-[9px] uppercase tracking-wider text-lol-text">{label}</span>
+      <span className="text-[10px] font-bold uppercase tracking-wider text-lol-text">{label}</span>
       <span className="text-[11px] font-medium tabular-nums">{children}</span>
     </div>
   );
@@ -544,8 +561,8 @@ function TeamStat({ label, children }: { label: string; children: ReactNode }) {
 function ScoreboardBar({ value, max, color }: { value: number; max: number; color: string }) {
   const pct = max > 0 ? Math.round((value / max) * 100) : 0;
   return (
-    <div className="h-4 bg-white/5 rounded-sm overflow-hidden relative">
-      <div className={`h-full rounded-sm ${color}`} style={{ width: `${pct}%` }} />
+    <div className="h-4 bg-white/5 rounded ring-1 ring-lol-border/30 overflow-hidden relative">
+      <div className={`h-full rounded ${color}`} style={{ width: `${pct}%` }} />
       <span className="absolute inset-0 flex items-center justify-end pr-1 text-[10px] font-medium text-white/90 leading-none">
         {value >= 1000 ? `${(value / 1000).toFixed(1)}k` : value}
       </span>
@@ -581,16 +598,20 @@ function PlayerRow({
 
   return (
     <div
-      className={`px-3 py-1.5 border-b border-lol-border/30 last:border-b-0 grid ${GRID_COLS} gap-2 items-center ${
-        p.isSelf ? "border-l-2 border-l-lol-gold bg-lol-gold/5" : ""
+      className={`px-4 py-2 border-b border-lol-border/20 last:border-b-0 grid ${GRID_COLS} gap-2 items-center transition-colors hover:bg-white/[0.03] ${
+        p.isSelf ? "border-l-2 border-l-lol-gold bg-lol-gold/[0.06]" : ""
       }`}
     >
       {/* Champion + spells; two 15px spells and the 2px gap match the 32px portrait */}
       <div className="flex items-center gap-0.5">
         <ChampionIcon championId={p.championId} size={32} />
         <div className="flex flex-col gap-0.5">
-          <SummonerSpellIcon spellId={p.spell1Id} size={15} />
-          <SummonerSpellIcon spellId={p.spell2Id} size={15} />
+          <div className="rounded border border-lol-border/30 bg-white/[0.02] p-0.5">
+            <SummonerSpellIcon spellId={p.spell1Id} size={15} />
+          </div>
+          <div className="rounded border border-lol-border/30 bg-white/[0.02] p-0.5">
+            <SummonerSpellIcon spellId={p.spell2Id} size={15} />
+          </div>
         </div>
       </div>
 
@@ -614,7 +635,7 @@ function PlayerRow({
         >
           {p.summonerName}
         </button>
-        <div className="text-[10px] text-lol-text truncate">
+        <div className="text-[10px] text-lol-text truncate transition-colors hover:text-lol-gold">
           {getChampionName(champData, p.championId)}
         </div>
       </div>
@@ -667,9 +688,11 @@ function PlayerRow({
       {/* Items */}
       <div className="flex gap-0.5">
         {p.items.slice(0, 6).map((itemId, i) => (
-          <ItemIcon key={i} itemId={itemId} size={22} patch={patch} />
+          <div key={i} className="rounded border border-lol-border/30 bg-white/[0.02] p-0.5">
+            <ItemIcon itemId={itemId} size={22} patch={patch} />
+          </div>
         ))}
-        <div className="ml-0.5">
+        <div className="ml-0.5 rounded border border-lol-border/30 bg-white/[0.02] p-0.5">
           <ItemIcon itemId={p.items[6] ?? 0} size={22} patch={patch} />
         </div>
       </div>
@@ -680,7 +703,9 @@ function PlayerRow({
       <div className="flex items-center gap-1">
         {showAugments ? (
           p.augments.map((augId, i) => (
-            <AugmentIcon key={i} augmentId={augId} size={22} patch={patch} />
+            <div key={i} className="rounded border border-lol-border/30 bg-white/[0.02] p-0.5">
+              <AugmentIcon augmentId={augId} size={22} patch={patch} />
+            </div>
           ))
         ) : (
           <RuneSetupGrid
@@ -713,7 +738,7 @@ function ScoreCell({ score }: { score?: ScoreBreakdown }) {
       </div>
       {score?.badge && (
         <div
-          className={`text-[9px] font-bold leading-[15px] px-1 rounded w-fit mx-auto ${
+          className={`text-[9px] font-bold leading-[15px] px-1.5 py-0.5 rounded w-fit mx-auto ${
             score.badge === "MVP"
               ? "bg-amber-400/20 text-amber-300"
               : "bg-purple-500/20 text-purple-400"

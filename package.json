@@ -1,6 +1,6 @@
 {
   "name": "league-tracker",
-  "version": "1.0.3",
+  "version": "1.0.4",
   "description": "ARAM Mayhem match history tracker",
   "license": "MIT",
   "main": "./out/main/index.js",
@@ -51,7 +51,7 @@
   },
   "build": {
     "appId": "com.dxmegg.leaguetracker",
-    "productName": "LeagueTracker",
+    "productName": "League Tracker",
     "publish": {
       "provider": "github",
       "owner": "dxmegg",

@@ -22,7 +22,7 @@ import {
 } from "../shared/queues";
 import { getDataDir } from "./paths";
 import { getChampionClasses, getChampionDataVersion } from "./dragon";
-import type { ItemStats, MasteryChampion, RankEntry } from "../shared/api";
+import type { ItemStats, MasteryChampion, QueueStat, RankEntry } from "../shared/api";
 
 export type GameSource = "lcu" | "riot-sync" | "search-import";
 
@@ -2301,6 +2301,42 @@ export function getDashboardData(filters?: {
     },
     topAugments,
   };
+}
+
+export function getQueueStatsForAccount(puuid: string): QueueStat[] {
+  console.log("[db] getQueueStatsForAccount called:", { puuid });
+  const rows = db
+    .prepare(
+      `
+        SELECT
+          g.queue_id AS queue_id,
+          COUNT(*) AS count,
+          SUM(CASE WHEN tgs.win = 1 THEN 1 ELSE 0 END) AS wins,
+          SUM(CASE WHEN tgs.win = 0 THEN 1 ELSE 0 END) AS losses
+        FROM tracked_game_stats tgs
+        INNER JOIN games g ON g.game_id = tgs.game_id
+        WHERE tgs.puuid = ?
+          AND g.queue_id IS NOT NULL
+        GROUP BY g.queue_id
+        ORDER BY count DESC
+      `,
+    )
+    .all(puuid) as Array<{
+    queue_id: number;
+    count: number;
+    wins: number;
+    losses: number;
+  }>;
+  const result = rows
+    .filter((row) => row.queue_id !== 0)
+    .map(({ queue_id, count, wins, losses }) => ({
+      queueId: queue_id,
+      count,
+      wins,
+      losses,
+    }));
+  console.log("[db] getQueueStatsForAccount done:", { count: result.length });
+  return result;
 }
 
 export function getMostPlayedQueue(

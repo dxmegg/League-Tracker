@@ -21,6 +21,8 @@ const api: ElectronAPI = {
   getMatchHistory: (limit: number, offset: number, filters?: MatchFilters) =>
     ipcRenderer.invoke("db:match-history", limit, offset, filters),
 
+  getQueueStatsForAccount: (puuid: string) => ipcRenderer.invoke("db:queue-stats", puuid),
+
   getMatchFilterOptions: (
     filters?: Pick<MatchFilters, "championId" | "patch" | "queue" | "account">,
   ) => ipcRenderer.invoke("db:match-filters", filters),
