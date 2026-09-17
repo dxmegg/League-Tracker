@@ -8,7 +8,11 @@ interface SummonerSpellIconProps {
   className?: string;
 }
 
-export default function SummonerSpellIcon({ spellId, size = 16, className = "rounded" }: SummonerSpellIconProps) {
+export default function SummonerSpellIcon({
+  spellId,
+  size = 16,
+  className = "rounded",
+}: SummonerSpellIconProps) {
   const spells = useSummonerSpellData();
   const [broken, setBroken] = useState(false);
   const spell = spellId != null && spellId > 0 ? spells[spellId] : undefined;

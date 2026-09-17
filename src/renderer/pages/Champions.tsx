@@ -67,93 +67,95 @@ function ChampionExpanded({
     <td colSpan={COLUMN_COUNT} className="px-3 py-4">
       <div className="flex flex-col gap-3 rounded-md border border-lol-border/30 bg-white/[0.02] p-3">
         <div className="grid grid-cols-3 gap-6">
-        {/* Augments */}
-        <div className="min-w-0">
-          <h3 className="text-xs text-lol-text uppercase tracking-wider mb-2">Top Augments</h3>
-          <div className="space-y-1">
-            {topAugments.length > 0 ? (
-              topAugments.map((a) => (
-                <div key={a.augment_id} className="flex items-center gap-2 h-7">
-                  <div className="shrink-0">
-                    <AugmentIcon augmentId={a.augment_id} />
-                  </div>
-                  <span className="text-xs text-lol-text-bright truncate min-w-0">
-                    {augData[a.augment_id]?.name ?? `Augment ${a.augment_id}`}
-                  </span>
-                  <span className="text-[11px] text-lol-text shrink-0 ml-auto">{a.picks}x</span>
-                  <div className="shrink-0">
-                    <WinRateBar wins={a.wins} total={a.picks} />
-                  </div>
-                </div>
-              ))
-            ) : (
-              <span className="text-xs text-lol-text">No data</span>
-            )}
-          </div>
-        </div>
-
-        {/* Items */}
-        <div className="min-w-0">
-          <h3 className="text-xs text-lol-text uppercase tracking-wider mb-2">Top Items</h3>
-          <div className="space-y-1">
-            {topItems.length > 0 ? (
-              topItems.map((item) => (
-                <div key={item.item_id} className="flex items-center gap-2 h-7">
-                  <div className="shrink-0">
-                    <ItemIcon itemId={item.item_id} size={24} patch={patch} />
-                  </div>
-                  <span className="text-[11px] text-lol-text shrink-0 ml-auto">{item.picks}x</span>
-                  <div className="shrink-0">
-                    <WinRateBar wins={item.wins} total={item.picks} />
-                  </div>
-                </div>
-              ))
-            ) : (
-              <span className="text-xs text-lol-text">No data</span>
-            )}
-          </div>
-        </div>
-
-        {/* Recent Games */}
-        <div className="min-w-0">
-          <h3 className="text-xs text-lol-text uppercase tracking-wider mb-2">Recent Games</h3>
-          <div className="space-y-1">
-            {matches.length > 0 ? (
-              matches.map((m) => (
-                <div
-                  key={m.game_id}
-                  className={`flex items-center gap-2 px-2 h-7 rounded text-xs ${
-                    m.is_remake
-                      ? "bg-white/[0.03]"
-                      : m.win
-                        ? "bg-lol-win/[0.07]"
-                        : "bg-lol-loss/[0.07]"
-                  }`}
-                >
-                  <span
-                    className={`font-bold shrink-0 w-4 text-center ${m.is_remake ? "text-gray-500" : m.win ? "text-lol-win" : "text-lol-loss"}`}
-                  >
-                    {m.is_remake ? "-" : m.win ? "W" : "L"}
-                  </span>
-                  <span className="text-lol-text-bright shrink-0">
-                    {formatKDA(m.kills, m.deaths, m.assists)}
-                  </span>
-                  {m.score != null && !m.is_remake && (
-                    <span className={`font-semibold shrink-0 ${scoreColor(m.score)}`}>
-                      {m.score.toFixed(1)}
+          {/* Augments */}
+          <div className="min-w-0">
+            <h3 className="text-xs text-lol-text uppercase tracking-wider mb-2">Top Augments</h3>
+            <div className="space-y-1">
+              {topAugments.length > 0 ? (
+                topAugments.map((a) => (
+                  <div key={a.augment_id} className="flex items-center gap-2 h-7">
+                    <div className="shrink-0">
+                      <AugmentIcon augmentId={a.augment_id} />
+                    </div>
+                    <span className="text-xs text-lol-text-bright truncate min-w-0">
+                      {augData[a.augment_id]?.name ?? `Augment ${a.augment_id}`}
                     </span>
-                  )}
-                  <span className="text-lol-text ml-auto shrink-0">
-                    {formatDuration(m.game_duration)}
-                  </span>
-                  <span className="text-lol-text shrink-0">{formatTimeAgo(m.game_creation)}</span>
-                </div>
-              ))
-            ) : (
-              <span className="text-xs text-lol-text">No games</span>
-            )}
+                    <span className="text-[11px] text-lol-text shrink-0 ml-auto">{a.picks}x</span>
+                    <div className="shrink-0">
+                      <WinRateBar wins={a.wins} total={a.picks} />
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <span className="text-xs text-lol-text">No data</span>
+              )}
+            </div>
           </div>
-        </div>
+
+          {/* Items */}
+          <div className="min-w-0">
+            <h3 className="text-xs text-lol-text uppercase tracking-wider mb-2">Top Items</h3>
+            <div className="space-y-1">
+              {topItems.length > 0 ? (
+                topItems.map((item) => (
+                  <div key={item.item_id} className="flex items-center gap-2 h-7">
+                    <div className="shrink-0">
+                      <ItemIcon itemId={item.item_id} size={24} patch={patch} />
+                    </div>
+                    <span className="text-[11px] text-lol-text shrink-0 ml-auto">
+                      {item.picks}x
+                    </span>
+                    <div className="shrink-0">
+                      <WinRateBar wins={item.wins} total={item.picks} />
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <span className="text-xs text-lol-text">No data</span>
+              )}
+            </div>
+          </div>
+
+          {/* Recent Games */}
+          <div className="min-w-0">
+            <h3 className="text-xs text-lol-text uppercase tracking-wider mb-2">Recent Games</h3>
+            <div className="space-y-1">
+              {matches.length > 0 ? (
+                matches.map((m) => (
+                  <div
+                    key={m.game_id}
+                    className={`flex items-center gap-2 px-2 h-7 rounded text-xs ${
+                      m.is_remake
+                        ? "bg-white/[0.03]"
+                        : m.win
+                          ? "bg-lol-win/[0.07]"
+                          : "bg-lol-loss/[0.07]"
+                    }`}
+                  >
+                    <span
+                      className={`font-bold shrink-0 w-4 text-center ${m.is_remake ? "text-gray-500" : m.win ? "text-lol-win" : "text-lol-loss"}`}
+                    >
+                      {m.is_remake ? "-" : m.win ? "W" : "L"}
+                    </span>
+                    <span className="text-lol-text-bright shrink-0">
+                      {formatKDA(m.kills, m.deaths, m.assists)}
+                    </span>
+                    {m.score != null && !m.is_remake && (
+                      <span className={`font-semibold shrink-0 ${scoreColor(m.score)}`}>
+                        {m.score.toFixed(1)}
+                      </span>
+                    )}
+                    <span className="text-lol-text ml-auto shrink-0">
+                      {formatDuration(m.game_duration)}
+                    </span>
+                    <span className="text-lol-text shrink-0">{formatTimeAgo(m.game_creation)}</span>
+                  </div>
+                ))
+              ) : (
+                <span className="text-xs text-lol-text">No games</span>
+              )}
+            </div>
+          </div>
         </div>
       </div>
     </td>
@@ -313,22 +315,32 @@ export default function Champions() {
                   onClick={() => toggleExpand(c.champion_id)}
                   className="group border-b border-lol-border/20 transition-colors hover:bg-white/[0.03] cursor-pointer"
                 >
-                  <td className="px-3 py-2 text-right text-xs text-lol-text tabular-nums">{i + 1}</td>
-                  <td className="flex items-center gap-3 px-3 py-2">
-                      <ChampionIcon championId={c.champion_id} size={28} />
-                      <span className="text-sm font-bold text-lol-text-bright">
-                        {getChampionName(champData, c.champion_id)}
-                      </span>
+                  <td className="px-3 py-2 text-right text-xs text-lol-text tabular-nums">
+                    {i + 1}
                   </td>
-                  <td className="px-3 py-2 text-right text-xs text-lol-text tabular-nums">{c.games}</td>
+                  <td className="flex items-center gap-3 px-3 py-2">
+                    <ChampionIcon championId={c.champion_id} size={28} />
+                    <span className="text-sm font-bold text-lol-text-bright">
+                      {getChampionName(champData, c.champion_id)}
+                    </span>
+                  </td>
+                  <td className="px-3 py-2 text-right text-xs text-lol-text tabular-nums">
+                    {c.games}
+                  </td>
                   <td className="min-w-0 px-3 py-2 text-right text-xs text-lol-text font-semibold tabular-nums">
                     <div className="min-w-0">
                       <WinRateBar wins={c.wins} total={c.games} />
                     </div>
                   </td>
-                  <td className="px-3 py-2 text-right text-xs text-lol-text tabular-nums">{c.avg_kills}</td>
-                  <td className="px-3 py-2 text-right text-xs text-lol-text tabular-nums">{c.avg_deaths}</td>
-                  <td className="px-3 py-2 text-right text-xs text-lol-text tabular-nums">{c.avg_assists}</td>
+                  <td className="px-3 py-2 text-right text-xs text-lol-text tabular-nums">
+                    {c.avg_kills}
+                  </td>
+                  <td className="px-3 py-2 text-right text-xs text-lol-text tabular-nums">
+                    {c.avg_deaths}
+                  </td>
+                  <td className="px-3 py-2 text-right text-xs text-lol-text tabular-nums">
+                    {c.avg_assists}
+                  </td>
                   <td
                     className={`px-3 py-2 text-right text-xs tabular-nums ${kdaColor(c.deaths > 0 ? (c.kills + c.assists) / c.deaths : Infinity)}`}
                   >

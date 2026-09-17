@@ -34,18 +34,14 @@ export const PERK_ICON_URL = (iconPath: string, branch = "latest"): string => {
 // runesReforged.json / CommunityDragon's perks.json, e.g.
 // "https://ddragon.leagueoflegends.com/cdn/img/perk-images/Styles/Domination/Electrocute/Electrocute.png".
 export const DDRAGON_PERK_ICON_URL = (iconPath: string): string => {
-  const relative = iconPath
-    .replace(/^\/+/, "")
-    .replace(/^lol-game-data\/assets\/v1\//i, "");
+  const relative = iconPath.replace(/^\/+/, "").replace(/^lol-game-data\/assets\/v1\//i, "");
   return `https://ddragon.leagueoflegends.com/cdn/img/${relative}`;
 };
 
 // Community-run mirror of the same un-versioned Data Dragon perk path, used
 // when ddragon.leagueoflegends.com itself is unreachable.
 export const CANISBACK_PERK_ICON_URL = (iconPath: string): string => {
-  const relative = iconPath
-    .replace(/^\/+/, "")
-    .replace(/^lol-game-data\/assets\/v1\//i, "");
+  const relative = iconPath.replace(/^\/+/, "").replace(/^lol-game-data\/assets\/v1\//i, "");
   return `https://ddragon.canisback.com/img/${relative}`;
 };
 

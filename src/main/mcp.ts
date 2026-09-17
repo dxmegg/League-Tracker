@@ -24,7 +24,8 @@ export async function fetchSummonerGameHistory(
         game_name: gameName,
         tag_line: tagLine,
         region,
-        desired_output_fields: "data.game_history.{id,created_at,game_map,game_type,game_length_second}",
+        desired_output_fields:
+          "data.game_history.{id,created_at,game_map,game_type,game_length_second}",
       },
     });
     return result;

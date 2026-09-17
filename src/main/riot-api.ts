@@ -263,8 +263,7 @@ export async function getRecentRiotMatches(
     (a, b) => b.gameCreation - a.gameCreation,
   );
   const deduped = merged.filter(
-    (match, index, arr) =>
-      arr.findIndex((other) => other.gameId === match.gameId) === index,
+    (match, index, arr) => arr.findIndex((other) => other.gameId === match.gameId) === index,
   );
   recentMatchesCache.set(cacheKey, { matches: deduped, fetchedAt: now });
   const matches = deduped.slice(0, needed);
@@ -322,13 +321,16 @@ export async function importRecentRiotMatches(
 
   console.log("[import] candidates:", candidates.length, "of", ids.length);
 
-  const results = await mapWithConcurrency(candidates, IMPORT_CONCURRENCY, async ({ rawId, gameId }) => {
-    const cached = getCachedPayload(gameId);
-    console.log(
+  const results = await mapWithConcurrency(
+    candidates,
+    IMPORT_CONCURRENCY,
+    async ({ rawId, gameId }) => {
+      const cached = getCachedPayload(gameId);
+      console.log(
         `[import] worker start ${gameId} (${rawId}) — ${cached ? "cache hit" : "network fetch"}`,
-    );
-    let payload = cached;
-    if (!payload) {
+      );
+      let payload = cached;
+      if (!payload) {
         try {
           payload = await riotFetch<any>(
             `https://${route}.api.riotgames.com/lol/match/v5/matches/${encodeURIComponent(rawId)}`,
@@ -341,20 +343,21 @@ export async function importRecentRiotMatches(
           console.log(`[import] worker FAILED ${gameId} with status ${status}`, err);
           if (err instanceof RiotApiError && err.status === 404) {
             db.markIgnoredGame(gameId);
-          return false;
+            return false;
+          }
+          throw err;
         }
-        throw err;
       }
-    }
-    const normalized = normalizeMatchPayload(payload, gameId, puuid);
-    const inserted = db.insertGameFull(normalized, puuid, "search-import", true);
-    console.log(
-      `[import] worker ${gameId} insertGameFull returned ${
-        inserted ? "new tracked row" : "already tracked or duplicate"
-      }`,
-    );
-    return true;
-  });
+      const normalized = normalizeMatchPayload(payload, gameId, puuid);
+      const inserted = db.insertGameFull(normalized, puuid, "search-import", true);
+      console.log(
+        `[import] worker ${gameId} insertGameFull returned ${
+          inserted ? "new tracked row" : "already tracked or duplicate"
+        }`,
+      );
+      return true;
+    },
+  );
 
   let insertedNew = 0;
   let alreadyKnown = 0;
@@ -657,7 +660,10 @@ async function riotFetchOrNullCached<T>(
   }
 }
 
-function rankedEntry(entries: LeagueResponse[] | null, queueType: string): ProfileRankedEntry | null {
+function rankedEntry(
+  entries: LeagueResponse[] | null,
+  queueType: string,
+): ProfileRankedEntry | null {
   const entry = entries?.find((candidate) => candidate.queueType === queueType);
   return entry
     ? {
@@ -835,10 +841,7 @@ export async function getProfileData(
   };
 }
 
-export async function getProfileIcon(
-  puuid: string,
-  platform?: string,
-): Promise<number | null> {
+export async function getProfileIcon(puuid: string, platform?: string): Promise<number | null> {
   const normalizedPlatform =
     platform?.trim().toLowerCase() || db.getSetting("riot_platform")?.trim().toLowerCase();
   if (!normalizedPlatform) {
@@ -991,9 +994,7 @@ async function syncRiotAccount(
       );
     } catch (err) {
       if (err instanceof RiotApiError && err.status === 404) {
-        console.warn(
-          `[sync ${tag}] Match ${id} not available on Riot's servers (404), skipping.`,
-        );
+        console.warn(`[sync ${tag}] Match ${id} not available on Riot's servers (404), skipping.`);
         db.markIgnoredGame(id);
         continue;
       }

@@ -41,7 +41,8 @@ function createScope(name: string): Dbg {
     log: (message, ...args) => write("log", message, args),
     info: (message, ...args) => write("info", message, args),
     warn: (message, ...args) => write("warn", message, args),
-    err: (message, error) => write("error", message, error === undefined ? [] : errorDetails(error)),
+    err: (message, error) =>
+      write("error", message, error === undefined ? [] : errorDetails(error)),
     time: (label) => {
       const started = Date.now();
       return () => write("log", `${label} took ${Date.now() - started}ms`, []);

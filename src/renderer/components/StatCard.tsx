@@ -51,7 +51,9 @@ export default function StatCard({
       <div className="flex flex-col h-full justify-center gap-2 min-h-0">
         <div className="relative flex items-center gap-1.5 mb-1">
           {icon && a && (
-            <span className={`flex h-5 w-5 2xl:h-6 2xl:w-6 items-center justify-center rounded-md ${a.chip}`}>
+            <span
+              className={`flex h-5 w-5 2xl:h-6 2xl:w-6 items-center justify-center rounded-md ${a.chip}`}
+            >
               {icon}
             </span>
           )}

@@ -1,4 +1,4 @@
-import { useMemo, useEffect, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useIpc } from "../hooks/useIpc";
 import { useViewState } from "../hooks/useViewState";
@@ -12,6 +12,48 @@ import { useHistoryScopeQueue } from "../lib/historyScope";
 
 type SortKey = "games" | "winRate" | "kda" | "lastPlayed";
 type SortDir = "asc" | "desc";
+const BATCH_SIZE = 200;
+
+function useNearViewport(rootMargin = "200px") {
+  const ref = useRef<HTMLDivElement>(null);
+  const [visible, setVisible] = useState(false);
+
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    if (typeof IntersectionObserver === "undefined") {
+      setVisible(true);
+      return;
+    }
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          setVisible(true);
+          observer.disconnect();
+        }
+      },
+      { rootMargin },
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [rootMargin]);
+
+  return { ref, visible };
+}
+
+function LazyChampionIcon({ championId, size }: { championId: number; size: number }) {
+  const { ref, visible } = useNearViewport();
+  if (!visible) {
+    return (
+      <div
+        ref={ref}
+        style={{ width: size, height: size }}
+        className="rounded-full bg-white/[0.04]"
+      />
+    );
+  }
+  return <ChampionIcon championId={championId} size={size} />;
+}
 
 export default function Friends({
   relation,
@@ -25,6 +67,7 @@ export default function Friends({
   const navigate = useNavigate();
   const { section } = useParams<{ section?: string }>();
   const [view, setView] = useState<"friends" | "enemies">(relation ?? "friends");
+  const [visibleCount, setVisibleCount] = useState(BATCH_SIZE);
   const { scope } = useParams<{ scope?: string }>();
   const activeScope = historyScope ?? scope;
   const activeSection = historySection ?? section;
@@ -37,6 +80,10 @@ export default function Friends({
   const [search, setSearch] = useViewState("friends.search", "");
   const [sortKey, setSortKey] = useViewState<SortKey>("friends.sortKey", "games");
   const [sortDir, setSortDir] = useViewState<SortDir>("friends.sortDir", "desc");
+
+  useEffect(() => {
+    setVisibleCount(BATCH_SIZE);
+  }, [search, view, sortKey, sortDir]);
 
   useEffect(() => {
     const unsub = window.api.onGamesUpdated(() => refetch());
@@ -195,7 +242,7 @@ export default function Friends({
             </tr>
           </thead>
           <tbody>
-            {sorted.map((t, i) => {
+            {sorted.slice(0, visibleCount).map((t, i) => {
               const avgKills = t.games > 0 ? t.kills / t.games : 0;
               const avgDeaths = t.games > 0 ? t.deaths / t.games : 0;
               const avgAssists = t.games > 0 ? t.assists / t.games : 0;
@@ -213,7 +260,7 @@ export default function Friends({
                         : `/friends/${encodeURIComponent(t.key)}`,
                     )
                   }
-                  className="group border-b border-lol-border/20 transition-colors hover:bg-white/[0.03] cursor-pointer"
+                  className="cv-row group border-b border-lol-border/20 transition-colors hover:bg-white/[0.03] cursor-pointer"
                 >
                   <td className="px-3 py-2 text-right text-xs text-lol-text tabular-nums">
                     {i + 1}
@@ -242,7 +289,7 @@ export default function Friends({
                     <div className="flex items-center gap-1">
                       {t.champions.slice(0, 3).map((c) => (
                         <div key={c.champion_id} className="relative group">
-                          <ChampionIcon championId={c.champion_id} size={24} />
+                          <LazyChampionIcon championId={c.champion_id} size={24} />
                           <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1 hidden group-hover:block bg-lol-dark border border-lol-border rounded px-2 py-1 text-[10px] text-lol-text-bright whitespace-nowrap z-10">
                             {getChampionName(champData, c.champion_id)} ({c.games})
                           </div>
@@ -258,6 +305,18 @@ export default function Friends({
             })}
           </tbody>
         </table>
+        {visibleCount < sorted.length && (
+          <div className="flex justify-center border-t border-lol-border/20 py-4">
+            <button
+              type="button"
+              onClick={() => setVisibleCount((v) => v + BATCH_SIZE)}
+              className="inline-flex h-9 items-center rounded-md border border-lol-gold/30 bg-lol-gold/10 px-4 text-xs font-semibold tracking-wider text-lol-gold transition-colors hover:bg-lol-gold/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-lol-gold/60 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--theme-bg-deep)]"
+            >
+              Load {Math.min(BATCH_SIZE, sorted.length - visibleCount)} more · {visibleCount} of{" "}
+              {sorted.length}
+            </button>
+          </div>
+        )}
         {sorted.length === 0 && (
           <div className="rounded-lg border border-lol-crimson/40 bg-[linear-gradient(145deg,#0c0e11_0%,#090b0d_48%,#060809_100%)] shadow-[0_0_3px_rgba(150,30,30,0.55),0_0_10px_rgba(90,15,15,0.35),0_0_20px_rgba(60,10,10,0.20)] ring-1 ring-inset ring-white/[0.03] p-12 text-center">
             <p className="text-sm text-lol-text">

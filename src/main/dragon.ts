@@ -186,7 +186,10 @@ export async function loadRuneData() {
       number,
       { name: string; longDesc: string; icon: string; category: "keystone" | "secondary" | "tree" }
     > = {};
-    let communityPerks: Record<number, { name?: string; shortDesc?: string; longDesc?: string; iconPath?: string }> = {};
+    let communityPerks: Record<
+      number,
+      { name?: string; shortDesc?: string; longDesc?: string; iconPath?: string }
+    > = {};
     try {
       const perks = (await fetchJson(
         "https://raw.communitydragon.org/latest/plugins/rcp-be-lol-game-data/global/default/v1/perks.json",

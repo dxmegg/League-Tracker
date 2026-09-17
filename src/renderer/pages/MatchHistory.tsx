@@ -602,7 +602,9 @@ export default function MatchHistory({
                         : "border-transparent hover:border-lol-border hover:bg-white/5"
                     }`}
                   >
-                    <div className={`text-base xl:text-lg 2xl:text-xl font-bold leading-tight ${color}`}>
+                    <div
+                      className={`text-base xl:text-lg 2xl:text-xl font-bold leading-tight ${color}`}
+                    >
                       {value}
                     </div>
                     <div className="text-[9px] xl:text-[10px] font-semibold text-lol-text">

@@ -1,4 +1,4 @@
-import { HashRouter, Routes, Route } from "react-router-dom";
+import { HashRouter, Navigate, Routes, Route, useParams } from "react-router-dom";
 import Layout from "./components/Layout";
 import { FullHistoryShell } from "./components/FullHistoryShell";
 import MatchHistory from "./pages/MatchHistory";
@@ -20,6 +20,16 @@ function ScopedFriendDetail() {
   return <FriendDetail />;
 }
 
+function FriendsDetailRedirect() {
+  const { key } = useParams();
+  return <Navigate to={`/history/full/friends/${key ?? ""}`} replace />;
+}
+
+function GlobalChampionRedirect() {
+  const { championId } = useParams();
+  return <Navigate to={`/history/full/champions/champion/${championId ?? ""}`} replace />;
+}
+
 export default function App() {
   return (
     <HashRouter>
@@ -28,6 +38,12 @@ export default function App() {
           <Route path="/" element={<MatchHistory />} />
           <Route path="/history/full/:section" element={<HistorySection />} />
           <Route path="/history/:scope/:section" element={<HistorySection />} />
+          <Route
+            path="/history/:scope/:section/champion/:championId"
+            element={<GlobalChampionDetail />}
+          />
+          <Route path="/history/:scope/items/:itemId" element={<ItemDetail />} />
+          <Route path="/history/:scope/:section/:key" element={<ScopedFriendDetail />} />
           <Route path="/history/mayhem" element={<MatchHistory scope="mayhem" />} />
           <Route path="/history/rest" element={<MatchHistory scope="rest" />} />
           <Route path="/history/ranked" element={<MatchHistory scope="ranked" />} />
@@ -37,15 +53,16 @@ export default function App() {
           <Route path="/settings" element={<Settings />} />
           <Route path="/home" element={<Home />} />
           <Route path="/local" element={<Profile />} />
+          <Route path="/champions" element={<Navigate to="/history/full/champions" replace />} />
+          <Route path="/augments" element={<Navigate to="/history/full/augments" replace />} />
+          <Route path="/trends" element={<Navigate to="/history/full/trends" replace />} />
+          <Route path="/records" element={<Navigate to="/history/full/records" replace />} />
+          <Route path="/global" element={<Navigate to="/history/full/total-stats" replace />} />
+          <Route path="/friends" element={<Navigate to="/history/full/friends" replace />} />
+          <Route path="/friends/:key" element={<FriendsDetailRedirect />} />
+          <Route path="/global/champion/:championId" element={<GlobalChampionRedirect />} />
         </Route>
         <Route element={<Layout />}>
-          <Route
-            path="/history/:scope/:section/champion/:championId"
-            element={<GlobalChampionDetail />}
-          />
-          <Route path="/history/:scope/items/:itemId" element={<ItemDetail />} />
-          <Route path="/history/:scope/:section/:key" element={<ScopedFriendDetail />} />
-          <Route path="/history/:scope/:section" element={<HistorySection />} />
           <Route path="/champions" element={<Champions />} />
           <Route path="/augments" element={<Augments />} />
           <Route path="/friends" element={<Friends />} />

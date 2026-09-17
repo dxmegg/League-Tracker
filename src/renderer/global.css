@@ -367,4 +367,9 @@ html[data-theme="test"] #root {
       0 10px
     );
   }
+
+  .cv-row {
+    content-visibility: auto;
+    contain-intrinsic-size: 0 50px;
+  }
 }

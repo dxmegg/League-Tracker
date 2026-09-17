@@ -1,5 +1,11 @@
 import { useState, useEffect } from "react";
-import type { ChampionData, AugmentData, ItemData, SummonerSpellData, RuneData } from "../lib/types";
+import type {
+  ChampionData,
+  AugmentData,
+  ItemData,
+  SummonerSpellData,
+  RuneData,
+} from "../lib/types";
 import type { RuneTreeLayout } from "../../shared/api";
 
 let champCache: ChampionData | null = null;

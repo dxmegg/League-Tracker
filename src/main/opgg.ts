@@ -34,10 +34,7 @@ export async function searchSummoner(
   return opggFetch(url);
 }
 
-export async function getSummonerSummary(
-  region: string,
-  summonerId: string,
-): Promise<unknown> {
+export async function getSummonerSummary(region: string, summonerId: string): Promise<unknown> {
   const url = `${OPGG_BASE}/${encodeURIComponent(region)}/summoners/${encodeURIComponent(summonerId)}/summary?hl=en_US`;
   return opggFetch(url);
 }
