@@ -635,6 +635,50 @@ export interface ProfileMasteryChampion {
   championLevel: number;
 }
 
+export interface RankEntry {
+  tier: string;
+  division: string;
+  leaguePoints: number;
+  wins: number;
+  losses: number;
+}
+
+export interface MasteryChampion {
+  championId: number;
+  level: number;
+  points: number;
+}
+
+export interface AccountListItem {
+  puuid: string;
+  gameName: string | null;
+  tagLine: string | null;
+  profileIconId: number | null;
+  platform: string | null;
+  summonerLevel: number | null;
+  lastSeen: number | null;
+  gameCount: number;
+}
+
+export interface AccountSnapshot {
+  puuid: string;
+  gameName: string | null;
+  tagLine: string | null;
+  profileIconId: number | null;
+  platform: string | null;
+  summonerLevel: number | null;
+  rankedSolo: RankEntry | null;
+  rankedFlex: RankEntry | null;
+  topMasteryChampions: MasteryChampion[];
+  lastSeen: number | null;
+}
+
+export interface ProfileExtras {
+  rankedSolo: RankEntry | null;
+  rankedFlex: RankEntry | null;
+  topMasteryChampions: MasteryChampion[];
+}
+
 export interface RecentRiotMatch {
   gameId: number;
   win: boolean;
@@ -715,8 +759,17 @@ export interface ElectronAPI {
   getMatchDetail: (gameId: number) => Promise<MatchDetail>;
   toggleFavorite: (gameId: number) => Promise<boolean>;
   getChampionStats: (patch?: string, queue?: number, account?: string) => Promise<ChampionStats[]>;
-  getAugmentStats: (championId?: number, patch?: string, queue?: number, account?: string) => Promise<AugmentStats[]>;
-  getAugmentStatsDetailed: (patch?: string, queue?: number, account?: string) => Promise<AugmentStatsDetailedResult>;
+  getAugmentStats: (
+    championId?: number,
+    patch?: string,
+    queue?: number,
+    account?: string,
+  ) => Promise<AugmentStats[]>;
+  getAugmentStatsDetailed: (
+    patch?: string,
+    queue?: number,
+    account?: string,
+  ) => Promise<AugmentStatsDetailedResult>;
   getDashboard: (
     filters?: Pick<MatchFilters, "championId" | "patch" | "queue" | "account">,
   ) => Promise<DashboardData>;
@@ -730,9 +783,7 @@ export interface ElectronAPI {
     gameName: string,
     tagLine: string,
   ) => Promise<{ games: number; wins: number } | null>;
-  getRankedRecord: (
-    puuid: string,
-  ) => Promise<{
+  getRankedRecord: (puuid: string) => Promise<{
     solo: { wins: number; losses: number };
     flex: { wins: number; losses: number };
   } | null>;
@@ -754,9 +805,7 @@ export interface ElectronAPI {
     puuid: string,
     platform: string,
     count: number,
-  ) => Promise<
-    { imported: number; scanned: number; totalAvailable: number } | { error: string }
-  >;
+  ) => Promise<{ imported: number; scanned: number; totalAvailable: number } | { error: string }>;
   onRecentMatchesProgress: (
     callback: (progress: { current: number; total: number }) => void,
   ) => () => void;
@@ -794,6 +843,9 @@ export interface ElectronAPI {
   ) => Promise<GlobalChampionDetail>;
   getSummonerPuuid: () => Promise<string | null>;
   getAllSummonerPuuids: () => Promise<string[]>;
+  listAccountsWithData: () => Promise<AccountListItem[]>;
+  getAccountSnapshot: (puuid: string) => Promise<AccountSnapshot | null>;
+  getCurrentPuuid: () => Promise<string | null>;
   getSavedSummoners: () => Promise<
     Array<{
       puuid: string;
@@ -805,11 +857,11 @@ export interface ElectronAPI {
     }>
   >;
   deleteSearchedSummoners: () => Promise<{ removed: number; games: number }>;
-  deleteSummoner: (
-    puuid: string,
-  ) => Promise<{ deletedGames: number; deletedTrackedRows: number }>;
+  deleteSummoner: (puuid: string) => Promise<{ deletedGames: number; deletedTrackedRows: number }>;
   getProfile: () => Promise<LocalProfile>;
   getCurrentSummonerProfileIcon: () => Promise<number | null>;
+  getCurrentSummoner: () => Promise<CurrentSummoner>;
+  getProfileExtras: () => Promise<ProfileExtras>;
   getProfileIcon: (puuid: string, platform?: string) => Promise<number | null>;
   getDebugEnabled: () => Promise<boolean>;
   setDebugEnabled: (enabled: boolean) => Promise<void>;
@@ -844,6 +896,7 @@ export interface ElectronAPI {
   saveRiotAccount: (account: RiotAccountConfig) => Promise<void>;
   removeRiotAccount: (id: string) => Promise<void>;
   backfillHistory: (forceFull?: boolean) => Promise<BackfillResult | { error: string }>;
+  syncAccountHistory: (puuid: string) => Promise<{ ok: boolean; error?: string }>;
   cancelBackfill: () => Promise<void>;
   isBackfillRunning: () => Promise<boolean>;
   onBackfillProgress: (callback: (progress: BackfillProgress) => void) => () => void;

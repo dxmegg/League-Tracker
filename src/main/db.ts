@@ -22,7 +22,7 @@ import {
 } from "../shared/queues";
 import { getDataDir } from "./paths";
 import { getChampionClasses, getChampionDataVersion } from "./dragon";
-import type { ItemStats } from "../shared/api";
+import type { ItemStats, MasteryChampion, RankEntry } from "../shared/api";
 
 export type GameSource = "lcu" | "riot-sync" | "search-import";
 
@@ -141,9 +141,9 @@ export function purgeForeignOwnedGames(): number {
     db.prepare(`DELETE FROM tracked_game_stats WHERE game_id IN (${placeholders})`).run(...gameIds);
     db.prepare(`DELETE FROM player_stats WHERE game_id IN (${placeholders})`).run(...gameIds);
     db.prepare(`DELETE FROM game_augments WHERE game_id IN (${placeholders})`).run(...gameIds);
-    db.prepare(
-      `DELETE FROM match_participant_augments WHERE game_id IN (${placeholders})`,
-    ).run(...gameIds);
+    db.prepare(`DELETE FROM match_participant_augments WHERE game_id IN (${placeholders})`).run(
+      ...gameIds,
+    );
     db.prepare(`DELETE FROM match_participants WHERE game_id IN (${placeholders})`).run(...gameIds);
     db.prepare(`DELETE FROM games WHERE game_id IN (${placeholders})`).run(...gameIds);
   });
@@ -328,7 +328,13 @@ function createTables() {
       summoner_id  INTEGER,
       account_id   INTEGER,
       profile_icon INTEGER,
-      updated_at   INTEGER NOT NULL
+      updated_at   INTEGER NOT NULL,
+      platform     TEXT,
+      summoner_level INTEGER,
+      ranked_solo_json TEXT,
+      ranked_flex_json TEXT,
+      mastery_json TEXT,
+      last_seen INTEGER
     );
 
     CREATE TABLE IF NOT EXISTS settings (
@@ -780,7 +786,7 @@ function writeParticipants(gameId: number, meta: GameDenorm, rows: RawParticipan
 // versioning, so it could be missing any subset of the columns v1 adds — which
 // is why each step checks for its column rather than assuming. A database that
 // createTables just built is also version 0, and lands on the same no-op path.
-const SCHEMA_VERSION = 18;
+const SCHEMA_VERSION = 19;
 
 function tableColumns(table: string): Set<string> {
   const rows = db.pragma(`table_info(${table})`) as { name: string }[];
@@ -807,7 +813,15 @@ function runMigrations() {
     ["team_position", "player_subteam_id", "player_subteam_placement"].every((column) =>
       tableColumns("match_participants").has(column),
     ) &&
-    tableColumns("summoner").has("profile_icon");
+    [
+      "profile_icon",
+      "platform",
+      "summoner_level",
+      "ranked_solo_json",
+      "ranked_flex_json",
+      "mastery_json",
+      "last_seen",
+    ].every((column) => tableColumns("summoner").has(column));
   if (current === 0 && gamesCount.n === 0 && currentSchemaReady) {
     db.pragma(`user_version = ${SCHEMA_VERSION}`);
     return;
@@ -831,6 +845,7 @@ function runMigrations() {
   if (current < 16) migrateToV16();
   if (current < 17) migrateToV17();
   if (current < 18) migrateToV18();
+  if (current < 19) migrateToV19();
 
   db.pragma(`user_version = ${SCHEMA_VERSION}`);
 }
@@ -1069,21 +1084,29 @@ function migrateToV5() {
 function migrateToV6() {
   const mp = tableColumns("match_participants");
   if (!mp.has("total_damage_dealt_all")) {
-  db.exec("ALTER TABLE match_participants ADD COLUMN total_damage_dealt_all INTEGER NOT NULL DEFAULT 0");
+    db.exec(
+      "ALTER TABLE match_participants ADD COLUMN total_damage_dealt_all INTEGER NOT NULL DEFAULT 0",
+    );
   }
   if (!mp.has("true_damage_dealt")) {
-  db.exec("ALTER TABLE match_participants ADD COLUMN true_damage_dealt INTEGER NOT NULL DEFAULT 0");
+    db.exec(
+      "ALTER TABLE match_participants ADD COLUMN true_damage_dealt INTEGER NOT NULL DEFAULT 0",
+    );
   }
   const ps = tableColumns("player_stats");
   if (!ps.has("total_damage_dealt_all")) {
-  db.exec("ALTER TABLE player_stats ADD COLUMN total_damage_dealt_all INTEGER NOT NULL DEFAULT 0");
+    db.exec(
+      "ALTER TABLE player_stats ADD COLUMN total_damage_dealt_all INTEGER NOT NULL DEFAULT 0",
+    );
   }
   if (!ps.has("true_damage_dealt")) {
-  db.exec("ALTER TABLE player_stats ADD COLUMN true_damage_dealt INTEGER NOT NULL DEFAULT 0");
+    db.exec("ALTER TABLE player_stats ADD COLUMN true_damage_dealt INTEGER NOT NULL DEFAULT 0");
   }
   if (!ps.has("cs")) db.exec("ALTER TABLE player_stats ADD COLUMN cs INTEGER NOT NULL DEFAULT 0");
   if (!ps.has("largest_critical_strike")) {
-  db.exec("ALTER TABLE player_stats ADD COLUMN largest_critical_strike INTEGER NOT NULL DEFAULT 0");
+    db.exec(
+      "ALTER TABLE player_stats ADD COLUMN largest_critical_strike INTEGER NOT NULL DEFAULT 0",
+    );
   }
   rebuildParticipantsFromPayloads();
   rebuildDerivedStats();
@@ -1092,32 +1115,33 @@ function migrateToV6() {
 // Repairs databases stamped by earlier partial records migrations.
 function migrateToV7() {
   try {
-  const required = {
-    match_participants: [
-      ["true_damage", "INTEGER NOT NULL DEFAULT 0"],
-      ["total_damage_dealt_all", "INTEGER NOT NULL DEFAULT 0"],
-      ["true_damage_dealt", "INTEGER NOT NULL DEFAULT 0"],
-      ["largest_critical_strike", "INTEGER NOT NULL DEFAULT 0"],
-      ["cs", "INTEGER NOT NULL DEFAULT 0"],
-    ],
-    player_stats: [
-      ["total_damage_dealt_all", "INTEGER NOT NULL DEFAULT 0"],
-      ["true_damage_dealt", "INTEGER NOT NULL DEFAULT 0"],
-      ["cs", "INTEGER NOT NULL DEFAULT 0"],
-      ["largest_critical_strike", "INTEGER NOT NULL DEFAULT 0"],
-    ],
-  } as const;
-  for (const [table, columns] of Object.entries(required)) {
-    const existing = tableColumns(table);
-    for (const [column, definition] of columns) {
-      if (!existing.has(column)) db.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${definition}`);
+    const required = {
+      match_participants: [
+        ["true_damage", "INTEGER NOT NULL DEFAULT 0"],
+        ["total_damage_dealt_all", "INTEGER NOT NULL DEFAULT 0"],
+        ["true_damage_dealt", "INTEGER NOT NULL DEFAULT 0"],
+        ["largest_critical_strike", "INTEGER NOT NULL DEFAULT 0"],
+        ["cs", "INTEGER NOT NULL DEFAULT 0"],
+      ],
+      player_stats: [
+        ["total_damage_dealt_all", "INTEGER NOT NULL DEFAULT 0"],
+        ["true_damage_dealt", "INTEGER NOT NULL DEFAULT 0"],
+        ["cs", "INTEGER NOT NULL DEFAULT 0"],
+        ["largest_critical_strike", "INTEGER NOT NULL DEFAULT 0"],
+      ],
+    } as const;
+    for (const [table, columns] of Object.entries(required)) {
+      const existing = tableColumns(table);
+      for (const [column, definition] of columns) {
+        if (!existing.has(column))
+          db.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${definition}`);
+      }
     }
-  }
-  rebuildParticipantsFromPayloads();
-  rebuildDerivedStats();
+    rebuildParticipantsFromPayloads();
+    rebuildDerivedStats();
   } catch (error) {
-  console.error("Database schema migration v7 failed:", error);
-  throw error;
+    console.error("Database schema migration v7 failed:", error);
+    throw error;
   }
 }
 
@@ -1674,17 +1698,16 @@ export function getMatchHistory(
       .map((k) => MULTIKILL_COLUMNS[k])
       .filter((col): col is string => !!col);
     if (cols.length > 0) {
-      where.push(`(${cols.map((col) => col.replace(/^ps\./, `${statsAlias}.`) + " > 0").join(" OR ")})`);
+      where.push(
+        `(${cols.map((col) => col.replace(/^ps\./, `${statsAlias}.`) + " > 0").join(" OR ")})`,
+      );
     }
   }
   if (!filters?.account) {
     where.push(localGamesFilter("g"));
   }
   const whereSql = where.length > 0 ? `WHERE ${where.join(" AND ")}` : "";
-  const orderBy = matchOrderBy(filters?.sort, filters?.sortDir).replaceAll(
-    "ps.",
-    `${statsAlias}.`,
-  );
+  const orderBy = matchOrderBy(filters?.sort, filters?.sortDir).replaceAll("ps.", `${statsAlias}.`);
   const matchPuuid = filters?.account ? "tgs.puuid" : "g.puuid";
   const augmentIdsSql = filters?.account
     ? `(SELECT GROUP_CONCAT(augment_id, ',')
@@ -2060,9 +2083,9 @@ export function getMatchDetail(gameId: number): any {
              is_remake, puuid, game_version, favorite
       FROM games WHERE game_id = ?
     `)
-      .get(gameId) as any;
-    if (!game) return null;
-    const stats = db.prepare("SELECT * FROM player_stats WHERE game_id = ?").get(gameId);
+    .get(gameId) as any;
+  if (!game) return null;
+  const stats = db.prepare("SELECT * FROM player_stats WHERE game_id = ?").get(gameId);
   const augments = db
     .prepare("SELECT * FROM game_augments WHERE game_id = ? ORDER BY slot")
     .all(gameId);
@@ -2114,7 +2137,12 @@ export function getChampionStatsAll(patch?: string, queue?: number, account?: st
     .all(...params);
 }
 
-export function getAugmentStatsAll(championId?: number, patch?: string, queue?: number, account?: string): any[] {
+export function getAugmentStatsAll(
+  championId?: number,
+  patch?: string,
+  queue?: number,
+  account?: string,
+): any[] {
   const source = statsSource(account);
   const where = ["g.is_remake = 0"];
   where.push(source.accountFilter);
@@ -2229,18 +2257,18 @@ export function getDashboardData(filters?: {
 
   const augmentId = filters?.account ? "mpa.augment_id" : "ga.augment_id";
   const augmentSource = filters?.account
-  ? `FROM match_participant_augments mpa
+    ? `FROM match_participant_augments mpa
      JOIN match_participants mp
        ON mp.game_id = mpa.game_id
       AND mp.participant_id = mpa.participant_id
       AND mp.puuid = ps.puuid
      JOIN ${source.table} ${source.alias} ON mpa.game_id = ps.game_id
      JOIN games g ON mpa.game_id = g.game_id`
-  : `FROM game_augments ga
+    : `FROM game_augments ga
      JOIN ${source.table} ${source.alias} ON ga.game_id = ps.game_id
      JOIN games g ON ga.game_id = g.game_id`;
   const topAugments = db
-  .prepare(`
+    .prepare(`
   SELECT ${augmentId} as augment_id, COUNT(*) as picks, SUM(ps.win) as wins
   ${augmentSource}
   ${whereSql}
@@ -2474,19 +2502,19 @@ export function getRecentGames(
       LIMIT ?
     `)
     .all(puuid, ...queueIds, limit) as Array<{
-      game_id: number;
-      champion_id: number;
-      win: number;
-      is_remake: number;
-      kills: number;
-      deaths: number;
-      assists: number;
-      cs: number;
-      game_duration: number;
-      score: number | null;
-      team_position: string | null;
-      queue_id: number;
-    }>;
+    game_id: number;
+    champion_id: number;
+    win: number;
+    is_remake: number;
+    kills: number;
+    deaths: number;
+    assists: number;
+    cs: number;
+    game_duration: number;
+    score: number | null;
+    team_position: string | null;
+    queue_id: number;
+  }>;
   return rows.length > 0 ? rows : null;
 }
 
@@ -2544,19 +2572,19 @@ export function getRecentGamesByName(
       LIMIT ?
     `)
     .all(gameName, tagLine, ...queueIds, limit) as Array<{
-      game_id: number;
-      champion_id: number;
-      win: number;
-      is_remake: number;
-      kills: number;
-      deaths: number;
-      assists: number;
-      cs: number;
-      game_duration: number;
-      score: number | null;
-      team_position: string | null;
-      queue_id: number;
-    }>;
+    game_id: number;
+    champion_id: number;
+    win: number;
+    is_remake: number;
+    kills: number;
+    deaths: number;
+    assists: number;
+    cs: number;
+    game_duration: number;
+    score: number | null;
+    team_position: string | null;
+    queue_id: number;
+  }>;
   return rows.length > 0 ? rows : null;
 }
 
@@ -2828,9 +2856,9 @@ export function getKnownGameIdsForPuuid(puuid: string): Set<number> {
 }
 
 export function getTrackedGameIdsForPuuid(puuid: string): Set<number> {
-  const rows = db
-    .prepare("SELECT game_id FROM tracked_game_stats WHERE puuid = ?")
-    .all(puuid) as { game_id: number }[];
+  const rows = db.prepare("SELECT game_id FROM tracked_game_stats WHERE puuid = ?").all(puuid) as {
+    game_id: number;
+  }[];
   return new Set(rows.map((r) => r.game_id));
 }
 
@@ -2877,17 +2905,13 @@ export function getIgnoredGameIds(): Set<number> {
 export function restoreOlderGames(): { restored: number; remaining: number } {
   console.log("[db] restoreOlderGames called");
   const tx = db.transaction(() => {
-    const before = (
-      db.prepare("SELECT COUNT(*) AS n FROM ignored_games").get() as { n: number }
-    ).n;
+    const before = (db.prepare("SELECT COUNT(*) AS n FROM ignored_games").get() as { n: number }).n;
     db.prepare(`
       DELETE FROM ignored_games
       WHERE game_id IN (SELECT game_id FROM games)
          OR game_id IN (SELECT game_id FROM match_participants)
     `).run();
-    const after = (
-      db.prepare("SELECT COUNT(*) AS n FROM ignored_games").get() as { n: number }
-    ).n;
+    const after = (db.prepare("SELECT COUNT(*) AS n FROM ignored_games").get() as { n: number }).n;
     return { restored: before - after, remaining: after };
   });
   const result = tx();
@@ -2959,9 +2983,9 @@ function insertTrackedStatsOnly(gameId: number, puuid: string): TrackedOnlyResul
   const owner = rows.find((r) => r.puuid === puuid);
   if (!owner) return "no-owner-row";
 
-  const gameRow = db
-    .prepare("SELECT is_remake FROM games WHERE game_id = ?")
-    .get(gameId) as { is_remake: number } | undefined;
+  const gameRow = db.prepare("SELECT is_remake FROM games WHERE game_id = ?").get(gameId) as
+    | { is_remake: number }
+    | undefined;
   const isRemake = !!gameRow?.is_remake;
 
   let ownerScore: PlayerScore | null = null;
@@ -3232,22 +3256,282 @@ export function insertGameFull(
   return tx() as boolean;
 }
 
-export function upsertSummoner(summoner: any): void {
-  // REPLACE wipes the row, so keep the stored icon when this update doesn't
-  // carry one (imported summoner rows predate the column)
+export function upsertSummoner(summoner: {
+  puuid: string;
+  gameName?: string | null;
+  tagLine?: string | null;
+  summonerId?: number | null;
+  accountId?: number | null;
+  profileIconId?: number | null;
+  platform?: string | null;
+  summonerLevel?: number | null;
+  displayName?: string | null;
+  internalName?: string | null;
+  game_name?: string | null;
+  tag_line?: string | null;
+  summoner_id?: number | null;
+  account_id?: number | null;
+  profile_icon?: number | null;
+  summoner_level?: number | null;
+}): void {
+  const now = Date.now();
+  const gameName =
+    summoner.gameName ??
+    summoner.displayName ??
+    summoner.internalName ??
+    summoner.game_name ??
+    null;
+  const tagLine = summoner.tagLine ?? summoner.tag_line ?? null;
+  const summonerId = summoner.summonerId ?? summoner.summoner_id ?? null;
+  const accountId = summoner.accountId ?? summoner.account_id ?? null;
+  const profileIconId = summoner.profileIconId ?? summoner.profile_icon ?? null;
+  const summonerLevel = summoner.summonerLevel ?? summoner.summoner_level ?? null;
+
   db.prepare(`
-    INSERT OR REPLACE INTO summoner (puuid, game_name, tag_line, summoner_id, account_id, updated_at, profile_icon)
-    VALUES (?, ?, ?, ?, ?, ?, COALESCE(?, (SELECT profile_icon FROM summoner WHERE puuid = ?)))
+    INSERT INTO summoner (
+      puuid,
+      game_name,
+      tag_line,
+      summoner_id,
+      account_id,
+      profile_icon,
+      updated_at,
+      platform,
+      summoner_level,
+      last_seen
+    )
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    ON CONFLICT(puuid) DO UPDATE SET
+      game_name = COALESCE(excluded.game_name, summoner.game_name),
+      tag_line = COALESCE(excluded.tag_line, summoner.tag_line),
+      summoner_id = COALESCE(excluded.summoner_id, summoner.summoner_id),
+      account_id = COALESCE(excluded.account_id, summoner.account_id),
+      profile_icon = COALESCE(excluded.profile_icon, summoner.profile_icon),
+      platform = COALESCE(excluded.platform, summoner.platform),
+      summoner_level = COALESCE(excluded.summoner_level, summoner.summoner_level),
+      updated_at = excluded.updated_at,
+      last_seen = excluded.last_seen
   `).run(
     summoner.puuid,
-    summoner.displayName || summoner.gameName || summoner.internalName || summoner.game_name,
-    summoner.tagLine || summoner.tag_line || null,
-    summoner.summonerId ?? summoner.summoner_id,
-    summoner.accountId ?? summoner.account_id,
-    Date.now(),
-    summoner.profileIconId ?? summoner.profile_icon ?? null,
-    summoner.puuid,
+    gameName,
+    tagLine,
+    summonerId,
+    accountId,
+    profileIconId,
+    now,
+    summoner.platform ?? null,
+    summonerLevel,
+    now,
   );
+}
+
+export function saveAccountSnapshot(snapshot: {
+  puuid: string;
+  gameName?: string | null;
+  tagLine?: string | null;
+  profileIconId?: number | null;
+  platform?: string | null;
+  summonerLevel?: number | null;
+  rankedSolo?: RankEntry | null;
+  rankedFlex?: RankEntry | null;
+  topMasteryChampions?: MasteryChampion[];
+}): void {
+  console.log("[db] saveAccountSnapshot called:", { puuid: snapshot.puuid });
+  const tx = db.transaction(() => {
+    upsertSummoner({
+      puuid: snapshot.puuid,
+      gameName: snapshot.gameName,
+      tagLine: snapshot.tagLine,
+      profileIconId: snapshot.profileIconId,
+      platform: snapshot.platform,
+      summonerLevel: snapshot.summonerLevel,
+    });
+
+    const rankedSoloJson = snapshot.rankedSolo == null ? null : JSON.stringify(snapshot.rankedSolo);
+    const rankedFlexJson = snapshot.rankedFlex == null ? null : JSON.stringify(snapshot.rankedFlex);
+    const masteryJson =
+      snapshot.topMasteryChampions == null ? null : JSON.stringify(snapshot.topMasteryChampions);
+
+    db.prepare(`
+      UPDATE summoner
+      SET
+        platform = COALESCE(?, platform),
+        summoner_level = COALESCE(?, summoner_level),
+        ranked_solo_json = COALESCE(?, ranked_solo_json),
+        ranked_flex_json = COALESCE(?, ranked_flex_json),
+        mastery_json = COALESCE(?, mastery_json),
+        last_seen = ?
+      WHERE puuid = ?
+    `).run(
+      snapshot.platform ?? null,
+      snapshot.summonerLevel ?? null,
+      rankedSoloJson,
+      rankedFlexJson,
+      masteryJson,
+      Date.now(),
+      snapshot.puuid,
+    );
+  });
+
+  tx();
+  console.log("[db] saveAccountSnapshot done:", { puuid: snapshot.puuid });
+}
+
+export function updateParticipantNames(puuid: string, gameName: string, tagLine: string): number {
+  const info = db
+    .prepare(`
+      UPDATE match_participants
+      SET game_name = ?, tag_line = ?
+      WHERE puuid = ?
+        AND (game_name IS NOT ? OR tag_line IS NOT ?)
+    `)
+    .run(gameName, tagLine, puuid, gameName, tagLine);
+  return info.changes;
+}
+
+export function reconcileAllParticipantNames(): { accounts: number; rows: number } {
+  const summoners = db
+    .prepare(`
+      SELECT puuid, game_name, tag_line
+      FROM summoner
+      WHERE game_name IS NOT NULL
+    `)
+    .all() as Array<{ puuid: string; game_name: string; tag_line: string | null }>;
+
+  const tx = db.transaction(() => {
+    let rows = 0;
+    for (const summoner of summoners) {
+      rows += updateParticipantNames(summoner.puuid, summoner.game_name, summoner.tag_line ?? "");
+    }
+    return { accounts: summoners.length, rows };
+  });
+
+  return tx();
+}
+
+function parseSnapshotJson<T>(value: string | null): T | null {
+  if (value == null) return null;
+  try {
+    return JSON.parse(value) as T;
+  } catch {
+    return null;
+  }
+}
+
+export function getAccountSnapshot(puuid: string): {
+  puuid: string;
+  gameName: string | null;
+  tagLine: string | null;
+  profileIconId: number | null;
+  platform: string | null;
+  summonerLevel: number | null;
+  rankedSolo: RankEntry | null;
+  rankedFlex: RankEntry | null;
+  topMasteryChampions: MasteryChampion[];
+  lastSeen: number | null;
+} | null {
+  console.log("[db] getAccountSnapshot called:", { puuid });
+  const row = db
+    .prepare(`
+      SELECT
+        puuid,
+        game_name,
+        tag_line,
+        profile_icon,
+        platform,
+        summoner_level,
+        ranked_solo_json,
+        ranked_flex_json,
+        mastery_json,
+        last_seen
+      FROM summoner
+      WHERE puuid = ?
+    `)
+    .get(puuid) as
+    | {
+        puuid: string;
+        game_name: string | null;
+        tag_line: string | null;
+        profile_icon: number | null;
+        platform: string | null;
+        summoner_level: number | null;
+        ranked_solo_json: string | null;
+        ranked_flex_json: string | null;
+        mastery_json: string | null;
+        last_seen: number | null;
+      }
+    | undefined;
+
+  if (!row) {
+    console.log("[db] getAccountSnapshot done:", { found: false });
+    return null;
+  }
+
+  console.log("[db] getAccountSnapshot done:", { found: true, puuid });
+  return {
+    puuid: row.puuid,
+    gameName: row.game_name,
+    tagLine: row.tag_line,
+    profileIconId: row.profile_icon,
+    platform: row.platform,
+    summonerLevel: row.summoner_level,
+    rankedSolo: parseSnapshotJson<RankEntry>(row.ranked_solo_json),
+    rankedFlex: parseSnapshotJson<RankEntry>(row.ranked_flex_json),
+    topMasteryChampions: parseSnapshotJson<MasteryChampion[]>(row.mastery_json) ?? [],
+    lastSeen: row.last_seen,
+  };
+}
+
+export function listAccountsWithData(): Array<{
+  puuid: string;
+  gameName: string | null;
+  tagLine: string | null;
+  profileIconId: number | null;
+  platform: string | null;
+  summonerLevel: number | null;
+  lastSeen: number | null;
+  gameCount: number;
+}> {
+  console.log("[db] listAccountsWithData called:", {});
+  const rows = db
+    .prepare(`
+      SELECT
+        s.puuid,
+        s.game_name,
+        s.tag_line,
+        s.profile_icon,
+        s.platform,
+        s.summoner_level,
+        s.last_seen,
+        COUNT(tgs.game_id) AS game_count
+      FROM summoner s
+      INNER JOIN tracked_game_stats tgs ON tgs.puuid = s.puuid
+      GROUP BY s.puuid
+      HAVING COUNT(tgs.game_id) > 0
+      ORDER BY s.last_seen DESC
+    `)
+    .all() as Array<{
+    puuid: string;
+    game_name: string | null;
+    tag_line: string | null;
+    profile_icon: number | null;
+    platform: string | null;
+    summoner_level: number | null;
+    last_seen: number | null;
+    game_count: number;
+  }>;
+
+  console.log("[db] listAccountsWithData done:", { count: rows.length });
+  return rows.map((row) => ({
+    puuid: row.puuid,
+    gameName: row.game_name,
+    tagLine: row.tag_line,
+    profileIconId: row.profile_icon,
+    platform: row.platform,
+    summonerLevel: row.summoner_level,
+    lastSeen: row.last_seen,
+    gameCount: row.game_count,
+  }));
 }
 
 export function updateSummonerProfileIcon(puuid: string, profileIcon: number): void {
@@ -3307,14 +3591,16 @@ export function getProfile(): {
     : getSummoner();
   const profilePuuid = latest?.puuid ?? row?.puuid ?? null;
   const platform = profilePuuid
-    ? (
+    ? ((
         db
           .prepare(
             "SELECT platform FROM riot_sync_state WHERE puuid = ? ORDER BY last_sync_at DESC LIMIT 1",
           )
           .get(profilePuuid) as { platform: string } | undefined
-      )?.platform ?? getSetting("riot_platform") ?? null
-    : getSetting("riot_platform") ?? null;
+      )?.platform ??
+      getSetting("riot_platform") ??
+      null)
+    : (getSetting("riot_platform") ?? null);
 
   const name = row?.game_name
     ? row.tag_line
@@ -4933,9 +5219,9 @@ export function repairPuuids(): {
           // that is the exact shape left behind by an older Repair that reassigned
           // ownership without touching tracked_game_stats. The guard only affects
           // the counter: a pass that changes nothing must report zero.
-          const before = db
-            .prepare("SELECT puuid FROM games WHERE game_id = ?")
-            .get(gameId) as { puuid: string } | undefined;
+          const before = db.prepare("SELECT puuid FROM games WHERE game_id = ?").get(gameId) as
+            | { puuid: string }
+            | undefined;
           const puuidChanged = before?.puuid !== puuid;
           if (puuidChanged) {
             updateStmt.run(puuid, gameId);
@@ -5256,4 +5542,25 @@ function migrateToV18() {
   // distinguishable in historical data, so both backfill as 'lcu'.
   db.exec(`UPDATE games SET source = 'search-import' WHERE puuid = ''`);
   console.log(`[db] v18 backfilled source column`);
+}
+
+function migrateToV19() {
+  const columns = tableColumns("summoner");
+  const additions = [
+    ["platform", "TEXT"],
+    ["summoner_level", "INTEGER"],
+    ["ranked_solo_json", "TEXT"],
+    ["ranked_flex_json", "TEXT"],
+    ["mastery_json", "TEXT"],
+    ["last_seen", "INTEGER"],
+  ] as const;
+
+  for (const [name, definition] of additions) {
+    if (!columns.has(name)) {
+      db.exec(`ALTER TABLE summoner ADD COLUMN ${name} ${definition}`);
+    }
+  }
+
+  db.exec("UPDATE summoner SET last_seen = updated_at WHERE last_seen IS NULL");
+  console.log("[db] v19 added account snapshot columns");
 }

@@ -70,13 +70,9 @@ const api: ElectronAPI = {
   importRecentRiotMatches: (puuid: string, platform: string, count: number) =>
     ipcRenderer.invoke("riot:import-recent", puuid, platform, count),
 
-  onRecentMatchesProgress: (
-    callback: (progress: { current: number; total: number }) => void,
-  ) => {
-    const handler = (
-      _event: unknown,
-      progress: { current: number; total: number },
-    ) => callback(progress);
+  onRecentMatchesProgress: (callback: (progress: { current: number; total: number }) => void) => {
+    const handler = (_event: unknown, progress: { current: number; total: number }) =>
+      callback(progress);
     ipcRenderer.on("riot:recent-matches-progress", handler);
     return () => ipcRenderer.removeListener("riot:recent-matches-progress", handler);
   },
@@ -88,7 +84,16 @@ const api: ElectronAPI = {
     patch?: string,
     queue?: number,
     account?: string,
-  ) => ipcRenderer.invoke("db:champion-match-history", championId, limit, offset, patch, queue, account),
+  ) =>
+    ipcRenderer.invoke(
+      "db:champion-match-history",
+      championId,
+      limit,
+      offset,
+      patch,
+      queue,
+      account,
+    ),
 
   refreshGames: () => ipcRenderer.invoke("lcu:refresh"),
 
@@ -105,11 +110,11 @@ const api: ElectronAPI = {
   getOpggRecentGames: (region: string, summonerId: string, limit: number) =>
     ipcRenderer.invoke("opgg:games", region, summonerId, limit),
   getRiotAccounts: (): Promise<RiotAccountConfig[]> => ipcRenderer.invoke("riot:accounts"),
-  saveRiotAccount: (account: RiotAccountConfig) =>
-    ipcRenderer.invoke("riot:save-account", account),
+  saveRiotAccount: (account: RiotAccountConfig) => ipcRenderer.invoke("riot:save-account", account),
   removeRiotAccount: (id: string) => ipcRenderer.invoke("riot:remove-account", id),
 
   backfillHistory: (forceFull = false) => ipcRenderer.invoke("lcu:backfill", forceFull),
+  syncAccountHistory: (puuid: string) => ipcRenderer.invoke("backfill:sync-account", puuid),
 
   cancelBackfill: () => ipcRenderer.invoke("lcu:cancel-backfill"),
 
@@ -163,7 +168,8 @@ const api: ElectronAPI = {
 
   getTrends: (queue?: number, account?: string) => ipcRenderer.invoke("db:trends", queue, account),
 
-  getRecords: (queue?: number, account?: string) => ipcRenderer.invoke("db:records", queue, account),
+  getRecords: (queue?: number, account?: string) =>
+    ipcRenderer.invoke("db:records", queue, account),
 
   getGlobalChampionDetail: (championId: number, patch?: string, queue?: number) =>
     ipcRenderer.invoke("db:global-champion-detail", championId, patch, queue),
@@ -171,6 +177,9 @@ const api: ElectronAPI = {
   getSummonerPuuid: () => ipcRenderer.invoke("db:summoner-puuid"),
 
   getAllSummonerPuuids: () => ipcRenderer.invoke("db:all-summoner-puuids"),
+  listAccountsWithData: () => ipcRenderer.invoke("db:list-accounts"),
+  getAccountSnapshot: (puuid: string) => ipcRenderer.invoke("db:get-account-snapshot", puuid),
+  getCurrentPuuid: () => ipcRenderer.invoke("lcu:current-puuid"),
 
   getSavedSummoners: () => ipcRenderer.invoke("db:saved-summoners"),
   deleteSummoner: (puuid: string) => ipcRenderer.invoke("db:delete-summoner", puuid),
@@ -178,6 +187,8 @@ const api: ElectronAPI = {
 
   getProfile: () => ipcRenderer.invoke("db:profile"),
   getCurrentSummonerProfileIcon: () => ipcRenderer.invoke("lcu:current-summoner-icon"),
+  getCurrentSummoner: () => ipcRenderer.invoke("lcu:current-summoner"),
+  getProfileExtras: () => ipcRenderer.invoke("lcu:profile-extras"),
   getProfileIcon: (puuid: string, platform?: string) =>
     ipcRenderer.invoke("riot:profile-icon", puuid, platform),
   getDebugEnabled: () => ipcRenderer.invoke("dbg:get"),

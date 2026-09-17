@@ -98,9 +98,12 @@ export function registerIpcHandlers() {
     return db.toggleFavorite(gameId);
   });
 
-  ipcMain.handle("db:champion-stats", (_event, patch?: string, queue?: number, account?: string) => {
-    return db.getChampionStatsAll(patch, queue, account);
-  });
+  ipcMain.handle(
+    "db:champion-stats",
+    (_event, patch?: string, queue?: number, account?: string) => {
+      return db.getChampionStatsAll(patch, queue, account);
+    },
+  );
 
   ipcMain.handle(
     "db:augment-stats",
@@ -109,9 +112,12 @@ export function registerIpcHandlers() {
     },
   );
 
-  ipcMain.handle("db:augment-stats-detailed", (_event, patch?: string, queue?: number, account?: string) => {
-    return db.getAugmentStatsWithChampions(patch, queue, account);
-  });
+  ipcMain.handle(
+    "db:augment-stats-detailed",
+    (_event, patch?: string, queue?: number, account?: string) => {
+      return db.getAugmentStatsWithChampions(patch, queue, account);
+    },
+  );
 
   ipcMain.handle(
     "db:dashboard",
@@ -168,7 +174,15 @@ export function registerIpcHandlers() {
 
   ipcMain.handle(
     "db:champion-match-history",
-    (_event, championId: number, limit: number, offset: number, patch?: string, queue?: number, account?: string) => {
+    (
+      _event,
+      championId: number,
+      limit: number,
+      offset: number,
+      patch?: string,
+      queue?: number,
+      account?: string,
+    ) => {
       return db.getChampionMatchHistory(championId, limit, offset, patch, queue, account);
     },
   );
@@ -228,13 +242,7 @@ export function registerIpcHandlers() {
   );
   ipcMain.handle(
     "riot:profile",
-    async (
-      _event,
-      gameName: string,
-      tagLine: string,
-      platform: string,
-      force = false,
-    ) => {
+    async (_event, gameName: string, tagLine: string, platform: string, force = false) => {
       const key = `profile:${platform.toLowerCase()}:${gameName.toLowerCase()}:${tagLine.toLowerCase()}:${force}`;
       return dedupe(key, async () => {
         console.log("[profile] received:", { gameName, tagLine, platform });
@@ -279,16 +287,13 @@ export function registerIpcHandlers() {
       }
     },
   );
-  ipcMain.handle(
-    "opgg:summary",
-    async (_event, region: string, summonerId: string) => {
-      try {
-        return await opgg.getSummonerSummary(region, summonerId);
-      } catch (err) {
-        return { error: err instanceof Error ? err.message : "OP.GG summary failed" };
-      }
-    },
-  );
+  ipcMain.handle("opgg:summary", async (_event, region: string, summonerId: string) => {
+    try {
+      return await opgg.getSummonerSummary(region, summonerId);
+    } catch (err) {
+      return { error: err instanceof Error ? err.message : "OP.GG summary failed" };
+    }
+  });
   ipcMain.handle(
     "opgg:games",
     async (_event, region: string, summonerId: string, limit: number) => {
@@ -324,6 +329,38 @@ export function registerIpcHandlers() {
     }
   });
 
+  ipcMain.handle("backfill:sync-account", async (event, puuid: string) => {
+    console.log("[backfill] sync-account requested:", { puuid });
+    try {
+      const snapshot = db.getAccountSnapshot(puuid);
+      if (!snapshot) {
+        return { ok: false, error: "Account not found in local cache" };
+      }
+      if (!snapshot.gameName || !snapshot.platform) {
+        return {
+          ok: false,
+          error: "Account has no cached identity — log in with it once in League Client",
+        };
+      }
+
+      await lcu.backfillHistoryForAccount(
+        {
+          puuid: snapshot.puuid,
+          gameName: snapshot.gameName,
+          tagLine: snapshot.tagLine ?? "",
+          platform: snapshot.platform,
+        },
+        senderWindow(event),
+        false,
+      );
+      return { ok: true };
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : String(err);
+      console.warn("[backfill] sync-account failed:", message);
+      return { ok: false, error: message };
+    }
+  });
+
   ipcMain.handle("lcu:cancel-backfill", () => {
     lcu.cancelBackfill();
   });
@@ -334,6 +371,24 @@ export function registerIpcHandlers() {
 
   ipcMain.handle("lcu:status", () => {
     return lcu.getStatus();
+  });
+
+  ipcMain.handle("lcu:current-puuid", async () => {
+    console.log("[lcu] current puuid handler called:", {});
+    if (!lcu.isClientConnected()) {
+      console.log("[lcu] current puuid handler done:", { puuid: null, connected: false });
+      return null;
+    }
+
+    try {
+      const summoner = await lcu.getCurrentSummoner();
+      const puuid = summoner.puuid || null;
+      console.log("[lcu] current puuid handler done:", { puuid, connected: true });
+      return puuid;
+    } catch (err) {
+      console.warn("[lcu] current puuid unavailable:", err);
+      return null;
+    }
   });
 
   ipcMain.handle("lcu:current-summoner-icon", async () => {
@@ -350,6 +405,35 @@ export function registerIpcHandlers() {
       console.warn("[lcu] currentSummonerProfileIcon failed:", err);
       return null;
     }
+  });
+
+  ipcMain.handle("lcu:current-summoner", async () => {
+    console.log("[lcu] currentSummoner handler called:", {});
+    const result = await lcu.getCurrentSummoner();
+    console.log("[lcu] currentSummoner handler done:", {
+      puuid: result.puuid,
+      summonerLevel: result.summonerLevel,
+      profileIconId: result.profileIconId,
+      platform: result.platform,
+    });
+    void lcu.collectAndSaveSnapshot().catch((err) => {
+      console.warn("[lcu-watcher] explicit summoner snapshot failed:", err);
+    });
+    return result;
+  });
+
+  ipcMain.handle("lcu:profile-extras", async () => {
+    console.log("[lcu] profileExtras handler called:", {});
+    const result = await lcu.getProfileExtras();
+    console.log("[lcu] profileExtras handler done:", {
+      hasRankedSolo: Boolean(result.rankedSolo),
+      hasRankedFlex: Boolean(result.rankedFlex),
+      masteryCount: result.topMasteryChampions.length,
+    });
+    void lcu.collectAndSaveSnapshot().catch((err) => {
+      console.warn("[lcu-watcher] explicit extras snapshot failed:", err);
+    });
+    return result;
   });
 
   ipcMain.handle("dragon:champions", async () => {
@@ -437,9 +521,12 @@ export function registerIpcHandlers() {
   ipcMain.handle("db:global-stats", (_event, patch?: string, queue?: number) => {
     return db.getGlobalStats(patch, queue);
   });
-  ipcMain.handle("db:owned-item-stats", (_event, patch?: string, queue?: number, account?: string) => {
-    return db.getOwnedItemStats(patch, queue, account);
-  });
+  ipcMain.handle(
+    "db:owned-item-stats",
+    (_event, patch?: string, queue?: number, account?: string) => {
+      return db.getOwnedItemStats(patch, queue, account);
+    },
+  );
   ipcMain.handle("db:owned-rune-stats", (_event, queue?: number, patch?: string) => {
     return db.getOwnedRuneStats(queue, patch);
   });
@@ -467,6 +554,23 @@ export function registerIpcHandlers() {
 
   ipcMain.handle("db:all-summoner-puuids", () => {
     return db.getAllPuuids();
+  });
+
+  ipcMain.handle("db:list-accounts", () => {
+    console.log("[db] list accounts handler called:", {});
+    const result = db.listAccountsWithData();
+    console.log("[db] list accounts handler done:", { count: result.length });
+    return result;
+  });
+
+  ipcMain.handle("db:get-account-snapshot", (_event, puuid: string) => {
+    console.log("[db] get account snapshot handler called:", { puuid });
+    const result = db.getAccountSnapshot(puuid);
+    console.log("[db] get account snapshot handler done:", {
+      puuid,
+      found: result !== null,
+    });
+    return result;
   });
 
   ipcMain.handle("db:saved-summoners", () => {

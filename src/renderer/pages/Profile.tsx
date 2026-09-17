@@ -2,11 +2,19 @@ import { type ReactNode, useCallback, useEffect, useRef, useState } from "react"
 import type { MatchDetail, MatchListItem, ProfileData, ProfileRankedEntry } from "../lib/types";
 import { GameRow } from "./MatchHistory";
 import { getChampionName, useChampionData } from "../hooks/useChampions";
-import type { ChampionData, ProfileMasteryChampion, ProfileRecentGame } from "../../shared/api";
+import type {
+  AccountListItem,
+  AccountSnapshot,
+  ChampionData,
+  CurrentSummoner,
+  ProfileMasteryChampion,
+  ProfileRecentGame,
+  RankEntry,
+} from "../../shared/api";
 import ChampionIcon from "../components/ChampionIcon";
 import { shortRegion } from "../../shared/regions";
-import { ARENA_QUEUE_IDS, isAugmentQueue, QUEUE_LABELS } from "../../shared/queues";
-import { kdaRatio } from "../lib/format";
+import { isAugmentQueue, QUEUE_LABELS } from "../../shared/queues";
+import { formatTimeAgo, kdaRatio } from "../lib/format";
 import { CHAMPION_ICON_URL } from "../lib/constants";
 import { dbg } from "../../shared/debug";
 
@@ -22,22 +30,62 @@ function getPercentColor(percent: number): string {
         : "text-red-400";
 }
 
+function toProfileRankedEntry(entry: RankEntry | null): ProfileRankedEntry | null {
+  return entry
+    ? {
+        tier: entry.tier,
+        rank: entry.division,
+        leaguePoints: entry.leaguePoints,
+        wins: entry.wins,
+        losses: entry.losses,
+      }
+    : null;
+}
+
+function profileDataFromSnapshot(
+  snapshot: AccountSnapshot,
+  dataDragonVersion: string,
+): ProfileData {
+  return {
+    puuid: snapshot.puuid,
+    gameName: snapshot.gameName ?? "Unknown",
+    tagLine: snapshot.tagLine ?? "",
+    platform: snapshot.platform ?? "",
+    profileIconId: snapshot.profileIconId ?? 0,
+    summonerLevel: snapshot.summonerLevel ?? 0,
+    dataDragonVersion,
+    masteryPoints: 0,
+    masteryScore: 0,
+    topMasteryChampions: snapshot.topMasteryChampions.map((champion) => ({
+      championId: champion.championId,
+      championPoints: champion.points,
+      championLevel: champion.level,
+    })),
+    rankedSolo: toProfileRankedEntry(snapshot.rankedSolo),
+    rankedFlex: toProfileRankedEntry(snapshot.rankedFlex),
+  };
+}
+
 function RankCard({
   title,
   entry,
   recentGames,
   championData,
+  isLive,
+  hasCachedData,
 }: {
   title: string;
   entry: ProfileRankedEntry | null;
   recentGames?: ProfileRecentGame[] | null;
   championData: ChampionData;
+  isLive: boolean;
+  hasCachedData: boolean;
 }) {
   return (
-    <div className="relative rounded-xl border border-lol-border/70 bg-lol-card/60 p-5 pl-6 overflow-visible">
+    <div className="relative rounded-lg border border-lol-crimson/40 bg-[linear-gradient(145deg,#0c0e11_0%,#090b0d_48%,#060809_100%)] p-5 pl-6 shadow-[0_0_3px_rgba(150,30,30,0.55),0_0_10px_rgba(90,15,15,0.35),0_0_20px_rgba(60,10,10,0.20)] ring-1 ring-inset ring-white/[0.03] overflow-visible">
       <div className="absolute left-0 top-0 bottom-0 w-1 bg-[#5865a8]" />
-      <div className="flex items-center justify-between mb-5">
-        <h2 className="text-sm font-semibold text-lol-text-bright">{title}</h2>
+      <div className="mb-3 flex items-center justify-between">
+        <h2 className="mb-3 text-xs font-bold uppercase tracking-wider text-lol-gold">{title}</h2>
         <button
           type="button"
           aria-label={`${title} options`}
@@ -59,8 +107,8 @@ function RankCard({
             }}
           />
           <div>
-            <p className="text-sm font-semibold text-lol-text-bright">
-              {entry.tier} {entry.rank}
+            <p className="text-xl font-bold text-lol-text-bright">
+              {entry.tier.toUpperCase()} {entry.rank.toUpperCase()}
             </p>
             <p className="text-xs text-lol-gold mt-1">{entry.leaguePoints} LP</p>
           </div>
@@ -71,7 +119,7 @@ function RankCard({
               const percent = games > 0 ? Math.round((entry.wins / games) * 1000) / 10 : 0;
               return (
                 <>
-                  <div className="mt-2 flex h-1.5 overflow-hidden bg-red-400/30">
+                  <div className="mt-2 flex h-2 overflow-hidden rounded-full bg-lol-border/60">
                     <div
                       className="h-full bg-emerald-400 transition-all duration-300 ease-out"
                       style={{ width: `${games > 0 ? (entry.wins / games) * 100 : 0}%` }}
@@ -92,106 +140,15 @@ function RankCard({
           </div>
         </div>
       ) : (
-        <p className="text-sm text-lol-text">Unranked</p>
+        <p className="text-sm text-lol-text">
+          {!isLive && hasCachedData ? "Log in with this account to sync rank" : "Unranked"}
+        </p>
       )}
     </div>
   );
 }
 
-type MostPlayedQueue = {
-  queue_id: number;
-  games: number;
-  wins: number;
-  isArenaGroup: boolean;
-};
-
-type MatchTotals = {
-  games: number;
-  wins: number;
-};
-
 type RecentGame = ProfileRecentGame;
-
-function deriveFromRiotMatches(matches: MatchListItem[]): {
-  mostPlayed: MostPlayedQueue | null;
-  totals: MatchTotals;
-  recentGames: ProfileRecentGame[];
-  recentAllGames: ProfileRecentGame[];
-} {
-  if (matches.length === 0) {
-    return {
-      mostPlayed: null,
-      totals: { games: 0, wins: 0 },
-      recentGames: [],
-      recentAllGames: [],
-    };
-  }
-
-  const byQueue = new Map<number, { games: number; wins: number }>();
-  for (const match of matches) {
-    const current = byQueue.get(match.queue_id) ?? { games: 0, wins: 0 };
-    current.games += 1;
-    if (match.win) current.wins += 1;
-    byQueue.set(match.queue_id, current);
-  }
-
-  let bestQueue = 0;
-  let bestGames = 0;
-  let bestWins = 0;
-  for (const [queueId, { games, wins }] of byQueue) {
-    if (games > bestGames) {
-      bestQueue = queueId;
-      bestGames = games;
-      bestWins = wins;
-    }
-  }
-
-  const toRecentGame = (match: MatchListItem): ProfileRecentGame => ({
-    game_id: match.game_id,
-    champion_id: match.champion_id,
-    win: match.win ? 1 : 0,
-    is_remake: match.is_remake,
-    kills: match.kills,
-    deaths: match.deaths,
-    assists: match.assists,
-    cs: Number.isFinite(match.cs) ? (match.cs ?? 0) : 0,
-    game_duration: match.game_duration,
-    score: match.score,
-    team_position: match.team_position,
-    queue_id: match.queue_id,
-  });
-
-  const allRecent = matches.map(toRecentGame);
-  const isArenaGroup = ARENA_QUEUE_IDS.includes(bestQueue);
-  const bestQueueSet = isArenaGroup ? new Set(ARENA_QUEUE_IDS) : new Set([bestQueue]);
-  const recentGames = allRecent.filter((game) => bestQueueSet.has(game.queue_id)).slice(0, 5);
-
-  return {
-    mostPlayed: {
-      queue_id: bestQueue,
-      games: bestGames,
-      wins: bestWins,
-      isArenaGroup,
-    },
-    totals: {
-      games: matches.length,
-      wins: matches.filter((match) => match.win).length,
-    },
-    recentGames,
-    recentAllGames: allRecent.slice(0, 5),
-  };
-}
-
-// TODO: remove when /local migrates (Phase 14)
-// oxlint-disable-next-line
-function recomputeBoxesFromMatches(matches: MatchListItem[]): {
-  mostPlayed: MostPlayedQueue | null;
-  totals: MatchTotals;
-  recentGames: ProfileRecentGame[];
-  recentAllGames: ProfileRecentGame[];
-} {
-  return deriveFromRiotMatches(matches);
-}
 
 const TEAM_POSITION_LABELS: Record<string, string> = {
   TOP: "Top",
@@ -308,65 +265,6 @@ function RecentGamesStrip({
   );
 }
 
-function MatchStatsBox({
-  title,
-  totals,
-  subtitle,
-  recentGames,
-  championData,
-  hideRecentGamesWhenEmpty = false,
-}: {
-  title: string;
-  totals: MatchTotals | null;
-  subtitle?: ReactNode;
-  recentGames?: ProfileRecentGame[] | null;
-  championData: ChampionData;
-  hideRecentGamesWhenEmpty?: boolean;
-}) {
-  if (!totals || totals.games <= 0) {
-    return (
-      <div className="min-w-[180px] flex flex-1 flex-col rounded-xl border border-lol-border/70 bg-lol-card/50 px-4 py-3">
-        <p className="text-[11px] font-semibold uppercase tracking-wide text-lol-text/70">
-          {title}
-        </p>
-        <p className="mt-1 text-sm font-semibold text-lol-text-bright">
-          {subtitle ?? "No games recorded"}
-        </p>
-        {!hideRecentGamesWhenEmpty && (
-          <RecentGamesStrip games={recentGames ?? null} championData={championData} />
-        )}
-      </div>
-    );
-  }
-
-  const losses = totals.games - totals.wins;
-  const oneDec = Math.round((totals.wins / totals.games) * 1000) / 10;
-  const percentColor = getPercentColor(oneDec);
-
-  return (
-    <div className="min-w-[180px] flex flex-1 flex-col rounded-xl border border-lol-border/70 bg-lol-card/50 px-4 py-3">
-      <p className="text-[11px] font-semibold uppercase tracking-wide text-lol-text/70">{title}</p>
-      {subtitle && <p className="mt-1 text-sm font-semibold text-lol-text-bright">{subtitle}</p>}
-      <RecentGamesStrip games={recentGames ?? null} championData={championData} />
-      <div className="mt-2 flex h-1.5 overflow-hidden rounded-full bg-red-400/30">
-        <div
-          className="h-full bg-emerald-400 transition-all duration-300 ease-out"
-          style={{ width: `${(totals.wins / totals.games) * 100}%` }}
-        />
-        <div
-          className="h-full bg-red-400/60 transition-all duration-300 ease-out"
-          style={{ width: `${(losses / totals.games) * 100}%` }}
-        />
-      </div>
-      <div className="mt-auto flex justify-between pt-2 text-xs">
-        <span className="text-emerald-400">{totals.wins}W</span>
-        <span className={percentColor}>{oneDec.toFixed(1)}% WR</span>
-        <span className="text-red-400">{losses}L</span>
-      </div>
-    </div>
-  );
-}
-
 function PipsRow({ matches }: { matches: MatchListItem[] }) {
   const pips = matches.slice(0, 5).slice().reverse();
   return (
@@ -394,22 +292,22 @@ function LastPlayedChampionsBox({
 }) {
   if (loading) {
     return (
-      <div className="min-w-[220px] flex-1 rounded-xl border border-lol-border/70 bg-lol-card/50 px-4 py-3">
-        <p className="text-[11px] font-semibold uppercase tracking-wide text-lol-text/70">
+      <div className="min-w-[220px] flex-1 rounded-lg border border-lol-crimson/40 bg-[linear-gradient(145deg,#0c0e11_0%,#090b0d_48%,#060809_100%)] p-3 shadow-[0_0_3px_rgba(150,30,30,0.55),0_0_10px_rgba(90,15,15,0.35),0_0_20px_rgba(60,10,10,0.20)] ring-1 ring-inset ring-white/[0.03]">
+        <p className="mb-2 text-[10px] font-bold uppercase tracking-wider text-lol-gold">
           Last played champions
         </p>
-        <p className="mt-1 text-sm font-semibold text-lol-text">Loading…</p>
+        <p className="text-xs text-lol-text">Loading…</p>
       </div>
     );
   }
 
   if (matches.length === 0) {
     return (
-      <div className="min-w-[280px] flex-1 rounded-xl border border-lol-border/70 bg-lol-card/50 px-4 py-3">
-        <p className="text-[11px] font-semibold uppercase tracking-wide text-lol-text/70">
+      <div className="min-w-[280px] flex-1 rounded-lg border border-lol-crimson/40 bg-[linear-gradient(145deg,#0c0e11_0%,#090b0d_48%,#060809_100%)] p-3 shadow-[0_0_3px_rgba(150,30,30,0.55),0_0_10px_rgba(90,15,15,0.35),0_0_20px_rgba(60,10,10,0.20)] ring-1 ring-inset ring-white/[0.03]">
+        <p className="mb-2 text-[10px] font-bold uppercase tracking-wider text-lol-gold">
           Last played champions
         </p>
-        <p className="mt-1 text-sm font-semibold text-lol-text-bright">No games recorded</p>
+        <p className="text-xs text-lol-text">No games recorded</p>
       </div>
     );
   }
@@ -428,8 +326,8 @@ function LastPlayedChampionsBox({
     .slice(0, 5);
 
   return (
-    <div className="min-w-[280px] flex-1 rounded-xl border border-lol-border/70 bg-lol-card/50 px-4 py-3">
-      <p className="text-[11px] font-semibold uppercase tracking-wide text-lol-text/70">
+    <div className="min-w-[280px] flex-1 rounded-lg border border-lol-crimson/40 bg-[linear-gradient(145deg,#0c0e11_0%,#090b0d_48%,#060809_100%)] p-3 shadow-[0_0_3px_rgba(150,30,30,0.55),0_0_10px_rgba(90,15,15,0.35),0_0_20px_rgba(60,10,10,0.20)] ring-1 ring-inset ring-white/[0.03]">
+      <p className="mb-2 text-[10px] font-bold uppercase tracking-wider text-lol-gold">
         Last played champions
       </p>
       <PipsRow matches={matches} />
@@ -445,7 +343,10 @@ function LastPlayedChampionsBox({
               key={championId}
               className="grid grid-cols-[24px_1fr_auto] items-center gap-2 text-xs"
             >
-              <span title={getChampionName(champData, championId)}>
+              <span
+                title={getChampionName(champData, championId)}
+                className="overflow-hidden rounded-full"
+              >
                 <ChampionIcon championId={championId} size={22} />
               </span>
               <span className="tabular-nums">
@@ -471,22 +372,22 @@ function LastGamesBox({ matches, loading }: { matches: MatchListItem[]; loading:
   const games = matches.length;
   if (loading) {
     return (
-      <div className="min-w-[220px] flex-1 rounded-xl border border-lol-border/70 bg-lol-card/50 px-4 py-3">
-        <p className="text-[11px] font-semibold uppercase tracking-wide text-lol-text/70">
+      <div className="min-w-[220px] flex-1 rounded-lg border border-lol-crimson/40 bg-[linear-gradient(145deg,#0c0e11_0%,#090b0d_48%,#060809_100%)] p-3 shadow-[0_0_3px_rgba(150,30,30,0.55),0_0_10px_rgba(90,15,15,0.35),0_0_20px_rgba(60,10,10,0.20)] ring-1 ring-inset ring-white/[0.03]">
+        <p className="mb-2 text-[10px] font-bold uppercase tracking-wider text-lol-gold">
           Last games
         </p>
-        <p className="mt-1 text-sm font-semibold text-lol-text">Loading…</p>
+        <p className="text-xs text-lol-text">Loading…</p>
       </div>
     );
   }
 
   if (games === 0) {
     return (
-      <div className="min-w-[220px] flex-1 rounded-xl border border-lol-border/70 bg-lol-card/50 px-4 py-3">
-        <p className="text-[11px] font-semibold uppercase tracking-wide text-lol-text/70">
+      <div className="min-w-[220px] flex-1 rounded-lg border border-lol-crimson/40 bg-[linear-gradient(145deg,#0c0e11_0%,#090b0d_48%,#060809_100%)] p-3 shadow-[0_0_3px_rgba(150,30,30,0.55),0_0_10px_rgba(90,15,15,0.35),0_0_20px_rgba(60,10,10,0.20)] ring-1 ring-inset ring-white/[0.03]">
+        <p className="mb-2 text-[10px] font-bold uppercase tracking-wider text-lol-gold">
           Last 0 games
         </p>
-        <p className="mt-1 text-sm font-semibold text-lol-text-bright">No games recorded</p>
+        <p className="text-xs text-lol-text">No games recorded</p>
       </div>
     );
   }
@@ -499,8 +400,8 @@ function LastGamesBox({ matches, loading }: { matches: MatchListItem[]; loading:
   const assists = matches.reduce((sum, match) => sum + match.assists, 0);
 
   return (
-    <div className="min-w-[220px] flex-1 rounded-xl border border-lol-border/70 bg-lol-card/50 px-4 py-3">
-      <p className="text-[11px] font-semibold uppercase tracking-wide text-lol-text/70">
+    <div className="min-w-[220px] flex-1 rounded-lg border border-lol-crimson/40 bg-[linear-gradient(145deg,#0c0e11_0%,#090b0d_48%,#060809_100%)] p-3 shadow-[0_0_3px_rgba(150,30,30,0.55),0_0_10px_rgba(90,15,15,0.35),0_0_20px_rgba(60,10,10,0.20)] ring-1 ring-inset ring-white/[0.03]">
+      <p className="mb-2 text-[10px] font-bold uppercase tracking-wider text-lol-gold">
         Last {games} games
       </p>
       <PipsRow matches={matches} />
@@ -518,35 +419,6 @@ function LastGamesBox({ matches, loading }: { matches: MatchListItem[]; loading:
         <span className="text-lol-text-bright">{kdaRatio(kills, deaths, assists)} KDA</span>
       </div>
     </div>
-  );
-}
-
-// TODO: remove when /local migrates (Phase 14)
-// oxlint-disable-next-line
-function MostPlayedMode({
-  mostPlayed,
-  recentGames,
-  championData,
-}: {
-  mostPlayed: MostPlayedQueue | null;
-  recentGames: ProfileRecentGame[] | null;
-  championData: ChampionData;
-}) {
-  const queueName =
-    mostPlayed &&
-    (mostPlayed.isArenaGroup
-      ? "Arena"
-      : (QUEUE_LABELS[mostPlayed.queue_id] ?? `Queue ${mostPlayed.queue_id}`));
-  const modeSubtitle =
-    mostPlayed && queueName ? `${queueName} | ${mostPlayed.games} Games in total` : undefined;
-  return (
-    <MatchStatsBox
-      title="Most played mode"
-      totals={mostPlayed}
-      subtitle={modeSubtitle}
-      recentGames={recentGames}
-      championData={championData}
-    />
   );
 }
 
@@ -687,9 +559,9 @@ function RecentRiotMatchesSection({
   }) => void;
 }) {
   return (
-    <section className="rounded-xl border border-lol-border bg-lol-card p-4">
-      <div className="flex items-center justify-between gap-3">
-        <h2 className="text-sm font-semibold uppercase tracking-wide text-lol-text/70">
+    <section className="overflow-hidden rounded-lg border border-lol-crimson/40 bg-[linear-gradient(145deg,#0c0e11_0%,#090b0d_48%,#060809_100%)] shadow-[0_0_3px_rgba(150,30,30,0.55),0_0_10px_rgba(90,15,15,0.35),0_0_20px_rgba(60,10,10,0.20)] ring-1 ring-inset ring-white/[0.03]">
+      <div className="flex items-center justify-between gap-3 px-4 pt-4">
+        <h2 className="mb-3 text-xs font-bold uppercase tracking-wider text-lol-gold">
           Recent Matches
         </h2>
         <span className="text-[11px] text-lol-text">
@@ -705,29 +577,37 @@ function RecentRiotMatchesSection({
           {loading || refreshing ? "Refreshing…" : "Refresh Match History"}
         </button>
       </div>
-      {summary && <p className="mt-1 text-[11px] text-lol-text/60">Last import: {summary}</p>}
+      {summary && <p className="px-4 pt-1 text-[11px] text-lol-text/60">Last import: {summary}</p>}
       {loading && (!matches || matches.length === 0) && (
-        <p className="mt-4 text-sm text-lol-text">Loading…</p>
+        <p className="py-8 text-center text-sm text-lol-text">Loading…</p>
       )}
-      {error && <p className="mt-4 text-sm text-lol-loss">{error}</p>}
+      {error && (
+        <p className="mx-4 mt-4 rounded-md border border-lol-crimson/40 bg-lol-crimson/10 px-3 py-2 text-xs text-lol-crimson-bright">
+          {error}
+        </p>
+      )}
       {!loading && !error && matches && matches.length === 0 && (
-        <p className="mt-4 text-sm text-lol-text">No recent matches</p>
+        <p className="py-8 text-center text-sm text-lol-text">No recent matches</p>
       )}
       {matches && matches.length > 0 && (
-        <div className="mt-3 space-y-1">
+        <div className="space-y-1 px-4 pb-4 pt-3">
           {matches.map((match) => (
-            <GameRow
+            <div
               key={match.game_id}
-              match={match}
-              champData={champData}
-              expanded={expandedId === match.game_id}
-              detail={expandedId === match.game_id ? detail : null}
-              detailLoading={expandedId === match.game_id && detailLoading}
-              puuids={puuids}
-              onPlayerClick={onPlayerClick}
-              onToggle={() => onToggle(match.game_id)}
-              onContextMenu={(event) => onContextMenu(event, match)}
-            />
+              className="group cursor-pointer border-b border-lol-border/20 transition-colors hover:bg-white/[0.03]"
+            >
+              <GameRow
+                match={match}
+                champData={champData}
+                expanded={expandedId === match.game_id}
+                detail={expandedId === match.game_id ? detail : null}
+                detailLoading={expandedId === match.game_id && detailLoading}
+                puuids={puuids}
+                onPlayerClick={onPlayerClick}
+                onToggle={() => onToggle(match.game_id)}
+                onContextMenu={(event) => onContextMenu(event, match)}
+              />
+            </div>
           ))}
           <div className="mt-3">
             <button
@@ -761,67 +641,177 @@ export default function Profile() {
   const [profile, setProfile] = useState<ProfileData | null>(null);
   const [recentMatches, setRecentMatches] = useState<MatchListItem[] | null>(null);
   const [recentMatchesAvailable, setRecentMatchesAvailable] = useState(0);
-  // TODO: remove when /local migrates (Phase 14)
-  // oxlint-disable-next-line
-  const [recentMatchesLoading, setRecentMatchesLoading] = useState(false);
-  // TODO: remove when /local migrates (Phase 14)
-  // oxlint-disable-next-line
-  const [recentMatchesError, setRecentMatchesError] = useState<string | null>(null);
+  // TODO: cleanup in Phase 15 — unused setter
+  const [recentMatchesLoading, _setRecentMatchesLoading] = useState(false);
+  // TODO: cleanup in Phase 15 — unused setter
+  const [recentMatchesError, _setRecentMatchesError] = useState<string | null>(null);
   const [recentExpandedId, setRecentExpandedId] = useState<number | null>(null);
   const [recentDetail, setRecentDetail] = useState<MatchDetail | null>(null);
   const [recentDetailLoading, setRecentDetailLoading] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [syncError, setSyncError] = useState<string | null>(null);
   const [profileIconFailed, setProfileIconFailed] = useState(false);
-  const hasAutoLoaded = useRef(false);
+  const [accounts, setAccounts] = useState<AccountListItem[]>([]);
+  const [selectedPuuid, setSelectedPuuid] = useState<string | null>(null);
+  const [livePuuid, setLivePuuid] = useState<string | null>(null);
+  const [selectorOpen, setSelectorOpen] = useState(false);
+  const [syncing, setSyncing] = useState(false);
+  const [scannedCount, setScannedCount] = useState(0);
+  const [totalCount, setTotalCount] = useState(0);
+  const selectorWrapperRef = useRef<HTMLDivElement>(null);
+  const selectionInitialized = useRef(false);
+
+  useEffect(() => {
+    let mounted = true;
+    const refreshLivePuuid = async (): Promise<string | null> => {
+      try {
+        const nextLivePuuid = await window.api.getCurrentPuuid();
+        if (mounted) setLivePuuid(nextLivePuuid);
+        return nextLivePuuid;
+      } catch (err: unknown) {
+        console.warn("Could not refresh current League client account:", err);
+        if (mounted) setLivePuuid(null);
+        return null;
+      }
+    };
+
+    void Promise.allSettled([refreshLivePuuid(), window.api.listAccountsWithData()]).then(
+      ([liveResult, accountsResult]) => {
+        if (!mounted) return;
+
+        const nextLivePuuid = liveResult.status === "fulfilled" ? liveResult.value : null;
+        const nextAccounts = accountsResult.status === "fulfilled" ? accountsResult.value : [];
+        setAccounts(nextAccounts);
+
+        if (!selectionInitialized.current) {
+          selectionInitialized.current = true;
+          setSelectedPuuid(nextLivePuuid ?? nextAccounts[0]?.puuid ?? null);
+        }
+      },
+    );
+    const livePuuidInterval = window.setInterval(() => {
+      void refreshLivePuuid();
+    }, 60_000);
+
+    const unsubscribe = window.api.onGamesUpdated(() => {
+      void window.api
+        .listAccountsWithData()
+        .then((nextAccounts) => {
+          if (mounted) setAccounts(nextAccounts);
+        })
+        .catch((err: unknown) => {
+          console.warn("Could not refresh local account list:", err);
+        });
+    });
+
+    return () => {
+      mounted = false;
+      window.clearInterval(livePuuidInterval);
+      unsubscribe();
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!selectorOpen) return;
+
+    const handleOutsideMouseDown = (event: MouseEvent) => {
+      const target = event.target;
+      if (target instanceof Node && !selectorWrapperRef.current?.contains(target)) {
+        setSelectorOpen(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handleOutsideMouseDown);
+    return () => document.removeEventListener("mousedown", handleOutsideMouseDown);
+  }, [selectorOpen]);
 
   const loadLocalProfile = useCallback(
-    () =>
+    (puuid: string, options?: { silent?: boolean }) =>
       log.safe("load profile", async () => {
-        setLoading(true);
+        const silent = options?.silent === true;
+        if (!silent) {
+          setLoading(true);
+        }
         setError(null);
-        setProfile(null);
+        if (!silent) {
+          setProfile(null);
+        }
         try {
-          const localProfile = await window.api.getProfile();
-          const profilePuuid = localProfile.puuid;
-          if (!profilePuuid) {
-            setError("No local account data. Connect to the League client or import history.");
-            return;
+          let profileData: ProfileData;
+
+          if (livePuuid === null || puuid === livePuuid) {
+            let profileIconId = 0;
+            let currentSummoner: CurrentSummoner | null = null;
+            try {
+              currentSummoner = await window.api.getCurrentSummoner();
+              profileIconId = currentSummoner.profileIconId;
+            } catch (err: unknown) {
+              console.warn("Could not read current League client profile:", err);
+              try {
+                profileIconId = (await window.api.getCurrentSummonerProfileIcon()) ?? 0;
+              } catch (iconErr: unknown) {
+                console.warn("Could not read current League client profile icon:", iconErr);
+              }
+            }
+
+            const localProfile = await window.api.getProfile();
+            if (!localProfile.puuid) {
+              setError("No local account data. Connect to the League client or import history.");
+              return;
+            }
+
+            const profileExtras = await window.api.getProfileExtras();
+            profileData = {
+              puuid,
+              gameName: currentSummoner?.gameName ?? localProfile.name ?? "Local account",
+              tagLine: currentSummoner?.tagLine ?? "",
+              platform: currentSummoner?.platform || localProfile.platform || "",
+              profileIconId: currentSummoner?.profileIconId || profileIconId,
+              summonerLevel: currentSummoner?.summonerLevel ?? 0,
+              dataDragonVersion: await window.api.getChampionDataVersion(),
+              masteryPoints: 0,
+              masteryScore: 0,
+              topMasteryChampions: profileExtras.topMasteryChampions.map((champion) => ({
+                championId: champion.championId,
+                championPoints: champion.points,
+                championLevel: champion.level,
+              })),
+              rankedSolo: toProfileRankedEntry(profileExtras.rankedSolo),
+              rankedFlex: toProfileRankedEntry(profileExtras.rankedFlex),
+            };
+          } else {
+            const snapshot = await window.api.getAccountSnapshot(puuid);
+            if (!snapshot) {
+              setError(
+                "No cached data for this account. Log in with it in League Client to fetch.",
+              );
+              return;
+            }
+            profileData = profileDataFromSnapshot(
+              snapshot,
+              await window.api.getChampionDataVersion(),
+            );
           }
 
-          const localName = localProfile.name ?? "Local account";
-          let profileIconId = 0;
-          try {
-            profileIconId = (await window.api.getCurrentSummonerProfileIcon()) ?? 0;
-          } catch (err: unknown) {
-            console.warn("Could not read current League client profile icon:", err);
-          }
-          const localRecentMatches = await readRecentHistoryFromDb(profilePuuid, 20);
-          setProfile({
-            puuid: profilePuuid,
-            gameName: localName,
-            tagLine: "",
-            platform: localProfile.platform ?? "",
-            profileIconId,
-            summonerLevel: 0,
-            dataDragonVersion: await window.api.getChampionDataVersion(),
-            masteryPoints: 0,
-            masteryScore: 0,
-            topMasteryChampions: null,
-            rankedSolo: null,
-            rankedFlex: null,
-          });
-          log.log("profile loaded", { puuid: profile?.puuid, icon: profile?.profileIconId });
+          const localRecentMatches = await readRecentHistoryFromDb(puuid, 20);
+          setProfile(profileData);
+          log.log("profile loaded", { puuid, icon: profileData.profileIconId });
           setRecentMatches(localRecentMatches.matches);
           setRecentMatchesAvailable(localRecentMatches.total);
         } catch (err: unknown) {
           console.error("Failed to load local profile:", err);
-          setError(err instanceof Error ? err.message : "Could not load local profile");
+          const message = err instanceof Error ? err.message : "Could not load local profile";
+          if (silent) {
+            setSyncError(message);
+          } else {
+            setError(message);
+          }
         } finally {
           setLoading(false);
         }
       }),
-    [log],
+    [livePuuid, log],
   );
 
   const handleToggleRecentMatch = useCallback(
@@ -843,10 +833,27 @@ export default function Profile() {
   );
 
   useEffect(() => {
-    if (hasAutoLoaded.current) return;
-    hasAutoLoaded.current = true;
-    void loadLocalProfile();
-  }, [loadLocalProfile]);
+    setSyncError(null);
+    setScannedCount(0);
+    setTotalCount(0);
+    if (!selectedPuuid) return;
+    void loadLocalProfile(selectedPuuid);
+  }, [selectedPuuid, loadLocalProfile, livePuuid]);
+
+  useEffect(() => {
+    if (syncing) {
+      return window.api.onBackfillProgress((progress) => {
+        setScannedCount(progress.current);
+        setTotalCount(progress.total);
+      });
+    }
+
+    const resetTimer = window.setTimeout(() => {
+      setScannedCount(0);
+      setTotalCount(0);
+    }, 500);
+    return () => window.clearTimeout(resetTimer);
+  }, [syncing]);
 
   if (error || !profile) {
     return (
@@ -861,46 +868,228 @@ export default function Profile() {
     );
   }
 
-  const version = profile.dataDragonVersion === "none" ? "latest" : profile.dataDragonVersion;
   const profileIconUrl =
-    profile.profileIconId > 0
-      ? `https://ddragon.leagueoflegends.com/cdn/${version}/img/profileicon/${profile.profileIconId}.png`
+    profile.profileIconId && profile.dataDragonVersion
+      ? `https://ddragon.leagueoflegends.com/cdn/${profile.dataDragonVersion}/img/profileicon/${profile.profileIconId}.png`
       : null;
   const profileInitial = profile.gameName.trim().charAt(0).toUpperCase() || "?";
+  const selectedAccount = accounts.find((account) => account.puuid === selectedPuuid);
+  const currentAccountLabel = selectedPuuid
+    ? selectedAccount
+      ? `${selectedAccount.gameName ?? "Unknown"}#${selectedAccount.tagLine ?? ""}`
+      : "Unknown"
+    : "No account";
+  const sortedAccounts = [...accounts].sort((a, b) => {
+    const aLive = a.puuid === livePuuid ? 1 : 0;
+    const bLive = b.puuid === livePuuid ? 1 : 0;
+    if (aLive !== bLive) return bLive - aLive;
+    return (b.lastSeen ?? 0) - (a.lastSeen ?? 0);
+  });
+  const progressPercent = totalCount > 0 ? Math.min(100, (scannedCount / totalCount) * 100) : 0;
 
   return (
-    <div className="max-w-6xl space-y-8">
+    <div className="flex flex-col gap-6">
+      <div className="flex flex-col items-end">
+        <div className="flex items-center justify-end">
+          <button
+            type="button"
+            onClick={async () => {
+              if (!selectedPuuid) return;
+              setSyncing(true);
+              setSyncError(null);
+              try {
+                const result = await window.api.syncAccountHistory(selectedPuuid);
+                if (!result.ok) {
+                  setSyncError(result.error ?? "Sync failed");
+                } else {
+                  await loadLocalProfile(selectedPuuid, { silent: true });
+                }
+              } finally {
+                setSyncing(false);
+              }
+            }}
+            disabled={syncing || !selectedPuuid}
+            className="inline-flex h-9 shrink-0 items-center gap-2 rounded-md border border-lol-gold/30 bg-lol-gold/10 px-3 text-xs font-semibold tracking-wider text-lol-gold transition-colors hover:bg-lol-gold/20 disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-lol-gold/60 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--theme-bg-deep)]"
+          >
+            {syncing ? "Refreshing..." : "Refresh"}
+          </button>
+        </div>
+        {syncing && (
+          <div className="mt-2 flex w-64 flex-col items-end gap-1">
+            <div className="h-1.5 w-full overflow-hidden rounded-full bg-lol-border/60">
+              <div
+                className="h-full bg-lol-gold transition-all duration-300"
+                style={{ width: `${progressPercent}%` }}
+              />
+            </div>
+            <span className="text-[11px] tabular-nums text-lol-text">
+              {scannedCount} out of {totalCount || "?"} games scanned
+            </span>
+          </div>
+        )}
+      </div>
+      {syncError && (
+        <div className="flex items-start gap-3 rounded-md border border-lol-crimson/40 bg-lol-crimson/10 px-4 py-3">
+          <span className="text-sm font-bold text-lol-crimson-bright">!</span>
+          <p className="flex-1 text-xs text-lol-crimson-bright">{syncError}</p>
+          <button
+            type="button"
+            onClick={() => setSyncError(null)}
+            className="shrink-0 text-xs font-bold uppercase tracking-wider text-lol-crimson-bright transition-colors hover:text-lol-text-bright focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-lol-gold/60 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--theme-bg-deep)]"
+            aria-label="Dismiss sync error"
+          >
+            Dismiss
+          </button>
+        </div>
+      )}
       <div className="grid grid-cols-[220px_minmax(0,1fr)_256px_auto] items-start gap-8">
         <div>
-          <div className="h-[220px] w-[220px] rounded-xl bg-[linear-gradient(138deg,#c89b37_0%,#ffe09b_50%,#c89b37_100%)] p-[5px]">
+          <div className="h-[220px] w-[220px] rounded-lg border border-lol-crimson/40 bg-[linear-gradient(138deg,#c89b37_0%,#ffe09b_50%,#c89b37_100%)] p-[4px] shadow-[0_0_3px_rgba(150,30,30,0.55),0_0_10px_rgba(90,15,15,0.35),0_0_20px_rgba(60,10,10,0.20)]">
             {profileIconUrl && !profileIconFailed ? (
               <img
                 src={profileIconUrl}
                 alt={`${profile.gameName} profile icon`}
-                className="h-full w-full rounded-lg object-cover"
+                className="h-full w-full rounded-md object-cover"
                 onError={() => setProfileIconFailed(true)}
               />
             ) : (
               <div
-                className="flex h-full w-full items-center justify-center rounded-lg bg-lol-dark text-6xl font-semibold text-lol-text-bright"
+                className="flex h-full w-full items-center justify-center rounded-md bg-lol-dark text-6xl font-semibold text-lol-text-bright"
                 aria-label={`${profile.gameName} profile icon placeholder`}
               >
                 {profileInitial}
               </div>
             )}
           </div>
-          <p className="mt-3 text-sm text-lol-text">Level {profile.summonerLevel}</p>
+          <p className="mt-3 text-center text-xs font-bold uppercase tracking-wider text-lol-text">
+            LEVEL{" "}
+            {profile.summonerLevel === 0 && selectedPuuid !== livePuuid ? (
+              <span className="text-lol-text/60">—</span>
+            ) : (
+              profile.summonerLevel
+            )}
+          </p>
         </div>
 
         <div className="min-w-0 pt-0">
           <div>
-            <h1
-              className="max-w-full break-words text-4xl font-semibold tracking-tight text-lol-text-bright"
-              title={profile.tagLine ? `${profile.gameName}#${profile.tagLine}` : profile.gameName}
-            >
-              {profile.tagLine ? `${profile.gameName}#${profile.tagLine}` : profile.gameName}
-            </h1>
-            <p className="mt-2 text-sm text-lol-text">Region: {shortRegion(profile.platform)}</p>
+            <div ref={selectorWrapperRef} className="relative flex items-center gap-3">
+              {selectedAccount ? (
+                <h1
+                  className="max-w-full break-words text-4xl font-bold tracking-tight text-lol-text-bright"
+                  title={`${selectedAccount.gameName ?? ""}#${selectedAccount.tagLine ?? ""}`}
+                >
+                  {selectedAccount.gameName ?? "Unknown"}
+                  {selectedAccount.tagLine ? `#${selectedAccount.tagLine}` : ""}
+                </h1>
+              ) : (
+                <h1 className="max-w-full break-words text-4xl font-bold tracking-tight text-lol-text-bright">
+                  {profile.gameName}
+                </h1>
+              )}
+              <button
+                type="button"
+                onClick={() => setSelectorOpen((value) => !value)}
+                className="inline-flex h-9 shrink-0 items-center gap-2 rounded-md border border-lol-border/60 bg-lol-card/40 px-3 text-xs font-semibold tracking-wider text-lol-text transition-colors hover:border-lol-gold/40 hover:text-lol-text-bright focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-lol-gold/60 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--theme-bg-deep)]"
+                aria-haspopup="listbox"
+                aria-expanded={selectorOpen}
+              >
+                {currentAccountLabel}
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  viewBox="0 0 16 16"
+                  fill="currentColor"
+                  className="h-3.5 w-3.5"
+                  aria-hidden="true"
+                >
+                  <path d="M4.22 6.22a.75.75 0 0 1 1.06 0L8 8.94l2.72-2.72a.75.75 0 1 1 1.06 1.06l-3.25 3.25a.75.75 0 0 1-1.06 0L4.22 7.28a.75.75 0 0 1 0-1.06Z" />
+                </svg>
+              </button>
+              {selectorOpen && (
+                <div
+                  role="listbox"
+                  className="absolute left-0 top-full z-50 mt-2 max-h-80 w-80 overflow-y-auto rounded-lg border border-lol-crimson/40 bg-[linear-gradient(145deg,#0c0e11_0%,#090b0d_48%,#060809_100%)] p-1 shadow-[0_0_3px_rgba(150,30,30,0.55),0_0_10px_rgba(90,15,15,0.35),0_0_20px_rgba(60,10,10,0.20)] ring-1 ring-inset ring-white/[0.03]"
+                >
+                  {sortedAccounts.map((account) => {
+                    const isLive = account.puuid === livePuuid;
+                    const isSelected = account.puuid === selectedPuuid;
+                    return (
+                      <button
+                        key={account.puuid}
+                        type="button"
+                        role="option"
+                        aria-selected={isSelected}
+                        onClick={() => {
+                          setSelectedPuuid(account.puuid);
+                          setSelectorOpen(false);
+                        }}
+                        className={`flex w-full items-center gap-3 rounded-md px-3 py-2 text-left transition-colors ${
+                          isSelected
+                            ? "bg-lol-gold/15 text-lol-text-bright"
+                            : "text-lol-text hover:bg-white/[0.05] hover:text-lol-text-bright"
+                        }`}
+                      >
+                        {account.profileIconId !== null && (
+                          <img
+                            src={`https://ddragon.leagueoflegends.com/cdn/${profile.dataDragonVersion}/img/profileicon/${account.profileIconId}.png`}
+                            alt=""
+                            className="h-7 w-7 shrink-0 rounded-full border border-lol-border/40 object-cover"
+                            onError={(event) => {
+                              event.currentTarget.style.display = "none";
+                            }}
+                          />
+                        )}
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-2">
+                            <span className="truncate text-sm font-bold text-lol-text-bright">
+                              {account.gameName ?? "Unknown"}
+                              {account.tagLine ? `#${account.tagLine}` : ""}
+                            </span>
+                            {isLive && (
+                              <span className="inline-flex shrink-0 items-center gap-1 rounded border border-lol-win/50 bg-lol-win/10 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider text-lol-win">
+                                <span className="inline-block h-1.5 w-1.5 rounded-full bg-lol-win" />
+                                Live
+                              </span>
+                            )}
+                          </div>
+                          <div className="text-[11px] text-lol-text">
+                            {account.gameCount} {account.gameCount === 1 ? "game" : "games"}
+                            {account.lastSeen && ` · ${formatTimeAgo(account.lastSeen)}`}
+                          </div>
+                        </div>
+                      </button>
+                    );
+                  })}
+                  {accounts.length === 0 && (
+                    <div className="px-3 py-4 text-center text-xs text-lol-text">
+                      No accounts with match history yet
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+            <div className="mt-2 flex items-center gap-2 text-xs text-lol-text">
+              <span>
+                Region:{" "}
+                {!profile.platform && selectedPuuid !== livePuuid ? (
+                  <span className="text-lol-text/60">not synced</span>
+                ) : (
+                  shortRegion(profile.platform)
+                )}
+              </span>
+              <span aria-hidden="true">·</span>
+              {selectedPuuid === livePuuid && livePuuid !== null && (
+                <span className="inline-flex items-center gap-1 text-[11px] font-bold uppercase tracking-wider text-lol-win">
+                  <span className="inline-block h-1.5 w-1.5 rounded-full bg-lol-win" />
+                  Live
+                </span>
+              )}
+              {selectedPuuid !== livePuuid && selectedAccount?.lastSeen && (
+                <span className="text-[11px] font-bold uppercase tracking-wider text-lol-text">
+                  Synced {formatTimeAgo(selectedAccount.lastSeen)}
+                </span>
+              )}
+            </div>
             <div className="mt-4 flex flex-wrap items-stretch gap-3">
               <LastPlayedChampionsBox
                 matches={recentMatches ?? []}
@@ -912,20 +1101,36 @@ export default function Profile() {
           </div>
         </div>
 
-        <div className="mt-[84px] w-64 rounded-xl border border-lol-border/70 bg-lol-card/50 px-5 py-4">
-          <h2 className="text-center text-sm font-semibold text-lol-text-bright">
+        <div className="mt-[84px] w-64 rounded-lg border border-lol-crimson/40 bg-[linear-gradient(145deg,#0c0e11_0%,#090b0d_48%,#060809_100%)] px-5 py-4 shadow-[0_0_3px_rgba(150,30,30,0.55),0_0_10px_rgba(90,15,15,0.35),0_0_20px_rgba(60,10,10,0.20)] ring-1 ring-inset ring-white/[0.03]">
+          <h2 className="mb-3 text-center text-xs font-bold uppercase tracking-wider text-lol-gold">
             Champion Mastery
           </h2>
-          <MasteryChampionStrip
-            champions={profile.topMasteryChampions}
-            championData={championData}
-          />
+          {profile.topMasteryChampions?.length === 0 && selectedPuuid !== livePuuid ? (
+            <p className="py-2 text-center text-xs text-lol-text">Log in to sync mastery</p>
+          ) : (
+            <MasteryChampionStrip
+              champions={profile.topMasteryChampions}
+              championData={championData}
+            />
+          )}
         </div>
       </div>
 
       <div className="grid grid-cols-2 gap-5">
-        <RankCard title="Ranked Solo" entry={profile.rankedSolo} championData={championData} />
-        <RankCard title="Ranked Flex" entry={profile.rankedFlex} championData={championData} />
+        <RankCard
+          title="Ranked Solo"
+          entry={profile.rankedSolo}
+          championData={championData}
+          isLive={selectedPuuid === livePuuid}
+          hasCachedData={Boolean(selectedAccount?.lastSeen)}
+        />
+        <RankCard
+          title="Ranked Flex"
+          entry={profile.rankedFlex}
+          championData={championData}
+          isLive={selectedPuuid === livePuuid}
+          hasCachedData={Boolean(selectedAccount?.lastSeen)}
+        />
       </div>
 
       <RecentRiotMatchesSection
