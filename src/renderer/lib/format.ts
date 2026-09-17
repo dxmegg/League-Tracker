@@ -57,10 +57,9 @@ export function winRatePercent(wins: number, total: number): string {
   return `${((wins / total) * 100).toFixed(1)}%`;
 }
 
-export function winRateColor(wins: number, total: number): string {
-  if (total === 0) return "text-slate-400";
-  const rate = wins / total;
-  if (rate >= 0.6) return "text-emerald-400";
-  if (rate >= 0.5) return "text-sky-400";
-  return "text-red-400";
+export function winRateColor(winRate: number): string {
+  if (winRate >= 54.5) return "text-lol-win";
+  if (winRate >= 47.5) return "text-amber-400";
+  if (winRate >= 37.5) return "text-orange-400";
+  return "text-lol-loss";
 }

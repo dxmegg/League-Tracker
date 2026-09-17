@@ -20,13 +20,13 @@ import ChampionIcon from "../components/ChampionIcon";
 import AugmentIcon from "../components/AugmentIcon";
 import ItemIcon from "../components/ItemIcon";
 import { RuneCompact } from "../components/RuneSetup";
+import RuneIcon from "../components/RuneIcon";
 import MatchScoreboard from "../components/MatchScoreboard";
-import MultikillBadge from "../components/MultikillBadge";
-import StatBars from "../components/StatBars";
 import StatCard from "../components/StatCard";
 import SummonerIcon from "../components/SummonerIcon";
 import SummonerSpellIcon from "../components/SummonerSpellIcon";
 import WinRateBar from "../components/WinRateBar";
+import { NoxianHerald } from "../components/NoxianHerald";
 import { ArrowDownIcon, StarIcon, SwordsIcon, ZapIcon } from "../components/icons";
 import {
   formatDuration,
@@ -36,9 +36,11 @@ import {
   kdaRatio,
   kdaColor,
   formatPatch,
+  winRateColor,
 } from "../lib/format";
 import { queueLabel } from "../components/QueueSelect";
 import { scoreColor } from "../../shared/opScore";
+import { splitRuneSelections } from "../lib/runes";
 import {
   QUEUE_GROUP_ARENA,
   QUEUE_SCOPE_MAYHEM,
@@ -476,7 +478,7 @@ export default function MatchHistory({
     <div className="max-w-7xl space-y-4">
       {/* Stat Cards */}
       {dashboard && dashboard.totalGames > 0 && (
-        <div className="grid grid-cols-[minmax(0,1.3fr)_repeat(3,minmax(0,1fr))] gap-4 items-stretch">
+        <div className="grid grid-cols-[minmax(0,1.3fr)_repeat(3,minmax(0,1fr))] gap-5 items-stretch">
           <ProfileCard profile={profileShown} dashboard={dashboard} />
 
           <StatCard
@@ -597,20 +599,23 @@ export default function MatchHistory({
       )}
 
       <div className="flex items-center justify-between">
-        <h1 className="text-xl font-bold text-lol-text-bright">
-          {scope === "mayhem"
-            ? "ARAM MAYHEM MATCHES"
-            : scope === "ranked"
-              ? "RANKED MATCHES"
-              : scope === "normal"
-                ? "NORMAL MATCHES"
-                : scope === "aram"
-                  ? "ARAM MATCHES"
-                  : scope === "arena"
-                    ? "ARENA MATCHES"
-                    : scope === "rest"
-                      ? "FULL MATCH HISTORY"
-                      : "FULL MATCH HISTORY"}
+        <h1 className="flex items-center gap-2 text-xl font-bold text-lol-text-bright">
+          <NoxianHerald className="shrink-0 text-lol-gold" />
+          <span>
+            {scope === "mayhem"
+              ? "ARAM MAYHEM MATCHES"
+              : scope === "ranked"
+                ? "RANKED MATCHES"
+                : scope === "normal"
+                  ? "NORMAL MATCHES"
+                  : scope === "aram"
+                    ? "ARAM MATCHES"
+                    : scope === "arena"
+                      ? "ARENA MATCHES"
+                      : scope === "rest"
+                        ? "FULL MATCH HISTORY"
+                        : "FULL MATCH HISTORY"}
+          </span>
         </h1>
         <div className="flex items-center gap-2">
           {filterOptions.hasFavorites && (
@@ -773,6 +778,7 @@ export default function MatchHistory({
             {sessions.map((s) => (
               <div key={s.key}>
                 <SessionHeader session={s} />
+                <div className="mb-1 h-0.5 w-full bg-gradient-to-r from-lol-gold/20 via-lol-gold/10 to-transparent" />
                 <div className="space-y-1">{s.matches.map(renderMatch)}</div>
               </div>
             ))}
@@ -818,15 +824,21 @@ function ProfileCard({
   const pips = dashboard.recentForm.slice().reverse();
 
   return (
-    <div className="relative flex flex-col gap-3 overflow-hidden bg-lol-card rounded-xl border border-lol-border/60 p-4">
-      <span className="pointer-events-none absolute -top-20 -left-10 h-48 w-64 rounded-full bg-lol-gold/[0.07] blur-3xl" />
-
+    <div className="noxus-card flex flex-col gap-3 p-6 min-h-[120px]">
       <div className="relative flex items-center gap-3">
-        <SummonerIcon
-          iconId={profile?.profileIcon ?? null}
-          size={40}
-          className="ring-2 ring-lol-gold/30"
-        />
+        <div
+          className="shrink-0 rounded-full p-[2px]"
+          style={{
+            background:
+              "linear-gradient(138deg, var(--theme-accent) 0%, var(--theme-accent-bright) 50%, var(--theme-accent) 100%)",
+          }}
+        >
+          <SummonerIcon
+            iconId={profile?.profileIcon ?? null}
+            size={56}
+            className="rounded-full bg-lol-dark object-cover"
+          />
+        </div>
         <div className="min-w-0 flex-1">
           <div className="text-sm font-bold text-lol-text-bright truncate">
             {profile?.name ?? "Summoner"}
@@ -848,18 +860,23 @@ function ProfileCard({
             <span className="text-lol-loss/70">{losses}L</span>
           </div>
           <div
-            className="flex items-end gap-[3px]"
+            className="flex items-end gap-1"
             title={`Last ${pips.length} ${pips.length === 1 ? "game" : "games"}`}
           >
             {pips.map((g) => (
               <span
                 key={g.game_id}
-                className={`h-4 w-[5px] rounded-full ${g.win ? "bg-lol-win" : "bg-lol-loss/70"}`}
+                className={`h-5 w-1.5 rounded-full ${g.win ? "bg-lol-win" : "bg-lol-loss/70"}`}
+                title={g.win ? "Win" : "Loss"}
               />
             ))}
           </div>
         </div>
-        <WinRateBar wins={dashboard.wins} total={dashboard.totalGames} />
+        <WinRateBar
+          wins={dashboard.wins}
+          total={dashboard.totalGames}
+          percentClassName={winRateColor}
+        />
       </div>
     </div>
   );
@@ -975,11 +992,12 @@ function SessionHeader({ session }: { session: Session }) {
   const ratio = session.deaths > 0 ? (session.kills + session.assists) / session.deaths : Infinity;
 
   return (
-    <div className="flex items-baseline gap-3 px-1 pb-1.5">
-      <span className="text-sm font-semibold text-lol-text-bright">
+    <div className="flex items-baseline gap-2 px-2 pb-2">
+      <span className="inline-block h-1.5 w-1.5 shrink-0 self-center rounded-full bg-lol-gold/60" />
+      <span className="text-sm font-bold tracking-wide text-lol-text-bright">
         {sessionLabel(session.day)}
       </span>
-      <span className="text-xs text-lol-text">
+      <span className="text-xs text-lol-text/80">
         {session.matches.length} {session.matches.length === 1 ? "game" : "games"}
       </span>
       {played > 0 && (
@@ -1028,16 +1046,68 @@ function parseAugmentIds(raw: string | null): number[] {
   return raw.split(",").map(Number).filter(Boolean);
 }
 
+function formatNumber(value: number): string {
+  if (value >= 1000) return `${(value / 1000).toFixed(1)}k`;
+  return value.toString();
+}
+
+const badgeStyles: Record<string, string> = {
+  DOUBLE: "border-sky-400/50 bg-sky-400/10 text-sky-300",
+  TRIPLE: "border-amber-400/50 bg-amber-400/10 text-amber-300",
+  QUADRA: "border-purple-400/50 bg-purple-400/10 text-purple-300",
+  PENTA: "border-rose-400/50 bg-rose-400/10 text-rose-300",
+};
+
+function MatchMultikillBadges({
+  doubles,
+  triples,
+  quadras,
+  pentas,
+}: {
+  doubles: number;
+  triples: number;
+  quadras: number;
+  pentas: number;
+}) {
+  const badges = ([
+    ["DOUBLE", doubles],
+    ["TRIPLE", triples],
+    ["QUADRA", quadras],
+    ["PENTA", pentas],
+  ] as [string, number][]).filter(([, count]) => count > 0);
+
+  return (
+    <div className="flex flex-wrap gap-1">
+      {badges.map(([label, count]) => (
+        <span
+          key={label}
+          className={`text-[10px] font-bold tracking-wide px-2 py-0.5 rounded-full border backdrop-blur-sm whitespace-nowrap ${badgeStyles[label]}`}
+        >
+          {label}
+          {count > 1 ? ` x${count}` : ""}
+        </span>
+      ))}
+    </div>
+  );
+}
+
 function AugmentGrid({ augmentIds, patch }: { augmentIds: number[]; patch?: string | null }) {
   if (augmentIds.length === 0) return null;
-  // Classic can grant bonus augments; spill past 4 into a third column so the
-  // grid stays two rows tall and rows keep a uniform height.
-  const cols = augmentIds.length > 4 ? "grid-cols-3" : "grid-cols-2";
+  const cols = augmentIds.length <= 3 ? augmentIds.length : augmentIds.length === 4 ? 2 : 3;
+
   return (
-    <div className={`grid ${cols} gap-0.5 w-fit`}>
-      {augmentIds.map((id, i) => (
-        <AugmentIcon key={i} augmentId={id} size={22} patch={patch} />
-      ))}
+    <div
+      className="grid gap-1 shrink-0"
+      style={{ gridTemplateColumns: `repeat(${cols}, 24px)` }}
+    >
+      {augmentIds.map((id, i) =>
+        <div
+          key={i}
+          className="w-6 h-6 rounded-md border border-lol-gold/30 overflow-hidden"
+        >
+          <AugmentIcon augmentId={id} size={24} patch={patch} />
+        </div>,
+      )}
     </div>
   );
 }
@@ -1056,7 +1126,6 @@ export function GameRow({
   const isRemake = !!match.is_remake;
   console.log("[card] spells", { spell1: match.spell1, spell2: match.spell2, queue: match.queue_id });
   const isWin = !!match.win;
-  const isFavorite = !!match.favorite;
   const isArena = isAugmentQueue(match.queue_id);
   const placement = match.player_subteam_placement;
   const placementLabel = placement != null ? ARENA_PLACEMENT_LABELS[placement] : null;
@@ -1064,33 +1133,37 @@ export function GameRow({
   const kda = kdaRatio(match.kills, match.deaths, match.assists);
   const augmentIds = parseAugmentIds(match.augment_ids);
   const runeIds = parseRuneIds(match.rune_ids);
+  const runeSetup = splitRuneSelections(runeIds, match.primary_style, match.secondary_style);
   const runeData = useRuneData();
   const statShardIds = parseRuneIds(match.stat_shard_ids);
-
-  const accent = isFavorite
-    ? "bg-amber-400"
-    : isRemake
-      ? "bg-white/25"
-      : isWin
-        ? "bg-lol-win"
-        : "bg-lol-loss";
-  const tint = isRemake
-    ? "from-white/[0.03] to-white/[0.01]"
-    : isWin
-      ? "from-lol-win/12 to-lol-win/[0.04]"
-      : "from-lol-loss/12 to-lol-loss/[0.04]";
+  const rowBackground = isWin
+    ? "linear-gradient(to right, rgba(63,214,122,0.12) 0%, rgba(63,214,122,0.04) 35%, rgba(12,14,17,0.9) 100%)"
+    : "linear-gradient(to right, rgba(239,106,106,0.12) 0%, rgba(239,106,106,0.04) 35%, rgba(12,14,17,0.9) 100%)";
 
   return (
     <div>
       <button
         onClick={onToggle}
         onContextMenu={onContextMenu}
-        className={`relative overflow-hidden w-full flex items-center gap-3 pl-4 pr-3 py-2.5 border border-lol-border/60 bg-lol-card hover:bg-lol-card-hover transition-colors text-left ${
-          expanded ? "rounded-t-lg" : "rounded-lg"
+        className={`group relative grid w-full items-center gap-x-3 gap-y-0.5 px-5 py-3 rounded-2xl text-left transition-colors ${
+          isWin
+            ? "border border-lol-win/35 hover:border-lol-win/60"
+            : "border border-lol-loss/32 hover:border-lol-loss/60"
         }`}
+        style={{
+          background: rowBackground,
+          gridTemplateColumns:
+            "auto auto minmax(140px, auto) auto auto minmax(180px, 220px) auto auto 1fr auto",
+        }}
       >
-        <span className={`absolute left-0 inset-y-0 w-[3px] ${accent}`} />
-        <span className={`absolute inset-0 pointer-events-none bg-gradient-to-r ${tint}`} />
+        <span
+          className={`absolute -left-[5px] top-1/2 w-2.5 h-2.5 -translate-y-1/2 rotate-45 rounded-[2px] ${
+            isWin
+              ? "bg-lol-win shadow-[0_0_8px_rgba(63,214,122,0.5)]"
+              : "bg-lol-loss shadow-[0_0_8px_rgba(239,106,106,0.45)]"
+          }`}
+          aria-hidden="true"
+        />
         <div
           className={`flex w-20 shrink-0 flex-col text-xs font-bold ${isRemake ? "text-gray-500" : isArena && placementLabel ? (arenaWin ? "text-lol-win" : "text-lol-loss") : isWin ? "text-lol-win" : "text-lol-loss"}`}
         >
@@ -1110,117 +1183,154 @@ export function GameRow({
             {queueLabel(match.queue_id)}
           </span>
         </div>
-        <ChampionIcon championId={match.champion_id} size={36} />
-        {/* Two 17px spells + the 2px gap match the portrait's 36px height */}
-        <div className="flex flex-col gap-0.5 shrink-0">
-          <SummonerSpellIcon spellId={match.spell1} size={17} />
-          <SummonerSpellIcon spellId={match.spell2} size={17} />
+        <div className="flex items-center gap-1.5 shrink-0">
+          <div
+            className={`w-[42px] h-[42px] rounded-full overflow-hidden shrink-0 border-2 ${
+              isWin
+                ? "border-lol-win shadow-[0_0_10px_rgba(63,214,122,0.4)]"
+                : "border-lol-loss shadow-[0_0_10px_rgba(239,106,106,0.35)]"
+            }`}
+          >
+            <ChampionIcon
+              championId={match.champion_id}
+              size={42}
+              className="w-full h-full rounded-full object-cover"
+            />
+          </div>
+          <div className="flex flex-col gap-0.5">
+            <SummonerSpellIcon
+              spellId={match.spell1}
+              size={16}
+              className="w-4 h-4 rounded-[3px] object-cover"
+            />
+            <SummonerSpellIcon
+              spellId={match.spell2}
+              size={16}
+              className="w-4 h-4 rounded-[3px] object-cover"
+            />
+          </div>
         </div>
-        <div className="w-28 shrink-0 text-center">
-          <div className="text-sm text-lol-text-bright truncate">
+        <div className="min-w-0">
+          <div className="text-sm font-black tracking-tight text-lol-text-bright truncate">
             {getChampionName(champData, match.champion_id)}
           </div>
-          {(() => {
-            const lane = laneLabel(match);
-            return lane ? (
-              <div className="text-[10px] text-lol-text truncate">{lane}</div>
-            ) : null;
-          })()}
-        </div>
-        {!isArena && (
-          <div className="w-16 shrink-0 text-center text-[10px] text-lol-text">
-            <div className="text-sm text-lol-text-bright">{match.cs ?? 0}</div>
-            <div>
-              {match.game_duration > 0
-                ? ((match.cs ?? 0) / (match.game_duration / 60)).toFixed(1)
-                : "0.0"}{" "}
-              CS/min
-            </div>
-          </div>
-        )}
-        <div className="w-24 shrink-0 text-center">
-          <div className="text-sm text-lol-text-bright">
+          <div className="text-[13px] text-lol-text">
             {formatKDA(match.kills, match.deaths, match.assists)}
           </div>
           <div
-            className={`text-xs ${parseFloat(kda) >= 3 || kda === "Perfect" ? "text-lol-gold" : "text-lol-text"}`}
+            className={`text-[11px] ${
+              kda === "Perfect" || parseFloat(kda) >= 3
+                ? "text-lol-gold"
+                : parseFloat(kda) >= 2
+                  ? "text-lol-text"
+                  : "text-lol-text/70"
+            }`}
           >
             {kda} KDA
           </div>
+          {(() => {
+            const lane = laneLabel(match);
+            return lane ? <div className="text-[10px] text-lol-text truncate">{lane}</div> : null;
+          })()}
         </div>
-
-        {/* Score */}
-        {!isArena && (
-          <div className="w-10 shrink-0 text-center">
-            {match.score != null && !isRemake && (
-              <>
-                <div className={`text-sm font-semibold ${scoreColor(match.score)}`}>
-                  {match.score.toFixed(1)}
-                </div>
-                {match.score_badge ? (
-                  <div
-                    className={`text-[9px] font-bold leading-[15px] px-1 rounded w-fit mx-auto ${
-                      match.score_badge === "MVP"
-                        ? "bg-amber-400/20 text-amber-300"
-                        : "bg-purple-500/20 text-purple-400"
-                    }`}
-                  >
-                    {match.score_badge}
-                  </div>
-                ) : (
-                  <div className="text-[10px] text-lol-text uppercase tracking-wider">score</div>
-                )}
-              </>
+        <div className="flex flex-col items-center text-center shrink-0">
+          <span className="text-sm text-lol-text-bright">{match.cs ?? 0}</span>
+          {!isRemake && match.game_duration > 0 && (
+            <span className="text-[10px] text-lol-text">
+              {((match.cs ?? 0) / (match.game_duration / 60)).toFixed(1)} CS/min
+            </span>
+          )}
+        </div>
+        {match.score != null ? (
+          <div className="flex flex-col items-center gap-0.5 shrink-0">
+            <span className="text-sm font-semibold text-amber-400">{match.score.toFixed(1)}</span>
+            {match.score_badge === "MVP" && (
+              <span className="rounded bg-amber-400/20 px-1 text-[9px] font-bold leading-[15px] text-amber-300">
+                MVP
+              </span>
+            )}
+            {match.score_badge === "ACE" && (
+              <span className="rounded bg-purple-500/20 px-1 text-[9px] font-bold leading-[15px] text-purple-400">
+                ACE
+              </span>
             )}
           </div>
+        ) : (
+          <div />
         )}
-
-        {/* Stat bars */}
-        <StatBars
-          damage={match.total_damage_dealt}
-          taken={match.total_damage_taken}
-          heal={match.total_heal}
-          max={{
-            dmg: match.game_max_dmg,
-            taken: match.game_max_taken,
-            heal: match.game_max_heal,
-          }}
-          className="w-40"
-        />
-
-        {/* Runes for standard queues; Arena/Mayhem show Augments instead. */}
-        <div className="flex w-[70px] shrink-0 items-center justify-center gap-1">
-          {isAugmentQueue(match.queue_id) ? (
-            <AugmentGrid augmentIds={augmentIds} patch={match.game_version} />
-          ) : (
-            <RuneCompact
-              runeIds={runeIds}
-              primaryStyle={match.primary_style}
-              secondaryStyle={match.secondary_style}
-              statShardIds={statShardIds}
-              runeData={runeData}
-              version={match.game_version}
-            />
-          )}
+        <div className="w-full shrink-0 space-y-1">
+          {[
+            ["DAMAGE", match.total_damage_dealt, match.game_max_dmg, "bg-[#e0524f]"],
+            ["TAKEN", match.total_damage_taken, match.game_max_taken, "bg-[#3fc4c9]"],
+            ["HEALED", match.total_heal, match.game_max_heal, "bg-[#3fbf72]"],
+          ].map(([label, value, max, color]) => {
+            const numericValue = value as number;
+            const numericMax = max as number;
+            const percent = numericMax > 0 ? (numericValue / numericMax) * 100 : 0;
+            return (
+              <div key={label as string} className="grid grid-cols-[56px_1fr_48px] items-center gap-1.5">
+                <span className="text-[10px] text-lol-text">{label as string}</span>
+                <div className="relative h-1 overflow-hidden rounded-sm bg-white/5">
+                  <div
+                    className={`h-full rounded-sm ${color as string}`}
+                    style={{ width: `${percent}%` }}
+                  />
+                </div>
+                <span className="text-right text-[10px] text-lol-text/80">
+                  {numericValue > 0 ? formatNumber(numericValue) : ""}
+                </span>
+              </div>
+            );
+          })}
         </div>
-
-        {/* Items – 3x2 grid, no trinket (slot 6) */}
-        <div className="shrink-0 grid grid-cols-3 gap-0.5">
-          {[match.item0, match.item1, match.item2, match.item3, match.item4, match.item5].map(
-            (itemId, i) => (
-              <ItemIcon key={i} itemId={itemId ?? 0} size={22} patch={match.game_version} />
-            ),
-          )}
+        <div className="flex items-center justify-center gap-2 shrink-0">
+          <div className="flex items-center justify-center shrink-0">
+            {isAugmentQueue(match.queue_id) ? (
+              <AugmentGrid augmentIds={augmentIds} patch={match.game_version} />
+            ) : (
+              <RuneCompact
+                runeIds={runeIds}
+                primaryStyle={match.primary_style}
+                secondaryStyle={match.secondary_style}
+                statShardIds={statShardIds}
+                runeData={runeData}
+                version={match.game_version}
+              >
+                <span className="flex items-center gap-1 p-1 rounded-lg border border-lol-gold/40 bg-white/[0.02]">
+                  <RuneIcon
+                    runeId={runeSetup.keystone}
+                    path={runeData[runeSetup.keystone ?? 0]?.icon}
+                    version={match.game_version}
+                    size={22}
+                  />
+                  <RuneIcon
+                    runeId={match.secondary_style}
+                    path={runeData[match.secondary_style ?? 0]?.icon}
+                    version={match.game_version}
+                    size={18}
+                  />
+                </span>
+              </RuneCompact>
+            )}
+          </div>
+          <span className="text-lol-text/40 text-xs select-none">+</span>
+          <div className="grid shrink-0 grid-cols-3 gap-0.5">
+            {[match.item0, match.item1, match.item2, match.item3, match.item4, match.item5].map(
+              (itemId, i) => (
+                <ItemIcon key={i} itemId={itemId ?? 0} size={22} patch={match.game_version} />
+              ),
+            )}
+          </div>
         </div>
-
-        <div className="flex-1 min-w-0">
-          <MultikillBadge
+        <div className="min-w-0">
+          <MatchMultikillBadges
             doubles={match.double_kills}
             triples={match.triple_kills}
             quadras={match.quadra_kills}
             pentas={match.penta_kills}
           />
         </div>
+        <div aria-hidden="true" />
         <div className="text-xs text-lol-text text-right shrink-0">
           <div>{formatDuration(match.game_duration)}</div>
           <div>{formatTimeAgo(match.game_creation)}</div>

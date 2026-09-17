@@ -1,5 +1,6 @@
 import { HashRouter, Routes, Route } from "react-router-dom";
 import Layout from "./components/Layout";
+import { FullHistoryShell } from "./components/FullHistoryShell";
 import MatchHistory from "./pages/MatchHistory";
 import Champions from "./pages/Champions";
 import Augments from "./pages/Augments";
@@ -24,9 +25,7 @@ export default function App() {
   return (
     <HashRouter>
       <Routes>
-        <Route element={<Layout />}>
-        <Route path="/home" element={<Home />} />
-        <Route path="/local" element={<Profile />} />
+        <Route element={<FullHistoryShell />}>
         <Route path="/" element={<MatchHistory />} />
           <Route path="/history/mayhem" element={<MatchHistory scope="mayhem" />} />
           <Route path="/history/rest" element={<MatchHistory scope="rest" />} />
@@ -34,6 +33,10 @@ export default function App() {
           <Route path="/history/normal" element={<MatchHistory scope="normal" />} />
           <Route path="/history/aram" element={<MatchHistory scope="aram" />} />
           <Route path="/history/arena" element={<MatchHistory scope="arena" />} />
+        </Route>
+        <Route element={<Layout />}>
+        <Route path="/home" element={<Home />} />
+        <Route path="/local" element={<Profile />} />
           <Route
             path="/history/:scope/:section/champion/:championId"
             element={<GlobalChampionDetail />}

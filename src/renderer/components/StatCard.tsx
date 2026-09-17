@@ -48,13 +48,8 @@ export default function StatCard({
 
   return (
     <div
-      className={`relative flex flex-col overflow-hidden bg-lol-card rounded-xl border border-lol-border/60 p-4 ${className}`}
+      className={`noxus-card flex flex-col p-6 min-h-[120px] ${className}`}
     >
-      {a && (
-        <span
-          className={`pointer-events-none absolute -top-14 -right-8 h-32 w-32 rounded-full blur-2xl ${a.glow}`}
-        />
-      )}
       <div className="relative flex items-center gap-1.5 mb-1">
         {icon && a && (
           <span className={`flex h-5 w-5 items-center justify-center rounded-md ${a.chip}`}>
@@ -67,7 +62,7 @@ export default function StatCard({
         <div className="relative text-2xl font-bold text-lol-text-bright">{value}</div>
       )}
       {subtext && <div className="relative text-xs text-lol-text mt-1">{subtext}</div>}
-      {children && <div className="relative mt-auto pt-2">{children}</div>}
+      {children && <div className="relative mt-2">{children}</div>}
     </div>
   );
 }

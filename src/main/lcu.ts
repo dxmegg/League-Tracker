@@ -373,16 +373,6 @@ export async function backfillHistory(
     await connect();
 
     const summoner = await fetchCurrentSummoner();
-    // TEMPORARY: compare the LCU identity shape with the game payload.
-    console.log("[lcu-payload] current summoner fields:", {
-      puuid: summoner?.puuid
-        ? `${String(summoner.puuid).slice(0, 12)}... (len=${String(summoner.puuid).length})`
-        : "MISSING",
-      summonerId: summoner?.summonerId ?? "MISSING",
-      accountId: summoner?.accountId ?? "MISSING",
-      gameName: summoner?.gameName ?? "MISSING",
-      tagLine: summoner?.tagLine ?? "MISSING",
-    });
     db.upsertSummoner(summoner);
 
     const platform = db.getSetting("riot_platform") ?? "eun1";
@@ -490,37 +480,6 @@ export async function backfillHistory(
       let game: any;
       try {
         game = await fetchGameDetails(gameId);
-        // TEMPORARY: inspect one LCU by-id payload before choosing an identity mapping.
-        if (added === 0 && !(globalThis as any).__lcuPayloadLogged) {
-          (globalThis as any).__lcuPayloadLogged = true;
-          const p0 = game?.participants?.[0];
-          const id0 = game?.participantIdentities?.[0];
-          console.log("[lcu-payload] first participant keys:", p0 ? Object.keys(p0) : "none");
-          console.log("[lcu-payload] participant.puuid:", p0?.puuid ?? "MISSING");
-          console.log("[lcu-payload] participant.summonerId:", p0?.summonerId ?? "MISSING");
-          console.log("[lcu-payload] participant.accountId:", p0?.accountId ?? "MISSING");
-          console.log(
-            "[lcu-payload] first identity keys:",
-            id0 ? Object.keys(id0) : "none",
-          );
-          console.log(
-            "[lcu-payload] identity.player keys:",
-            id0?.player ? Object.keys(id0.player) : "none",
-          );
-          console.log("[lcu-payload] identity.player.puuid:", id0?.player?.puuid ?? "MISSING");
-          console.log(
-            "[lcu-payload] identity.player.summonerId:",
-            id0?.player?.summonerId ?? "MISSING",
-          );
-          console.log(
-            "[lcu-payload] identity.player.gameName:",
-            id0?.player?.gameName ?? "MISSING",
-          );
-          console.log(
-            "[lcu-payload] identity.player.tagLine:",
-            id0?.player?.tagLine ?? "MISSING",
-          );
-        }
       } catch {
         // Leave it unrecorded so a later run retries it
         progress(i + 1, added);

@@ -11,17 +11,145 @@
   --color-lol-loss: #e5636e;
   --color-lol-text: #94a0b8;
   --color-lol-text-bright: #e8ecf4;
+  --color-lol-crimson: var(--theme-crimson, #a50f15);
+  --color-lol-crimson-bright: var(--theme-crimson-bright, #c41e28);
+  --color-bg-deep: var(--theme-bg-deep, #08070a);
+  --color-bg-base: var(--theme-bg-base, #0e0c11);
+  --color-bg-elevated: var(--theme-bg-elevated, #17141c);
+  --color-surface: var(--theme-surface, rgba(255,255,255,0.05));
+  --color-surface-hover: var(--theme-surface-hover, rgba(255,255,255,0.08));
+  --color-fg: var(--theme-foreground, #ededef);
+  --color-fg-muted: var(--theme-foreground-muted, #8a8f98);
+  --color-fg-subtle: var(--theme-foreground-subtle, rgba(255,255,255,0.6));
+  --color-accent: var(--theme-accent, #c9a24d);
+  --color-accent-bright: var(--theme-accent-bright, #e8c46a);
+  --color-crimson: var(--theme-crimson, #a50f15);
+  --color-crimson-bright: var(--theme-crimson-bright, #c41e28);
+  --color-line: var(--theme-border);
+  --color-line-hover: var(--theme-border-hover, #5a5560);
+  --color-flint: var(--theme-flint, #8a8f95);
+  --color-victory: var(--theme-victory);
+  --color-defeat: var(--theme-defeat);
+}
+
+:root,
+html[data-theme="default"] {
+  --theme-bg: #0b0e14;
+  --theme-card: #141924;
+  --theme-card-hover: #1b2130;
+  --theme-border: #242c3d;
+  --theme-gold: #c89b3c;
+  --theme-gold-light: #f0e6d2;
+  --theme-win: #3ecf8e;
+  --theme-loss: #e5636e;
+  --theme-text: #94a0b8;
+  --theme-text-bright: #e8ecf4;
+}
+
+html[data-theme="test"] {
+  /* Noxian palette */
+  --theme-bg-deep: #08070a;
+  --theme-bg-base: #0e0c11;
+  --theme-bg-elevated: #17141c;
+  --theme-surface: rgba(200, 160, 90, 0.06);
+  --theme-surface-hover: rgba(200, 160, 90, 0.11);
+  --theme-foreground: #f5efe0;
+  --theme-foreground-muted: #b8b2a6;
+  --theme-foreground-subtle: rgba(245, 239, 224, 0.6);
+  --theme-accent: #c9a24d;
+  --theme-accent-bright: #e8c46a;
+  --theme-accent-glow: rgba(201, 162, 77, 0.45);
+  --theme-crimson: #a50f15;
+  --theme-crimson-bright: #c41e28;
+  --theme-crimson-glow: rgba(165, 15, 21, 0.48);
+  --theme-border: #38353c;
+  --theme-border-hover: #5a5560;
+  --theme-flint: #8a8f95;
+  --theme-victory: #57c97e;
+  --theme-defeat: #e05252;
+  /* Legacy aliases so existing `--color-lol-*` classes still resolve */
+  --theme-bg: var(--theme-bg-base);
+  --theme-card: var(--theme-bg-elevated);
+  --theme-card-hover: var(--theme-surface-hover);
+  --theme-gold: var(--theme-accent);
+  --theme-gold-light: var(--theme-accent-bright);
+  --theme-win: var(--theme-victory);
+  --theme-loss: var(--theme-defeat);
+  --theme-text: var(--theme-foreground-muted);
+  --theme-text-bright: var(--theme-foreground);
+}
+
+html[data-theme="pink"] {
+  --theme-bg: #1a0a14;
+  --theme-card: #2a1020;
+  --theme-card-hover: #3a1630;
+  --theme-border: #4a1e38;
+  --theme-gold: #ff7ab8;
+  --theme-gold-light: #ffd6ec;
+  --theme-win: #7de2b2;
+  --theme-loss: #ff8ca8;
+  --theme-text: #d0b0c8;
+  --theme-text-bright: #ffd6ec;
 }
 
 body {
-  background-color: var(--color-lol-dark);
-  background-image: radial-gradient(1100px 700px at 15% -10%, #151c2c 0%, transparent 60%);
-  background-attachment: fixed;
-  color: var(--color-lol-text);
+  background-color: var(--theme-bg);
+  color: var(--theme-text);
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   font-variant-numeric: tabular-nums;
   -webkit-font-smoothing: antialiased;
   overflow: hidden;
+}
+
+html[data-theme="test"] body {
+  position: relative;
+  background-color: var(--theme-bg-base);
+  background-image: linear-gradient(to bottom, var(--theme-bg-deep), var(--theme-bg-base));
+  color: var(--theme-foreground);
+  -moz-osx-font-smoothing: grayscale;
+}
+
+html[data-theme="test"] body::before,
+html[data-theme="test"] body::after {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  content: "";
+}
+
+html[data-theme="test"] body::before {
+  background:
+    radial-gradient(
+      ellipse 80% 40% at 0% 0%,
+      var(--theme-crimson-glow) 0%,
+      transparent 55%
+    ),
+    radial-gradient(
+      ellipse 70% 50% at 100% 100%,
+      var(--theme-accent-glow) 0%,
+      transparent 60%
+    ),
+    radial-gradient(
+      ellipse 60% 40% at 100% 0%,
+      var(--theme-crimson-glow) 0%,
+      transparent 65%
+    );
+  opacity: 0.55;
+}
+
+html[data-theme="test"] body::after {
+  background: radial-gradient(
+    ellipse 70% 60% at 105% 105%,
+    var(--theme-crimson-glow),
+    transparent 60%
+  );
+  opacity: 0.4;
+}
+
+html[data-theme="test"] #root {
+  position: relative;
+  z-index: 1;
 }
 
 #root {
@@ -67,6 +195,79 @@ body {
     border-color: color-mix(in srgb, var(--color-lol-gold) 50%, transparent);
     box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-lol-gold) 10%, transparent);
   }
+
+  .noxus-card {
+    position: relative;
+    isolation: isolate;
+    filter:
+      drop-shadow(0 0 3px rgba(150, 30, 30, 0.55))
+      drop-shadow(0 0 10px rgba(90, 15, 15, 0.35))
+      drop-shadow(0 0 20px rgba(60, 10, 10, 0.20));
+    background:
+      linear-gradient(
+        145deg,
+        #7d2424 0%,
+        #481313 24%,
+        #681b1b 52%,
+        #350c0c 78%,
+        #762020 100%
+      );
+    clip-path: polygon(
+      7% 0%,
+      93% 0%,
+      100% 15%,
+      100% 85%,
+      93% 100%,
+      7% 100%,
+      0% 85%,
+      0% 15%
+    );
+  }
+
+  .noxus-card::before {
+    content: "";
+    position: absolute;
+    inset: 2px;
+    z-index: 0;
+    background:
+      radial-gradient(ellipse at 15% 0%, rgba(105, 27, 27, 0.13), transparent 48%),
+      radial-gradient(ellipse at 100% 100%, rgba(70, 15, 15, 0.08), transparent 55%),
+      linear-gradient(145deg, #0c0e11 0%, #090b0d 48%, #060809 100%);
+    clip-path: polygon(
+      6.7% 0%,
+      93.3% 0%,
+      100% 15.5%,
+      100% 84.5%,
+      93.3% 100%,
+      6.7% 100%,
+      0% 84.5%,
+      0% 15.5%
+    );
+  }
+
+  .noxus-card::after {
+    content: "";
+    position: absolute;
+    inset: 3px;
+    z-index: 1;
+    pointer-events: none;
+    clip-path: polygon(
+      6.7% 0%,
+      93.3% 0%,
+      100% 15.5%,
+      100% 84.5%,
+      93.3% 100%,
+      6.7% 100%,
+      0% 84.5%,
+      0% 15.5%
+    );
+    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.018);
+  }
+
+  .noxus-card > * {
+    position: relative;
+    z-index: 2;
+  }
 }
 
 /* Scrollbar styling */
@@ -107,4 +308,67 @@ body {
 
 .titlebar-no-drag {
   -webkit-app-region: no-drag;
+}
+
+@layer utilities {
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+
+  .no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+
+  .bevel-tab {
+    clip-path: polygon(
+      8px 0,
+      calc(100% - 8px) 0,
+      100% 8px,
+      100% calc(100% - 8px),
+      calc(100% - 8px) 100%,
+      8px 100%,
+      0 calc(100% - 8px),
+      0 8px
+    );
+  }
+
+  .bevel-tab-sm {
+    clip-path: polygon(
+      6px 0,
+      calc(100% - 6px) 0,
+      100% 6px,
+      100% calc(100% - 6px),
+      calc(100% - 6px) 100%,
+      6px 100%,
+      0 calc(100% - 6px),
+      0 6px
+    );
+  }
+
+  .bevel-row {
+    clip-path: polygon(
+      6px 0,
+      calc(100% - 6px) 0,
+      100% 6px,
+      100% calc(100% - 6px),
+      calc(100% - 6px) 100%,
+      6px 100%,
+      0 calc(100% - 6px),
+      0 6px
+    );
+  }
+
+  .bevel-panel {
+    clip-path: polygon(
+      10px 0,
+      calc(100% - 10px) 0,
+      100% 10px,
+      100% calc(100% - 10px),
+      calc(100% - 10px) 100%,
+      10px 100%,
+      0 calc(100% - 10px),
+      0 10px
+    );
+  }
 }

@@ -2,9 +2,15 @@ interface WinRateBarProps {
   wins: number;
   total: number;
   showPercent?: boolean;
+  percentClassName?: (rate: number) => string;
 }
 
-export default function WinRateBar({ wins, total, showPercent = true }: WinRateBarProps) {
+export default function WinRateBar({
+  wins,
+  total,
+  showPercent = true,
+  percentClassName,
+}: WinRateBarProps) {
   const rate = total > 0 ? (wins / total) * 100 : 0;
 
   return (
@@ -18,7 +24,13 @@ export default function WinRateBar({ wins, total, showPercent = true }: WinRateB
       {showPercent && (
         <span
           className={`text-xs font-medium min-w-10 text-right ${
-            rate >= 60 ? "text-lol-win" : rate >= 50 ? "text-sky-400" : "text-lol-loss"
+            percentClassName
+              ? percentClassName(rate)
+              : rate >= 60
+                ? "text-lol-win"
+                : rate >= 50
+                  ? "text-sky-400"
+                  : "text-lol-loss"
           }`}
         >
           {rate.toFixed(1)}%
