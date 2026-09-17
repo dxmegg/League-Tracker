@@ -10,7 +10,7 @@ import {
 } from "league-connect";
 import { BrowserWindow } from "electron";
 import * as db from "./db";
-import type { CurrentSummoner, LcuStatus } from "../shared/api";
+import type { CurrentSummoner, LcuStatus, ProfileExtras, RankEntry } from "../shared/api";
 import { accountByRiotId, regionalRoute } from "./riot-api";
 
 let credentials: Credentials | null = null;
@@ -69,28 +69,149 @@ async function fetchCurrentSummoner(): Promise<any> {
   return lcuRequest("/lol-summoner/v1/current-summoner");
 }
 
+async function fetchLoginSession(): Promise<unknown> {
+  return lcuRequest("/lol-login/v1/session");
+}
+
+async function fetchRegionLocale(): Promise<unknown> {
+  return lcuRequest("/riotclient/region-locale");
+}
+
+function recordPayload(value: unknown): Record<string, unknown> {
+  return typeof value === "object" && value !== null ? (value as Record<string, unknown>) : {};
+}
+
+function stringField(value: unknown): string {
+  return typeof value === "string" ? value : "";
+}
+
+function normalizePlatform(value: unknown): string {
+  const normalized = stringField(value).trim().toLowerCase();
+  const aliases: Record<string, string> = {
+    na: "na1",
+    lan: "la1",
+    las: "la2",
+    oce: "oc1",
+    eune: "eun1",
+    euw: "euw1",
+    turkey: "tr1",
+    brazil: "br1",
+    korea: "kr",
+    japan: "jp1",
+  };
+  return aliases[normalized] ?? normalized;
+}
+
+function numberField(value: unknown): number {
+  return typeof value === "number" && Number.isFinite(value) ? value : 0;
+}
+
+function rankEntry(value: unknown): RankEntry | null {
+  const entry = recordPayload(value);
+  const tier = stringField(entry.tier).toUpperCase();
+  const division = stringField(entry.division).toUpperCase();
+  if (!tier || !division || tier === "UNRANKED" || division === "NA") return null;
+  return {
+    tier,
+    division,
+    leaguePoints: numberField(entry.leaguePoints),
+    wins: numberField(entry.wins),
+    losses: numberField(entry.losses),
+  };
+}
+
+export async function getProfileExtras(): Promise<ProfileExtras> {
+  console.log("[lcu] getProfileExtras called:", {});
+  let rankedSolo: RankEntry | null = null;
+  let rankedFlex: RankEntry | null = null;
+  let topMasteryChampions: ProfileExtras["topMasteryChampions"] = [];
+
+  try {
+    const ranked = recordPayload(await lcuRequest("/lol-ranked/v1/current-ranked-stats"));
+    const queueMap = recordPayload(ranked.queueMap);
+    rankedSolo = rankEntry(queueMap.RANKED_SOLO_5x5);
+    rankedFlex = rankEntry(queueMap.RANKED_FLEX_SR);
+  } catch (err) {
+    console.warn("[lcu] profile ranked stats unavailable:", err);
+  }
+
+  try {
+    const masteryPayload = await lcuRequest(
+      "/lol-champion-mastery/v1/local-player/champion-mastery",
+    );
+    topMasteryChampions = (Array.isArray(masteryPayload) ? masteryPayload : [])
+      .map((entry) => {
+        const mastery = recordPayload(entry);
+        return {
+          championId: numberField(mastery.championId),
+          level: numberField(mastery.championLevel),
+          points: numberField(mastery.championPoints),
+        };
+      })
+      .filter((entry) => entry.championId > 0 && entry.points >= 0)
+      .sort((left, right) => right.points - left.points)
+      .slice(0, 5);
+  } catch (err) {
+    console.warn("[lcu] profile mastery unavailable:", err);
+  }
+
+  const result = { rankedSolo, rankedFlex, topMasteryChampions };
+  console.log("[lcu] getProfileExtras done:", {
+    hasRankedSolo: Boolean(rankedSolo),
+    hasRankedFlex: Boolean(rankedFlex),
+    masteryCount: topMasteryChampions.length,
+  });
+  return result;
+}
+
 // Used by the Riot API sync as a best-effort account detector. Historical
 // syncing never depends on this endpoint; configured Riot ID settings remain
 // the fallback when the client is closed.
 export async function getCurrentSummoner(): Promise<CurrentSummoner> {
   console.log("[lcu] getCurrentSummoner called");
   await connect();
-  const rawSummoner = await fetchCurrentSummoner();
+  const rawSummoner = recordPayload(await fetchCurrentSummoner());
+  const gameName = stringField(rawSummoner.gameName);
+  const displayName = stringField(rawSummoner.displayName) || gameName;
+  const fallbackPlatform = normalizePlatform(rawSummoner.platform);
+  let platform = fallbackPlatform;
+  try {
+    const session = recordPayload(await fetchLoginSession());
+    const platformId = normalizePlatform(session.platformId);
+    if (platformId) platform = platformId;
+  } catch (err) {
+    console.warn("[lcu] login session platform unavailable:", err);
+  }
+  if (!platform) {
+    try {
+      const regionLocale = recordPayload(await fetchRegionLocale());
+      platform = normalizePlatform(regionLocale.region);
+    } catch (err) {
+      console.warn("[lcu] region locale platform unavailable:", err);
+    }
+  }
+
   const summoner: CurrentSummoner = {
-    ...rawSummoner,
-    puuid: String(rawSummoner?.puuid ?? ""),
-    gameName: String(rawSummoner?.gameName ?? ""),
-    tagLine: String(rawSummoner?.tagLine ?? ""),
-    displayName: String(rawSummoner?.displayName ?? ""),
-    internalName: String(rawSummoner?.internalName ?? ""),
-    region: String(rawSummoner?.region ?? ""),
-    platform: String(rawSummoner?.platform ?? ""),
-    profileIconId: Number(rawSummoner?.profileIconId) || 0,
-    summonerLevel: Number(rawSummoner?.summonerLevel) || 0,
+    puuid: stringField(rawSummoner.puuid),
+    gameName: gameName || displayName,
+    tagLine: stringField(rawSummoner.tagLine),
+    displayName,
+    internalName: stringField(rawSummoner.internalName),
+    region: stringField(rawSummoner.region),
+    platform,
+    profileIconId: numberField(rawSummoner.profileIconId),
+    summonerLevel: numberField(rawSummoner.summonerLevel),
   };
+  if (summoner.puuid) {
+    db.upsertSummoner({ ...rawSummoner, ...summoner });
+    if (summoner.platform) {
+      db.setRiotSyncState(summoner.puuid, summoner.platform, null, false);
+    }
+  }
   console.log("[lcu] getCurrentSummoner done:", {
     profileIconId: summoner.profileIconId,
     summonerLevel: summoner.summonerLevel,
+    platform: summoner.platform,
     hasDisplayName: Boolean(summoner.displayName),
   });
   return summoner;
@@ -331,7 +452,9 @@ async function fetchAllMatchIds(
       return { ids, truncated: false };
     }
     if (stopAfterPage(pageIds)) {
-      console.log(`[backfill] stopAfterPage returned true at page ${page} — all ids on this page were already known`);
+      console.log(
+        `[backfill] stopAfterPage returned true at page ${page} — all ids on this page were already known`,
+      );
       return { ids, truncated: false };
     }
   }
@@ -392,12 +515,7 @@ export async function backfillHistory(
         console.log(
           `[backfill] puuid resolve: gameName=${gameName} tagLine=${tagLine} lcuPuuidLen=${summoner.puuid?.length}`,
         );
-        const account = await accountByRiotId(
-          regionalRoute(platform),
-          platform,
-          gameName,
-          tagLine,
-        );
+        const account = await accountByRiotId(regionalRoute(platform), platform, gameName, tagLine);
         realPuuid = account.puuid;
         console.log(
           `[backfill] resolved real Riot PUUID: ${realPuuid.slice(0, 12)}... (len=${realPuuid.length})`,

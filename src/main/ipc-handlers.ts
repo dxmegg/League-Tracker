@@ -98,9 +98,12 @@ export function registerIpcHandlers() {
     return db.toggleFavorite(gameId);
   });
 
-  ipcMain.handle("db:champion-stats", (_event, patch?: string, queue?: number, account?: string) => {
-    return db.getChampionStatsAll(patch, queue, account);
-  });
+  ipcMain.handle(
+    "db:champion-stats",
+    (_event, patch?: string, queue?: number, account?: string) => {
+      return db.getChampionStatsAll(patch, queue, account);
+    },
+  );
 
   ipcMain.handle(
     "db:augment-stats",
@@ -109,9 +112,12 @@ export function registerIpcHandlers() {
     },
   );
 
-  ipcMain.handle("db:augment-stats-detailed", (_event, patch?: string, queue?: number, account?: string) => {
-    return db.getAugmentStatsWithChampions(patch, queue, account);
-  });
+  ipcMain.handle(
+    "db:augment-stats-detailed",
+    (_event, patch?: string, queue?: number, account?: string) => {
+      return db.getAugmentStatsWithChampions(patch, queue, account);
+    },
+  );
 
   ipcMain.handle(
     "db:dashboard",
@@ -168,7 +174,15 @@ export function registerIpcHandlers() {
 
   ipcMain.handle(
     "db:champion-match-history",
-    (_event, championId: number, limit: number, offset: number, patch?: string, queue?: number, account?: string) => {
+    (
+      _event,
+      championId: number,
+      limit: number,
+      offset: number,
+      patch?: string,
+      queue?: number,
+      account?: string,
+    ) => {
       return db.getChampionMatchHistory(championId, limit, offset, patch, queue, account);
     },
   );
@@ -228,13 +242,7 @@ export function registerIpcHandlers() {
   );
   ipcMain.handle(
     "riot:profile",
-    async (
-      _event,
-      gameName: string,
-      tagLine: string,
-      platform: string,
-      force = false,
-    ) => {
+    async (_event, gameName: string, tagLine: string, platform: string, force = false) => {
       const key = `profile:${platform.toLowerCase()}:${gameName.toLowerCase()}:${tagLine.toLowerCase()}:${force}`;
       return dedupe(key, async () => {
         console.log("[profile] received:", { gameName, tagLine, platform });
@@ -279,16 +287,13 @@ export function registerIpcHandlers() {
       }
     },
   );
-  ipcMain.handle(
-    "opgg:summary",
-    async (_event, region: string, summonerId: string) => {
-      try {
-        return await opgg.getSummonerSummary(region, summonerId);
-      } catch (err) {
-        return { error: err instanceof Error ? err.message : "OP.GG summary failed" };
-      }
-    },
-  );
+  ipcMain.handle("opgg:summary", async (_event, region: string, summonerId: string) => {
+    try {
+      return await opgg.getSummonerSummary(region, summonerId);
+    } catch (err) {
+      return { error: err instanceof Error ? err.message : "OP.GG summary failed" };
+    }
+  });
   ipcMain.handle(
     "opgg:games",
     async (_event, region: string, summonerId: string, limit: number) => {
@@ -350,6 +355,29 @@ export function registerIpcHandlers() {
       console.warn("[lcu] currentSummonerProfileIcon failed:", err);
       return null;
     }
+  });
+
+  ipcMain.handle("lcu:current-summoner", async () => {
+    console.log("[lcu] currentSummoner handler called:", {});
+    const result = await lcu.getCurrentSummoner();
+    console.log("[lcu] currentSummoner handler done:", {
+      puuid: result.puuid,
+      summonerLevel: result.summonerLevel,
+      profileIconId: result.profileIconId,
+      platform: result.platform,
+    });
+    return result;
+  });
+
+  ipcMain.handle("lcu:profile-extras", async () => {
+    console.log("[lcu] profileExtras handler called:", {});
+    const result = await lcu.getProfileExtras();
+    console.log("[lcu] profileExtras handler done:", {
+      hasRankedSolo: Boolean(result.rankedSolo),
+      hasRankedFlex: Boolean(result.rankedFlex),
+      masteryCount: result.topMasteryChampions.length,
+    });
+    return result;
   });
 
   ipcMain.handle("dragon:champions", async () => {
@@ -437,9 +465,12 @@ export function registerIpcHandlers() {
   ipcMain.handle("db:global-stats", (_event, patch?: string, queue?: number) => {
     return db.getGlobalStats(patch, queue);
   });
-  ipcMain.handle("db:owned-item-stats", (_event, patch?: string, queue?: number, account?: string) => {
-    return db.getOwnedItemStats(patch, queue, account);
-  });
+  ipcMain.handle(
+    "db:owned-item-stats",
+    (_event, patch?: string, queue?: number, account?: string) => {
+      return db.getOwnedItemStats(patch, queue, account);
+    },
+  );
   ipcMain.handle("db:owned-rune-stats", (_event, queue?: number, patch?: string) => {
     return db.getOwnedRuneStats(queue, patch);
   });
