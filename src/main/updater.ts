@@ -94,13 +94,10 @@ function parseDigest(digest: unknown): string | null {
 
 export async function checkForUpdate(): Promise<UpdateInfo> {
   try {
-    const res = await fetch(
-      `${UPDATE_API_URL}?per_page=${RELEASE_PAGE_SIZE}`,
-      {
-        headers: { "User-Agent": "league-tracker" },
-        signal: AbortSignal.timeout(CHECK_TIMEOUT_MS),
-      },
-    );
+    const res = await fetch(`${UPDATE_API_URL}?per_page=${RELEASE_PAGE_SIZE}`, {
+      headers: { "User-Agent": "league-tracker" },
+      signal: AbortSignal.timeout(CHECK_TIMEOUT_MS),
+    });
     if (!res.ok) return { hasUpdate: false, error: "No releases found" };
     const page = (await res.json()) as any;
     // Unlike /releases/latest, this endpoint includes drafts and prereleases,

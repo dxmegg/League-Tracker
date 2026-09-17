@@ -1,10 +1,4 @@
-import {
-  useState,
-  useEffect,
-  useCallback,
-  type ButtonHTMLAttributes,
-  type ReactNode,
-} from "react";
+import { useState, useEffect, useCallback, type ButtonHTMLAttributes, type ReactNode } from "react";
 import { useBackfill } from "../hooks/useBackfill";
 import { queueLabel } from "../components/QueueSelect";
 import { setRemembering } from "../lib/viewState";
@@ -79,9 +73,7 @@ function Switch({
       <span
         className={`pointer-events-none inline-block h-5 w-5 rounded-full transform transition-transform duration-200 ${
           checked ? "bg-lol-gold-light shadow-sm" : "bg-white shadow"
-        } ${
-          checked ? "translate-x-5" : "translate-x-0"
-        }`}
+        } ${checked ? "translate-x-5" : "translate-x-0"}`}
       />
     </button>
   );
@@ -161,32 +153,21 @@ export default function Settings() {
       window.api.getSetting("auto_backup"),
       window.api.getSetting("remember_filters"),
       window.api.getSetting("theme"),
-    ]).then(
-      ([
-        startup,
-        startupSupported,
-        tray,
-        hidden,
-        remakes,
-        backup,
-        remember,
-        storedTheme,
-      ]) => {
-        setTheme(
-          storedTheme === "default" || storedTheme === "test" || storedTheme === "pink"
-            ? storedTheme
-            : "test",
-        );
-        setAutoStart(startup === "true");
-        setAutoStartSupported(startupSupported);
-        setMinimizeToTray(tray !== "false");
-        setHiddenQueues(new Set(hidden ? hidden.split(",").map(Number) : []));
-        setHideRemakes(remakes === "true");
-        setAutoBackup(backup !== "false");
-        setRememberFilters(remember === "true");
-        setLoading(false);
-      },
-    );
+    ]).then(([startup, startupSupported, tray, hidden, remakes, backup, remember, storedTheme]) => {
+      setTheme(
+        storedTheme === "default" || storedTheme === "test" || storedTheme === "pink"
+          ? storedTheme
+          : "test",
+      );
+      setAutoStart(startup === "true");
+      setAutoStartSupported(startupSupported);
+      setMinimizeToTray(tray !== "false");
+      setHiddenQueues(new Set(hidden ? hidden.split(",").map(Number) : []));
+      setHideRemakes(remakes === "true");
+      setAutoBackup(backup !== "false");
+      setRememberFilters(remember === "true");
+      setLoading(false);
+    });
   }, []);
 
   const refreshSavedSummoners = useCallback(() => {
@@ -445,9 +426,7 @@ export default function Settings() {
           ? `Added ${result.added} game(s) from ${result.scanned} found in your Riot history`
           : `No new Mayhem games found (${result.scanned} games checked)`;
       if (result.cancelled) {
-        setBackfillStatus(
-          `Stopped after adding ${result.added} game(s). Run it again to finish.`,
-        );
+        setBackfillStatus(`Stopped after adding ${result.added} game(s). Run it again to finish.`);
       } else {
         setBackfillStatus(
           result.truncated
@@ -519,11 +498,7 @@ export default function Settings() {
 
       <Section title="League history sync">
         <div className="flex items-center gap-2 mt-3">
-          <Button
-            variant="primary"
-            onClick={handleBackfill}
-            disabled={backfilling}
-          >
+          <Button variant="primary" onClick={handleBackfill} disabled={backfilling}>
             {backfilling ? "Working..." : "Backfill"}
           </Button>
           <Button
@@ -534,11 +509,7 @@ export default function Settings() {
           >
             Force Backfill
           </Button>
-          <Button
-            variant="subtle"
-            type="button"
-            onClick={handleRiotSync}
-          >
+          <Button variant="subtle" type="button" onClick={handleRiotSync}>
             Sync from Riot History
           </Button>
           <Button
@@ -549,18 +520,11 @@ export default function Settings() {
           >
             {restoring ? "Restoring..." : "Restore older games"}
           </Button>
-          <Button
-            variant="subtle"
-            type="button"
-            onClick={handleRepair}
-            disabled={repairing}
-          >
+          <Button variant="subtle" type="button" onClick={handleRepair} disabled={repairing}>
             {repairing ? "Repairing..." : "Repair"}
           </Button>
         </div>
-        {backfillStatus && (
-          <p className="text-xs text-lol-text mt-2">{backfillStatus}</p>
-        )}
+        {backfillStatus && <p className="text-xs text-lol-text mt-2">{backfillStatus}</p>}
       </Section>
 
       <Section title="Data Management">
@@ -629,7 +593,7 @@ export default function Settings() {
               const name =
                 summoner.game_name && summoner.tag_line
                   ? `${summoner.game_name}#${summoner.tag_line}`
-                  : summoner.game_name ?? summoner.puuid;
+                  : (summoner.game_name ?? summoner.puuid);
               const confirming = confirmDeleteSummoner === summoner.puuid;
               return (
                 <div
@@ -651,10 +615,7 @@ export default function Settings() {
                       >
                         Delete
                       </Button>
-                      <Button
-                        variant="neutral"
-                        onClick={() => setConfirmDeleteSummoner(null)}
-                      >
+                      <Button variant="neutral" onClick={() => setConfirmDeleteSummoner(null)}>
                         Cancel
                       </Button>
                     </div>
@@ -770,7 +731,10 @@ export default function Settings() {
                     const shown = !hiddenQueues.has(q);
                     const shownCount = all.filter((id) => !hiddenQueues.has(id)).length;
                     return (
-                      <div key={q} className="w-full flex items-center justify-between py-1.5 xl:py-2">
+                      <div
+                        key={q}
+                        className="w-full flex items-center justify-between py-1.5 xl:py-2"
+                      >
                         <p className="text-sm text-lol-text">{queueLabel(q)}</p>
                         {/* Switching off the last one would empty every page */}
                         <Switch
@@ -832,10 +796,7 @@ export default function Settings() {
                       >
                         Restore
                       </Button>
-                      <Button
-                        variant="neutral"
-                        onClick={() => setConfirmRestore(null)}
-                      >
+                      <Button variant="neutral" onClick={() => setConfirmRestore(null)}>
                         Cancel
                       </Button>
                     </div>
@@ -855,17 +816,10 @@ export default function Settings() {
           )}
 
           <div className="flex items-center gap-2">
-            <Button
-              variant="primary"
-              onClick={handleBackupNow}
-              disabled={backupBusy}
-            >
+            <Button variant="primary" onClick={handleBackupNow} disabled={backupBusy}>
               {backupBusy ? "Working..." : "Back up now"}
             </Button>
-            <Button
-              variant="neutral"
-              onClick={() => window.api.openBackupFolder()}
-            >
+            <Button variant="neutral" onClick={() => window.api.openBackupFolder()}>
               Open folder
             </Button>
           </div>
@@ -947,8 +901,8 @@ export default function Settings() {
             >
               Yhprum
             </a>{" "}
-            for creating the original Mayhem Tracker. The original project inspired me to build
-            this fork and adapt it for my own needs. Without{" "}
+            for creating the original Mayhem Tracker. The original project inspired me to build this
+            fork and adapt it for my own needs. Without{" "}
             <a
               href="https://github.com/Yhprum"
               onClick={(event) => {

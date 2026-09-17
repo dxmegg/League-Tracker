@@ -12,13 +12,13 @@ interface AugmentIconProps {
 }
 
 const rarityBorder: Record<string, string> = {
-  kSilver: "ring-1 ring-gray-400/60",
+  kSilver: "ring-1 ring-lol-border/60",
   kGold: "ring-1 ring-yellow-500/70",
   kPrismatic: "ring-1 ring-fuchsia-400/80",
 };
 
 const rarityTextColor: Record<string, string> = {
-  kSilver: "text-gray-300",
+  kSilver: "text-lol-text",
   kGold: "text-yellow-400",
   kPrismatic: "text-fuchsia-400",
 };

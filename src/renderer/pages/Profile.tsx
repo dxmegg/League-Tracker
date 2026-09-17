@@ -661,6 +661,14 @@ export default function Profile() {
   const [totalCount, setTotalCount] = useState(0);
   const selectorWrapperRef = useRef<HTMLDivElement>(null);
   const selectionInitialized = useRef(false);
+  const loadRequestIdRef = useRef(0);
+  const selectedPuuidRef = useRef(selectedPuuid);
+  const profileRef = useRef(profile);
+
+  useEffect(() => {
+    selectedPuuidRef.current = selectedPuuid;
+  }, [selectedPuuid]);
+  profileRef.current = profile;
 
   useEffect(() => {
     let mounted = true;
@@ -729,6 +737,7 @@ export default function Profile() {
   const loadLocalProfile = useCallback(
     (puuid: string, options?: { silent?: boolean }) =>
       log.safe("load profile", async () => {
+        const requestId = ++loadRequestIdRef.current;
         const silent = options?.silent === true;
         if (!silent) {
           setLoading(true);
@@ -745,23 +754,30 @@ export default function Profile() {
             let currentSummoner: CurrentSummoner | null = null;
             try {
               currentSummoner = await window.api.getCurrentSummoner();
+              if (requestId !== loadRequestIdRef.current) return;
               profileIconId = currentSummoner.profileIconId;
             } catch (err: unknown) {
               console.warn("Could not read current League client profile:", err);
               try {
                 profileIconId = (await window.api.getCurrentSummonerProfileIcon()) ?? 0;
+                if (requestId !== loadRequestIdRef.current) return;
               } catch (iconErr: unknown) {
                 console.warn("Could not read current League client profile icon:", iconErr);
               }
             }
 
             const localProfile = await window.api.getProfile();
+            if (requestId !== loadRequestIdRef.current) return;
             if (!localProfile.puuid) {
+              if (requestId !== loadRequestIdRef.current) return;
               setError("No local account data. Connect to the League client or import history.");
               return;
             }
 
             const profileExtras = await window.api.getProfileExtras();
+            if (requestId !== loadRequestIdRef.current) return;
+            const dataDragonVersion = await window.api.getChampionDataVersion();
+            if (requestId !== loadRequestIdRef.current) return;
             profileData = {
               puuid,
               gameName: currentSummoner?.gameName ?? localProfile.name ?? "Local account",
@@ -769,7 +785,7 @@ export default function Profile() {
               platform: currentSummoner?.platform || localProfile.platform || "",
               profileIconId: currentSummoner?.profileIconId || profileIconId,
               summonerLevel: currentSummoner?.summonerLevel ?? 0,
-              dataDragonVersion: await window.api.getChampionDataVersion(),
+              dataDragonVersion,
               masteryPoints: 0,
               masteryScore: 0,
               topMasteryChampions: profileExtras.topMasteryChampions.map((champion) => ({
@@ -782,24 +798,34 @@ export default function Profile() {
             };
           } else {
             const snapshot = await window.api.getAccountSnapshot(puuid);
+            if (requestId !== loadRequestIdRef.current) return;
             if (!snapshot) {
+              if (requestId !== loadRequestIdRef.current) return;
               setError(
                 "No cached data for this account. Log in with it in League Client to fetch.",
               );
               return;
             }
-            profileData = profileDataFromSnapshot(
-              snapshot,
-              await window.api.getChampionDataVersion(),
-            );
+            const dataDragonVersion = await window.api.getChampionDataVersion();
+            if (requestId !== loadRequestIdRef.current) return;
+            profileData = profileDataFromSnapshot(snapshot, dataDragonVersion);
           }
 
           const localRecentMatches = await readRecentHistoryFromDb(puuid, 20);
+          if (requestId !== loadRequestIdRef.current) return;
+          if (profileData.puuid !== selectedPuuidRef.current) {
+            console.warn("[profile] stale load ignored:", {
+              loaded: profileData.puuid,
+              current: selectedPuuidRef.current,
+            });
+            return;
+          }
           setProfile(profileData);
           log.log("profile loaded", { puuid, icon: profileData.profileIconId });
           setRecentMatches(localRecentMatches.matches);
           setRecentMatchesAvailable(localRecentMatches.total);
         } catch (err: unknown) {
+          if (requestId !== loadRequestIdRef.current) return;
           console.error("Failed to load local profile:", err);
           const message = err instanceof Error ? err.message : "Could not load local profile";
           if (silent) {
@@ -808,7 +834,9 @@ export default function Profile() {
             setError(message);
           }
         } finally {
-          setLoading(false);
+          if (requestId === loadRequestIdRef.current) {
+            setLoading(false);
+          }
         }
       }),
     [livePuuid, log],
@@ -837,6 +865,10 @@ export default function Profile() {
     setScannedCount(0);
     setTotalCount(0);
     if (!selectedPuuid) return;
+    if (profileRef.current?.puuid && profileRef.current.puuid !== selectedPuuid) {
+      setProfile(null);
+      setRecentMatches(null);
+    }
     void loadLocalProfile(selectedPuuid);
   }, [selectedPuuid, loadLocalProfile, livePuuid]);
 

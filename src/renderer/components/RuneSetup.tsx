@@ -40,7 +40,17 @@ function Icon({
 
 type RenderSetup = RuneSelection & { statShardIds?: number[] };
 
-function SetupContents({ setup, data, version, compact }: { setup: RenderSetup; data: RuneData; version?: string | null; compact?: boolean }) {
+function SetupContents({
+  setup,
+  data,
+  version,
+  compact,
+}: {
+  setup: RenderSetup;
+  data: RuneData;
+  version?: string | null;
+  compact?: boolean;
+}) {
   const primaryTree = getRuneTree(data, setup.primaryTree);
   const secondaryTree = getRuneTree(data, setup.secondaryTree);
   return (
@@ -55,14 +65,20 @@ function SetupContents({ setup, data, version, compact }: { setup: RenderSetup; 
         <div className="flex flex-col gap-1">
           <div className="flex items-center gap-1">
             <Icon id={setup.primaryTree} data={data} version={version} size={16} />
-            {setup.primaryPerks.map((id) => <Icon key={`p-${id}`} id={id} data={data} version={version} size={21} />)}
+            {setup.primaryPerks.map((id) => (
+              <Icon key={`p-${id}`} id={id} data={data} version={version} size={21} />
+            ))}
           </div>
           <div className="flex items-center gap-1">
-            {setup.secondaryPerks.map((id) => <Icon key={`s-${id}`} id={id} data={data} version={version} size={21} />)}
+            {setup.secondaryPerks.map((id) => (
+              <Icon key={`s-${id}`} id={id} data={data} version={version} size={21} />
+            ))}
             <Icon id={setup.secondaryTree} data={data} version={version} size={16} />
           </div>
           <div className="flex items-center gap-1 border-t border-lol-border/50 pt-1">
-            {setup.statShardIds?.map((id) => <Icon key={`shard-${id}`} id={id} data={data} version={version} size={16} />)}
+            {setup.statShardIds?.map((id) => (
+              <Icon key={`shard-${id}`} id={id} data={data} version={version} size={16} />
+            ))}
           </div>
           <div className="text-[9px] text-lol-text">
             {primaryTree?.name ?? "Primary"} / {secondaryTree?.name ?? "Secondary"}
@@ -102,7 +118,14 @@ function FullTreeContents({
   const renderRow = (ids: number[], size: number, keyPrefix: string) => (
     <div className="flex items-center gap-1">
       {ids.map((id) => (
-        <Icon key={`${keyPrefix}-${id}`} id={id} data={data} version={version} size={size} dim={!selected.has(id)} />
+        <Icon
+          key={`${keyPrefix}-${id}`}
+          id={id}
+          data={data}
+          version={version}
+          size={size}
+          dim={!selected.has(id)}
+        />
       ))}
     </div>
   );
@@ -122,7 +145,9 @@ function FullTreeContents({
           ) : (
             <div className="flex items-center gap-1">
               <Icon id={setup.keystone} data={data} version={version} size={26} />
-              {setup.primaryPerks.map((id) => <Icon key={`p-${id}`} id={id} data={data} version={version} size={21} />)}
+              {setup.primaryPerks.map((id) => (
+                <Icon key={`p-${id}`} id={id} data={data} version={version} size={21} />
+              ))}
             </div>
           )}
         </div>
@@ -137,12 +162,12 @@ function FullTreeContents({
         </div>
         <div className="flex flex-col gap-1">
           {secondaryLayout ? (
-            secondaryLayout.slots
-              .slice(1)
-              .map((row, i) => renderRow(row, 21, `sec-${i}`))
+            secondaryLayout.slots.slice(1).map((row, i) => renderRow(row, 21, `sec-${i}`))
           ) : (
             <div className="flex items-center gap-1">
-              {setup.secondaryPerks.map((id) => <Icon key={`s-${id}`} id={id} data={data} version={version} size={21} />)}
+              {setup.secondaryPerks.map((id) => (
+                <Icon key={`s-${id}`} id={id} data={data} version={version} size={21} />
+              ))}
             </div>
           )}
         </div>
@@ -160,10 +185,7 @@ function FullTreeContents({
   );
 }
 
-export function RuneCompact({
-  children,
-  ...props
-}: RuneSetupProps & { children?: ReactNode }) {
+export function RuneCompact({ children, ...props }: RuneSetupProps & { children?: ReactNode }) {
   const [anchor, setAnchor] = useState<DOMRect | null>(null);
   const treeData = useRuneTreeData();
   const setup = splitRuneSelections(props.runeIds, props.primaryStyle, props.secondaryStyle);
@@ -173,7 +195,9 @@ export function RuneCompact({
       onMouseEnter={(event) => setAnchor(event.currentTarget.getBoundingClientRect())}
       onMouseLeave={() => setAnchor(null)}
     >
-      {children ?? <SetupContents setup={setup} data={props.runeData} version={props.version} compact />}
+      {children ?? (
+        <SetupContents setup={setup} data={props.runeData} version={props.version} compact />
+      )}
     </span>
   );
   const tooltip = anchor ? (
@@ -206,5 +230,11 @@ export function RuneCompact({
 
 export function RuneSetupGrid(props: RuneSetupProps) {
   const setup = splitRuneSelections(props.runeIds, props.primaryStyle, props.secondaryStyle);
-  return <SetupContents setup={{ ...setup, statShardIds: props.statShardIds }} data={props.runeData} version={props.version} />;
+  return (
+    <SetupContents
+      setup={{ ...setup, statShardIds: props.statShardIds }}
+      data={props.runeData}
+      version={props.version}
+    />
+  );
 }

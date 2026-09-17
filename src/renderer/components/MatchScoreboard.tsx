@@ -17,8 +17,7 @@ import ItemIcon from "./ItemIcon";
 import { RuneSetupGrid } from "./RuneSetup";
 import SummonerSpellIcon from "./SummonerSpellIcon";
 
-const GRID_COLS =
-  "grid-cols-[52px_140px_52px_76px_110px_110px_56px_56px_56px_176px_110px]";
+const GRID_COLS = "grid-cols-[52px_140px_52px_76px_110px_110px_56px_56px_56px_176px_110px]";
 
 export default function MatchScoreboard({
   detail,
@@ -98,8 +97,7 @@ export default function MatchScoreboard({
   );
 }
 
-const ARENA_GRID_COLS =
-  "grid-cols-[32px_52px_140px_76px_110px_110px_56px_56px_56px_1fr_110px]";
+const ARENA_GRID_COLS = "grid-cols-[32px_52px_140px_76px_110px_110px_56px_56px_56px_1fr_110px]";
 
 function ArenaScoreboard({
   participants,
@@ -610,9 +608,7 @@ function PlayerRow({
           }}
           disabled={!onPlayerClick || !p.puuid}
           className={`text-xs truncate text-left max-w-full transition-colors ${
-            p.isSelf
-              ? "text-lol-gold font-semibold"
-              : "text-lol-text-bright hover:text-lol-gold"
+            p.isSelf ? "text-lol-gold font-semibold" : "text-lol-text-bright hover:text-lol-gold"
           } ${onPlayerClick && p.puuid ? "cursor-pointer" : "cursor-default"}`}
           title={p.gameName && p.tagLine ? `${p.gameName}#${p.tagLine}` : undefined}
         >
@@ -683,7 +679,9 @@ function PlayerRow({
           per player would silently show an empty grid for the whole lobby. */}
       <div className="flex items-center gap-1">
         {showAugments ? (
-          p.augments.map((augId, i) => <AugmentIcon key={i} augmentId={augId} size={22} patch={patch} />)
+          p.augments.map((augId, i) => (
+            <AugmentIcon key={i} augmentId={augId} size={22} patch={patch} />
+          ))
         ) : (
           <RuneSetupGrid
             runeIds={p.runeIds}
