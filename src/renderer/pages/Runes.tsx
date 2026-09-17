@@ -7,6 +7,7 @@ import { useIpc } from "../hooks/useIpc";
 import { useChampionData, getChampionName } from "../hooks/useChampions";
 import QueueSelect from "../components/QueueSelect";
 import PatchSelect from "../components/PatchSelect";
+import { isAugmentQueue } from "../../shared/queues";
 
 export default function Runes({ queue }: { queue?: number }) {
   const [selectedQueue, setSelectedQueue] = useState<number | undefined>(queue);
@@ -24,9 +25,12 @@ export default function Runes({ queue }: { queue?: number }) {
     8465, 9923,
   ]);
   const rows = useMemo(() => {
-    const result = (data?.runes ?? []).filter((r) => String(r.rune_id).includes(search));
+    const query = search.toLowerCase();
+    const result = (data?.runes ?? []).filter((r) =>
+      runeData?.[r.rune_id]?.name?.toLowerCase().includes(query),
+    );
     return result.sort((a, b) => b.picks - a.picks);
-  }, [data, search]);
+  }, [data, runeData, search]);
   const renderGroup = (title: string, category: "keystone" | "secondary") => {
     const group = rows.filter((r) => {
       const metadata = runeData?.[r.rune_id];
@@ -39,34 +43,45 @@ export default function Runes({ queue }: { queue?: number }) {
       );
     });
     return (
-      <section className="space-y-2">
-        <h2 className="text-sm font-semibold uppercase text-lol-text-bright">{title}</h2>
-        <div className="overflow-hidden rounded-xl border border-lol-border/60 bg-lol-card">
+      <section className="rounded-lg border border-lol-crimson/40 bg-[linear-gradient(145deg,#0c0e11_0%,#090b0d_48%,#060809_100%)] shadow-[0_0_3px_rgba(150,30,30,0.55),0_0_10px_rgba(90,15,15,0.35),0_0_20px_rgba(60,10,10,0.20)] ring-1 ring-inset ring-white/[0.03] overflow-hidden p-4">
+        <h2 className="mb-3 text-xs font-bold uppercase tracking-wider text-lol-gold">{title}</h2>
+        <div className="overflow-hidden">
           <table className="w-full">
-            <thead className="bg-lol-dark/50">
+            <thead className="border-b border-lol-border/40">
               <tr>
-                <th className="px-3 py-2 text-left text-xs text-lol-text">#</th>
-                <th className="px-3 py-2 text-left text-xs text-lol-text">RUNE</th>
-                <th className="px-3 py-2 text-left text-xs text-lol-text">GAMES</th>
-                <th className="px-3 py-2 text-left text-xs text-lol-text">WIN RATE</th>
+                <th className="px-3 py-2.5 text-left text-[10px] font-bold uppercase tracking-wider text-lol-text">
+                  #
+                </th>
+                <th className="px-3 py-2.5 text-left text-[10px] font-bold uppercase tracking-wider text-lol-text">
+                  RUNE
+                </th>
+                <th className="px-3 py-2.5 text-left text-[10px] font-bold uppercase tracking-wider text-lol-text">
+                  GAMES
+                </th>
+                <th className="px-3 py-2.5 text-left text-[10px] font-bold uppercase tracking-wider text-lol-text">
+                  WIN RATE
+                </th>
               </tr>
             </thead>
             <tbody>
               {group.map((r, index) => (
-                <tr key={r.rune_id} className="border-t border-lol-border/50">
-                  <td className="px-3 py-2 text-xs text-lol-text">{index + 1}</td>
+                <tr
+                  key={r.rune_id}
+                  className="group border-b border-lol-border/20 transition-colors hover:bg-white/[0.03]"
+                >
+                  <td className="px-3 py-2 text-right text-xs text-lol-text tabular-nums">
+                    {index + 1}
+                  </td>
                   <td className="px-3 py-2">
-                    <span className="flex items-center gap-2 text-sm text-lol-text-bright">
-                      <RuneIcon
-                        runeId={r.rune_id}
-                        path={runeData?.[r.rune_id]?.icon}
-                        size={28}
-                      />
+                    <span className="flex items-center gap-3 text-sm font-bold text-lol-text-bright">
+                      <RuneIcon runeId={r.rune_id} path={runeData?.[r.rune_id]?.icon} size={28} />
                       {runeData?.[r.rune_id]?.name ?? `Rune ${r.rune_id}`}
                     </span>
                   </td>
-                  <td className="px-3 py-2 text-sm text-lol-text-bright">{r.picks}</td>
-                  <td className="px-3 py-2">
+                  <td className="px-3 py-2 text-right text-xs text-lol-text tabular-nums">
+                    {r.picks}
+                  </td>
+                  <td className="min-w-0 px-3 py-2">
                     <WinRateBar wins={r.wins} total={r.picks} />
                   </td>
                 </tr>
@@ -77,13 +92,25 @@ export default function Runes({ queue }: { queue?: number }) {
       </section>
     );
   };
-  if (loading) return <div className="mt-20 text-center text-lol-text">Loading...</div>;
+  if (loading)
+    return (
+      <div className="flex items-center justify-center rounded-lg border border-lol-crimson/40 bg-[linear-gradient(145deg,#0c0e11_0%,#090b0d_48%,#060809_100%)] p-12">
+        <p className="text-sm text-lol-text">Loading...</p>
+      </div>
+    );
   return (
-    <div className="max-w-6xl space-y-4">
-      <div className="flex items-center justify-between">
-        <span className="text-sm text-lol-text">Rune popularity</span>
+    <div className="flex flex-col gap-4">
+      <div className="flex items-center justify-end">
         <div className="flex gap-2">
-          {queue == null && <QueueSelect value={selectedQueue} onChange={setSelectedQueue} />}
+          {queue == null && (
+            <div className="[&_select]:h-9 [&_select]:rounded-md [&_select]:border [&_select]:border-lol-border/60 [&_select]:bg-lol-card/40 [&_select]:px-3 [&_select]:text-xs [&_select]:text-lol-text-bright [&_select]:focus-visible:outline-none [&_select]:focus-visible:border-lol-gold/60 [&_select]:focus-visible:ring-1 [&_select]:focus-visible:ring-lol-gold/40 [&_select]:transition-colors">
+              <QueueSelect
+                value={selectedQueue}
+                onChange={setSelectedQueue}
+                filter={(id) => !isAugmentQueue(id)}
+              />
+            </div>
+          )}
           <PatchSelect
             value={patch}
             onChange={(value) => {
@@ -94,7 +121,7 @@ export default function Runes({ queue }: { queue?: number }) {
           />
           <input
             className="input w-48"
-            placeholder="Search rune ID..."
+            placeholder="Search rune name..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
           />
@@ -103,22 +130,25 @@ export default function Runes({ queue }: { queue?: number }) {
       {renderGroup("Keystones", "keystone")}
       {renderGroup("Secondaries", "secondary")}
       {!data?.runes?.length && (
-        <div className="rounded-xl border border-lol-border/60 bg-lol-card p-6 text-center text-sm text-lol-text">
-          No rune data is available in the archived match payloads for this history scope.
+        <div className="rounded-lg border border-lol-crimson/40 bg-[linear-gradient(145deg,#0c0e11_0%,#090b0d_48%,#060809_100%)] shadow-[0_0_3px_rgba(150,30,30,0.55),0_0_10px_rgba(90,15,15,0.35),0_0_20px_rgba(60,10,10,0.20)] ring-1 ring-inset ring-white/[0.03] p-12 text-center">
+          <p className="text-sm text-lol-text">
+            No rune data is available in the archived match payloads for this history scope.
+          </p>
         </div>
       )}
-      <section className="space-y-2">
-        <h2 className="text-sm font-semibold uppercase text-lol-text-bright">
+
+      <section className="rounded-lg border border-lol-crimson/40 bg-[linear-gradient(145deg,#0c0e11_0%,#090b0d_48%,#060809_100%)] shadow-[0_0_3px_rgba(150,30,30,0.55),0_0_10px_rgba(90,15,15,0.35),0_0_20px_rgba(60,10,10,0.20)] ring-1 ring-inset ring-white/[0.03] overflow-hidden p-4">
+        <h2 className="mb-3 text-xs font-bold uppercase tracking-wider text-lol-gold">
           Champions and most-used keystones
         </h2>
         <div className="grid gap-2 md:grid-cols-2">
           {(data?.champions ?? []).map((champion) => (
             <div
               key={champion.champion_id}
-              className="flex items-center gap-3 rounded-xl border border-lol-border/60 bg-lol-card px-3 py-2"
+              className="flex items-center gap-3 rounded-md border border-lol-border/40 bg-white/[0.02] p-3 transition-colors hover:border-lol-gold/40 hover:bg-white/[0.04]"
             >
               <ChampionIcon championId={champion.champion_id} size={32} />
-              <span className="min-w-0 flex-1 truncate text-sm text-lol-text-bright">
+              <span className="min-w-0 flex-1 truncate text-sm font-bold text-lol-text-bright">
                 {getChampionName(champions, champion.champion_id)}
               </span>
               <div className="flex items-center gap-2">

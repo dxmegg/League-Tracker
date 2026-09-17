@@ -3,7 +3,7 @@ import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/
 
 // A fresh Client is created per call because the OP.GG MCP server is stateless
 // for this tool, and a long-lived client would need reconnect handling we do
-// not want to maintain for an experiment.
+// not want to maintain here.
 export async function fetchSummonerGameHistory(
   gameName: string,
   tagLine: string,

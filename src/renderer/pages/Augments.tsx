@@ -14,35 +14,42 @@ import WinRateBar from "../components/WinRateBar";
 import PatchSelect from "../components/PatchSelect";
 import QueueSelect from "../components/QueueSelect";
 import { useHistoryScopeQueue } from "../lib/historyScope";
+import { isAugmentQueue } from "../../shared/queues";
 
 type SortKey = "picks" | "winRate" | "name";
 type SortDir = "asc" | "desc";
 type RarityFilter = "all" | "kSilver" | "kGold" | "kPrismatic";
 
+const COLUMN_COUNT = 5;
+
 const rarityFilters: { key: RarityFilter; label: string; color: string; activeColor: string }[] = [
   {
     key: "all",
     label: "All",
-    color: "text-lol-text",
-    activeColor: "bg-lol-gold/20 text-lol-gold border-lol-gold/50",
+    color:
+      "border-lol-border/60 bg-lol-card/40 text-lol-text hover:border-lol-gold/40 hover:text-lol-text-bright",
+    activeColor: "border-lol-gold/60 bg-lol-gold/15 text-lol-gold",
   },
   {
     key: "kSilver",
     label: "Silver",
-    color: "text-gray-300",
-    activeColor: "bg-gray-400/20 text-gray-200 border-gray-400/50",
+    color:
+      "border-lol-border/60 bg-lol-card/40 text-lol-text hover:border-lol-gold/40 hover:text-lol-text-bright",
+    activeColor: "border-lol-gold/60 bg-lol-gold/15 text-lol-gold",
   },
   {
     key: "kGold",
     label: "Gold",
-    color: "text-yellow-400",
-    activeColor: "bg-yellow-500/20 text-yellow-300 border-yellow-500/50",
+    color:
+      "border-lol-border/60 bg-lol-card/40 text-lol-text hover:border-lol-gold/40 hover:text-lol-text-bright",
+    activeColor: "border-lol-gold/60 bg-lol-gold/15 text-lol-gold",
   },
   {
     key: "kPrismatic",
     label: "Prismatic",
-    color: "text-fuchsia-400",
-    activeColor: "bg-fuchsia-500/20 text-fuchsia-300 border-fuchsia-400/50",
+    color:
+      "border-lol-border/60 bg-lol-card/40 text-lol-text hover:border-lol-gold/40 hover:text-lol-text-bright",
+    activeColor: "border-lol-gold/60 bg-lol-gold/15 text-lol-gold",
   },
 ];
 
@@ -118,7 +125,11 @@ export default function Augments() {
   }, [data, search, sortKey, sortDir, augmentData, rarityFilter]);
 
   if (!data) {
-    return <div className="text-lol-text text-center mt-20">Loading...</div>;
+    return (
+      <div className="rounded-lg border border-lol-crimson/40 bg-[linear-gradient(145deg,#0c0e11_0%,#090b0d_48%,#060809_100%)] shadow-[0_0_3px_rgba(150,30,30,0.55),0_0_10px_rgba(90,15,15,0.35),0_0_20px_rgba(60,10,10,0.20)] ring-1 ring-inset ring-white/[0.03] p-12 text-center">
+        <p className="text-sm text-lol-text">Loading...</p>
+      </div>
+    );
   }
 
   const SortHeader = ({
@@ -132,34 +143,32 @@ export default function Augments() {
   }) => (
     <th
       onClick={() => handleSort(field)}
-      className={`px-3 py-2 text-left text-xs font-medium text-lol-text uppercase tracking-wider cursor-pointer hover:text-lol-gold select-none ${className ?? ""}`}
+      className={`px-3 py-2.5 text-left text-[10px] font-bold uppercase tracking-wider cursor-pointer select-none transition-colors hover:text-lol-text-bright focus-visible:outline-none focus-visible:text-lol-gold ${
+        sortKey === field ? "text-lol-gold" : "text-lol-text"
+      } ${className ?? ""}`}
     >
       {label} {sortKey === field ? (sortDir === "desc" ? "▼" : "▲") : ""}
     </th>
   );
 
   return (
-    <div className="max-w-7xl space-y-4">
-      <h1 className="text-xl font-bold text-lol-text-bright">Augments</h1>
-
+    <div className="flex flex-col gap-4">
       {/* Rarity Filter + Search */}
-      <div className="flex items-center gap-2">
+      <div className="flex flex-wrap items-center gap-3">
         {rarityFilters.map((f) => (
           <button
             key={f.key}
             onClick={() => setRarityFilter(f.key)}
-            className={`px-3 py-1 text-xs font-medium rounded-lg border transition-colors ${
-              rarityFilter === f.key
-                ? f.activeColor
-                : `${f.color} border-lol-border hover:border-lol-border/80 bg-lol-card`
+            className={`inline-flex h-9 items-center rounded-md border px-3 text-xs font-semibold tracking-wider transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-lol-gold/60 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--theme-bg-deep)] ${
+              rarityFilter === f.key ? f.activeColor : f.color
             }`}
           >
             {f.label}
           </button>
         ))}
         <span className="text-xs text-lol-text self-center ml-2">{sorted.length} augments</span>
-        <div className="ml-auto flex items-center gap-2">
-          <QueueSelect value={queue} onChange={setQueue} />
+        <div className="ml-auto flex items-center gap-2 [&_select]:h-9 [&_select]:rounded-md [&_select]:border [&_select]:border-lol-border/60 [&_select]:bg-lol-card/40 [&_select]:px-3 [&_select]:text-xs [&_select]:text-lol-text-bright [&_select]:focus-visible:outline-none [&_select]:focus-visible:border-lol-gold/60 [&_select]:focus-visible:ring-1 [&_select]:focus-visible:ring-lol-gold/40 [&_select]:transition-colors">
+          <QueueSelect value={queue} onChange={setQueue} filter={(id) => isAugmentQueue(id)} />
           <PatchSelect value={patch} onChange={setPatch} />
         </div>
         <div className="relative">
@@ -168,12 +177,12 @@ export default function Augments() {
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Search augment..."
-            className="input w-48 pr-7"
+            className="h-9 w-56 rounded-md border border-lol-border/60 bg-lol-card/40 px-3 text-xs text-lol-text-bright placeholder:text-lol-text/50 focus-visible:outline-none focus-visible:border-lol-gold/60 focus-visible:ring-1 focus-visible:ring-lol-gold/40 transition-colors"
           />
           {search && (
             <button
               onClick={() => setSearch("")}
-              className="absolute right-2 top-1/2 -translate-y-1/2 text-lol-text/50 hover:text-lol-text-bright transition-colors"
+              className="absolute right-2 top-1/2 -translate-y-1/2 inline-flex h-9 items-center rounded-md border border-lol-gold/30 bg-lol-gold/10 px-3 text-xs font-semibold tracking-wider text-lol-gold transition-colors hover:bg-lol-gold/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-lol-gold/60 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--theme-bg-deep)]"
             >
               <svg
                 xmlns="http://www.w3.org/2000/svg"
@@ -192,14 +201,14 @@ export default function Augments() {
         </div>
       </div>
 
-      <div className="bg-lol-card rounded-xl border border-lol-border/60 overflow-hidden">
+      <div className="rounded-lg border border-lol-crimson/40 bg-[linear-gradient(145deg,#0c0e11_0%,#090b0d_48%,#060809_100%)] shadow-[0_0_3px_rgba(150,30,30,0.55),0_0_10px_rgba(90,15,15,0.35),0_0_20px_rgba(60,10,10,0.20)] ring-1 ring-inset ring-white/[0.03] overflow-hidden">
         <table className="w-full">
-          <thead className="bg-lol-dark/50">
+          <thead className="border-b border-lol-border/40">
             <tr>
-              <th className="px-3 py-2 text-left text-xs font-medium text-lol-text uppercase tracking-wider w-8"></th>
+              <th className="px-3 py-2.5 text-left text-[10px] font-bold uppercase tracking-wider text-lol-text w-8"></th>
               <SortHeader label="Augment" field="name" />
               <SortHeader label="Picks" field="picks" />
-              <th className="px-3 py-2 text-left text-xs font-medium text-lol-text uppercase tracking-wider">
+              <th className="px-3 py-2.5 text-left text-[10px] font-bold uppercase tracking-wider text-lol-text">
                 Pick Rate
               </th>
               <SortHeader label="Win Rate" field="winRate" className="w-32" />
@@ -214,9 +223,9 @@ export default function Augments() {
                   <tr
                     key={a.augment_id}
                     onClick={() => toggleExpand(a.augment_id)}
-                    className="border-t border-lol-border/50 hover:bg-lol-card-hover cursor-pointer transition-colors"
+                    className="group border-b border-lol-border/20 transition-colors hover:bg-white/[0.03] cursor-pointer"
                   >
-                    <td className="px-3 py-2 text-xs text-lol-text">
+                    <td className="px-3 py-2 text-right text-xs text-lol-text tabular-nums">
                       <span
                         className={`inline-block transition-transform ${isExpanded ? "rotate-90" : ""}`}
                       >
@@ -224,43 +233,73 @@ export default function Augments() {
                       </span>
                     </td>
                     <td className="px-3 py-2">
-                      <AugmentIcon augmentId={a.augment_id} showName />
+                      <span className="flex items-center gap-3 text-sm font-bold text-lol-text-bright">
+                        <AugmentIcon augmentId={a.augment_id} showName />
+                      </span>
                     </td>
-                    <td className="px-3 py-2 text-sm text-lol-text-bright">{a.picks}</td>
-                    <td className="px-3 py-2 text-sm text-lol-text">{pickRate}%</td>
-                    <td className="px-3 py-2 w-32">
+                    <td className="px-3 py-2 text-right text-xs text-lol-text tabular-nums">
+                      {a.picks}
+                    </td>
+                    <td className="px-3 py-2 text-right text-xs text-lol-text tabular-nums">
+                      {pickRate}%
+                    </td>
+                    <td className="min-w-0 px-3 py-2">
                       <WinRateBar wins={a.wins} total={a.picks} />
                     </td>
                   </tr>
-                  {isExpanded &&
-                    a.champions.map((c) => (
-                      <tr
-                        key={`${a.augment_id}-${c.champion_id}`}
-                        className="border-t border-lol-border/30 bg-lol-dark/30"
-                      >
-                        <td></td>
-                        <td className="px-3 py-1.5 pl-8">
-                          <div className="flex items-center gap-2">
-                            <ChampionIcon championId={c.champion_id} size={22} />
-                            <span className="text-xs text-lol-text">
-                              {getChampionName(champData, c.champion_id)}
-                            </span>
-                          </div>
-                        </td>
-                        <td className="px-3 py-1.5 text-xs text-lol-text">{c.picks}</td>
-                        <td></td>
-                        <td className="px-3 py-1.5 w-32">
-                          <WinRateBar wins={c.wins} total={c.picks} />
-                        </td>
-                      </tr>
-                    ))}
+                  {isExpanded && (
+                    <tr className="bg-black/20">
+                      <td colSpan={COLUMN_COUNT} className="px-3 py-4">
+                        <div className="flex flex-col gap-3 rounded-md border border-lol-border/30 bg-white/[0.02] p-3">
+                          <table className="w-full">
+                            <thead>
+                              <tr>
+                                <th className="px-3 py-2.5 text-left text-[10px] font-bold uppercase tracking-wider text-lol-text">
+                                  CHAMPION
+                                </th>
+                                <th className="px-3 py-2.5 text-left text-[10px] font-bold uppercase tracking-wider text-lol-text">
+                                  GAMES
+                                </th>
+                                <th className="px-3 py-2.5 text-left text-[10px] font-bold uppercase tracking-wider text-lol-text">
+                                  WIN RATE
+                                </th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {a.champions.map((c) => (
+                                <tr
+                                  key={`${a.augment_id}-${c.champion_id}`}
+                                  className="group border-b border-lol-border/20 transition-colors hover:bg-white/[0.03]"
+                                >
+                                  <td className="px-3 py-2">
+                                    <span className="flex items-center gap-3 text-sm font-bold text-lol-text-bright">
+                                      <ChampionIcon championId={c.champion_id} size={22} />
+                                      {getChampionName(champData, c.champion_id)}
+                                    </span>
+                                  </td>
+                                  <td className="px-3 py-2 text-right text-xs text-lol-text tabular-nums">
+                                    {c.picks}
+                                  </td>
+                                  <td className="min-w-0 px-3 py-2">
+                                    <WinRateBar wins={c.wins} total={c.picks} />
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      </td>
+                    </tr>
+                  )}
                 </>
               );
             })}
           </tbody>
         </table>
         {sorted.length === 0 && (
-          <div className="py-8 text-center text-sm text-lol-text">No augments found</div>
+          <div className="rounded-lg border border-lol-crimson/40 bg-[linear-gradient(145deg,#0c0e11_0%,#090b0d_48%,#060809_100%)] shadow-[0_0_3px_rgba(150,30,30,0.55),0_0_10px_rgba(90,15,15,0.35),0_0_20px_rgba(60,10,10,0.20)] ring-1 ring-inset ring-white/[0.03] p-12 text-center">
+            <p className="text-sm text-lol-text">No augments found</p>
+          </div>
         )}
       </div>
     </div>

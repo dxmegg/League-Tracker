@@ -7,8 +7,8 @@ const OPGG_UA =
   "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";
 
 // OP.GG returns JSON under a top-level data key on every endpoint. A missing key
-// or a non-OK status is an error, not a silent empty result — the Experiments
-// page must see the failure.
+// or a non-OK status is an error, not a silent empty result — callers must see
+// the failure.
 async function opggFetch<T>(url: string): Promise<T> {
   const response = await fetch(url, {
     headers: { "User-Agent": OPGG_UA, Accept: "application/json" },

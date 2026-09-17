@@ -10,7 +10,6 @@ import Trends from "./pages/Trends";
 import Records from "./pages/Records";
 import GlobalStats from "./pages/GlobalStats";
 import Settings from "./pages/Settings";
-import Experiments from "./pages/Experiments";
 import Profile from "./pages/Profile";
 import HistorySection from "./pages/HistorySection";
 import GlobalChampionDetail from "./pages/GlobalChampionDetail";
@@ -26,17 +25,20 @@ export default function App() {
     <HashRouter>
       <Routes>
         <Route element={<FullHistoryShell />}>
-        <Route path="/" element={<MatchHistory />} />
+          <Route path="/" element={<MatchHistory />} />
+          <Route path="/history/full/:section" element={<HistorySection />} />
+          <Route path="/history/:scope/:section" element={<HistorySection />} />
           <Route path="/history/mayhem" element={<MatchHistory scope="mayhem" />} />
           <Route path="/history/rest" element={<MatchHistory scope="rest" />} />
           <Route path="/history/ranked" element={<MatchHistory scope="ranked" />} />
           <Route path="/history/normal" element={<MatchHistory scope="normal" />} />
           <Route path="/history/aram" element={<MatchHistory scope="aram" />} />
           <Route path="/history/arena" element={<MatchHistory scope="arena" />} />
+          <Route path="/settings" element={<Settings />} />
         </Route>
         <Route element={<Layout />}>
-        <Route path="/home" element={<Home />} />
-        <Route path="/local" element={<Profile />} />
+          <Route path="/home" element={<Home />} />
+          <Route path="/local" element={<Profile />} />
           <Route
             path="/history/:scope/:section/champion/:championId"
             element={<GlobalChampionDetail />}
@@ -52,8 +54,6 @@ export default function App() {
           <Route path="/records" element={<Records />} />
           <Route path="/global" element={<GlobalStats />} />
           <Route path="/global/champion/:championId" element={<GlobalChampionDetail />} />
-          <Route path="/settings" element={<Settings />} />
-          <Route path="/experiments" element={<Experiments />} />
         </Route>
       </Routes>
     </HashRouter>

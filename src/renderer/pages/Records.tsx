@@ -14,7 +14,7 @@ import type {
 import ChampionIcon from "../components/ChampionIcon";
 import MatchScoreboard from "../components/MatchScoreboard";
 import QueueSelect, { queueLabel } from "../components/QueueSelect";
-import { ACCENTS, type StatAccent } from "../components/StatCard";
+import { type StatAccent } from "../components/StatCard";
 import {
   CoinsIcon,
   CrosshairIcon,
@@ -52,8 +52,6 @@ function recordDate(ts: number): string {
 // game it was set in.
 function RecordCard({
   label,
-  icon,
-  accent,
   value,
   sub,
   match,
@@ -69,31 +67,28 @@ function RecordCard({
   champData: ChampionData;
   onOpen: (match: RecordMatchRef) => void;
 }) {
-  const a = ACCENTS[accent];
   return (
     <button
       onClick={() => onOpen(match)}
       title="View match"
-      className="relative flex flex-col overflow-hidden bg-lol-card rounded-xl border border-lol-border/60 p-4 text-left transition-colors cursor-pointer hover:border-lol-gold/40 hover:bg-lol-card-hover"
+      className="group flex flex-col items-center text-center gap-3 rounded-lg border border-lol-crimson/40 bg-[linear-gradient(145deg,#0c0e11_0%,#090b0d_48%,#060809_100%)] shadow-[0_0_3px_rgba(150,30,30,0.55),0_0_10px_rgba(90,15,15,0.35),0_0_20px_rgba(60,10,10,0.20)] ring-1 ring-inset ring-white/[0.03] p-5 transition-colors hover:border-lol-gold/50 hover:shadow-[0_0_3px_rgba(201,162,77,0.45),0_0_10px_rgba(165,15,21,0.35),0_0_20px_rgba(60,10,10,0.20)] cursor-pointer"
     >
-      <span
-        className={`pointer-events-none absolute -top-14 -right-8 h-32 w-32 rounded-full blur-2xl ${a.glow}`}
-      />
-      <div className="relative flex items-center gap-1.5 mb-1">
-        <span className={`flex h-5 w-5 items-center justify-center rounded-md ${a.chip}`}>
-          {icon}
-        </span>
-        <span className="text-[11px] text-lol-text uppercase tracking-wider">{label}</span>
+      <div className="relative flex items-center justify-center gap-2 mb-0">
+        <span className="text-xs font-bold uppercase tracking-wider text-lol-text">{label}</span>
       </div>
-      <div className="relative text-2xl font-bold text-lol-text-bright">{value}</div>
-      {sub && <div className="relative text-xs text-lol-text mt-0.5">{sub}</div>}
-      <div className="relative mt-auto pt-3 flex items-center gap-2">
-        <ChampionIcon championId={match.champion_id} size={24} />
-        <div className="min-w-0 flex-1">
-          <div className="text-xs text-lol-text-bright truncate">
+      <div className="relative text-4xl font-bold text-lol-text-bright leading-none">{value}</div>
+      {sub && <div className="relative text-sm text-lol-text">{sub}</div>}
+      <div className="relative mt-auto flex flex-col items-center gap-2">
+        <div className="rounded-full p-[2px] ring-2 ring-lol-border/40 transition-colors group-hover:ring-lol-gold/50">
+          <div className="overflow-hidden rounded-full">
+            <ChampionIcon championId={match.champion_id} size={48} />
+          </div>
+        </div>
+        <div className="min-w-0 max-w-full">
+          <div className="text-base font-bold text-lol-text-bright truncate">
             {getChampionName(champData, match.champion_id)}
           </div>
-          <div className="text-[11px] text-lol-text truncate">
+          <div className="text-sm text-lol-text truncate">
             <span className={match.win ? "text-lol-win" : "text-lol-loss"}>
               {match.win ? "W" : "L"}
             </span>
@@ -138,17 +133,17 @@ function MatchModal({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-6"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm p-4"
       onClick={onClose}
     >
       <div
-        className="w-full max-w-5xl max-h-full overflow-y-auto rounded-xl border border-lol-border bg-lol-card p-4 shadow-xl"
+        className="relative w-full max-w-4xl max-h-[90vh] overflow-y-auto rounded-lg border border-lol-crimson/40 bg-[linear-gradient(145deg,#0c0e11_0%,#090b0d_48%,#060809_100%)] shadow-[0_0_3px_rgba(150,30,30,0.55),0_0_10px_rgba(90,15,15,0.35),0_0_20px_rgba(60,10,10,0.20)] ring-1 ring-inset ring-white/[0.03] p-6"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex items-center gap-3 mb-3">
+        <div className="flex items-center gap-3 mb-3 pr-12">
           <ChampionIcon championId={match.champion_id} size={36} />
           <div className="min-w-0 flex-1">
-            <div className="text-sm font-bold text-lol-text-bright truncate">
+            <div className="text-xs font-bold uppercase tracking-wider text-lol-gold mb-3 truncate">
               <span className={match.win ? "text-lol-win" : "text-lol-loss"}>
                 {match.win ? "Victory" : "Defeat"}
               </span>
@@ -162,8 +157,9 @@ function MatchModal({
             </div>
           </div>
           <button
+            type="button"
             onClick={onClose}
-            className="shrink-0 flex h-7 w-7 items-center justify-center rounded-md text-lol-text hover:bg-white/5 hover:text-lol-text-bright transition-colors"
+            className="absolute right-4 top-4 inline-flex h-8 w-8 items-center justify-center rounded-md border border-lol-border/60 bg-lol-card/40 text-lol-text transition-colors hover:border-lol-crimson/60 hover:bg-lol-crimson/15 hover:text-lol-crimson-bright focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-lol-gold/60 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--theme-bg-deep)]"
           >
             <XIcon className="w-4 h-4" />
           </button>
@@ -226,7 +222,7 @@ function statCards(bests: RecordsData["bests"]): CardDef[] {
     value: (r) => (
       <span className={scoreColor(r.value)}>
         {r.value.toFixed(1)}
-        <span className="text-sm font-semibold text-lol-text/60"> / 10</span>
+        <span className="text-lg font-semibold text-lol-text/60"> / 10</span>
       </span>
     ),
   });
@@ -392,16 +388,18 @@ export default function Records() {
   }, [refetch]);
 
   if (!data) {
-    return <div className="text-lol-text text-center mt-20">Loading...</div>;
+    return (
+      <div className="rounded-lg border border-lol-crimson/40 bg-[linear-gradient(145deg,#0c0e11_0%,#090b0d_48%,#060809_100%)] shadow-[0_0_3px_rgba(150,30,30,0.55),0_0_10px_rgba(90,15,15,0.35),0_0_20px_rgba(60,10,10,0.20)] ring-1 ring-inset ring-white/[0.03] p-12 text-center">
+        <p className="text-sm text-lol-text">Loading records…</p>
+      </div>
+    );
   }
 
   if (data.totalGames === 0) {
     return (
-      <div className="max-w-7xl space-y-4">
-        <h1 className="text-xl font-bold text-lol-text-bright">Records</h1>
-        <div className="bg-lol-card rounded-xl border border-lol-border/60 py-16 text-center text-sm text-lol-text">
-          No games recorded yet — sync your match history to start setting records.
-        </div>
+      <div className="rounded-lg border border-lol-crimson/40 bg-[linear-gradient(145deg,#0c0e11_0%,#090b0d_48%,#060809_100%)] shadow-[0_0_3px_rgba(150,30,30,0.55),0_0_10px_rgba(90,15,15,0.35),0_0_20px_rgba(60,10,10,0.20)] ring-1 ring-inset ring-white/[0.03] p-12 text-center">
+        <p className="text-sm font-semibold text-lol-text-bright">No records yet</p>
+        <p className="text-xs text-lol-text mt-1">Play more matches to set personal bests.</p>
       </div>
     );
   }
@@ -415,18 +413,19 @@ export default function Records() {
   }
 
   return (
-    <div className="max-w-7xl space-y-4">
-      <div className="flex items-center justify-between">
-        <h1 className="text-xl font-bold text-lol-text-bright">Records</h1>
+    <div className="flex flex-col gap-4">
+      <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
         <div className="flex items-center gap-3">
           <span className="text-xs text-lol-text">
             personal bests across {data.totalGames} {data.totalGames === 1 ? "game" : "games"}
           </span>
-          <QueueSelect value={queue} onChange={setQueue} />
+          <div className="[&_select]:h-9 [&_select]:rounded-md [&_select]:border [&_select]:border-lol-border/60 [&_select]:bg-lol-card/40 [&_select]:px-3 [&_select]:text-xs [&_select]:text-lol-text-bright [&_select]:focus-visible:outline-none [&_select]:focus-visible:border-lol-gold/60 [&_select]:focus-visible:ring-1 [&_select]:focus-visible:ring-lol-gold/40 [&_select]:transition-colors">
+            <QueueSelect value={queue} onChange={setQueue} />
+          </div>
         </div>
       </div>
 
-      <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 items-stretch">
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 items-stretch">
         {cards.map(({ key, ...card }) => (
           <RecordCard key={key} {...card} champData={champData} onOpen={setOpenMatch} />
         ))}

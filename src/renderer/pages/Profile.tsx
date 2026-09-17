@@ -2,11 +2,7 @@ import { type ReactNode, useCallback, useEffect, useRef, useState } from "react"
 import type { MatchDetail, MatchListItem, ProfileData, ProfileRankedEntry } from "../lib/types";
 import { GameRow } from "./MatchHistory";
 import { getChampionName, useChampionData } from "../hooks/useChampions";
-import type {
-  ChampionData,
-  ProfileMasteryChampion,
-  ProfileRecentGame,
-} from "../../shared/api";
+import type { ChampionData, ProfileMasteryChampion, ProfileRecentGame } from "../../shared/api";
 import ChampionIcon from "../components/ChampionIcon";
 import { shortRegion } from "../../shared/regions";
 import { ARENA_QUEUE_IDS, isAugmentQueue, QUEUE_LABELS } from "../../shared/queues";
@@ -69,9 +65,7 @@ function RankCard({
             <p className="text-xs text-lol-gold mt-1">{entry.leaguePoints} LP</p>
           </div>
           <div className="col-span-2">
-            {recentGames && (
-              <RecentGamesStrip games={recentGames} championData={championData} />
-            )}
+            {recentGames && <RecentGamesStrip games={recentGames} championData={championData} />}
             {(() => {
               const games = entry.wins + entry.losses;
               const percent = games > 0 ? Math.round((entry.wins / games) * 1000) / 10 : 0;
@@ -169,12 +163,8 @@ function deriveFromRiotMatches(matches: MatchListItem[]): {
 
   const allRecent = matches.map(toRecentGame);
   const isArenaGroup = ARENA_QUEUE_IDS.includes(bestQueue);
-  const bestQueueSet = isArenaGroup
-    ? new Set(ARENA_QUEUE_IDS)
-    : new Set([bestQueue]);
-  const recentGames = allRecent
-    .filter((game) => bestQueueSet.has(game.queue_id))
-    .slice(0, 5);
+  const bestQueueSet = isArenaGroup ? new Set(ARENA_QUEUE_IDS) : new Set([bestQueue]);
+  const recentGames = allRecent.filter((game) => bestQueueSet.has(game.queue_id)).slice(0, 5);
 
   return {
     mostPlayed: {
@@ -192,9 +182,9 @@ function deriveFromRiotMatches(matches: MatchListItem[]): {
   };
 }
 
-function recomputeBoxesFromMatches(
-  matches: MatchListItem[],
-): {
+// TODO: remove when /local migrates (Phase 14)
+// oxlint-disable-next-line
+function recomputeBoxesFromMatches(matches: MatchListItem[]): {
   mostPlayed: MostPlayedQueue | null;
   totals: MatchTotals;
   recentGames: ProfileRecentGame[];
@@ -289,7 +279,7 @@ function RecentGamesStrip({
               Lane{" "}
               {game.team_position == null
                 ? "Unknown"
-                : TEAM_POSITION_LABELS[game.team_position] ?? "Unknown"}
+                : (TEAM_POSITION_LABELS[game.team_position] ?? "Unknown")}
             </span>,
           );
         }
@@ -351,17 +341,12 @@ function MatchStatsBox({
 
   const losses = totals.games - totals.wins;
   const oneDec = Math.round((totals.wins / totals.games) * 1000) / 10;
-  const percentColor =
-    getPercentColor(oneDec);
+  const percentColor = getPercentColor(oneDec);
 
   return (
     <div className="min-w-[180px] flex flex-1 flex-col rounded-xl border border-lol-border/70 bg-lol-card/50 px-4 py-3">
-      <p className="text-[11px] font-semibold uppercase tracking-wide text-lol-text/70">
-        {title}
-      </p>
-      {subtitle && (
-        <p className="mt-1 text-sm font-semibold text-lol-text-bright">{subtitle}</p>
-      )}
+      <p className="text-[11px] font-semibold uppercase tracking-wide text-lol-text/70">{title}</p>
+      {subtitle && <p className="mt-1 text-sm font-semibold text-lol-text-bright">{subtitle}</p>}
       <RecentGamesStrip games={recentGames ?? null} championData={championData} />
       <div className="mt-2 flex h-1.5 overflow-hidden rounded-full bg-red-400/30">
         <div
@@ -438,8 +423,7 @@ function LastPlayedChampionsBox({
   const top5 = [...byChampion.entries()]
     .map(([championId, games]) => ({ championId, games }))
     .sort(
-      (left, right) =>
-        right.games.length - left.games.length || left.championId - right.championId,
+      (left, right) => right.games.length - left.games.length || left.championId - right.championId,
     )
     .slice(0, 5);
 
@@ -483,13 +467,7 @@ function LastPlayedChampionsBox({
   );
 }
 
-function LastGamesBox({
-  matches,
-  loading,
-}: {
-  matches: MatchListItem[];
-  loading: boolean;
-}) {
+function LastGamesBox({ matches, loading }: { matches: MatchListItem[]; loading: boolean }) {
   const games = matches.length;
   if (loading) {
     return (
@@ -543,6 +521,8 @@ function LastGamesBox({
   );
 }
 
+// TODO: remove when /local migrates (Phase 14)
+// oxlint-disable-next-line
 function MostPlayedMode({
   mostPlayed,
   recentGames,
@@ -714,8 +694,7 @@ function RecentRiotMatchesSection({
         </h2>
         <span className="text-[11px] text-lol-text">
           {matches?.length ?? 0} loaded
-          {availableCount > (matches?.length ?? 0) &&
-            ` · up to ${availableCount} fetchable`}
+          {availableCount > (matches?.length ?? 0) && ` · up to ${availableCount} fetchable`}
         </span>
         <button
           type="button"
@@ -726,9 +705,7 @@ function RecentRiotMatchesSection({
           {loading || refreshing ? "Refreshing…" : "Refresh Match History"}
         </button>
       </div>
-      {summary && (
-        <p className="mt-1 text-[11px] text-lol-text/60">Last import: {summary}</p>
-      )}
+      {summary && <p className="mt-1 text-[11px] text-lol-text/60">Last import: {summary}</p>}
       {loading && (!matches || matches.length === 0) && (
         <p className="mt-4 text-sm text-lol-text">Loading…</p>
       )}
@@ -784,7 +761,11 @@ export default function Profile() {
   const [profile, setProfile] = useState<ProfileData | null>(null);
   const [recentMatches, setRecentMatches] = useState<MatchListItem[] | null>(null);
   const [recentMatchesAvailable, setRecentMatchesAvailable] = useState(0);
+  // TODO: remove when /local migrates (Phase 14)
+  // oxlint-disable-next-line
   const [recentMatchesLoading, setRecentMatchesLoading] = useState(false);
+  // TODO: remove when /local migrates (Phase 14)
+  // oxlint-disable-next-line
   const [recentMatchesError, setRecentMatchesError] = useState<string | null>(null);
   const [recentExpandedId, setRecentExpandedId] = useState<number | null>(null);
   const [recentDetail, setRecentDetail] = useState<MatchDetail | null>(null);
@@ -794,50 +775,54 @@ export default function Profile() {
   const [profileIconFailed, setProfileIconFailed] = useState(false);
   const hasAutoLoaded = useRef(false);
 
-  const loadLocalProfile = useCallback(() => log.safe("load profile", async () => {
-    setLoading(true);
-    setError(null);
-    setProfile(null);
-    try {
-      const localProfile = await window.api.getProfile();
-      const profilePuuid = localProfile.puuid;
-      if (!profilePuuid) {
-        setError("No local account data. Connect to the League client or import history.");
-        return;
-      }
+  const loadLocalProfile = useCallback(
+    () =>
+      log.safe("load profile", async () => {
+        setLoading(true);
+        setError(null);
+        setProfile(null);
+        try {
+          const localProfile = await window.api.getProfile();
+          const profilePuuid = localProfile.puuid;
+          if (!profilePuuid) {
+            setError("No local account data. Connect to the League client or import history.");
+            return;
+          }
 
-      const localName = localProfile.name ?? "Local account";
-      let profileIconId = 0;
-      try {
-        profileIconId = (await window.api.getCurrentSummonerProfileIcon()) ?? 0;
-      } catch (err: unknown) {
-        console.warn("Could not read current League client profile icon:", err);
-      }
-      const localRecentMatches = await readRecentHistoryFromDb(profilePuuid, 20);
-      setProfile({
-        puuid: profilePuuid,
-        gameName: localName,
-        tagLine: "",
-        platform: localProfile.platform ?? "",
-        profileIconId,
-        summonerLevel: 0,
-        dataDragonVersion: await window.api.getChampionDataVersion(),
-        masteryPoints: 0,
-        masteryScore: 0,
-        topMasteryChampions: null,
-        rankedSolo: null,
-        rankedFlex: null,
-      });
-      log.log("profile loaded", { puuid: profile?.puuid, icon: profile?.profileIconId });
-      setRecentMatches(localRecentMatches.matches);
-      setRecentMatchesAvailable(localRecentMatches.total);
-    } catch (err: unknown) {
-      console.error("Failed to load local profile:", err);
-      setError(err instanceof Error ? err.message : "Could not load local profile");
-    } finally {
-      setLoading(false);
-    }
-  }), [log]);
+          const localName = localProfile.name ?? "Local account";
+          let profileIconId = 0;
+          try {
+            profileIconId = (await window.api.getCurrentSummonerProfileIcon()) ?? 0;
+          } catch (err: unknown) {
+            console.warn("Could not read current League client profile icon:", err);
+          }
+          const localRecentMatches = await readRecentHistoryFromDb(profilePuuid, 20);
+          setProfile({
+            puuid: profilePuuid,
+            gameName: localName,
+            tagLine: "",
+            platform: localProfile.platform ?? "",
+            profileIconId,
+            summonerLevel: 0,
+            dataDragonVersion: await window.api.getChampionDataVersion(),
+            masteryPoints: 0,
+            masteryScore: 0,
+            topMasteryChampions: null,
+            rankedSolo: null,
+            rankedFlex: null,
+          });
+          log.log("profile loaded", { puuid: profile?.puuid, icon: profile?.profileIconId });
+          setRecentMatches(localRecentMatches.matches);
+          setRecentMatchesAvailable(localRecentMatches.total);
+        } catch (err: unknown) {
+          console.error("Failed to load local profile:", err);
+          setError(err instanceof Error ? err.message : "Could not load local profile");
+        } finally {
+          setLoading(false);
+        }
+      }),
+    [log],
+  );
 
   const handleToggleRecentMatch = useCallback(
     async (gameId: number) => {
@@ -885,97 +870,83 @@ export default function Profile() {
 
   return (
     <div className="max-w-6xl space-y-8">
-          <div className="grid grid-cols-[220px_minmax(0,1fr)_256px_auto] items-start gap-8">
-            <div>
-              <div className="h-[220px] w-[220px] rounded-xl bg-[linear-gradient(138deg,#c89b37_0%,#ffe09b_50%,#c89b37_100%)] p-[5px]">
-                {profileIconUrl && !profileIconFailed ? (
-                  <img
-                    src={profileIconUrl}
-                    alt={`${profile.gameName} profile icon`}
-                    className="h-full w-full rounded-lg object-cover"
-                    onError={() => setProfileIconFailed(true)}
-                  />
-                ) : (
-                  <div
-                    className="flex h-full w-full items-center justify-center rounded-lg bg-lol-dark text-6xl font-semibold text-lol-text-bright"
-                    aria-label={`${profile.gameName} profile icon placeholder`}
-                  >
-                    {profileInitial}
-                  </div>
-                )}
-              </div>
-              <p className="mt-3 text-sm text-lol-text">Level {profile.summonerLevel}</p>
-            </div>
-
-            <div className="min-w-0 pt-0">
-              <div>
-                <h1
-                  className="max-w-full break-words text-4xl font-semibold tracking-tight text-lol-text-bright"
-                  title={
-                    profile.tagLine
-                      ? `${profile.gameName}#${profile.tagLine}`
-                      : profile.gameName
-                  }
-                >
-                  {profile.tagLine ? `${profile.gameName}#${profile.tagLine}` : profile.gameName}
-                </h1>
-                <p className="mt-2 text-sm text-lol-text">
-                  Region: {shortRegion(profile.platform)}
-                </p>
-                <div className="mt-4 flex flex-wrap items-stretch gap-3">
-                  <LastPlayedChampionsBox
-                    matches={recentMatches ?? []}
-                    loading={loading}
-                    champData={championData}
-                  />
-                  <LastGamesBox matches={recentMatches ?? []} loading={loading} />
-                </div>
-              </div>
-            </div>
-
-            <div className="mt-[84px] w-64 rounded-xl border border-lol-border/70 bg-lol-card/50 px-5 py-4">
-              <h2 className="text-center text-sm font-semibold text-lol-text-bright">
-                Champion Mastery
-              </h2>
-              <MasteryChampionStrip
-                champions={profile.topMasteryChampions}
-                championData={championData}
+      <div className="grid grid-cols-[220px_minmax(0,1fr)_256px_auto] items-start gap-8">
+        <div>
+          <div className="h-[220px] w-[220px] rounded-xl bg-[linear-gradient(138deg,#c89b37_0%,#ffe09b_50%,#c89b37_100%)] p-[5px]">
+            {profileIconUrl && !profileIconFailed ? (
+              <img
+                src={profileIconUrl}
+                alt={`${profile.gameName} profile icon`}
+                className="h-full w-full rounded-lg object-cover"
+                onError={() => setProfileIconFailed(true)}
               />
+            ) : (
+              <div
+                className="flex h-full w-full items-center justify-center rounded-lg bg-lol-dark text-6xl font-semibold text-lol-text-bright"
+                aria-label={`${profile.gameName} profile icon placeholder`}
+              >
+                {profileInitial}
+              </div>
+            )}
+          </div>
+          <p className="mt-3 text-sm text-lol-text">Level {profile.summonerLevel}</p>
+        </div>
+
+        <div className="min-w-0 pt-0">
+          <div>
+            <h1
+              className="max-w-full break-words text-4xl font-semibold tracking-tight text-lol-text-bright"
+              title={profile.tagLine ? `${profile.gameName}#${profile.tagLine}` : profile.gameName}
+            >
+              {profile.tagLine ? `${profile.gameName}#${profile.tagLine}` : profile.gameName}
+            </h1>
+            <p className="mt-2 text-sm text-lol-text">Region: {shortRegion(profile.platform)}</p>
+            <div className="mt-4 flex flex-wrap items-stretch gap-3">
+              <LastPlayedChampionsBox
+                matches={recentMatches ?? []}
+                loading={loading}
+                champData={championData}
+              />
+              <LastGamesBox matches={recentMatches ?? []} loading={loading} />
             </div>
           </div>
+        </div>
 
-          <div className="grid grid-cols-2 gap-5">
-            <RankCard
-              title="Ranked Solo"
-              entry={profile.rankedSolo}
-              championData={championData}
-            />
-            <RankCard
-              title="Ranked Flex"
-              entry={profile.rankedFlex}
-              championData={championData}
-            />
-          </div>
-
-          <RecentRiotMatchesSection
-            matches={recentMatches}
-            loading={recentMatchesLoading}
-            error={recentMatchesError}
-            puuids={null}
-            onPlayerClick={() => undefined}
-            expandedId={recentExpandedId}
-            detail={recentDetail}
-            detailLoading={recentDetailLoading}
-            availableCount={recentMatchesAvailable}
-            canLoadMore={false}
-            champData={championData}
-            refreshing={false}
-            summary={null}
-            onToggle={handleToggleRecentMatch}
-            onLoadMore={() => undefined}
-            onRefresh={() => undefined}
-            onContextMenu={() => undefined}
+        <div className="mt-[84px] w-64 rounded-xl border border-lol-border/70 bg-lol-card/50 px-5 py-4">
+          <h2 className="text-center text-sm font-semibold text-lol-text-bright">
+            Champion Mastery
+          </h2>
+          <MasteryChampionStrip
+            champions={profile.topMasteryChampions}
+            championData={championData}
           />
+        </div>
+      </div>
+
+      <div className="grid grid-cols-2 gap-5">
+        <RankCard title="Ranked Solo" entry={profile.rankedSolo} championData={championData} />
+        <RankCard title="Ranked Flex" entry={profile.rankedFlex} championData={championData} />
+      </div>
+
+      <RecentRiotMatchesSection
+        matches={recentMatches}
+        loading={recentMatchesLoading}
+        error={recentMatchesError}
+        puuids={null}
+        onPlayerClick={() => undefined}
+        expandedId={recentExpandedId}
+        detail={recentDetail}
+        detailLoading={recentDetailLoading}
+        availableCount={recentMatchesAvailable}
+        canLoadMore={false}
+        champData={championData}
+        refreshing={false}
+        summary={null}
+        onToggle={handleToggleRecentMatch}
+        onLoadMore={() => undefined}
+        onRefresh={() => undefined}
+        onContextMenu={() => undefined}
+      />
     </div>
   );
 }

@@ -15,15 +15,15 @@ export default function WinRateBar({
 
   return (
     <div className="flex items-center gap-2">
-      <div className="flex-1 h-2 bg-lol-loss/30 rounded-full overflow-hidden min-w-16">
+      <div className="flex-1 h-2.5 bg-lol-loss/20 rounded-full overflow-hidden min-w-16">
         <div
-          className="h-full bg-lol-win rounded-full transition-all"
+          className="h-full rounded-full transition-all bg-gradient-to-r from-lol-win to-[var(--theme-victory)] shadow-[0_0_10px_var(--theme-victory)]"
           style={{ width: `${rate}%` }}
         />
       </div>
       {showPercent && (
         <span
-          className={`text-xs font-medium min-w-10 text-right ${
+          className={`text-sm font-semibold min-w-12 text-right ${
             percentClassName
               ? percentClassName(rate)
               : rate >= 60
