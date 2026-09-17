@@ -1,14 +1,7 @@
 import { HashRouter, Navigate, Routes, Route, useParams } from "react-router-dom";
-import Layout from "./components/Layout";
 import { FullHistoryShell } from "./components/FullHistoryShell";
 import MatchHistory from "./pages/MatchHistory";
-import Champions from "./pages/Champions";
-import Augments from "./pages/Augments";
-import Friends from "./pages/Friends";
 import FriendDetail from "./pages/FriendDetail";
-import Trends from "./pages/Trends";
-import Records from "./pages/Records";
-import GlobalStats from "./pages/GlobalStats";
 import Settings from "./pages/Settings";
 import Profile from "./pages/Profile";
 import HistorySection from "./pages/HistorySection";
@@ -61,16 +54,6 @@ export default function App() {
           <Route path="/friends" element={<Navigate to="/history/full/friends" replace />} />
           <Route path="/friends/:key" element={<FriendsDetailRedirect />} />
           <Route path="/global/champion/:championId" element={<GlobalChampionRedirect />} />
-        </Route>
-        <Route element={<Layout />}>
-          <Route path="/champions" element={<Champions />} />
-          <Route path="/augments" element={<Augments />} />
-          <Route path="/friends" element={<Friends />} />
-          <Route path="/friends/:key" element={<FriendDetail />} />
-          <Route path="/trends" element={<Trends />} />
-          <Route path="/records" element={<Records />} />
-          <Route path="/global" element={<GlobalStats />} />
-          <Route path="/global/champion/:championId" element={<GlobalChampionDetail />} />
         </Route>
       </Routes>
     </HashRouter>
