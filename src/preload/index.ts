@@ -114,6 +114,7 @@ const api: ElectronAPI = {
   removeRiotAccount: (id: string) => ipcRenderer.invoke("riot:remove-account", id),
 
   backfillHistory: (forceFull = false) => ipcRenderer.invoke("lcu:backfill", forceFull),
+  syncAccountHistory: (puuid: string) => ipcRenderer.invoke("backfill:sync-account", puuid),
 
   cancelBackfill: () => ipcRenderer.invoke("lcu:cancel-backfill"),
 
@@ -176,6 +177,9 @@ const api: ElectronAPI = {
   getSummonerPuuid: () => ipcRenderer.invoke("db:summoner-puuid"),
 
   getAllSummonerPuuids: () => ipcRenderer.invoke("db:all-summoner-puuids"),
+  listAccountsWithData: () => ipcRenderer.invoke("db:list-accounts"),
+  getAccountSnapshot: (puuid: string) => ipcRenderer.invoke("db:get-account-snapshot", puuid),
+  getCurrentPuuid: () => ipcRenderer.invoke("lcu:current-puuid"),
 
   getSavedSummoners: () => ipcRenderer.invoke("db:saved-summoners"),
   deleteSummoner: (puuid: string) => ipcRenderer.invoke("db:delete-summoner", puuid),

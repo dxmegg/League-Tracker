@@ -649,6 +649,30 @@ export interface MasteryChampion {
   points: number;
 }
 
+export interface AccountListItem {
+  puuid: string;
+  gameName: string | null;
+  tagLine: string | null;
+  profileIconId: number | null;
+  platform: string | null;
+  summonerLevel: number | null;
+  lastSeen: number | null;
+  gameCount: number;
+}
+
+export interface AccountSnapshot {
+  puuid: string;
+  gameName: string | null;
+  tagLine: string | null;
+  profileIconId: number | null;
+  platform: string | null;
+  summonerLevel: number | null;
+  rankedSolo: RankEntry | null;
+  rankedFlex: RankEntry | null;
+  topMasteryChampions: MasteryChampion[];
+  lastSeen: number | null;
+}
+
 export interface ProfileExtras {
   rankedSolo: RankEntry | null;
   rankedFlex: RankEntry | null;
@@ -819,6 +843,9 @@ export interface ElectronAPI {
   ) => Promise<GlobalChampionDetail>;
   getSummonerPuuid: () => Promise<string | null>;
   getAllSummonerPuuids: () => Promise<string[]>;
+  listAccountsWithData: () => Promise<AccountListItem[]>;
+  getAccountSnapshot: (puuid: string) => Promise<AccountSnapshot | null>;
+  getCurrentPuuid: () => Promise<string | null>;
   getSavedSummoners: () => Promise<
     Array<{
       puuid: string;
@@ -869,6 +896,7 @@ export interface ElectronAPI {
   saveRiotAccount: (account: RiotAccountConfig) => Promise<void>;
   removeRiotAccount: (id: string) => Promise<void>;
   backfillHistory: (forceFull?: boolean) => Promise<BackfillResult | { error: string }>;
+  syncAccountHistory: (puuid: string) => Promise<{ ok: boolean; error?: string }>;
   cancelBackfill: () => Promise<void>;
   isBackfillRunning: () => Promise<boolean>;
   onBackfillProgress: (callback: (progress: BackfillProgress) => void) => () => void;

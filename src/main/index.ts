@@ -6,10 +6,18 @@ import {
   checkScoreBackfill,
   backfillMissingTrackedRows,
   reconcileOwnerPuuids,
+  reconcileAllParticipantNames,
 } from "./db";
 import { initDatabaseWithRecovery, startBackupSchedule, stopBackupSchedule } from "./backup";
 import { registerIpcHandlers } from "./ipc-handlers";
-import { startPolling, stopPolling, isClientConnected, fetchNewGames } from "./lcu";
+import {
+  startPolling,
+  stopPolling,
+  isClientConnected,
+  fetchNewGames,
+  startAccountWatcher,
+  stopAccountWatcher,
+} from "./lcu";
 import {
   loadChampionData,
   loadAugmentData,
@@ -170,9 +178,7 @@ app.whenReady().then(async () => {
             const record = isObject ? (body as Record<string, unknown>) : null;
             const status = record?.status;
             const hasStatusCode =
-              typeof status === "object" &&
-              status !== null &&
-              "status_code" in status;
+              typeof status === "object" && status !== null && "status_code" in status;
             const hasPuuid = record !== null && "puuid" in record;
             const isEmpty = isObject && Object.keys(body).length === 0;
             if (hasPuuid || hasStatusCode || isEmpty) {
@@ -189,10 +195,7 @@ app.whenReady().then(async () => {
       }
     })
     .catch((err) => {
-      console.error(
-        "[startup] Cannot reach the Riot API proxy. Profile lookups will fail.",
-        err,
-      );
+      console.error("[startup] Cannot reach the Riot API proxy. Profile lookups will fail.", err);
     });
 
   // Windows groups taskbar entries and attributes notifications by this id;
@@ -250,7 +253,18 @@ app.whenReady().then(async () => {
   createTray();
 
   startPolling(win);
+  startAccountWatcher();
   startBackupSchedule();
+  setTimeout(() => {
+    try {
+      const result = reconcileAllParticipantNames();
+      console.log(
+        `[startup-reconcile] updated ${result.rows} participant names across ${result.accounts} accounts`,
+      );
+    } catch (err) {
+      console.warn("[startup-reconcile] failed:", err);
+    }
+  }, 10_000);
 });
 
 app.on("before-quit", async (event) => {
@@ -284,6 +298,7 @@ app.on("before-quit", async (event) => {
 // Runs after before-quit has settled, so the final fetch has already written
 // whatever it found by the time the database closes.
 app.on("will-quit", () => {
+  stopAccountWatcher();
   stopBackupSchedule();
   // The augment icon cache batches its writes; flush the pending batch so a
   // resolved icon does not have to be re-resolved next launch.

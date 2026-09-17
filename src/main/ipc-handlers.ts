@@ -329,6 +329,38 @@ export function registerIpcHandlers() {
     }
   });
 
+  ipcMain.handle("backfill:sync-account", async (event, puuid: string) => {
+    console.log("[backfill] sync-account requested:", { puuid });
+    try {
+      const snapshot = db.getAccountSnapshot(puuid);
+      if (!snapshot) {
+        return { ok: false, error: "Account not found in local cache" };
+      }
+      if (!snapshot.gameName || !snapshot.platform) {
+        return {
+          ok: false,
+          error: "Account has no cached identity — log in with it once in League Client",
+        };
+      }
+
+      await lcu.backfillHistoryForAccount(
+        {
+          puuid: snapshot.puuid,
+          gameName: snapshot.gameName,
+          tagLine: snapshot.tagLine ?? "",
+          platform: snapshot.platform,
+        },
+        senderWindow(event),
+        false,
+      );
+      return { ok: true };
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : String(err);
+      console.warn("[backfill] sync-account failed:", message);
+      return { ok: false, error: message };
+    }
+  });
+
   ipcMain.handle("lcu:cancel-backfill", () => {
     lcu.cancelBackfill();
   });
@@ -339,6 +371,24 @@ export function registerIpcHandlers() {
 
   ipcMain.handle("lcu:status", () => {
     return lcu.getStatus();
+  });
+
+  ipcMain.handle("lcu:current-puuid", async () => {
+    console.log("[lcu] current puuid handler called:", {});
+    if (!lcu.isClientConnected()) {
+      console.log("[lcu] current puuid handler done:", { puuid: null, connected: false });
+      return null;
+    }
+
+    try {
+      const summoner = await lcu.getCurrentSummoner();
+      const puuid = summoner.puuid || null;
+      console.log("[lcu] current puuid handler done:", { puuid, connected: true });
+      return puuid;
+    } catch (err) {
+      console.warn("[lcu] current puuid unavailable:", err);
+      return null;
+    }
   });
 
   ipcMain.handle("lcu:current-summoner-icon", async () => {
@@ -366,6 +416,9 @@ export function registerIpcHandlers() {
       profileIconId: result.profileIconId,
       platform: result.platform,
     });
+    void lcu.collectAndSaveSnapshot().catch((err) => {
+      console.warn("[lcu-watcher] explicit summoner snapshot failed:", err);
+    });
     return result;
   });
 
@@ -376,6 +429,9 @@ export function registerIpcHandlers() {
       hasRankedSolo: Boolean(result.rankedSolo),
       hasRankedFlex: Boolean(result.rankedFlex),
       masteryCount: result.topMasteryChampions.length,
+    });
+    void lcu.collectAndSaveSnapshot().catch((err) => {
+      console.warn("[lcu-watcher] explicit extras snapshot failed:", err);
     });
     return result;
   });
@@ -498,6 +554,23 @@ export function registerIpcHandlers() {
 
   ipcMain.handle("db:all-summoner-puuids", () => {
     return db.getAllPuuids();
+  });
+
+  ipcMain.handle("db:list-accounts", () => {
+    console.log("[db] list accounts handler called:", {});
+    const result = db.listAccountsWithData();
+    console.log("[db] list accounts handler done:", { count: result.length });
+    return result;
+  });
+
+  ipcMain.handle("db:get-account-snapshot", (_event, puuid: string) => {
+    console.log("[db] get account snapshot handler called:", { puuid });
+    const result = db.getAccountSnapshot(puuid);
+    console.log("[db] get account snapshot handler done:", {
+      puuid,
+      found: result !== null,
+    });
+    return result;
   });
 
   ipcMain.handle("db:saved-summoners", () => {

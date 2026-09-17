@@ -18,6 +18,9 @@ let status: LcuStatus = "disconnected";
 let pollTimer: ReturnType<typeof setInterval> | null = null;
 let connectTimer: ReturnType<typeof setInterval> | null = null;
 let pollingStopped = false;
+let watcherInterval: NodeJS.Timeout | null = null;
+let watcherStartupTimeout: ReturnType<typeof setTimeout> | null = null;
+let lastSyncedPuuid: string | null = null;
 
 function setStatus(newStatus: typeof status, win?: BrowserWindow | null) {
   status = newStatus;
@@ -215,6 +218,95 @@ export async function getCurrentSummoner(): Promise<CurrentSummoner> {
     hasDisplayName: Boolean(summoner.displayName),
   });
   return summoner;
+}
+
+export async function collectAndSaveSnapshot(): Promise<void> {
+  console.log("[lcu-watcher] collectAndSaveSnapshot called");
+  let summoner: CurrentSummoner;
+  try {
+    summoner = await getCurrentSummoner();
+  } catch (err) {
+    console.warn("[lcu-watcher] current summoner unavailable:", err);
+    return;
+  }
+
+  let extras: ProfileExtras | undefined;
+  try {
+    extras = await getProfileExtras();
+  } catch (err) {
+    console.warn("[lcu-watcher] profile extras unavailable:", err);
+  }
+
+  db.saveAccountSnapshot({
+    puuid: summoner.puuid,
+    gameName: summoner.gameName,
+    tagLine: summoner.tagLine,
+    profileIconId: summoner.profileIconId,
+    platform: summoner.platform,
+    summonerLevel: summoner.summonerLevel,
+    rankedSolo: extras?.rankedSolo,
+    rankedFlex: extras?.rankedFlex,
+    topMasteryChampions: extras?.topMasteryChampions,
+  });
+  if (summoner.puuid && summoner.gameName) {
+    const updated = db.updateParticipantNames(
+      summoner.puuid,
+      summoner.gameName,
+      summoner.tagLine ?? "",
+    );
+    if (updated > 0) {
+      console.log(`[lcu-watcher] updated participant names in ${updated} match rows`);
+    }
+  }
+  console.log(`[lcu-watcher] snapshot saved for ${summoner.puuid}`);
+}
+
+async function accountWatcherTick(): Promise<void> {
+  if (!isClientConnected()) {
+    lastSyncedPuuid = null;
+    return;
+  }
+
+  let currentSummoner: CurrentSummoner;
+  try {
+    currentSummoner = await getCurrentSummoner();
+  } catch (err) {
+    console.warn("[lcu-watcher] current summoner check failed:", err);
+    return;
+  }
+
+  if (!currentSummoner.puuid || currentSummoner.puuid === lastSyncedPuuid) return;
+
+  try {
+    await collectAndSaveSnapshot();
+    lastSyncedPuuid = currentSummoner.puuid;
+  } catch (err) {
+    console.error("[lcu-watcher] snapshot save failed:", err);
+  }
+}
+
+export function startAccountWatcher(): void {
+  if (watcherInterval) return;
+
+  watcherStartupTimeout = setTimeout(() => {
+    watcherStartupTimeout = null;
+    void accountWatcherTick();
+  }, 5_000);
+  watcherInterval = setInterval(() => {
+    void accountWatcherTick();
+  }, 60_000);
+}
+
+export function stopAccountWatcher(): void {
+  if (watcherStartupTimeout) {
+    clearTimeout(watcherStartupTimeout);
+    watcherStartupTimeout = null;
+  }
+  if (watcherInterval) {
+    clearInterval(watcherInterval);
+    watcherInterval = null;
+  }
+  lastSyncedPuuid = null;
 }
 
 async function fetchMatchHistoryByPuuid(puuid: string, begIndex = 0, endIndex = 19): Promise<any> {
@@ -482,175 +574,226 @@ export type BackfillResult = {
   cancelled: boolean;
 };
 
+async function runBackfillForAccount(
+  account: { puuid: string; gameName: string; tagLine: string; platform: string },
+  win?: BrowserWindow | null,
+  forceFull = false,
+): Promise<BackfillResult> {
+  console.log("[lcu] runBackfillForAccount called:", {
+    puuid: account.puuid,
+    platform: account.platform,
+    forceFull,
+  });
+  db.upsertSummoner(account);
+
+  const { gameName, tagLine, platform } = account;
+  let realPuuid = account.puuid;
+  if (gameName && tagLine) {
+    try {
+      console.log(
+        `[backfill] puuid resolve: gameName=${gameName} tagLine=${tagLine} lcuPuuidLen=${account.puuid.length}`,
+      );
+      const riotAccount = await accountByRiotId(
+        regionalRoute(platform),
+        platform,
+        gameName,
+        tagLine,
+      );
+      realPuuid = riotAccount.puuid;
+      console.log(
+        `[backfill] resolved real Riot PUUID: ${realPuuid.slice(0, 12)}... (len=${realPuuid.length})`,
+      );
+      if (realPuuid.length !== 78) {
+        console.warn(
+          `[backfill] WARNING: resolved puuid has length ${realPuuid.length}, expected 78 — Riot API may reject it`,
+        );
+      }
+    } catch (err) {
+      console.warn(
+        `[backfill] FAILED to resolve real Riot PUUID — falling back to LCU UUID (len=${account.puuid.length}). DB writes will use a 36-char key.`,
+        err,
+      );
+    }
+  } else {
+    console.warn(
+      `[backfill] FAILED to resolve real Riot PUUID — account has no usable gameName/tagLine; falling back to LCU UUID (len=${account.puuid.length}). DB writes will use a 36-char key.`,
+    );
+  }
+
+  const token = await fetchSgpToken();
+  const host = await resolveSgpHost(account.puuid, token);
+
+  const known = db.getKnownGameIdsForPuuid(account.puuid);
+
+  // Once an account has been walked all the way back, a later run only needs
+  // the new games at the front. Results are newest-first, so the first page
+  // we've already fully accounted for means everything older is accounted for
+  // too. Tracked per account, since a newly added one still needs a full walk.
+  const completedKey = `backfill_complete_${account.puuid}`;
+  const walkedBefore = !forceFull && db.getSetting(completedKey) === "1";
+  console.log(
+    `[backfill] start: puuid=${realPuuid.slice(0, 12)}... (len=${realPuuid.length}) platform=${platform}`,
+  );
+
+  const walk = (from: string) =>
+    fetchAllMatchIds(
+      from,
+      account.puuid,
+      token,
+      (pageIds) => walkedBefore && pageIds.every((id) => known.has(id)),
+    );
+
+  let walked: { ids: number[]; truncated: boolean };
+  try {
+    walked = await walk(host);
+  } catch (err) {
+    // The remembered shard may simply be the wrong one now. Find the right
+    // one and restart the walk there; if none answers, the original failure
+    // is the honest one to report.
+    if (!(err instanceof SgpHttpError) || !SGP_REHOME_STATUSES.has(err.status)) throw err;
+    const rehomed = await rehomeSgpHost(account.puuid, token, host);
+    if (!rehomed) throw err;
+    walked = await walk(rehomed);
+  }
+  const { ids, truncated } = walked;
+
+  if (truncated) {
+    console.warn(
+      `Backfill stopped at the ${SGP_MAX_PAGES}-page limit (${ids.length} games); older games were not checked`,
+    );
+  }
+
+  const pending = ids.filter((id) => !known.has(id));
+
+  const progress = (current: number, added: number) => {
+    if (win && !win.isDestroyed()) {
+      win.webContents.send("lcu:backfill-progress", { current, total: pending.length, added });
+    }
+  };
+  progress(0, 0);
+
+  let added = 0;
+  let announced = 0;
+  for (let i = 0; i < pending.length; i++) {
+    if (backfillCancelled) break;
+    const gameId = pending[i];
+
+    let game: any;
+    try {
+      game = await fetchGameDetails(gameId);
+    } catch {
+      // Leave it unrecorded so a later run retries it
+      progress(i + 1, added);
+      continue;
+    }
+
+    if (
+      db.insertGameFull(game, account.puuid, "lcu", false, {
+        gameName: account.gameName,
+        tagLine: account.tagLine,
+      })
+    ) {
+      added++;
+      console.log(`Backfilled League game ${gameId}`);
+    }
+
+    // Let the app fill in as it goes rather than staying empty for minutes
+    if (added - announced >= GAMES_UPDATED_BATCH) {
+      announced = added;
+      notifyGamesUpdated(win);
+    }
+    progress(i + 1, added);
+  }
+
+  const cancelled = backfillCancelled;
+
+  // Only claim the account is fully walked once every id has actually been
+  // resolved. Marking it earlier would let a later run early-exit on the first
+  // fully-known page and never reach the older games we skipped.
+  if (!truncated && !cancelled) {
+    db.setSetting(completedKey, "1");
+  } else {
+    // Neither outcome sets the completion flag, so without this the poll would
+    // relaunch the whole walk a minute later — including right after the user
+    // deliberately cancelled it. Resumes on next launch, or from Settings.
+    autoBackfillPausedUntil = Infinity;
+  }
+
+  if (added > announced) notifyGamesUpdated(win);
+
+  const dashboard = db.getDashboardData();
+  const result: BackfillResult = {
+    added,
+    scanned: ids.length,
+    checked: pending.length,
+    totalGames: dashboard.totalGames,
+    truncated,
+    cancelled,
+  };
+
+  if (win && !win.isDestroyed()) {
+    win.webContents.send("lcu:backfill-done", result);
+  }
+  console.log("[lcu] runBackfillForAccount done:", {
+    puuid: account.puuid,
+    added: result.added,
+    scanned: result.scanned,
+  });
+  return result;
+}
+
 export async function backfillHistory(
   win?: BrowserWindow | null,
   forceFull = false,
 ): Promise<BackfillResult> {
-  if (backfillRunning) {
-    throw new Error("A backfill is already running");
-  }
+  if (backfillRunning) throw new Error("A backfill is already running");
   backfillRunning = true;
   backfillCancelled = false;
 
   try {
     await connect();
-
     const summoner = await fetchCurrentSummoner();
-    db.upsertSummoner(summoner);
-
-    const platform = db.getSetting("riot_platform") ?? "eun1";
-    const gameName =
-      summoner.gameName ??
-      (typeof summoner.displayName === "string" && summoner.displayName.includes("#")
-        ? summoner.displayName.split("#")[0]
-        : undefined);
-    const tagLine =
-      summoner.tagLine ??
-      (typeof summoner.displayName === "string" && summoner.displayName.includes("#")
-        ? summoner.displayName.split("#")[1]
-        : undefined);
-    let realPuuid = summoner.puuid;
-    if (gameName && tagLine) {
-      try {
-        console.log(
-          `[backfill] puuid resolve: gameName=${gameName} tagLine=${tagLine} lcuPuuidLen=${summoner.puuid?.length}`,
-        );
-        const account = await accountByRiotId(regionalRoute(platform), platform, gameName, tagLine);
-        realPuuid = account.puuid;
-        console.log(
-          `[backfill] resolved real Riot PUUID: ${realPuuid.slice(0, 12)}... (len=${realPuuid.length})`,
-        );
-        if (realPuuid.length !== 78) {
-          console.warn(
-            `[backfill] WARNING: resolved puuid has length ${realPuuid.length}, expected 78 — Riot API may reject it`,
-          );
-        }
-      } catch (err) {
-        console.warn(
-          `[backfill] FAILED to resolve real Riot PUUID — falling back to LCU UUID (len=${summoner.puuid?.length}). DB writes will use a 36-char key.`,
-          err,
-        );
-      }
-    } else {
-      console.warn(
-        `[backfill] FAILED to resolve real Riot PUUID — LCU response has no usable gameName/tagLine; falling back to LCU UUID (len=${summoner.puuid?.length}). DB writes will use a 36-char key.`,
-      );
-    }
-
-    const token = await fetchSgpToken();
-    const host = await resolveSgpHost(summoner.puuid, token);
-
-    const known = db.getKnownGameIdsForPuuid(summoner.puuid);
-
-    // Once an account has been walked all the way back, a later run only needs
-    // the new games at the front. Results are newest-first, so the first page
-    // we've already fully accounted for means everything older is accounted for
-    // too. Tracked per account, since a newly added one still needs a full walk.
-    const completedKey = `backfill_complete_${summoner.puuid}`;
-    const walkedBefore = !forceFull && db.getSetting(completedKey) === "1";
-    console.log(
-      `[backfill] start: puuid=${realPuuid.slice(0, 12)}... (len=${realPuuid.length}) platform=${platform}`,
+    return await runBackfillForAccount(
+      {
+        puuid: summoner.puuid,
+        gameName: summoner.gameName ?? "",
+        tagLine: summoner.tagLine ?? "",
+        platform: summoner.platform,
+      },
+      win,
+      forceFull,
     );
-
-    const walk = (from: string) =>
-      fetchAllMatchIds(
-        from,
-        summoner.puuid,
-        token,
-        (pageIds) => walkedBefore && pageIds.every((id) => known.has(id)),
-      );
-
-    let walked: { ids: number[]; truncated: boolean };
-    try {
-      walked = await walk(host);
-    } catch (err) {
-      // The remembered shard may simply be the wrong one now. Find the right
-      // one and restart the walk there; if none answers, the original failure
-      // is the honest one to report.
-      if (!(err instanceof SgpHttpError) || !SGP_REHOME_STATUSES.has(err.status)) throw err;
-      const rehomed = await rehomeSgpHost(summoner.puuid, token, host);
-      if (!rehomed) throw err;
-      walked = await walk(rehomed);
-    }
-    const { ids, truncated } = walked;
-
-    if (truncated) {
-      console.warn(
-        `Backfill stopped at the ${SGP_MAX_PAGES}-page limit (${ids.length} games); older games were not checked`,
-      );
-    }
-
-    const pending = ids.filter((id) => !known.has(id));
-
-    const progress = (current: number, added: number) => {
-      if (win && !win.isDestroyed()) {
-        win.webContents.send("lcu:backfill-progress", { current, total: pending.length, added });
-      }
-    };
-    progress(0, 0);
-
-    let added = 0;
-    let announced = 0;
-    for (let i = 0; i < pending.length; i++) {
-      if (backfillCancelled) break;
-      const gameId = pending[i];
-
-      let game: any;
-      try {
-        game = await fetchGameDetails(gameId);
-      } catch {
-        // Leave it unrecorded so a later run retries it
-        progress(i + 1, added);
-        continue;
-      }
-
-      if (
-        db.insertGameFull(game, summoner.puuid, "lcu", false, {
-          gameName: summoner.gameName ?? null,
-          tagLine: summoner.tagLine ?? null,
-        })
-      ) {
-        added++;
-        console.log(`Backfilled League game ${gameId}`);
-      }
-
-      // Let the app fill in as it goes rather than staying empty for minutes
-      if (added - announced >= GAMES_UPDATED_BATCH) {
-        announced = added;
-        notifyGamesUpdated(win);
-      }
-      progress(i + 1, added);
-    }
-
-    const cancelled = backfillCancelled;
-
-    // Only claim the account is fully walked once every id has actually been
-    // resolved. Marking it earlier would let a later run early-exit on the first
-    // fully-known page and never reach the older games we skipped.
-    if (!truncated && !cancelled) {
-      db.setSetting(completedKey, "1");
-    } else {
-      // Neither outcome sets the completion flag, so without this the poll would
-      // relaunch the whole walk a minute later — including right after the user
-      // deliberately cancelled it. Resumes on next launch, or from Settings.
-      autoBackfillPausedUntil = Infinity;
-    }
-
-    if (added > announced) notifyGamesUpdated(win);
-
-    const dashboard = db.getDashboardData();
-    const result: BackfillResult = {
-      added,
-      scanned: ids.length,
-      checked: pending.length,
-      totalGames: dashboard.totalGames,
-      truncated,
-      cancelled,
-    };
-
+  } catch (err) {
     if (win && !win.isDestroyed()) {
-      win.webContents.send("lcu:backfill-done", result);
+      win.webContents.send("lcu:backfill-done", { error: friendlyErrorMessage(err) });
     }
+    throw err;
+  } finally {
+    backfillRunning = false;
+    backfillCancelled = false;
+  }
+}
+
+export async function backfillHistoryForAccount(
+  account: { puuid: string; gameName: string; tagLine: string; platform: string },
+  win?: BrowserWindow | null,
+  forceFull = false,
+): Promise<BackfillResult> {
+  console.log("[lcu] backfillHistoryForAccount called:", {
+    puuid: account.puuid,
+    platform: account.platform,
+    forceFull,
+  });
+  if (backfillRunning) throw new Error("A backfill is already running");
+  backfillRunning = true;
+  backfillCancelled = false;
+
+  try {
+    const result = await runBackfillForAccount(account, win, forceFull);
+    console.log("[lcu] backfillHistoryForAccount done:", {
+      puuid: account.puuid,
+      added: result.added,
+    });
     return result;
   } catch (err) {
     if (win && !win.isDestroyed()) {
