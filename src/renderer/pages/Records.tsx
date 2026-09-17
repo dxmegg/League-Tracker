@@ -35,6 +35,7 @@ import {
 } from "../components/icons";
 import { formatDuration, formatKDA, kdaRatio } from "../lib/format";
 import { scoreColor } from "../../shared/opScore";
+import type { AccountListItem } from "../lib/types";
 
 // Records are moments, not recency — "3 months ago" undersells a trophy, so
 // they get a real date.
@@ -357,6 +358,7 @@ export default function Records() {
   const [searchParams, setSearchParams] = useSearchParams();
   const queueParam = searchParams.get("queue");
   const queue = queueParam ? Number(queueParam) : undefined;
+  const account = searchParams.get("account") || undefined;
   const setQueue = (q: number | undefined) => {
     setSearchParams(
       (prev) => {
@@ -368,18 +370,39 @@ export default function Records() {
       { replace: true },
     );
   };
+  const setAccount = (puuid: string | undefined) => {
+    setSearchParams(
+      (prev) => {
+        const next = new URLSearchParams(prev);
+        if (puuid == null) next.delete("account");
+        else next.set("account", puuid);
+        return next;
+      },
+      { replace: true },
+    );
+  };
 
   const scopedQueue = queue ?? useHistoryScopeQueue();
   const { data, refetch } = useIpc<RecordsData>(
-    () => window.api.getRecords(scopedQueue),
-    [scopedQueue],
+    () => window.api.getRecords(scopedQueue, account),
+    [scopedQueue, account],
   );
   const champData = useChampionData();
   const [puuids, setPuuids] = useState<string[] | null>(null);
   const [openMatch, setOpenMatch] = useState<RecordMatchRef | null>(null);
+  const [accounts, setAccounts] = useState<AccountListItem[]>([]);
 
   useEffect(() => {
     window.api.getAllSummonerPuuids().then(setPuuids);
+  }, []);
+
+  useEffect(() => {
+    window.api
+      .listAccountsWithData()
+      .then(setAccounts)
+      .catch((error: unknown) => {
+        console.warn("Could not load accounts for records:", error);
+      });
   }, []);
 
   useEffect(() => {
@@ -387,19 +410,52 @@ export default function Records() {
     return unsub;
   }, [refetch]);
 
+  const accountSelect = (
+    <select
+      value={account ?? ""}
+      onChange={(event) => setAccount(event.target.value || undefined)}
+      aria-label="Account"
+      className="h-9 rounded-md border border-lol-border/60 bg-lol-card/40 px-3 text-xs text-lol-text-bright transition-colors focus-visible:border-lol-gold/60 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-lol-gold/40"
+    >
+      <option value="">All Accounts</option>
+      {accounts.map((item) => (
+        <option key={item.puuid} value={item.puuid}>
+          {item.gameName ?? "Unknown account"}
+          {item.tagLine ? `#${item.tagLine}` : ""}
+        </option>
+      ))}
+    </select>
+  );
+
   if (!data) {
     return (
-      <div className="rounded-lg border border-lol-crimson/40 bg-[linear-gradient(145deg,#0c0e11_0%,#090b0d_48%,#060809_100%)] shadow-[0_0_3px_rgba(150,30,30,0.55),0_0_10px_rgba(90,15,15,0.35),0_0_20px_rgba(60,10,10,0.20)] ring-1 ring-inset ring-white/[0.03] p-12 text-center">
-        <p className="text-sm text-lol-text">Loading records…</p>
+      <div className="flex flex-col gap-4">
+        <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
+          <div className="flex items-center gap-3">
+            <span className="text-xs text-lol-text">Personal bests</span>
+            {accountSelect}
+          </div>
+        </div>
+        <div className="rounded-lg border border-lol-crimson/40 bg-[linear-gradient(145deg,#0c0e11_0%,#090b0d_48%,#060809_100%)] shadow-[0_0_3px_rgba(150,30,30,0.55),0_0_10px_rgba(90,15,15,0.35),0_0_20px_rgba(60,10,10,0.20)] ring-1 ring-inset ring-white/[0.03] p-12 text-center">
+          <p className="text-sm text-lol-text">Loading records…</p>
+        </div>
       </div>
     );
   }
 
   if (data.totalGames === 0) {
     return (
-      <div className="rounded-lg border border-lol-crimson/40 bg-[linear-gradient(145deg,#0c0e11_0%,#090b0d_48%,#060809_100%)] shadow-[0_0_3px_rgba(150,30,30,0.55),0_0_10px_rgba(90,15,15,0.35),0_0_20px_rgba(60,10,10,0.20)] ring-1 ring-inset ring-white/[0.03] p-12 text-center">
-        <p className="text-sm font-semibold text-lol-text-bright">No records yet</p>
-        <p className="text-xs text-lol-text mt-1">Play more matches to set personal bests.</p>
+      <div className="flex flex-col gap-4">
+        <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
+          <div className="flex items-center gap-3">
+            <span className="text-xs text-lol-text">Personal bests</span>
+            {accountSelect}
+          </div>
+        </div>
+        <div className="rounded-lg border border-lol-crimson/40 bg-[linear-gradient(145deg,#0c0e11_0%,#090b0d_48%,#060809_100%)] shadow-[0_0_3px_rgba(150,30,30,0.55),0_0_10px_rgba(90,15,15,0.35),0_0_20px_rgba(60,10,10,0.20)] ring-1 ring-inset ring-white/[0.03] p-12 text-center">
+          <p className="text-sm font-semibold text-lol-text-bright">No records yet</p>
+          <p className="text-xs text-lol-text mt-1">Play more matches to set personal bests.</p>
+        </div>
       </div>
     );
   }
@@ -419,6 +475,7 @@ export default function Records() {
           <span className="text-xs text-lol-text">
             personal bests across {data.totalGames} {data.totalGames === 1 ? "game" : "games"}
           </span>
+          {accountSelect}
           <div className="[&_select]:h-9 [&_select]:rounded-md [&_select]:border [&_select]:border-lol-border/60 [&_select]:bg-lol-card/40 [&_select]:px-3 [&_select]:text-xs [&_select]:text-lol-text-bright [&_select]:focus-visible:outline-none [&_select]:focus-visible:border-lol-gold/60 [&_select]:focus-visible:ring-1 [&_select]:focus-visible:ring-lol-gold/40 [&_select]:transition-colors">
             <QueueSelect value={queue} onChange={setQueue} />
           </div>

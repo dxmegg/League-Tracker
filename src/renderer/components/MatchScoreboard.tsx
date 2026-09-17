@@ -17,7 +17,8 @@ import ItemIcon from "./ItemIcon";
 import { RuneSetupGrid } from "./RuneSetup";
 import SummonerSpellIcon from "./SummonerSpellIcon";
 
-const GRID_COLS = "grid-cols-[52px_140px_52px_76px_110px_110px_56px_56px_56px_176px_110px]";
+const GRID_COLS =
+  "grid-cols-[28px_minmax(140px,200px)_44px_56px_minmax(120px,180px)_minmax(120px,180px)_52px_52px_52px_240px_220px_1fr]";
 
 export default function MatchScoreboard({
   detail,
@@ -67,13 +68,15 @@ export default function MatchScoreboard({
 
   if (isArenaQueue(detail.game.queue_id)) {
     return (
-      <ArenaScoreboard
-        participants={participants}
-        champData={champData}
-        patch={detail.game.game_version}
-        gameDuration={detail.game.game_duration}
-        onPlayerClick={onPlayerClick}
-      />
+      <div>
+        <ArenaScoreboard
+          participants={participants}
+          champData={champData}
+          patch={detail.game.game_version}
+          gameDuration={detail.game.game_duration}
+          onPlayerClick={onPlayerClick}
+        />
+      </div>
     );
   }
 
@@ -97,7 +100,8 @@ export default function MatchScoreboard({
   );
 }
 
-const ARENA_GRID_COLS = "grid-cols-[32px_52px_140px_76px_110px_110px_56px_56px_56px_1fr_110px]";
+const ARENA_GRID_COLS =
+  "grid-cols-[28px_minmax(140px,240px)_64px_minmax(140px,220px)_minmax(140px,220px)_56px_56px_240px_220px_1fr]";
 
 function ArenaScoreboard({
   participants,
@@ -218,51 +222,73 @@ function ArenaTeamBlock({
   );
 
   return (
-    <div className="rounded-lg border border-lol-border overflow-hidden">
+    <div className="rounded-lg border border-lol-crimson/30 bg-[linear-gradient(145deg,#0c0e11_0%,#090b0d_48%,#060809_100%)] shadow-[0_0_3px_rgba(150,30,30,0.35),0_0_10px_rgba(90,15,15,0.25)] ring-1 ring-inset ring-white/[0.02] overflow-hidden">
       <div
-        className={`px-3 py-1.5 border-b border-lol-border flex flex-wrap items-baseline gap-x-4 gap-y-1 ${
-          isTopThree ? "bg-lol-win/10" : "bg-lol-loss/10"
+        className={`px-4 py-2 flex flex-wrap items-baseline gap-x-4 gap-y-1 ${
+          isTopThree
+            ? "bg-gradient-to-r from-lol-win/15 via-lol-win/5 to-transparent"
+            : "bg-gradient-to-r from-lol-loss/15 via-lol-loss/5 to-transparent"
         }`}
       >
-        <span className={`text-xs font-bold ${isTopThree ? "text-lol-win" : "text-lol-loss"}`}>
+        <span
+          className={`text-sm font-bold uppercase tracking-wider ${
+            isTopThree ? "text-lol-win" : "text-lol-loss"
+          }`}
+        >
           {placementLabel(placement, subteamId)}
           {isTopThree ? " — Victory" : " — Defeat"}
         </span>
-        <div className="ml-auto flex flex-wrap items-baseline gap-x-4 gap-y-1">
-          <TeamStat label="KDA">
-            <span className="text-lol-text-bright">
-              {formatKDA(totals.kills, totals.deaths, totals.assists)}
-            </span>
-          </TeamStat>
-          <TeamStat label="Damage">
-            <span className="text-red-400">{compact(totals.dmg)}</span>
-          </TeamStat>
-          <TeamStat label="Taken">
-            <span className="text-sky-400">{compact(totals.taken)}</span>
-          </TeamStat>
-          <TeamStat label="Gold">
-            <span className="text-lol-gold">{compact(totals.gold)}</span>
-          </TeamStat>
-          <TeamStat label="Heal">
-            <span className="text-emerald-400">{compact(totals.heal)}</span>
-          </TeamStat>
+        <div className="flex flex-wrap items-baseline gap-x-5 gap-y-1">
+          <div className="flex items-baseline gap-x-2 border-l border-lol-border/30 pl-3 first:border-l-0 first:pl-0">
+            <TeamStat label="KDA">
+              <span className="text-lol-text-bright">
+                {formatKDA(totals.kills, totals.deaths, totals.assists)}
+              </span>
+            </TeamStat>
+          </div>
+          <div className="flex items-baseline gap-x-2 border-l border-lol-border/30 pl-3 first:border-l-0 first:pl-0">
+            <TeamStat label="Damage">
+              <span className="text-red-400">{compact(totals.dmg)}</span>
+            </TeamStat>
+          </div>
+          <div className="flex items-baseline gap-x-2 border-l border-lol-border/30 pl-3 first:border-l-0 first:pl-0">
+            <TeamStat label="Taken">
+              <span className="text-sky-400">{compact(totals.taken)}</span>
+            </TeamStat>
+          </div>
+          <div className="flex items-baseline gap-x-2 border-l border-lol-border/30 pl-3 first:border-l-0 first:pl-0">
+            <TeamStat label="Gold">
+              <span className="text-lol-gold">{compact(totals.gold)}</span>
+            </TeamStat>
+          </div>
+          <div className="flex items-baseline gap-x-2 border-l border-lol-border/30 pl-3 first:border-l-0 first:pl-0">
+            <TeamStat label="Heal">
+              <span className="text-emerald-400">{compact(totals.heal)}</span>
+            </TeamStat>
+          </div>
         </div>
       </div>
+      <div
+        className={`h-0.5 bg-gradient-to-r ${
+          isTopThree
+            ? "from-lol-win/40 via-lol-win/15 to-transparent"
+            : "from-lol-loss/40 via-lol-loss/15 to-transparent"
+        }`}
+      />
 
       <div
-        className={`px-3 py-1.5 border-b border-lol-border/50 grid ${ARENA_GRID_COLS} gap-2 items-center text-[10px] text-lol-text uppercase tracking-wider`}
+        className={`px-4 py-1.5 border-b border-lol-border/40 grid ${ARENA_GRID_COLS} gap-2 items-center text-[10px] font-bold text-lol-text uppercase tracking-wider bg-white/[0.015]`}
       >
-        <span className="text-center">#</span>
         <span></span>
-        <span>Player</span>
+        <span className="text-left">Player</span>
         <span className="text-center">KDA</span>
-        <span className="text-center">Damage</span>
-        <span className="text-center">Taken</span>
+        <span className="text-right">Damage</span>
+        <span className="text-right">Taken</span>
         <span className="text-right">Gold</span>
         <span className="text-right">Heal</span>
-        <span></span>
-        <span>Items</span>
-        <span>Augments</span>
+        <span className="text-center">Items</span>
+        <span className="text-center">Augments</span>
+        <span aria-hidden="true" />
       </div>
 
       {players.map((p) => (
@@ -308,14 +334,11 @@ function ArenaPlayerRow({
   const kda = kdaRatio(p.kills, p.deaths, p.assists);
   return (
     <div
-      className={`px-3 py-1.5 border-b border-lol-border/30 last:border-b-0 grid ${ARENA_GRID_COLS} gap-2 items-center ${
-        p.isSelf ? "border-l-2 border-l-lol-gold bg-lol-gold/5" : ""
+      className={`px-4 py-2 border-b border-lol-border/20 last:border-b-0 grid ${ARENA_GRID_COLS} gap-2 items-center transition-colors hover:bg-white/[0.03] ${
+        p.isSelf ? "border-l-2 border-l-lol-gold bg-lol-gold/[0.06]" : ""
       }`}
     >
-      <div className="text-center text-xs font-semibold text-lol-text-bright">
-        {placement != null ? placement : "—"}
-      </div>
-      <div className="flex items-center gap-0.5">
+      <div className="relative flex items-center gap-0.5">
         <ChampionIcon championId={p.championId} size={32} />
         <div className="flex flex-col gap-0.5">
           <div className="rounded border border-lol-border/30 bg-white/[0.02] p-0.5">
@@ -325,6 +348,9 @@ function ArenaPlayerRow({
             <SummonerSpellIcon spellId={p.spell2Id} size={15} />
           </div>
         </div>
+        <span className="absolute -left-1 -top-1 text-[9px] font-semibold text-lol-text-bright">
+          {placement != null ? placement : "—"}
+        </span>
       </div>
 
       <div className="min-w-0">
@@ -378,9 +404,7 @@ function ArenaPlayerRow({
         {p.totalHeal >= 1000 ? `${(p.totalHeal / 1000).toFixed(1)}k` : p.totalHeal}
       </div>
 
-      <div></div>
-
-      <div className="flex gap-0.5">
+      <div className="flex gap-0.5 justify-center">
         {p.items.slice(0, 6).map((itemId, i) => (
           <div key={i} className="rounded border border-lol-border/30 bg-white/[0.02] p-0.5">
             <ItemIcon itemId={itemId} size={22} patch={patch} />
@@ -391,13 +415,14 @@ function ArenaPlayerRow({
         </div>
       </div>
 
-      <div className="flex items-center gap-1">
+      <div className="flex items-center gap-1 justify-center">
         {p.augments.map((augId, i) => (
           <div key={i} className="rounded border border-lol-border/30 bg-white/[0.02] p-0.5">
             <AugmentIcon augmentId={augId} size={22} patch={patch} />
           </div>
         ))}
       </div>
+      <div aria-hidden="true" />
     </div>
   );
 }
@@ -442,34 +467,48 @@ function TeamScoreboard({
         >
           Team {teamId === 100 ? "1" : "2"} — {isWin ? "Victory" : "Defeat"}
         </span>
-        <div className="ml-auto mr-40 flex flex-wrap items-baseline gap-x-5 gap-y-1">
-          <TeamStat label="Avg score">
-            <span
-              className={totals.avgScore != null ? scoreColor(totals.avgScore) : "text-lol-text"}
-            >
-              {totals.avgScore != null ? totals.avgScore.toFixed(1) : "-"}
-            </span>
-          </TeamStat>
-          <TeamStat label="KDA">
-            <span className="text-lol-text-bright">
-              {formatKDA(totals.kills, totals.deaths, totals.assists)}
-            </span>
-          </TeamStat>
-          <TeamStat label="Damage">
-            <span className="text-red-400">{compact(totals.dmg)}</span>
-          </TeamStat>
-          <TeamStat label="Taken">
-            <span className="text-sky-400">{compact(totals.taken)}</span>
-          </TeamStat>
-          <TeamStat label="CS">
-            <span className="text-lol-text-bright">{totals.cs}</span>
-          </TeamStat>
-          <TeamStat label="Gold">
-            <span className="text-lol-gold">{compact(totals.gold)}</span>
-          </TeamStat>
-          <TeamStat label="Heal">
-            <span className="text-emerald-400">{compact(totals.heal)}</span>
-          </TeamStat>
+        <div className="ml-auto flex flex-wrap items-baseline gap-x-5 gap-y-1">
+          <div className="flex items-baseline gap-x-2 border-l border-lol-border/30 pl-3 first:border-l-0 first:pl-0">
+            <TeamStat label="Avg score">
+              <span
+                className={totals.avgScore != null ? scoreColor(totals.avgScore) : "text-lol-text"}
+              >
+                {totals.avgScore != null ? totals.avgScore.toFixed(1) : "-"}
+              </span>
+            </TeamStat>
+          </div>
+          <div className="flex items-baseline gap-x-2 border-l border-lol-border/30 pl-3 first:border-l-0 first:pl-0">
+            <TeamStat label="KDA">
+              <span className="text-lol-text-bright">
+                {formatKDA(totals.kills, totals.deaths, totals.assists)}
+              </span>
+            </TeamStat>
+          </div>
+          <div className="flex items-baseline gap-x-2 border-l border-lol-border/30 pl-3 first:border-l-0 first:pl-0">
+            <TeamStat label="Damage">
+              <span className="text-red-400">{compact(totals.dmg)}</span>
+            </TeamStat>
+          </div>
+          <div className="flex items-baseline gap-x-2 border-l border-lol-border/30 pl-3 first:border-l-0 first:pl-0">
+            <TeamStat label="Taken">
+              <span className="text-sky-400">{compact(totals.taken)}</span>
+            </TeamStat>
+          </div>
+          <div className="flex items-baseline gap-x-2 border-l border-lol-border/30 pl-3 first:border-l-0 first:pl-0">
+            <TeamStat label="CS">
+              <span className="text-lol-text-bright">{totals.cs}</span>
+            </TeamStat>
+          </div>
+          <div className="flex items-baseline gap-x-2 border-l border-lol-border/30 pl-3 first:border-l-0 first:pl-0">
+            <TeamStat label="Gold">
+              <span className="text-lol-gold">{compact(totals.gold)}</span>
+            </TeamStat>
+          </div>
+          <div className="flex items-baseline gap-x-2 border-l border-lol-border/30 pl-3 first:border-l-0 first:pl-0">
+            <TeamStat label="Heal">
+              <span className="text-emerald-400">{compact(totals.heal)}</span>
+            </TeamStat>
+          </div>
         </div>
       </div>
       <div
@@ -485,16 +524,17 @@ function TeamScoreboard({
         className={`px-4 py-1.5 border-b border-lol-border/40 grid ${GRID_COLS} gap-2 items-center text-[10px] font-bold text-lol-text uppercase tracking-wider bg-white/[0.015]`}
       >
         <span></span>
-        <span>Player</span>
+        <span className="text-left">Player</span>
         <span className="text-center">Score</span>
         <span className="text-center">KDA</span>
-        <span className="text-center">Damage</span>
-        <span className="text-center">Taken</span>
+        <span className="text-right">Damage</span>
+        <span className="text-right">Taken</span>
         <span className="text-right">Gold</span>
         <span className="text-right">Heal</span>
         <span className="text-right">CS</span>
-        <span>Items</span>
-        <span>{showAugments ? "Augments" : "Runes"}</span>
+        <span className="text-center">Items</span>
+        <span className="text-center">{showAugments ? "Augments" : "Runes"}</span>
+        <span aria-hidden="true" />
       </div>
 
       {/* Player rows */}
@@ -686,7 +726,7 @@ function PlayerRow({
       </div>
 
       {/* Items */}
-      <div className="flex gap-0.5">
+      <div className="flex gap-0.5 justify-center">
         {p.items.slice(0, 6).map((itemId, i) => (
           <div key={i} className="rounded border border-lol-border/30 bg-white/[0.02] p-0.5">
             <ItemIcon itemId={itemId} size={22} patch={patch} />
@@ -700,7 +740,7 @@ function PlayerRow({
       {/* Runes for standard queues; Arena/Mayhem show Augments instead — those
           modes have no rune page at all, so falling back to "runes present?"
           per player would silently show an empty grid for the whole lobby. */}
-      <div className="flex items-center gap-1">
+      <div className="flex items-center gap-1 justify-center">
         {showAugments ? (
           p.augments.map((augId, i) => (
             <div key={i} className="rounded border border-lol-border/30 bg-white/[0.02] p-0.5">
@@ -718,6 +758,7 @@ function PlayerRow({
           />
         )}
       </div>
+      <div aria-hidden="true" />
     </div>
   );
 }
