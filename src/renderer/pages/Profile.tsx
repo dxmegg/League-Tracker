@@ -422,7 +422,7 @@ function LastGamesBox({ queueStats, loading }: { queueStats: QueueStat[]; loadin
       </p>
       <div className="flex items-center gap-2 border-b border-lol-border/30 pb-1 text-[9px] font-bold uppercase tracking-wider text-lol-text">
         <span className="flex-1">Queue</span>
-        <span className="w-8 text-right">G</span>
+        <span className="w-14 text-right">GAMES</span>
         <span className="w-16 text-right">W/L</span>
         <span className="w-12 text-right">WR</span>
       </div>
@@ -437,7 +437,7 @@ function LastGamesBox({ queueStats, loading }: { queueStats: QueueStat[]; loadin
             <span className="min-w-0 flex-1 truncate font-semibold text-lol-text-bright">
               {queueLabel(queueId)}
             </span>
-            <span className="w-8 shrink-0 text-right tabular-nums text-lol-text">{count}</span>
+            <span className="w-14 shrink-0 text-right tabular-nums text-lol-text">{count}</span>
             <span className="shrink-0 tabular-nums text-right">
               <span className="text-lol-win">{wins}W</span>
               <span className="mx-0.5 text-lol-text/40">/</span>

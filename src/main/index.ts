@@ -67,7 +67,7 @@ function createWindow(): BrowserWindow {
     title: "League Tracker",
     width: Math.min(1440, workAreaWidth - 40),
     height: 820,
-    minWidth: 1366,
+    minWidth: 1440,
     minHeight: 600,
     icon: iconPath,
     show: !launchedHidden,

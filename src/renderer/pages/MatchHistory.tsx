@@ -1182,15 +1182,14 @@ export function GameRow({
       <button
         onClick={onToggle}
         onContextMenu={onContextMenu}
-        className={`group relative grid w-full items-center gap-x-3 gap-y-0.5 px-5 py-3 rounded-2xl text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-lol-gold/60 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--theme-bg-deep)] ${
+        className={`group relative grid min-w-0 w-full items-center gap-3 overflow-hidden px-5 pr-[120px] py-3 rounded-2xl text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-lol-gold/60 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--theme-bg-deep)] ${
           isWin
             ? "border border-lol-win/35 hover:border-lol-win/60"
             : "border border-lol-loss/32 hover:border-lol-loss/60"
         }`}
         style={{
           background: rowBackground,
-          gridTemplateColumns:
-            "auto auto minmax(140px, auto) auto auto minmax(180px, 220px) auto auto 1fr auto",
+          gridTemplateColumns: "95px 72px 200px 58px 52px minmax(120px, 340px) 165px 200px 1fr",
         }}
       >
         <span
@@ -1202,7 +1201,7 @@ export function GameRow({
           aria-hidden="true"
         />
         <div
-          className={`flex w-20 shrink-0 flex-col text-xs font-bold ${isRemake ? "text-gray-500" : isArena && placementLabel ? (arenaWin ? "text-lol-win" : "text-lol-loss") : isWin ? "text-lol-win" : "text-lol-loss"}`}
+          className={`flex min-w-0 flex-col font-bold ${isRemake ? "text-gray-500" : isArena && placementLabel ? (arenaWin ? "text-lol-win" : "text-lol-loss") : isWin ? "text-lol-win" : "text-lol-loss"}`}
         >
           <span className="truncate">
             {isRemake ? "RMK" : isArena && placementLabel ? placementLabel : isWin ? "WIN" : "LOSS"}
@@ -1214,7 +1213,7 @@ export function GameRow({
             {queueLabel(match.queue_id)}
           </span>
         </div>
-        <div className="flex items-center gap-1.5 shrink-0">
+        <div className="flex min-w-0 items-center gap-1">
           <div
             className={`w-[42px] h-[42px] rounded-full overflow-hidden shrink-0 border-2 ${
               isWin
@@ -1264,7 +1263,7 @@ export function GameRow({
             return lane ? <div className="text-[10px] text-lol-text truncate">{lane}</div> : null;
           })()}
         </div>
-        <div className="flex flex-col items-center text-center shrink-0">
+        <div className="flex min-w-0 flex-col items-end text-right tabular-nums">
           <span className="text-sm text-lol-text-bright">{match.cs ?? 0}</span>
           {!isRemake && match.game_duration > 0 && (
             <span className="text-[10px] text-lol-text">
@@ -1273,7 +1272,7 @@ export function GameRow({
           )}
         </div>
         {match.score != null ? (
-          <div className="flex flex-col items-center gap-0.5 shrink-0">
+          <div className="flex flex-col items-center gap-0.5 text-center">
             <span className="text-sm font-semibold text-amber-400">{match.score.toFixed(1)}</span>
             {match.score_badge === "MVP" && (
               <span className="rounded bg-amber-400/20 px-1 text-[9px] font-bold leading-[15px] text-amber-300">
@@ -1289,7 +1288,7 @@ export function GameRow({
         ) : (
           <div />
         )}
-        <div className="w-full shrink-0 space-y-1">
+        <div className="min-w-0 w-full overflow-hidden space-y-1">
           {[
             ["DAMAGE", match.total_damage_dealt, match.game_max_dmg, "bg-[#e0524f]"],
             ["TAKEN", match.total_damage_taken, match.game_max_taken, "bg-[#3fc4c9]"],
@@ -1301,7 +1300,7 @@ export function GameRow({
             return (
               <div
                 key={label as string}
-                className="grid grid-cols-[56px_1fr_48px] items-center gap-1.5"
+                className="grid grid-cols-[48px_minmax(20px,1fr)_40px] items-center gap-1.5"
               >
                 <span className="text-[10px] text-lol-text">{label as string}</span>
                 <div className="relative h-1 overflow-hidden rounded-sm bg-white/5">
@@ -1317,7 +1316,7 @@ export function GameRow({
             );
           })}
         </div>
-        <div className="flex items-center justify-center gap-2 shrink-0">
+        <div className="flex min-w-0 items-center gap-1 overflow-hidden">
           <div className="flex items-center justify-center shrink-0">
             {isAugmentQueue(match.queue_id) ? (
               <AugmentGrid augmentIds={augmentIds} patch={match.game_version} />
@@ -1356,7 +1355,7 @@ export function GameRow({
             )}
           </div>
         </div>
-        <div className="min-w-0">
+        <div className="flex min-w-0 flex-wrap items-center gap-1 overflow-hidden">
           <MatchMultikillBadges
             doubles={match.double_kills}
             triples={match.triple_kills}
@@ -1365,9 +1364,9 @@ export function GameRow({
           />
         </div>
         <div aria-hidden="true" />
-        <div className="text-xs text-lol-text text-right shrink-0">
-          <div>{formatDuration(match.game_duration)}</div>
-          <div>{formatTimeAgo(match.game_creation)}</div>
+        <div className="absolute right-5 top-1/2 z-10 flex -translate-y-1/2 flex-col items-end whitespace-nowrap text-xs text-lol-text">
+          <div className="whitespace-nowrap">{formatDuration(match.game_duration)}</div>
+          <div className="whitespace-nowrap">{formatTimeAgo(match.game_creation)}</div>
         </div>
       </button>
 
