@@ -4,11 +4,26 @@ import type {
   HomeAccountFilter,
   HomeDashboardPayload,
   HomeTimePeriod,
+  MatchListItem,
 } from "../../shared/api";
+import { ARENA_QUEUE_IDS, QUEUE_ID_MAYHEM } from "../../shared/queues";
 import ChampionIcon from "../components/ChampionIcon";
 import SummonerIcon from "../components/SummonerIcon";
+import { useChampionData } from "../hooks/useChampions";
+import { HISTORY_SECTIONS_FULL } from "../lib/historySections";
+import { NavLink } from "react-router-dom";
+import { GameRow } from "./MatchHistory";
 
 const TIME_PERIODS: HomeTimePeriod[] = ["24h", "7d", "30d"];
+
+const QUEUE_FILTERS: Array<{ label: string; value: number | undefined }> = [
+  { label: "All", value: undefined },
+  { label: "Ranked", value: 420 },
+  { label: "Normal", value: 400 },
+  { label: "Arena", value: ARENA_QUEUE_IDS[0] },
+  { label: "ARAM", value: 450 },
+  { label: "Mayhem", value: QUEUE_ID_MAYHEM },
+];
 
 function timePeriodLabel(timePeriod: HomeTimePeriod): string {
   if (timePeriod === "24h") return "24 hours";
@@ -290,10 +305,117 @@ function EmptyPlaceholderCard() {
   return <div className="noxus-card h-full" aria-hidden="true" />;
 }
 
+function QueueFilterChips({
+  value,
+  onChange,
+}: {
+  value: number | undefined;
+  onChange: (queue: number | undefined) => void;
+}) {
+  return (
+    <div className="ml-auto flex items-center gap-2">
+      {QUEUE_FILTERS.map((filter) => {
+        const isActive = value === filter.value;
+        return (
+          <button
+            key={filter.label}
+            type="button"
+            onClick={() => onChange(filter.value)}
+            className={`rounded-md border px-3 py-1 text-xs font-bold uppercase tracking-wider transition-colors ${
+              isActive
+                ? "border-lol-crimson/60 bg-lol-crimson/20 text-lol-text-bright"
+                : "border-lol-border/50 bg-lol-card/40 text-lol-text hover:border-lol-gold/40 hover:text-lol-text-bright"
+            }`}
+          >
+            {filter.label}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+function QuickNavPanel() {
+  return (
+    <nav className="noxus-card flex flex-col gap-0.5 p-4">
+      {HISTORY_SECTIONS_FULL.map(({ section, label }) => (
+        <NavLink
+          key={section}
+          to={`/history/full/${section}`}
+          className={({ isActive }) =>
+            `block rounded-md px-3 py-2 text-xs font-bold tracking-wider transition-colors ${
+              isActive
+                ? "bg-lol-crimson/30 text-lol-text-bright"
+                : "text-lol-text hover:bg-white/[0.05] hover:text-lol-text-bright"
+            }`
+          }
+        >
+          {label}
+        </NavLink>
+      ))}
+    </nav>
+  );
+}
+
+function MatchListPanel({
+  account,
+  queue: _queue,
+}: {
+  account: HomeAccountFilter;
+  queue: number | undefined;
+}) {
+  const [matches, setMatches] = useState<MatchListItem[]>([]);
+  const [loading, setLoading] = useState(false);
+  const champData = useChampionData();
+
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    window.api
+      .getHomeMatchList(account, undefined, 20)
+      .then((payload) => {
+        if (!cancelled) setMatches(payload.matches);
+      })
+      .catch(() => {
+        if (!cancelled) setMatches([]);
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [account]);
+
+  return (
+    <div className={`flex flex-col gap-1 transition-opacity ${loading ? "opacity-50" : ""}`}>
+      {matches.map((match) => (
+        <GameRow
+          key={match.game_id}
+          match={match}
+          champData={champData}
+          expanded={false}
+          detail={null}
+          detailLoading={false}
+          puuids={null}
+          onToggle={() => undefined}
+          onContextMenu={() => undefined}
+          expandable={false}
+        />
+      ))}
+      {!loading && matches.length === 0 && (
+        <div className="noxus-card p-6 text-center text-sm text-lol-text">
+          No matches in this view.
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function Home() {
   const [account, setAccount] = useState<HomeAccountFilter>(undefined);
   const [timePeriod, setTimePeriod] = useState<HomeTimePeriod>("7d");
-  const [queue] = useState<number | undefined>(undefined);
+  const [queue, setQueue] = useState<number | undefined>(undefined);
   const [dashboard, setDashboard] = useState<HomeDashboardPayload | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -329,6 +451,15 @@ export default function Home() {
         />
         <RecordsCard dashboard={dashboard} loading={loading} />
         <EmptyPlaceholderCard />
+      </div>
+      <div className="flex items-center gap-6">
+        <div className="text-xl font-bold text-lol-text-bright">Statistics</div>
+        <div className="text-xl font-bold text-lol-text-bright">Last 20 played games</div>
+        <QueueFilterChips value={queue} onChange={setQueue} />
+      </div>
+      <div className="grid grid-cols-[220px_1fr] items-start gap-4">
+        <QuickNavPanel />
+        <MatchListPanel account={account} queue={queue} />
       </div>
     </div>
   );
