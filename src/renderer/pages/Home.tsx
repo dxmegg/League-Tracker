@@ -359,7 +359,7 @@ function QuickNavPanel() {
 
 function MatchListPanel({
   account,
-  queue: _queue,
+  queue,
 }: {
   account: HomeAccountFilter;
   queue: number | undefined;
@@ -372,7 +372,7 @@ function MatchListPanel({
     let cancelled = false;
     setLoading(true);
     window.api
-      .getHomeMatchList(account, undefined, 20)
+      .getHomeMatchList(account, queue, 20)
       .then((payload) => {
         if (!cancelled) setMatches(payload.matches);
       })
@@ -385,7 +385,7 @@ function MatchListPanel({
     return () => {
       cancelled = true;
     };
-  }, [account]);
+  }, [account, queue]);
 
   return (
     <div className={`flex flex-col gap-1 transition-opacity ${loading ? "opacity-50" : ""}`}>
