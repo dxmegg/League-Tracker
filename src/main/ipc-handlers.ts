@@ -202,9 +202,9 @@ export function registerIpcHandlers() {
           totalKills: dashboard.totalKills,
           totalDeaths: dashboard.totalDeaths,
           totalAssists: dashboard.totalAssists,
-          avgKills: dashboard.avgKills,
-          avgDeaths: dashboard.avgDeaths,
-          avgAssists: dashboard.avgAssists,
+          avgKills: dashboard.totalGames > 0 ? dashboard.totalKills / dashboard.totalGames : 0,
+          avgDeaths: dashboard.totalGames > 0 ? dashboard.totalDeaths / dashboard.totalGames : 0,
+          avgAssists: dashboard.totalGames > 0 ? dashboard.totalAssists / dashboard.totalGames : 0,
           avgKda:
             dashboard.totalGames > 0
               ? (dashboard.totalKills + dashboard.totalAssists) / Math.max(dashboard.totalDeaths, 1)
@@ -224,6 +224,7 @@ export function registerIpcHandlers() {
           avgGold: dashboard.avgGold,
           goldTotal: dashboard.goldTotal,
           teamAvgScore: dashboard.teamAvgScore,
+          multikills: dashboard.multikills,
         },
         records: {
           mostKills: toHomeRecord(records.bests.kills),

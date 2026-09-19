@@ -460,26 +460,25 @@ export default function MatchHistory({
           <ProfileCard profile={profileShown} dashboard={dashboard} />
 
           <HomeCard className="flex flex-col p-5 xl:p-6 2xl:p-7">
-            <div className="text-xs xl:text-[13px] 2xl:text-sm font-bold tracking-wider text-lol-text">
-              Average Score
-            </div>
-            <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-2">
-              <div className="text-3xl xl:text-3xl 2xl:text-4xl font-bold leading-none text-lol-gold">
+            <div className="grid grid-cols-[1fr_auto_1fr] gap-x-3 items-stretch">
+              <div className="text-xs xl:text-[13px] 2xl:text-sm font-bold tracking-wider text-lol-text">
+                Average Score
+              </div>
+              <div />
+              <div className="text-xs xl:text-[13px] 2xl:text-sm font-bold tracking-wider text-lol-text">
+                Team Average Score
+              </div>
+              <div className="text-3xl xl:text-3xl 2xl:text-4xl font-bold leading-none text-lol-gold mt-2">
                 {dashboard.avgScore != null ? dashboard.avgScore.toFixed(1) : "—"}
                 <span className="text-lol-text/60">/10</span>
               </div>
-              <div className="hidden h-8 w-px bg-lol-border/60 xl:block" />
-              <div className="flex flex-col">
-                <div className="text-[10px] xl:text-[10px] 2xl:text-[11px] font-bold tracking-wider text-lol-text">
-                  Team Average Score
-                </div>
-                <div className="text-2xl xl:text-2xl 2xl:text-3xl font-bold leading-none text-lol-gold">
-                  {dashboard.teamAvgScore > 0 ? dashboard.teamAvgScore.toFixed(1) : "—"}
-                  <span className="text-lol-text/60">/10</span>
-                </div>
+              <div className="row-span-2 w-px bg-lol-border/60 mx-auto my-1" />
+              <div className="text-3xl xl:text-3xl 2xl:text-4xl font-bold leading-none text-lol-gold mt-2">
+                {dashboard.teamAvgScore > 0 ? dashboard.teamAvgScore.toFixed(1) : "—"}
+                <span className="text-lol-text/60">/10</span>
               </div>
             </div>
-            <div className="mt-4 flex flex-col gap-1.5">
+            <div className="mt-auto pt-4 flex flex-col gap-1.5">
               <div className="flex min-w-0 items-center gap-2">
                 <span className="inline-flex !w-14 items-center justify-center rounded bg-lol-gold/20 py-0.5 text-[10px] font-bold uppercase text-lol-gold">
                   MVP
@@ -521,153 +520,163 @@ export default function MatchHistory({
             </div>
           </HomeCard>
 
-          <HomeCard className="flex flex-col p-5 xl:p-6 2xl:p-7">
-            <div className="text-xs xl:text-[13px] 2xl:text-sm font-bold tracking-wider text-lol-text">
+          <HomeCard className="flex flex-col p-4 xl:p-5 2xl:p-5">
+            <div className="text-xs xl:text-[13px] font-bold tracking-wider text-lol-text">
               Average KDA
             </div>
-            <div className="mt-2 flex flex-col xl:flex-row xl:items-start xl:justify-between gap-3">
+            <div className="mt-2 text-3xl xl:text-3xl 2xl:text-4xl font-bold leading-none whitespace-nowrap">
+              <span className="text-lol-gold">{dashboard.avgKills.toFixed(1)}</span>
+              <span className="text-lol-text/50">/</span>
+              <span className="text-[#a51e1e]">{dashboard.avgDeaths.toFixed(1)}</span>
+              <span className="text-lol-text/50">/</span>
+              <span className="text-[#3b82f6]">{dashboard.avgAssists.toFixed(1)}</span>
+            </div>
+            <div className="mt-1 text-xs xl:text-sm font-bold text-[#15803d]">
+              {dashboard.totalGames > 0
+                ? (
+                    (dashboard.totalKills + dashboard.totalAssists) /
+                    Math.max(dashboard.totalDeaths, 1)
+                  ).toFixed(2)
+                : "0.00"}{" "}
+              KDA
+            </div>
+            <div className="mt-0.5 text-[10px] text-lol-text tabular-nums">
+              {dashboard.totalKills.toLocaleString("pl-PL")} /{" "}
+              {dashboard.totalDeaths.toLocaleString("pl-PL")} /{" "}
+              {dashboard.totalAssists.toLocaleString("pl-PL")} total
+            </div>
+            <div className="mt-3 grid grid-cols-3 gap-2 border-t border-lol-border/40 pt-2">
               <div className="flex flex-col">
-                <div className="text-2xl xl:text-3xl 2xl:text-3xl font-bold leading-none">
-                  <span className="text-lol-gold">{dashboard.avgKills.toFixed(1)}</span>
-                  <span className="text-lol-text/50">/</span>
-                  <span className="text-[#a51e1e]">{dashboard.avgDeaths.toFixed(1)}</span>
-                  <span className="text-lol-text/50">/</span>
-                  <span className="text-[#3b82f6]">{dashboard.avgAssists.toFixed(1)}</span>
-                </div>
-                <div className="mt-1.5 text-xs xl:text-sm font-bold text-[#15803d]">
-                  {dashboard.totalDeaths > 0
-                    ? (
-                        (dashboard.totalKills + dashboard.totalAssists) /
-                        dashboard.totalDeaths
-                      ).toFixed(2)
-                    : "0.00"}{" "}
-                  KDA
-                </div>
-                <div className="mt-0.5 text-[10px] xl:text-[11px] text-lol-text">
-                  {dashboard.totalKills.toLocaleString("pl-PL")} /{" "}
-                  {dashboard.totalDeaths.toLocaleString("pl-PL")} /{" "}
-                  {dashboard.totalAssists.toLocaleString("pl-PL")} total
+                <div className="text-[10px] text-lol-text">Avg DMG dealt</div>
+                <div className="text-xs xl:text-sm font-bold text-[#a51e1e] tabular-nums">
+                  {Math.round(dashboard.avgDamageDealt).toLocaleString("pl-PL")}
                 </div>
               </div>
-              <div className="flex flex-col gap-1 text-[10px] xl:text-[11px] xl:items-end">
-                <div className="flex items-baseline gap-1.5 xl:flex-row-reverse">
-                  <span className="text-lol-text">Avg damage dealt</span>
-                  <span className="font-bold text-lol-text-bright tabular-nums">
-                    {Math.round(dashboard.avgDamageDealt).toLocaleString("pl-PL")}
-                  </span>
+              <div className="flex flex-col">
+                <div className="text-[10px] text-lol-text">Avg DMG tanked</div>
+                <div className="text-xs xl:text-sm font-bold text-[#3b82f6] tabular-nums">
+                  {Math.round(dashboard.avgDamageTaken).toLocaleString("pl-PL")}
                 </div>
-                <div className="flex items-baseline gap-1.5 xl:flex-row-reverse">
-                  <span className="text-lol-text">Avg damage tanked</span>
-                  <span className="font-bold text-lol-text-bright tabular-nums">
-                    {Math.round(dashboard.avgDamageTaken).toLocaleString("pl-PL")}
-                  </span>
-                </div>
-                <div className="flex items-baseline gap-1.5 xl:flex-row-reverse">
-                  <span className="text-lol-text">Avg damage healed</span>
-                  <span className="font-bold text-lol-text-bright tabular-nums">
-                    {Math.round(dashboard.avgDamageHealed).toLocaleString("pl-PL")}
-                  </span>
+              </div>
+              <div className="flex flex-col">
+                <div className="text-[10px] text-lol-text">Avg DMG healed</div>
+                <div className="text-xs xl:text-sm font-bold text-[#15803d] tabular-nums">
+                  {Math.round(dashboard.avgDamageHealed).toLocaleString("pl-PL")}
                 </div>
               </div>
             </div>
-            <div className="mt-3 grid grid-cols-3 gap-3 border-t border-lol-border/40 pt-3">
+            <div className="mt-2 grid grid-cols-3 gap-2 border-t border-lol-border/40 pt-2">
               <div className="flex flex-col">
-                <div className="text-[10px] xl:text-[11px] font-bold tracking-wider text-lol-text">
-                  Avg CS
-                </div>
-                <div className="text-sm xl:text-base font-bold text-lol-text-bright tabular-nums">
+                <div className="text-[10px] text-lol-text">Avg CS</div>
+                <div className="text-xs xl:text-sm font-bold text-lol-gold tabular-nums">
                   {dashboard.avgCs.toFixed(1)}
-                  <span className="text-[10px] xl:text-[11px] font-normal text-lol-text">
-                    {" "}
-                    / {dashboard.csPerMin.toFixed(1)} cs/min
-                  </span>
                 </div>
-                <div className="text-[10px] xl:text-[11px] text-lol-text tabular-nums">
-                  {dashboard.csTotal.toLocaleString("pl-PL")} cs total
+                <div className="text-[9px] text-lol-text tabular-nums">
+                  {dashboard.csPerMin.toFixed(1)} cs/min
                 </div>
               </div>
               <div className="flex flex-col">
-                <div className="text-[10px] xl:text-[11px] font-bold tracking-wider text-lol-text">
-                  Avg gold
-                </div>
-                <div className="text-sm xl:text-base font-bold text-lol-text-bright tabular-nums">
+                <div className="text-[10px] text-lol-text">Avg gold</div>
+                <div className="text-xs xl:text-sm font-bold text-lol-gold tabular-nums">
                   {Math.round(dashboard.avgGold).toLocaleString("pl-PL")}
                 </div>
-                <div className="text-[10px] xl:text-[11px] text-lol-text tabular-nums">
-                  {dashboard.goldTotal.toLocaleString("pl-PL")} gold total
+                <div className="text-[9px] text-lol-text tabular-nums">
+                  {dashboard.goldTotal.toLocaleString("pl-PL")} total
                 </div>
               </div>
               <div className="flex flex-col">
-                <div className="text-[10px] xl:text-[11px] font-bold tracking-wider text-lol-text">
-                  Avg game length
-                </div>
-                <div className="text-sm xl:text-base font-bold text-lol-text-bright tabular-nums">
-                  {dashboard.avgGameLength > 0
-                    ? `${Math.floor(dashboard.avgGameLength / 60)}:${String(
-                        Math.floor(dashboard.avgGameLength % 60),
-                      ).padStart(2, "0")}`
-                    : "—"}
+                <div className="text-[10px] text-lol-text">Avg length</div>
+                <div className="text-xs xl:text-sm font-bold text-lol-text-bright tabular-nums">
+                  {Math.floor(dashboard.avgGameLength / 60)}:
+                  {String(Math.floor(dashboard.avgGameLength % 60)).padStart(2, "0")}
                 </div>
               </div>
             </div>
           </HomeCard>
 
-          <HomeCard className="flex flex-col p-5 xl:p-6 2xl:p-7">
-            <div className="text-xs xl:text-[13px] 2xl:text-sm font-bold tracking-wider text-lol-text">
+          <HomeCard className="flex flex-col p-4 xl:p-5 2xl:p-5">
+            <div className="text-xs xl:text-[13px] font-bold tracking-wider text-lol-text">
               Multikills
             </div>
-            <div className="mt-1 text-3xl xl:text-4xl 2xl:text-4xl font-bold leading-none text-lol-gold tabular-nums">
+            <div className="mt-1 text-2xl xl:text-3xl font-bold leading-none text-lol-crimson-bright tabular-nums">
               {(
-                (dashboard.multikills?.doubles ?? 0) +
-                (dashboard.multikills?.triples ?? 0) +
-                (dashboard.multikills?.quadras ?? 0) +
-                (dashboard.multikills?.pentas ?? 0)
+                dashboard.multikills.doubles +
+                dashboard.multikills.triples +
+                dashboard.multikills.quadras +
+                dashboard.multikills.pentas
               ).toLocaleString("pl-PL")}
             </div>
-            <div className="mt-3 grid grid-cols-4 gap-2">
-              {(
-                [
-                  { key: "doubles", label: "Double", color: "#3b82f6" },
-                  { key: "triples", label: "Triple", color: "#eab308" },
-                  { key: "quadras", label: "Quadra", color: "#a855f7" },
-                  { key: "pentas", label: "Penta", color: "#a51e1e" },
-                ] as const
-              ).map(({ key, label, color }) => {
-                const count = dashboard.multikills?.[key] ?? 0;
-                const total = dashboard.totalGames || 1;
-                const pct = (count / total) * 100;
-                return (
-                  <div key={key} className="flex flex-col items-center gap-1">
-                    <div className="text-[10px] xl:text-[11px] text-lol-text tabular-nums">
-                      {count}
-                    </div>
-                    <div className="text-[9px] xl:text-[10px] uppercase tracking-wider text-lol-text/70">
-                      games
-                    </div>
-                    <div className="h-10 w-1 rounded-full bg-lol-border/40 overflow-hidden flex items-end">
+            <div className="mt-3 flex flex-1 flex-col">
+              <div className="grid grid-cols-4 gap-2 flex-1">
+                {[
+                  {
+                    key: "Doubles",
+                    countKey: "doubles",
+                    gamesKey: "gamesWithDoubles",
+                    label: "Double",
+                    color: "#3b82f6",
+                  },
+                  {
+                    key: "Triples",
+                    countKey: "triples",
+                    gamesKey: "gamesWithTriples",
+                    label: "Triple",
+                    color: "#eab308",
+                  },
+                  {
+                    key: "Quadras",
+                    countKey: "quadras",
+                    gamesKey: "gamesWithQuadras",
+                    label: "Quadra",
+                    color: "#a855f7",
+                  },
+                  {
+                    key: "Pentas",
+                    countKey: "pentas",
+                    gamesKey: "gamesWithPentas",
+                    label: "Penta",
+                    color: "#a51e1e",
+                  },
+                ].map(({ countKey, gamesKey, label, color }) => {
+                  const totalCount =
+                    (dashboard.multikills[countKey as keyof typeof dashboard.multikills] as
+                      | number
+                      | undefined) ?? 0;
+                  const gamesWith =
+                    (dashboard.multikills[gamesKey as keyof typeof dashboard.multikills] as
+                      | number
+                      | undefined) ?? 0;
+                  const pct = (gamesWith / Math.max(dashboard.totalGames, 1)) * 100;
+                  return (
+                    <div key={label} className="flex flex-col items-center">
+                      <div className="text-[10px] font-bold text-lol-text-bright tabular-nums">
+                        {gamesWith.toLocaleString("pl-PL")}
+                      </div>
+                      <div className="text-[8px] uppercase tracking-wider text-lol-text/60">
+                        games
+                      </div>
+                      <div className="mt-1 flex-1 w-2 rounded-full bg-lol-border/40 flex flex-col justify-end overflow-hidden min-h-[64px]">
+                        <div
+                          className="w-full rounded-full"
+                          style={{ height: `${Math.min(pct, 100)}%`, backgroundColor: color }}
+                        />
+                      </div>
+                      <div className="mt-1 text-[10px] font-bold tabular-nums" style={{ color }}>
+                        {pct.toFixed(0)}%
+                      </div>
                       <div
-                        className="w-full rounded-full"
-                        style={{ height: `${Math.min(pct * 2, 100)}%`, backgroundColor: color }}
-                      />
+                        className="mt-auto pt-1 text-sm xl:text-base font-bold tabular-nums"
+                        style={{ color }}
+                      >
+                        {totalCount.toLocaleString("pl-PL")}
+                      </div>
+                      <div className="text-[8px] uppercase tracking-wider text-lol-text">
+                        {label}
+                      </div>
                     </div>
-                    <div
-                      className="text-[10px] xl:text-[11px] font-bold tabular-nums"
-                      style={{ color }}
-                    >
-                      {pct.toFixed(0)}%
-                    </div>
-                    <div
-                      className="mt-0.5 text-lg xl:text-xl 2xl:text-2xl font-bold tabular-nums"
-                      style={{ color }}
-                    >
-                      {count}
-                    </div>
-                    <div className="text-[9px] xl:text-[10px] uppercase tracking-wider text-lol-text">
-                      {label}
-                    </div>
-                  </div>
-                );
-              })}
+                  );
+                })}
+              </div>
             </div>
           </HomeCard>
         </div>

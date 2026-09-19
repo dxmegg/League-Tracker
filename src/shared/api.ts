@@ -357,6 +357,10 @@ export interface DashboardData {
     triples: number;
     quadras: number;
     pentas: number;
+    gamesWithDoubles: number;
+    gamesWithTriples: number;
+    gamesWithQuadras: number;
+    gamesWithPentas: number;
   };
   topAugments: AugmentStats[];
 }
@@ -398,6 +402,16 @@ export interface HomeDashboardPayload {
     avgGold: number;
     goldTotal: number;
     teamAvgScore: number;
+    multikills: {
+      doubles: number;
+      triples: number;
+      quadras: number;
+      pentas: number;
+      gamesWithDoubles: number;
+      gamesWithTriples: number;
+      gamesWithQuadras: number;
+      gamesWithPentas: number;
+    };
   };
   records: {
     mostKills: {
