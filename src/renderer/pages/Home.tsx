@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import type {
   AccountListItem,
   HomeAccountFilter,
@@ -24,6 +24,16 @@ const QUEUE_FILTERS: Array<{ label: string; value: number | undefined }> = [
   { label: "ARAM", value: 450 },
   { label: "Mayhem", value: QUEUE_ID_MAYHEM },
 ];
+
+function HomeCard({ children, className = "" }: { children?: ReactNode; className?: string }) {
+  return (
+    <div
+      className={`relative rounded-lg border border-lol-crimson/40 bg-[linear-gradient(145deg,#0c0e11_0%,#090b0d_48%,#060809_100%)] shadow-[0_0_4px_rgba(150,30,30,0.35),0_0_12px_rgba(90,15,15,0.20)] ring-1 ring-inset ring-white/[0.03] ${className}`}
+    >
+      {children}
+    </div>
+  );
+}
 
 function timePeriodLabel(timePeriod: HomeTimePeriod): string {
   if (timePeriod === "24h") return "24 hours";
@@ -91,7 +101,7 @@ function PlayerSummaryCard({
       : "—";
 
   return (
-    <div className="noxus-card flex h-full p-5 xl:p-6 2xl:p-7">
+    <HomeCard className="flex h-full p-5 xl:p-6 2xl:p-7">
       <div
         className={`grid h-full grid-cols-[180px_1fr] gap-4 transition-opacity ${loading ? "opacity-50" : ""}`}
       >
@@ -235,7 +245,7 @@ function PlayerSummaryCard({
           </div>
         </div>
       </div>
-    </div>
+    </HomeCard>
   );
 }
 
@@ -295,7 +305,7 @@ function RecordsCard({
   const records = dashboard?.records;
 
   return (
-    <div className="noxus-card flex h-full flex-col p-5 xl:p-6 2xl:p-7">
+    <HomeCard className="flex h-full flex-col p-5 xl:p-6 2xl:p-7">
       <div
         className={`flex h-full flex-col gap-3 transition-opacity ${loading ? "opacity-50" : ""}`}
       >
@@ -309,12 +319,12 @@ function RecordsCard({
           <RecordTile label="Most CS" record={records?.mostCs ?? null} />
         </div>
       </div>
-    </div>
+    </HomeCard>
   );
 }
 
 function EmptyPlaceholderCard() {
-  return <div className="noxus-card h-full" aria-hidden="true" />;
+  return <HomeCard className="h-full" aria-hidden="true" />;
 }
 
 function QueueFilterChips({
@@ -349,23 +359,25 @@ function QueueFilterChips({
 
 function QuickNavPanel() {
   return (
-    <nav className="noxus-card flex flex-col gap-0.5 p-4">
-      {HISTORY_SECTIONS_FULL.map(({ section, label }) => (
-        <NavLink
-          key={section}
-          to={`/history/full/${section}`}
-          className={({ isActive }) =>
-            `block rounded-md px-3 py-2 text-xs font-bold tracking-wider transition-colors ${
-              isActive
-                ? "bg-lol-crimson/30 text-lol-text-bright"
-                : "text-lol-text hover:bg-white/[0.05] hover:text-lol-text-bright"
-            }`
-          }
-        >
-          {label}
-        </NavLink>
-      ))}
-    </nav>
+    <HomeCard className="p-4">
+      <nav className="flex flex-col gap-0.5">
+        {HISTORY_SECTIONS_FULL.map(({ section, label }) => (
+          <NavLink
+            key={section}
+            to={`/history/full/${section}`}
+            className={({ isActive }) =>
+              `block rounded-md px-3 py-2 text-xs font-bold tracking-wider transition-colors ${
+                isActive
+                  ? "bg-lol-crimson/30 text-lol-text-bright"
+                  : "text-lol-text hover:bg-white/[0.05] hover:text-lol-text-bright"
+              }`
+            }
+          >
+            {label}
+          </NavLink>
+        ))}
+      </nav>
+    </HomeCard>
   );
 }
 
@@ -416,9 +428,9 @@ function MatchListPanel({
         />
       ))}
       {!loading && matches.length === 0 && (
-        <div className="noxus-card p-6 text-center text-sm text-lol-text">
+        <HomeCard className="p-6 text-center text-sm text-lol-text">
           No matches in this view.
-        </div>
+        </HomeCard>
       )}
     </div>
   );
