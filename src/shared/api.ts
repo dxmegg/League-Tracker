@@ -863,11 +863,11 @@ export interface ElectronAPI {
   getHomeDashboard: (
     account: HomeAccountFilter,
     timePeriod: HomeTimePeriod,
-    queue: number[] | undefined,
+    queue: number | number[] | undefined,
   ) => Promise<HomeDashboardPayload>;
   getHomeMatchList: (
     account: HomeAccountFilter,
-    queue: number[] | undefined,
+    queue: number | number[] | undefined,
     limit: number,
   ) => Promise<HomeMatchListPayload>;
   getMostPlayedQueue: (

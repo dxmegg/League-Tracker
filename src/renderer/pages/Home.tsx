@@ -6,7 +6,13 @@ import type {
   HomeTimePeriod,
   MatchListItem,
 } from "../../shared/api";
-import { ARENA_QUEUE_IDS, MAYHEM_QUEUE_IDS } from "../../shared/queues";
+import {
+  QUEUE_SCOPE_RANKED,
+  QUEUE_SCOPE_NORMAL,
+  QUEUE_SCOPE_ARENA,
+  QUEUE_SCOPE_ARAM,
+  QUEUE_SCOPE_MAYHEM,
+} from "../../shared/queues";
 import ChampionIcon from "../components/ChampionIcon";
 import SummonerIcon from "../components/SummonerIcon";
 import { useChampionData } from "../hooks/useChampions";
@@ -16,13 +22,13 @@ import { GameRow } from "./MatchHistory";
 
 const TIME_PERIODS: HomeTimePeriod[] = ["24h", "7d", "30d", "full"];
 
-const QUEUE_FILTERS: Array<{ label: string; value: number[] | undefined }> = [
+const QUEUE_FILTERS: Array<{ label: string; value: number | undefined }> = [
   { label: "All", value: undefined },
-  { label: "Ranked", value: [420, 440] },
-  { label: "Normal", value: [400, 430, 490] },
-  { label: "Arena", value: [...ARENA_QUEUE_IDS] },
-  { label: "ARAM", value: [450] },
-  { label: "Mayhem", value: [...MAYHEM_QUEUE_IDS] },
+  { label: "Ranked", value: QUEUE_SCOPE_RANKED },
+  { label: "Normal", value: QUEUE_SCOPE_NORMAL },
+  { label: "Arena", value: QUEUE_SCOPE_ARENA },
+  { label: "ARAM", value: QUEUE_SCOPE_ARAM },
+  { label: "Mayhem", value: QUEUE_SCOPE_MAYHEM },
 ];
 
 function HomeCard({ children, className = "" }: { children?: ReactNode; className?: string }) {
@@ -130,7 +136,7 @@ function PlayerSummaryCard({
                 className={`rounded-md px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider transition-colors ${
                   isAllAccounts
                     ? "border border-lol-crimson/60 bg-lol-crimson/20 text-lol-text-bright"
-                    : "text-lol-gold hover:text-lol-gold/80"
+                    : "text-lol-text hover:bg-lol-crimson/10 hover:text-lol-text-bright"
                 }`}
               >
                 ALL ACCOUNTS
@@ -191,10 +197,10 @@ function PlayerSummaryCard({
                   key={period}
                   type="button"
                   onClick={() => onTimePeriodChange(period)}
-                  className={`rounded-md px-2.5 py-1 text-xs font-bold transition-colors ${
+                  className={`rounded-md border px-2.5 py-1 text-xs font-bold transition-colors ${
                     period === timePeriod
-                      ? "bg-lol-gold/20 text-lol-gold"
-                      : "text-lol-text hover:bg-white/[0.04] hover:text-lol-text-bright"
+                      ? "border-lol-crimson/60 bg-lol-crimson/20 text-lol-text-bright"
+                      : "border-transparent text-lol-text hover:border-lol-crimson/40 hover:bg-lol-crimson/10 hover:text-lol-text-bright"
                   }`}
                 >
                   {periodLabel(period)}
@@ -288,7 +294,7 @@ function RecordTile({
   } | null;
 }) {
   return (
-    <div className="flex flex-col gap-1.5 rounded-md border border-lol-border/40 bg-white/[0.02] p-3">
+    <div className="flex flex-col gap-1.5 rounded-md border border-lol-border/40 bg-white/[0.02] p-3 transition-colors hover:border-lol-crimson/60 hover:bg-lol-crimson/[0.04]">
       <div className="text-[10px] font-bold uppercase tracking-wider text-lol-text">{label}</div>
       <div className="text-center text-2xl font-bold text-lol-text-bright">
         {record ? record.value.toLocaleString() : "—"}
@@ -348,8 +354,8 @@ function QueueFilterChips({
   value,
   onChange,
 }: {
-  value: number[] | undefined;
-  onChange: (queue: number[] | undefined) => void;
+  value: number | undefined;
+  onChange: (queue: number | undefined) => void;
 }) {
   return (
     <div className="ml-auto flex items-center gap-2">
@@ -404,7 +410,7 @@ function MatchListPanel({
   timePeriod,
 }: {
   account: HomeAccountFilter;
-  queue: number[] | undefined;
+  queue: number | undefined;
   timePeriod: HomeTimePeriod;
 }) {
   const [matches, setMatches] = useState<MatchListItem[]>([]);
@@ -461,7 +467,7 @@ function MatchListPanel({
 export default function Home() {
   const [account, setAccount] = useState<HomeAccountFilter>("all");
   const [timePeriod, setTimePeriod] = useState<HomeTimePeriod>("7d");
-  const [queue, setQueue] = useState<number[] | undefined>(undefined);
+  const [queue, setQueue] = useState<number | undefined>(undefined);
   const [dashboard, setDashboard] = useState<HomeDashboardPayload | null>(null);
   const [loading, setLoading] = useState(false);
 

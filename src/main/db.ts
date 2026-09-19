@@ -1358,7 +1358,31 @@ export function getStoredQueues(): number[] {
 
 // Appends queue conditions to a query's WHERE list. An explicit queue filter
 // wins; otherwise the queues switched off in Settings are excluded everywhere.
-function applyQueueFilter(where: string[], params: any[], queue?: number, alias = "g") {
+function applyQueueFilter(
+  where: string[],
+  params: any[],
+  queue?: number | number[],
+  alias = "g",
+): void {
+  if (Array.isArray(queue)) {
+    if (queue.length === 0) return;
+    if (queue.length === 1) {
+      where.push(`${alias}.queue_id = ?`);
+      params.push(queue[0]);
+      return;
+    }
+    where.push(`${alias}.queue_id IN (${queue.map(() => "?").join(", ")})`);
+    params.push(...queue);
+    return;
+  }
+  if (queue == null) {
+    const hidden = getHiddenQueues();
+    if (hidden.length > 0) {
+      where.push(`${alias}.queue_id NOT IN (${hidden.map(() => "?").join(", ")})`);
+      params.push(...hidden);
+    }
+    return;
+  }
   if (queue === QUEUE_GROUP_ARENA) {
     where.push(`${alias}.queue_id IN (${ARENA_QUEUE_IDS.map(() => "?").join(", ")})`);
     params.push(...ARENA_QUEUE_IDS);
@@ -1398,11 +1422,6 @@ function applyQueueFilter(where: string[], params: any[], queue?: number, alias 
     where.push(`${alias}.queue_id = ?`);
     params.push(queue);
     return;
-  }
-  const hidden = getHiddenQueues();
-  if (hidden.length > 0) {
-    where.push(`${alias}.queue_id NOT IN (${hidden.map(() => "?").join(", ")})`);
-    params.push(...hidden);
   }
 }
 
@@ -1690,7 +1709,7 @@ export function getMatchHistory(
   filters?: {
     championId?: number;
     patch?: string;
-    queue?: number;
+    queue?: number | number[];
     account?: string;
     sort?: string;
     sortDir?: string;
@@ -2143,7 +2162,7 @@ export function getMatchDetail(gameId: number): any {
 
 export function getChampionStatsAll(
   patch?: string,
-  queue?: number,
+  queue?: number | number[],
   account?: string,
   timePeriod?: "24h" | "7d" | "30d" | "full",
 ): any[] {
@@ -2233,7 +2252,7 @@ export function getDashboardData(
   filters?: {
     championId?: number;
     patch?: string;
-    queue?: number;
+    queue?: number | number[];
     account?: string;
   },
   timePeriod?: "24h" | "7d" | "30d" | "full",
@@ -4753,7 +4772,7 @@ export function getTrendsData(queue?: number, account?: string): any {
 // the maxima fall out of the same loop. On ties the earliest game keeps the
 // record, so a mark has to be strictly beaten to change hands.
 export function getRecords(
-  queue?: number,
+  queue?: number | number[],
   account?: string,
   timePeriod?: "24h" | "7d" | "30d" | "full",
 ): any {
