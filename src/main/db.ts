@@ -2574,6 +2574,7 @@ export function getQueueStatsForAccount(puuid: string): QueueStat[] {
         INNER JOIN games g ON g.game_id = tgs.game_id
         WHERE tgs.puuid = ?
           AND g.queue_id IS NOT NULL
+          AND g.queue_id NOT IN (${EXCLUDED_STATS_SQL})
         GROUP BY g.queue_id
         ORDER BY count DESC
       `,
@@ -2604,7 +2605,10 @@ export function getMostPlayedQueue(
     .prepare(`
       SELECT COUNT(*) AS games, SUM(mp.win) AS wins
       FROM match_participants mp
-      WHERE mp.puuid = ? AND mp.is_remake = 0 AND mp.queue_id IN (${arenaPlaceholders})
+      WHERE mp.puuid = ?
+        AND mp.is_remake = 0
+        AND mp.queue_id IN (${arenaPlaceholders})
+        AND mp.queue_id NOT IN (${EXCLUDED_STATS_SQL})
     `)
     .get(puuid, ...ARENA_QUEUE_IDS) as { games: number; wins: number } | undefined;
   const nonArenaRow = db
@@ -2614,6 +2618,7 @@ export function getMostPlayedQueue(
       WHERE puuid = ? AND is_remake = 0
         AND queue_id IS NOT NULL
         AND queue_id NOT IN (${arenaPlaceholders})
+        AND queue_id NOT IN (${EXCLUDED_STATS_SQL})
       GROUP BY queue_id
       ORDER BY games DESC
       LIMIT 1
@@ -2648,6 +2653,7 @@ export function getMostPlayedQueueByName(
         AND LOWER(mp.tag_line) = LOWER(?)
         AND mp.is_remake = 0
         AND mp.queue_id IN (${arenaPlaceholders})
+        AND mp.queue_id NOT IN (${EXCLUDED_STATS_SQL})
     `)
     .get(gameName, tagLine, ...ARENA_QUEUE_IDS) as { games: number; wins: number } | undefined;
   const nonArenaRow = db
@@ -2659,6 +2665,7 @@ export function getMostPlayedQueueByName(
         AND is_remake = 0
         AND queue_id IS NOT NULL
         AND queue_id NOT IN (${arenaPlaceholders})
+        AND queue_id NOT IN (${EXCLUDED_STATS_SQL})
       GROUP BY queue_id
       ORDER BY games DESC
       LIMIT 1
@@ -4142,6 +4149,7 @@ function teammateRows(
   const where = ["o.is_remake = 0", `(o.puuid IS NULL OR o.puuid NOT IN (${ours}))`];
   const params: any[] = [...puuids];
   applyQueueFilter(where, params, queue, "o");
+  where.push(`g.queue_id NOT IN (${EXCLUDED_STATS_SQL})`);
 
   return db
     .prepare(`
@@ -4422,6 +4430,7 @@ export function getChampionItemStats(
   queue?: number,
 ): { item_id: number; picks: number; wins: number }[] {
   const extraWhere: string[] = [];
+  extraWhere.push("g.is_remake = 0");
   extraWhere.push(localGamesFilter("g"));
   extraWhere.push(`g.queue_id NOT IN (${EXCLUDED_STATS_SQL})`);
   const extraParams: any[] = [];
@@ -4434,7 +4443,7 @@ export function getChampionItemStats(
   const itemCols = ["item0", "item1", "item2", "item3", "item4", "item5", "item6"];
   const excludedList = EXCLUDED_ITEM_IDS.join(", ");
   const subquery = (col: string) =>
-    `SELECT ps.${col} as item_id, ps.win FROM player_stats ps JOIN games g ON ps.game_id = g.game_id WHERE ps.champion_id = ? AND ps.${col} IS NOT NULL AND ps.${col} > 0 AND ps.${col} NOT IN (${excludedList}) AND g.is_remake = 0${extraSql}`;
+    `SELECT ps.${col} as item_id, ps.win FROM player_stats ps JOIN games g ON ps.game_id = g.game_id WHERE ps.champion_id = ? AND ps.${col} IS NOT NULL AND ps.${col} > 0 AND ps.${col} NOT IN (${excludedList})${extraSql}`;
   const params = itemCols.flatMap(() => [championId, ...extraParams]);
   return db
     .prepare(`
@@ -4663,6 +4672,7 @@ export function getOwnedRuneStats(queue?: number, patch?: string) {
     params.push(patch);
   }
   applyQueueFilter(where, params, queue);
+  where.push(`g.queue_id NOT IN (${EXCLUDED_STATS_SQL})`);
   const rows = db
     .prepare(
       `SELECT g.raw_gz, g.puuid, ps.win, ps.champion_id, ps.kills, ps.deaths, ps.assists
