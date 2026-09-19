@@ -15,9 +15,9 @@ export default function WinRateBar({
 
   return (
     <div className="flex items-center gap-2">
-      <div className="flex-1 h-2.5 bg-lol-loss/20 rounded-full overflow-hidden min-w-16">
+      <div className="flex-1 h-2.5 bg-[#a51e1e]/20 rounded-full overflow-hidden min-w-16">
         <div
-          className="h-full rounded-full transition-all bg-gradient-to-r from-lol-win to-[var(--theme-victory)] shadow-[0_0_10px_var(--theme-victory)]"
+          className="h-full rounded-full transition-all bg-[#15803d] shadow-[0_0_10px_rgba(21,128,61,0.45)]"
           style={{ width: `${rate}%` }}
         />
       </div>
@@ -27,10 +27,10 @@ export default function WinRateBar({
             percentClassName
               ? percentClassName(rate)
               : rate >= 60
-                ? "text-lol-win"
+                ? "text-[#15803d]"
                 : rate >= 50
                   ? "text-sky-400"
-                  : "text-lol-loss"
+                  : "text-[#a51e1e]"
           }`}
         >
           {rate.toFixed(1)}%

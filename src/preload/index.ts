@@ -5,6 +5,7 @@ import type {
   ElectronAPI,
   LcuStatus,
   MatchFilters,
+  ParticipantScoreBackfillProgress,
   RiotSyncResult,
   RiotAccountConfig,
   RestoreOlderGamesResult,
@@ -147,6 +148,15 @@ const api: ElectronAPI = {
     const handler = (_event: unknown, progress: BackfillProgress) => callback(progress);
     ipcRenderer.on("lcu:backfill-progress", handler);
     return () => ipcRenderer.removeListener("lcu:backfill-progress", handler);
+  },
+
+  backfillParticipantScores: () => ipcRenderer.invoke("db:backfill-participant-scores"),
+
+  onParticipantScoreProgress: (callback: (progress: ParticipantScoreBackfillProgress) => void) => {
+    const handler = (_event: unknown, progress: ParticipantScoreBackfillProgress) =>
+      callback(progress);
+    ipcRenderer.on("lcu:participant-score-progress", handler);
+    return () => ipcRenderer.removeListener("lcu:participant-score-progress", handler);
   },
 
   getLcuStatus: () => ipcRenderer.invoke("lcu:status"),

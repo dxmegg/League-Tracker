@@ -25,12 +25,11 @@ import { FilterSelect } from "../components/FilterSelect";
 import { RuneCompact } from "../components/RuneSetup";
 import RuneIcon from "../components/RuneIcon";
 import MatchScoreboard from "../components/MatchScoreboard";
-import StatCard from "../components/StatCard";
 import SummonerIcon from "../components/SummonerIcon";
 import SummonerSpellIcon from "../components/SummonerSpellIcon";
 import WinRateBar from "../components/WinRateBar";
 import { NoxianHerald } from "../components/NoxianHerald";
-import { ArrowDownIcon, StarIcon, SwordsIcon, ZapIcon } from "../components/icons";
+import { ArrowDownIcon, StarIcon } from "../components/icons";
 import {
   formatDuration,
   formatPlaytime,
@@ -39,7 +38,6 @@ import {
   kdaRatio,
   kdaColor,
   formatPatch,
-  winRateColor,
 } from "../lib/format";
 import { queueLabel } from "../components/QueueSelect";
 import { scoreColor } from "../../shared/opScore";
@@ -259,10 +257,7 @@ export default function MatchHistory({
     "matches.account",
     undefined,
   );
-  const [multikillFilter, setMultikillFilter] = useViewState<MultikillType[]>(
-    "matches.multikills",
-    [],
-  );
+  const [multikillFilter] = useViewState<MultikillType[]>("matches.multikills", []);
   const [sort, setSort] = useViewState<MatchSort | undefined>("matches.sort", undefined);
   const [sortDir, setSortDir] = useViewState<MatchSortDir>("matches.sortDir", "desc");
   const [favoritesOnly, setFavoritesOnly] = useViewState("matches.favorites", false);
@@ -277,14 +272,6 @@ export default function MatchHistory({
     favorites: favoritesOnly,
   });
 
-  const toggleMultikill = useCallback(
-    (kind: MultikillType) => {
-      setMultikillFilter((prev) =>
-        prev.includes(kind) ? prev.filter((k) => k !== kind) : [...prev, kind],
-      );
-    },
-    [setMultikillFilter],
-  );
   const champData = useChampionData();
   const { data: dashboard, refetch: refetchDashboard } = useIpc<DashboardData>(
     () =>
@@ -448,22 +435,6 @@ export default function MatchHistory({
     [reload, fetchOptions],
   );
 
-  const avgKills =
-    dashboard && dashboard.totalGames > 0
-      ? (dashboard.totalKills / dashboard.totalGames).toFixed(1)
-      : "0";
-  const avgDeaths =
-    dashboard && dashboard.totalGames > 0
-      ? (dashboard.totalDeaths / dashboard.totalGames).toFixed(1)
-      : "0";
-  const avgAssists =
-    dashboard && dashboard.totalGames > 0
-      ? (dashboard.totalAssists / dashboard.totalGames).toFixed(1)
-      : "0";
-  const kdaValue =
-    dashboard && dashboard.totalDeaths > 0
-      ? (dashboard.totalKills + dashboard.totalAssists) / dashboard.totalDeaths
-      : Infinity;
   // With one account selected, the profile card is about that account — not
   // whichever one played most recently.
   const selectedAccount = accountFilter
@@ -481,13 +452,6 @@ export default function MatchHistory({
     [isDateSort, matches],
   );
 
-  const totalMultikills = dashboard
-    ? dashboard.multikills.doubles +
-      dashboard.multikills.triples +
-      dashboard.multikills.quadras +
-      dashboard.multikills.pentas
-    : 0;
-
   return (
     <div className="space-y-4 w-full">
       {/* Stat Cards */}
@@ -495,127 +459,217 @@ export default function MatchHistory({
         <div className="grid grid-cols-[minmax(240px,1.4fr)_repeat(3,minmax(170px,1fr))] gap-3 items-stretch max-w-[1800px]">
           <ProfileCard profile={profileShown} dashboard={dashboard} />
 
-          <StatCard
-            label="Avg Score"
-            accent="gold"
-            icon={<StarIcon className="w-3 h-3 2xl:w-4 2xl:h-4" />}
-            value={
-              dashboard.avgScore != null ? (
-                <span className={scoreColor(dashboard.avgScore)}>
-                  {dashboard.avgScore.toFixed(1)}
-                  <span className="text-lg font-semibold text-lol-text/60"> / 10</span>
-                </span>
-              ) : (
-                "—"
-              )
-            }
-            subtext={<ScoreMeter score={dashboard.avgScore} />}
-          >
-            <BadgeCounts
-              mvps={dashboard.mvps}
-              aces={dashboard.aces}
-              scoredWins={dashboard.scoredWins}
-              scoredLosses={dashboard.scoredLosses}
-            />
-          </StatCard>
-
-          <StatCard
-            label="Avg KDA"
-            accent="sky"
-            icon={<SwordsIcon className="w-3 h-3 2xl:w-4 2xl:h-4" />}
-            value={
-              /* Three numbers where the other cards show one — a notch smaller
-                 keeps it on one line in the narrowest column */
-              <span>
-                {avgKills}
-                <Slash />
-                {avgDeaths}
-                <Slash />
-                {avgAssists}
-              </span>
-            }
-            subtext={
-              <span className={`text-base font-semibold ${kdaColor(kdaValue)}`}>
-                {kdaRatio(dashboard.totalKills, dashboard.totalDeaths, dashboard.totalAssists)} KDA
-              </span>
-            }
-          >
-            <div className="text-xs text-lol-text">
-              {dashboard.totalKills} / {dashboard.totalDeaths} / {dashboard.totalAssists} total
+          <HomeCard className="flex flex-col p-5 xl:p-6 2xl:p-7">
+            <div className="text-xs xl:text-[13px] 2xl:text-sm font-bold tracking-wider text-lol-text">
+              Average Score
             </div>
-          </StatCard>
+            <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-2">
+              <div className="text-3xl xl:text-3xl 2xl:text-4xl font-bold leading-none text-lol-gold">
+                {dashboard.avgScore != null ? dashboard.avgScore.toFixed(1) : "—"}
+                <span className="text-lol-text/60">/10</span>
+              </div>
+              <div className="hidden h-8 w-px bg-lol-border/60 xl:block" />
+              <div className="flex flex-col">
+                <div className="text-[10px] xl:text-[10px] 2xl:text-[11px] font-bold tracking-wider text-lol-text">
+                  Team Average Score
+                </div>
+                <div className="text-2xl xl:text-2xl 2xl:text-3xl font-bold leading-none text-lol-gold">
+                  {dashboard.teamAvgScore > 0 ? dashboard.teamAvgScore.toFixed(1) : "—"}
+                  <span className="text-lol-text/60">/10</span>
+                </div>
+              </div>
+            </div>
+            <div className="mt-4 flex flex-col gap-1.5">
+              <div className="flex min-w-0 items-center gap-2">
+                <span className="inline-flex !w-14 items-center justify-center rounded bg-lol-gold/20 py-0.5 text-[10px] font-bold uppercase text-lol-gold">
+                  MVP
+                </span>
+                <span className="min-w-8 text-right tabular-nums text-xs font-bold text-lol-text-bright">
+                  {dashboard.mvps}
+                </span>
+                <div className="flex-1 min-w-[40px] h-1.5 rounded-full bg-lol-border/40 overflow-hidden">
+                  <div
+                    className="h-full bg-[linear-gradient(90deg,#c9a24d_0%,#a51e1e_100%)]"
+                    style={{
+                      width: `${(dashboard.mvps / Math.max(dashboard.totalGames, 1)) * 100}%`,
+                    }}
+                  />
+                </div>
+                <span className="min-w-12 text-right tabular-nums text-[11px] font-bold text-lol-text-bright">
+                  {((dashboard.mvps / Math.max(dashboard.totalGames, 1)) * 100).toFixed(1)}%
+                </span>
+              </div>
+              <div className="flex min-w-0 items-center gap-2">
+                <span className="inline-flex !w-14 items-center justify-center rounded bg-lol-crimson/25 py-0.5 text-[10px] font-bold uppercase text-lol-crimson-bright">
+                  ACE
+                </span>
+                <span className="min-w-8 text-right tabular-nums text-xs font-bold text-lol-text-bright">
+                  {dashboard.aces}
+                </span>
+                <div className="flex-1 min-w-[40px] h-1.5 rounded-full bg-lol-border/40 overflow-hidden">
+                  <div
+                    className="h-full bg-[linear-gradient(90deg,#c9a24d_0%,#a51e1e_100%)]"
+                    style={{
+                      width: `${(dashboard.aces / Math.max(dashboard.totalGames, 1)) * 100}%`,
+                    }}
+                  />
+                </div>
+                <span className="min-w-12 text-right tabular-nums text-[11px] font-bold text-lol-text-bright">
+                  {((dashboard.aces / Math.max(dashboard.totalGames, 1)) * 100).toFixed(1)}%
+                </span>
+              </div>
+            </div>
+          </HomeCard>
 
-          <StatCard
-            label="Multikills"
-            accent="purple"
-            icon={<ZapIcon className="w-3 h-3 2xl:w-4 2xl:h-4" />}
-            value={totalMultikills}
-          >
-            <div className="grid grid-cols-4 gap-0.5 xl:gap-1 min-w-0">
+          <HomeCard className="flex flex-col p-5 xl:p-6 2xl:p-7">
+            <div className="text-xs xl:text-[13px] 2xl:text-sm font-bold tracking-wider text-lol-text">
+              Average KDA
+            </div>
+            <div className="mt-2 flex flex-col xl:flex-row xl:items-start xl:justify-between gap-3">
+              <div className="flex flex-col">
+                <div className="text-2xl xl:text-3xl 2xl:text-3xl font-bold leading-none">
+                  <span className="text-lol-gold">{dashboard.avgKills.toFixed(1)}</span>
+                  <span className="text-lol-text/50">/</span>
+                  <span className="text-[#a51e1e]">{dashboard.avgDeaths.toFixed(1)}</span>
+                  <span className="text-lol-text/50">/</span>
+                  <span className="text-[#3b82f6]">{dashboard.avgAssists.toFixed(1)}</span>
+                </div>
+                <div className="mt-1.5 text-xs xl:text-sm font-bold text-[#15803d]">
+                  {dashboard.totalDeaths > 0
+                    ? (
+                        (dashboard.totalKills + dashboard.totalAssists) /
+                        dashboard.totalDeaths
+                      ).toFixed(2)
+                    : "0.00"}{" "}
+                  KDA
+                </div>
+                <div className="mt-0.5 text-[10px] xl:text-[11px] text-lol-text">
+                  {dashboard.totalKills.toLocaleString("pl-PL")} /{" "}
+                  {dashboard.totalDeaths.toLocaleString("pl-PL")} /{" "}
+                  {dashboard.totalAssists.toLocaleString("pl-PL")} total
+                </div>
+              </div>
+              <div className="flex flex-col gap-1 text-[10px] xl:text-[11px] xl:items-end">
+                <div className="flex items-baseline gap-1.5 xl:flex-row-reverse">
+                  <span className="text-lol-text">Avg damage dealt</span>
+                  <span className="font-bold text-lol-text-bright tabular-nums">
+                    {Math.round(dashboard.avgDamageDealt).toLocaleString("pl-PL")}
+                  </span>
+                </div>
+                <div className="flex items-baseline gap-1.5 xl:flex-row-reverse">
+                  <span className="text-lol-text">Avg damage tanked</span>
+                  <span className="font-bold text-lol-text-bright tabular-nums">
+                    {Math.round(dashboard.avgDamageTaken).toLocaleString("pl-PL")}
+                  </span>
+                </div>
+                <div className="flex items-baseline gap-1.5 xl:flex-row-reverse">
+                  <span className="text-lol-text">Avg damage healed</span>
+                  <span className="font-bold text-lol-text-bright tabular-nums">
+                    {Math.round(dashboard.avgDamageHealed).toLocaleString("pl-PL")}
+                  </span>
+                </div>
+              </div>
+            </div>
+            <div className="mt-3 grid grid-cols-3 gap-3 border-t border-lol-border/40 pt-3">
+              <div className="flex flex-col">
+                <div className="text-[10px] xl:text-[11px] font-bold tracking-wider text-lol-text">
+                  Avg CS
+                </div>
+                <div className="text-sm xl:text-base font-bold text-lol-text-bright tabular-nums">
+                  {dashboard.avgCs.toFixed(1)}
+                  <span className="text-[10px] xl:text-[11px] font-normal text-lol-text">
+                    {" "}
+                    / {dashboard.csPerMin.toFixed(1)} cs/min
+                  </span>
+                </div>
+                <div className="text-[10px] xl:text-[11px] text-lol-text tabular-nums">
+                  {dashboard.csTotal.toLocaleString("pl-PL")} cs total
+                </div>
+              </div>
+              <div className="flex flex-col">
+                <div className="text-[10px] xl:text-[11px] font-bold tracking-wider text-lol-text">
+                  Avg gold
+                </div>
+                <div className="text-sm xl:text-base font-bold text-lol-text-bright tabular-nums">
+                  {Math.round(dashboard.avgGold).toLocaleString("pl-PL")}
+                </div>
+                <div className="text-[10px] xl:text-[11px] text-lol-text tabular-nums">
+                  {dashboard.goldTotal.toLocaleString("pl-PL")} gold total
+                </div>
+              </div>
+              <div className="flex flex-col">
+                <div className="text-[10px] xl:text-[11px] font-bold tracking-wider text-lol-text">
+                  Avg game length
+                </div>
+                <div className="text-sm xl:text-base font-bold text-lol-text-bright tabular-nums">
+                  {dashboard.avgGameLength > 0
+                    ? `${Math.floor(dashboard.avgGameLength / 60)}:${String(
+                        Math.floor(dashboard.avgGameLength % 60),
+                      ).padStart(2, "0")}`
+                    : "—"}
+                </div>
+              </div>
+            </div>
+          </HomeCard>
+
+          <HomeCard className="flex flex-col p-5 xl:p-6 2xl:p-7">
+            <div className="text-xs xl:text-[13px] 2xl:text-sm font-bold tracking-wider text-lol-text">
+              Multikills
+            </div>
+            <div className="mt-1 text-3xl xl:text-4xl 2xl:text-4xl font-bold leading-none text-lol-gold tabular-nums">
+              {(
+                (dashboard.multikills?.doubles ?? 0) +
+                (dashboard.multikills?.triples ?? 0) +
+                (dashboard.multikills?.quadras ?? 0) +
+                (dashboard.multikills?.pentas ?? 0)
+              ).toLocaleString("pl-PL")}
+            </div>
+            <div className="mt-3 grid grid-cols-4 gap-2">
               {(
                 [
-                  {
-                    kind: "doubles",
-                    label: "D",
-                    name: "double",
-                    value: dashboard.multikills.doubles,
-                    color: "text-sky-400",
-                  },
-                  {
-                    kind: "triples",
-                    label: "T",
-                    name: "triple",
-                    value: dashboard.multikills.triples,
-                    color: "text-amber-400",
-                  },
-                  {
-                    kind: "quadras",
-                    label: "Q",
-                    name: "quadra",
-                    value: dashboard.multikills.quadras,
-                    color: "text-purple-400",
-                  },
-                  {
-                    kind: "pentas",
-                    label: "P",
-                    name: "penta",
-                    value: dashboard.multikills.pentas,
-                    color: "text-red-400",
-                  },
-                ] as {
-                  kind: MultikillType;
-                  label: string;
-                  name: string;
-                  value: number;
-                  color: string;
-                }[]
-              ).map(({ kind, label, name, value, color }) => {
-                const active = multikillFilter.includes(kind);
+                  { key: "doubles", label: "Double", color: "#3b82f6" },
+                  { key: "triples", label: "Triple", color: "#eab308" },
+                  { key: "quadras", label: "Quadra", color: "#a855f7" },
+                  { key: "pentas", label: "Penta", color: "#a51e1e" },
+                ] as const
+              ).map(({ key, label, color }) => {
+                const count = dashboard.multikills?.[key] ?? 0;
+                const total = dashboard.totalGames || 1;
+                const pct = (count / total) * 100;
                 return (
-                  <FilterChip
-                    key={label}
-                    active={active}
-                    onClick={() => toggleMultikill(kind)}
-                    title={`Only show games with a ${name} kill`}
-                    className={`min-w-0 text-center px-1 py-0.5 xl:px-1.5 xl:py-1 ${
-                      active
-                        ? "border-lol-gold/60 bg-lol-gold/10"
-                        : "border-transparent hover:border-lol-border hover:bg-white/5"
-                    }`}
-                  >
-                    <div
-                      className={`text-base xl:text-lg 2xl:text-xl font-bold leading-tight ${color}`}
-                    >
-                      {value}
+                  <div key={key} className="flex flex-col items-center gap-1">
+                    <div className="text-[10px] xl:text-[11px] text-lol-text tabular-nums">
+                      {count}
                     </div>
-                    <div className="text-[9px] xl:text-[10px] font-semibold text-lol-text">
+                    <div className="text-[9px] xl:text-[10px] uppercase tracking-wider text-lol-text/70">
+                      games
+                    </div>
+                    <div className="h-10 w-1 rounded-full bg-lol-border/40 overflow-hidden flex items-end">
+                      <div
+                        className="w-full rounded-full"
+                        style={{ height: `${Math.min(pct * 2, 100)}%`, backgroundColor: color }}
+                      />
+                    </div>
+                    <div
+                      className="text-[10px] xl:text-[11px] font-bold tabular-nums"
+                      style={{ color }}
+                    >
+                      {pct.toFixed(0)}%
+                    </div>
+                    <div
+                      className="mt-0.5 text-lg xl:text-xl 2xl:text-2xl font-bold tabular-nums"
+                      style={{ color }}
+                    >
+                      {count}
+                    </div>
+                    <div className="text-[9px] xl:text-[10px] uppercase tracking-wider text-lol-text">
                       {label}
                     </div>
-                  </FilterChip>
+                  </div>
                 );
               })}
             </div>
-          </StatCard>
+          </HomeCard>
         </div>
       )}
 
@@ -807,7 +861,7 @@ export default function MatchHistory({
 }
 
 function getResponsiveIconSize() {
-  return window.innerWidth >= 1536 ? 72 : window.innerWidth >= 1280 ? 56 : 48;
+  return window.innerWidth >= 1536 ? 80 : window.innerWidth >= 1280 ? 64 : 56;
 }
 
 function useResponsiveIconSize() {
@@ -832,15 +886,17 @@ function ProfileCard({
   dashboard: DashboardData;
 }) {
   const losses = dashboard.totalGames - dashboard.wins;
+  const winRate = dashboard.totalGames > 0 ? dashboard.wins / dashboard.totalGames : 0;
   const avatarSize = useResponsiveIconSize();
+  const [profileName, profileTag] = (profile?.name ?? "Summoner").split("#", 2);
   // Oldest on the left so the strip reads left-to-right in time
   const pips = dashboard.recentForm.slice().reverse();
 
   return (
     <HomeCard className="flex flex-col h-full justify-center gap-2 xl:gap-3 p-5 xl:p-6 2xl:p-7">
-      <div className="relative flex items-center gap-4">
+      <div className="relative flex items-start gap-3">
         <div
-          className="shrink-0 rounded-full p-[2px]"
+          className="shrink-0 rounded-lg p-[2px]"
           style={{
             background:
               "linear-gradient(138deg, var(--theme-accent) 0%, var(--theme-accent-bright) 50%, var(--theme-accent) 100%)",
@@ -849,16 +905,19 @@ function ProfileCard({
           <SummonerIcon
             iconId={profile?.profileIcon ?? null}
             size={avatarSize}
-            className="rounded-full bg-lol-dark object-cover"
+            className="rounded-md bg-lol-dark object-cover"
           />
         </div>
         <div className="min-w-0 flex-1">
-          <div className="text-lg xl:text-xl 2xl:text-xl font-bold text-lol-text-bright truncate leading-tight">
-            {profile?.name ?? "Summoner"}
+          <div className="text-2xl xl:text-3xl 2xl:text-3xl font-bold text-lol-text-bright truncate leading-tight">
+            {profileName}
           </div>
-          {/* The totals below pool every tracked account, so say when the name
-              above only accounts for part of them */}
-          <div className="text-xs xl:text-[13px] 2xl:text-sm text-lol-text truncate">
+          {profileTag && (
+            <div className="text-sm xl:text-base 2xl:text-base text-lol-text/70 leading-tight mt-0.5">
+              #{profileTag}
+            </div>
+          )}
+          <div className="text-[11px] xl:text-xs 2xl:text-xs text-lol-text truncate mt-0.5">
             {dashboard.totalGames} {dashboard.totalGames === 1 ? "game" : "games"}
             {dashboard.totalDuration > 0 && ` · ${formatPlaytime(dashboard.totalDuration)} played`}
             {dashboard.accounts > 1 && ` · ${dashboard.accounts} accounts`}
@@ -867,84 +926,49 @@ function ProfileCard({
       </div>
 
       <div className="relative">
-        <div className="min-h-[48px] flex items-center justify-between gap-3 mb-1.5">
-          <div className="text-2xl xl:text-[26px] 2xl:text-2xl font-bold leading-none">
-            <span className="text-lol-win">{dashboard.wins}W</span>{" "}
-            <span className="text-lol-loss/70">{losses}L</span>
+        <div className="flex items-start justify-between gap-3 mb-1.5 min-h-[48px]">
+          <div className="text-2xl xl:text-3xl 2xl:text-3xl font-bold leading-none whitespace-nowrap">
+            <span className="text-[#15803d]">{dashboard.wins}W</span>{" "}
+            <span className="text-[#a51e1e]">{losses}L</span>
           </div>
-          <div
-            className="flex items-end gap-1.5"
-            title={`Last ${pips.length} ${pips.length === 1 ? "game" : "games"}`}
-          >
-            {pips.map((g) => (
-              <span
-                key={g.game_id}
-                className={`h-5 w-1.5 xl:h-6 xl:w-2 rounded-full ${g.win ? "bg-lol-win" : "bg-lol-loss/70"}`}
-                title={g.win ? "Win" : "Loss"}
-              />
-            ))}
+          <div className="text-2xl xl:text-3xl 2xl:text-3xl font-bold leading-none text-lol-gold whitespace-nowrap text-right">
+            {(winRate * 100).toFixed(2)}% WR
           </div>
         </div>
-        <WinRateBar
-          wins={dashboard.wins}
-          total={dashboard.totalGames}
-          percentClassName={winRateColor}
-        />
+        <WinRateBar wins={dashboard.wins} total={dashboard.totalGames} showPercent={false} />
+        <div className="flex items-center justify-between w-full mt-1.5">
+          {pips.map((g) => {
+            const color =
+              g.is_remake === 1 ? "bg-lol-text/30" : g.win === 1 ? "bg-[#15803d]" : "bg-[#a51e1e]";
+            return (
+              <span key={g.game_id} className={`group relative h-2 w-2 rounded-full ${color}`}>
+                <div className="pointer-events-none absolute bottom-full left-1/2 z-50 mb-1.5 hidden -translate-x-1/2 flex-col items-center gap-1 rounded-md border border-lol-crimson/40 bg-[linear-gradient(145deg,#0c0e11_0%,#090b0d_48%,#060809_100%)] px-2.5 py-1.5 shadow-[0_0_4px_rgba(150,30,30,0.35),0_0_12px_rgba(90,15,15,0.20)] ring-1 ring-inset ring-white/[0.03] group-hover:flex">
+                  <div className="flex items-center gap-1.5 whitespace-nowrap">
+                    <ChampionIcon championId={g.champion_id} size={18} />
+                    <span
+                      className={`text-[10px] font-bold uppercase tracking-wider ${
+                        g.is_remake === 1
+                          ? "text-lol-text/60"
+                          : g.win === 1
+                            ? "text-[#15803d]"
+                            : "text-[#a51e1e]"
+                      }`}
+                    >
+                      {g.is_remake === 1 ? "Remake" : g.win === 1 ? "Win" : "Loss"}
+                    </span>
+                  </div>
+                  {g.is_remake !== 1 && (
+                    <div className="whitespace-nowrap text-[10px] font-bold tracking-wider text-lol-text-bright">
+                      {g.kills} / {g.deaths} / {g.assists}
+                    </div>
+                  )}
+                </div>
+              </span>
+            );
+          })}
+        </div>
       </div>
     </HomeCard>
-  );
-}
-
-// Muted separators keep the three averages on one line in a narrow card
-function Slash() {
-  return <span className="text-lol-text/40 mx-0.5">/</span>;
-}
-
-// 0-10 track for the average score, warming up as the score climbs
-function ScoreMeter({ score }: { score: number | null }) {
-  return (
-    <div className="h-2 rounded-full bg-lol-border/60 overflow-hidden">
-      <div
-        className="h-full rounded-full bg-gradient-to-r from-emerald-400 via-sky-400 to-lol-gold transition-all"
-        style={{ width: `${Math.min(100, Math.max(0, (score ?? 0) * 10))}%` }}
-      />
-    </div>
-  );
-}
-
-// MVP is the best player on the winning team and ACE the best on the losing
-// one, so each rate is out of the games that could have produced it.
-function BadgeCounts({
-  mvps,
-  aces,
-  scoredWins,
-  scoredLosses,
-}: {
-  mvps: number;
-  aces: number;
-  scoredWins: number;
-  scoredLosses: number;
-}) {
-  const rate = (n: number, of: number) => (of > 0 ? `${((n / of) * 100).toFixed(1)}%` : "—");
-
-  return (
-    <div className="grid grid-cols-[auto_1fr_auto] items-center gap-x-2 gap-y-1">
-      <span className="rounded bg-amber-400/20 px-1 text-[11px] font-bold leading-[17px] text-amber-300">
-        MVP
-      </span>
-      <span className="text-sm font-semibold text-lol-text-bright">{mvps}</span>
-      <span className="text-xs text-lol-text" title="Share of wins">
-        {rate(mvps, scoredWins)}
-      </span>
-
-      <span className="rounded bg-purple-500/20 px-1 text-[11px] font-bold leading-[17px] text-purple-400">
-        ACE
-      </span>
-      <span className="text-sm font-semibold text-lol-text-bright">{aces}</span>
-      <span className="text-xs text-lol-text" title="Share of losses">
-        {rate(aces, scoredLosses)}
-      </span>
-    </div>
   );
 }
 

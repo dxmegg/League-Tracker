@@ -319,7 +319,20 @@ export interface DashboardData {
   totalKills: number;
   totalDeaths: number;
   totalAssists: number;
+  avgKills: number;
+  avgDeaths: number;
+  avgAssists: number;
+  avgDamageDealt: number;
+  avgDamageTaken: number;
+  avgDamageHealed: number;
+  avgCs: number;
+  csTotal: number;
+  csPerMin: number;
+  avgGameLength: number;
+  avgGold: number;
+  goldTotal: number;
   avgScore: number | null;
+  teamAvgScore: number;
   mvps: number;
   aces: number;
   // MVP is only awarded on a win and ACE only on a loss, so those are the
@@ -329,7 +342,15 @@ export interface DashboardData {
   // Tracked accounts these totals pool together, under the current filters
   accounts: number;
   // Newest first
-  recentForm: { win: number; game_id: number }[];
+  recentForm: {
+    game_id: number;
+    win: number;
+    is_remake: number;
+    champion_id: number;
+    kills: number;
+    deaths: number;
+    assists: number;
+  }[];
   topChampions: ChampionStats[];
   multikills: {
     doubles: number;
@@ -352,10 +373,31 @@ export interface HomeDashboardPayload {
     totalKills: number;
     totalDeaths: number;
     totalAssists: number;
+    avgKills: number;
+    avgDeaths: number;
+    avgAssists: number;
     avgKda: number;
     totalDuration: number;
     accounts: number;
-    recentForm: Array<{ game_id: number; win: number }>;
+    recentForm: Array<{
+      game_id: number;
+      win: number;
+      is_remake: number;
+      champion_id: number;
+      kills: number;
+      deaths: number;
+      assists: number;
+    }>;
+    avgDamageDealt: number;
+    avgDamageTaken: number;
+    avgDamageHealed: number;
+    avgCs: number;
+    csTotal: number;
+    csPerMin: number;
+    avgGameLength: number;
+    avgGold: number;
+    goldTotal: number;
+    teamAvgScore: number;
   };
   records: {
     mostKills: {
@@ -689,6 +731,17 @@ export interface BackfillResult {
   cancelled: boolean;
 }
 
+export interface ParticipantScoreBackfillProgress {
+  phase: "scores";
+  done: number;
+  total: number;
+}
+
+export type ParticipantScoreBackfillResult =
+  | { ok: true; skipped: true }
+  | { ok: true; skipped: false; updated: number }
+  | { ok: false; error: string };
+
 export interface RiotSyncResult {
   added: number;
   scanned: number;
@@ -998,6 +1051,10 @@ export interface ElectronAPI {
   isBackfillRunning: () => Promise<boolean>;
   onBackfillProgress: (callback: (progress: BackfillProgress) => void) => () => void;
   onBackfillDone: (result: (result: BackfillResult | { error: string }) => void) => () => void;
+  backfillParticipantScores: () => Promise<ParticipantScoreBackfillResult>;
+  onParticipantScoreProgress: (
+    callback: (progress: ParticipantScoreBackfillProgress) => void,
+  ) => () => void;
   getLcuStatus: () => Promise<LcuStatus>;
   getChampionDataVersion: () => Promise<string>;
   getChampionData: () => Promise<ChampionData>;

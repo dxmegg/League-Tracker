@@ -35,7 +35,13 @@ const KEEP_RECENT = 5;
 const KEEP_WEEKLY = 4;
 const KEEP_MONTHLY = 6;
 
-export type BackupReason = "auto" | "manual" | "pre-import" | "pre-repair" | "pre-restore";
+export type BackupReason =
+  | "auto"
+  | "manual"
+  | "pre-import"
+  | "pre-repair"
+  | "pre-restore"
+  | "pre-migration-20";
 
 export interface BackupInfo {
   file: string;
@@ -302,7 +308,7 @@ export async function restoreBackup(file: string): Promise<{ games: number }> {
 
   closeDatabase();
   swapIn(source);
-  initDatabase();
+  await initDatabase();
   return { games };
 }
 
@@ -337,7 +343,7 @@ function newestUsableBackup(): string | null {
   return null;
 }
 
-function recover(problem: "missing" | "corrupt", detail?: string): RecoveryReport {
+async function recover(problem: "missing" | "corrupt", detail?: string): Promise<RecoveryReport> {
   closeDatabase();
   const dbPath = getDbPath();
   // On the missing path this is the empty database initDatabase just created,
@@ -355,7 +361,7 @@ function recover(problem: "missing" | "corrupt", detail?: string): RecoveryRepor
       source = null;
     }
   }
-  initDatabase();
+  await initDatabase();
 
   const report: RecoveryReport = {
     problem,
@@ -370,12 +376,12 @@ function recover(problem: "missing" | "corrupt", detail?: string): RecoveryRepor
 // Wraps initDatabase so the two ways this database can be lost — the file gone,
 // or the file unreadable — both come back from the newest good snapshot instead
 // of leaving the app to start empty, or not at all.
-export function initDatabaseWithRecovery(): void {
+export async function initDatabaseWithRecovery(): Promise<void> {
   recoveryReport = null;
   const missing = !fs.existsSync(getDbPath());
 
   try {
-    initDatabase();
+    await initDatabase();
     if (!missing) {
       const result = getDatabase().pragma("quick_check") as { quick_check: string }[];
       if (result[0]?.quick_check !== "ok") {
@@ -387,7 +393,7 @@ export function initDatabaseWithRecovery(): void {
     // run, so the check and the init it follows share one handler.
     console.error("Database failed to open:", err);
     const detail = err instanceof Error ? err.message : String(err);
-    recoveryReport = recover("corrupt", detail);
+    recoveryReport = await recover("corrupt", detail);
     return;
   }
 
@@ -395,7 +401,7 @@ export function initDatabaseWithRecovery(): void {
   // install that is simply the first launch; with snapshots on disk it means
   // the file was deleted, and starting empty would look like data loss.
   if (missing && readBackups().length > 0) {
-    recoveryReport = recover("missing");
+    recoveryReport = await recover("missing");
   }
 }
 
