@@ -44,10 +44,6 @@ League Tracker stores your match data locally and turns it into an easy-to-read 
 
 - Detailed match breakdowns including items, spells, runes, damage, healing, and multikills
 
-- Favorites and hidden-game support
-
-- Search and review other accounts
-
 - Local data storage with export and import support
 
 - Automatic synchronization with the League of Legends client
