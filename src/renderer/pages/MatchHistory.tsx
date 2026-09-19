@@ -1137,11 +1137,11 @@ function MatchMultikillBadges({
 
   return (
     <div className="min-w-0 overflow-hidden">
-      <div className="grid grid-cols-2 gap-1 w-[200px]">
+      <div className="grid grid-cols-2 gap-1 w-full min-w-0">
         {badges.map(([label, count]) => (
           <span
             key={label}
-            className={`w-full inline-flex items-center justify-center text-[10px] font-bold tracking-wide px-2 py-0.5 rounded-full border backdrop-blur-sm whitespace-nowrap ${badgeStyles[label]}`}
+            className={`w-full inline-flex items-center justify-center text-[10px] font-bold tracking-wide px-2 py-0.5 rounded-full border backdrop-blur-sm truncate ${badgeStyles[label]}`}
           >
             {label}
             {count > 1 ? ` x${count}` : ""}
@@ -1214,7 +1214,7 @@ export function GameRow({
         style={{
           background: rowBackground,
           gridTemplateColumns: compact
-            ? "76px 72px 130px 48px 44px minmax(96px, 140px) 128px 156px 1fr 60px"
+            ? "76px 72px 130px 48px 44px minmax(96px, 140px) 180px 200px 1fr 60px"
             : "95px 84px 170px 64px 56px minmax(140px, 200px) 180px 220px 1fr minmax(64px, auto)",
         }}
       >
