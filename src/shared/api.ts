@@ -315,7 +315,9 @@ export interface DashboardData {
   totalGames: number;
   // Seconds of game time across every counted game
   totalDuration: number;
+  statsEligibleDuration: number;
   wins: number;
+  statsEligibleGames: number;
   totalKills: number;
   totalDeaths: number;
   totalAssists: number;
@@ -382,6 +384,8 @@ export interface HomeDashboardPayload {
     avgAssists: number;
     avgKda: number;
     totalDuration: number;
+    statsEligibleDuration: number;
+    statsEligibleGames: number;
     accounts: number;
     recentForm: Array<{
       game_id: number;
