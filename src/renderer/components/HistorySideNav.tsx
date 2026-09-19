@@ -1,6 +1,7 @@
 import { Fragment } from "react";
 import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import { sectionsForScope } from "../lib/historySections";
+import { HomeCard } from "./HomeCard";
 
 export function HistorySideNav({ scope }: { scope?: string }) {
   const { pathname } = useLocation();
@@ -10,7 +11,7 @@ export function HistorySideNav({ scope }: { scope?: string }) {
 
   return (
     <nav className="w-[220px] shrink-0 max-[1199px]:hidden self-start">
-      <div className="w-full rounded-md border border-lol-border/50 bg-lol-card/30 overflow-hidden">
+      <HomeCard className="w-full overflow-hidden">
         {sections.map(({ section, label }, i) => {
           const target = `${prefix}${section}`;
           const isCurrent = pathname === target;
@@ -41,7 +42,7 @@ export function HistorySideNav({ scope }: { scope?: string }) {
             </Fragment>
           );
         })}
-      </div>
+      </HomeCard>
     </nav>
   );
 }

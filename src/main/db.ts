@@ -3435,6 +3435,55 @@ export function upsertSummoner(summoner: {
   );
 }
 
+function restoreSummonerFull(row: {
+  puuid: string;
+  game_name: string | null;
+  tag_line: string | null;
+  summoner_id: number | null;
+  account_id: number | null;
+  profile_icon: number | null;
+  updated_at: number;
+  platform: string | null;
+  summoner_level: number | null;
+  ranked_solo_json: string | null;
+  ranked_flex_json: string | null;
+  mastery_json: string | null;
+  last_seen: number | null;
+}): void {
+  db.prepare(`
+    INSERT OR REPLACE INTO summoner (
+      puuid,
+      game_name,
+      tag_line,
+      summoner_id,
+      account_id,
+      profile_icon,
+      updated_at,
+      platform,
+      summoner_level,
+      ranked_solo_json,
+      ranked_flex_json,
+      mastery_json,
+      last_seen
+    )
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `).run(
+    row.puuid,
+    row.game_name,
+    row.tag_line,
+    row.summoner_id,
+    row.account_id,
+    row.profile_icon,
+    row.updated_at,
+    row.platform,
+    row.summoner_level,
+    row.ranked_solo_json,
+    row.ranked_flex_json,
+    row.mastery_json,
+    row.last_seen,
+  );
+}
+
 export function saveAccountSnapshot(snapshot: {
   puuid: string;
   gameName?: string | null;
@@ -4942,14 +4991,21 @@ export async function writeExportTo(filePath: string): Promise<number> {
   let count = 0;
   try {
     const summoners = db.prepare("SELECT * FROM summoner").all();
-    await write(`{"version":3,"summoners":${JSON.stringify(summoners)},"games":[`);
+    const settings = db.prepare("SELECT key, value FROM settings").all();
+    const ignoredGames = db.prepare("SELECT game_id FROM ignored_games").all();
+    const riotSyncState = db
+      .prepare("SELECT puuid, platform, last_sync_at, last_match_id, complete FROM riot_sync_state")
+      .all();
+    await write(
+      `{"version":4,"summoners":${JSON.stringify(summoners)},"settings":${JSON.stringify(settings)},"ignoredGames":${JSON.stringify(ignoredGames)},"riotSyncState":${JSON.stringify(riotSyncState)},"games":[`,
+    );
 
     // Keyset paging, not LIMIT/OFFSET: each query completes before the next
     // await, so no statement is left open across one — a statement still
     // running when a poll tries to insert a game would fail as busy. Paging by
     // last id also stays correct if rows arrive mid-export.
     const page = db.prepare(`
-      SELECT game_id, raw_gz, puuid
+      SELECT game_id, raw_gz, puuid, favorite, source
       FROM games
       WHERE raw_gz IS NOT NULL AND game_id > ?
       ORDER BY game_id
@@ -4962,6 +5018,8 @@ export async function writeExportTo(filePath: string): Promise<number> {
         game_id: number;
         raw_gz: Buffer;
         puuid: string;
+        favorite: number;
+        source: GameSource;
       }[];
       if (rows.length === 0) break;
 
@@ -4972,6 +5030,8 @@ export async function writeExportTo(filePath: string): Promise<number> {
         const game = unpackRaw(row.raw_gz);
         if (!game) continue;
         game._ownerPuuid = row.puuid;
+        game._favorite = row.favorite;
+        game._source = row.source;
         chunk += (count === 0 ? "" : ",") + JSON.stringify(game);
         count++;
       }
@@ -4989,28 +5049,110 @@ export async function writeExportTo(filePath: string): Promise<number> {
   return count;
 }
 
-export function importData(data: any): number {
+export function importData(data: any): { imported: number; total: number; skipped: number } {
+  if (data.version >= 4) {
+    for (const summoner of data.summoners ?? []) {
+      try {
+        restoreSummonerFull(summoner);
+      } catch (err: unknown) {
+        console.warn("[db] v4 summoner restore failed:", {
+          puuid: summoner?.puuid,
+          error: err instanceof Error ? err.message : String(err),
+        });
+      }
+    }
+    const restoreSetting = db.prepare("INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)");
+    for (const setting of data.settings ?? []) {
+      try {
+        restoreSetting.run(setting.key, setting.value);
+      } catch (err: unknown) {
+        console.warn("[db] v4 setting restore failed:", {
+          key: setting?.key,
+          error: err instanceof Error ? err.message : String(err),
+        });
+      }
+    }
+    const restoreIgnoredGame = db.prepare(
+      "INSERT OR IGNORE INTO ignored_games (game_id) VALUES (?)",
+    );
+    for (const ignoredGame of data.ignoredGames ?? []) {
+      try {
+        restoreIgnoredGame.run(ignoredGame.game_id);
+      } catch (err: unknown) {
+        console.warn("[db] v4 ignored game restore failed:", {
+          gameId: ignoredGame?.game_id,
+          error: err instanceof Error ? err.message : String(err),
+        });
+      }
+    }
+    const restoreSyncState = db.prepare(`
+      INSERT OR REPLACE INTO riot_sync_state
+        (puuid, platform, last_sync_at, last_match_id, complete)
+      VALUES (?, ?, ?, ?, ?)
+    `);
+    for (const syncState of data.riotSyncState ?? []) {
+      try {
+        restoreSyncState.run(
+          syncState.puuid,
+          syncState.platform,
+          syncState.last_sync_at,
+          syncState.last_match_id,
+          syncState.complete,
+        );
+      } catch (err: unknown) {
+        console.warn("[db] v4 sync state restore failed:", {
+          puuid: syncState?.puuid,
+          error: err instanceof Error ? err.message : String(err),
+        });
+      }
+    }
+
+    const restoreFavorite = db.prepare("UPDATE games SET favorite = ? WHERE game_id = ?");
+    let imported = 0;
+    let total = 0;
+    for (const game of data.games ?? []) {
+      total++;
+      try {
+        const puuid = game._ownerPuuid || data.summoners?.[0]?.puuid;
+        if (!puuid) continue;
+        const source: GameSource = game._source ?? "lcu";
+        if (insertGameFull(game, puuid, source, source === "search-import")) imported++;
+        restoreFavorite.run(game._favorite ?? 0, game.gameId);
+      } catch (err: unknown) {
+        console.warn("[db] v4 game restore failed:", {
+          gameId: game?.gameId,
+          error: err instanceof Error ? err.message : String(err),
+        });
+      }
+    }
+    return { imported, total, skipped: total - imported };
+  }
   if (data.version >= 3) {
     for (const s of data.summoners ?? []) {
       upsertSummoner(s);
     }
     let imported = 0;
+    let total = 0;
     for (const game of data.games ?? []) {
+      total++;
       const puuid = game._ownerPuuid || data.summoners?.[0]?.puuid;
       if (!puuid) continue;
       if (insertGameFull(game, puuid, "lcu")) imported++;
     }
-    return imported;
+    return { imported, total, skipped: total - imported };
   }
   // v2 fallback: single summoner
   const puuid = data.summoner?.puuid;
-  if (!puuid) return 0;
+  const games = data.games ?? [];
+  if (!puuid) return { imported: 0, total: games.length, skipped: games.length };
   upsertSummoner(data.summoner);
   let imported = 0;
-  for (const game of data.games ?? []) {
+  let total = 0;
+  for (const game of games) {
+    total++;
     if (insertGameFull(game, puuid, "lcu")) imported++;
   }
-  return imported;
+  return { imported, total, skipped: total - imported };
 }
 
 // ---- Repair ----

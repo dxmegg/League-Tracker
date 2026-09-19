@@ -12,6 +12,7 @@ import {
 import type { GlobalChampionDetail, ItemStats, AugmentStats } from "../lib/types";
 import ChampionIcon from "../components/ChampionIcon";
 import AugmentIcon from "../components/AugmentIcon";
+import { HomeCard } from "../components/HomeCard";
 import ItemIcon from "../components/ItemIcon";
 import WinRateBar from "../components/WinRateBar";
 import StatCard from "../components/StatCard";
@@ -153,7 +154,7 @@ function ItemSection({
         </h2>
         <span className="text-xs text-lol-text">{items.length} items</span>
       </div>
-      <div className="bg-lol-card rounded-xl border border-lol-border/60 overflow-hidden">
+      <HomeCard className="overflow-hidden">
         <table className="w-full">
           <thead className="bg-lol-dark/50">
             <tr>
@@ -209,7 +210,7 @@ function ItemSection({
         {sorted.length === 0 && (
           <div className="py-8 text-center text-sm text-lol-text">No items recorded</div>
         )}
-      </div>
+      </HomeCard>
     </section>
   );
 }
@@ -235,7 +236,7 @@ function AugmentSection({ augments, games }: { augments: AugmentStats[]; games: 
         <RarityFilter value={rarity} onChange={setRarity} />
         <span className="text-xs text-lol-text ml-auto">{sorted.length} augments</span>
       </div>
-      <div className="bg-lol-card rounded-xl border border-lol-border/60 overflow-hidden">
+      <HomeCard className="overflow-hidden">
         <table className="w-full">
           <thead className="bg-lol-dark/50">
             <tr>
@@ -286,7 +287,7 @@ function AugmentSection({ augments, games }: { augments: AugmentStats[]; games: 
         {sorted.length === 0 && (
           <div className="py-8 text-center text-sm text-lol-text">No augments recorded</div>
         )}
-      </div>
+      </HomeCard>
     </section>
   );
 }
@@ -375,9 +376,9 @@ export default function GlobalChampionDetailPage() {
       </div>
 
       {data.games === 0 ? (
-        <div className="bg-lol-card rounded-xl border border-lol-border/60 p-8 text-center text-lol-text">
+        <HomeCard className="p-8 text-center text-lol-text">
           No games with this champion for the selected filters.
-        </div>
+        </HomeCard>
       ) : (
         <>
           <div className="grid grid-cols-4 gap-4">

@@ -13,6 +13,7 @@ import type {
   RankEntry,
 } from "../../shared/api";
 import ChampionIcon from "../components/ChampionIcon";
+import { FilterChip } from "../components/FilterChip";
 import { queueLabel } from "../components/QueueSelect";
 import { shortRegion } from "../../shared/regions";
 import { isAugmentQueue, QUEUE_LABELS } from "../../shared/queues";
@@ -91,15 +92,13 @@ function RankCard({
   entry,
   recentGames,
   championData,
-  isLive,
-  hasCachedData,
+  isLive: _isLive,
 }: {
   title: string;
   entry: ProfileRankedEntry | null;
   recentGames?: ProfileRecentGame[] | null;
   championData: ChampionData;
   isLive: boolean;
-  hasCachedData: boolean;
 }) {
   return (
     <div className="relative rounded-lg border border-lol-crimson/40 bg-[linear-gradient(145deg,#0c0e11_0%,#090b0d_48%,#060809_100%)] p-5 pl-6 shadow-[0_0_3px_rgba(150,30,30,0.55),0_0_10px_rgba(90,15,15,0.35),0_0_20px_rgba(60,10,10,0.20)] ring-1 ring-inset ring-white/[0.03] overflow-visible">
@@ -160,9 +159,7 @@ function RankCard({
           </div>
         </div>
       ) : (
-        <p className="text-sm text-lol-text">
-          {!isLive && hasCachedData ? "Log in with this account to sync rank" : "Unranked"}
-        </p>
+        <p className="text-sm text-lol-text">Unranked</p>
       )}
     </div>
   );
@@ -620,6 +617,9 @@ export default function Profile() {
   const [profile, setProfile] = useState<ProfileData | null>(null);
   const [recentMatches, setRecentMatches] = useState<MatchListItem[] | null>(null);
   const [recentMatchesAvailable, setRecentMatchesAvailable] = useState(0);
+  const [recentMatchesLoadingMore, setRecentMatchesLoadingMore] = useState(false);
+  const recentOffsetRef = useRef(0);
+  const canLoadMore = (recentMatches?.length ?? 0) < recentMatchesAvailable;
   // TODO: cleanup in Phase 15 — unused setter
   const [recentMatchesLoading, _setRecentMatchesLoading] = useState(false);
   // TODO: cleanup in Phase 15 — unused setter
@@ -648,6 +648,7 @@ export default function Profile() {
 
   useEffect(() => {
     selectedPuuidRef.current = selectedPuuid;
+    recentOffsetRef.current = 0;
   }, [selectedPuuid]);
   profileRef.current = profile;
 
@@ -730,7 +731,7 @@ export default function Profile() {
         try {
           let profileData: ProfileData;
 
-          if (livePuuid === null || puuid === livePuuid) {
+          if (livePuuid !== null && puuid === livePuuid) {
             let profileIconId = 0;
             let currentSummoner: CurrentSummoner | null = null;
             try {
@@ -809,6 +810,7 @@ export default function Profile() {
           log.log("profile loaded", { puuid, icon: profileData.profileIconId });
           setRecentMatches(localRecentMatches.matches);
           setRecentMatchesAvailable(localRecentMatches.total);
+          recentOffsetRef.current = localRecentMatches.matches.length;
           setQueueStats(queueStatsData);
         } catch (err: unknown) {
           if (requestId !== loadRequestIdRef.current) return;
@@ -827,6 +829,26 @@ export default function Profile() {
       }),
     [livePuuid, log],
   );
+
+  const loadMoreRecentMatches = useCallback(async () => {
+    if (!canLoadMore || recentMatchesLoadingMore) return;
+    const puuid = selectedPuuidRef.current;
+    if (!puuid) return;
+
+    setRecentMatchesLoadingMore(true);
+    try {
+      const result = await window.api.getMatchHistory(20, recentOffsetRef.current, {
+        account: puuid,
+        ignoreHiddenQueues: true,
+      });
+      if (selectedPuuidRef.current !== puuid) return;
+      setRecentMatches((prev) => [...(prev ?? []), ...result.matches]);
+      recentOffsetRef.current += result.matches.length;
+      setRecentMatchesAvailable(result.total);
+    } finally {
+      setRecentMatchesLoadingMore(false);
+    }
+  }, [canLoadMore, recentMatchesLoadingMore]);
 
   const handleToggleRecentMatch = useCallback(
     async (gameId: number) => {
@@ -909,8 +931,8 @@ export default function Profile() {
     <div className="flex flex-col gap-6">
       <div className="flex flex-col items-end">
         <div className="flex items-center justify-end">
-          <button
-            type="button"
+          <FilterChip
+            active={!syncing}
             onClick={async () => {
               if (!selectedPuuid) return;
               setSyncing(true);
@@ -927,10 +949,10 @@ export default function Profile() {
               }
             }}
             disabled={syncing || !selectedPuuid}
-            className="inline-flex h-9 shrink-0 items-center gap-2 rounded-md border border-lol-gold/30 bg-lol-gold/10 px-3 text-xs font-semibold tracking-wider text-lol-gold transition-colors hover:bg-lol-gold/20 disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-lol-gold/60 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--theme-bg-deep)]"
+            className="h-9 shrink-0 px-3 text-xs font-semibold"
           >
             {syncing ? "Refreshing..." : "Refresh"}
-          </button>
+          </FilterChip>
         </div>
         {syncing && (
           <div className="mt-2 flex w-64 flex-col items-end gap-1">
@@ -1005,24 +1027,24 @@ export default function Profile() {
                   {profile.gameName}
                 </h1>
               )}
-              <button
-                type="button"
+              <FilterChip
+                active={selectorOpen}
                 onClick={() => setSelectorOpen((value) => !value)}
-                className="inline-flex h-9 shrink-0 items-center gap-2 rounded-md border border-lol-border/60 bg-lol-card/40 px-3 text-xs font-semibold tracking-wider text-lol-text transition-colors hover:border-lol-gold/40 hover:text-lol-text-bright focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-lol-gold/60 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--theme-bg-deep)]"
-                aria-haspopup="listbox"
-                aria-expanded={selectorOpen}
+                className="h-9 shrink-0 px-3 text-xs font-semibold"
+                icon={
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    viewBox="0 0 16 16"
+                    fill="currentColor"
+                    className="h-3.5 w-3.5"
+                    aria-hidden="true"
+                  >
+                    <path d="M4.22 6.22a.75.75 0 0 1 1.06 0L8 8.94l2.72-2.72a.75.75 0 1 1 1.06 1.06l-3.25 3.25a.75.75 0 0 1-1.06 0L4.22 7.28a.75.75 0 0 1 0-1.06Z" />
+                  </svg>
+                }
               >
                 {currentAccountLabel}
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  viewBox="0 0 16 16"
-                  fill="currentColor"
-                  className="h-3.5 w-3.5"
-                  aria-hidden="true"
-                >
-                  <path d="M4.22 6.22a.75.75 0 0 1 1.06 0L8 8.94l2.72-2.72a.75.75 0 1 1 1.06 1.06l-3.25 3.25a.75.75 0 0 1-1.06 0L4.22 7.28a.75.75 0 0 1 0-1.06Z" />
-                </svg>
-              </button>
+              </FilterChip>
               {selectorOpen && (
                 <div
                   role="listbox"
@@ -1162,20 +1184,18 @@ export default function Profile() {
           entry={profile.rankedSolo}
           championData={championData}
           isLive={selectedPuuid === livePuuid}
-          hasCachedData={Boolean(selectedAccount?.lastSeen)}
         />
         <RankCard
           title="Ranked Flex"
           entry={profile.rankedFlex}
           championData={championData}
           isLive={selectedPuuid === livePuuid}
-          hasCachedData={Boolean(selectedAccount?.lastSeen)}
         />
       </div>
 
       <RecentRiotMatchesSection
         matches={recentMatches}
-        loading={recentMatchesLoading}
+        loading={recentMatchesLoading || recentMatchesLoadingMore}
         error={recentMatchesError}
         puuids={null}
         onPlayerClick={() => undefined}
@@ -1183,12 +1203,12 @@ export default function Profile() {
         detail={recentDetail}
         detailLoading={recentDetailLoading}
         availableCount={recentMatchesAvailable}
-        canLoadMore={false}
+        canLoadMore={canLoadMore}
         champData={championData}
         refreshing={false}
         summary={null}
         onToggle={handleToggleRecentMatch}
-        onLoadMore={() => undefined}
+        onLoadMore={loadMoreRecentMatches}
         onRefresh={() => undefined}
         onContextMenu={() => undefined}
       />

@@ -230,7 +230,13 @@ const api: ElectronAPI = {
 
   exportData: () => ipcRenderer.invoke("data:export"),
 
-  importData: () => ipcRenderer.invoke("data:import"),
+  importData: (): Promise<{
+    success: boolean;
+    imported?: number;
+    total?: number;
+    skipped?: number;
+    error?: string;
+  }> => ipcRenderer.invoke("data:import"),
 
   repairPuuids: () => ipcRenderer.invoke("data:repair-puuids"),
 

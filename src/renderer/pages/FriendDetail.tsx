@@ -9,6 +9,7 @@ import type {
   MatchDetail,
 } from "../lib/types";
 import ChampionIcon from "../components/ChampionIcon";
+import { HomeCard } from "../components/HomeCard";
 import SummonerIcon from "../components/SummonerIcon";
 import MatchScoreboard from "../components/MatchScoreboard";
 import StatBars from "../components/StatBars";
@@ -99,9 +100,9 @@ export default function FriendDetail() {
             Switch
           </button>
         </div>
-        <div className="bg-lol-card rounded-xl border border-lol-border/60 p-8 text-center text-lol-text">
+        <HomeCard className="p-8 text-center text-lol-text">
           No games found with this player.
-        </div>
+        </HomeCard>
       </div>
     );
   }
@@ -159,7 +160,7 @@ export default function FriendDetail() {
 
           {/* items-center keeps the columns at content height, so the dividers
               stop short of the card's top and bottom edges */}
-          <div className="flex-1 flex items-center bg-lol-card rounded-xl border border-lol-border/60 divide-x divide-lol-border/60">
+          <HomeCard className="flex-1 flex items-center divide-x divide-lol-border/60">
             <div className="flex-1 px-4 py-2.5">
               <div className="text-[11px] text-lol-text uppercase tracking-wider">Record</div>
               <div className="text-xl font-bold text-lol-text-bright">
@@ -191,10 +192,10 @@ export default function FriendDetail() {
                 {mvps} MVP · {aces} ACE
               </div>
             </div>
-          </div>
+          </HomeCard>
         </div>
 
-        <div className="flex flex-col bg-lol-card rounded-xl border border-lol-border/60 overflow-hidden">
+        <HomeCard className="flex flex-col overflow-hidden">
           <div className="px-3 py-2 border-b border-lol-border/60 flex items-center justify-between">
             <span className="text-[11px] text-lol-text uppercase tracking-wider">
               Their Champions
@@ -208,7 +209,7 @@ export default function FriendDetail() {
               <ChampionRow key={c.champion_id} champ={c} champData={champData} />
             ))}
           </div>
-        </div>
+        </HomeCard>
       </div>
 
       <h2 className="text-sm font-semibold text-lol-text-bright uppercase tracking-wider pt-1">

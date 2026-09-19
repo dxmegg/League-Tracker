@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { HomeCard } from "./HomeCard";
 
 export type StatAccent = "gold" | "win" | "sky" | "purple";
 
@@ -47,7 +48,7 @@ export default function StatCard({
   const a = accent ? ACCENTS[accent] : null;
 
   return (
-    <div className={`noxus-card flex flex-col p-5 xl:p-6 2xl:p-7 ${className}`}>
+    <HomeCard className={`flex flex-col p-5 xl:p-6 2xl:p-7 ${className}`}>
       <div className="flex flex-col h-full justify-center gap-2 min-h-0">
         <div className="relative flex items-center gap-1.5 mb-1">
           {icon && a && (
@@ -73,6 +74,6 @@ export default function StatCard({
         )}
         {children && <div className="relative mt-0">{children}</div>}
       </div>
-    </div>
+    </HomeCard>
   );
 }

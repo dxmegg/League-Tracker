@@ -15,6 +15,8 @@ import ChampionIcon from "../components/ChampionIcon";
 import AugmentIcon from "../components/AugmentIcon";
 import ItemIcon from "../components/ItemIcon";
 import WinRateBar from "../components/WinRateBar";
+import { FilterChip } from "../components/FilterChip";
+import { SearchInput } from "../components/SearchInput";
 import PatchSelect from "../components/PatchSelect";
 import QueueSelect from "../components/QueueSelect";
 import { type Rarity } from "../components/RarityFilter";
@@ -26,7 +28,7 @@ type AugSortKey = "picks" | "winRate" | "pickRate" | "name";
 type ItemSortKey = "picks" | "winRate" | "name";
 type SortDir = "asc" | "desc";
 
-function SearchInput({
+function SearchInputWithClear({
   value,
   onChange,
   placeholder,
@@ -37,31 +39,32 @@ function SearchInput({
 }) {
   return (
     <div className="relative">
-      <input
-        type="text"
+      <SearchInput
         value={value}
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
-        className="h-9 w-56 rounded-md border border-lol-border/60 bg-lol-card/40 px-3 pr-7 text-xs text-lol-text-bright placeholder:text-lol-text/50 focus-visible:outline-none focus-visible:border-lol-gold/60 focus-visible:ring-1 focus-visible:ring-lol-gold/40 transition-colors"
+        className="w-56 pr-7"
       />
       {value && (
-        <button
+        <FilterChip
           onClick={() => onChange("")}
-          className="absolute right-2 top-1/2 -translate-y-1/2 text-lol-text/50 hover:text-lol-text-bright transition-colors"
-        >
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            viewBox="0 0 16 16"
-            fill="currentColor"
-            className="w-3.5 h-3.5"
-          >
-            <path
-              fillRule="evenodd"
-              d="M8 15A7 7 0 1 0 8 1a7 7 0 0 0 0 14Zm2.78-4.22a.75.75 0 0 1-1.06 0L8 9.06l-1.72 1.72a.75.75 0 1 1-1.06-1.06L6.94 8 5.22 6.28a.75.75 0 0 1 1.06-1.06L8 6.94l1.72-1.72a.75.75 0 1 1 1.06 1.06L9.06 8l1.72 1.72a.75.75 0 0 1 0 1.06Z"
-              clipRule="evenodd"
-            />
-          </svg>
-        </button>
+          title="Clear search"
+          className="absolute right-1 top-1/2 h-8 w-8 -translate-y-1/2 !px-0"
+          icon={
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              viewBox="0 0 16 16"
+              fill="currentColor"
+              className="w-3.5 h-3.5"
+            >
+              <path
+                fillRule="evenodd"
+                d="M8 15A7 7 0 1 0 8 1a7 7 0 0 0 0 14Zm2.78-4.22a.75.75 0 0 1-1.06 0L8 9.06l-1.72 1.72a.75.75 0 1 1-1.06-1.06L6.94 8 5.22 6.28a.75.75 0 0 1 1.06-1.06L8 6.94l1.72-1.72a.75.75 0 1 1 1.06 1.06L9.06 8l1.72 1.72a.75.75 0 0 1 0 1.06Z"
+                clipRule="evenodd"
+              />
+            </svg>
+          }
+        />
       )}
     </div>
   );
@@ -359,41 +362,29 @@ export default function GlobalStats() {
       {/* Tabs */}
       <div className="flex items-center">
         <div className="inline-flex items-center gap-2">
-          <button
-            type="button"
+          <FilterChip
             onClick={() => setTab("champions")}
-            className={`inline-flex h-8 items-center rounded-md border px-3 text-xs font-semibold tracking-wider transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-lol-gold/60 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--theme-bg-deep)] ${
-              tab === "champions"
-                ? "border-lol-gold/60 bg-lol-gold/15 text-lol-gold"
-                : "border-lol-border/60 bg-lol-card/40 text-lol-text hover:border-lol-gold/40 hover:text-lol-text-bright"
-            }`}
+            active={tab === "champions"}
+            className="h-8 px-3 text-xs font-semibold"
           >
             CHAMPIONS
-          </button>
+          </FilterChip>
           {(!scopedHistory || allowScopedAugments) && (
-            <button
-              type="button"
+            <FilterChip
               onClick={() => setTab("augments")}
-              className={`inline-flex h-8 items-center rounded-md border px-3 text-xs font-semibold tracking-wider transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-lol-gold/60 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--theme-bg-deep)] ${
-                tab === "augments"
-                  ? "border-lol-gold/60 bg-lol-gold/15 text-lol-gold"
-                  : "border-lol-border/60 bg-lol-card/40 text-lol-text hover:border-lol-gold/40 hover:text-lol-text-bright"
-              }`}
+              active={tab === "augments"}
+              className="h-8 px-3 text-xs font-semibold"
             >
               AUGMENTS
-            </button>
+            </FilterChip>
           )}
-          <button
-            type="button"
+          <FilterChip
             onClick={() => setTab("items")}
-            className={`inline-flex h-8 items-center rounded-md border px-3 text-xs font-semibold tracking-wider transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-lol-gold/60 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--theme-bg-deep)] ${
-              tab === "items"
-                ? "border-lol-gold/60 bg-lol-gold/15 text-lol-gold"
-                : "border-lol-border/60 bg-lol-card/40 text-lol-text hover:border-lol-gold/40 hover:text-lol-text-bright"
-            }`}
+            active={tab === "items"}
+            className="h-8 px-3 text-xs font-semibold"
           >
             ITEMS
-          </button>
+          </FilterChip>
         </div>
       </div>
 
@@ -407,7 +398,7 @@ export default function GlobalStats() {
         <>
           <div className="flex items-center justify-between">
             <span className="text-xs text-lol-text">{sortedChampions.length} champions</span>
-            <SearchInput
+            <SearchInputWithClear
               value={champSearch}
               onChange={setChampSearch}
               placeholder="Search champion..."
@@ -479,7 +470,11 @@ export default function GlobalStats() {
         <>
           <div className="flex items-center justify-between">
             <span className="text-xs text-lol-text">{sortedItems.length} items</span>
-            <SearchInput value={itemSearch} onChange={setItemSearch} placeholder="Search item..." />
+            <SearchInputWithClear
+              value={itemSearch}
+              onChange={setItemSearch}
+              placeholder="Search item..."
+            />
           </div>
 
           <div className="rounded-lg border border-lol-crimson/40 bg-[linear-gradient(145deg,#0c0e11_0%,#090b0d_48%,#060809_100%)] shadow-[0_0_3px_rgba(150,30,30,0.55),0_0_10px_rgba(90,15,15,0.35),0_0_20px_rgba(60,10,10,0.20)] ring-1 ring-inset ring-white/[0.03] overflow-hidden">
@@ -560,7 +555,7 @@ export default function GlobalStats() {
               {sortedAugments.length} augments
             </span>
             <div className="ml-auto">
-              <SearchInput
+              <SearchInputWithClear
                 value={augSearch}
                 onChange={setAugSearch}
                 placeholder="Search augment..."

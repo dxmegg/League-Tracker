@@ -1,3 +1,5 @@
+import { FilterChip } from "./FilterChip";
+
 export type Rarity = "all" | "kSilver" | "kGold" | "kPrismatic";
 
 const filters: { key: Rarity; label: string; color: string; activeColor: string }[] = [
@@ -38,17 +40,18 @@ export default function RarityFilter({
   return (
     <>
       {filters.map((f) => (
-        <button
+        <FilterChip
           key={f.key}
+          active={value === f.key}
           onClick={() => onChange(f.key)}
-          className={`px-3 py-1 text-xs font-medium rounded-lg border transition-colors ${
+          className={`${
             value === f.key
               ? f.activeColor
               : `${f.color} border-lol-border hover:border-lol-border/80 bg-lol-card`
           }`}
         >
           {f.label}
-        </button>
+        </FilterChip>
       ))}
     </>
   );

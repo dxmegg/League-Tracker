@@ -1016,7 +1016,13 @@ export interface ElectronAPI {
     games?: number;
     error?: string;
   }>;
-  importData: () => Promise<{ success: boolean; imported?: number; error?: string }>;
+  importData: () => Promise<{
+    success: boolean;
+    imported?: number;
+    total?: number;
+    skipped?: number;
+    error?: string;
+  }>;
   repairPuuids: () => Promise<{
     repairedGames: number;
     discoveredAccounts: number;
