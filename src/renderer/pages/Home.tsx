@@ -70,6 +70,7 @@ function PlayerSummaryCard({
   dashboard,
   loading,
   account,
+  savedAccounts,
   onAccountChange,
   timePeriod,
   onTimePeriodChange,
@@ -77,18 +78,14 @@ function PlayerSummaryCard({
   dashboard: HomeDashboardPayload | null;
   loading: boolean;
   account: HomeAccountFilter;
+  savedAccounts: AccountListItem[];
   onAccountChange: (account: HomeAccountFilter) => void;
   timePeriod: HomeTimePeriod;
   onTimePeriodChange: (timePeriod: HomeTimePeriod) => void;
 }) {
-  const [accounts, setAccounts] = useState<AccountListItem[]>([]);
   const [currentPuuid, setCurrentPuuid] = useState<string | null>(null);
 
   useEffect(() => {
-    window.api
-      .listAccountsWithData()
-      .then(setAccounts)
-      .catch(() => setAccounts([]));
     window.api
       .getCurrentPuuid()
       .then(setCurrentPuuid)
@@ -96,8 +93,9 @@ function PlayerSummaryCard({
   }, []);
 
   const selectedAccount = useMemo(
-    () => (typeof account === "string" ? accounts.find((item) => item.puuid === account) : null),
-    [account, accounts],
+    () =>
+      typeof account === "string" ? savedAccounts.find((item) => item.puuid === account) : null,
+    [account, savedAccounts],
   );
   const isAllAccounts = account === undefined || account === "all";
   const winRate =
@@ -113,15 +111,34 @@ function PlayerSummaryCard({
         <div className="flex flex-col gap-3">
           <div className="flex justify-center">
             {isAllAccounts ? (
-              <div className="flex h-20 w-20 shrink-0 items-center justify-center rounded-full border-2 border-lol-border bg-lol-card text-2xl text-lol-text-bright">
-                ?
+              <div className="flex flex-col gap-2 rounded-lg border border-lol-crimson/40 bg-lol-card/40 p-3">
+                <div className="text-center text-[10px] font-bold uppercase tracking-wider text-lol-text">
+                  Saved Accounts
+                </div>
+                <div className="grid grid-cols-3 gap-2">
+                  {savedAccounts.slice(0, 9).map((acc) => (
+                    <SummonerIcon
+                      key={acc.puuid}
+                      iconId={acc.profileIconId ?? null}
+                      size={56}
+                      className="rounded-lg border border-lol-border/40 bg-lol-dark object-cover"
+                    />
+                  ))}
+                </div>
               </div>
             ) : (
-              <SummonerIcon
-                iconId={selectedAccount?.profileIconId ?? null}
-                size={80}
-                className="border-2 border-lol-border/60"
-              />
+              <div
+                className="shrink-0 rounded-lg border border-lol-crimson/40 p-[4px] shadow-[0_0_3px_rgba(150,30,30,0.55),0_0_10px_rgba(90,15,15,0.35),0_0_20px_rgba(60,10,10,0.20)]"
+                style={{
+                  background: "linear-gradient(138deg, #7d1a1a 0%, #c73e3e 50%, #7d1a1a 100%)",
+                }}
+              >
+                <SummonerIcon
+                  iconId={selectedAccount?.profileIconId ?? null}
+                  size={136}
+                  className="rounded-md bg-lol-dark object-cover"
+                />
+              </div>
             )}
           </div>
           <div className="min-h-0">
@@ -142,7 +159,7 @@ function PlayerSummaryCard({
               </button>
             </div>
             <div className="flex max-h-[260px] flex-col gap-1 overflow-y-auto [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-              {accounts.map((savedAccount) => {
+              {savedAccounts.map((savedAccount) => {
                 const isActive = savedAccount.puuid === account;
                 return (
                   <button
@@ -155,7 +172,11 @@ function PlayerSummaryCard({
                         : "text-lol-text hover:bg-white/[0.04]"
                     }`}
                   >
-                    <SummonerIcon iconId={savedAccount.profileIconId} size={24} />
+                    <SummonerIcon
+                      iconId={savedAccount.profileIconId}
+                      size={24}
+                      className="rounded-lg"
+                    />
                     <span className="truncate text-xs">
                       {savedAccount.gameName ?? "Unknown"}
                       {savedAccount.tagLine ? `#${savedAccount.tagLine}` : ""}
@@ -254,7 +275,7 @@ function PlayerSummaryCard({
             <div className="grid grid-cols-5 gap-3">
               {(dashboard?.topChampions ?? []).slice(0, 5).map((champion) => (
                 <div key={champion.championId} className="flex min-w-0 flex-col items-center gap-1">
-                  <ChampionIcon championId={champion.championId} size={48} />
+                  <ChampionIcon championId={champion.championId} size={48} className="rounded-lg" />
                   <div className="text-xs font-semibold text-lol-win">{champion.wins}W</div>
                   <div className="text-xs text-lol-loss/70">{champion.games - champion.wins}L</div>
                   <div className="text-[10px] text-lol-text">{champion.games} games</div>
@@ -474,6 +495,14 @@ export default function Home() {
   const [queue, setQueue] = useState<number | undefined>(undefined);
   const [dashboard, setDashboard] = useState<HomeDashboardPayload | null>(null);
   const [loading, setLoading] = useState(false);
+  const [savedAccounts, setSavedAccounts] = useState<AccountListItem[]>([]);
+
+  useEffect(() => {
+    window.api
+      .listAccountsWithData()
+      .then(setSavedAccounts)
+      .catch(() => setSavedAccounts([]));
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -501,6 +530,7 @@ export default function Home() {
           dashboard={dashboard}
           loading={loading}
           account={account}
+          savedAccounts={savedAccounts}
           onAccountChange={setAccount}
           timePeriod={timePeriod}
           onTimePeriodChange={setTimePeriod}

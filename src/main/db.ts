@@ -2410,7 +2410,9 @@ export function getDashboardData(
     .prepare(`
     SELECT COUNT(*) as totalGames,
            SUM(g.game_duration) as totalDuration,
+           SUM(CASE WHEN g.queue_id NOT IN (${EXCLUDED_STATS_SQL}) THEN g.game_duration ELSE 0 END) as statsEligibleDuration,
            SUM(ps.win) as wins,
+           COUNT(CASE WHEN g.queue_id NOT IN (${EXCLUDED_STATS_SQL}) THEN 1 END) as statsEligibleGames,
            SUM(CASE WHEN g.queue_id NOT IN (${EXCLUDED_STATS_SQL}) THEN ps.kills ELSE 0 END) as totalKills,
            SUM(CASE WHEN g.queue_id NOT IN (${EXCLUDED_STATS_SQL}) THEN ps.deaths ELSE 0 END) as totalDeaths,
            SUM(CASE WHEN g.queue_id NOT IN (${EXCLUDED_STATS_SQL}) THEN ps.assists ELSE 0 END) as totalAssists,
@@ -2419,6 +2421,7 @@ export function getDashboardData(
            AVG(CASE WHEN g.queue_id NOT IN (${EXCLUDED_STATS_SQL}) THEN ps.total_heal END) as avgDamageHealed,
            AVG(CASE WHEN g.queue_id NOT IN (${EXCLUDED_CS_SQL}) THEN ps.cs END) as avgCs,
            SUM(CASE WHEN g.queue_id NOT IN (${EXCLUDED_CS_SQL}) THEN ps.cs END) as csTotal,
+           AVG(CASE WHEN g.queue_id NOT IN (${EXCLUDED_CS_SQL}) AND g.game_duration >= 60 THEN ps.cs * 60.0 / g.game_duration END) as csPerMinAvg,
            AVG(CASE WHEN g.queue_id NOT IN (${EXCLUDED_STATS_SQL}) THEN ps.gold_earned END) as avgGold,
            SUM(CASE WHEN g.queue_id NOT IN (${EXCLUDED_STATS_SQL}) THEN ps.gold_earned END) as goldTotal,
            SUM(CASE WHEN g.queue_id NOT IN (${EXCLUDED_STATS_SQL}) THEN ps.double_kills ELSE 0 END) as doubles,
@@ -2522,19 +2525,22 @@ export function getDashboardData(
     totalKills: totals.totalKills ?? 0,
     totalDeaths: totals.totalDeaths ?? 0,
     totalAssists: totals.totalAssists ?? 0,
-    avgKills: totals.totalGames > 0 ? (totals.totalKills ?? 0) / totals.totalGames : 0,
-    avgDeaths: totals.totalGames > 0 ? (totals.totalDeaths ?? 0) / totals.totalGames : 0,
-    avgAssists: totals.totalGames > 0 ? (totals.totalAssists ?? 0) / totals.totalGames : 0,
+    avgKills:
+      totals.statsEligibleGames > 0 ? (totals.totalKills ?? 0) / totals.statsEligibleGames : 0,
+    avgDeaths:
+      totals.statsEligibleGames > 0 ? (totals.totalDeaths ?? 0) / totals.statsEligibleGames : 0,
+    avgAssists:
+      totals.statsEligibleGames > 0 ? (totals.totalAssists ?? 0) / totals.statsEligibleGames : 0,
     avgDamageDealt: totals.avgDamageDealt ?? 0,
     avgDamageTaken: totals.avgDamageTaken ?? 0,
     avgDamageHealed: totals.avgDamageHealed ?? 0,
     avgCs: totals.avgCs ?? 0,
     csTotal: totals.csTotal ?? 0,
-    csPerMin:
-      (totals.totalDuration ?? 0) > 0
-        ? (totals.csTotal ?? 0) / ((totals.totalDuration ?? 0) / 60)
+    csPerMin: totals.csPerMinAvg ?? 0,
+    avgGameLength:
+      totals.statsEligibleGames > 0
+        ? (totals.statsEligibleDuration ?? 0) / totals.statsEligibleGames
         : 0,
-    avgGameLength: totals.totalGames > 0 ? (totals.totalDuration ?? 0) / totals.totalGames : 0,
     avgGold: totals.avgGold ?? 0,
     goldTotal: totals.goldTotal ?? 0,
     avgScore: totals.avgScore ?? null,

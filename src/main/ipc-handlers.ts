@@ -174,6 +174,8 @@ export function registerIpcHandlers() {
         avgDamageHealed: number;
         avgCs: number;
         csTotal: number;
+        statsEligibleGames: number;
+        statsEligibleDuration: number;
         avgGold: number;
         goldTotal: number;
         teamAvgScore: number;
@@ -202,14 +204,25 @@ export function registerIpcHandlers() {
           totalKills: dashboard.totalKills,
           totalDeaths: dashboard.totalDeaths,
           totalAssists: dashboard.totalAssists,
-          avgKills: dashboard.totalGames > 0 ? dashboard.totalKills / dashboard.totalGames : 0,
-          avgDeaths: dashboard.totalGames > 0 ? dashboard.totalDeaths / dashboard.totalGames : 0,
-          avgAssists: dashboard.totalGames > 0 ? dashboard.totalAssists / dashboard.totalGames : 0,
+          avgKills:
+            dashboard.statsEligibleGames > 0
+              ? dashboard.totalKills / dashboard.statsEligibleGames
+              : 0,
+          avgDeaths:
+            dashboard.statsEligibleGames > 0
+              ? dashboard.totalDeaths / dashboard.statsEligibleGames
+              : 0,
+          avgAssists:
+            dashboard.statsEligibleGames > 0
+              ? dashboard.totalAssists / dashboard.statsEligibleGames
+              : 0,
           avgKda:
             dashboard.totalGames > 0
               ? (dashboard.totalKills + dashboard.totalAssists) / Math.max(dashboard.totalDeaths, 1)
               : 0,
           totalDuration: dashboard.totalDuration,
+          statsEligibleDuration: dashboard.statsEligibleDuration,
+          statsEligibleGames: dashboard.statsEligibleGames,
           accounts: dashboard.accounts,
           recentForm: dashboard.recentForm,
           avgDamageDealt: dashboard.avgDamageDealt,
@@ -217,10 +230,11 @@ export function registerIpcHandlers() {
           avgDamageHealed: dashboard.avgDamageHealed,
           avgCs: dashboard.avgCs,
           csTotal: dashboard.csTotal,
-          csPerMin:
-            dashboard.totalDuration > 0 ? dashboard.csTotal / (dashboard.totalDuration / 60) : 0,
+          csPerMin: dashboard.csPerMin ?? 0,
           avgGameLength:
-            dashboard.totalGames > 0 ? dashboard.totalDuration / dashboard.totalGames : 0,
+            dashboard.statsEligibleGames > 0
+              ? dashboard.statsEligibleDuration / dashboard.statsEligibleGames
+              : 0,
           avgGold: dashboard.avgGold,
           goldTotal: dashboard.goldTotal,
           teamAvgScore: dashboard.teamAvgScore,
