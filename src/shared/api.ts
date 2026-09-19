@@ -340,7 +340,7 @@ export interface DashboardData {
   topAugments: AugmentStats[];
 }
 
-export type HomeTimePeriod = "24h" | "7d" | "30d";
+export type HomeTimePeriod = "24h" | "7d" | "30d" | "full";
 
 export type HomeAccountFilter = string | "all" | undefined;
 
@@ -863,11 +863,11 @@ export interface ElectronAPI {
   getHomeDashboard: (
     account: HomeAccountFilter,
     timePeriod: HomeTimePeriod,
-    queue: number | undefined,
+    queue: number[] | undefined,
   ) => Promise<HomeDashboardPayload>;
   getHomeMatchList: (
     account: HomeAccountFilter,
-    queue: number | undefined,
+    queue: number[] | undefined,
     limit: number,
   ) => Promise<HomeMatchListPayload>;
   getMostPlayedQueue: (

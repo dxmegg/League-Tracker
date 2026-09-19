@@ -50,10 +50,10 @@ const api: ElectronAPI = {
   getHomeDashboard: (
     account: HomeAccountFilter,
     timePeriod: HomeTimePeriod,
-    queue: number | undefined,
+    queue: number[] | undefined,
   ) => ipcRenderer.invoke("db:home-dashboard", account, timePeriod, queue),
 
-  getHomeMatchList: (account: HomeAccountFilter, queue: number | undefined, limit: number) =>
+  getHomeMatchList: (account: HomeAccountFilter, queue: number[] | undefined, limit: number) =>
     ipcRenderer.invoke("db:home-match-list", account, queue, limit),
 
   getMostPlayedQueue: (puuid: string, gameName: string, tagLine: string) =>

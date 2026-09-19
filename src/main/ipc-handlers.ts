@@ -152,22 +152,34 @@ export function registerIpcHandlers() {
       _event,
       account: HomeAccountFilter,
       timePeriod: HomeTimePeriod,
-      queue: number | undefined,
+      queue: number[] | undefined,
     ): HomeDashboardPayload => {
       if (account !== undefined && typeof account !== "string") {
         throw new TypeError("account must be a string or undefined");
       }
-      if (!["24h", "7d", "30d"].includes(timePeriod)) {
-        throw new TypeError("timePeriod must be 24h, 7d, or 30d");
+      if (!["24h", "7d", "30d", "full"].includes(timePeriod)) {
+        throw new TypeError("timePeriod must be 24h, 7d, 30d, or full");
       }
-      if (queue !== undefined && !Number.isFinite(queue)) {
-        throw new TypeError("queue must be a finite number or undefined");
+      if (
+        queue !== undefined &&
+        (!Array.isArray(queue) || queue.some((id) => !Number.isFinite(id)))
+      ) {
+        throw new TypeError("queue must be an array of finite numbers or undefined");
       }
       console.log("[db] home-dashboard handler called:", { account, timePeriod, queue });
 
-      const dashboard = db.getDashboardData({ account, queue }, timePeriod) as DashboardData;
-      const records = db.getRecords(queue, account, timePeriod) as RecordsData;
-      const championStats = db.getChampionStatsAll(undefined, queue, account, timePeriod) as Array<{
+      const queueId = queue?.[0];
+      const dashboard = db.getDashboardData(
+        { account, queue: queueId },
+        timePeriod,
+      ) as DashboardData;
+      const records = db.getRecords(queueId, account, timePeriod) as RecordsData;
+      const championStats = db.getChampionStatsAll(
+        undefined,
+        queueId,
+        account,
+        timePeriod,
+      ) as Array<{
         champion_id: number;
         games: number;
         wins: number;
@@ -225,18 +237,21 @@ export function registerIpcHandlers() {
 
   ipcMain.handle(
     "db:home-match-list",
-    (_event, account: HomeAccountFilter, queue: number | undefined, limit: number) => {
+    (_event, account: HomeAccountFilter, queue: number[] | undefined, limit: number) => {
       if (account !== undefined && typeof account !== "string") {
         throw new TypeError("account must be a string or undefined");
       }
-      if (queue !== undefined && !Number.isFinite(queue)) {
-        throw new TypeError("queue must be a finite number or undefined");
+      if (
+        queue !== undefined &&
+        (!Array.isArray(queue) || queue.some((id) => !Number.isFinite(id)))
+      ) {
+        throw new TypeError("queue must be an array of finite numbers or undefined");
       }
       if (!Number.isInteger(limit) || limit < 1) {
         throw new RangeError("limit must be a positive integer");
       }
       console.log("[db] home-match-list handler called:", { account, queue, limit });
-      const result = db.getMatchHistory(limit, 0, { account, queue });
+      const result = db.getMatchHistory(limit, 0, { account, queue: queue?.[0] });
       console.log("[db] home-match-list handler done:", {
         count: result.matches.length,
         total: result.total,

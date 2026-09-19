@@ -1406,7 +1406,7 @@ function applyQueueFilter(where: string[], params: any[], queue?: number, alias 
   }
 }
 
-function applyTimeFilter(timePeriod?: "24h" | "7d" | "30d"): {
+function applyTimeFilter(timePeriod?: "24h" | "7d" | "30d" | "full"): {
   sql: string;
   params: unknown[];
 } {
@@ -1428,6 +1428,7 @@ function applyTimeFilter(timePeriod?: "24h" | "7d" | "30d"): {
       params: [Date.now() - 30 * 24 * 60 * 60 * 1000],
     };
   }
+  if (timePeriod === "full") return { sql: "", params: [] };
   return { sql: "", params: [] };
 }
 
@@ -1697,7 +1698,7 @@ export function getMatchHistory(
     favorites?: boolean;
     ignoreHiddenQueues?: boolean;
   },
-  timePeriod?: "24h" | "7d" | "30d",
+  timePeriod?: "24h" | "7d" | "30d" | "full",
 ): { matches: any[]; total: number } {
   const statsTable = filters?.account ? "tracked_game_stats" : "player_stats";
   const statsAlias = filters?.account ? "tgs" : "ps";
@@ -2144,7 +2145,7 @@ export function getChampionStatsAll(
   patch?: string,
   queue?: number,
   account?: string,
-  timePeriod?: "24h" | "7d" | "30d",
+  timePeriod?: "24h" | "7d" | "30d" | "full",
 ): any[] {
   const source = statsSource(account);
   const where = ["g.is_remake = 0"];
@@ -2235,7 +2236,7 @@ export function getDashboardData(
     queue?: number;
     account?: string;
   },
-  timePeriod?: "24h" | "7d" | "30d",
+  timePeriod?: "24h" | "7d" | "30d" | "full",
 ): any {
   const source = statsSource(filters?.account);
   const where: string[] = ["g.is_remake = 0", source.accountFilter];
@@ -4754,7 +4755,7 @@ export function getTrendsData(queue?: number, account?: string): any {
 export function getRecords(
   queue?: number,
   account?: string,
-  timePeriod?: "24h" | "7d" | "30d",
+  timePeriod?: "24h" | "7d" | "30d" | "full",
 ): any {
   const source = statsSource(account);
   const where = ["g.is_remake = 0"];

@@ -6,7 +6,7 @@ import type {
   HomeTimePeriod,
   MatchListItem,
 } from "../../shared/api";
-import { ARENA_QUEUE_IDS, QUEUE_ID_MAYHEM } from "../../shared/queues";
+import { ARENA_QUEUE_IDS, MAYHEM_QUEUE_IDS } from "../../shared/queues";
 import ChampionIcon from "../components/ChampionIcon";
 import SummonerIcon from "../components/SummonerIcon";
 import { useChampionData } from "../hooks/useChampions";
@@ -14,15 +14,15 @@ import { HISTORY_SECTIONS_FULL } from "../lib/historySections";
 import { NavLink } from "react-router-dom";
 import { GameRow } from "./MatchHistory";
 
-const TIME_PERIODS: HomeTimePeriod[] = ["24h", "7d", "30d"];
+const TIME_PERIODS: HomeTimePeriod[] = ["24h", "7d", "30d", "full"];
 
-const QUEUE_FILTERS: Array<{ label: string; value: number | undefined }> = [
+const QUEUE_FILTERS: Array<{ label: string; value: number[] | undefined }> = [
   { label: "All", value: undefined },
-  { label: "Ranked", value: 420 },
-  { label: "Normal", value: 400 },
-  { label: "Arena", value: ARENA_QUEUE_IDS[0] },
-  { label: "ARAM", value: 450 },
-  { label: "Mayhem", value: QUEUE_ID_MAYHEM },
+  { label: "Ranked", value: [420, 440] },
+  { label: "Normal", value: [400, 430, 490] },
+  { label: "Arena", value: [...ARENA_QUEUE_IDS] },
+  { label: "ARAM", value: [450] },
+  { label: "Mayhem", value: [...MAYHEM_QUEUE_IDS] },
 ];
 
 function HomeCard({ children, className = "" }: { children?: ReactNode; className?: string }) {
@@ -38,8 +38,11 @@ function HomeCard({ children, className = "" }: { children?: ReactNode; classNam
 function timePeriodLabel(timePeriod: HomeTimePeriod): string {
   if (timePeriod === "24h") return "24 hours";
   if (timePeriod === "30d") return "30 days";
+  if (timePeriod === "full") return "full history";
   return "7 days";
 }
+
+const periodLabel = (period: HomeTimePeriod): string => (period === "full" ? "FULL" : period);
 
 function StatValue({
   label,
@@ -92,9 +95,6 @@ function PlayerSummaryCard({
     [account, accounts],
   );
   const isAllAccounts = account === undefined || account === "all";
-  const displayName = isAllAccounts
-    ? "All accounts summarised"
-    : `${selectedAccount?.gameName ?? "Unknown"}${selectedAccount?.tagLine ? `#${selectedAccount.tagLine}` : ""}`;
   const winRate =
     dashboard && dashboard.summary.totalGames > 0
       ? `${((dashboard.summary.wins / dashboard.summary.totalGames) * 100).toFixed(0)}% WR`
@@ -127,9 +127,13 @@ function PlayerSummaryCard({
               <button
                 type="button"
                 onClick={() => onAccountChange("all")}
-                className="text-[10px] font-bold uppercase tracking-wider text-lol-gold transition-colors hover:text-lol-gold/80"
+                className={`rounded-md px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider transition-colors ${
+                  isAllAccounts
+                    ? "border border-lol-crimson/60 bg-lol-crimson/20 text-lol-text-bright"
+                    : "text-lol-gold hover:text-lol-gold/80"
+                }`}
               >
-                All
+                ALL ACCOUNTS
               </button>
             </div>
             <div className="flex max-h-[260px] flex-col gap-1 overflow-y-auto [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
@@ -161,7 +165,20 @@ function PlayerSummaryCard({
         <div className="flex min-w-0 flex-col gap-3">
           <div className="flex items-start justify-between gap-4">
             <div className="min-w-0">
-              <div className="truncate text-2xl font-bold text-lol-text-bright">{displayName}</div>
+              {isAllAccounts ? (
+                <div className="break-words text-2xl font-bold text-lol-text-bright">
+                  All accounts summarised
+                </div>
+              ) : (
+                <>
+                  <div className="break-words text-2xl font-bold text-lol-text-bright">
+                    {selectedAccount?.gameName ?? "Unknown"}
+                  </div>
+                  {selectedAccount?.tagLine && (
+                    <div className="text-sm text-lol-text">#{selectedAccount.tagLine}</div>
+                  )}
+                </>
+              )}
               {!isAllAccounts && (
                 <div className="text-xs text-lol-text">
                   {currentPuuid === account ? "Connected" : "Unranked"}
@@ -180,7 +197,7 @@ function PlayerSummaryCard({
                       : "text-lol-text hover:bg-white/[0.04] hover:text-lol-text-bright"
                   }`}
                 >
-                  {period}
+                  {periodLabel(period)}
                 </button>
               ))}
             </div>
@@ -331,13 +348,13 @@ function QueueFilterChips({
   value,
   onChange,
 }: {
-  value: number | undefined;
-  onChange: (queue: number | undefined) => void;
+  value: number[] | undefined;
+  onChange: (queue: number[] | undefined) => void;
 }) {
   return (
     <div className="ml-auto flex items-center gap-2">
       {QUEUE_FILTERS.map((filter) => {
-        const isActive = value === filter.value;
+        const isActive = JSON.stringify(value ?? []) === JSON.stringify(filter.value ?? []);
         return (
           <button
             key={filter.label}
@@ -346,7 +363,7 @@ function QueueFilterChips({
             className={`rounded-md border px-3 py-1 text-xs font-bold uppercase tracking-wider transition-colors ${
               isActive
                 ? "border-lol-crimson/60 bg-lol-crimson/20 text-lol-text-bright"
-                : "border-lol-border/50 bg-lol-card/40 text-lol-text hover:border-lol-gold/40 hover:text-lol-text-bright"
+                : "border-lol-border/50 bg-lol-card/40 text-lol-text hover:border-lol-crimson/60 hover:bg-lol-crimson/10 hover:text-lol-text-bright"
             }`}
           >
             {filter.label}
@@ -384,9 +401,11 @@ function QuickNavPanel() {
 function MatchListPanel({
   account,
   queue,
+  timePeriod,
 }: {
   account: HomeAccountFilter;
-  queue: number | undefined;
+  queue: number[] | undefined;
+  timePeriod: HomeTimePeriod;
 }) {
   const [matches, setMatches] = useState<MatchListItem[]>([]);
   const [loading, setLoading] = useState(false);
@@ -428,8 +447,11 @@ function MatchListPanel({
         />
       ))}
       {!loading && matches.length === 0 && (
-        <HomeCard className="p-6 text-center text-sm text-lol-text">
-          No matches in this view.
+        <HomeCard className="flex flex-col items-center justify-center gap-2 p-6 text-center">
+          <p className="text-sm font-semibold text-lol-text-bright">
+            No games recorded in the last {timePeriodLabel(timePeriod)}
+          </p>
+          <p className="text-xs text-lol-text">Try a longer time period or a different filter.</p>
         </HomeCard>
       )}
     </div>
@@ -437,9 +459,9 @@ function MatchListPanel({
 }
 
 export default function Home() {
-  const [account, setAccount] = useState<HomeAccountFilter>(undefined);
+  const [account, setAccount] = useState<HomeAccountFilter>("all");
   const [timePeriod, setTimePeriod] = useState<HomeTimePeriod>("7d");
-  const [queue, setQueue] = useState<number | undefined>(undefined);
+  const [queue, setQueue] = useState<number[] | undefined>(undefined);
   const [dashboard, setDashboard] = useState<HomeDashboardPayload | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -476,14 +498,18 @@ export default function Home() {
         <RecordsCard dashboard={dashboard} loading={loading} />
         <EmptyPlaceholderCard />
       </div>
-      <div className="flex items-center gap-6">
-        <div className="text-xl font-bold text-lol-text-bright">Statistics</div>
-        <div className="text-xl font-bold text-lol-text-bright">Last 20 played games</div>
-        <QueueFilterChips value={queue} onChange={setQueue} />
-      </div>
       <div className="grid grid-cols-[220px_1fr] items-start gap-4">
-        <QuickNavPanel />
-        <MatchListPanel account={account} queue={queue} />
+        <div className="flex flex-col gap-3">
+          <div className="text-center text-xl font-bold text-lol-text-bright">Statistics</div>
+          <QuickNavPanel />
+        </div>
+        <div className="flex flex-col gap-3">
+          <div className="flex items-center gap-4">
+            <div className="text-xl font-bold text-lol-text-bright">Last 20 played games</div>
+            <QueueFilterChips value={queue} onChange={setQueue} />
+          </div>
+          <MatchListPanel account={account} queue={queue} timePeriod={timePeriod} />
+        </div>
       </div>
     </div>
   );
