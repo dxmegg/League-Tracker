@@ -95,6 +95,7 @@ export interface MatchListItem {
   item3: number | null;
   item4: number | null;
   item5: number | null;
+  item6: number | null;
   score: number | null;
   score_badge: "MVP" | "ACE" | null;
   spell1: number | null;
@@ -337,6 +338,80 @@ export interface DashboardData {
     pentas: number;
   };
   topAugments: AugmentStats[];
+}
+
+export type HomeTimePeriod = "24h" | "7d" | "30d";
+
+export type HomeAccountFilter = string | "all" | undefined;
+
+export interface HomeDashboardPayload {
+  summary: {
+    totalGames: number;
+    wins: number;
+    losses: number;
+    totalKills: number;
+    totalDeaths: number;
+    totalAssists: number;
+    avgKda: number;
+    totalDuration: number;
+    accounts: number;
+    recentForm: Array<{ game_id: number; win: number }>;
+  };
+  records: {
+    mostKills: {
+      value: number;
+      championId: number;
+      gameId: number;
+      gameCreation: number;
+      win: number;
+    } | null;
+    mostDeaths: {
+      value: number;
+      championId: number;
+      gameId: number;
+      gameCreation: number;
+      win: number;
+    } | null;
+    mostAssists: {
+      value: number;
+      championId: number;
+      gameId: number;
+      gameCreation: number;
+      win: number;
+    } | null;
+    mostDamage: {
+      value: number;
+      championId: number;
+      gameId: number;
+      gameCreation: number;
+      win: number;
+    } | null;
+    biggestCrit: {
+      value: number;
+      championId: number;
+      gameId: number;
+      gameCreation: number;
+      win: number;
+    } | null;
+    mostCs: {
+      value: number;
+      championId: number;
+      gameId: number;
+      gameCreation: number;
+      win: number;
+    } | null;
+  };
+  topChampions: Array<{
+    championId: number;
+    games: number;
+    wins: number;
+    winRate: number;
+  }>;
+}
+
+export interface HomeMatchListPayload {
+  matches: MatchListItem[];
+  total: number;
 }
 
 export interface ChampionData {
@@ -785,6 +860,16 @@ export interface ElectronAPI {
   getDashboard: (
     filters?: Pick<MatchFilters, "championId" | "patch" | "queue" | "account">,
   ) => Promise<DashboardData>;
+  getHomeDashboard: (
+    account: HomeAccountFilter,
+    timePeriod: HomeTimePeriod,
+    queue: number | undefined,
+  ) => Promise<HomeDashboardPayload>;
+  getHomeMatchList: (
+    account: HomeAccountFilter,
+    queue: number | undefined,
+    limit: number,
+  ) => Promise<HomeMatchListPayload>;
   getMostPlayedQueue: (
     puuid: string,
     gameName: string,

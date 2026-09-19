@@ -1071,6 +1071,7 @@ export interface GameRowProps {
   puuids: string[] | null;
   onToggle: () => void;
   onContextMenu: (e: React.MouseEvent) => void;
+  expandable?: boolean;
   onPlayerClick?: (player: {
     puuid: string | null;
     gameName: string | null;
@@ -1156,6 +1157,7 @@ export function GameRow({
   puuids,
   onToggle,
   onContextMenu,
+  expandable = true,
   onPlayerClick,
 }: GameRowProps) {
   const isRemake = !!match.is_remake;
@@ -1182,8 +1184,8 @@ export function GameRow({
   return (
     <div>
       <button
-        onClick={onToggle}
-        onContextMenu={onContextMenu}
+        onClick={expandable ? onToggle : undefined}
+        onContextMenu={expandable ? onContextMenu : undefined}
         className={`group relative grid min-w-0 w-full items-center gap-2 overflow-hidden px-5 pr-[140px] py-4 rounded-2xl text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-lol-gold/60 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--theme-bg-deep)] ${
           isWin
             ? "border border-lol-win/35 hover:border-lol-win/60"
@@ -1372,7 +1374,7 @@ export function GameRow({
         </div>
       </button>
 
-      {expanded && (
+      {expandable && expanded && (
         <div className="mb-1 bg-lol-card rounded-b-lg border border-t-0 border-lol-border/60 p-3">
           {detailLoading ? (
             <div className="text-sm text-lol-text text-center py-4">Loading...</div>

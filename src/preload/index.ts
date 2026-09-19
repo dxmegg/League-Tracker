@@ -8,6 +8,8 @@ import type {
   RiotSyncResult,
   RiotAccountConfig,
   RestoreOlderGamesResult,
+  HomeAccountFilter,
+  HomeTimePeriod,
 } from "../shared/api";
 
 // Annotated rather than inferred, so the compiler checks this object against
@@ -44,6 +46,15 @@ const api: ElectronAPI = {
 
   getDashboard: (filters?: Pick<MatchFilters, "championId" | "patch" | "queue" | "account">) =>
     ipcRenderer.invoke("db:dashboard", filters),
+
+  getHomeDashboard: (
+    account: HomeAccountFilter,
+    timePeriod: HomeTimePeriod,
+    queue: number | undefined,
+  ) => ipcRenderer.invoke("db:home-dashboard", account, timePeriod, queue),
+
+  getHomeMatchList: (account: HomeAccountFilter, queue: number | undefined, limit: number) =>
+    ipcRenderer.invoke("db:home-match-list", account, queue, limit),
 
   getMostPlayedQueue: (puuid: string, gameName: string, tagLine: string) =>
     ipcRenderer.invoke("db:most-played-queue", puuid, gameName, tagLine),

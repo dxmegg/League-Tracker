@@ -12,6 +12,13 @@ import { getBackupDir } from "./paths";
 import { openExternalUrl } from "./security";
 import { applyAutoStart, isAutoStartSupported } from "./autostart";
 import { dbg } from "../shared/debug";
+import type {
+  DashboardData,
+  HomeAccountFilter,
+  HomeDashboardPayload,
+  HomeTimePeriod,
+  RecordsData,
+} from "../shared/api";
 
 // The settings table doubles as internal bookkeeping — sgp_host, the
 // per-account backfill_complete_* flags, score_formula_version — none of which
@@ -136,6 +143,105 @@ export function registerIpcHandlers() {
       filters?: { championId?: number; patch?: string; queue?: number; account?: string },
     ) => {
       return db.getDashboardData(filters);
+    },
+  );
+
+  ipcMain.handle(
+    "db:home-dashboard",
+    (
+      _event,
+      account: HomeAccountFilter,
+      timePeriod: HomeTimePeriod,
+      queue: number | undefined,
+    ): HomeDashboardPayload => {
+      if (account !== undefined && typeof account !== "string") {
+        throw new TypeError("account must be a string or undefined");
+      }
+      if (!["24h", "7d", "30d"].includes(timePeriod)) {
+        throw new TypeError("timePeriod must be 24h, 7d, or 30d");
+      }
+      if (queue !== undefined && !Number.isFinite(queue)) {
+        throw new TypeError("queue must be a finite number or undefined");
+      }
+      console.log("[db] home-dashboard handler called:", { account, timePeriod, queue });
+
+      const dashboard = db.getDashboardData({ account, queue }, timePeriod) as DashboardData;
+      const records = db.getRecords(queue, account, timePeriod) as RecordsData;
+      const championStats = db.getChampionStatsAll(undefined, queue, account, timePeriod) as Array<{
+        champion_id: number;
+        games: number;
+        wins: number;
+      }>;
+      const toHomeRecord = (record: RecordsData["bests"][keyof RecordsData["bests"]]) =>
+        record
+          ? {
+              value: record.value,
+              championId: record.match.champion_id,
+              gameId: record.match.game_id,
+              gameCreation: record.match.game_creation,
+              win: record.match.win,
+            }
+          : null;
+      const result: HomeDashboardPayload = {
+        summary: {
+          totalGames: dashboard.totalGames,
+          wins: dashboard.wins,
+          losses: dashboard.totalGames - dashboard.wins,
+          totalKills: dashboard.totalKills,
+          totalDeaths: dashboard.totalDeaths,
+          totalAssists: dashboard.totalAssists,
+          avgKda:
+            dashboard.totalGames > 0
+              ? (dashboard.totalKills + dashboard.totalAssists) / Math.max(dashboard.totalDeaths, 1)
+              : 0,
+          totalDuration: dashboard.totalDuration,
+          accounts: dashboard.accounts,
+          recentForm: dashboard.recentForm,
+        },
+        records: {
+          mostKills: toHomeRecord(records.bests.kills),
+          mostDeaths: toHomeRecord(records.bests.deaths),
+          mostAssists: toHomeRecord(records.bests.assists),
+          mostDamage: toHomeRecord(records.bests.damage),
+          biggestCrit: toHomeRecord(records.bests.criticalStrike),
+          mostCs: toHomeRecord(records.bests.cs),
+        },
+        topChampions: championStats.slice(0, 5).map((champion) => ({
+          championId: champion.champion_id,
+          games: champion.games,
+          wins: champion.wins,
+          winRate: champion.games > 0 ? champion.wins / champion.games : 0,
+        })),
+      };
+
+      console.log("[db] home-dashboard handler done:", {
+        totalGames: result.summary.totalGames,
+        recordCount: Object.values(result.records).filter(Boolean).length,
+        championCount: result.topChampions.length,
+      });
+      return result;
+    },
+  );
+
+  ipcMain.handle(
+    "db:home-match-list",
+    (_event, account: HomeAccountFilter, queue: number | undefined, limit: number) => {
+      if (account !== undefined && typeof account !== "string") {
+        throw new TypeError("account must be a string or undefined");
+      }
+      if (queue !== undefined && !Number.isFinite(queue)) {
+        throw new TypeError("queue must be a finite number or undefined");
+      }
+      if (!Number.isInteger(limit) || limit < 1) {
+        throw new RangeError("limit must be a positive integer");
+      }
+      console.log("[db] home-match-list handler called:", { account, queue, limit });
+      const result = db.getMatchHistory(limit, 0, { account, queue });
+      console.log("[db] home-match-list handler done:", {
+        count: result.matches.length,
+        total: result.total,
+      });
+      return result;
     },
   );
 
