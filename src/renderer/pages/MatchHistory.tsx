@@ -551,17 +551,26 @@ export default function MatchHistory({
                 <div className="text-xs xl:text-sm font-bold text-[#a51e1e] tabular-nums">
                   {Math.round(dashboard.avgDamageDealt).toLocaleString("pl-PL")}
                 </div>
+                <div className="text-[9px] text-lol-text tabular-nums">
+                  {dashboard.damageDealtTotal.toLocaleString("pl-PL")} total
+                </div>
               </div>
               <div className="flex flex-col">
                 <div className="text-[10px] text-lol-text">Avg DMG tanked</div>
                 <div className="text-xs xl:text-sm font-bold text-[#3b82f6] tabular-nums">
                   {Math.round(dashboard.avgDamageTaken).toLocaleString("pl-PL")}
                 </div>
+                <div className="text-[9px] text-lol-text tabular-nums">
+                  {dashboard.damageTakenTotal.toLocaleString("pl-PL")} total
+                </div>
               </div>
               <div className="flex flex-col">
                 <div className="text-[10px] text-lol-text">Avg DMG healed</div>
                 <div className="text-xs xl:text-sm font-bold text-[#15803d] tabular-nums">
                   {Math.round(dashboard.avgDamageHealed).toLocaleString("pl-PL")}
+                </div>
+                <div className="text-[9px] text-lol-text tabular-nums">
+                  {dashboard.damageHealedTotal.toLocaleString("pl-PL")} total
                 </div>
               </div>
             </div>
@@ -1086,6 +1095,7 @@ export interface GameRowProps {
     gameName: string | null;
     tagLine: string | null;
   }) => void;
+  compact?: boolean;
 }
 
 function parseAugmentIds(raw: string | null): number[] {
@@ -1127,11 +1137,11 @@ function MatchMultikillBadges({
 
   return (
     <div className="min-w-0 overflow-hidden">
-      <div className="grid grid-cols-2 gap-1 w-[200px]">
+      <div className="grid grid-cols-2 gap-1 w-full min-w-0">
         {badges.map(([label, count]) => (
           <span
             key={label}
-            className={`w-full inline-flex items-center justify-center text-[10px] font-bold tracking-wide px-2 py-0.5 rounded-full border backdrop-blur-sm whitespace-nowrap ${badgeStyles[label]}`}
+            className={`w-full inline-flex items-center justify-center text-[10px] font-bold tracking-wide px-2 py-0.5 rounded-full border backdrop-blur-sm truncate ${badgeStyles[label]}`}
           >
             {label}
             {count > 1 ? ` x${count}` : ""}
@@ -1168,6 +1178,7 @@ export function GameRow({
   onContextMenu,
   expandable = true,
   onPlayerClick,
+  compact = false,
 }: GameRowProps) {
   const isRemake = !!match.is_remake;
   console.log("[card] spells", {
@@ -1202,8 +1213,9 @@ export function GameRow({
         }`}
         style={{
           background: rowBackground,
-          gridTemplateColumns:
-            "95px 84px 170px 64px 56px minmax(140px, 200px) 180px 220px 1fr minmax(64px, auto)",
+          gridTemplateColumns: compact
+            ? "76px 72px 130px 48px 44px minmax(96px, 140px) 180px 200px 1fr 60px"
+            : "95px 84px 170px 64px 56px minmax(140px, 200px) 180px 220px 1fr minmax(64px, auto)",
         }}
       >
         <span

@@ -23,7 +23,6 @@ import { GameRow } from "./MatchHistory";
 const TIME_PERIODS: HomeTimePeriod[] = ["24h", "7d", "30d", "full"];
 
 const MATCH_HISTORY_LINKS = [
-  { to: "/", label: "Full Match History" },
   { to: "/history/mayhem", label: "ARAM Mayhem History" },
   { to: "/history/aram", label: "ARAM History" },
   { to: "/history/arena", label: "Arena History" },
@@ -474,6 +473,7 @@ function MatchListPanel({
             onToggle={() => undefined}
             onContextMenu={() => undefined}
             expandable={false}
+            compact
           />
         ))}
         {!loading && matches.length === 0 && (

@@ -325,8 +325,11 @@ export interface DashboardData {
   avgDeaths: number;
   avgAssists: number;
   avgDamageDealt: number;
+  damageDealtTotal: number;
   avgDamageTaken: number;
+  damageTakenTotal: number;
   avgDamageHealed: number;
+  damageHealedTotal: number;
   avgCs: number;
   csTotal: number;
   csPerMin: number;
@@ -397,8 +400,11 @@ export interface HomeDashboardPayload {
       assists: number;
     }>;
     avgDamageDealt: number;
+    damageDealtTotal: number;
     avgDamageTaken: number;
+    damageTakenTotal: number;
     avgDamageHealed: number;
+    damageHealedTotal: number;
     avgCs: number;
     csTotal: number;
     csPerMin: number;
