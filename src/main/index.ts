@@ -5,6 +5,8 @@ import {
   getSetting,
   checkScoreBackfill,
   backfillMissingTrackedRows,
+  getMissingScoreCount,
+  backfillParticipantScores,
   reconcileOwnerPuuids,
   reconcileAllParticipantNames,
 } from "./db";
@@ -214,13 +216,25 @@ app.whenReady().then(async () => {
   // directly: a database that has been deleted or damaged since the last launch
   // is restored from the newest good snapshot here, before anything reads it.
   try {
-    initDatabaseWithRecovery();
+    await initDatabaseWithRecovery();
   } catch (err: unknown) {
     // Recovery handles expected missing/corrupt databases. Keep an unexpected
     // migration failure from becoming an unhandled rejection in whenReady.
     console.error("Database initialization failed:", err);
     app.quit();
     return;
+  }
+
+  if (getMissingScoreCount() > 0) {
+    void backfillParticipantScores((done, total) => {
+      mainWindow?.webContents.send("lcu:participant-score-progress", {
+        phase: "scores",
+        done,
+        total,
+      });
+    }).catch((err) => {
+      console.warn("[db] auto participant score backfill failed:", err);
+    });
   }
 
   try {

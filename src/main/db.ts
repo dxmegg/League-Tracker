@@ -23,6 +23,7 @@ import {
 import { getDataDir } from "./paths";
 import { getChampionClasses, getChampionDataVersion } from "./dragon";
 import type { ItemStats, MasteryChampion, QueueStat, RankEntry } from "../shared/api";
+import * as backup from "./backup";
 
 export type GameSource = "lcu" | "riot-sync" | "search-import";
 
@@ -35,7 +36,7 @@ export function getDbPath() {
   return path.join(getDataDir(), "matches.db");
 }
 
-export function initDatabase() {
+export async function initDatabase() {
   const dbPath = getDbPath();
   db = new Database(dbPath);
   // Prepared statements belong to the connection that made them, so the cache
@@ -50,7 +51,13 @@ export function initDatabase() {
   db.pragma("foreign_keys = ON");
 
   createTables();
-  runMigrations();
+  await runMigrations();
+  const missingScoreCount = db
+    .prepare("SELECT COUNT(*) as n FROM match_participants WHERE score IS NULL")
+    .get() as { n: number };
+  if (missingScoreCount.n > 0) {
+    console.log("[db] participant score backfill pending:", { count: missingScoreCount.n });
+  }
   if (getSetting("puuid_to_lcu_v1") !== "1") {
     // Convert locally owned games to the same LCU key used by recent sync.
     const summoners = db
@@ -236,6 +243,7 @@ function createTables() {
       item0 INTEGER, item1 INTEGER, item2 INTEGER,
       item3 INTEGER, item4 INTEGER, item5 INTEGER, item6 INTEGER,
       team_position  TEXT,
+      score          REAL,
       PRIMARY KEY (game_id, participant_id)
     );
 
@@ -786,14 +794,14 @@ function writeParticipants(gameId: number, meta: GameDenorm, rows: RawParticipan
 // versioning, so it could be missing any subset of the columns v1 adds — which
 // is why each step checks for its column rather than assuming. A database that
 // createTables just built is also version 0, and lands on the same no-op path.
-const SCHEMA_VERSION = 19;
+const SCHEMA_VERSION = 20;
 
 function tableColumns(table: string): Set<string> {
   const rows = db.pragma(`table_info(${table})`) as { name: string }[];
   return new Set(rows.map((r) => r.name));
 }
 
-function runMigrations() {
+async function runMigrations() {
   const current = db.pragma("user_version", { simple: true }) as number;
   if (current >= SCHEMA_VERSION) return;
 
@@ -810,7 +818,7 @@ function runMigrations() {
     ["score", "score_badge", "score_raw", "cs", "largest_critical_strike"].every((column) =>
       tableColumns("player_stats").has(column),
     ) &&
-    ["team_position", "player_subteam_id", "player_subteam_placement"].every((column) =>
+    ["team_position", "player_subteam_id", "player_subteam_placement", "score"].every((column) =>
       tableColumns("match_participants").has(column),
     ) &&
     [
@@ -846,8 +854,23 @@ function runMigrations() {
   if (current < 17) migrateToV17();
   if (current < 18) migrateToV18();
   if (current < 19) migrateToV19();
+  if (current < 20) await migrateToV20();
 
   db.pragma(`user_version = ${SCHEMA_VERSION}`);
+}
+
+async function migrateToV20() {
+  const columns = tableColumns("match_participants");
+  const additions = [["match_participants", "score", "REAL"]] as const;
+
+  for (const [table, name, definition] of additions) {
+    if (!columns.has(name)) {
+      await backup.backupQuietly("pre-migration-20");
+      db.exec(`ALTER TABLE ${table} ADD COLUMN ${name} ${definition}`);
+    }
+  }
+
+  console.log("[db] v20 added participant score column");
 }
 
 // Brings pre-versioning databases up to the schema createTables now declares.
@@ -1559,6 +1582,69 @@ function computeOwnerScore(
   }
   if (!owner) return null;
   return computeMatchScores(inputs, getChampionClasses()).get(owner.participantId) ?? null;
+}
+
+export function getMissingScoreCount(): number {
+  console.log("[db] getMissingScoreCount called:", {});
+  const row = db
+    .prepare("SELECT COUNT(*) as n FROM match_participants WHERE score IS NULL")
+    .get() as { n: number };
+  console.log("[db] getMissingScoreCount done:", { count: row.n });
+  return row.n;
+}
+
+export async function backfillParticipantScores(
+  onProgress: (done: number, total: number) => void,
+): Promise<number> {
+  console.log("[db] backfillParticipantScores called:", {});
+  const total = (
+    db.prepare("SELECT COUNT(*) as n FROM games WHERE raw_gz IS NOT NULL").get() as {
+      n: number;
+    }
+  ).n;
+  const pageSize = 100;
+  const updateScore = db.prepare(
+    "UPDATE match_participants SET score = ? WHERE game_id = ? AND participant_id = ?",
+  );
+  let done = 0;
+  let updated = 0;
+
+  while (done < total) {
+    const rows = db
+      .prepare(
+        `SELECT game_id, raw_gz
+         FROM games
+         WHERE raw_gz IS NOT NULL
+         ORDER BY game_id
+         LIMIT ? OFFSET ?`,
+      )
+      .all(pageSize, done) as { game_id: number; raw_gz: Buffer }[];
+    if (rows.length === 0) break;
+
+    const updatePage = db.transaction(() => {
+      for (const row of rows) {
+        const raw = unpackRaw(row.raw_gz);
+        const participants = participantRowsFromRaw(raw);
+        const scores = computeMatchScores(
+          scoreInputsFromRows(participants as ScoreRow[]),
+          getChampionClasses(),
+        );
+        for (const participant of participants) {
+          const score = scores.get(participant.participant_id)?.score ?? null;
+          updated += updateScore.run(score, row.game_id, participant.participant_id).changes;
+        }
+
+        done++;
+        if (done % 50 === 0) onProgress(done, total);
+      }
+    });
+    updatePage();
+    await new Promise<void>((resolve) => setImmediate(resolve));
+  }
+
+  if (done > 0 && done % 50 !== 0) onProgress(done, total);
+  console.log("[db] backfillParticipantScores done:", { done, total, updated });
+  return updated;
 }
 
 function backfillScores() {
@@ -2282,6 +2368,13 @@ export function getDashboardData(
            SUM(ps.kills) as totalKills,
            SUM(ps.deaths) as totalDeaths,
            SUM(ps.assists) as totalAssists,
+           AVG(ps.total_damage_dealt) as avgDamageDealt,
+           AVG(ps.total_damage_taken) as avgDamageTaken,
+           AVG(ps.total_heal) as avgDamageHealed,
+           AVG(ps.cs) as avgCs,
+           SUM(ps.cs) as csTotal,
+           AVG(ps.gold_earned) as avgGold,
+           SUM(ps.gold_earned) as goldTotal,
            SUM(ps.double_kills) as doubles,
            SUM(ps.triple_kills) as triples,
            SUM(ps.quadra_kills) as quadras,
@@ -2302,12 +2395,12 @@ export function getDashboardData(
 
   const recentForm = db
     .prepare(`
-    SELECT ps.win, g.game_id
+    SELECT ps.win, g.game_id, g.is_remake, ps.champion_id, ps.kills, ps.deaths, ps.assists
     FROM games g
     JOIN ${source.table} ${source.alias} ON g.game_id = ${source.alias}.game_id
     ${whereSql}
     ORDER BY g.game_creation DESC
-    LIMIT 10
+    LIMIT 20
   `)
     .all(...queryParams);
 
@@ -2352,6 +2445,23 @@ export function getDashboardData(
   `)
     .all(...queryParams);
 
+  const teamAvgScoreRow = db
+    .prepare(`
+  SELECT AVG(mp.score) as teamAvgScore
+  FROM games g
+  JOIN ${source.table} ${source.alias} ON g.game_id = ${source.alias}.game_id
+  JOIN match_participants owner
+    ON owner.game_id = g.game_id
+    AND owner.puuid = g.puuid
+  JOIN match_participants mp
+    ON mp.game_id = g.game_id
+    AND mp.team_id = owner.team_id
+    AND mp.puuid != owner.puuid
+    AND mp.score IS NOT NULL
+  ${whereSql}
+  `)
+    .get(...queryParams) as { teamAvgScore: number | null } | undefined;
+
   return {
     totalGames: totals.totalGames ?? 0,
     totalDuration: totals.totalDuration ?? 0,
@@ -2359,7 +2469,23 @@ export function getDashboardData(
     totalKills: totals.totalKills ?? 0,
     totalDeaths: totals.totalDeaths ?? 0,
     totalAssists: totals.totalAssists ?? 0,
+    avgKills: totals.totalGames > 0 ? (totals.totalKills ?? 0) / totals.totalGames : 0,
+    avgDeaths: totals.totalGames > 0 ? (totals.totalDeaths ?? 0) / totals.totalGames : 0,
+    avgAssists: totals.totalGames > 0 ? (totals.totalAssists ?? 0) / totals.totalGames : 0,
+    avgDamageDealt: totals.avgDamageDealt ?? 0,
+    avgDamageTaken: totals.avgDamageTaken ?? 0,
+    avgDamageHealed: totals.avgDamageHealed ?? 0,
+    avgCs: totals.avgCs ?? 0,
+    csTotal: totals.csTotal ?? 0,
+    csPerMin:
+      (totals.totalDuration ?? 0) > 0
+        ? (totals.csTotal ?? 0) / ((totals.totalDuration ?? 0) / 60)
+        : 0,
+    avgGameLength: totals.totalGames > 0 ? (totals.totalDuration ?? 0) / totals.totalGames : 0,
+    avgGold: totals.avgGold ?? 0,
+    goldTotal: totals.goldTotal ?? 0,
     avgScore: totals.avgScore ?? null,
+    teamAvgScore: teamAvgScoreRow?.teamAvgScore ?? 0,
     mvps: totals.mvps ?? 0,
     aces: totals.aces ?? 0,
     scoredWins: totals.scoredWins ?? 0,

@@ -10,7 +10,7 @@ export function HistorySideNav({ scope }: { scope?: string }) {
   const prefix = scope === "full" || scope === undefined ? "/history/full/" : `/history/${scope}/`;
 
   return (
-    <nav className="w-[220px] shrink-0 max-[1199px]:hidden self-start">
+    <nav className="w-[160px] shrink-0 max-[1199px]:hidden self-start">
       <HomeCard className="w-full overflow-hidden">
         {sections.map(({ section, label }, i) => {
           const target = `${prefix}${section}`;

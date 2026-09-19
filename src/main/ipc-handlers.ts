@@ -168,7 +168,16 @@ export function registerIpcHandlers() {
           );
         }
       }
-      const dashboard = db.getDashboardData({ account, queue }, timePeriod) as DashboardData;
+      const dashboard = db.getDashboardData({ account, queue }, timePeriod) as DashboardData & {
+        avgDamageDealt: number;
+        avgDamageTaken: number;
+        avgDamageHealed: number;
+        avgCs: number;
+        csTotal: number;
+        avgGold: number;
+        goldTotal: number;
+        teamAvgScore: number;
+      };
       const records = db.getRecords(queue, account, timePeriod) as RecordsData;
       const championStats = db.getChampionStatsAll(undefined, queue, account, timePeriod) as Array<{
         champion_id: number;
@@ -193,6 +202,9 @@ export function registerIpcHandlers() {
           totalKills: dashboard.totalKills,
           totalDeaths: dashboard.totalDeaths,
           totalAssists: dashboard.totalAssists,
+          avgKills: dashboard.avgKills,
+          avgDeaths: dashboard.avgDeaths,
+          avgAssists: dashboard.avgAssists,
           avgKda:
             dashboard.totalGames > 0
               ? (dashboard.totalKills + dashboard.totalAssists) / Math.max(dashboard.totalDeaths, 1)
@@ -200,6 +212,18 @@ export function registerIpcHandlers() {
           totalDuration: dashboard.totalDuration,
           accounts: dashboard.accounts,
           recentForm: dashboard.recentForm,
+          avgDamageDealt: dashboard.avgDamageDealt,
+          avgDamageTaken: dashboard.avgDamageTaken,
+          avgDamageHealed: dashboard.avgDamageHealed,
+          avgCs: dashboard.avgCs,
+          csTotal: dashboard.csTotal,
+          csPerMin:
+            dashboard.totalDuration > 0 ? dashboard.csTotal / (dashboard.totalDuration / 60) : 0,
+          avgGameLength:
+            dashboard.totalGames > 0 ? dashboard.totalDuration / dashboard.totalGames : 0,
+          avgGold: dashboard.avgGold,
+          goldTotal: dashboard.goldTotal,
+          teamAvgScore: dashboard.teamAvgScore,
         },
         records: {
           mostKills: toHomeRecord(records.bests.kills),
@@ -689,6 +713,27 @@ export function registerIpcHandlers() {
 
   ipcMain.handle("db:saved-summoners", () => {
     return db.listSavedSummoners();
+  });
+
+  ipcMain.handle("db:backfill-participant-scores", async (event) => {
+    const missing = db.getMissingScoreCount();
+    if (missing === 0) {
+      return { ok: true, skipped: true };
+    }
+
+    try {
+      const updated = await db.backfillParticipantScores((done, total) => {
+        senderWindow(event)?.webContents.send("lcu:participant-score-progress", {
+          phase: "scores",
+          done,
+          total,
+        });
+      });
+      return { ok: true, skipped: false, updated };
+    } catch (err) {
+      console.warn("[db] backfill-participant-scores handler failed:", err);
+      return { ok: false, error: err instanceof Error ? err.message : String(err) };
+    }
   });
 
   ipcMain.handle("db:delete-summoner", async (event, puuid: string) => {
