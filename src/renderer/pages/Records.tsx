@@ -221,12 +221,15 @@ function statCards(bests: RecordsData["bests"]): CardDef[] {
     label: "Highest Score",
     icon: <StarIcon className="w-3 h-3" />,
     accent: "gold",
-    value: (r) => (
-      <span className={scoreColor(r.value)}>
-        {r.value.toFixed(1)}
-        <span className="text-lg font-semibold text-lol-text/60"> / 10</span>
-      </span>
-    ),
+    value: (r) => {
+      const displayScore = Math.min(r.value, 10);
+      return (
+        <span className={scoreColor(r.value)}>
+          {displayScore.toFixed(1)}
+          <span className="text-lg font-semibold text-lol-text/60"> / 10</span>
+        </span>
+      );
+    },
   });
   add(bests.killingSpree, {
     key: "spree",
@@ -359,7 +362,8 @@ export default function Records() {
   const [searchParams, setSearchParams] = useSearchParams();
   const queueParam = searchParams.get("queue");
   const queue = queueParam ? Number(queueParam) : undefined;
-  const account = searchParams.get("account") || undefined;
+  const accountParam = searchParams.get("account") || undefined;
+  const account = accountParam || "all";
   const setQueue = (q: number | undefined) => {
     setSearchParams(
       (prev) => {
@@ -413,7 +417,7 @@ export default function Records() {
 
   const accountSelect = (
     <FilterSelect
-      value={account}
+      value={accountParam}
       onChange={(value) => setAccount(value)}
       placeholder="All Accounts"
       title="Account"

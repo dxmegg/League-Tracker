@@ -1,4 +1,4 @@
-import { NavLink } from "react-router-dom";
+import { NavLink, useLocation } from "react-router-dom";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useLcuStatus } from "../hooks/useLcuStatus";
 import { useBackfill } from "../hooks/useBackfill";
@@ -25,15 +25,22 @@ const statusLabels: Record<LcuStatus, string> = {
 const mainTabs = [
   { to: "/home", label: "HOME" },
   { to: "/local", label: "LOCAL ACCOUNT" },
-  { to: "/history/mayhem", label: "ARAM MAYHEM MATCHES" },
-  { to: "/history/aram", label: "ARAM MATCHES" },
-  { to: "/history/arena", label: "ARENA MATCHES" },
-  { to: "/history/ranked", label: "RANKED MATCHES" },
-  { to: "/history/normal", label: "NORMAL MATCHES" },
-  { to: "/", label: "FULL MATCH HISTORY" },
+  { to: "/champions", label: "CHAMPIONS" },
+  { to: "/items", label: "ITEMS" },
+  { to: "/augments", label: "AUGMENTS" },
+  { to: "/runes", label: "RUNES" },
+  { to: "/friends", label: "FRIENDS & FOES" },
+  { to: "/trends", label: "TRENDS" },
+  { to: "/records", label: "RECORDS" },
+  { to: "/data", label: "DATA" },
 ];
 
+const ACTIVE_TAIL: Record<string, string> = {
+  "/data": "total-stats",
+};
+
 export default function TopNav() {
+  const { pathname } = useLocation();
   const status = useLcuStatus();
   const { running: backfilling } = useBackfill();
   const tabsRef = useRef<HTMLDivElement>(null);
@@ -74,6 +81,17 @@ export default function TopNav() {
     }
   }, []);
 
+  const isLinkActive = (to: string) => {
+    if (to === "/home" || to === "/local") return pathname === to || pathname.startsWith(`${to}/`);
+    const tail = ACTIVE_TAIL[to] ?? to.slice(1);
+    return (
+      pathname === to ||
+      pathname.startsWith(`${to}/`) ||
+      pathname === `/history/full/${tail}` ||
+      pathname.startsWith(`/history/full/${tail}/`)
+    );
+  };
+
   return (
     <nav className="titlebar-drag h-14 w-full shrink-0 border-b border-lol-border/60 bg-lol-card/60 flex items-center">
       <button
@@ -100,18 +118,16 @@ export default function TopNav() {
       <div className="relative flex-1 min-w-0">
         <div
           ref={tabsRef}
-          className={`titlebar-no-drag no-scrollbar flex items-center gap-0.5 px-1 h-full ${
-            hasOverflow ? "overflow-x-auto" : "overflow-hidden"
-          }`}
+          className="titlebar-no-drag no-scrollbar flex min-w-0 items-center gap-0.5 overflow-x-auto px-1 h-full"
         >
           {mainTabs.map(({ to, label }) => (
             <NavLink
               key={to}
               to={to}
               end={to === "/"}
-              className={({ isActive }) =>
+              className={() =>
                 `titlebar-no-drag flex shrink-0 items-center gap-1.5 bevel-tab px-2.5 py-2 text-[10px] font-semibold tracking-wider transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-lol-gold/60 ${
-                  isActive
+                  isLinkActive(to)
                     ? "bg-lol-crimson/30 ring-1 ring-lol-gold/40 text-lol-text-bright"
                     : "text-lol-text hover:bg-white/5 hover:text-lol-text-bright"
                 }`

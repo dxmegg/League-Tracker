@@ -224,14 +224,6 @@ app.whenReady().then(async () => {
     return;
   }
 
-  runScoreBackfillIfNeeded((done, total) => {
-    mainWindow?.webContents.send("lcu:participant-score-progress", {
-      phase: "scores",
-      done,
-      total,
-    });
-  });
-
   try {
     reconcileOwnerPuuids();
     backfillMissingTrackedRows();
@@ -250,6 +242,13 @@ app.whenReady().then(async () => {
   // Recompute stored scores once champion class data is available, so the
   // backfill uses the same class weights as insert-time scoring.
   waitForChampionData().then(() => {
+    runScoreBackfillIfNeeded((done, total) => {
+      mainWindow?.webContents.send("lcu:participant-score-progress", {
+        phase: "scores",
+        done,
+        total,
+      });
+    });
     if (checkScoreBackfill()) {
       mainWindow?.webContents.send("lcu:games-updated");
     }

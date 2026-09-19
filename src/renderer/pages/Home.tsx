@@ -17,11 +17,19 @@ import ChampionIcon from "../components/ChampionIcon";
 import { HomeCard } from "../components/HomeCard";
 import SummonerIcon from "../components/SummonerIcon";
 import { useChampionData } from "../hooks/useChampions";
-import { HISTORY_SECTIONS_FULL } from "../lib/historySections";
 import { NavLink } from "react-router-dom";
 import { GameRow } from "./MatchHistory";
 
 const TIME_PERIODS: HomeTimePeriod[] = ["24h", "7d", "30d", "full"];
+
+const MATCH_HISTORY_LINKS = [
+  { to: "/", label: "Full Match History" },
+  { to: "/history/mayhem", label: "ARAM Mayhem History" },
+  { to: "/history/aram", label: "ARAM History" },
+  { to: "/history/arena", label: "Arena History" },
+  { to: "/history/ranked", label: "Ranked History" },
+  { to: "/history/normal", label: "Normal History" },
+];
 
 const QUEUE_FILTERS: Array<{ label: string; value: number | undefined }> = [
   { label: "All", value: undefined },
@@ -371,14 +379,15 @@ function QueueFilterChips({
   );
 }
 
-function QuickNavPanel() {
+function MatchHistoryNav() {
   return (
     <HomeCard className="p-4">
       <nav className="flex flex-col gap-0.5">
-        {HISTORY_SECTIONS_FULL.map(({ section, label }) => (
+        {MATCH_HISTORY_LINKS.map(({ to, label }) => (
           <NavLink
-            key={section}
-            to={`/history/full/${section}`}
+            key={to}
+            to={to}
+            end={to === "/"}
             className={({ isActive }) =>
               `block rounded-md px-3 py-2 text-xs font-bold tracking-wider transition-colors ${
                 isActive
@@ -428,29 +437,33 @@ function MatchListPanel({
   }, [account, queue]);
 
   return (
-    <div className={`flex flex-col gap-1 transition-opacity ${loading ? "opacity-50" : ""}`}>
-      {matches.map((match) => (
-        <GameRow
-          key={match.game_id}
-          match={match}
-          champData={champData}
-          expanded={false}
-          detail={null}
-          detailLoading={false}
-          puuids={null}
-          onToggle={() => undefined}
-          onContextMenu={() => undefined}
-          expandable={false}
-        />
-      ))}
-      {!loading && matches.length === 0 && (
-        <HomeCard className="flex flex-col items-center justify-center gap-2 p-6 text-center">
-          <p className="text-sm font-semibold text-lol-text-bright">
-            No games recorded in the last {timePeriodLabel(timePeriod)}
-          </p>
-          <p className="text-xs text-lol-text">Try a longer time period or a different filter.</p>
-        </HomeCard>
-      )}
+    <div
+      className={`flex h-full min-h-0 flex-col gap-1 transition-opacity ${loading ? "opacity-50" : ""}`}
+    >
+      <div className="flex-1 min-h-[280px] overflow-y-auto pr-1">
+        {matches.map((match) => (
+          <GameRow
+            key={match.game_id}
+            match={match}
+            champData={champData}
+            expanded={false}
+            detail={null}
+            detailLoading={false}
+            puuids={null}
+            onToggle={() => undefined}
+            onContextMenu={() => undefined}
+            expandable={false}
+          />
+        ))}
+        {!loading && matches.length === 0 && (
+          <HomeCard className="flex flex-col items-center justify-center gap-2 p-6 text-center">
+            <p className="text-sm font-semibold text-lol-text-bright">
+              No games recorded in the last {timePeriodLabel(timePeriod)}
+            </p>
+            <p className="text-xs text-lol-text">Try a longer time period or a different filter.</p>
+          </HomeCard>
+        )}
+      </div>
     </div>
   );
 }
@@ -482,7 +495,7 @@ export default function Home() {
   }, [account, timePeriod, queue]);
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex min-h-full flex-col gap-4">
       <div className="grid grid-cols-[2fr_1.5fr_1fr] items-stretch gap-4">
         <PlayerSummaryCard
           dashboard={dashboard}
@@ -495,12 +508,12 @@ export default function Home() {
         <RecordsCard dashboard={dashboard} loading={loading} />
         <EmptyPlaceholderCard />
       </div>
-      <div className="grid grid-cols-[220px_1fr] items-start gap-4">
+      <div className="grid flex-1 min-h-0 grid-cols-[220px_1fr] items-stretch gap-4">
         <div className="flex flex-col gap-3">
-          <div className="text-center text-xl font-bold text-lol-text-bright">Statistics</div>
-          <QuickNavPanel />
+          <div className="text-center text-xl font-bold text-lol-text-bright">Match History</div>
+          <MatchHistoryNav />
         </div>
-        <div className="flex flex-col gap-3">
+        <div className="flex min-h-0 flex-col gap-3">
           <div className="flex items-center gap-4">
             <div className="text-xl font-bold text-lol-text-bright">Last 20 played games</div>
             <QueueFilterChips value={queue} onChange={setQueue} />
