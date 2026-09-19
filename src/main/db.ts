@@ -12,6 +12,8 @@ import { AUGMENT_SLOTS, QUEUE_ID_MAYHEM_CLASSIC } from "../shared/queues";
 import {
   ARENA_QUEUE_IDS,
   MAYHEM_QUEUE_IDS,
+  NO_CS_QUEUE_IDS,
+  NO_STATS_QUEUE_IDS,
   QUEUE_GROUP_ARENA,
   QUEUE_SCOPE_NORMAL,
   QUEUE_SCOPE_ARAM,
@@ -31,6 +33,7 @@ export type GameSource = "lcu" | "riot-sync" | "search-import";
 const EXCLUDED_ITEM_IDS = [2052, 220013];
 
 let db: Database.Database;
+let scoreBackfillInFlight = false;
 
 export function getDbPath() {
   return path.join(getDataDir(), "matches.db");
@@ -1596,55 +1599,82 @@ export function getMissingScoreCount(): number {
 export async function backfillParticipantScores(
   onProgress: (done: number, total: number) => void,
 ): Promise<number> {
-  console.log("[db] backfillParticipantScores called:", {});
-  const total = (
-    db.prepare("SELECT COUNT(*) as n FROM games WHERE raw_gz IS NOT NULL").get() as {
-      n: number;
-    }
-  ).n;
-  const pageSize = 100;
-  const updateScore = db.prepare(
-    "UPDATE match_participants SET score = ? WHERE game_id = ? AND participant_id = ?",
-  );
-  let done = 0;
-  let updated = 0;
+  if (scoreBackfillInFlight) return 0;
+  scoreBackfillInFlight = true;
 
-  while (done < total) {
-    const rows = db
-      .prepare(
-        `SELECT game_id, raw_gz
-         FROM games
-         WHERE raw_gz IS NOT NULL
-         ORDER BY game_id
+  try {
+    console.log("[db] backfillParticipantScores called:", {});
+    const total = (
+      db
+        .prepare(
+          `SELECT COUNT(*) as n
+         FROM games g
+         WHERE g.raw_gz IS NOT NULL
+           AND EXISTS (
+             SELECT 1 FROM match_participants mp
+             WHERE mp.game_id = g.game_id AND mp.score IS NULL
+           )`,
+        )
+        .get() as { n: number }
+    ).n;
+    const pageSize = 100;
+    const updateScore = db.prepare(
+      "UPDATE match_participants SET score = ? WHERE game_id = ? AND participant_id = ?",
+    );
+    let done = 0;
+    let updated = 0;
+
+    while (done < total) {
+      const rows = db
+        .prepare(
+          `SELECT g.game_id, g.raw_gz
+         FROM games g
+         WHERE g.raw_gz IS NOT NULL
+           AND EXISTS (
+             SELECT 1 FROM match_participants mp
+             WHERE mp.game_id = g.game_id AND mp.score IS NULL
+           )
+         ORDER BY g.game_id
          LIMIT ? OFFSET ?`,
-      )
-      .all(pageSize, done) as { game_id: number; raw_gz: Buffer }[];
-    if (rows.length === 0) break;
+        )
+        .all(pageSize, 0) as { game_id: number; raw_gz: Buffer }[];
+      if (rows.length === 0) break;
 
-    const updatePage = db.transaction(() => {
-      for (const row of rows) {
-        const raw = unpackRaw(row.raw_gz);
-        const participants = participantRowsFromRaw(raw);
-        const scores = computeMatchScores(
-          scoreInputsFromRows(participants as ScoreRow[]),
-          getChampionClasses(),
-        );
-        for (const participant of participants) {
-          const score = scores.get(participant.participant_id)?.score ?? null;
-          updated += updateScore.run(score, row.game_id, participant.participant_id).changes;
+      const updatePage = db.transaction(() => {
+        for (const row of rows) {
+          const raw = unpackRaw(row.raw_gz);
+          const participants = participantRowsFromRaw(raw);
+          const scores = computeMatchScores(
+            scoreInputsFromRows(participants as ScoreRow[]),
+            getChampionClasses(),
+          );
+          for (const participant of participants) {
+            const score = scores.get(participant.participant_id)?.score ?? null;
+            updated += updateScore.run(score, row.game_id, participant.participant_id).changes;
+          }
+
+          done++;
+          if (done % 50 === 0) onProgress(done, total);
         }
+      });
+      updatePage();
+      await new Promise<void>((resolve) => setImmediate(resolve));
+    }
 
-        done++;
-        if (done % 50 === 0) onProgress(done, total);
-      }
-    });
-    updatePage();
-    await new Promise<void>((resolve) => setImmediate(resolve));
+    if (done > 0 && done % 50 !== 0) onProgress(done, total);
+    console.log("[db] backfillParticipantScores done:", { done, total, updated });
+    return updated;
+  } finally {
+    scoreBackfillInFlight = false;
   }
+}
 
-  if (done > 0 && done % 50 !== 0) onProgress(done, total);
-  console.log("[db] backfillParticipantScores done:", { done, total, updated });
-  return updated;
+export function runScoreBackfillIfNeeded(onProgress?: (done: number, total: number) => void): void {
+  if (scoreBackfillInFlight) return;
+  if (getMissingScoreCount() === 0) return;
+  void backfillParticipantScores(onProgress ?? (() => undefined)).catch((err) => {
+    console.warn("[db] runScoreBackfillIfNeeded failed:", err);
+  });
 }
 
 function backfillScores() {
@@ -2262,6 +2292,7 @@ export function getChampionStatsAll(
   }
   applyQueueFilter(where, params, queue);
   const timeFilter = applyTimeFilter(timePeriod);
+  const statsPlaceholders = NO_STATS_QUEUE_IDS.map(() => "?").join(",");
   return db
     .prepare(`
     SELECT
@@ -2286,10 +2317,11 @@ export function getChampionStatsAll(
     FROM ${source.table} ${source.alias}
     JOIN games g ON ${source.alias}.game_id = g.game_id
     WHERE ${where.join(" AND ")} ${timeFilter.sql}
+      AND g.queue_id NOT IN (${statsPlaceholders})
     GROUP BY ps.champion_id
     ORDER BY games DESC
   `)
-    .all(...params, ...timeFilter.params);
+    .all(...params, ...timeFilter.params, ...NO_STATS_QUEUE_IDS);
 }
 
 export function getAugmentStatsAll(
@@ -2334,6 +2366,9 @@ export function getAugmentStatsAll(
     .all(...params);
 }
 
+const EXCLUDED_STATS_SQL = NO_STATS_QUEUE_IDS.join(", ");
+const EXCLUDED_CS_SQL = [...NO_CS_QUEUE_IDS, ...NO_STATS_QUEUE_IDS].join(", ");
+
 export function getDashboardData(
   filters?: {
     championId?: number;
@@ -2365,27 +2400,27 @@ export function getDashboardData(
     SELECT COUNT(*) as totalGames,
            SUM(g.game_duration) as totalDuration,
            SUM(ps.win) as wins,
-           SUM(ps.kills) as totalKills,
-           SUM(ps.deaths) as totalDeaths,
-           SUM(ps.assists) as totalAssists,
-           AVG(ps.total_damage_dealt) as avgDamageDealt,
-           AVG(ps.total_damage_taken) as avgDamageTaken,
-           AVG(ps.total_heal) as avgDamageHealed,
-           AVG(ps.cs) as avgCs,
-           SUM(ps.cs) as csTotal,
-           AVG(ps.gold_earned) as avgGold,
-           SUM(ps.gold_earned) as goldTotal,
-           SUM(ps.double_kills) as doubles,
-           SUM(ps.triple_kills) as triples,
-           SUM(ps.quadra_kills) as quadras,
-           SUM(ps.penta_kills) as pentas,
-           COUNT(CASE WHEN ps.double_kills > 0 THEN 1 END) as gamesWithDoubles,
-           COUNT(CASE WHEN ps.triple_kills > 0 THEN 1 END) as gamesWithTriples,
-           COUNT(CASE WHEN ps.quadra_kills > 0 THEN 1 END) as gamesWithQuadras,
-           COUNT(CASE WHEN ps.penta_kills > 0 THEN 1 END) as gamesWithPentas,
-           AVG(ps.score) as avgScore,
-           SUM(CASE WHEN ps.score_badge = 'MVP' THEN 1 ELSE 0 END) as mvps,
-           SUM(CASE WHEN ps.score_badge = 'ACE' THEN 1 ELSE 0 END) as aces,
+           SUM(CASE WHEN g.queue_id NOT IN (${EXCLUDED_STATS_SQL}) THEN ps.kills ELSE 0 END) as totalKills,
+           SUM(CASE WHEN g.queue_id NOT IN (${EXCLUDED_STATS_SQL}) THEN ps.deaths ELSE 0 END) as totalDeaths,
+           SUM(CASE WHEN g.queue_id NOT IN (${EXCLUDED_STATS_SQL}) THEN ps.assists ELSE 0 END) as totalAssists,
+           AVG(CASE WHEN g.queue_id NOT IN (${EXCLUDED_STATS_SQL}) THEN ps.total_damage_dealt END) as avgDamageDealt,
+           AVG(CASE WHEN g.queue_id NOT IN (${EXCLUDED_STATS_SQL}) THEN ps.total_damage_taken END) as avgDamageTaken,
+           AVG(CASE WHEN g.queue_id NOT IN (${EXCLUDED_STATS_SQL}) THEN ps.total_heal END) as avgDamageHealed,
+           AVG(CASE WHEN g.queue_id NOT IN (${EXCLUDED_CS_SQL}) THEN ps.cs END) as avgCs,
+           SUM(CASE WHEN g.queue_id NOT IN (${EXCLUDED_CS_SQL}) THEN ps.cs END) as csTotal,
+           AVG(CASE WHEN g.queue_id NOT IN (${EXCLUDED_STATS_SQL}) THEN ps.gold_earned END) as avgGold,
+           SUM(CASE WHEN g.queue_id NOT IN (${EXCLUDED_STATS_SQL}) THEN ps.gold_earned END) as goldTotal,
+           SUM(CASE WHEN g.queue_id NOT IN (${EXCLUDED_STATS_SQL}) THEN ps.double_kills ELSE 0 END) as doubles,
+           SUM(CASE WHEN g.queue_id NOT IN (${EXCLUDED_STATS_SQL}) THEN ps.triple_kills ELSE 0 END) as triples,
+           SUM(CASE WHEN g.queue_id NOT IN (${EXCLUDED_STATS_SQL}) THEN ps.quadra_kills ELSE 0 END) as quadras,
+           SUM(CASE WHEN g.queue_id NOT IN (${EXCLUDED_STATS_SQL}) THEN ps.penta_kills ELSE 0 END) as pentas,
+           COUNT(CASE WHEN g.queue_id NOT IN (${EXCLUDED_STATS_SQL}) AND ps.double_kills > 0 THEN 1 END) as gamesWithDoubles,
+           COUNT(CASE WHEN g.queue_id NOT IN (${EXCLUDED_STATS_SQL}) AND ps.triple_kills > 0 THEN 1 END) as gamesWithTriples,
+           COUNT(CASE WHEN g.queue_id NOT IN (${EXCLUDED_STATS_SQL}) AND ps.quadra_kills > 0 THEN 1 END) as gamesWithQuadras,
+           COUNT(CASE WHEN g.queue_id NOT IN (${EXCLUDED_STATS_SQL}) AND ps.penta_kills > 0 THEN 1 END) as gamesWithPentas,
+           AVG(CASE WHEN g.queue_id NOT IN (${EXCLUDED_STATS_SQL}) THEN ps.score END) as avgScore,
+           SUM(CASE WHEN g.queue_id NOT IN (${EXCLUDED_STATS_SQL}) AND ps.score_badge = 'MVP' THEN 1 ELSE 0 END) as mvps,
+           SUM(CASE WHEN g.queue_id NOT IN (${EXCLUDED_STATS_SQL}) AND ps.score_badge = 'ACE' THEN 1 ELSE 0 END) as aces,
            SUM(CASE WHEN ps.score IS NOT NULL AND ps.win = 1 THEN 1 ELSE 0 END) as scoredWins,
            SUM(CASE WHEN ps.score IS NOT NULL AND ps.win = 0 THEN 1 ELSE 0 END) as scoredLosses,
            -- Every total here pools all tracked accounts; games whose owner was
@@ -2419,7 +2454,7 @@ export function getDashboardData(
       ROUND(AVG(ps.assists), 1) as avg_assists
     FROM ${source.table} ${source.alias}
     JOIN games g ON ${source.alias}.game_id = g.game_id
-    ${whereSql}
+    ${whereSql} AND g.queue_id NOT IN (${EXCLUDED_STATS_SQL})
     GROUP BY ps.champion_id
     ORDER BY games DESC
     LIMIT 5
@@ -2442,7 +2477,7 @@ export function getDashboardData(
     .prepare(`
   SELECT ${augmentId} as augment_id, COUNT(*) as picks, SUM(ps.win) as wins
   ${augmentSource}
-  ${whereSql}
+  ${whereSql} AND g.queue_id NOT IN (${EXCLUDED_STATS_SQL})
   GROUP BY ${augmentId}
     ORDER BY picks DESC
     LIMIT 5
@@ -2456,13 +2491,16 @@ export function getDashboardData(
   JOIN ${source.table} ${source.alias} ON g.game_id = ${source.alias}.game_id
   JOIN match_participants owner
     ON owner.game_id = g.game_id
-    AND owner.puuid = g.puuid
+    AND owner.champion_id = ${source.alias}.champion_id
+    AND owner.kills = ${source.alias}.kills
+    AND owner.deaths = ${source.alias}.deaths
+    AND owner.assists = ${source.alias}.assists
   JOIN match_participants mp
     ON mp.game_id = g.game_id
     AND mp.team_id = owner.team_id
-    AND mp.puuid != owner.puuid
+    AND mp.participant_id != owner.participant_id
     AND mp.score IS NOT NULL
-  ${whereSql}
+  ${whereSql} AND g.queue_id NOT IN (${EXCLUDED_STATS_SQL})
   `)
     .get(...queryParams) as { teamAvgScore: number | null } | undefined;
 
@@ -4965,6 +5003,7 @@ export function getRecords(
   const params: any[] = account && account !== "all" ? [account] : [];
   applyQueueFilter(where, params, queue);
   const timeFilter = applyTimeFilter(timePeriod);
+  const statsPlaceholders = NO_STATS_QUEUE_IDS.map(() => "?").join(",");
 
   const rows = db
     .prepare(`
@@ -4976,9 +5015,10 @@ export function getRecords(
       FROM games g
       JOIN ${source.table} ps ON g.game_id = ps.game_id
       WHERE ${where.join(" AND ")} ${timeFilter.sql}
+        AND g.queue_id NOT IN (${statsPlaceholders})
       ORDER BY g.game_creation ASC
     `)
-    .all(...params, ...timeFilter.params) as any[];
+    .all(...params, ...timeFilter.params, ...NO_STATS_QUEUE_IDS) as any[];
 
   // Just enough of the game to render a record's context and open its match
   const matchOf = (r: any) => ({

@@ -5,8 +5,7 @@ import {
   getSetting,
   checkScoreBackfill,
   backfillMissingTrackedRows,
-  getMissingScoreCount,
-  backfillParticipantScores,
+  runScoreBackfillIfNeeded,
   reconcileOwnerPuuids,
   reconcileAllParticipantNames,
 } from "./db";
@@ -225,17 +224,13 @@ app.whenReady().then(async () => {
     return;
   }
 
-  if (getMissingScoreCount() > 0) {
-    void backfillParticipantScores((done, total) => {
-      mainWindow?.webContents.send("lcu:participant-score-progress", {
-        phase: "scores",
-        done,
-        total,
-      });
-    }).catch((err) => {
-      console.warn("[db] auto participant score backfill failed:", err);
+  runScoreBackfillIfNeeded((done, total) => {
+    mainWindow?.webContents.send("lcu:participant-score-progress", {
+      phase: "scores",
+      done,
+      total,
     });
-  }
+  });
 
   try {
     reconcileOwnerPuuids();

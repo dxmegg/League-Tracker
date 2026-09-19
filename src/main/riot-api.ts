@@ -67,7 +67,11 @@ const ROUTES: Record<string, RiotRegionalRoute> = {
   vn2: "sea",
 };
 
-export function regionalRoute(platform: string): RiotRegionalRoute {
+export function regionalRoute(platform: string | null | undefined): RiotRegionalRoute {
+  if (!platform) {
+    console.warn("[riot-api] regionalRoute called without platform, defaulting to europe");
+    return "europe";
+  }
   const normalized = platform.trim().toLowerCase();
   return ROUTES[normalized] ?? "americas";
 }
