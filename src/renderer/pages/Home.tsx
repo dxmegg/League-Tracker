@@ -212,11 +212,76 @@ function PlayerSummaryCard({
   );
 }
 
-function RecordsPlaceholderCard() {
+function formatShortDate(ts: number): string {
+  return new Date(ts).toLocaleDateString("en-GB", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+  });
+}
+
+function RecordTile({
+  label,
+  record,
+}: {
+  label: string;
+  record: {
+    value: number;
+    championId: number;
+    gameId: number;
+    gameCreation: number;
+    win: number;
+  } | null;
+}) {
   return (
-    <div className="noxus-card flex h-full flex-col justify-center p-5 xl:p-6 2xl:p-7">
-      <div className="text-center text-2xl font-bold text-lol-text-bright">Records</div>
-      <div className="mt-2 text-center text-xs text-lol-text">(coming in the next step)</div>
+    <div className="flex flex-col gap-1.5 rounded-md border border-lol-border/40 bg-white/[0.02] p-3">
+      <div className="text-[10px] font-bold uppercase tracking-wider text-lol-text">{label}</div>
+      <div className="text-center text-2xl font-bold text-lol-text-bright">
+        {record ? record.value.toLocaleString() : "—"}
+      </div>
+      {record && (
+        <div className="mt-auto flex items-center gap-2">
+          <ChampionIcon championId={record.championId} size={28} />
+          <div className="min-w-0 flex-1">
+            <div
+              className={`text-[10px] font-bold uppercase tracking-wider ${
+                record.win ? "text-lol-win" : "text-lol-loss"
+              }`}
+            >
+              {record.win ? "WIN" : "LOSS"}
+            </div>
+            <div className="text-[10px] text-lol-text">{formatShortDate(record.gameCreation)}</div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function RecordsCard({
+  dashboard,
+  loading,
+}: {
+  dashboard: HomeDashboardPayload | null;
+  loading: boolean;
+}) {
+  const records = dashboard?.records;
+
+  return (
+    <div className="noxus-card flex h-full flex-col p-5 xl:p-6 2xl:p-7">
+      <div
+        className={`flex h-full flex-col gap-3 transition-opacity ${loading ? "opacity-50" : ""}`}
+      >
+        <div className="text-center text-2xl font-bold text-lol-text-bright">Records</div>
+        <div className="grid flex-1 grid-cols-3 gap-3">
+          <RecordTile label="Most Kills" record={records?.mostKills ?? null} />
+          <RecordTile label="Most Deaths" record={records?.mostDeaths ?? null} />
+          <RecordTile label="Most Assists" record={records?.mostAssists ?? null} />
+          <RecordTile label="Most Damage" record={records?.mostDamage ?? null} />
+          <RecordTile label="Biggest Crit" record={records?.biggestCrit ?? null} />
+          <RecordTile label="Most CS" record={records?.mostCs ?? null} />
+        </div>
+      </div>
     </div>
   );
 }
@@ -262,7 +327,7 @@ export default function Home() {
           timePeriod={timePeriod}
           onTimePeriodChange={setTimePeriod}
         />
-        <RecordsPlaceholderCard />
+        <RecordsCard dashboard={dashboard} loading={loading} />
         <EmptyPlaceholderCard />
       </div>
     </div>
