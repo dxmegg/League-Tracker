@@ -1116,16 +1116,18 @@ function MatchMultikillBadges({
   ).filter(([, count]) => count > 0);
 
   return (
-    <div className="flex flex-wrap gap-1">
-      {badges.map(([label, count]) => (
-        <span
-          key={label}
-          className={`text-[10px] font-bold tracking-wide px-2 py-0.5 rounded-full border backdrop-blur-sm whitespace-nowrap ${badgeStyles[label]}`}
-        >
-          {label}
-          {count > 1 ? ` x${count}` : ""}
-        </span>
-      ))}
+    <div className="min-w-0 overflow-hidden">
+      <div className="grid grid-cols-2 gap-1 w-[200px]">
+        {badges.map(([label, count]) => (
+          <span
+            key={label}
+            className={`w-full inline-flex items-center justify-center text-[10px] font-bold tracking-wide px-2 py-0.5 rounded-full border backdrop-blur-sm whitespace-nowrap ${badgeStyles[label]}`}
+          >
+            {label}
+            {count > 1 ? ` x${count}` : ""}
+          </span>
+        ))}
+      </div>
     </div>
   );
 }
@@ -1182,14 +1184,14 @@ export function GameRow({
       <button
         onClick={onToggle}
         onContextMenu={onContextMenu}
-        className={`group relative grid min-w-0 w-full items-center gap-3 overflow-hidden px-5 pr-[120px] py-3 rounded-2xl text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-lol-gold/60 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--theme-bg-deep)] ${
+        className={`group relative grid min-w-0 w-full items-center gap-2 overflow-hidden px-5 pr-[140px] py-4 rounded-2xl text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-lol-gold/60 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--theme-bg-deep)] ${
           isWin
             ? "border border-lol-win/35 hover:border-lol-win/60"
             : "border border-lol-loss/32 hover:border-lol-loss/60"
         }`}
         style={{
           background: rowBackground,
-          gridTemplateColumns: "95px 72px 200px 58px 52px minmax(120px, 340px) 165px 200px 1fr",
+          gridTemplateColumns: "95px 84px 170px 64px 56px minmax(140px, 200px) 180px 220px 1fr",
         }}
       >
         <span
@@ -1215,7 +1217,7 @@ export function GameRow({
         </div>
         <div className="flex min-w-0 items-center gap-1">
           <div
-            className={`w-[42px] h-[42px] rounded-full overflow-hidden shrink-0 border-2 ${
+            className={`w-[52px] h-[52px] rounded-full overflow-hidden shrink-0 border-[3px] ${
               isWin
                 ? "border-lol-win shadow-[0_0_10px_rgba(63,214,122,0.4)]"
                 : "border-lol-loss shadow-[0_0_10px_rgba(239,106,106,0.35)]"
@@ -1223,25 +1225,25 @@ export function GameRow({
           >
             <ChampionIcon
               championId={match.champion_id}
-              size={42}
+              size={52}
               className="w-full h-full rounded-full object-cover"
             />
           </div>
           <div className="flex flex-col gap-0.5">
             <SummonerSpellIcon
               spellId={match.spell1}
-              size={16}
-              className="w-4 h-4 rounded-[3px] object-cover"
+              size={18}
+              className="w-[18px] h-[18px] rounded-[3px] object-cover"
             />
             <SummonerSpellIcon
               spellId={match.spell2}
-              size={16}
-              className="w-4 h-4 rounded-[3px] object-cover"
+              size={18}
+              className="w-[18px] h-[18px] rounded-[3px] object-cover"
             />
           </div>
         </div>
         <div className="min-w-0">
-          <div className="text-sm font-black tracking-tight text-lol-text-bright truncate">
+          <div className="text-base font-black tracking-tight text-lol-text-bright truncate">
             {getChampionName(champData, match.champion_id)}
           </div>
           <div className="text-[13px] text-lol-text">
@@ -1264,9 +1266,9 @@ export function GameRow({
           })()}
         </div>
         <div className="flex min-w-0 flex-col items-end text-right tabular-nums">
-          <span className="text-sm text-lol-text-bright">{match.cs ?? 0}</span>
+          <span className="text-base text-lol-text-bright">{match.cs ?? 0}</span>
           {!isRemake && match.game_duration > 0 && (
-            <span className="text-[10px] text-lol-text">
+            <span className="text-[11px] text-lol-text">
               {((match.cs ?? 0) / (match.game_duration / 60)).toFixed(1)} CS/min
             </span>
           )}
@@ -1355,7 +1357,7 @@ export function GameRow({
             )}
           </div>
         </div>
-        <div className="flex min-w-0 flex-wrap items-center gap-1 overflow-hidden">
+        <div className="min-w-0 overflow-hidden">
           <MatchMultikillBadges
             doubles={match.double_kills}
             triples={match.triple_kills}
