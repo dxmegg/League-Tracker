@@ -823,15 +823,15 @@ export function registerIpcHandlers() {
       filters: [{ name: "JSON", extensions: ["json"] }],
       properties: ["openFile" as const],
     };
-    const result = win
+    const dialogResult = win
       ? await dialog.showOpenDialog(win, options)
       : await dialog.showOpenDialog(options);
-    if (result.canceled || !result.filePaths[0]) return { success: false };
+    if (dialogResult.canceled || !dialogResult.filePaths[0]) return { success: false };
     // Anything can be chosen in that dialog, so unreadable files, malformed
     // JSON and well-formed JSON that isn't a backup all have to come back as
     // messages rather than as a thrown "Error invoking remote method".
     try {
-      const raw = await fs.promises.readFile(result.filePaths[0], "utf-8");
+      const raw = await fs.promises.readFile(dialogResult.filePaths[0], "utf-8");
       const data = JSON.parse(raw);
       if (!data || typeof data !== "object" || !Array.isArray(data.games)) {
         return { success: false, error: "That file isn't a Mayhem Tracker backup" };
@@ -839,8 +839,13 @@ export function registerIpcHandlers() {
       // Snapshot first: an import writes into every table, and this is the last
       // moment the database is known to be in the state the user chose it from.
       await backup.backupQuietly("pre-import");
-      const imported = db.importData(data);
-      return { success: true, imported };
+      const result = db.importData(data);
+      return {
+        success: true,
+        imported: result.imported,
+        total: result.total,
+        skipped: result.skipped,
+      };
     } catch (err: any) {
       const reason = err instanceof SyntaxError ? "it isn't valid JSON" : err.message;
       return { success: false, error: `Import failed: ${reason}` };

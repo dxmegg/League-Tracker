@@ -399,8 +399,17 @@ export default function Settings() {
     try {
       const result = await window.api.importData();
       if (result.success) {
+        const imported = result.imported ?? 0;
+        const total = result.total ?? 0;
+        const skipped = result.skipped ?? 0;
+        const message =
+          skipped === 0 && imported > 0
+            ? `Imported ${imported} games`
+            : imported === 0 && total > 0
+              ? `All ${total} games were already in the database`
+              : `Imported ${imported} new games (${skipped} already present)`;
         setImportStatus({
-          message: `Imported ${result.imported ?? 0} games`,
+          message,
           error: false,
         });
       } else if (result.error) {

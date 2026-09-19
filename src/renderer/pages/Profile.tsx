@@ -92,7 +92,7 @@ function RankCard({
   entry,
   recentGames,
   championData,
-  isLive,
+  isLive: _isLive,
 }: {
   title: string;
   entry: ProfileRankedEntry | null;
