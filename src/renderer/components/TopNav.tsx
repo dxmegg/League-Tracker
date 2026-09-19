@@ -25,6 +25,7 @@ const statusLabels: Record<LcuStatus, string> = {
 const mainTabs = [
   { to: "/home", label: "HOME" },
   { to: "/local", label: "LOCAL ACCOUNT" },
+  { to: "/history", label: "HISTORY" },
   { to: "/champions", label: "CHAMPIONS" },
   { to: "/items", label: "ITEMS" },
   { to: "/augments", label: "AUGMENTS" },
@@ -82,6 +83,7 @@ export default function TopNav() {
   }, []);
 
   const isLinkActive = (to: string) => {
+    if (to === "/history") return pathname === "/history" || pathname === "/";
     if (to === "/home" || to === "/local") return pathname === to || pathname.startsWith(`${to}/`);
     const tail = ACTIVE_TAIL[to] ?? to.slice(1);
     return (

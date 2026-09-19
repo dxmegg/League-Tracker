@@ -1,4 +1,4 @@
-import { HashRouter, Routes, Route } from "react-router-dom";
+import { HashRouter, Navigate, Routes, Route } from "react-router-dom";
 import { FullHistoryShell } from "./components/FullHistoryShell";
 import { SectionChrome } from "./components/SectionChrome";
 import MatchHistory from "./pages/MatchHistory";
@@ -84,7 +84,8 @@ export default function App() {
     <HashRouter>
       <Routes>
         <Route element={<FullHistoryShell />}>
-          <Route path="/" element={<MatchHistory />} />
+          <Route path="/" element={<Navigate to="/home" replace />} />
+          <Route path="/history" element={<MatchHistory />} />
           <Route path="/history/full/:section" element={<HistorySection />} />
           <Route path="/history/:scope/:section" element={<HistorySection />} />
           <Route
