@@ -5022,6 +5022,7 @@ export function getRecords(
   account?: string,
   timePeriod?: "24h" | "7d" | "30d" | "full",
 ): any {
+  if (account === undefined) account = "all";
   const source = statsSource(account);
   const where = ["g.is_remake = 0"];
   where.push(source.accountFilter);
@@ -5033,15 +5034,16 @@ export function getRecords(
   const rows = db
     .prepare(`
       SELECT g.game_id, g.game_creation, g.game_duration, g.queue_id,
+             ps.puuid,
              ps.champion_id, ps.win, ps.kills, ps.deaths, ps.assists,
              ps.total_damage_dealt, ps.total_damage_taken,
-             ps.gold_earned, ps.total_heal, ps.largest_killing_spree, ps.score,
+             ps.gold_earned, ps.total_heal, ps.largest_killing_spree, ps.score, ps.score_raw,
              ps.total_damage_dealt_all, ps.true_damage_dealt, ps.cs, ps.largest_critical_strike
       FROM games g
       JOIN ${source.table} ps ON g.game_id = ps.game_id
       WHERE ${where.join(" AND ")} ${timeFilter.sql}
         AND g.queue_id NOT IN (${statsPlaceholders})
-      ORDER BY g.game_creation ASC
+      ORDER BY ps.puuid ASC, g.game_creation ASC, g.game_id ASC
     `)
     .all(...params, ...timeFilter.params, ...NO_STATS_QUEUE_IDS) as any[];
 
@@ -5095,6 +5097,7 @@ export function getRecords(
   let winStreak: Streak | null = null;
   let lossStreak: Streak | null = null;
   let run: { win: number; length: number; start: number } | null = null;
+  let lastPuuid: string | null = null;
 
   for (const r of rows) {
     track("kills", r.kills, r);
@@ -5103,7 +5106,7 @@ export function getRecords(
     // Deathless games rank by kills+assists rather than dividing by zero; the
     // renderer still labels them "Perfect"
     track("kda", (r.kills + r.assists) / Math.max(r.deaths, 1), r);
-    track("score", r.score, r);
+    track("score", r.score_raw, r);
     track("killingSpree", r.largest_killing_spree, r);
     track("damage", r.total_damage_dealt, r);
     track("damageTaken", r.total_damage_taken, r);
@@ -5121,9 +5124,10 @@ export function getRecords(
     track("longestGame", r.game_duration, r);
 
     // Remakes never make it into rows, so they can't break a streak
-    if (!run || run.win !== r.win) {
+    if (!run || run.win !== r.win || lastPuuid !== r.puuid) {
       run = { win: r.win, length: 0, start: r.game_creation };
     }
+    lastPuuid = r.puuid;
     run.length++;
     const record: Streak = {
       length: run.length,
