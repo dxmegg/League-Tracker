@@ -93,14 +93,12 @@ function RankCard({
   recentGames,
   championData,
   isLive,
-  hasCachedData,
 }: {
   title: string;
   entry: ProfileRankedEntry | null;
   recentGames?: ProfileRecentGame[] | null;
   championData: ChampionData;
   isLive: boolean;
-  hasCachedData: boolean;
 }) {
   return (
     <div className="relative rounded-lg border border-lol-crimson/40 bg-[linear-gradient(145deg,#0c0e11_0%,#090b0d_48%,#060809_100%)] p-5 pl-6 shadow-[0_0_3px_rgba(150,30,30,0.55),0_0_10px_rgba(90,15,15,0.35),0_0_20px_rgba(60,10,10,0.20)] ring-1 ring-inset ring-white/[0.03] overflow-visible">
@@ -161,9 +159,7 @@ function RankCard({
           </div>
         </div>
       ) : (
-        <p className="text-sm text-lol-text">
-          {!isLive && hasCachedData ? "Log in with this account to sync rank" : "Unranked"}
-        </p>
+        <p className="text-sm text-lol-text">Unranked</p>
       )}
     </div>
   );
@@ -621,6 +617,9 @@ export default function Profile() {
   const [profile, setProfile] = useState<ProfileData | null>(null);
   const [recentMatches, setRecentMatches] = useState<MatchListItem[] | null>(null);
   const [recentMatchesAvailable, setRecentMatchesAvailable] = useState(0);
+  const [recentMatchesLoadingMore, setRecentMatchesLoadingMore] = useState(false);
+  const recentOffsetRef = useRef(0);
+  const canLoadMore = (recentMatches?.length ?? 0) < recentMatchesAvailable;
   // TODO: cleanup in Phase 15 — unused setter
   const [recentMatchesLoading, _setRecentMatchesLoading] = useState(false);
   // TODO: cleanup in Phase 15 — unused setter
@@ -649,6 +648,7 @@ export default function Profile() {
 
   useEffect(() => {
     selectedPuuidRef.current = selectedPuuid;
+    recentOffsetRef.current = 0;
   }, [selectedPuuid]);
   profileRef.current = profile;
 
@@ -731,7 +731,7 @@ export default function Profile() {
         try {
           let profileData: ProfileData;
 
-          if (livePuuid === null || puuid === livePuuid) {
+          if (livePuuid !== null && puuid === livePuuid) {
             let profileIconId = 0;
             let currentSummoner: CurrentSummoner | null = null;
             try {
@@ -810,6 +810,7 @@ export default function Profile() {
           log.log("profile loaded", { puuid, icon: profileData.profileIconId });
           setRecentMatches(localRecentMatches.matches);
           setRecentMatchesAvailable(localRecentMatches.total);
+          recentOffsetRef.current = localRecentMatches.matches.length;
           setQueueStats(queueStatsData);
         } catch (err: unknown) {
           if (requestId !== loadRequestIdRef.current) return;
@@ -828,6 +829,26 @@ export default function Profile() {
       }),
     [livePuuid, log],
   );
+
+  const loadMoreRecentMatches = useCallback(async () => {
+    if (!canLoadMore || recentMatchesLoadingMore) return;
+    const puuid = selectedPuuidRef.current;
+    if (!puuid) return;
+
+    setRecentMatchesLoadingMore(true);
+    try {
+      const result = await window.api.getMatchHistory(20, recentOffsetRef.current, {
+        account: puuid,
+        ignoreHiddenQueues: true,
+      });
+      if (selectedPuuidRef.current !== puuid) return;
+      setRecentMatches((prev) => [...(prev ?? []), ...result.matches]);
+      recentOffsetRef.current += result.matches.length;
+      setRecentMatchesAvailable(result.total);
+    } finally {
+      setRecentMatchesLoadingMore(false);
+    }
+  }, [canLoadMore, recentMatchesLoadingMore]);
 
   const handleToggleRecentMatch = useCallback(
     async (gameId: number) => {
@@ -1163,20 +1184,18 @@ export default function Profile() {
           entry={profile.rankedSolo}
           championData={championData}
           isLive={selectedPuuid === livePuuid}
-          hasCachedData={Boolean(selectedAccount?.lastSeen)}
         />
         <RankCard
           title="Ranked Flex"
           entry={profile.rankedFlex}
           championData={championData}
           isLive={selectedPuuid === livePuuid}
-          hasCachedData={Boolean(selectedAccount?.lastSeen)}
         />
       </div>
 
       <RecentRiotMatchesSection
         matches={recentMatches}
-        loading={recentMatchesLoading}
+        loading={recentMatchesLoading || recentMatchesLoadingMore}
         error={recentMatchesError}
         puuids={null}
         onPlayerClick={() => undefined}
@@ -1184,12 +1203,12 @@ export default function Profile() {
         detail={recentDetail}
         detailLoading={recentDetailLoading}
         availableCount={recentMatchesAvailable}
-        canLoadMore={false}
+        canLoadMore={canLoadMore}
         champData={championData}
         refreshing={false}
         summary={null}
         onToggle={handleToggleRecentMatch}
-        onLoadMore={() => undefined}
+        onLoadMore={loadMoreRecentMatches}
         onRefresh={() => undefined}
         onContextMenu={() => undefined}
       />
