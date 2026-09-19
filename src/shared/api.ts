@@ -398,6 +398,12 @@ export interface HomeDashboardPayload {
     avgGold: number;
     goldTotal: number;
     teamAvgScore: number;
+    multikills: {
+      doubles: number;
+      triples: number;
+      quadras: number;
+      pentas: number;
+    };
   };
   records: {
     mostKills: {
