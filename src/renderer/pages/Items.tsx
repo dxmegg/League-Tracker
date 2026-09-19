@@ -8,6 +8,7 @@ import ItemIcon from "../components/ItemIcon";
 import WinRateBar from "../components/WinRateBar";
 import QueueSelect from "../components/QueueSelect";
 import PatchSelect from "../components/PatchSelect";
+import { SearchInput } from "../components/SearchInput";
 import { isAugmentQueue } from "../../shared/queues";
 import { useNavigate } from "react-router-dom";
 import { useParams } from "react-router-dom";
@@ -69,8 +70,8 @@ export default function Items() {
         <div className="flex items-center gap-2 [&_select]:h-9 [&_select]:rounded-md [&_select]:border [&_select]:border-lol-border/60 [&_select]:bg-lol-card/40 [&_select]:px-3 [&_select]:text-xs [&_select]:text-lol-text-bright [&_select]:focus-visible:outline-none [&_select]:focus-visible:border-lol-gold/60 [&_select]:focus-visible:ring-1 [&_select]:focus-visible:ring-lol-gold/40 [&_select]:transition-colors">
           <QueueSelect value={queue} onChange={setQueue} filter={(id) => !isAugmentQueue(id)} />
           <PatchSelect value={patch} onChange={setPatch} />
-          <input
-            className="h-9 w-56 rounded-md border border-lol-border/60 bg-lol-card/40 px-3 text-xs text-lol-text-bright placeholder:text-lol-text/50 focus-visible:outline-none focus-visible:border-lol-gold/60 focus-visible:ring-1 focus-visible:ring-lol-gold/40 transition-colors"
+          <SearchInput
+            className="w-56"
             placeholder="Search item name..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}

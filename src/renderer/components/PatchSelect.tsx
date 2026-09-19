@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { formatPatch } from "../lib/format";
+import { FilterSelect } from "./FilterSelect";
 
 export default function PatchSelect({
   value,
@@ -26,17 +27,12 @@ export default function PatchSelect({
   }, [patches, value, onChange]);
 
   return (
-    <select
-      value={value ?? ""}
-      onChange={(e) => onChange(e.target.value === "" ? undefined : e.target.value)}
-      className="select"
-    >
-      <option value="">All Patches</option>
-      {patches.map((p) => (
-        <option key={p} value={p}>
-          Patch {formatPatch(p)}
-        </option>
-      ))}
-    </select>
+    <FilterSelect
+      value={value}
+      onChange={(v) => onChange(v)}
+      placeholder="All Patches"
+      title="Patch"
+      options={patches.map((p) => ({ value: p, label: `Patch ${formatPatch(p)}` }))}
+    />
   );
 }

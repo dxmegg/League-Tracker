@@ -19,6 +19,9 @@ import type {
 import ChampionIcon from "../components/ChampionIcon";
 import AugmentIcon from "../components/AugmentIcon";
 import ItemIcon from "../components/ItemIcon";
+import { HomeCard } from "../components/HomeCard";
+import { FilterChip } from "../components/FilterChip";
+import { FilterSelect } from "../components/FilterSelect";
 import { RuneCompact } from "../components/RuneSetup";
 import RuneIcon from "../components/RuneIcon";
 import MatchScoreboard from "../components/MatchScoreboard";
@@ -80,9 +83,6 @@ const SORT_OPTIONS: { value: MatchSort; label: string }[] = [
   { value: "damageTaken", label: "Damage Taken" },
   { value: "healing", label: "Healing" },
 ];
-
-const SELECT_CLASS =
-  "select focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-lol-gold/60 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--theme-bg-deep)]";
 
 // A session is a day of play, but the day doesn't end at midnight: games before
 // this hour belong to the night that started the evening before.
@@ -592,11 +592,12 @@ export default function MatchHistory({
               ).map(({ kind, label, name, value, color }) => {
                 const active = multikillFilter.includes(kind);
                 return (
-                  <button
+                  <FilterChip
                     key={label}
+                    active={active}
                     onClick={() => toggleMultikill(kind)}
                     title={`Only show games with a ${name} kill`}
-                    className={`min-w-0 text-center rounded-md border px-1 py-0.5 xl:px-1.5 xl:py-1 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-lol-gold/60 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--theme-bg-deep)] ${
+                    className={`min-w-0 text-center px-1 py-0.5 xl:px-1.5 xl:py-1 ${
                       active
                         ? "border-lol-gold/60 bg-lol-gold/10"
                         : "border-transparent hover:border-lol-border hover:bg-white/5"
@@ -610,7 +611,7 @@ export default function MatchHistory({
                     <div className="text-[9px] xl:text-[10px] font-semibold text-lol-text">
                       {label}
                     </div>
-                  </button>
+                  </FilterChip>
                 );
               })}
             </div>
@@ -639,95 +640,72 @@ export default function MatchHistory({
         </h1>
         <div className="flex items-center gap-2">
           {filterOptions.hasFavorites && (
-            <button
+            <FilterChip
+              active={favoritesOnly}
               onClick={() => setFavoritesOnly((v) => !v)}
               title={favoritesOnly ? "Showing favorites only" : "Only show favorites"}
-              className={`flex items-center rounded-lg border px-2 py-1.5 transition-colors ${
+              icon={
+                <StarIcon className="h-3.5 w-3.5" fill={favoritesOnly ? "currentColor" : "none"} />
+              }
+              className={`h-8 w-8 !px-0 ${
                 favoritesOnly
                   ? "border-lol-gold/60 bg-lol-gold/10 text-amber-400"
                   : "border-lol-border bg-lol-card text-lol-text hover:border-lol-gold/60 hover:text-lol-text-bright"
               }`}
-            >
-              {/* h-5 matches the selects' line-height so the boxes end up the same height */}
-              <span className="flex h-5 items-center">
-                <StarIcon className="h-3.5 w-3.5" fill={favoritesOnly ? "currentColor" : "none"} />
-              </span>
-            </button>
+            />
           )}
           {/* A single-account database doesn't need an account dropdown */}
           {(filterOptions.accounts.length > 1 || accountFilter !== undefined) && (
-            <select
-              value={accountFilter ?? ""}
-              onChange={(e) => setAccountFilter(e.target.value === "" ? undefined : e.target.value)}
-              className={SELECT_CLASS}
-            >
-              <option value="">All Accounts</option>
-              {filterOptions.accounts.map((a) => (
-                <option key={a.puuid} value={a.puuid}>
-                  {a.name ?? "Unknown account"}
-                </option>
-              ))}
-            </select>
+            <FilterSelect
+              value={accountFilter}
+              onChange={(value) => setAccountFilter(value)}
+              placeholder="All Accounts"
+              title="Account"
+              options={filterOptions.accounts.map((a) => ({
+                value: a.puuid,
+                label: a.name ?? "Unknown account",
+              }))}
+            />
           )}
-          <select
-            value={championFilter ?? ""}
-            onChange={(e) =>
-              setChampionFilter(e.target.value === "" ? undefined : Number(e.target.value))
-            }
-            className={SELECT_CLASS}
-          >
-            <option value="">All Champions</option>
-            {championOptions.map(({ id, name }) => (
-              <option key={id} value={id}>
-                {name}
-              </option>
-            ))}
-          </select>
-          <select
-            value={patchFilter ?? ""}
-            onChange={(e) => setPatchFilter(e.target.value === "" ? undefined : e.target.value)}
-            className={SELECT_CLASS}
-          >
-            <option value="">All Patches</option>
-            {filterOptions.patches.map((p) => (
-              <option key={p} value={p}>
-                Patch {formatPatch(p)}
-              </option>
-            ))}
-          </select>
-          <select
-            aria-label="Filter by queue type"
+          <FilterSelect
+            value={championFilter}
+            onChange={(value) => setChampionFilter(value === undefined ? undefined : Number(value))}
+            placeholder="All Champions"
+            title="Champion"
+            options={championOptions.map(({ id, name }) => ({ value: id, label: name }))}
+          />
+          <FilterSelect
+            value={patchFilter}
+            onChange={(value) => setPatchFilter(value)}
+            placeholder="All Patches"
+            title="Patch"
+            options={filterOptions.patches.map((patch) => ({
+              value: patch,
+              label: `Patch ${formatPatch(patch)}`,
+            }))}
+          />
+          <FilterSelect
             title="Filter by queue type"
-            value={queueFilter ?? ""}
-            onChange={(e) =>
-              setQueueFilter(e.target.value === "" ? undefined : Number(e.target.value))
-            }
-            className={SELECT_CLASS}
-          >
-            <option value="">Queue Type</option>
-            {filterOptions.queues.map((q) => (
-              <option key={q} value={q}>
-                {q === QUEUE_GROUP_ARENA ? "All Arena" : queueLabel(q)}
-              </option>
-            ))}
-          </select>
+            value={queueFilter}
+            onChange={(value) => setQueueFilter(value === undefined ? undefined : Number(value))}
+            placeholder="Queue Type"
+            options={filterOptions.queues.map((q) => ({
+              value: q,
+              label: q === QUEUE_GROUP_ARENA ? "All Arena" : queueLabel(q),
+            }))}
+          />
           <div className="flex items-center gap-1">
-            <select
-              value={sort ?? ""}
-              onChange={(e) => {
-                setSort(e.target.value === "" ? undefined : (e.target.value as MatchSort));
+            <FilterSelect
+              value={sort}
+              onChange={(value) => {
+                setSort(value);
                 setSortDir("desc");
               }}
-              className={SELECT_CLASS}
-            >
-              <option value="">Sort</option>
-              {SORT_OPTIONS.map(({ value, label }) => (
-                <option key={value} value={value}>
-                  {label}
-                </option>
-              ))}
-            </select>
-            <button
+              placeholder="Sort"
+              title="Sort"
+              options={SORT_OPTIONS}
+            />
+            <FilterChip
               onClick={() => setSortDir((d) => (d === "desc" ? "asc" : "desc"))}
               title={
                 !sort || sort === "date"
@@ -738,15 +716,13 @@ export default function MatchHistory({
                     ? "Highest first"
                     : "Lowest first"
               }
-              className="flex items-center rounded-lg border border-lol-border bg-lol-card px-2 py-1.5 text-lol-text transition-colors hover:border-lol-gold/60 hover:text-lol-text-bright focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-lol-gold/60 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--theme-bg-deep)]"
-            >
-              {/* h-5 matches the selects' line-height so the boxes end up the same height */}
-              <span className="flex h-5 items-center">
+              icon={
                 <ArrowDownIcon
                   className={`h-3.5 w-3.5 transition-transform ${sortDir === "asc" ? "rotate-180" : ""}`}
                 />
-              </span>
-            </button>
+              }
+              className="h-8 w-8 !px-0"
+            />
           </div>
         </div>
       </div>
@@ -861,7 +837,7 @@ function ProfileCard({
   const pips = dashboard.recentForm.slice().reverse();
 
   return (
-    <div className="noxus-card flex flex-col h-full justify-center gap-2 xl:gap-3 p-5 xl:p-6 2xl:p-7">
+    <HomeCard className="flex flex-col h-full justify-center gap-2 xl:gap-3 p-5 xl:p-6 2xl:p-7">
       <div className="relative flex items-center gap-4">
         <div
           className="shrink-0 rounded-full p-[2px]"
@@ -915,7 +891,7 @@ function ProfileCard({
           percentClassName={winRateColor}
         />
       </div>
-    </div>
+    </HomeCard>
   );
 }
 

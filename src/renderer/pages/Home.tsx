@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type {
   AccountListItem,
   HomeAccountFilter,
@@ -14,6 +14,7 @@ import {
   QUEUE_SCOPE_MAYHEM,
 } from "../../shared/queues";
 import ChampionIcon from "../components/ChampionIcon";
+import { HomeCard } from "../components/HomeCard";
 import SummonerIcon from "../components/SummonerIcon";
 import { useChampionData } from "../hooks/useChampions";
 import { HISTORY_SECTIONS_FULL } from "../lib/historySections";
@@ -30,16 +31,6 @@ const QUEUE_FILTERS: Array<{ label: string; value: number | undefined }> = [
   { label: "ARAM", value: QUEUE_SCOPE_ARAM },
   { label: "Mayhem", value: QUEUE_SCOPE_MAYHEM },
 ];
-
-function HomeCard({ children, className = "" }: { children?: ReactNode; className?: string }) {
-  return (
-    <div
-      className={`relative rounded-lg border border-lol-crimson/40 bg-[linear-gradient(145deg,#0c0e11_0%,#090b0d_48%,#060809_100%)] shadow-[0_0_4px_rgba(150,30,30,0.35),0_0_12px_rgba(90,15,15,0.20)] ring-1 ring-inset ring-white/[0.03] ${className}`}
-    >
-      {children}
-    </div>
-  );
-}
 
 function timePeriodLabel(timePeriod: HomeTimePeriod): string {
   if (timePeriod === "24h") return "24 hours";

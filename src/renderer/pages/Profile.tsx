@@ -13,6 +13,7 @@ import type {
   RankEntry,
 } from "../../shared/api";
 import ChampionIcon from "../components/ChampionIcon";
+import { FilterChip } from "../components/FilterChip";
 import { queueLabel } from "../components/QueueSelect";
 import { shortRegion } from "../../shared/regions";
 import { isAugmentQueue, QUEUE_LABELS } from "../../shared/queues";
@@ -909,8 +910,8 @@ export default function Profile() {
     <div className="flex flex-col gap-6">
       <div className="flex flex-col items-end">
         <div className="flex items-center justify-end">
-          <button
-            type="button"
+          <FilterChip
+            active={!syncing}
             onClick={async () => {
               if (!selectedPuuid) return;
               setSyncing(true);
@@ -927,10 +928,10 @@ export default function Profile() {
               }
             }}
             disabled={syncing || !selectedPuuid}
-            className="inline-flex h-9 shrink-0 items-center gap-2 rounded-md border border-lol-gold/30 bg-lol-gold/10 px-3 text-xs font-semibold tracking-wider text-lol-gold transition-colors hover:bg-lol-gold/20 disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-lol-gold/60 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--theme-bg-deep)]"
+            className="h-9 shrink-0 px-3 text-xs font-semibold"
           >
             {syncing ? "Refreshing..." : "Refresh"}
-          </button>
+          </FilterChip>
         </div>
         {syncing && (
           <div className="mt-2 flex w-64 flex-col items-end gap-1">
@@ -1005,24 +1006,24 @@ export default function Profile() {
                   {profile.gameName}
                 </h1>
               )}
-              <button
-                type="button"
+              <FilterChip
+                active={selectorOpen}
                 onClick={() => setSelectorOpen((value) => !value)}
-                className="inline-flex h-9 shrink-0 items-center gap-2 rounded-md border border-lol-border/60 bg-lol-card/40 px-3 text-xs font-semibold tracking-wider text-lol-text transition-colors hover:border-lol-gold/40 hover:text-lol-text-bright focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-lol-gold/60 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--theme-bg-deep)]"
-                aria-haspopup="listbox"
-                aria-expanded={selectorOpen}
+                className="h-9 shrink-0 px-3 text-xs font-semibold"
+                icon={
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    viewBox="0 0 16 16"
+                    fill="currentColor"
+                    className="h-3.5 w-3.5"
+                    aria-hidden="true"
+                  >
+                    <path d="M4.22 6.22a.75.75 0 0 1 1.06 0L8 8.94l2.72-2.72a.75.75 0 1 1 1.06 1.06l-3.25 3.25a.75.75 0 0 1-1.06 0L4.22 7.28a.75.75 0 0 1 0-1.06Z" />
+                  </svg>
+                }
               >
                 {currentAccountLabel}
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  viewBox="0 0 16 16"
-                  fill="currentColor"
-                  className="h-3.5 w-3.5"
-                  aria-hidden="true"
-                >
-                  <path d="M4.22 6.22a.75.75 0 0 1 1.06 0L8 8.94l2.72-2.72a.75.75 0 1 1 1.06 1.06l-3.25 3.25a.75.75 0 0 1-1.06 0L4.22 7.28a.75.75 0 0 1 0-1.06Z" />
-                </svg>
-              </button>
+              </FilterChip>
               {selectorOpen && (
                 <div
                   role="listbox"

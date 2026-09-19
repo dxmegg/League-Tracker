@@ -5,6 +5,7 @@ import { useHistoryScopeQueue } from "../lib/historyScope";
 import type { TrendsData, TrendsDay } from "../lib/types";
 import { formatPatch } from "../lib/format";
 import QueueSelect from "../components/QueueSelect";
+import { FilterChip } from "../components/FilterChip";
 
 // ---- Time helpers ----
 
@@ -740,18 +741,14 @@ export default function Trends() {
   const granularityToggle = (
     <div className="flex items-center gap-0 rounded-md border border-lol-border/60 bg-lol-card/40 p-0.5">
       {(["month", "week"] as const).map((g) => (
-        <button
-          type="button"
+        <FilterChip
           key={g}
+          active={effectiveGranularity === g}
           onClick={() => setGranularity(g)}
-          className={`h-8 rounded px-3 text-xs font-semibold tracking-wider transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-lol-gold/60 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--theme-bg-deep)] ${
-            effectiveGranularity === g
-              ? "bg-lol-gold/20 text-lol-gold"
-              : "text-lol-text hover:text-lol-text-bright"
-          }`}
+          className="h-8 px-3 text-xs font-semibold"
         >
           {g === "month" ? "MONTHLY" : "WEEKLY"}
-        </button>
+        </FilterChip>
       ))}
     </div>
   );

@@ -6,6 +6,8 @@ import { useChampionData, getChampionName } from "../hooks/useChampions";
 import type { TeammateStats } from "../lib/types";
 import ChampionIcon from "../components/ChampionIcon";
 import SummonerIcon from "../components/SummonerIcon";
+import { FilterChip } from "../components/FilterChip";
+import { SearchInput } from "../components/SearchInput";
 import WinRateBar from "../components/WinRateBar";
 import { formatTimeAgo, kdaRatio, kdaColor } from "../lib/format";
 import { useHistoryScopeQueue } from "../lib/historyScope";
@@ -167,57 +169,50 @@ export default function Friends({
         </div>
         <div className="flex flex-wrap items-center gap-3">
           <div className="relative">
-            <input
-              type="text"
+            <SearchInput
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Search player..."
-              className="h-9 w-56 rounded-md border border-lol-border/60 bg-lol-card/40 px-3 text-xs text-lol-text-bright placeholder:text-lol-text/50 focus-visible:outline-none focus-visible:border-lol-gold/60 focus-visible:ring-1 focus-visible:ring-lol-gold/40 transition-colors pr-9"
+              className="w-56 pr-9"
             />
             {search && (
-              <button
-                type="button"
+              <FilterChip
+                active
                 onClick={() => setSearch("")}
-                className="absolute right-1 top-1/2 inline-flex h-9 -translate-y-1/2 items-center rounded-md border border-lol-gold/30 bg-lol-gold/10 px-3 text-xs font-semibold tracking-wider text-lol-gold transition-colors hover:bg-lol-gold/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-lol-gold/60 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--theme-bg-deep)]"
-              >
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  viewBox="0 0 16 16"
-                  fill="currentColor"
-                  className="h-3.5 w-3.5"
-                >
-                  <path
-                    fillRule="evenodd"
-                    d="M8 15A7 7 0 1 0 8 1a7 7 0 0 0 0 14Zm2.78-4.22a.75.75 0 0 1-1.06 0L8 9.06l-1.72 1.72a.75.75 0 1 1-1.06-1.06L6.94 8 5.22 6.28a.75.75 0 0 1 1.06-1.06L8 6.94l1.72-1.72a.75.75 0 1 1 1.06 1.06L9.06 8l1.72 1.72a.75.75 0 0 1 0 1.06Z"
-                    clipRule="evenodd"
-                  />
-                </svg>
-              </button>
+                title="Clear search"
+                className="absolute right-1 top-1/2 -translate-y-1/2 h-8 w-8 !px-0"
+                icon={
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    viewBox="0 0 16 16"
+                    fill="currentColor"
+                    className="h-3.5 w-3.5"
+                  >
+                    <path
+                      fillRule="evenodd"
+                      d="M8 15A7 7 0 1 0 8 1a7 7 0 0 0 0 14Zm2.78-4.22a.75.75 0 0 1-1.06 0L8 9.06l-1.72 1.72a.75.75 0 1 1-1.06-1.06L6.94 8 5.22 6.28a.75.75 0 0 1 1.06-1.06L8 6.94l1.72-1.72a.75.75 0 1 1 1.06 1.06L9.06 8l1.72 1.72a.75.75 0 0 1 0 1.06Z"
+                      clipRule="evenodd"
+                    />
+                  </svg>
+                }
+              />
             )}
           </div>
           <div className="flex items-center gap-0 rounded-md border border-lol-border/60 bg-lol-card/40 p-0.5">
-            <button
-              type="button"
+            <FilterChip
+              active={view === "friends"}
               onClick={() => setView("friends")}
-              className={`h-8 rounded px-3 text-xs font-semibold tracking-wider transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-lol-gold/60 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--theme-bg-deep)] ${
-                view === "friends"
-                  ? "bg-lol-gold/20 text-lol-gold"
-                  : "text-lol-text hover:text-lol-text-bright"
-              }`}
+              className="h-8 px-3 text-xs font-semibold"
             >
               FRIENDS
-            </button>
-            <button
-              type="button"
+            </FilterChip>
+            <FilterChip
+              active={view === "enemies"}
               onClick={() => setView("enemies")}
-              className={`h-8 rounded px-3 text-xs font-semibold tracking-wider transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-lol-gold/60 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--theme-bg-deep)] ${
-                view === "enemies"
-                  ? "bg-lol-gold/20 text-lol-gold"
-                  : "text-lol-text hover:text-lol-text-bright"
-              }`}
+              className="h-8 px-3 text-xs font-semibold"
             >
               FOES
-            </button>
+            </FilterChip>
           </div>
         </div>
       </div>
@@ -307,14 +302,13 @@ export default function Friends({
         </table>
         {visibleCount < sorted.length && (
           <div className="flex justify-center border-t border-lol-border/20 py-4">
-            <button
-              type="button"
+            <FilterChip
               onClick={() => setVisibleCount((v) => v + BATCH_SIZE)}
-              className="inline-flex h-9 items-center rounded-md border border-lol-gold/30 bg-lol-gold/10 px-4 text-xs font-semibold tracking-wider text-lol-gold transition-colors hover:bg-lol-gold/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-lol-gold/60 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--theme-bg-deep)]"
+              className="h-9 px-4 text-xs font-semibold"
             >
               Load {Math.min(BATCH_SIZE, sorted.length - visibleCount)} more · {visibleCount} of{" "}
               {sorted.length}
-            </button>
+            </FilterChip>
           </div>
         )}
         {sorted.length === 0 && (

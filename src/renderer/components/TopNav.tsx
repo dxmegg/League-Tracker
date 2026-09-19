@@ -152,7 +152,7 @@ export default function TopNav() {
           <button
             type="button"
             onClick={() => window.api.cancelBackfill()}
-            className="titlebar-no-drag flex items-center gap-1.5 rounded-md border border-lol-border bg-white/5 px-2.5 py-1 text-xs text-lol-text transition-colors hover:bg-white/10 hover:text-lol-text-bright"
+            className="titlebar-no-drag inline-flex items-center gap-1.5 rounded-md border border-lol-border/50 bg-lol-card/40 px-2.5 py-1 text-xs font-bold uppercase tracking-wider text-lol-text transition-colors hover:border-lol-crimson/40 hover:text-lol-text-bright focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-lol-crimson/60 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--theme-bg-deep)]"
           >
             Cancel
           </button>
@@ -162,7 +162,7 @@ export default function TopNav() {
             onClick={handleRefresh}
             disabled={refreshing}
             title="Sync"
-            className="titlebar-no-drag flex items-center gap-1.5 rounded-md border border-lol-gold/25 bg-lol-gold/10 px-2.5 py-1 text-xs text-lol-gold transition-colors hover:bg-lol-gold/20 disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-lol-gold/60 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--theme-bg-deep)]"
+            className="titlebar-no-drag inline-flex items-center gap-1.5 rounded-md border border-lol-crimson/60 bg-lol-crimson/20 px-2.5 py-1 text-xs font-bold uppercase tracking-wider text-lol-text-bright transition-colors hover:bg-lol-crimson/30 disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-lol-crimson/60 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--theme-bg-deep)]"
           >
             <RefreshIcon className={`h-3 w-3 ${refreshing ? "animate-spin" : ""}`} />
             <span className="hidden xl:inline">{refreshing ? "Syncing..." : "Sync"}</span>

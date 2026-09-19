@@ -5,6 +5,7 @@ import { useHistoryScopeQueue } from "../lib/historyScope";
 import { useItemData, getItemName, useChampionData, getChampionName } from "../hooks/useChampions";
 import ItemIcon from "../components/ItemIcon";
 import ChampionIcon from "../components/ChampionIcon";
+import { HomeCard } from "../components/HomeCard";
 import WinRateBar from "../components/WinRateBar";
 import type { ItemDetail as ItemDetailData } from "../lib/types";
 import RiotText from "../components/RiotText";
@@ -46,7 +47,7 @@ export default function ItemDetail() {
             </div>
           )}
         </div>
-        <div className="rounded-xl border border-lol-border/60 bg-lol-card p-5">
+        <HomeCard className="p-5">
           <h1 className="text-2xl font-bold text-lol-text-bright">{getItemName(items, id)}</h1>
           <p className="mt-3 text-sm text-lol-text">
             Built in {data.picks} games across saved history.
@@ -54,13 +55,13 @@ export default function ItemDetail() {
           <p className="mt-4 text-sm text-lol-text">
             <RiotText markup={item?.description ?? "No item description available."} />
           </p>
-        </div>
+        </HomeCard>
         <div className="space-y-3">
-          <div className="rounded-xl border border-lol-border/60 bg-lol-card p-4">
+          <HomeCard className="p-4">
             <span className="text-xs text-lol-text">PRICE</span>
             <div className="text-2xl font-bold text-lol-gold">{item?.price ?? "—"}</div>
-          </div>
-          <div className="rounded-xl border border-lol-border/60 bg-lol-card p-4">
+          </HomeCard>
+          <HomeCard className="p-4">
             <span className="text-xs text-lol-text">WIN RATE</span>
             <div className="text-2xl font-bold text-lol-text-bright">{winRate.toFixed(1)}%</div>
             <div className="text-sm">
@@ -68,18 +69,18 @@ export default function ItemDetail() {
               <span className="text-lol-loss">{data.picks - data.wins}L</span>
             </div>
             <WinRateBar wins={data.wins} total={data.picks} />
-          </div>
-          <div className="rounded-xl border border-lol-border/60 bg-lol-card p-4">
+          </HomeCard>
+          <HomeCard className="p-4">
             <span className="text-xs text-lol-text">BUILD RATE</span>
             <div className="text-2xl font-bold text-lol-text-bright">{buildRate.toFixed(1)}%</div>
             <div className="text-sm text-lol-text">
               {data.picks} of {data.totalGames} games
             </div>
-          </div>
+          </HomeCard>
         </div>
       </div>
       <h2 className="text-sm font-semibold uppercase text-lol-text-bright">Champions</h2>
-      <div className="rounded-xl border border-lol-border/60 bg-lol-card">
+      <HomeCard>
         {data.champions.map((row) => (
           <div key={row.champion_id}>
             <button
@@ -129,7 +130,7 @@ export default function ItemDetail() {
             )}
           </div>
         ))}
-      </div>
+      </HomeCard>
     </div>
   );
 }

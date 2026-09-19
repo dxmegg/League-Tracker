@@ -7,6 +7,7 @@ import { useIpc } from "../hooks/useIpc";
 import { useChampionData, getChampionName } from "../hooks/useChampions";
 import QueueSelect from "../components/QueueSelect";
 import PatchSelect from "../components/PatchSelect";
+import { SearchInput } from "../components/SearchInput";
 import { isAugmentQueue } from "../../shared/queues";
 
 export default function Runes({ queue }: { queue?: number }) {
@@ -119,8 +120,8 @@ export default function Runes({ queue }: { queue?: number }) {
               // has no patch argument; patch selection is metadata/icon-only.
             }}
           />
-          <input
-            className="input w-48"
+          <SearchInput
+            className="w-48"
             placeholder="Search rune name..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}

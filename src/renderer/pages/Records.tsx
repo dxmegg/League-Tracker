@@ -14,6 +14,7 @@ import type {
 import ChampionIcon from "../components/ChampionIcon";
 import MatchScoreboard from "../components/MatchScoreboard";
 import QueueSelect, { queueLabel } from "../components/QueueSelect";
+import { FilterSelect } from "../components/FilterSelect";
 import { type StatAccent } from "../components/StatCard";
 import {
   CoinsIcon,
@@ -411,20 +412,16 @@ export default function Records() {
   }, [refetch]);
 
   const accountSelect = (
-    <select
-      value={account ?? ""}
-      onChange={(event) => setAccount(event.target.value || undefined)}
-      aria-label="Account"
-      className="h-9 rounded-md border border-lol-border/60 bg-lol-card/40 px-3 text-xs text-lol-text-bright transition-colors focus-visible:border-lol-gold/60 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-lol-gold/40"
-    >
-      <option value="">All Accounts</option>
-      {accounts.map((item) => (
-        <option key={item.puuid} value={item.puuid}>
-          {item.gameName ?? "Unknown account"}
-          {item.tagLine ? `#${item.tagLine}` : ""}
-        </option>
-      ))}
-    </select>
+    <FilterSelect
+      value={account}
+      onChange={(value) => setAccount(value)}
+      placeholder="All Accounts"
+      title="Account"
+      options={accounts.map((item) => ({
+        value: item.puuid,
+        label: `${item.gameName ?? "Unknown account"}${item.tagLine ? `#${item.tagLine}` : ""}`,
+      }))}
+    />
   );
 
   if (!data) {

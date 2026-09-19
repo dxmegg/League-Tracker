@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, type ButtonHTMLAttributes, type ReactNode } from "react";
 import { useBackfill } from "../hooks/useBackfill";
 import { queueLabel } from "../components/QueueSelect";
+import { FilterSelect } from "../components/FilterSelect";
 import { setRemembering } from "../lib/viewState";
 import type { BackupInfo } from "../lib/types";
 
@@ -31,11 +32,14 @@ type ButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & {
 
 function Button({ variant = "primary", children, className = "", ...props }: ButtonProps) {
   const variantClasses = {
-    primary: "bg-lol-gold/20 text-lol-gold hover:bg-lol-gold/30 border border-lol-gold/40",
+    primary:
+      "border border-lol-crimson/60 bg-lol-crimson/20 text-lol-text-bright hover:bg-lol-crimson/30",
     secondary:
-      "border border-lol-border text-lol-text hover:border-lol-gold/60 hover:text-lol-text-bright",
-    subtle: "bg-lol-gold/10 border border-lol-gold/30 text-lol-gold hover:bg-lol-gold/20",
-    neutral: "bg-lol-border/30 text-lol-text hover:bg-lol-border/50",
+      "border border-lol-border/50 bg-lol-card/40 text-lol-text hover:border-lol-crimson/40 hover:text-lol-text-bright",
+    subtle:
+      "border border-lol-border/50 bg-lol-card/40 text-lol-text hover:border-lol-crimson/40 hover:text-lol-text-bright",
+    neutral:
+      "border border-lol-border/50 bg-lol-card/40 text-lol-text hover:border-lol-crimson/40 hover:text-lol-text-bright",
     destructive:
       "bg-lol-crimson/15 text-lol-crimson-bright border border-lol-crimson/40 hover:bg-lol-crimson/25",
   };
@@ -43,7 +47,7 @@ function Button({ variant = "primary", children, className = "", ...props }: But
   return (
     <button
       {...props}
-      className={`inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-semibold tracking-wider transition-colors disabled:opacity-50 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-lol-gold/60 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--theme-bg-deep)] ${variantClasses[variant]} ${className}`}
+      className={`inline-flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-bold uppercase tracking-wider transition-colors disabled:opacity-50 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-lol-crimson/60 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--theme-bg-deep)] ${variantClasses[variant]} ${className}`}
     >
       {children}
     </button>
@@ -477,22 +481,23 @@ export default function Settings() {
           <label htmlFor="theme-select" className="text-sm text-lol-text-bright">
             Theme
           </label>
-          <select
-            id="theme-select"
-            className="select"
+          <FilterSelect
             value={theme}
-            onChange={(event) => {
-              const value = event.target.value;
+            onChange={(value) => {
               if (value !== "default" && value !== "test" && value !== "pink") return;
               setTheme(value);
               void window.api.setSetting("theme", value);
               document.documentElement.setAttribute("data-theme", value);
             }}
-          >
-            <option value="test">Noxian (Default)</option>
-            <option value="default">Default (Legacy)</option>
-            <option value="pink">Pink</option>
-          </select>
+            placeholder="Noxian (Default)"
+            title="Theme"
+            className="w-48"
+            options={[
+              { value: "test", label: "Noxian (Default)" },
+              { value: "default", label: "Default (Legacy)" },
+              { value: "pink", label: "Pink" },
+            ]}
+          />
         </div>
       </Section>
 
