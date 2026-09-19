@@ -714,6 +714,11 @@ async function runBackfillForAccount(
     if (added - announced >= GAMES_UPDATED_BATCH) {
       announced = added;
       notifyGamesUpdated(win);
+      db.runScoreBackfillIfNeeded((done, total) => {
+        if (win && !win.isDestroyed()) {
+          win.webContents.send("lcu:participant-score-progress", { phase: "scores", done, total });
+        }
+      });
     }
     progress(i + 1, added);
   }
@@ -732,7 +737,14 @@ async function runBackfillForAccount(
     autoBackfillPausedUntil = Infinity;
   }
 
-  if (added > announced) notifyGamesUpdated(win);
+  if (added > announced) {
+    notifyGamesUpdated(win);
+    db.runScoreBackfillIfNeeded((done, total) => {
+      if (win && !win.isDestroyed()) {
+        win.webContents.send("lcu:participant-score-progress", { phase: "scores", done, total });
+      }
+    });
+  }
 
   const dashboard = db.getDashboardData();
   const result: BackfillResult = {
@@ -765,7 +777,7 @@ export async function backfillHistory(
 
   try {
     await connect();
-    const summoner = await fetchCurrentSummoner();
+    const summoner = await getCurrentSummoner();
     return await runBackfillForAccount(
       {
         puuid: summoner.puuid,
@@ -825,7 +837,7 @@ export async function fetchNewGames(
 ): Promise<{ newGames: number; totalGames: number }> {
   await connect();
 
-  const summoner = knownSummoner ?? (await fetchCurrentSummoner());
+  const summoner = knownSummoner ?? (await getCurrentSummoner());
   db.upsertSummoner(summoner);
 
   let newGamesCount = 0;
@@ -861,6 +873,11 @@ export async function fetchNewGames(
 
   if (newGamesCount > 0 && win && !win.isDestroyed()) {
     win.webContents.send("lcu:games-updated");
+    db.runScoreBackfillIfNeeded((done, total) => {
+      if (win && !win.isDestroyed()) {
+        win.webContents.send("lcu:participant-score-progress", { phase: "scores", done, total });
+      }
+    });
   }
 
   const dashboard = db.getDashboardData();
@@ -947,7 +964,7 @@ async function captureEogGame(
   try {
     // Cheap, and it keeps the stored identity current the same way the poll
     // does — the capture may well be the first thing to run after a switch.
-    const summoner = await fetchCurrentSummoner();
+    const summoner = await getCurrentSummoner();
     db.upsertSummoner(summoner);
 
     const game = await fetchGameDetails(gameId);
@@ -955,6 +972,11 @@ async function captureEogGame(
     if (db.insertGameFull(game, summoner.puuid, "lcu")) {
       console.log(`Stored League game ${gameId} from the post-game screen`);
       notifyGamesUpdated(win);
+      db.runScoreBackfillIfNeeded((done, total) => {
+        if (win && !win.isDestroyed()) {
+          win.webContents.send("lcu:participant-score-progress", { phase: "scores", done, total });
+        }
+      });
     }
     eogPending.delete(gameId);
   } catch (err) {
@@ -1169,9 +1191,9 @@ async function isInGame(): Promise<boolean> {
 // Deferred while a game is in progress so we aren't hammering the client
 // mid-match; a later poll picks it up.
 async function syncGames(win: BrowserWindow) {
-  let summoner: any = null;
+  let summoner: CurrentSummoner | null = null;
   try {
-    summoner = await fetchCurrentSummoner();
+    summoner = await getCurrentSummoner();
   } catch {
     // Fall through to the recent-games sync, which reports its own errors
   }

@@ -130,7 +130,7 @@ export default function Friends({
     });
 
     return filtered;
-  }, [data, search, sortKey, sortDir, view]);
+  }, [data, search, sortKey, sortDir]);
 
   if (loading || !data) {
     return (

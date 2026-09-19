@@ -14,8 +14,8 @@
     "preversion": "npm run typecheck && npm run lint && npm run format:check && npm run build",
     "lint": "oxlint",
     "typecheck": "tsc -p tsconfig.node.json --noEmit && tsc -p tsconfig.web.json --noEmit",
-    "format": "oxfmt",
-    "format:check": "oxfmt --check",
+    "format": "oxfmt --ignore-path .oxfmtignore",
+    "format:check": "oxfmt --check --ignore-path .oxfmtignore",
     "gen:augments": "node scripts/generate-augment-descriptions.mjs"
   },
   "dependencies": {
