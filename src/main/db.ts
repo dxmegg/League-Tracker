@@ -1974,7 +1974,12 @@ ${GAME_MAX_STATS_SQL}
           }
           const owner = (match as any).__owner ?? participant;
           const ownerStats = owner?.stats ?? owner;
-          cs = Number(ownerStats?.totalMinionsKilled ?? owner?.totalMinionsKilled ?? 0);
+          cs = Number(
+            ownerStats?.totalCreepScore ??
+              owner?.totalCreepScore ??
+              Number(ownerStats?.totalMinionsKilled ?? owner?.totalMinionsKilled ?? 0) +
+                Number(ownerStats?.neutralMinionsKilled ?? owner?.neutralMinionsKilled ?? 0),
+          );
           const runes = extractRunes(owner);
           rune_ids = runes.runeIds;
           primary_style = runes.primaryStyle;
@@ -2244,7 +2249,12 @@ function getMatchParticipants(gameId: number): any[] {
       spell2Id: r.spell2,
       items: [r.item0, r.item1, r.item2, r.item3, r.item4, r.item5, r.item6].map((i) => i ?? 0),
       augments: augments.get(r.participant_id) ?? [],
-      cs: Number(raw?.stats?.totalMinionsKilled ?? raw?.totalMinionsKilled ?? 0),
+      cs: Number(
+        raw?.stats?.totalCreepScore ??
+          raw?.totalCreepScore ??
+          Number(raw?.stats?.totalMinionsKilled ?? raw?.totalMinionsKilled ?? 0) +
+            Number(raw?.stats?.neutralMinionsKilled ?? raw?.neutralMinionsKilled ?? 0),
+      ),
       runeIds: runes.runeIds,
       primaryStyle: runes.primaryStyle,
       secondaryStyle: runes.secondaryStyle,
@@ -2343,6 +2353,7 @@ export function getAugmentStatsAll(
     params.push(patch);
   }
   applyQueueFilter(where, params, queue);
+  where.push(`g.queue_id NOT IN (${EXCLUDED_STATS_SQL})`);
   const augmentId = account ? "mpa.augment_id" : "ga.augment_id";
   const augmentSource = account
     ? `FROM match_participant_augments mpa
@@ -2960,6 +2971,7 @@ export function getAugmentStatsWithChampions(
     params.push(patch);
   }
   applyQueueFilter(where, params, queue);
+  where.push(`g.queue_id NOT IN (${EXCLUDED_STATS_SQL})`);
   const augmentId = account ? "mpa.augment_id" : "ga.augment_id";
   const augmentSource = account
     ? `FROM match_participant_augments mpa
@@ -4411,6 +4423,7 @@ export function getChampionItemStats(
 ): { item_id: number; picks: number; wins: number }[] {
   const extraWhere: string[] = [];
   extraWhere.push(localGamesFilter("g"));
+  extraWhere.push(`g.queue_id NOT IN (${EXCLUDED_STATS_SQL})`);
   const extraParams: any[] = [];
   if (patch) {
     extraWhere.push("g.game_version = ?");
@@ -4447,7 +4460,7 @@ function participantFilter(patch?: string, queue?: number, alias = "mp") {
   }
   applyQueueFilter(where, params, queue, alias);
   where.push(
-    `EXISTS (SELECT 1 FROM games g WHERE g.game_id = ${alias}.game_id AND ${localGamesFilter("g")})`,
+    `EXISTS (SELECT 1 FROM games g WHERE g.game_id = ${alias}.game_id AND ${localGamesFilter("g")} AND g.queue_id NOT IN (${EXCLUDED_STATS_SQL}))`,
   );
   return { where, params, sql: where.join(" AND ") };
 }
@@ -4545,6 +4558,7 @@ export function getOwnedItemStats(patch?: string, queue?: number, account?: stri
   }
 
   applyQueueFilter(where, params, queue);
+  where.push(`g.queue_id NOT IN (${EXCLUDED_STATS_SQL})`);
   const columns = [0, 1, 2, 3, 4, 5, 6];
   const excluded = EXCLUDED_ITEM_IDS.join(", ");
   return db
@@ -4922,6 +4936,7 @@ export function getTrendsData(queue?: number, account?: string): any {
   where.push(source.accountFilter);
   const params: any[] = account ? [account] : [];
   applyQueueFilter(where, params, queue);
+  where.push(`g.queue_id NOT IN (${EXCLUDED_STATS_SQL})`);
   const whereSql = `WHERE ${where.join(" AND ")}`;
   const fromSql = `FROM games g JOIN ${source.table} ps ON g.game_id = ps.game_id`;
 
