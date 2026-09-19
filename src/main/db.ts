@@ -1358,7 +1358,31 @@ export function getStoredQueues(): number[] {
 
 // Appends queue conditions to a query's WHERE list. An explicit queue filter
 // wins; otherwise the queues switched off in Settings are excluded everywhere.
-function applyQueueFilter(where: string[], params: any[], queue?: number, alias = "g") {
+function applyQueueFilter(
+  where: string[],
+  params: any[],
+  queue?: number | number[],
+  alias = "g",
+): void {
+  if (Array.isArray(queue)) {
+    if (queue.length === 0) return;
+    if (queue.length === 1) {
+      where.push(`${alias}.queue_id = ?`);
+      params.push(queue[0]);
+      return;
+    }
+    where.push(`${alias}.queue_id IN (${queue.map(() => "?").join(", ")})`);
+    params.push(...queue);
+    return;
+  }
+  if (queue == null) {
+    const hidden = getHiddenQueues();
+    if (hidden.length > 0) {
+      where.push(`${alias}.queue_id NOT IN (${hidden.map(() => "?").join(", ")})`);
+      params.push(...hidden);
+    }
+    return;
+  }
   if (queue === QUEUE_GROUP_ARENA) {
     where.push(`${alias}.queue_id IN (${ARENA_QUEUE_IDS.map(() => "?").join(", ")})`);
     params.push(...ARENA_QUEUE_IDS);
@@ -1399,11 +1423,32 @@ function applyQueueFilter(where: string[], params: any[], queue?: number, alias 
     params.push(queue);
     return;
   }
-  const hidden = getHiddenQueues();
-  if (hidden.length > 0) {
-    where.push(`${alias}.queue_id NOT IN (${hidden.map(() => "?").join(", ")})`);
-    params.push(...hidden);
+}
+
+function applyTimeFilter(timePeriod?: "24h" | "7d" | "30d" | "full"): {
+  sql: string;
+  params: unknown[];
+} {
+  if (timePeriod === "24h") {
+    return {
+      sql: "AND g.game_creation >= ?",
+      params: [Date.now() - 24 * 60 * 60 * 1000],
+    };
   }
+  if (timePeriod === "7d") {
+    return {
+      sql: "AND g.game_creation >= ?",
+      params: [Date.now() - 7 * 24 * 60 * 60 * 1000],
+    };
+  }
+  if (timePeriod === "30d") {
+    return {
+      sql: "AND g.game_creation >= ?",
+      params: [Date.now() - 30 * 24 * 60 * 60 * 1000],
+    };
+  }
+  if (timePeriod === "full") return { sql: "", params: [] };
+  return { sql: "", params: [] };
 }
 
 // A locally-owned game came from the client or a Riot sync and its owner puuid
@@ -1647,6 +1692,13 @@ function statsSource(account?: string): {
   alias: "ps";
   accountFilter: string;
 } {
+  if (account === "all") {
+    return {
+      table: "tracked_game_stats",
+      alias: "ps",
+      accountFilter: "ps.puuid IN (SELECT puuid FROM summoner)",
+    };
+  }
   if (account) return { table: "tracked_game_stats", alias: "ps", accountFilter: "ps.puuid = ?" };
   return { table: "player_stats", alias: "ps", accountFilter: localGamesFilter("g") };
 }
@@ -1657,7 +1709,7 @@ export function getMatchHistory(
   filters?: {
     championId?: number;
     patch?: string;
-    queue?: number;
+    queue?: number | number[];
     account?: string;
     sort?: string;
     sortDir?: string;
@@ -1665,6 +1717,7 @@ export function getMatchHistory(
     favorites?: boolean;
     ignoreHiddenQueues?: boolean;
   },
+  timePeriod?: "24h" | "7d" | "30d" | "full",
 ): { matches: any[]; total: number } {
   const statsTable = filters?.account ? "tracked_game_stats" : "player_stats";
   const statsAlias = filters?.account ? "tgs" : "ps";
@@ -1677,8 +1730,12 @@ export function getMatchHistory(
     where.push("g.favorite = 1");
   }
   if (filters?.account) {
-    where.push("tgs.puuid = ?");
-    params.push(filters.account);
+    if (filters.account === "all") {
+      where.push("tgs.puuid IN (SELECT puuid FROM summoner)");
+    } else {
+      where.push("tgs.puuid = ?");
+      params.push(filters.account);
+    }
   }
   if (filters?.championId != null) {
     where.push(`${statsAlias}.champion_id = ?`);
@@ -1706,7 +1763,13 @@ export function getMatchHistory(
   if (!filters?.account) {
     where.push(localGamesFilter("g"));
   }
-  const whereSql = where.length > 0 ? `WHERE ${where.join(" AND ")}` : "";
+  const timeFilter = applyTimeFilter(timePeriod);
+  const whereSql =
+    where.length > 0
+      ? `WHERE ${where.join(" AND ")} ${timeFilter.sql}`
+      : timeFilter.sql
+        ? `WHERE 1 = 1 ${timeFilter.sql}`
+        : "";
   const orderBy = matchOrderBy(filters?.sort, filters?.sortDir).replaceAll("ps.", `${statsAlias}.`);
   const matchPuuid = filters?.account ? "tgs.puuid" : "g.puuid";
   const augmentIdsSql = filters?.account
@@ -1731,7 +1794,7 @@ export function getMatchHistory(
     JOIN ${statsTable} ${statsAlias} ON g.game_id = ${statsAlias}.game_id
     ${whereSql}
   `)
-    .get(...params) as any;
+    .get(...params, ...timeFilter.params) as any;
   const matches = db
     .prepare(`
     SELECT g.game_id, g.queue_id, g.game_creation, g.game_duration, g.is_remake, g.favorite,
@@ -1748,7 +1811,7 @@ export function getMatchHistory(
              SELECT mp.spell2 FROM match_participants mp
              WHERE mp.game_id = g.game_id AND mp.puuid = ${matchPuuid}
            )) as spell2,
-           ${statsAlias}.item0, ${statsAlias}.item1, ${statsAlias}.item2, ${statsAlias}.item3, ${statsAlias}.item4, ${statsAlias}.item5,
+           ${statsAlias}.item0, ${statsAlias}.item1, ${statsAlias}.item2, ${statsAlias}.item3, ${statsAlias}.item4, ${statsAlias}.item5, ${statsAlias}.item6,
            ${augmentIdsSql} as augment_ids,
            g.raw_gz,
            (SELECT mp.team_position FROM match_participants mp
@@ -1762,7 +1825,7 @@ ${GAME_MAX_STATS_SQL}
     ORDER BY ${orderBy}
     LIMIT ? OFFSET ?
   `)
-    .all(...params, limit, offset)
+    .all(...params, ...timeFilter.params, limit, offset)
     .map((match: any) => {
       let rune_ids: number[] = [];
       let primary_style: number | null = null;
@@ -2097,16 +2160,22 @@ export function getMatchDetail(gameId: number): any {
   };
 }
 
-export function getChampionStatsAll(patch?: string, queue?: number, account?: string): any[] {
+export function getChampionStatsAll(
+  patch?: string,
+  queue?: number | number[],
+  account?: string,
+  timePeriod?: "24h" | "7d" | "30d" | "full",
+): any[] {
   const source = statsSource(account);
   const where = ["g.is_remake = 0"];
   where.push(source.accountFilter);
-  const params: any[] = account ? [account] : [];
+  const params: any[] = account && account !== "all" ? [account] : [];
   if (patch) {
     where.push("g.game_version = ?");
     params.push(patch);
   }
   applyQueueFilter(where, params, queue);
+  const timeFilter = applyTimeFilter(timePeriod);
   return db
     .prepare(`
     SELECT
@@ -2130,11 +2199,11 @@ export function getChampionStatsAll(patch?: string, queue?: number, account?: st
       SUM(ps.penta_kills) as penta_kills
     FROM ${source.table} ${source.alias}
     JOIN games g ON ${source.alias}.game_id = g.game_id
-    WHERE ${where.join(" AND ")}
+    WHERE ${where.join(" AND ")} ${timeFilter.sql}
     GROUP BY ps.champion_id
     ORDER BY games DESC
   `)
-    .all(...params);
+    .all(...params, ...timeFilter.params);
 }
 
 export function getAugmentStatsAll(
@@ -2179,15 +2248,18 @@ export function getAugmentStatsAll(
     .all(...params);
 }
 
-export function getDashboardData(filters?: {
-  championId?: number;
-  patch?: string;
-  queue?: number;
-  account?: string;
-}): any {
+export function getDashboardData(
+  filters?: {
+    championId?: number;
+    patch?: string;
+    queue?: number | number[];
+    account?: string;
+  },
+  timePeriod?: "24h" | "7d" | "30d" | "full",
+): any {
   const source = statsSource(filters?.account);
   const where: string[] = ["g.is_remake = 0", source.accountFilter];
-  const params: any[] = filters?.account ? [filters.account] : [];
+  const params: any[] = filters?.account && filters.account !== "all" ? [filters.account] : [];
   if (filters?.championId != null) {
     where.push("ps.champion_id = ?");
     params.push(filters.championId);
@@ -2198,7 +2270,9 @@ export function getDashboardData(filters?: {
     params.push(filters.patch);
   }
   applyQueueFilter(where, params, filters?.queue);
-  const whereSql = `WHERE ${where.join(" AND ")}`;
+  const timeFilter = applyTimeFilter(timePeriod);
+  const whereSql = `WHERE ${where.join(" AND ")} ${timeFilter.sql}`;
+  const queryParams = [...params, ...timeFilter.params];
 
   const totals = db
     .prepare(`
@@ -2224,7 +2298,7 @@ export function getDashboardData(filters?: {
     JOIN games g ON ${source.alias}.game_id = g.game_id
     ${whereSql}
   `)
-    .get(...params) as any;
+    .get(...queryParams) as any;
 
   const recentForm = db
     .prepare(`
@@ -2235,7 +2309,7 @@ export function getDashboardData(filters?: {
     ORDER BY g.game_creation DESC
     LIMIT 10
   `)
-    .all(...params);
+    .all(...queryParams);
 
   const topChampions = db
     .prepare(`
@@ -2253,7 +2327,7 @@ export function getDashboardData(filters?: {
     ORDER BY games DESC
     LIMIT 5
   `)
-    .all(...params);
+    .all(...queryParams);
 
   const augmentId = filters?.account ? "mpa.augment_id" : "ga.augment_id";
   const augmentSource = filters?.account
@@ -2276,7 +2350,7 @@ export function getDashboardData(filters?: {
     ORDER BY picks DESC
     LIMIT 5
   `)
-    .all(...params);
+    .all(...queryParams);
 
   return {
     totalGames: totals.totalGames ?? 0,
@@ -4697,12 +4771,17 @@ export function getTrendsData(queue?: number, account?: string): any {
 // chronological pass over our own rows — streaks need the ordering anyway, and
 // the maxima fall out of the same loop. On ties the earliest game keeps the
 // record, so a mark has to be strictly beaten to change hands.
-export function getRecords(queue?: number, account?: string): any {
+export function getRecords(
+  queue?: number | number[],
+  account?: string,
+  timePeriod?: "24h" | "7d" | "30d" | "full",
+): any {
   const source = statsSource(account);
   const where = ["g.is_remake = 0"];
   where.push(source.accountFilter);
-  const params: any[] = account ? [account] : [];
+  const params: any[] = account && account !== "all" ? [account] : [];
   applyQueueFilter(where, params, queue);
+  const timeFilter = applyTimeFilter(timePeriod);
 
   const rows = db
     .prepare(`
@@ -4713,10 +4792,10 @@ export function getRecords(queue?: number, account?: string): any {
              ps.total_damage_dealt_all, ps.true_damage_dealt, ps.cs, ps.largest_critical_strike
       FROM games g
       JOIN ${source.table} ps ON g.game_id = ps.game_id
-      WHERE ${where.join(" AND ")}
+      WHERE ${where.join(" AND ")} ${timeFilter.sql}
       ORDER BY g.game_creation ASC
     `)
-    .all(...params) as any[];
+    .all(...params, ...timeFilter.params) as any[];
 
   // Just enough of the game to render a record's context and open its match
   const matchOf = (r: any) => ({
