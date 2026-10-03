@@ -10,8 +10,6 @@ import {
 import { AUGMENT_SLOTS, QUEUE_ID_MAYHEM_CLASSIC } from "../shared/queues";
 import {
   ARENA_QUEUE_IDS,
-  MAYHEM_QUEUE_IDS,
-  NO_CS_QUEUE_IDS,
   NO_STATS_QUEUE_IDS,
   QUEUE_GROUP_ARENA,
   QUEUE_SCOPE_NORMAL,
@@ -26,14 +24,56 @@ import type { ItemStats, MasteryChampion, QueueStat, RankEntry } from "../shared
 import * as backup from "./backup";
 import { getDbPath } from "./db/connection";
 import { getSetting, setSetting } from "./db/settings";
+import {
+  applyQueueFilter,
+  applyTimeFilter,
+  hideRemakes,
+  localGamesFilter,
+  participantFilter,
+  statsSource,
+  EXCLUDED_ITEM_IDS,
+  EXCLUDED_STATS_SQL,
+  EXCLUDED_CS_SQL,
+} from "./db/filters";
+import {
+  packRaw,
+  unpackRaw,
+  displayName,
+  participantRowsFromRaw,
+  writeParticipants,
+  extractRunes,
+  resetParticipantStatements,
+  type RawParticipantRow,
+} from "./db/payloads";
 
 export { getDbPath } from "./db/connection";
 export { getSetting, setSetting } from "./db/settings";
+export {
+  applyQueueFilter,
+  applyTimeFilter,
+  hideRemakes,
+  localGamesFilter,
+  participantFilter,
+  statsSource,
+  EXCLUDED_ITEM_IDS,
+  EXCLUDED_STATS_SQL,
+  EXCLUDED_CS_SQL,
+  getHiddenQueues,
+} from "./db/filters";
+export {
+  packRaw,
+  unpackRaw,
+  realPuuid,
+  displayName,
+  normalizeTeamPosition,
+  participantRowsFromRaw,
+  participantStatements,
+  writeParticipants,
+  extractRunes,
+  resetParticipantStatements,
+} from "./db/payloads";
 
 export type GameSource = "lcu" | "riot-sync" | "search-import";
-
-// Poro-Snax (base and upgraded) is handed out for free, so it skews item stats
-const EXCLUDED_ITEM_IDS = [2052, 220013];
 
 export let db: Database.Database;
 let scoreBackfillInFlight = false;
@@ -43,7 +83,7 @@ export async function initDatabase() {
   db = new Database(dbPath);
   // Prepared statements belong to the connection that made them, so the cache
   // can't outlive it.
-  writeParticipantsStmts = null;
+  resetParticipantStatements();
   db.pragma("journal_mode = WAL");
   // NORMAL is the standard companion to WAL: commits stop waiting on an fsync,
   // which is what makes a several-thousand-game backfill bearable. The only
@@ -164,7 +204,7 @@ export function purgeForeignOwnedGames(): number {
 // -wal alongside the database to be replayed on next launch.
 export function closeDatabase() {
   if (!db || !db.open) return;
-  writeParticipantsStmts = null;
+  resetParticipantStatements();
   try {
     db.close();
   } catch (err) {
@@ -409,385 +449,6 @@ function createIndexes() {
        WHERE game_id = NEW.game_id;
     END;
   `);
-}
-
-// ---- Raw match payloads ----
-//
-// A match is ~30 KB of JSON and gzips to about an eighth of that, which is the
-// difference between the blobs being most of the database and being a rounding
-// error. Nothing reads them to answer a query — only export, and the one-time
-// normalization in migrateToV2.
-
-function packRaw(raw: any): Buffer {
-  return zlib.gzipSync(JSON.stringify(raw));
-}
-
-function unpackRaw(blob: Buffer | null): any {
-  if (!blob) return null;
-  try {
-    return JSON.parse(zlib.gunzipSync(blob).toString("utf8"));
-  } catch {
-    return null;
-  }
-}
-
-// ---- Participant extraction ----
-
-// Riot hands us two shapes: the LCU's participants[i] + participantIdentities[i]
-// pair, and SGP's flattened participant with its stats inline. Both are
-// unpicked exactly once, here, on the way into match_participants — so no read
-// path has to know the difference.
-interface RawParticipantRow {
-  participant_id: number;
-  puuid: string | null;
-  game_name: string | null;
-  tag_line: string | null;
-  profile_icon: number | null;
-  team_id: number;
-  player_subteam_id: number | null;
-  player_subteam_placement: number | null;
-  champion_id: number;
-  win: number;
-  kills: number;
-  deaths: number;
-  assists: number;
-  double_kills: number;
-  triple_kills: number;
-  quadra_kills: number;
-  penta_kills: number;
-  total_damage_dealt: number;
-  total_damage_taken: number;
-  true_damage: number;
-  gold_earned: number;
-  total_heal: number;
-  largest_killing_spree: number;
-  largest_critical_strike: number;
-  cs: number;
-  team_position: string | null;
-  early_surrender: number;
-  total_damage_dealt_all: number;
-  true_damage_dealt: number;
-  spell1: number | null;
-  spell2: number | null;
-  rune0: number | null;
-  rune1: number | null;
-  rune2: number | null;
-  rune3: number | null;
-  rune4: number | null;
-  rune5: number | null;
-  primary_style: number | null;
-  secondary_style: number | null;
-  items: (number | null)[];
-  augments: { slot: number; augment_id: number }[];
-}
-
-// Bots and unresolved players carry an all-zeroes puuid. Dropping it here means
-// every read path can treat "has a puuid" as "is a real, identifiable player".
-function realPuuid(value: unknown): string | null {
-  if (typeof value !== "string" || value === "") return null;
-  return /^0+(-0+)*$/.test(value) ? null : value;
-}
-
-// "Name#TAG" where we have both halves, the bare name where we don't.
-function displayName(gameName: string | null, tagLine: string | null): string | null {
-  if (!gameName) return null;
-  return tagLine ? `${gameName}#${tagLine}` : gameName;
-}
-
-// Every game stored in this database so far came in through the legacy
-// LCU match-history shape (participant.stats.perk0..perk5/perkPrimaryStyle/
-// perkSubStyle, no participant.perks at all) rather than the Match-V5 shape
-// (participant.perks.styles[].selections[].perk). Reading only the Match-V5
-// path — as every previous fix in this area did — silently produced empty
-// rune data for 100% of real matches, which is the actual cause of the
-// persistent "R" placeholder / "Primary / Secondary" fallback text: it was
-// never a broken icon URL, it was rune data that never reached the UI.
-// `owner` is a raw participant object; `stats` is `owner.stats` when present
-// (legacy shape) or `owner` itself (Match-V5 shape, which is already flat).
-export interface ExtractedRunes {
-  runeIds: number[];
-  primaryStyle: number | null;
-  secondaryStyle: number | null;
-  statShardIds: number[];
-}
-
-export function extractRunes(owner: any): ExtractedRunes {
-  const stats = owner?.stats ?? owner ?? {};
-  const styles: any[] = owner?.perks?.styles ?? stats?.perks?.styles ?? [];
-  if (styles.length > 0) {
-    const statPerks = owner?.perks?.statPerks ?? stats?.perks?.statPerks ?? {};
-    const runeIds = styles
-      .flatMap((style: any) => [
-        style.style,
-        ...(style.selections ?? []).map((selection: any) => selection.perk),
-      ])
-      .filter((id: any) => Number(id))
-      .map(Number);
-    return {
-      runeIds,
-      primaryStyle: Number(styles[0]?.style) || null,
-      secondaryStyle: Number(styles[1]?.style) || null,
-      statShardIds: [statPerks.offense, statPerks.flex, statPerks.defense]
-        .map(Number)
-        .filter(Boolean),
-    };
-  }
-
-  // Legacy shape: flat perkN fields, in slot order rather than tree-grouped —
-  // perk0 is the keystone plus 3 more primary perks (perk1-3), perk4-5 are the
-  // two secondary perks. Positions must stay fixed through the slice below
-  // (a missing/zero perk is still a slot), so zeros are only filtered out
-  // after slicing, not before.
-  const primaryStyle = Number(stats.perkPrimaryStyle) || null;
-  const secondaryStyle = Number(stats.perkSubStyle) || null;
-  const legacyPerks = [
-    stats.perk0,
-    stats.perk1,
-    stats.perk2,
-    stats.perk3,
-    stats.perk4,
-    stats.perk5,
-  ].map(Number);
-  const runeIds = [
-    primaryStyle,
-    ...legacyPerks.slice(0, 4),
-    secondaryStyle,
-    ...legacyPerks.slice(4, 6),
-  ].filter((id): id is number => id != null && Number.isFinite(id) && id > 0);
-  const statShardIds = [stats.statPerk0, stats.statPerk1, stats.statPerk2]
-    .map(Number)
-    .filter((id) => Number.isFinite(id) && id > 0);
-  return { runeIds, primaryStyle, secondaryStyle, statShardIds };
-}
-
-// Riot Match-V5 sends teamPosition directly, but the League Client's own match
-// payload does not: it sends timeline.lane + timeline.role instead. Normalize
-// both spellings to the Match-V5 vocabulary so the rest of the app only ever
-// sees "TOP" | "JUNGLE" | "MIDDLE" | "BOTTOM" | "UTILITY" | null.
-function normalizeTeamPosition(raw: any, stats: any): string | null {
-  const direct = raw?.teamPosition ?? stats?.teamPosition;
-  if (typeof direct === "string" && direct) return direct;
-
-  const lane = raw?.timeline?.lane ?? stats?.timeline?.lane;
-  const role = raw?.timeline?.role ?? stats?.timeline?.role;
-  if (typeof lane !== "string" || !lane || lane === "NONE") return null;
-
-  // Bot lane is the only lane whose role disambiguates the position: support
-  // is reported as UTILITY by Match-V5, carry as BOTTOM.
-  if (lane === "BOTTOM" && role === "DUO_SUPPORT") return "UTILITY";
-  return lane;
-}
-
-function participantRowsFromRaw(raw: any): RawParticipantRow[] {
-  const participants = raw?.participants;
-  if (!Array.isArray(participants)) return [];
-  const identities = raw.participantIdentities || [];
-
-  return participants.map((p: any, i: number): RawParticipantRow => {
-    const s = p.stats || p;
-    const player = identities[i]?.player || {};
-    const augments: { slot: number; augment_id: number }[] = [];
-    for (let slot = 1; slot <= AUGMENT_SLOTS; slot++) {
-      const augId = s[`playerAugment${slot}`];
-      if (augId && augId > 0) augments.push({ slot, augment_id: augId });
-    }
-    const icon = player.profileIcon;
-    const runes = extractRunes(p);
-    const perks = runes.runeIds.filter(
-      (id) => id !== runes.primaryStyle && id !== runes.secondaryStyle,
-    );
-    const subteamRaw = p.playerSubteamId ?? s.playerSubteamId ?? p.subteamId ?? s.subteamId;
-    const subteamId = Number(subteamRaw);
-    const playerSubteamId = Number.isFinite(subteamId) && subteamId > 0 ? subteamId : null;
-    const placementRaw =
-      p.playerSubteamPlacement ??
-      s.playerSubteamPlacement ??
-      p.subteamPlacement ??
-      s.subteamPlacement ??
-      p.placement ??
-      s.placement;
-    const placementNum = Number(placementRaw);
-    const playerSubteamPlacement =
-      Number.isFinite(placementNum) && placementNum > 0 ? placementNum : null;
-
-    return {
-      participant_id: p.participantId ?? i + 1,
-      puuid: realPuuid(p.puuid) ?? realPuuid(player.puuid),
-      game_name:
-        player.gameName || player.summonerName || p.summonerName || p.riotIdGameName || null,
-      tag_line: player.tagLine || p.riotIdTagline || null,
-      profile_icon: typeof icon === "number" && icon > 0 ? icon : null,
-      team_id: p.teamId ?? s.teamId ?? 100,
-      player_subteam_id: playerSubteamId,
-      player_subteam_placement: playerSubteamPlacement,
-      champion_id: p.championId ?? s.championId ?? 0,
-      win: s.win ? 1 : 0,
-      kills: s.kills ?? 0,
-      deaths: s.deaths ?? 0,
-      assists: s.assists ?? 0,
-      double_kills: s.doubleKills ?? 0,
-      triple_kills: s.tripleKills ?? 0,
-      quadra_kills: s.quadraKills ?? 0,
-      penta_kills: s.pentaKills ?? 0,
-      total_damage_dealt: s.totalDamageDealtToChampions ?? s.totalDamageDealt ?? 0,
-      total_damage_taken: s.totalDamageTaken ?? 0,
-      true_damage: s.trueDamageDealtToChampions ?? 0,
-      gold_earned: s.goldEarned ?? 0,
-      total_heal: s.totalHeal ?? 0,
-      largest_killing_spree: s.largestKillingSpree ?? 0,
-      largest_critical_strike: s.largestCriticalStrike ?? 0,
-      early_surrender: s.gameEndedInEarlySurrender ? 1 : 0,
-      // Riot's "totalDamageDealt" is all damage the participant dealt —
-      // champions, minions, jungle, structures — unlike total_damage_dealt
-      // above, which prefers the champions-only figure. Keep both: the
-      // scoreboard/records want champion damage, this new "total" record
-      // wants the raw everything-included number.
-      total_damage_dealt_all: Number(s.totalDamageDealt ?? 0),
-      true_damage_dealt: Number(s.trueDamageDealtToChampions ?? s.trueDamageDealt ?? 0),
-      spell1: p.spell1Id ?? p.summoner1Id ?? s.spell1Id ?? s.summoner1Id ?? null,
-      spell2: p.spell2Id ?? p.summoner2Id ?? s.spell2Id ?? s.summoner2Id ?? null,
-      cs:
-        s.totalCreepScore != null
-          ? Number(s.totalCreepScore)
-          : Number(s.totalMinionsKilled ?? p.totalMinionsKilled ?? 0) +
-            Number(s.neutralMinionsKilled ?? p.neutralMinionsKilled ?? 0),
-      team_position: normalizeTeamPosition(p, s),
-      rune0: perks[0] ?? null,
-      rune1: perks[1] ?? null,
-      rune2: perks[2] ?? null,
-      rune3: perks[3] ?? null,
-      rune4: perks[4] ?? null,
-      rune5: perks[5] ?? null,
-      primary_style: runes.primaryStyle,
-      secondary_style: runes.secondaryStyle,
-      items: [s.item0, s.item1, s.item2, s.item3, s.item4, s.item5, s.item6].map((it) =>
-        typeof it === "number" ? it : null,
-      ),
-      augments,
-    };
-  });
-}
-
-interface GameDenorm {
-  is_remake: number;
-  queue_id: number | null;
-  game_version: string | null;
-}
-
-let writeParticipantsStmts: {
-  participant: Database.Statement;
-  augment: Database.Statement;
-  clearParticipants: Database.Statement;
-  clearAugments: Database.Statement;
-} | null = null;
-
-function participantStatements() {
-  if (!writeParticipantsStmts) {
-    writeParticipantsStmts = {
-      participant: db.prepare(`
-        INSERT OR REPLACE INTO match_participants (
-          game_id, participant_id, puuid, game_name, tag_line, profile_icon,
-          team_id, player_subteam_id, player_subteam_placement, champion_id, win, kills, deaths, assists,
-          double_kills, triple_kills, quadra_kills, penta_kills,
-          total_damage_dealt, total_damage_taken, true_damage, gold_earned, total_heal,
-          largest_killing_spree, largest_critical_strike, cs, early_surrender,
-          total_damage_dealt_all, true_damage_dealt,
-          is_remake, queue_id, game_version,
-          spell1, spell2, item0, item1, item2, item3, item4, item5, item6,
-          team_position
-        ) VALUES (
-          @game_id, @participant_id, @puuid, @game_name, @tag_line, @profile_icon,
-          @team_id, @player_subteam_id, @player_subteam_placement, @champion_id, @win, @kills, @deaths, @assists,
-          @double_kills, @triple_kills, @quadra_kills, @penta_kills,
-          @total_damage_dealt, @total_damage_taken, @true_damage, @gold_earned, @total_heal,
-          @largest_killing_spree, @largest_critical_strike, @cs, @early_surrender,
-          @total_damage_dealt_all, @true_damage_dealt,
-          @is_remake, @queue_id, @game_version,
-          @spell1, @spell2, @item0, @item1, @item2, @item3, @item4, @item5, @item6,
-          @team_position
-        )
-      `),
-      augment: db.prepare(`
-        INSERT OR REPLACE INTO match_participant_augments (
-          game_id, participant_id, slot, augment_id,
-          champion_id, win, is_remake, queue_id, game_version
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-      `),
-      clearParticipants: db.prepare("DELETE FROM match_participants WHERE game_id = ?"),
-      clearAugments: db.prepare("DELETE FROM match_participant_augments WHERE game_id = ?"),
-    };
-  }
-  return writeParticipantsStmts;
-}
-
-// Replaces one game's participant rows wholesale. Callers are already inside a
-// transaction; this deliberately isn't one, so a game and its participants
-// commit together or not at all.
-function writeParticipants(gameId: number, meta: GameDenorm, rows: RawParticipantRow[]): void {
-  const stmts = participantStatements();
-  stmts.clearParticipants.run(gameId);
-  stmts.clearAugments.run(gameId);
-
-  for (const row of rows) {
-    stmts.participant.run({
-      game_id: gameId,
-      participant_id: row.participant_id,
-      puuid: row.puuid,
-      game_name: row.game_name,
-      tag_line: row.tag_line,
-      profile_icon: row.profile_icon,
-      team_id: row.team_id,
-      player_subteam_id: row.player_subteam_id,
-      player_subteam_placement: row.player_subteam_placement,
-      champion_id: row.champion_id,
-      win: row.win,
-      kills: row.kills,
-      deaths: row.deaths,
-      assists: row.assists,
-      double_kills: row.double_kills,
-      triple_kills: row.triple_kills,
-      quadra_kills: row.quadra_kills,
-      penta_kills: row.penta_kills,
-      total_damage_dealt: row.total_damage_dealt,
-      total_damage_taken: row.total_damage_taken,
-      true_damage: row.true_damage,
-      gold_earned: row.gold_earned,
-      total_heal: row.total_heal,
-      largest_killing_spree: row.largest_killing_spree,
-      largest_critical_strike: row.largest_critical_strike,
-      cs: row.cs,
-      early_surrender: row.early_surrender,
-      total_damage_dealt_all: row.total_damage_dealt_all,
-      true_damage_dealt: row.true_damage_dealt,
-      team_position: row.team_position,
-      is_remake: meta.is_remake,
-      queue_id: meta.queue_id,
-      game_version: meta.game_version,
-      spell1: row.spell1,
-      spell2: row.spell2,
-      item0: row.items[0],
-      item1: row.items[1],
-      item2: row.items[2],
-      item3: row.items[3],
-      item4: row.items[4],
-      item5: row.items[5],
-      item6: row.items[6],
-    });
-
-    for (const aug of row.augments) {
-      stmts.augment.run(
-        gameId,
-        row.participant_id,
-        aug.slot,
-        aug.augment_id,
-        row.champion_id,
-        row.win,
-        meta.is_remake,
-        meta.queue_id,
-        meta.game_version,
-      );
-    }
-  }
 }
 
 // ---- Migrations ----
@@ -1355,18 +1016,6 @@ function backfillAugmentSlots() {
   `);
 }
 
-// Queues switched off on the Settings page, as stored in hidden_queues. An
-// absent key means the setting was never written; an empty one means the user
-// has everything switched on.
-function getHiddenQueues(): number[] {
-  const raw = getSetting("hidden_queues");
-  if (!raw) return [];
-  return raw
-    .split(",")
-    .map(Number)
-    .filter((id) => Number.isFinite(id));
-}
-
 // Every queue with games stored, ignoring which ones are hidden — the Settings
 // page needs the full list to offer a hidden queue's switch back on.
 export function getStoredQueues(): number[] {
@@ -1379,114 +1028,6 @@ export function getStoredQueues(): number[] {
     `)
     .all() as { queue_id: number }[];
   return rows.map((r) => r.queue_id);
-}
-
-// Appends queue conditions to a query's WHERE list. An explicit queue filter
-// wins; otherwise the queues switched off in Settings are excluded everywhere.
-function applyQueueFilter(
-  where: string[],
-  params: any[],
-  queue?: number | number[],
-  alias = "g",
-): void {
-  if (Array.isArray(queue)) {
-    if (queue.length === 0) return;
-    if (queue.length === 1) {
-      where.push(`${alias}.queue_id = ?`);
-      params.push(queue[0]);
-      return;
-    }
-    where.push(`${alias}.queue_id IN (${queue.map(() => "?").join(", ")})`);
-    params.push(...queue);
-    return;
-  }
-  if (queue == null) {
-    const hidden = getHiddenQueues();
-    if (hidden.length > 0) {
-      where.push(`${alias}.queue_id NOT IN (${hidden.map(() => "?").join(", ")})`);
-      params.push(...hidden);
-    }
-    return;
-  }
-  if (queue === QUEUE_GROUP_ARENA) {
-    where.push(`${alias}.queue_id IN (${ARENA_QUEUE_IDS.map(() => "?").join(", ")})`);
-    params.push(...ARENA_QUEUE_IDS);
-    return;
-  }
-  if (queue === QUEUE_SCOPE_MAYHEM) {
-    where.push(`${alias}.queue_id IN (${MAYHEM_QUEUE_IDS.map(() => "?").join(", ")})`);
-    params.push(...MAYHEM_QUEUE_IDS);
-    return;
-  }
-  if (queue === QUEUE_SCOPE_REST) {
-    where.push(`${alias}.queue_id NOT IN (${MAYHEM_QUEUE_IDS.map(() => "?").join(", ")})`);
-    params.push(...MAYHEM_QUEUE_IDS);
-    return;
-  }
-  if (queue === QUEUE_SCOPE_RANKED) {
-    where.push(`${alias}.queue_id IN (?,?)`);
-    params.push(420, 440);
-    return;
-  }
-  if (queue === QUEUE_SCOPE_NORMAL) {
-    where.push(`${alias}.queue_id IN (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`);
-    params.push(400, 480, 830, 840, 850, 870, 880, 890, 900, 2000, 2010, 2020, 3140, 3270, 4310);
-    return;
-  }
-  if (queue === QUEUE_SCOPE_ARAM) {
-    where.push(`${alias}.queue_id IN (?,?,?,?)`);
-    params.push(65, 67, 100, 450);
-    return;
-  }
-  if (queue === QUEUE_SCOPE_ARENA) {
-    where.push(`${alias}.queue_id IN (?,?,?)`);
-    params.push(1700, 1740, 1750);
-    return;
-  }
-  if (queue != null) {
-    where.push(`${alias}.queue_id = ?`);
-    params.push(queue);
-    return;
-  }
-}
-
-function applyTimeFilter(timePeriod?: "24h" | "7d" | "30d" | "full"): {
-  sql: string;
-  params: unknown[];
-} {
-  if (timePeriod === "24h") {
-    return {
-      sql: "AND g.game_creation >= ?",
-      params: [Date.now() - 24 * 60 * 60 * 1000],
-    };
-  }
-  if (timePeriod === "7d") {
-    return {
-      sql: "AND g.game_creation >= ?",
-      params: [Date.now() - 7 * 24 * 60 * 60 * 1000],
-    };
-  }
-  if (timePeriod === "30d") {
-    return {
-      sql: "AND g.game_creation >= ?",
-      params: [Date.now() - 30 * 24 * 60 * 60 * 1000],
-    };
-  }
-  if (timePeriod === "full") return { sql: "", params: [] };
-  return { sql: "", params: [] };
-}
-
-// A locally-owned game came from the client or a Riot sync and its owner puuid
-// still has a summoner row. A deleted owner leaves an orphaned game that must
-// not appear in any local view.
-function localGamesFilter(alias: string): string {
-  return `${alias}.source != 'search-import' AND ${alias}.puuid IN (SELECT puuid FROM summoner)`;
-}
-
-// Remakes are already left out of every stat; this setting takes them out of
-// the match list as well. An absent key means they stay visible.
-function hideRemakes(): boolean {
-  return getSetting("hide_remakes") === "true";
 }
 
 // Score backfills are keyed on formula version + champion data version, so
@@ -1801,22 +1342,6 @@ const MULTIKILL_COLUMNS: Record<string, string> = {
   quadras: "ps.quadra_kills",
   pentas: "ps.penta_kills",
 };
-
-function statsSource(account?: string): {
-  table: "player_stats" | "tracked_game_stats";
-  alias: "ps";
-  accountFilter: string;
-} {
-  if (account === "all") {
-    return {
-      table: "tracked_game_stats",
-      alias: "ps",
-      accountFilter: "ps.puuid IN (SELECT puuid FROM summoner)",
-    };
-  }
-  if (account) return { table: "tracked_game_stats", alias: "ps", accountFilter: "ps.puuid = ?" };
-  return { table: "player_stats", alias: "ps", accountFilter: localGamesFilter("g") };
-}
 
 export function getMatchHistory(
   limit: number,
@@ -2375,9 +1900,6 @@ export function getAugmentStatsAll(
   `)
     .all(...params);
 }
-
-const EXCLUDED_STATS_SQL = NO_STATS_QUEUE_IDS.join(", ");
-const EXCLUDED_CS_SQL = [...NO_CS_QUEUE_IDS, ...NO_STATS_QUEUE_IDS].join(", ");
 
 export function getDashboardData(
   filters?: {
@@ -4466,23 +3988,6 @@ export function getChampionItemStats(
     ORDER BY picks DESC
   `)
     .all(...params) as any[];
-}
-
-// Filters for a query over match_participants. is_remake, queue_id and
-// game_version are carried on the participant rows themselves, so nothing here
-// has to join back to games.
-function participantFilter(patch?: string, queue?: number, alias = "mp") {
-  const where = [`${alias}.is_remake = 0`];
-  const params: any[] = [];
-  if (patch) {
-    where.push(`${alias}.game_version = ?`);
-    params.push(patch);
-  }
-  applyQueueFilter(where, params, queue, alias);
-  where.push(
-    `EXISTS (SELECT 1 FROM games g WHERE g.game_id = ${alias}.game_id AND ${localGamesFilter("g")} AND g.queue_id NOT IN (${EXCLUDED_STATS_SQL}))`,
-  );
-  return { where, params, sql: where.join(" AND ") };
 }
 
 export function getGlobalStats(
