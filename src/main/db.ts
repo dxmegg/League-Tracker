@@ -1,6 +1,5 @@
 import Database from "better-sqlite3";
 import fs from "fs";
-import path from "path";
 import zlib from "zlib";
 import {
   SCORE_FORMULA_VERSION,
@@ -22,22 +21,22 @@ import {
   QUEUE_SCOPE_RANKED,
   QUEUE_SCOPE_REST,
 } from "../shared/queues";
-import { getDataDir } from "./paths";
 import { getChampionClasses, getChampionDataVersion } from "./dragon";
 import type { ItemStats, MasteryChampion, QueueStat, RankEntry } from "../shared/api";
 import * as backup from "./backup";
+import { getDbPath } from "./db/connection";
+import { getSetting, setSetting } from "./db/settings";
+
+export { getDbPath } from "./db/connection";
+export { getSetting, setSetting } from "./db/settings";
 
 export type GameSource = "lcu" | "riot-sync" | "search-import";
 
 // Poro-Snax (base and upgraded) is handed out for free, so it skews item stats
 const EXCLUDED_ITEM_IDS = [2052, 220013];
 
-let db: Database.Database;
+export let db: Database.Database;
 let scoreBackfillInFlight = false;
-
-export function getDbPath() {
-  return path.join(getDataDir(), "matches.db");
-}
 
 export async function initDatabase() {
   const dbPath = getDbPath();
@@ -5159,19 +5158,6 @@ export function getRecords(
 
 export function getDatabase(): Database.Database {
   return db;
-}
-
-// ---- Settings ----
-
-export function getSetting(key: string): string | null {
-  const row = db.prepare("SELECT value FROM settings WHERE key = ?").get(key) as
-    | { value: string }
-    | undefined;
-  return row?.value ?? null;
-}
-
-export function setSetting(key: string, value: string): void {
-  db.prepare("INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)").run(key, value);
 }
 
 export function setRiotSyncState(
