@@ -18,12 +18,13 @@ import { ChampCard } from "../components/ChampCard";
 import { HomeHero } from "../components/HomeHero";
 import { HomeCard } from "../components/HomeCard";
 import { LiveGameMock } from "../components/LiveGameMock";
+import { MatchRowExperiment } from "../components/MatchRowExperiment";
 import { Panel } from "../components/Panel";
 import { RecordTile } from "../components/RecordTile";
 import SummonerIcon from "../components/SummonerIcon";
 import { useActiveAccount } from "../hooks/useActiveAccount";
 import { useActiveTheme } from "../hooks/useActiveTheme";
-import { useChampionData } from "../hooks/useChampions";
+import { getChampionName, useChampionData } from "../hooks/useChampions";
 import { ALL_ACCOUNTS_SENTINEL } from "../lib/accountsEvent";
 import { NavLink } from "react-router-dom";
 import { GameRow } from "./MatchHistory";
@@ -436,10 +437,12 @@ function MatchListPanel({
   account,
   queue,
   timePeriod,
+  experiment = false,
 }: {
   account: HomeAccountFilter;
   queue: number | undefined;
   timePeriod: HomeTimePeriod;
+  experiment?: boolean;
 }) {
   const [matches, setMatches] = useState<MatchListItem[]>([]);
   const [loading, setLoading] = useState(false);
@@ -463,6 +466,27 @@ function MatchListPanel({
       cancelled = true;
     };
   }, [account, queue]);
+
+  if (experiment) {
+    return (
+      <div className={`transition-opacity ${loading ? "opacity-50" : ""}`}>
+        <div className="match-list-exp overflow-y-auto">
+          {matches.map((match) => (
+            <MatchRowExperiment
+              key={match.game_id}
+              match={match}
+              championName={getChampionName(champData, match.champion_id)}
+            />
+          ))}
+          {!loading && matches.length === 0 && (
+            <Panel className="py-6 text-center text-sm text-lol-text">
+              No games recorded in the last {timePeriodLabel(timePeriod)}
+            </Panel>
+          )}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div
@@ -658,7 +682,7 @@ export default function Home() {
               </h2>
               <QueueFilterChips value={queue} onChange={setQueue} />
             </div>
-            <MatchListPanel account={account} queue={queue} timePeriod={timePeriod} />
+            <MatchListPanel account={account} queue={queue} timePeriod={timePeriod} experiment />
           </Panel>
         </div>
       </div>
