@@ -155,6 +155,18 @@ export function statsSource(account?: string): {
 export const EXCLUDED_STATS_SQL = NO_STATS_QUEUE_IDS.join(", ");
 export const EXCLUDED_CS_SQL = [...NO_CS_QUEUE_IDS, ...NO_STATS_QUEUE_IDS].join(", ");
 
+// The per-game maxima the match list scales its stat bars against. Selected
+// alongside the row rather than derived in JS: three correlated MAX()es over a
+// page of 25 games cost a fraction of a millisecond, where the old version
+// parsed 25 raw payloads to find them.
+export const GAME_MAX_STATS_SQL = `
+           MAX(IFNULL((SELECT MAX(mp.total_damage_dealt) FROM match_participants mp
+                        WHERE mp.game_id = g.game_id), 0), 1) as game_max_dmg,
+           MAX(IFNULL((SELECT MAX(mp.total_damage_taken) FROM match_participants mp
+                        WHERE mp.game_id = g.game_id), 0), 1) as game_max_taken,
+           MAX(IFNULL((SELECT MAX(mp.total_heal) FROM match_participants mp
+                        WHERE mp.game_id = g.game_id), 0), 1) as game_max_heal`;
+
 // Filters for a query over match_participants. is_remake, queue_id and
 // game_version are carried on the participant rows themselves, so nothing here
 // has to join back to games.
