@@ -493,18 +493,17 @@ export default function Settings() {
           <FilterSelect
             value={theme}
             onChange={(value) => {
-              if (value !== "default" && value !== "test" && value !== "pink") return;
+              if (value !== "test" && value !== "experiment") return;
               setTheme(value);
               void window.api.setSetting("theme", value);
               document.documentElement.setAttribute("data-theme", value);
             }}
-            placeholder="Noxian (Default)"
+            placeholder="Default"
             title="Theme"
             className="w-48"
             options={[
-              { value: "test", label: "Noxian (Default)" },
-              { value: "default", label: "Default (Legacy)" },
-              { value: "pink", label: "Pink" },
+              { value: "test", label: "Default" },
+              { value: "experiment", label: "Experiment" },
             ]}
           />
         </div>
