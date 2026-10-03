@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type {
   AccountListItem,
   HomeAccountFilter,
@@ -17,7 +17,9 @@ import ChampionIcon from "../components/ChampionIcon";
 import { HomeHero } from "../components/HomeHero";
 import { HomeCard } from "../components/HomeCard";
 import { Panel } from "../components/Panel";
+import SummonerIcon from "../components/SummonerIcon";
 import { useActiveAccount } from "../hooks/useActiveAccount";
+import { useActiveTheme } from "../hooks/useActiveTheme";
 import { useChampionData } from "../hooks/useChampions";
 import { ALL_ACCOUNTS_SENTINEL } from "../lib/accountsEvent";
 import { NavLink } from "react-router-dom";
@@ -47,6 +49,251 @@ function timePeriodLabel(timePeriod: HomeTimePeriod): string {
   if (timePeriod === "30d") return "30 days";
   if (timePeriod === "full") return "full history";
   return "7 days";
+}
+
+const periodLabel = (period: HomeTimePeriod): string => (period === "full" ? "FULL" : period);
+
+function StatValue({
+  label,
+  value,
+  className,
+}: {
+  label: string;
+  value: number | string;
+  className: string;
+}) {
+  return (
+    <div className="min-w-0">
+      <div className={`text-2xl font-bold ${className}`}>{value}</div>
+      <div className="text-[10px] font-bold uppercase tracking-wider text-lol-text">{label}</div>
+    </div>
+  );
+}
+
+function PlayerSummaryCard({
+  dashboard,
+  loading,
+  account,
+  savedAccounts,
+  onAccountChange,
+  timePeriod,
+  onTimePeriodChange,
+}: {
+  dashboard: HomeDashboardPayload | null;
+  loading: boolean;
+  account: HomeAccountFilter;
+  savedAccounts: AccountListItem[];
+  onAccountChange: (account: HomeAccountFilter) => void;
+  timePeriod: HomeTimePeriod;
+  onTimePeriodChange: (timePeriod: HomeTimePeriod) => void;
+}) {
+  const [currentPuuid, setCurrentPuuid] = useState<string | null>(null);
+
+  useEffect(() => {
+    window.api
+      .getCurrentPuuid()
+      .then(setCurrentPuuid)
+      .catch(() => setCurrentPuuid(null));
+  }, []);
+
+  const selectedAccount = useMemo(
+    () =>
+      typeof account === "string" ? savedAccounts.find((item) => item.puuid === account) : null,
+    [account, savedAccounts],
+  );
+  const isAllAccounts = account === undefined || account === "all";
+  const winRate =
+    dashboard && dashboard.summary.totalGames > 0
+      ? `${((dashboard.summary.wins / dashboard.summary.totalGames) * 100).toFixed(0)}% WR`
+      : "—";
+
+  return (
+    <HomeCard className="flex h-full p-5 xl:p-6 2xl:p-7">
+      <div
+        className={`grid h-full grid-cols-[180px_1fr] gap-4 transition-opacity ${loading ? "opacity-50" : ""}`}
+      >
+        <div className="flex flex-col gap-3">
+          <div className="flex justify-center">
+            {isAllAccounts ? (
+              <div className="flex flex-col gap-2 rounded-lg border border-lol-crimson/40 bg-lol-card/40 p-3">
+                <div className="text-center text-[10px] font-bold uppercase tracking-wider text-lol-text">
+                  Saved Accounts
+                </div>
+                <div className="grid grid-cols-3 gap-2">
+                  {savedAccounts.slice(0, 9).map((acc) => (
+                    <SummonerIcon
+                      key={acc.puuid}
+                      iconId={acc.profileIconId ?? null}
+                      size={56}
+                      className="rounded-lg border border-lol-border/40 bg-lol-dark object-cover"
+                    />
+                  ))}
+                </div>
+              </div>
+            ) : (
+              <div
+                className="shrink-0 rounded-lg border border-lol-crimson/40 p-[4px] shadow-[0_0_3px_rgba(150,30,30,0.55),0_0_10px_rgba(90,15,15,0.35),0_0_20px_rgba(60,10,10,0.20)]"
+                style={{
+                  background: "linear-gradient(138deg, #7d1a1a 0%, #c73e3e 50%, #7d1a1a 100%)",
+                }}
+              >
+                <SummonerIcon
+                  iconId={selectedAccount?.profileIconId ?? null}
+                  size={136}
+                  className="rounded-md bg-lol-dark object-cover"
+                />
+              </div>
+            )}
+          </div>
+          <div className="min-h-0">
+            <div className="mb-2 flex items-center justify-between gap-2">
+              <div className="text-[10px] font-bold uppercase tracking-wider text-lol-text">
+                Saved Accounts
+              </div>
+              <button
+                type="button"
+                onClick={() => onAccountChange("all")}
+                className={`rounded-md px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider transition-colors ${
+                  isAllAccounts
+                    ? "border border-lol-crimson/60 bg-lol-crimson/20 text-lol-text-bright"
+                    : "text-lol-text hover:bg-lol-crimson/10 hover:text-lol-text-bright"
+                }`}
+              >
+                ALL ACCOUNTS
+              </button>
+            </div>
+            <div className="flex max-h-[260px] flex-col gap-1 overflow-y-auto [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+              {savedAccounts.map((savedAccount) => {
+                const isActive = savedAccount.puuid === account;
+                return (
+                  <button
+                    key={savedAccount.puuid}
+                    type="button"
+                    onClick={() => onAccountChange(savedAccount.puuid)}
+                    className={`flex items-center gap-2 rounded-md px-2 py-1.5 text-left transition-colors ${
+                      isActive
+                        ? "bg-lol-gold/15 text-lol-text-bright"
+                        : "text-lol-text hover:bg-white/[0.04]"
+                    }`}
+                  >
+                    <SummonerIcon
+                      iconId={savedAccount.profileIconId}
+                      size={24}
+                      className="rounded-lg"
+                    />
+                    <span className="truncate text-xs">
+                      {savedAccount.gameName ?? "Unknown"}
+                      {savedAccount.tagLine ? `#${savedAccount.tagLine}` : ""}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+
+        <div className="flex min-w-0 flex-col gap-3">
+          <div className="flex items-start justify-between gap-4">
+            <div className="min-w-0">
+              {isAllAccounts ? (
+                <div className="break-words text-2xl font-bold text-lol-text-bright">
+                  All accounts summarised
+                </div>
+              ) : (
+                <>
+                  <div className="break-words text-2xl font-bold text-lol-text-bright">
+                    {selectedAccount?.gameName ?? "Unknown"}
+                  </div>
+                  {selectedAccount?.tagLine && (
+                    <div className="text-sm text-lol-text">#{selectedAccount.tagLine}</div>
+                  )}
+                </>
+              )}
+              {!isAllAccounts && (
+                <div className="text-xs text-lol-text">
+                  {currentPuuid === account ? "Connected" : "Unranked"}
+                </div>
+              )}
+            </div>
+            <div className="flex shrink-0 rounded-lg border border-lol-border/60 bg-lol-card/60 p-0.5">
+              {TIME_PERIODS.map((period) => (
+                <button
+                  key={period}
+                  type="button"
+                  onClick={() => onTimePeriodChange(period)}
+                  className={`rounded-md border px-2.5 py-1 text-xs font-bold transition-colors ${
+                    period === timePeriod
+                      ? "border-lol-crimson/60 bg-lol-crimson/20 text-lol-text-bright"
+                      : "border-transparent text-lol-text hover:border-lol-crimson/40 hover:bg-lol-crimson/10 hover:text-lol-text-bright"
+                  }`}
+                >
+                  {periodLabel(period)}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="flex flex-wrap items-baseline gap-3 text-xl">
+            <span className="font-bold text-lol-text-bright">
+              Last {timePeriodLabel(timePeriod)}
+            </span>
+            <span className="text-sm text-lol-text">
+              {dashboard?.summary.totalGames ?? 0} games
+            </span>
+            <span className="text-lol-win">{dashboard?.summary.wins ?? 0}W</span>
+            <span className="text-lol-loss/70">{dashboard?.summary.losses ?? 0}L</span>
+            <span className="font-semibold text-lol-gold">{winRate}</span>
+          </div>
+
+          <div className="h-px bg-gradient-to-r from-lol-gold/20 via-lol-gold/10 to-transparent" />
+
+          <div className="grid grid-cols-4 gap-3">
+            <StatValue
+              label="Kills"
+              value={dashboard?.summary.totalKills ?? 0}
+              className="text-amber-400"
+            />
+            <StatValue
+              label="Deaths"
+              value={dashboard?.summary.totalDeaths ?? 0}
+              className="text-red-400"
+            />
+            <StatValue
+              label="Assists"
+              value={dashboard?.summary.totalAssists ?? 0}
+              className="text-sky-400"
+            />
+            <StatValue
+              label="Average K/D/A"
+              value={(dashboard?.summary.avgKda ?? 0).toFixed(2)}
+              className="text-lol-text-bright"
+            />
+          </div>
+
+          <div className="h-px bg-gradient-to-r from-lol-gold/20 via-lol-gold/10 to-transparent" />
+
+          <div>
+            <div className="mb-2 text-[10px] font-bold uppercase tracking-wider text-lol-text">
+              Most played champions
+            </div>
+            <div className="grid grid-cols-5 gap-3">
+              {(dashboard?.topChampions ?? []).slice(0, 5).map((champion) => (
+                <div key={champion.championId} className="flex min-w-0 flex-col items-center gap-1">
+                  <ChampionIcon championId={champion.championId} size={48} className="rounded-lg" />
+                  <div className="text-xs font-semibold text-lol-win">{champion.wins}W</div>
+                  <div className="text-xs text-lol-loss/70">{champion.games - champion.wins}L</div>
+                  <div className="text-[10px] text-lol-text">{champion.games} games</div>
+                  <div className="text-[10px] text-lol-text">
+                    {Math.round(champion.winRate * 100)}% WR
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+    </HomeCard>
+  );
 }
 
 function formatShortDate(ts: number): string {
@@ -121,6 +368,10 @@ function RecordsCard({
       </div>
     </HomeCard>
   );
+}
+
+function EmptyPlaceholderCard() {
+  return <HomeCard className="h-full" aria-hidden="true" />;
 }
 
 function QueueFilterChips({
@@ -244,9 +495,14 @@ function MatchListPanel({
 }
 
 export default function Home() {
-  const [activeAccountRaw] = useActiveAccount();
+  const activeTheme = useActiveTheme();
+  const isExperiment = activeTheme === "experiment";
+  const [activeAccountRaw, setActiveAccountRaw] = useActiveAccount();
   const account: HomeAccountFilter =
     activeAccountRaw === ALL_ACCOUNTS_SENTINEL ? "all" : activeAccountRaw;
+  const setAccount = (next: HomeAccountFilter) => {
+    setActiveAccountRaw(next === "all" || next === undefined ? ALL_ACCOUNTS_SENTINEL : next);
+  };
   const [timePeriod, setTimePeriod] = useState<HomeTimePeriod>("7d");
   const [queue, setQueue] = useState<number | undefined>(undefined);
   const [dashboard, setDashboard] = useState<HomeDashboardPayload | null>(null);
@@ -279,43 +535,76 @@ export default function Home() {
     };
   }, [account, timePeriod, queue]);
 
-  return (
-    <div className="mx-auto flex min-h-full w-full max-w-[1320px] flex-col gap-5">
-      <div className="flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <h1 className="font-display text-[30px] font-bold leading-tight tracking-[0.2px] text-lol-text-bright">
-            {account === "all" ? "All accounts" : "Account summary"}
-          </h1>
-          <p className="mt-1.5 text-lol-text">
-            {account === "all"
-              ? `Combined stats from your ${savedAccounts.length} saved accounts`
-              : "Detailed stats for the selected account"}
-          </p>
+  if (isExperiment) {
+    return (
+      <div className="mx-auto flex min-h-full w-full max-w-[1320px] flex-col gap-5">
+        <div className="flex flex-wrap items-end justify-between gap-4">
+          <div>
+            <h1 className="font-display text-[30px] font-bold leading-tight tracking-[0.2px] text-lol-text-bright">
+              {account === "all" ? "All accounts" : "Account summary"}
+            </h1>
+            <p className="mt-1.5 text-lol-text">
+              {account === "all"
+                ? `Combined stats from your ${savedAccounts.length} saved accounts`
+                : "Detailed stats for the selected account"}
+            </p>
+          </div>
+          <div className="inline-flex rounded-[10px] border border-lol-border bg-lol-card p-[3px]">
+            {TIME_PERIODS.map((period) => (
+              <button
+                key={period}
+                type="button"
+                onClick={() => setTimePeriod(period)}
+                className={`rounded-[7px] px-4 py-1.5 font-display text-[13px] font-semibold transition-colors ${
+                  period === timePeriod
+                    ? "bg-lol-crimson text-white"
+                    : "text-lol-text hover:text-lol-text-bright"
+                }`}
+              >
+                {period === "full" ? "Full" : period}
+              </button>
+            ))}
+          </div>
         </div>
-        <div className="inline-flex rounded-[10px] border border-lol-border bg-lol-card p-[3px]">
-          {TIME_PERIODS.map((period) => (
-            <button
-              key={period}
-              type="button"
-              onClick={() => setTimePeriod(period)}
-              className={`rounded-[7px] px-4 py-1.5 font-display text-[13px] font-semibold transition-colors ${
-                period === timePeriod
-                  ? "bg-lol-crimson text-white"
-                  : "text-lol-text hover:text-lol-text-bright"
-              }`}
-            >
-              {period === "full" ? "Full" : period}
-            </button>
-          ))}
+
+        <Panel>
+          <HomeHero dashboard={dashboard} loading={loading} timePeriod={timePeriod} />
+        </Panel>
+
+        <RecordsCard dashboard={dashboard} loading={loading} />
+
+        <div className="grid flex-1 min-h-0 grid-cols-[220px_1fr] items-stretch gap-4">
+          <div className="flex flex-col gap-3">
+            <div className="text-center text-xl font-bold text-lol-text-bright">Match History</div>
+            <MatchHistoryNav />
+          </div>
+          <div className="flex min-h-0 flex-col gap-3">
+            <div className="flex items-center gap-4">
+              <div className="text-xl font-bold text-lol-text-bright">Last 20 played games</div>
+              <QueueFilterChips value={queue} onChange={setQueue} />
+            </div>
+            <MatchListPanel account={account} queue={queue} timePeriod={timePeriod} />
+          </div>
         </div>
       </div>
+    );
+  }
 
-      <Panel>
-        <HomeHero dashboard={dashboard} loading={loading} timePeriod={timePeriod} />
-      </Panel>
-
-      <RecordsCard dashboard={dashboard} loading={loading} />
-
+  return (
+    <div className="flex min-h-full flex-col gap-4">
+      <div className="grid grid-cols-[2fr_1.5fr_1fr] items-stretch gap-4">
+        <PlayerSummaryCard
+          dashboard={dashboard}
+          loading={loading}
+          account={account}
+          savedAccounts={savedAccounts}
+          onAccountChange={setAccount}
+          timePeriod={timePeriod}
+          onTimePeriodChange={setTimePeriod}
+        />
+        <RecordsCard dashboard={dashboard} loading={loading} />
+        <EmptyPlaceholderCard />
+      </div>
       <div className="grid flex-1 min-h-0 grid-cols-[220px_1fr] items-stretch gap-4">
         <div className="flex flex-col gap-3">
           <div className="text-center text-xl font-bold text-lol-text-bright">Match History</div>
