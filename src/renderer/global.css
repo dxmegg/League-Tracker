@@ -13,6 +13,8 @@
   --color-lol-text-bright: #e8ecf4;
   --color-lol-crimson: var(--theme-crimson, #a50f15);
   --color-lol-crimson-bright: var(--theme-crimson-bright, #c41e28);
+  --color-lol-assist: var(--theme-assist, #4db8ff);
+  --color-lol-violet: var(--theme-violet, #a98bff);
   --color-bg-deep: var(--theme-bg-deep, #08070a);
   --color-bg-base: var(--theme-bg-base, #0e0c11);
   --color-bg-elevated: var(--theme-bg-elevated, #17141c);
@@ -382,5 +384,16 @@ html[data-theme="test"] #root {
   .cv-row {
     content-visibility: auto;
     contain-intrinsic-size: 0 50px;
+  }
+
+  .font-display {
+    font-family: var(
+      --theme-font-display,
+      -apple-system,
+      BlinkMacSystemFont,
+      "Segoe UI",
+      Roboto,
+      sans-serif
+    );
   }
 }
