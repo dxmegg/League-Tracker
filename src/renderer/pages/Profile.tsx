@@ -15,6 +15,8 @@ import type {
 } from "../../shared/api";
 import ChampionIcon from "../components/ChampionIcon";
 import { FilterChip } from "../components/FilterChip";
+import { Panel } from "../components/Panel";
+import { ProfileHero } from "../components/ProfileHero";
 import { queueLabel } from "../components/QueueSelect";
 import { shortRegion } from "../../shared/regions";
 import { isAugmentQueue, QUEUE_LABELS } from "../../shared/queues";
@@ -22,6 +24,7 @@ import { formatTimeAgo, kdaRatio } from "../lib/format";
 import { CHAMPION_ICON_URL } from "../lib/constants";
 import { dbg } from "../../shared/debug";
 import { ALL_ACCOUNTS_SENTINEL } from "../lib/accountsEvent";
+import { useActiveTheme } from "../hooks/useActiveTheme";
 
 const EMBLEM_BASE_URL = "https://opgg-static.akamaized.net/images/medals_new";
 
@@ -615,6 +618,8 @@ async function readRecentHistoryFromDb(
 
 export default function Profile() {
   const log = dbg.scope("profile");
+  const activeTheme = useActiveTheme();
+  const isExperiment = activeTheme === "experiment";
   const championData = useChampionData();
   const [profile, setProfile] = useState<ProfileData | null>(null);
   const [recentMatches, setRecentMatches] = useState<MatchListItem[] | null>(null);
@@ -831,6 +836,22 @@ export default function Profile() {
     [livePuuid, log],
   );
 
+  const handleRefresh = useCallback(async () => {
+    if (!selectedPuuid) return;
+    setSyncing(true);
+    setSyncError(null);
+    try {
+      const result = await window.api.syncAccountHistory(selectedPuuid);
+      if (!result.ok) {
+        setSyncError(result.error ?? "Sync failed");
+      } else {
+        await loadLocalProfile(selectedPuuid, { silent: true });
+      }
+    } finally {
+      setSyncing(false);
+    }
+  }, [selectedPuuid, loadLocalProfile]);
+
   const loadMoreRecentMatches = useCallback(async () => {
     if (!canLoadMore || recentMatchesLoadingMore) return;
     const puuid = selectedPuuidRef.current;
@@ -932,28 +953,16 @@ export default function Profile() {
     <div className="flex flex-col gap-6">
       <div className="flex flex-col items-end">
         <div className="flex items-center justify-end">
-          <FilterChip
-            active={!syncing}
-            onClick={async () => {
-              if (!selectedPuuid) return;
-              setSyncing(true);
-              setSyncError(null);
-              try {
-                const result = await window.api.syncAccountHistory(selectedPuuid);
-                if (!result.ok) {
-                  setSyncError(result.error ?? "Sync failed");
-                } else {
-                  await loadLocalProfile(selectedPuuid, { silent: true });
-                }
-              } finally {
-                setSyncing(false);
-              }
-            }}
-            disabled={syncing || !selectedPuuid}
-            className="h-9 shrink-0 px-3 text-xs font-semibold"
-          >
-            {syncing ? "Refreshing..." : "Refresh"}
-          </FilterChip>
+          {!isExperiment && (
+            <FilterChip
+              active={!syncing}
+              onClick={handleRefresh}
+              disabled={syncing || !selectedPuuid}
+              className="h-9 shrink-0 px-3 text-xs font-semibold"
+            >
+              {syncing ? "Refreshing..." : "Refresh"}
+            </FilterChip>
+          )}
         </div>
         {syncing && (
           <div className="mt-2 flex w-64 flex-col items-end gap-1">
@@ -983,196 +992,219 @@ export default function Profile() {
           </button>
         </div>
       )}
-      <div className="grid grid-cols-[220px_minmax(0,1fr)] items-stretch gap-8">
-        <div>
-          <div className="h-[220px] w-[220px] rounded-lg border border-lol-crimson/40 bg-[linear-gradient(138deg,#c89b37_0%,#ffe09b_50%,#c89b37_100%)] p-[4px] shadow-[0_0_3px_rgba(150,30,30,0.55),0_0_10px_rgba(90,15,15,0.35),0_0_20px_rgba(60,10,10,0.20)]">
-            {profileIconUrl && !profileIconFailed ? (
-              <img
-                src={profileIconUrl}
-                alt={`${profile.gameName} profile icon`}
-                className="h-full w-full rounded-md object-cover"
-                onError={() => setProfileIconFailed(true)}
-              />
-            ) : (
-              <div
-                className="flex h-full w-full items-center justify-center rounded-md bg-lol-dark text-6xl font-semibold text-lol-text-bright"
-                aria-label={`${profile.gameName} profile icon placeholder`}
-              >
-                {profileInitial}
-              </div>
-            )}
-          </div>
-          <p className="mt-3 text-center text-xs font-bold uppercase tracking-wider text-lol-text">
-            LEVEL{" "}
-            {profile.summonerLevel === 0 && selectedPuuid !== livePuuid ? (
-              <span className="text-lol-text/60">—</span>
-            ) : (
-              profile.summonerLevel
-            )}
-          </p>
-        </div>
-
-        <div className="min-w-0 pt-0">
+      <div
+        className={
+          isExperiment
+            ? "flex flex-col gap-5"
+            : "grid grid-cols-[220px_minmax(0,1fr)] items-stretch gap-8"
+        }
+      >
+        {!isExperiment && (
           <div>
-            <div ref={selectorWrapperRef} className="relative flex items-center gap-3">
-              {selectedAccount ? (
-                <h1
-                  className="max-w-full break-words text-4xl font-bold tracking-tight text-lol-text-bright"
-                  title={`${selectedAccount.gameName ?? ""}#${selectedAccount.tagLine ?? ""}`}
-                >
-                  {selectedAccount.gameName ?? "Unknown"}
-                  {selectedAccount.tagLine ? `#${selectedAccount.tagLine}` : ""}
-                </h1>
+            <div className="h-[220px] w-[220px] rounded-lg border border-lol-crimson/40 bg-[linear-gradient(138deg,#c89b37_0%,#ffe09b_50%,#c89b37_100%)] p-[4px] shadow-[0_0_3px_rgba(150,30,30,0.55),0_0_10px_rgba(90,15,15,0.35),0_0_20px_rgba(60,10,10,0.20)]">
+              {profileIconUrl && !profileIconFailed ? (
+                <img
+                  src={profileIconUrl}
+                  alt={`${profile.gameName} profile icon`}
+                  className="h-full w-full rounded-md object-cover"
+                  onError={() => setProfileIconFailed(true)}
+                />
               ) : (
-                <h1 className="max-w-full break-words text-4xl font-bold tracking-tight text-lol-text-bright">
-                  {profile.gameName}
-                </h1>
-              )}
-              <FilterChip
-                active={selectorOpen}
-                onClick={() => setSelectorOpen((value) => !value)}
-                className="h-9 shrink-0 px-3 text-xs font-semibold"
-                icon={
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    viewBox="0 0 16 16"
-                    fill="currentColor"
-                    className="h-3.5 w-3.5"
-                    aria-hidden="true"
-                  >
-                    <path d="M4.22 6.22a.75.75 0 0 1 1.06 0L8 8.94l2.72-2.72a.75.75 0 1 1 1.06 1.06l-3.25 3.25a.75.75 0 0 1-1.06 0L4.22 7.28a.75.75 0 0 1 0-1.06Z" />
-                  </svg>
-                }
-              >
-                {currentAccountLabel}
-              </FilterChip>
-              {selectorOpen && (
                 <div
-                  role="listbox"
-                  className="absolute left-0 top-full z-50 mt-2 max-h-80 w-80 overflow-y-auto rounded-lg border border-lol-crimson/40 bg-[linear-gradient(145deg,#0c0e11_0%,#090b0d_48%,#060809_100%)] p-1 shadow-[0_0_3px_rgba(150,30,30,0.55),0_0_10px_rgba(90,15,15,0.35),0_0_20px_rgba(60,10,10,0.20)] ring-1 ring-inset ring-white/[0.03]"
+                  className="flex h-full w-full items-center justify-center rounded-md bg-lol-dark text-6xl font-semibold text-lol-text-bright"
+                  aria-label={`${profile.gameName} profile icon placeholder`}
                 >
-                  {sortedAccounts.map((account) => {
-                    const isLive = account.puuid === livePuuid;
-                    const isSelected = account.puuid === selectedPuuid;
-                    return (
-                      <button
-                        key={account.puuid}
-                        type="button"
-                        role="option"
-                        aria-selected={isSelected}
-                        onClick={() => {
-                          setActiveAccountRaw(account.puuid);
-                          setSelectorOpen(false);
-                        }}
-                        className={`flex w-full items-center gap-3 rounded-md px-3 py-2 text-left transition-colors ${
-                          isSelected
-                            ? "bg-lol-gold/15 text-lol-text-bright"
-                            : "text-lol-text hover:bg-white/[0.05] hover:text-lol-text-bright"
-                        }`}
-                      >
-                        {account.profileIconId !== null && (
-                          <img
-                            src={`https://ddragon.leagueoflegends.com/cdn/${profile.dataDragonVersion}/img/profileicon/${account.profileIconId}.png`}
-                            alt=""
-                            className="h-7 w-7 shrink-0 rounded-full border border-lol-border/40 object-cover"
-                            onError={(event) => {
-                              event.currentTarget.style.display = "none";
-                            }}
-                          />
-                        )}
-                        <div className="min-w-0 flex-1">
-                          <div className="flex items-center gap-2">
-                            <span className="truncate text-sm font-bold text-lol-text-bright">
-                              {account.gameName ?? "Unknown"}
-                              {account.tagLine ? `#${account.tagLine}` : ""}
-                            </span>
-                            {isLive && (
-                              <span className="inline-flex shrink-0 items-center gap-1 rounded border border-lol-win/50 bg-lol-win/10 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider text-lol-win">
-                                <span className="inline-block h-1.5 w-1.5 rounded-full bg-lol-win" />
-                                Live
-                              </span>
-                            )}
-                          </div>
-                          <div className="text-[11px] text-lol-text">
-                            {account.gameCount} {account.gameCount === 1 ? "game" : "games"}
-                            {account.lastSeen && ` · ${formatTimeAgo(account.lastSeen)}`}
-                          </div>
-                        </div>
-                      </button>
-                    );
-                  })}
-                  {accounts.length === 0 && (
-                    <div className="px-3 py-4 text-center text-xs text-lol-text">
-                      No accounts with match history yet
-                    </div>
-                  )}
+                  {profileInitial}
                 </div>
               )}
             </div>
-            <div className="mt-2 flex items-center gap-2 text-xs text-lol-text">
-              <span>
-                Region:{" "}
-                {!profile.platform && selectedPuuid !== livePuuid ? (
-                  <span className="text-lol-text/60">not synced</span>
+            <p className="mt-3 text-center text-xs font-bold uppercase tracking-wider text-lol-text">
+              LEVEL{" "}
+              {profile.summonerLevel === 0 && selectedPuuid !== livePuuid ? (
+                <span className="text-lol-text/60">—</span>
+              ) : (
+                profile.summonerLevel
+              )}
+            </p>
+          </div>
+        )}
+
+        <div className={isExperiment ? "min-w-0" : "min-w-0 pt-0"}>
+          {isExperiment ? (
+            <Panel className="contents">
+              <ProfileHero
+                gameName={selectedAccount?.gameName ?? "Unknown"}
+                tagLine={selectedAccount?.tagLine ?? null}
+                profileIconId={profile?.profileIconId ?? selectedAccount?.profileIconId ?? null}
+                level={profile?.summonerLevel ?? null}
+                platform={profile?.platform ?? null}
+                isLive={selectedPuuid === livePuuid && livePuuid !== null}
+                onRefresh={handleRefresh}
+                refreshing={syncing}
+              />
+            </Panel>
+          ) : (
+            <div>
+              <div ref={selectorWrapperRef} className="relative flex items-center gap-3">
+                {selectedAccount ? (
+                  <h1
+                    className="max-w-full break-words text-4xl font-bold tracking-tight text-lol-text-bright"
+                    title={`${selectedAccount.gameName ?? ""}#${selectedAccount.tagLine ?? ""}`}
+                  >
+                    {selectedAccount.gameName ?? "Unknown"}
+                    {selectedAccount.tagLine ? `#${selectedAccount.tagLine}` : ""}
+                  </h1>
                 ) : (
-                  shortRegion(profile.platform)
+                  <h1 className="max-w-full break-words text-4xl font-bold tracking-tight text-lol-text-bright">
+                    {profile.gameName}
+                  </h1>
                 )}
-              </span>
-              <span aria-hidden="true">·</span>
-              {selectedPuuid === livePuuid && livePuuid !== null && (
-                <span className="inline-flex items-center gap-1 text-[11px] font-bold uppercase tracking-wider text-lol-win">
-                  <span className="inline-block h-1.5 w-1.5 rounded-full bg-lol-win" />
-                  Live
-                </span>
-              )}
-              {selectedPuuid !== livePuuid && selectedAccount?.lastSeen && (
-                <span className="text-[11px] font-bold uppercase tracking-wider text-lol-text">
-                  Synced {formatTimeAgo(selectedAccount.lastSeen)}
-                </span>
-              )}
-            </div>
-            <div className="mt-4 grid grid-cols-[minmax(0,1fr)_256px] items-stretch gap-3">
-              <div className="flex items-stretch gap-3">
-                <LastPlayedChampionsBox
-                  matches={recentMatches ?? []}
-                  loading={loading}
-                  champData={championData}
-                />
-                <LastGamesBox queueStats={queueStats} loading={loading} />
-              </div>
-              <div className="flex h-full w-64 flex-col rounded-lg border border-lol-crimson/40 bg-[linear-gradient(145deg,#0c0e11_0%,#090b0d_48%,#060809_100%)] px-4 py-3 shadow-[0_0_3px_rgba(150,30,30,0.55),0_0_10px_rgba(90,15,15,0.35),0_0_20px_rgba(60,10,10,0.20)] ring-1 ring-inset ring-white/[0.03]">
-                <h2 className="text-center text-xs font-bold uppercase tracking-wider text-lol-gold">
-                  Champion Mastery
-                </h2>
-                {profile.totalMasteryPoints > 0 && (
-                  <div className="mt-1 text-center text-[10px] text-lol-text">
-                    <span
-                      className="cursor-help font-semibold tabular-nums text-lol-text-bright"
-                      title={`${formatFullNumber(profile.totalMasteryPoints)} mastery points`}
+                <FilterChip
+                  active={selectorOpen}
+                  onClick={() => setSelectorOpen((value) => !value)}
+                  className="h-9 shrink-0 px-3 text-xs font-semibold"
+                  icon={
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      viewBox="0 0 16 16"
+                      fill="currentColor"
+                      className="h-3.5 w-3.5"
+                      aria-hidden="true"
                     >
-                      {formatCompactNumber(profile.totalMasteryPoints)} pts
-                    </span>
-                    <span className="mx-1.5 text-lol-text/40">·</span>
-                    <span
-                      className="tabular-nums"
-                      title={`Mastery score: ${profile.totalMasteryScore}`}
-                    >
-                      {profile.totalMasteryScore} score
-                    </span>
+                      <path d="M4.22 6.22a.75.75 0 0 1 1.06 0L8 8.94l2.72-2.72a.75.75 0 1 1 1.06 1.06l-3.25 3.25a.75.75 0 0 1-1.06 0L4.22 7.28a.75.75 0 0 1 0-1.06Z" />
+                    </svg>
+                  }
+                >
+                  {currentAccountLabel}
+                </FilterChip>
+                {selectorOpen && (
+                  <div
+                    role="listbox"
+                    className="absolute left-0 top-full z-50 mt-2 max-h-80 w-80 overflow-y-auto rounded-lg border border-lol-crimson/40 bg-[linear-gradient(145deg,#0c0e11_0%,#090b0d_48%,#060809_100%)] p-1 shadow-[0_0_3px_rgba(150,30,30,0.55),0_0_10px_rgba(90,15,15,0.35),0_0_20px_rgba(60,10,10,0.20)] ring-1 ring-inset ring-white/[0.03]"
+                  >
+                    {sortedAccounts.map((account) => {
+                      const isLive = account.puuid === livePuuid;
+                      const isSelected = account.puuid === selectedPuuid;
+                      return (
+                        <button
+                          key={account.puuid}
+                          type="button"
+                          role="option"
+                          aria-selected={isSelected}
+                          onClick={() => {
+                            setActiveAccountRaw(account.puuid);
+                            setSelectorOpen(false);
+                          }}
+                          className={`flex w-full items-center gap-3 rounded-md px-3 py-2 text-left transition-colors ${
+                            isSelected
+                              ? "bg-lol-gold/15 text-lol-text-bright"
+                              : "text-lol-text hover:bg-white/[0.05] hover:text-lol-text-bright"
+                          }`}
+                        >
+                          {account.profileIconId !== null && (
+                            <img
+                              src={`https://ddragon.leagueoflegends.com/cdn/${profile.dataDragonVersion}/img/profileicon/${account.profileIconId}.png`}
+                              alt=""
+                              className="h-7 w-7 shrink-0 rounded-full border border-lol-border/40 object-cover"
+                              onError={(event) => {
+                                event.currentTarget.style.display = "none";
+                              }}
+                            />
+                          )}
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center gap-2">
+                              <span className="truncate text-sm font-bold text-lol-text-bright">
+                                {account.gameName ?? "Unknown"}
+                                {account.tagLine ? `#${account.tagLine}` : ""}
+                              </span>
+                              {isLive && (
+                                <span className="inline-flex shrink-0 items-center gap-1 rounded border border-lol-win/50 bg-lol-win/10 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider text-lol-win">
+                                  <span className="inline-block h-1.5 w-1.5 rounded-full bg-lol-win" />
+                                  Live
+                                </span>
+                              )}
+                            </div>
+                            <div className="text-[11px] text-lol-text">
+                              {account.gameCount} {account.gameCount === 1 ? "game" : "games"}
+                              {account.lastSeen && ` · ${formatTimeAgo(account.lastSeen)}`}
+                            </div>
+                          </div>
+                        </button>
+                      );
+                    })}
+                    {accounts.length === 0 && (
+                      <div className="px-3 py-4 text-center text-xs text-lol-text">
+                        No accounts with match history yet
+                      </div>
+                    )}
                   </div>
                 )}
-                <div className="mt-3 flex flex-1 flex-col">
-                  {profile.topMasteryChampions?.length ? (
-                    <MasteryChampionStrip
-                      champions={profile.topMasteryChampions}
-                      championData={championData}
-                    />
-                  ) : selectedPuuid !== livePuuid ? (
-                    <p className="py-2 text-center text-xs text-lol-text">Log in to sync mastery</p>
+              </div>
+              <div className="mt-2 flex items-center gap-2 text-xs text-lol-text">
+                <span>
+                  Region:{" "}
+                  {!profile.platform && selectedPuuid !== livePuuid ? (
+                    <span className="text-lol-text/60">not synced</span>
                   ) : (
-                    <p className="py-2 text-center text-xs text-lol-text">No mastery data</p>
+                    shortRegion(profile.platform)
                   )}
+                </span>
+                <span aria-hidden="true">·</span>
+                {selectedPuuid === livePuuid && livePuuid !== null && (
+                  <span className="inline-flex items-center gap-1 text-[11px] font-bold uppercase tracking-wider text-lol-win">
+                    <span className="inline-block h-1.5 w-1.5 rounded-full bg-lol-win" />
+                    Live
+                  </span>
+                )}
+                {selectedPuuid !== livePuuid && selectedAccount?.lastSeen && (
+                  <span className="text-[11px] font-bold uppercase tracking-wider text-lol-text">
+                    Synced {formatTimeAgo(selectedAccount.lastSeen)}
+                  </span>
+                )}
+              </div>
+            </div>
+          )}
+          <div className="mt-4 grid grid-cols-[minmax(0,1fr)_256px] items-stretch gap-3">
+            <div className="flex items-stretch gap-3">
+              <LastPlayedChampionsBox
+                matches={recentMatches ?? []}
+                loading={loading}
+                champData={championData}
+              />
+              <LastGamesBox queueStats={queueStats} loading={loading} />
+            </div>
+            <div className="flex h-full w-64 flex-col rounded-lg border border-lol-crimson/40 bg-[linear-gradient(145deg,#0c0e11_0%,#090b0d_48%,#060809_100%)] px-4 py-3 shadow-[0_0_3px_rgba(150,30,30,0.55),0_0_10px_rgba(90,15,15,0.35),0_0_20px_rgba(60,10,10,0.20)] ring-1 ring-inset ring-white/[0.03]">
+              <h2 className="text-center text-xs font-bold uppercase tracking-wider text-lol-gold">
+                Champion Mastery
+              </h2>
+              {profile.totalMasteryPoints > 0 && (
+                <div className="mt-1 text-center text-[10px] text-lol-text">
+                  <span
+                    className="cursor-help font-semibold tabular-nums text-lol-text-bright"
+                    title={`${formatFullNumber(profile.totalMasteryPoints)} mastery points`}
+                  >
+                    {formatCompactNumber(profile.totalMasteryPoints)} pts
+                  </span>
+                  <span className="mx-1.5 text-lol-text/40">·</span>
+                  <span
+                    className="tabular-nums"
+                    title={`Mastery score: ${profile.totalMasteryScore}`}
+                  >
+                    {profile.totalMasteryScore} score
+                  </span>
                 </div>
+              )}
+              <div className="mt-3 flex flex-1 flex-col">
+                {profile.topMasteryChampions?.length ? (
+                  <MasteryChampionStrip
+                    champions={profile.topMasteryChampions}
+                    championData={championData}
+                  />
+                ) : selectedPuuid !== livePuuid ? (
+                  <p className="py-2 text-center text-xs text-lol-text">Log in to sync mastery</p>
+                ) : (
+                  <p className="py-2 text-center text-xs text-lol-text">No mastery data</p>
+                )}
               </div>
             </div>
           </div>
