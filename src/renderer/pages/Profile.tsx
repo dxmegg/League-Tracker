@@ -1,6 +1,7 @@
-import { type ReactNode, useCallback, useEffect, useRef, useState } from "react";
+import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { MatchDetail, MatchListItem, ProfileData, ProfileRankedEntry } from "../lib/types";
 import { GameRow } from "./MatchHistory";
+import { useActiveAccount } from "../hooks/useActiveAccount";
 import { getChampionName, useChampionData } from "../hooks/useChampions";
 import type {
   AccountListItem,
@@ -20,6 +21,7 @@ import { isAugmentQueue, QUEUE_LABELS } from "../../shared/queues";
 import { formatTimeAgo, kdaRatio } from "../lib/format";
 import { CHAMPION_ICON_URL } from "../lib/constants";
 import { dbg } from "../../shared/debug";
+import { ALL_ACCOUNTS_SENTINEL } from "../lib/accountsEvent";
 
 const EMBLEM_BASE_URL = "https://opgg-static.akamaized.net/images/medals_new";
 
@@ -632,14 +634,19 @@ export default function Profile() {
   const [syncError, setSyncError] = useState<string | null>(null);
   const [profileIconFailed, setProfileIconFailed] = useState(false);
   const [accounts, setAccounts] = useState<AccountListItem[]>([]);
-  const [selectedPuuid, setSelectedPuuid] = useState<string | null>(null);
   const [livePuuid, setLivePuuid] = useState<string | null>(null);
+  const [activeAccountRaw, setActiveAccountRaw] = useActiveAccount();
+  const selectedPuuid = useMemo<string | null>(() => {
+    if (activeAccountRaw && activeAccountRaw !== ALL_ACCOUNTS_SENTINEL) {
+      return activeAccountRaw;
+    }
+    return livePuuid ?? accounts[0]?.puuid ?? null;
+  }, [activeAccountRaw, livePuuid, accounts]);
   const [selectorOpen, setSelectorOpen] = useState(false);
   const [syncing, setSyncing] = useState(false);
   const [scannedCount, setScannedCount] = useState(0);
   const [totalCount, setTotalCount] = useState(0);
   const selectorWrapperRef = useRef<HTMLDivElement>(null);
-  const selectionInitialized = useRef(false);
   const loadRequestIdRef = useRef(0);
   const selectedPuuidRef = useRef(selectedPuuid);
   const profileRef = useRef(profile);
@@ -667,17 +674,11 @@ export default function Profile() {
     };
 
     void Promise.allSettled([refreshLivePuuid(), window.api.listAccountsWithData()]).then(
-      ([liveResult, accountsResult]) => {
+      ([_liveResult, accountsResult]) => {
         if (!mounted) return;
 
-        const nextLivePuuid = liveResult.status === "fulfilled" ? liveResult.value : null;
         const nextAccounts = accountsResult.status === "fulfilled" ? accountsResult.value : [];
         setAccounts(nextAccounts);
-
-        if (!selectionInitialized.current) {
-          selectionInitialized.current = true;
-          setSelectedPuuid(nextLivePuuid ?? nextAccounts[0]?.puuid ?? null);
-        }
       },
     );
     const livePuuidInterval = window.setInterval(() => {
@@ -1060,7 +1061,7 @@ export default function Profile() {
                         role="option"
                         aria-selected={isSelected}
                         onClick={() => {
-                          setSelectedPuuid(account.puuid);
+                          setActiveAccountRaw(account.puuid);
                           setSelectorOpen(false);
                         }}
                         className={`flex w-full items-center gap-3 rounded-md px-3 py-2 text-left transition-colors ${
