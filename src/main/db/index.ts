@@ -235,22 +235,6 @@ export function closeDatabase() {
   }
 }
 
-// ---- Helpers ----
-
-// ---- Query functions ----
-
-// Every game id we've already made a decision about — stored or deliberately
-// skipped. One query beats a lookup per id when a backfill checks hundreds.
-
-// Games already known *for this specific account*. A game only counts as
-// known here if the account's puuid shows up among the stored participants
-// (match_participants holds every real participant of an already-imported
-// game, regardless of which tracked account originally synced it) — not
-// merely because some *other* tracked account has already synced it. Using
-// the global getKnownGameIds() for a second account's pagination cutoff would
-// stop scanning as soon as it saw a game shared with the first account, even
-// though older games unique to this account still need to be fetched.
-
 export function getDatabase(): Database.Database {
   return db;
 }
