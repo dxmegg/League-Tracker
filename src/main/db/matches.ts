@@ -1,6 +1,8 @@
 import { db } from "../db";
 import zlib from "zlib";
+import type { QueueStat } from "../../shared/api";
 import {
+  ARENA_QUEUE_IDS,
   QUEUE_GROUP_ARENA,
   QUEUE_SCOPE_NORMAL,
   QUEUE_SCOPE_ARAM,
@@ -15,6 +17,7 @@ import {
   localGamesFilter,
   hideRemakes,
   statsSource,
+  EXCLUDED_STATS_SQL,
   GAME_MAX_STATS_SQL,
 } from "./filters";
 import { extractRunes, displayName } from "./payloads";
@@ -715,4 +718,401 @@ export function identityFromGame(
     name: displayName(row.game_name, row.tag_line),
     icon: row.profile_icon,
   };
+}
+
+export function getQueueStatsForAccount(puuid: string): QueueStat[] {
+  console.log("[db] getQueueStatsForAccount called:", { puuid });
+  const rows = db
+    .prepare(
+      `
+        SELECT
+          g.queue_id AS queue_id,
+          COUNT(*) AS count,
+          SUM(CASE WHEN tgs.win = 1 THEN 1 ELSE 0 END) AS wins,
+          SUM(CASE WHEN tgs.win = 0 THEN 1 ELSE 0 END) AS losses
+        FROM tracked_game_stats tgs
+        INNER JOIN games g ON g.game_id = tgs.game_id
+        WHERE tgs.puuid = ?
+          AND g.queue_id IS NOT NULL
+          AND g.queue_id NOT IN (${EXCLUDED_STATS_SQL})
+        GROUP BY g.queue_id
+        ORDER BY count DESC
+      `,
+    )
+    .all(puuid) as Array<{
+    queue_id: number;
+    count: number;
+    wins: number;
+    losses: number;
+  }>;
+  const result = rows
+    .filter((row) => row.queue_id !== 0)
+    .map(({ queue_id, count, wins, losses }) => ({
+      queueId: queue_id,
+      count,
+      wins,
+      losses,
+    }));
+  console.log("[db] getQueueStatsForAccount done:", { count: result.length });
+  return result;
+}
+
+export function getMostPlayedQueue(
+  puuid: string,
+): { queue_id: number; games: number; wins: number; isArenaGroup: boolean } | null {
+  const arenaPlaceholders = ARENA_QUEUE_IDS.map(() => "?").join(", ");
+  const arenaRow = db
+    .prepare(`
+      SELECT COUNT(*) AS games, SUM(mp.win) AS wins
+      FROM match_participants mp
+      WHERE mp.puuid = ?
+        AND mp.is_remake = 0
+        AND mp.queue_id IN (${arenaPlaceholders})
+        AND mp.queue_id NOT IN (${EXCLUDED_STATS_SQL})
+    `)
+    .get(puuid, ...ARENA_QUEUE_IDS) as { games: number; wins: number } | undefined;
+  const nonArenaRow = db
+    .prepare(`
+      SELECT queue_id, COUNT(*) AS games, SUM(win) AS wins
+      FROM match_participants
+      WHERE puuid = ? AND is_remake = 0
+        AND queue_id IS NOT NULL
+        AND queue_id NOT IN (${arenaPlaceholders})
+        AND queue_id NOT IN (${EXCLUDED_STATS_SQL})
+      GROUP BY queue_id
+      ORDER BY games DESC
+      LIMIT 1
+    `)
+    .get(puuid, ...ARENA_QUEUE_IDS) as
+    | { queue_id: number; games: number; wins: number }
+    | undefined;
+  const arenaGames = arenaRow?.games ?? 0;
+  const nonArenaGames = nonArenaRow?.games ?? 0;
+  if (arenaGames === 0 && nonArenaGames === 0) return null;
+  if (arenaGames >= nonArenaGames) {
+    return {
+      queue_id: ARENA_QUEUE_IDS[0],
+      games: arenaGames,
+      wins: arenaRow?.wins ?? 0,
+      isArenaGroup: true,
+    };
+  }
+  return { ...nonArenaRow!, isArenaGroup: false };
+}
+
+export function getMostPlayedQueueByName(
+  gameName: string,
+  tagLine: string,
+): { queue_id: number; games: number; wins: number; isArenaGroup: boolean } | null {
+  const arenaPlaceholders = ARENA_QUEUE_IDS.map(() => "?").join(", ");
+  const arenaRow = db
+    .prepare(`
+      SELECT COUNT(*) AS games, SUM(mp.win) AS wins
+      FROM match_participants mp
+      WHERE LOWER(mp.game_name) = LOWER(?)
+        AND LOWER(mp.tag_line) = LOWER(?)
+        AND mp.is_remake = 0
+        AND mp.queue_id IN (${arenaPlaceholders})
+        AND mp.queue_id NOT IN (${EXCLUDED_STATS_SQL})
+    `)
+    .get(gameName, tagLine, ...ARENA_QUEUE_IDS) as { games: number; wins: number } | undefined;
+  const nonArenaRow = db
+    .prepare(`
+      SELECT queue_id, COUNT(*) AS games, SUM(win) AS wins
+      FROM match_participants
+      WHERE LOWER(game_name) = LOWER(?)
+        AND LOWER(tag_line) = LOWER(?)
+        AND is_remake = 0
+        AND queue_id IS NOT NULL
+        AND queue_id NOT IN (${arenaPlaceholders})
+        AND queue_id NOT IN (${EXCLUDED_STATS_SQL})
+      GROUP BY queue_id
+      ORDER BY games DESC
+      LIMIT 1
+    `)
+    .get(gameName, tagLine, ...ARENA_QUEUE_IDS) as
+    | { queue_id: number; games: number; wins: number }
+    | undefined;
+  const arenaGames = arenaRow?.games ?? 0;
+  const nonArenaGames = nonArenaRow?.games ?? 0;
+  if (arenaGames === 0 && nonArenaGames === 0) return null;
+  if (arenaGames >= nonArenaGames) {
+    return {
+      queue_id: ARENA_QUEUE_IDS[0],
+      games: arenaGames,
+      wins: arenaRow?.wins ?? 0,
+      isArenaGroup: true,
+    };
+  }
+  return { ...nonArenaRow!, isArenaGroup: false };
+}
+
+export function getTotalMatchesPlayed(puuid: string): { games: number; wins: number } | null {
+  const row = db
+    .prepare(`
+      SELECT COUNT(*) AS games, SUM(ps.win) AS wins
+      FROM games g
+      JOIN player_stats ps ON ps.game_id = g.game_id
+      WHERE g.puuid = ? AND g.is_remake = 0
+    `)
+    .get(puuid) as { games: number; wins: number } | undefined;
+  if (!row || row.games === 0) return null;
+  return row;
+}
+
+export function getTotalMatchesPlayedByName(
+  gameName: string,
+  tagLine: string,
+): { games: number; wins: number } | null {
+  const row = db
+    .prepare(`
+      SELECT COUNT(*) AS games, SUM(ps.win) AS wins
+      FROM games g
+      JOIN player_stats ps ON ps.game_id = g.game_id
+      WHERE g.puuid IN (
+        SELECT DISTINCT mp.puuid
+        FROM match_participants mp
+        WHERE LOWER(mp.game_name) = LOWER(?)
+          AND LOWER(mp.tag_line) = LOWER(?)
+          AND mp.puuid IS NOT NULL
+      )
+        AND g.is_remake = 0
+    `)
+    .get(gameName, tagLine) as { games: number; wins: number } | undefined;
+  if (!row || row.games === 0) return null;
+  return row;
+}
+
+export function getRankedRecordForPuuid(puuid: string): {
+  solo: { wins: number; losses: number };
+  flex: { wins: number; losses: number };
+} | null {
+  const rows = db
+    .prepare(
+      `SELECT g.queue_id AS queue_id, mp.win AS win
+       FROM match_participants mp
+       JOIN games g ON g.game_id = mp.game_id
+       WHERE mp.puuid = ? AND mp.is_remake = 0 AND g.queue_id IN (420, 440)`,
+    )
+    .all(puuid) as { queue_id: number; win: number }[];
+
+  if (rows.length === 0) return null;
+
+  const result = {
+    solo: { wins: 0, losses: 0 },
+    flex: { wins: 0, losses: 0 },
+  };
+  for (const row of rows) {
+    const bucket = row.queue_id === 420 ? result.solo : result.flex;
+    if (row.win) bucket.wins++;
+    else bucket.losses++;
+  }
+  return result;
+}
+
+export function getRecentGames(
+  puuid: string,
+  queueIds: number[],
+  limit: number,
+): Array<{
+  game_id: number;
+  champion_id: number;
+  win: number;
+  is_remake: number;
+  kills: number;
+  deaths: number;
+  assists: number;
+  cs: number;
+  game_duration: number;
+  score: number | null;
+  team_position: string | null;
+  queue_id: number;
+}> | null {
+  if (limit <= 0) return null;
+  const queueFilter =
+    queueIds.length > 0 ? `AND mp.queue_id IN (${queueIds.map(() => "?").join(", ")})` : "";
+  const rows = db
+    .prepare(`
+      SELECT
+        mp.game_id,
+        COALESCE(tgs.champion_id, ps.champion_id, mp.champion_id) AS champion_id,
+        mp.win,
+        mp.is_remake,
+        COALESCE(tgs.kills, ps.kills, mp.kills) AS kills,
+        COALESCE(tgs.deaths, ps.deaths, mp.deaths) AS deaths,
+        COALESCE(tgs.assists, ps.assists, mp.assists) AS assists,
+        COALESCE(tgs.cs, ps.cs, mp.cs) AS cs,
+        g.game_duration,
+        COALESCE(tgs.score, ps.score) AS score,
+        mp.team_position AS team_position,
+        mp.queue_id
+      FROM match_participants mp
+      JOIN games g ON g.game_id = mp.game_id
+      LEFT JOIN tracked_game_stats tgs
+        ON tgs.game_id = g.game_id AND tgs.puuid = mp.puuid
+      LEFT JOIN player_stats ps
+        ON ps.game_id = g.game_id
+        AND ps.champion_id = mp.champion_id
+        AND ps.kills = mp.kills
+        AND ps.deaths = mp.deaths
+        AND ps.assists = mp.assists
+      WHERE mp.puuid = ?
+        ${queueFilter}
+      ORDER BY g.game_creation DESC
+      LIMIT ?
+    `)
+    .all(puuid, ...queueIds, limit) as Array<{
+    game_id: number;
+    champion_id: number;
+    win: number;
+    is_remake: number;
+    kills: number;
+    deaths: number;
+    assists: number;
+    cs: number;
+    game_duration: number;
+    score: number | null;
+    team_position: string | null;
+    queue_id: number;
+  }>;
+  return rows.length > 0 ? rows : null;
+}
+
+export function getRecentGamesByName(
+  gameName: string,
+  tagLine: string,
+  queueIds: number[],
+  limit: number,
+): Array<{
+  game_id: number;
+  champion_id: number;
+  win: number;
+  is_remake: number;
+  kills: number;
+  deaths: number;
+  assists: number;
+  cs: number;
+  game_duration: number;
+  score: number | null;
+  team_position: string | null;
+  queue_id: number;
+}> | null {
+  if (limit <= 0) return null;
+  const queueFilter =
+    queueIds.length > 0 ? `AND mp.queue_id IN (${queueIds.map(() => "?").join(", ")})` : "";
+  const rows = db
+    .prepare(`
+      SELECT
+        mp.game_id,
+        COALESCE(tgs.champion_id, ps.champion_id, mp.champion_id) AS champion_id,
+        mp.win,
+        mp.is_remake,
+        COALESCE(tgs.kills, ps.kills, mp.kills) AS kills,
+        COALESCE(tgs.deaths, ps.deaths, mp.deaths) AS deaths,
+        COALESCE(tgs.assists, ps.assists, mp.assists) AS assists,
+        COALESCE(tgs.cs, ps.cs, mp.cs) AS cs,
+        g.game_duration,
+        COALESCE(tgs.score, ps.score) AS score,
+        mp.team_position AS team_position,
+        mp.queue_id
+      FROM match_participants mp
+      JOIN games g ON g.game_id = mp.game_id
+      LEFT JOIN tracked_game_stats tgs
+        ON tgs.game_id = g.game_id AND tgs.puuid = mp.puuid
+      LEFT JOIN player_stats ps
+        ON ps.game_id = g.game_id
+        AND ps.champion_id = mp.champion_id
+        AND ps.kills = mp.kills
+        AND ps.deaths = mp.deaths
+        AND ps.assists = mp.assists
+      WHERE LOWER(mp.game_name) = LOWER(?)
+        AND LOWER(mp.tag_line) = LOWER(?)
+        ${queueFilter}
+      ORDER BY g.game_creation DESC
+      LIMIT ?
+    `)
+    .all(gameName, tagLine, ...queueIds, limit) as Array<{
+    game_id: number;
+    champion_id: number;
+    win: number;
+    is_remake: number;
+    kills: number;
+    deaths: number;
+    assists: number;
+    cs: number;
+    game_duration: number;
+    score: number | null;
+    team_position: string | null;
+    queue_id: number;
+  }>;
+  return rows.length > 0 ? rows : null;
+}
+
+export function getRecentRiotMatchStubs(
+  puuid: string,
+  limit: number,
+): Array<{
+  gameId: number;
+  win: boolean;
+  championId: number;
+  kills: number;
+  deaths: number;
+  assists: number;
+  cs: number;
+  score: number | null;
+  gameCreation: number;
+  gameDuration: number;
+  queueId: number;
+  teamPosition: string | null;
+}> {
+  const rows = db
+    .prepare(
+      `SELECT mp.game_id AS gameId,
+              mp.win AS win,
+              mp.champion_id AS championId,
+              COALESCE(tgs.kills, mp.kills) AS kills,
+              COALESCE(tgs.deaths, mp.deaths) AS deaths,
+              COALESCE(tgs.assists, mp.assists) AS assists,
+              COALESCE(tgs.cs, mp.cs) AS cs,
+              tgs.score AS score,
+              g.game_creation AS gameCreation,
+              g.game_duration AS gameDuration,
+              g.queue_id AS queueId,
+              mp.team_position AS teamPosition
+       FROM match_participants mp
+       JOIN games g ON g.game_id = mp.game_id
+       LEFT JOIN tracked_game_stats tgs
+         ON tgs.game_id = g.game_id AND tgs.puuid = mp.puuid
+       WHERE mp.puuid = ?
+       ORDER BY g.game_creation DESC
+       LIMIT ?`,
+    )
+    .all(puuid, limit) as Array<{
+    gameId: number;
+    win: number;
+    championId: number;
+    kills: number;
+    deaths: number;
+    assists: number;
+    cs: number;
+    score: number | null;
+    gameCreation: number;
+    gameDuration: number;
+    queueId: number;
+    teamPosition: string | null;
+  }>;
+  return rows.map((row) => ({
+    gameId: row.gameId,
+    win: row.win === 1,
+    championId: row.championId,
+    kills: row.kills,
+    deaths: row.deaths,
+    assists: row.assists,
+    cs: row.cs ?? 0,
+    score: row.score ?? null,
+    gameCreation: row.gameCreation,
+    gameDuration: row.gameDuration,
+    queueId: row.queueId,
+    teamPosition: row.teamPosition ?? null,
+  }));
 }
