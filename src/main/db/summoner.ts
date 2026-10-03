@@ -530,3 +530,16 @@ export function deleteSearchedSummoners(): { removed: number; games: number } {
   tx();
   return { removed, games: removedGames };
 }
+
+export function setRiotSyncState(
+  puuid: string,
+  platform: string,
+  lastMatchId: number | null,
+  complete: boolean,
+): void {
+  db.prepare(`
+    INSERT OR REPLACE INTO riot_sync_state
+      (puuid, platform, last_sync_at, last_match_id, complete)
+    VALUES (?, ?, ?, ?, ?)
+  `).run(puuid, platform, Date.now(), lastMatchId, complete ? 1 : 0);
+}

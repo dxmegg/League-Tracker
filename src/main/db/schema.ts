@@ -1,5 +1,6 @@
 import zlib from "zlib";
 import { db } from "../db";
+import * as backup from "../backup";
 import { QUEUE_ID_MAYHEM_CLASSIC } from "../../shared/queues";
 import { getSetting, setSetting } from "./settings";
 import { groupByGame, parsePatch, detectRemake, rebuildDerivedStats } from "./scoring";
@@ -830,4 +831,198 @@ export function migrateToV10() {
   if (!tableColumns("match_participants").has("player_subteam_id")) {
     db.exec("ALTER TABLE match_participants ADD COLUMN player_subteam_id INTEGER");
   }
+}
+
+export function migrateToV11() {
+  if (!tableColumns("match_participants").has("player_subteam_placement")) {
+    db.exec("ALTER TABLE match_participants ADD COLUMN player_subteam_placement INTEGER");
+  }
+  rebuildParticipantsFromPayloads();
+}
+export function migrateToV12() {
+  // v11 and earlier could miss Match-V5's summoner2Id spelling when
+  // normalizing participant spells. Rebuild stored payloads so spell2 is
+  // populated for existing Arena and ARAM games.
+  rebuildParticipantsFromPayloads();
+}
+export function migrateToV13() {
+  // v12 and earlier called rebuildParticipantsFromPayloads, which skipped
+  // the walk entirely when every game already had participant rows. That
+  // made those migrations no-ops on populated databases. This one always
+  // walks, so the spell1/spell2 and subteam columns are re-extracted from
+  // the stored payloads.
+  const result = rebuildParticipantsFromPayloads();
+  console.log(
+    `[db] v13 rebuild: ${result.normalized} rows rewritten, ${result.unusable} unreadable payloads`,
+  );
+}
+export function migrateToV14() {
+  const result = rebuildParticipantsFromPayloads();
+  console.log(`[db] v14 rebuild: ${result.normalized} rows rewritten`);
+}
+export function migrateToV15() {
+  const cleared = db
+    .prepare(
+      `UPDATE games
+          SET puuid = ''
+        WHERE puuid != ''
+          AND puuid NOT IN (SELECT puuid FROM summoner)`,
+    )
+    .run().changes;
+
+  const backfilled = db
+    .prepare(
+      `UPDATE games
+          SET puuid = (
+            SELECT mp.puuid FROM match_participants mp
+            WHERE mp.game_id = games.game_id
+              AND mp.puuid IN (SELECT puuid FROM summoner)
+            LIMIT 1
+          )
+        WHERE puuid = ''
+          AND EXISTS (
+            SELECT 1 FROM match_participants mp
+            WHERE mp.game_id = games.game_id
+              AND mp.puuid IN (SELECT puuid FROM summoner)
+          )`,
+    )
+    .run().changes;
+
+  console.log(
+    `[db] v15 cleanup: cleared ${cleared} foreign-owned game(s), backfilled ${backfilled} owned game(s)`,
+  );
+}
+export function migrateToV16() {
+  const result = rebuildParticipantsFromPayloads();
+  console.log(`[db] v16 rebuild: ${result.normalized} rows rewritten`);
+}
+export function migrateToV17() {
+  backfillPlayerStatsSpells();
+  const result = db
+    .prepare(
+      `UPDATE tracked_game_stats
+          SET spell1 = (
+                SELECT mp.spell1
+                FROM match_participants mp
+                WHERE mp.game_id = tracked_game_stats.game_id
+                  AND mp.puuid = tracked_game_stats.puuid
+              ),
+              spell2 = (
+                SELECT mp.spell2
+                FROM match_participants mp
+                WHERE mp.game_id = tracked_game_stats.game_id
+                  AND mp.puuid = tracked_game_stats.puuid
+              )
+        WHERE EXISTS (
+          SELECT 1
+          FROM match_participants mp
+          WHERE mp.game_id = tracked_game_stats.game_id
+            AND mp.puuid = tracked_game_stats.puuid
+        )`,
+    )
+    .run();
+  console.log(`[db] v17 spell sync: ${result.changes} tracked row(s) updated`);
+}
+export function migrateToV18() {
+  if (!tableColumns("games").has("source")) {
+    db.exec("ALTER TABLE games ADD COLUMN source TEXT NOT NULL DEFAULT 'lcu'");
+  }
+
+  // Existing rows predate the source column. The only split we can prove
+  // from stored data is whether the game had an owner puuid at all:
+  // games with no puuid were Search Account imports, everything else was
+  // recorded through the local client. LCU and Riot sync are not
+  // distinguishable in historical data, so both backfill as 'lcu'.
+  db.exec(`UPDATE games SET source = 'search-import' WHERE puuid = ''`);
+  console.log(`[db] v18 backfilled source column`);
+}
+export function migrateToV19() {
+  const columns = tableColumns("summoner");
+  const additions = [
+    ["platform", "TEXT"],
+    ["summoner_level", "INTEGER"],
+    ["ranked_solo_json", "TEXT"],
+    ["ranked_flex_json", "TEXT"],
+    ["mastery_json", "TEXT"],
+    ["last_seen", "INTEGER"],
+  ] as const;
+
+  for (const [name, definition] of additions) {
+    if (!columns.has(name)) {
+      db.exec(`ALTER TABLE summoner ADD COLUMN ${name} ${definition}`);
+    }
+  }
+
+  db.exec("UPDATE summoner SET last_seen = updated_at WHERE last_seen IS NULL");
+  console.log("[db] v19 added account snapshot columns");
+}
+export async function migrateToV20() {
+  const columns = tableColumns("match_participants");
+  const additions = [["match_participants", "score", "REAL"]] as const;
+
+  for (const [table, name, definition] of additions) {
+    if (!columns.has(name)) {
+      await backup.backupQuietly("pre-migration-20");
+      db.exec(`ALTER TABLE ${table} ADD COLUMN ${name} ${definition}`);
+    }
+  }
+
+  console.log("[db] v20 added participant score column");
+}
+export async function runMigrations() {
+  const current = db.pragma("user_version", { simple: true }) as number;
+  if (current >= SCHEMA_VERSION) return;
+
+  // A freshly created database already has every column the migrations would
+  // add, so the migrations that only ALTER TABLE and backfill are no-ops. The
+  // ones that call rebuildParticipantsFromPayloads are not: they iterate the
+  // whole library. Skip the entire chain on a database whose tables were just
+  // created by createTables above.
+  const gamesCount = db.prepare("SELECT COUNT(*) as n FROM games").get() as { n: number };
+  const currentSchemaReady =
+    ["is_remake", "puuid", "game_version", "favorite", "raw_gz"].every((column) =>
+      tableColumns("games").has(column),
+    ) &&
+    ["score", "score_badge", "score_raw", "cs", "largest_critical_strike"].every((column) =>
+      tableColumns("player_stats").has(column),
+    ) &&
+    ["team_position", "player_subteam_id", "player_subteam_placement", "score"].every((column) =>
+      tableColumns("match_participants").has(column),
+    ) &&
+    [
+      "profile_icon",
+      "platform",
+      "summoner_level",
+      "ranked_solo_json",
+      "ranked_flex_json",
+      "mastery_json",
+      "last_seen",
+    ].every((column) => tableColumns("summoner").has(column));
+  if (current === 0 && gamesCount.n === 0 && currentSchemaReady) {
+    db.pragma(`user_version = ${SCHEMA_VERSION}`);
+    return;
+  }
+
+  if (current < 1) migrateToV1();
+  if (current < 2) migrateToV2();
+  if (current < 3) migrateToV3();
+  if (current < 4) migrateToV4();
+  if (current < 5) migrateToV5();
+  if (current < 6) migrateToV6();
+  if (current < 7) migrateToV7();
+  if (current < 8) migrateToV8();
+  if (current < 9) migrateToV9();
+  if (current < 10) migrateToV10();
+  if (current < 11) migrateToV11();
+  if (current < 12) migrateToV12();
+  if (current < 13) migrateToV13();
+  if (current < 14) migrateToV14();
+  if (current < 15) migrateToV15();
+  if (current < 16) migrateToV16();
+  if (current < 17) migrateToV17();
+  if (current < 18) migrateToV18();
+  if (current < 19) migrateToV19();
+  if (current < 20) await migrateToV20();
+
+  db.pragma(`user_version = ${SCHEMA_VERSION}`);
 }

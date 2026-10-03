@@ -1,3 +1,4 @@
+import { db } from "../db";
 import { getSetting } from "./settings";
 import {
   ARENA_QUEUE_IDS,
@@ -182,4 +183,18 @@ export function participantFilter(patch?: string, queue?: number, alias = "mp") 
     `EXISTS (SELECT 1 FROM games g WHERE g.game_id = ${alias}.game_id AND ${localGamesFilter("g")} AND g.queue_id NOT IN (${EXCLUDED_STATS_SQL}))`,
   );
   return { where, params, sql: where.join(" AND ") };
+}
+
+// Every queue with games stored, ignoring which ones are hidden — the Settings
+// page needs the full list to offer a hidden queue's switch back on.
+export function getStoredQueues(): number[] {
+  const rows = db
+    .prepare(`
+      SELECT DISTINCT g.queue_id
+      FROM games g
+      JOIN player_stats ps ON g.game_id = ps.game_id
+      ORDER BY g.queue_id
+    `)
+    .all() as { queue_id: number }[];
+  return rows.map((r) => r.queue_id);
 }
