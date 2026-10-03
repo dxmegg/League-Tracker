@@ -1,4 +1,5 @@
-import { db, getAllPuuids } from "../db";
+import { db } from "../db";
+import { getAllPuuids } from "./summoner";
 import zlib from "zlib";
 import { NO_STATS_QUEUE_IDS } from "../../shared/queues";
 import { computeMatchScores } from "../../shared/opScore";
