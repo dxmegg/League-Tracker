@@ -14,9 +14,12 @@ import {
   QUEUE_SCOPE_MAYHEM,
 } from "../../shared/queues";
 import ChampionIcon from "../components/ChampionIcon";
+import { ChampCard } from "../components/ChampCard";
 import { HomeHero } from "../components/HomeHero";
 import { HomeCard } from "../components/HomeCard";
+import { LiveGameMock } from "../components/LiveGameMock";
 import { Panel } from "../components/Panel";
+import { RecordTile } from "../components/RecordTile";
 import SummonerIcon from "../components/SummonerIcon";
 import { useActiveAccount } from "../hooks/useActiveAccount";
 import { useActiveTheme } from "../hooks/useActiveTheme";
@@ -304,7 +307,7 @@ function formatShortDate(ts: number): string {
   });
 }
 
-function RecordTile({
+function LegacyRecordTile({
   label,
   record,
 }: {
@@ -358,12 +361,12 @@ function RecordsCard({
       >
         <div className="text-center text-2xl font-bold text-lol-text-bright">Records</div>
         <div className="grid flex-1 grid-cols-3 gap-3">
-          <RecordTile label="Most Kills" record={records?.mostKills ?? null} />
-          <RecordTile label="Most Deaths" record={records?.mostDeaths ?? null} />
-          <RecordTile label="Most Assists" record={records?.mostAssists ?? null} />
-          <RecordTile label="Most Damage" record={records?.mostDamage ?? null} />
-          <RecordTile label="Biggest Crit" record={records?.biggestCrit ?? null} />
-          <RecordTile label="Most CS" record={records?.mostCs ?? null} />
+          <LegacyRecordTile label="Most Kills" record={records?.mostKills ?? null} />
+          <LegacyRecordTile label="Most Deaths" record={records?.mostDeaths ?? null} />
+          <LegacyRecordTile label="Most Assists" record={records?.mostAssists ?? null} />
+          <LegacyRecordTile label="Most Damage" record={records?.mostDamage ?? null} />
+          <LegacyRecordTile label="Biggest Crit" record={records?.biggestCrit ?? null} />
+          <LegacyRecordTile label="Most CS" record={records?.mostCs ?? null} />
         </div>
       </div>
     </HomeCard>
@@ -508,6 +511,7 @@ export default function Home() {
   const [dashboard, setDashboard] = useState<HomeDashboardPayload | null>(null);
   const [loading, setLoading] = useState(false);
   const [savedAccounts, setSavedAccounts] = useState<AccountListItem[]>([]);
+  const champData = useChampionData();
 
   useEffect(() => {
     window.api
@@ -538,6 +542,7 @@ export default function Home() {
   if (isExperiment) {
     return (
       <div className="mx-auto flex min-h-full w-full max-w-[1320px] flex-col gap-5">
+        {/* Page head + time toggle */}
         <div className="flex flex-wrap items-end justify-between gap-4">
           <div>
             <h1 className="font-display text-[30px] font-bold leading-tight tracking-[0.2px] text-lol-text-bright">
@@ -567,24 +572,94 @@ export default function Home() {
           </div>
         </div>
 
-        <Panel>
-          <HomeHero dashboard={dashboard} loading={loading} timePeriod={timePeriod} />
-        </Panel>
+        {/* 12-column grid */}
+        <div className="grid grid-cols-12 gap-5">
+          {/* Hero: 8 columns */}
+          <Panel className="col-span-12 xl:col-span-8">
+            <HomeHero dashboard={dashboard} loading={loading} timePeriod={timePeriod} />
+          </Panel>
 
-        <RecordsCard dashboard={dashboard} loading={loading} />
+          {/* Live game: 4 columns */}
+          <Panel className="col-span-12 xl:col-span-4">
+            <LiveGameMock />
+          </Panel>
 
-        <div className="grid flex-1 min-h-0 grid-cols-[220px_1fr] items-stretch gap-4">
-          <div className="flex flex-col gap-3">
-            <div className="text-center text-xl font-bold text-lol-text-bright">Match History</div>
-            <MatchHistoryNav />
-          </div>
-          <div className="flex min-h-0 flex-col gap-3">
-            <div className="flex items-center gap-4">
-              <div className="text-xl font-bold text-lol-text-bright">Last 20 played games</div>
+          {/* Most played champions: 7 columns */}
+          <Panel className="col-span-12 xl:col-span-7">
+            <div className="mb-4 flex items-baseline justify-between gap-3">
+              <h2 className="font-display text-[16px] font-semibold text-lol-text-bright">
+                Most played champions
+              </h2>
+              <span className="text-[13px] text-lol-text">
+                {timePeriod === "full" ? "All time" : `Last ${timePeriod}`}
+              </span>
+            </div>
+            <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 md:grid-cols-5">
+              {(dashboard?.topChampions ?? []).slice(0, 5).map((champion) => (
+                <ChampCard
+                  key={champion.championId}
+                  championId={champion.championId}
+                  games={champion.games}
+                  wins={champion.wins}
+                  champData={champData}
+                />
+              ))}
+            </div>
+          </Panel>
+
+          {/* Records: 5 columns */}
+          <Panel className="col-span-12 xl:col-span-5">
+            <div className="mb-4 flex items-baseline justify-between gap-3">
+              <h2 className="font-display text-[16px] font-semibold text-lol-text-bright">
+                Records
+              </h2>
+              <span className="text-[13px] text-lol-text">All time</span>
+            </div>
+            <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
+              {(
+                [
+                  { label: "Most kills", record: dashboard?.records.mostKills },
+                  { label: "Most deaths", record: dashboard?.records.mostDeaths },
+                  { label: "Most assists", record: dashboard?.records.mostAssists },
+                  { label: "Most damage", record: dashboard?.records.mostDamage },
+                  { label: "Biggest crit", record: dashboard?.records.biggestCrit },
+                  { label: "Most CS", record: dashboard?.records.mostCs },
+                ] as const
+              ).map(({ label, record }) =>
+                record ? (
+                  <RecordTile
+                    key={label}
+                    label={label}
+                    value={record.value}
+                    championId={record.championId}
+                    win={record.win}
+                    gameCreation={record.gameCreation}
+                  />
+                ) : (
+                  <div
+                    key={label}
+                    className="rounded-xl border border-lol-border bg-black/10 px-3.5 py-3 text-[12.5px] text-lol-text"
+                  >
+                    <span className="uppercase tracking-wider">{label}</span>
+                    <b className="my-0.5 block font-display text-[28px] font-bold leading-tight text-lol-text-bright/40">
+                      —
+                    </b>
+                  </div>
+                ),
+              )}
+            </div>
+          </Panel>
+
+          {/* Last 20 played games: 12 columns */}
+          <Panel className="col-span-12">
+            <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+              <h2 className="font-display text-[16px] font-semibold text-lol-text-bright">
+                Last 20 played games
+              </h2>
               <QueueFilterChips value={queue} onChange={setQueue} />
             </div>
             <MatchListPanel account={account} queue={queue} timePeriod={timePeriod} />
-          </div>
+          </Panel>
         </div>
       </div>
     );
