@@ -35,6 +35,7 @@ const RENDERER_SETTINGS = new Set([
   "riot_game_name",
   "riot_tag_line",
   "riot_platform",
+  "active_account",
 ]);
 
 // Registered once for the lifetime of the app — ipcMain.handle throws on a

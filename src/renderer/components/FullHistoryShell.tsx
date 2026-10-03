@@ -1,4 +1,6 @@
 import { Outlet, useLocation } from "react-router-dom";
+import { useActiveTheme } from "../hooks/useActiveTheme";
+import { Sidebar } from "./Sidebar";
 import TopNav from "./TopNav";
 import { HistorySideNav } from "./HistorySideNav";
 import RecoveryBanner from "./RecoveryBanner";
@@ -10,13 +12,29 @@ export function FullHistoryShell() {
   const scopeFromPath = scopeMatch?.[1];
   const showSideNav = scopeFromPath !== undefined && SIDEBAR_SCOPES.has(scopeFromPath);
   const scope = scopeFromPath ?? "full";
+  const activeTheme = useActiveTheme();
+  const showSidebar = activeTheme === "experiment";
+
+  if (showSidebar) {
+    return (
+      <div className="flex h-full w-full">
+        <Sidebar />
+        <div className="flex min-h-0 flex-1 flex-col">
+          <RecoveryBanner />
+          <main className="flex min-h-0 flex-1 flex-col overflow-y-auto p-6">
+            <Outlet />
+          </main>
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div className="flex flex-col h-full w-full">
+    <div className="flex h-full w-full flex-col">
       <RecoveryBanner />
       <TopNav />
-      <div className="flex flex-1 min-h-0">
-        <main className="flex flex-1 min-h-0 flex-col overflow-y-auto p-6">
+      <div className="flex min-h-0 flex-1">
+        <main className="flex min-h-0 flex-1 flex-col overflow-y-auto p-6">
           <Outlet />
         </main>
         {showSideNav && (
