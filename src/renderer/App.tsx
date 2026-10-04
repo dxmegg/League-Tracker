@@ -69,6 +69,7 @@ function FullHistorySection({ section }: { section: string }) {
     );
   }
   if (section === "trends") {
+    if (isExperiment) return <Trends />;
     return (
       <SectionChrome title="TRENDS" scope="FULL">
         <Trends />

@@ -6,6 +6,8 @@ import type { TrendsData, TrendsDay } from "../lib/types";
 import { formatPatch } from "../lib/format";
 import QueueSelect from "../components/QueueSelect";
 import { FilterChip } from "../components/FilterChip";
+import { useActiveTheme } from "../hooks/useActiveTheme";
+import { TrendsExp } from "../components/TrendsExp";
 
 // ---- Time helpers ----
 
@@ -718,6 +720,13 @@ export default function Trends() {
     const ticks = Array.from({ length: 5 }, (_, i) => min + ((max - min) * i) / 4);
     return { min, max, ticks };
   }, [scorePoints]);
+
+  const activeTheme = useActiveTheme();
+  const isExperiment = activeTheme === "experiment";
+
+  if (isExperiment) {
+    return <TrendsExp data={data} />;
+  }
 
   if (!data) {
     return (

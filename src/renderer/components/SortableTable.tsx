@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useMemo, useState, type ReactNode } from "react";
+import { Fragment, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 
 export interface SortableColumn<T> {
   key: string;
@@ -15,6 +15,7 @@ interface SortableTableProps<T extends Record<string, unknown>> {
   className?: string;
   rowKey?: (row: T) => string | number;
   renderExpandedRow?: (row: T) => ReactNode;
+  onReachBottom?: () => void;
 }
 
 export function SortableTable<T extends Record<string, unknown>>({
@@ -24,6 +25,7 @@ export function SortableTable<T extends Record<string, unknown>>({
   className = "",
   rowKey,
   renderExpandedRow,
+  onReachBottom,
 }: SortableTableProps<T>) {
   const firstKey = columns[0]?.key ?? "";
   const [sortKey, setSortKey] = useState<string>(defaultSortKey ?? firstKey);
@@ -33,12 +35,27 @@ export function SortableTable<T extends Record<string, unknown>>({
     return col?.defaultDir ?? "desc";
   });
   const canExpand = Boolean(renderExpandedRow && rowKey);
+  const sentinelRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (renderExpandedRow && !rowKey) {
       console.warn("SortableTable: renderExpandedRow requires rowKey; expansion is disabled.");
     }
   }, [renderExpandedRow, rowKey]);
+
+  useEffect(() => {
+    if (!onReachBottom) return;
+    const el = sentinelRef.current;
+    if (!el) return;
+    const obs = new IntersectionObserver(
+      (entries) => {
+        if (entries[0]?.isIntersecting) onReachBottom();
+      },
+      { rootMargin: "200px" },
+    );
+    obs.observe(el);
+    return () => obs.disconnect();
+  }, [onReachBottom]);
 
   const sorted = useMemo(() => {
     const col = columns.find((c) => c.key === sortKey);
@@ -124,6 +141,13 @@ export function SortableTable<T extends Record<string, unknown>>({
                 </Fragment>
               );
             })
+          )}
+          {onReachBottom && (
+            <tr aria-hidden="true">
+              <td colSpan={columns.length} style={{ padding: 0, borderTop: 0 }}>
+                <div ref={sentinelRef} style={{ height: 1 }} />
+              </td>
+            </tr>
           )}
         </tbody>
       </table>

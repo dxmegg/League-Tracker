@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { TeammateStats } from "../lib/types";
 import { useIpc } from "../hooks/useIpc";
 import { useChampionData, getChampionName } from "../hooks/useChampions";
@@ -23,6 +23,9 @@ export function FriendsExp() {
     () => window.api.getTeammateStats(queue, "enemies"),
     [queue],
   );
+  const PAGE_SIZE = 30;
+  const [visibleFriends, setVisibleFriends] = useState(PAGE_SIZE);
+  const [visibleFoes, setVisibleFoes] = useState(PAGE_SIZE);
 
   const friendRows = useMemo<TeammateTableRow[]>(
     () => (friends ?? []) as TeammateTableRow[],
@@ -32,6 +35,13 @@ export function FriendsExp() {
     () => (enemies ?? []) as TeammateTableRow[],
     [enemies],
   );
+
+  useEffect(() => {
+    setVisibleFriends(PAGE_SIZE);
+  }, [friendRows.length]);
+  useEffect(() => {
+    setVisibleFoes(PAGE_SIZE);
+  }, [enemyRows.length]);
 
   const friendColumns = useMemo<SortableColumn<TeammateTableRow>[]>(
     () => [
@@ -152,9 +162,12 @@ export function FriendsExp() {
           ) : (
             <SortableTable
               columns={friendColumns}
-              rows={friendRows}
+              rows={friendRows.slice(0, visibleFriends)}
               defaultSortKey="games"
               rowKey={(row) => row.key}
+              onReachBottom={() =>
+                setVisibleFriends((n) => Math.min(n + PAGE_SIZE, friendRows.length))
+              }
             />
           )}
         </Panel>
@@ -173,9 +186,10 @@ export function FriendsExp() {
           ) : (
             <SortableTable
               columns={enemyColumns}
-              rows={enemyRows}
+              rows={enemyRows.slice(0, visibleFoes)}
               defaultSortKey="games"
               rowKey={(row) => row.key}
+              onReachBottom={() => setVisibleFoes((n) => Math.min(n + PAGE_SIZE, enemyRows.length))}
             />
           )}
         </Panel>
