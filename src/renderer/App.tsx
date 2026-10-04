@@ -77,12 +77,14 @@ function FullHistorySection({ section }: { section: string }) {
     );
   }
   if (section === "records") {
+    if (isExperiment) return <Records />;
     return (
       <SectionChrome title="RECORDS" scope="FULL">
         <Records />
       </SectionChrome>
     );
   }
+  if (isExperiment) return <GlobalStats />;
   return (
     <SectionChrome title="MISC. DATA" scope="FULL">
       <GlobalStats />

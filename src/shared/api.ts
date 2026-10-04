@@ -1100,6 +1100,7 @@ export interface ElectronAPI {
     games?: number;
     error?: string;
   }>;
+  getDbStats: () => Promise<{ games: number; sizeBytes: number }>;
   importData: () => Promise<{
     success: boolean;
     imported?: number;

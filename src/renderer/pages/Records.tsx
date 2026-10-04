@@ -37,6 +37,8 @@ import {
 import { formatDuration, formatKDA, kdaRatio } from "../lib/format";
 import { scoreColor } from "../../shared/opScore";
 import type { AccountListItem } from "../lib/types";
+import { useActiveTheme } from "../hooks/useActiveTheme";
+import { RecordsExp } from "../components/RecordsExp";
 
 // Records are moments, not recency — "3 months ago" undersells a trophy, so
 // they get a real date.
@@ -414,6 +416,13 @@ export default function Records() {
     const unsub = window.api.onGamesUpdated(() => refetch());
     return unsub;
   }, [refetch]);
+
+  const activeTheme = useActiveTheme();
+  const isExperiment = activeTheme === "experiment";
+
+  if (isExperiment) {
+    return <RecordsExp data={data} />;
+  }
 
   const accountSelect = (
     <FilterSelect
