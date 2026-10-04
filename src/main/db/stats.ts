@@ -181,12 +181,12 @@ export function getDashboardData(
 
   const recentForm = db
     .prepare(`
-    SELECT ps.win, g.game_id, g.is_remake, ps.champion_id, ps.kills, ps.deaths, ps.assists
+    SELECT ps.win, ps.score, g.game_id, g.is_remake, ps.champion_id, ps.kills, ps.deaths, ps.assists
     FROM games g
     JOIN ${source.table} ${source.alias} ON g.game_id = ${source.alias}.game_id
     ${whereSql}
     ORDER BY g.game_creation DESC
-    LIMIT 20
+    LIMIT 50
   `)
     .all(...queryParams);
 

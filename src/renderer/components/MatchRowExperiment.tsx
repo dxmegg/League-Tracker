@@ -69,7 +69,7 @@ const STYLE = `
 .match-row .bar em { font-style: normal; text-align: right; font-variant-numeric: tabular-nums; }
 .match-row .m-items { grid-area: items; display: flex; align-items: center; gap: 8px; min-width: 0; }
 .match-row .m-items .itg { display: grid; grid-template-columns: repeat(3, 22px); gap: 3px; }
-.match-row .m-multi { grid-area: multi; display: flex; flex-wrap: wrap; gap: 5px; min-width: 0; }
+.match-row .m-multi { grid-area: multi; display: flex; flex-wrap: wrap; gap: 5px; min-width: 0; padding-left: 12px; }
 .match-row .pill { font-family: var(--theme-font-display); font-size: 11.5px; line-height: 1; font-weight: 600; padding: 5px 10px; border-radius: 9999px; border: 1px solid; }
 .match-row .pill.d { color: var(--theme-assist); border-color: rgba(77,184,255,0.5); background: rgba(77,184,255,0.10); }
 .match-row .pill.t { color: var(--theme-gold); border-color: rgba(230,188,99,0.55); background: rgba(230,188,99,0.10); }

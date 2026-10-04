@@ -47,14 +47,27 @@ export function HomeHero({
         </div>
       </div>
 
-      <div className="relative mt-6 flex h-24 gap-0.5" aria-hidden="true">
+      <div className="relative mt-6 flex h-24 gap-px" aria-hidden="true">
         <span className="pointer-events-none absolute inset-x-0 top-[60px] border-t border-lol-border" />
         {ribbonData.map((game, i) => (
-          <div key={i} className="relative z-10 grid min-w-px max-w-4 flex-1 grid-rows-[60px_36px]">
+          <div
+            key={i}
+            className="relative z-10 grid min-w-px max-w-[10px] flex-1 grid-rows-[60px_36px]"
+          >
             {game.win ? (
-              <b className="h-12 self-end rounded-sm bg-lol-win" />
+              <b
+                className="row-start-1 self-end rounded-sm bg-lol-win"
+                style={{
+                  height: `${Math.max(6, Math.round((((game.score ?? 5) as number) / 10) * 60))}px`,
+                }}
+              />
             ) : (
-              <b className="h-4 self-start rounded-sm bg-lol-loss" />
+              <b
+                className="row-start-2 self-start rounded-sm bg-lol-loss"
+                style={{
+                  height: `${Math.max(4, Math.round((((game.score ?? 5) as number) / 10) * 36))}px`,
+                }}
+              />
             )}
           </div>
         ))}

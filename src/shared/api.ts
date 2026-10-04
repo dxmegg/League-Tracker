@@ -350,6 +350,7 @@ export interface DashboardData {
   recentForm: {
     game_id: number;
     win: number;
+    score: number | null;
     is_remake: number;
     champion_id: number;
     kills: number;
@@ -393,6 +394,7 @@ export interface HomeDashboardPayload {
     recentForm: Array<{
       game_id: number;
       win: number;
+      score: number | null;
       is_remake: number;
       champion_id: number;
       kills: number;
