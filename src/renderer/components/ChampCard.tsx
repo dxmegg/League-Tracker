@@ -1,5 +1,6 @@
 import ChampionIcon from "./ChampionIcon";
 import { getChampionName } from "../hooks/useChampions";
+import { formatNumber } from "../lib/format";
 
 export function ChampCard({
   championId,
@@ -23,8 +24,8 @@ export function ChampCard({
         {getChampionName(champData, championId)}
       </b>
       <span className="font-display text-[14px] font-semibold">
-        <span className="text-lol-win">{wins}W</span>{" "}
-        <span className="text-lol-loss">{losses}L</span>
+        <span className="text-lol-win">{formatNumber(wins)}W</span>{" "}
+        <span className="text-lol-loss">{formatNumber(losses)}L</span>
       </span>
       <div className="h-[5px] overflow-hidden rounded-full bg-white/[0.05]">
         <i
@@ -33,7 +34,7 @@ export function ChampCard({
         />
       </div>
       <small className="text-[12.5px] text-lol-text">
-        {games} games, {winRate}% win
+        {formatNumber(games)} games, {winRate}% win
       </small>
     </div>
   );

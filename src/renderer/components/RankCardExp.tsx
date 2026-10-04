@@ -1,4 +1,5 @@
 import type { ProfileRankedEntry } from "../../shared/api";
+import { formatNumber } from "../lib/format";
 
 export function RankCardExp({
   title,
@@ -33,7 +34,7 @@ export function RankCardExp({
           {unranked
             ? "Your rank appears here once you play ranked."
             : isLive
-              ? `${entry.leaguePoints ?? 0} LP · ${entry.wins ?? 0}W ${entry.losses ?? 0}L`
+              ? `${entry.leaguePoints ?? 0} LP · ${formatNumber(entry.wins ?? 0)}W ${formatNumber(entry.losses ?? 0)}L`
               : "Login to sync"}
         </span>
       </div>

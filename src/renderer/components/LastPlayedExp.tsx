@@ -1,6 +1,6 @@
 import ChampionIcon from "./ChampionIcon";
 import { getChampionName } from "../hooks/useChampions";
-import { kdaRatio } from "../lib/format";
+import { formatNumber, kdaRatio } from "../lib/format";
 import type { ChampionData, MatchListItem } from "../../shared/api";
 
 interface LastPlayedRow {
@@ -75,8 +75,8 @@ export function LastPlayedExp({
                 <ChampionIcon championId={row.championId} size={28} className="rounded-lg" />
               </span>
               <span className="whitespace-nowrap font-display text-[13.5px] font-semibold">
-                <span className="text-lol-win">{row.wins}W</span> –{" "}
-                <span className="text-lol-loss">{row.losses}L</span>
+                <span className="text-lol-win">{formatNumber(row.wins)}W</span> –{" "}
+                <span className="text-lol-loss">{formatNumber(row.losses)}L</span>
               </span>
               <span className="whitespace-nowrap text-right text-lol-text">
                 {(row.kills / (row.wins + row.losses)).toFixed(1)} /{" "}

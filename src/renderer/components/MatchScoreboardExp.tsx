@@ -2,7 +2,7 @@ import { useMemo, useState, type ReactNode } from "react";
 import type { MatchDetail, ParsedParticipant } from "../lib/types";
 import { parseParticipants, groupByTeam } from "../lib/participants";
 import { getChampionName, useRuneData } from "../hooks/useChampions";
-import { formatKDA, kdaRatio } from "../lib/format";
+import { formatKDA, formatNumber, kdaRatio } from "../lib/format";
 import { isArenaQueue, isAugmentQueue } from "../../shared/queues";
 import {
   computeMatchScoreBreakdowns,
@@ -496,7 +496,7 @@ function TeamScoreboard({
           </div>
           <div className="flex items-baseline gap-x-2 border-l border-lol-border/30 pl-3 first:border-l-0 first:pl-0">
             <TeamStat label="CS">
-              <span className="text-lol-text-bright">{totals.cs}</span>
+              <span className="text-lol-text-bright">{formatNumber(totals.cs)}</span>
             </TeamStat>
           </div>
           <div className="flex items-baseline gap-x-2 border-l border-lol-border/30 pl-3 first:border-l-0 first:pl-0">

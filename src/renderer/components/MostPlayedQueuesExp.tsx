@@ -1,5 +1,6 @@
 import type { QueueStat } from "../../shared/api";
 import { QUEUE_LABELS } from "../../shared/queues";
+import { formatNumber } from "../lib/format";
 
 export function MostPlayedQueuesExp({ rows }: { rows: QueueStat[] }) {
   return (
@@ -20,10 +21,10 @@ export function MostPlayedQueuesExp({ rows }: { rows: QueueStat[] }) {
               <td className="py-2.5 text-left font-medium">
                 {QUEUE_LABELS[row.queueId] ?? `Queue ${row.queueId}`}
               </td>
-              <td className="py-2.5 text-right tabular-nums">{row.count}</td>
+              <td className="py-2.5 text-right tabular-nums">{formatNumber(row.count)}</td>
               <td className="py-2.5 text-right tabular-nums">
-                <span className="text-lol-win">{row.wins}W</span>{" "}
-                <span className="text-lol-loss">{row.losses}L</span>
+                <span className="text-lol-win">{formatNumber(row.wins)}W</span>{" "}
+                <span className="text-lol-loss">{formatNumber(row.losses)}L</span>
               </td>
               <td className="py-2.5 text-right tabular-nums text-lol-win">{winRate}%</td>
             </tr>
