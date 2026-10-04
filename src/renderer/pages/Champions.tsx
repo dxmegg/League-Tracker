@@ -14,6 +14,8 @@ import { SearchInput } from "../components/SearchInput";
 import { formatKDA, formatDuration, formatTimeAgo, kdaRatio, kdaColor } from "../lib/format";
 import { scoreColor } from "../../shared/opScore";
 import { useHistoryScopeQueue } from "../lib/historyScope";
+import { useActiveTheme } from "../hooks/useActiveTheme";
+import { ChampionExp } from "../components/ChampionExp";
 
 type SortKey =
   | "games"
@@ -183,6 +185,9 @@ export default function Champions() {
     return unsub;
   }, [refetch]);
 
+  const activeTheme = useActiveTheme();
+  const isExperiment = activeTheme === "experiment";
+
   const handleSort = (key: SortKey) => {
     if (sortKey === key) {
       setSortDir(sortDir === "desc" ? "asc" : "desc");
@@ -230,6 +235,10 @@ export default function Champions() {
 
     return filtered;
   }, [data, search, sortKey, sortDir, champData]);
+
+  if (isExperiment) {
+    return <ChampionExp />;
+  }
 
   if (!data) {
     return (

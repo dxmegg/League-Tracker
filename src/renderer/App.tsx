@@ -17,13 +17,18 @@ import Friends from "./pages/Friends";
 import Trends from "./pages/Trends";
 import Records from "./pages/Records";
 import GlobalStats from "./pages/GlobalStats";
+import { useActiveTheme } from "./hooks/useActiveTheme";
 
 function ScopedFriendDetail() {
   return <FriendDetail />;
 }
 
 function FullHistorySection({ section }: { section: string }) {
+  const activeTheme = useActiveTheme();
+  const isExperiment = activeTheme === "experiment";
+
   if (section === "champions") {
+    if (isExperiment) return <Champions />;
     return (
       <SectionChrome title="CHAMPIONS" scope="FULL">
         <Champions />

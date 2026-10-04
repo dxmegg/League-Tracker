@@ -5,12 +5,14 @@ import { getChampionName, useChampionData } from "../hooks/useChampions";
 interface ChampionComboboxProps {
   value: number | null;
   onChange: (championId: number | null) => void;
+  onQueryChange?: (query: string) => void;
   placeholder?: string;
 }
 
 export function ChampionCombobox({
   value,
   onChange,
+  onQueryChange,
   placeholder = "Search champion",
 }: ChampionComboboxProps) {
   const champData = useChampionData();
@@ -35,6 +37,7 @@ export function ChampionCombobox({
   useEffect(() => {
     if (value == null) {
       setQuery("");
+      onQueryChange?.("");
       return;
     }
     const name = getChampionName(champData, value);
@@ -83,6 +86,7 @@ export function ChampionCombobox({
         value={query}
         onChange={(e) => {
           setQuery(e.target.value);
+          onQueryChange?.(e.target.value);
           setOpen(true);
           setHighlight(0);
           if (e.target.value === "") onChange(null);
