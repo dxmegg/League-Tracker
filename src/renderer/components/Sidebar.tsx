@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { NavLink, useLocation, useNavigate } from "react-router-dom";
+import { NavLink, useLocation } from "react-router-dom";
 import type { AccountListItem } from "../../shared/api";
 import { useBackfill } from "../hooks/useBackfill";
 import { useActiveAccount } from "../hooks/useActiveAccount";
@@ -42,7 +42,6 @@ const ACTIVE_TAIL: Record<string, string> = {
 
 export function Sidebar() {
   const { pathname } = useLocation();
-  const navigate = useNavigate();
   const status = useLcuStatus();
   const { running: backfilling } = useBackfill();
   const [refreshing, setRefreshing] = useState(false);
@@ -161,7 +160,6 @@ export function Sidebar() {
               type="button"
               onClick={() => {
                 setActiveAccount(ALL_ACCOUNTS_SENTINEL);
-                navigate("/home");
               }}
               className={`flex items-center gap-2 rounded-lg px-3 py-1.5 text-left transition-colors ${
                 activeAccount === ALL_ACCOUNTS_SENTINEL
@@ -194,7 +192,6 @@ export function Sidebar() {
                   type="button"
                   onClick={() => {
                     setActiveAccount(account.puuid);
-                    navigate("/local");
                   }}
                   className={`flex items-center gap-2 rounded-lg px-3 py-1.5 text-left transition-colors ${
                     isActive

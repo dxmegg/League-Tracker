@@ -26,6 +26,7 @@ import SummonerIcon from "../components/SummonerIcon";
 import { useActiveAccount } from "../hooks/useActiveAccount";
 import { useActiveTheme } from "../hooks/useActiveTheme";
 import { getChampionName, useChampionData } from "../hooks/useChampions";
+import { useViewState } from "../hooks/useViewState";
 import { ALL_ACCOUNTS_SENTINEL } from "../lib/accountsEvent";
 import { NavLink } from "react-router-dom";
 import { GameRow } from "./MatchHistory";
@@ -568,8 +569,8 @@ export default function Home() {
   const setAccount = (next: HomeAccountFilter) => {
     setActiveAccountRaw(next === "all" || next === undefined ? ALL_ACCOUNTS_SENTINEL : next);
   };
-  const [timePeriod, setTimePeriod] = useState<HomeTimePeriod>("7d");
-  const [queue, setQueue] = useState<number | undefined>(undefined);
+  const [timePeriod, setTimePeriod] = useViewState<HomeTimePeriod>("home.timePeriod", "7d");
+  const [queue, setQueue] = useViewState<number | undefined>("home.queue", undefined);
   const [dashboard, setDashboard] = useState<HomeDashboardPayload | null>(null);
   const [loading, setLoading] = useState(false);
   const [savedAccounts, setSavedAccounts] = useState<AccountListItem[]>([]);

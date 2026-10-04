@@ -24,6 +24,7 @@ import { HistoryStatRow } from "../components/HistoryStatRow";
 import { MatchRowExperiment } from "../components/MatchRowExperiment";
 import { FilterChip } from "../components/FilterChip";
 import { FilterSelect } from "../components/FilterSelect";
+import { ChampionCombobox } from "../components/ChampionCombobox";
 import { RuneCompact } from "../components/RuneSetup";
 import RuneIcon from "../components/RuneIcon";
 import MatchScoreboard from "../components/MatchScoreboard";
@@ -811,29 +812,24 @@ export default function MatchHistory({
                 onChange={(value) => setAccountFilter(value)}
                 placeholder="All Accounts"
                 title="Account"
-                className="h-8 rounded-full border-lol-border bg-lol-card px-3 text-[12.5px]"
+                className="h-8 px-3 text-[12.5px]"
                 options={filterOptions.accounts.map((a) => ({
                   value: a.puuid,
                   label: a.name ?? "Unknown account",
                 }))}
               />
             )}
-            <FilterSelect
-              value={championFilter}
-              onChange={(value) =>
-                setChampionFilter(value === undefined ? undefined : Number(value))
-              }
-              placeholder="All Champions"
-              title="Champion"
-              className="h-8 rounded-full border-lol-border bg-lol-card px-3 text-[12.5px]"
-              options={championOptions.map(({ id, name }) => ({ value: id, label: name }))}
+            <ChampionCombobox
+              value={championFilter ?? null}
+              onChange={(value) => setChampionFilter(value ?? undefined)}
+              placeholder="Search champion"
             />
             <FilterSelect
               value={patchFilter}
               onChange={(value) => setPatchFilter(value)}
               placeholder="All Patches"
               title="Patch"
-              className="h-8 rounded-full border-lol-border bg-lol-card px-3 text-[12.5px]"
+              className="h-8 px-3 text-[12.5px]"
               options={filterOptions.patches.map((patch) => ({
                 value: patch,
                 label: `Patch ${formatPatch(patch)}`,
@@ -844,7 +840,7 @@ export default function MatchHistory({
               value={queueFilter}
               onChange={(value) => setQueueFilter(value === undefined ? undefined : Number(value))}
               placeholder="Queue Type"
-              className="h-8 rounded-full border-lol-border bg-lol-card px-3 text-[12.5px]"
+              className="h-8 px-3 text-[12.5px]"
               options={filterOptions.queues.map((q) => ({
                 value: q,
                 label: q === QUEUE_GROUP_ARENA ? "All Arena" : queueLabel(q),
@@ -859,7 +855,7 @@ export default function MatchHistory({
                 }}
                 placeholder="Sort"
                 title="Sort"
-                className="h-8 rounded-full border-lol-border bg-lol-card px-3 text-[12.5px]"
+                className="h-8 px-3 text-[12.5px]"
                 options={SORT_OPTIONS}
               />
               <FilterChip

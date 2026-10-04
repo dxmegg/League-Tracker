@@ -8,6 +8,7 @@ import type {
   AccountSnapshot,
   ChampionData,
   CurrentSummoner,
+  HomeDashboardPayload,
   ProfileMasteryChampion,
   ProfileRecentGame,
   QueueStat,
@@ -20,8 +21,11 @@ import { LastPlayedExp } from "../components/LastPlayedExp";
 import { MatchRowExperiment } from "../components/MatchRowExperiment";
 import { MostPlayedQueuesExp } from "../components/MostPlayedQueuesExp";
 import { Panel } from "../components/Panel";
-import { ProfileHero } from "../components/ProfileHero";
+import { ProfileHeroExp } from "../components/ProfileHeroExp";
 import { RankCardExp } from "../components/RankCardExp";
+import { ChampCard } from "../components/ChampCard";
+import { HomeHero } from "../components/HomeHero";
+import { RecordTile } from "../components/RecordTile";
 import { queueLabel } from "../components/QueueSelect";
 import { shortRegion } from "../../shared/regions";
 import { isAugmentQueue, QUEUE_LABELS } from "../../shared/queues";
@@ -652,6 +656,7 @@ export default function Profile() {
     }
     return livePuuid ?? accounts[0]?.puuid ?? null;
   }, [activeAccountRaw, livePuuid, accounts]);
+  const isAllAccounts = activeAccountRaw === ALL_ACCOUNTS_SENTINEL;
   const [selectorOpen, setSelectorOpen] = useState(false);
   const [syncing, setSyncing] = useState(false);
   const [scannedCount, setScannedCount] = useState(0);
@@ -662,6 +667,11 @@ export default function Profile() {
   const profileRef = useRef(profile);
 
   const [queueStats, setQueueStats] = useState<QueueStat[]>([]);
+  const [allDashboard, setAllDashboard] = useState<HomeDashboardPayload | null>(null);
+  const [allMatches, setAllMatches] = useState<MatchListItem[]>([]);
+  const [allOffset, setAllOffset] = useState(0);
+  const [allLoading, setAllLoading] = useState(false);
+  const [allHasMore, setAllHasMore] = useState(true);
 
   useEffect(() => {
     selectedPuuidRef.current = selectedPuuid;
@@ -909,6 +919,50 @@ export default function Profile() {
   }, [selectedPuuid, loadLocalProfile, livePuuid]);
 
   useEffect(() => {
+    if (!isExperiment || !isAllAccounts) return;
+    let cancelled = false;
+    setAllDashboard(null);
+    window.api
+      .getHomeDashboard("all", "full", undefined)
+      .then((dashboard) => {
+        if (!cancelled) setAllDashboard(dashboard);
+      })
+      .catch(() => {
+        if (!cancelled) setAllDashboard(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [isExperiment, isAllAccounts]);
+
+  useEffect(() => {
+    if (!isExperiment || !isAllAccounts) return;
+    let cancelled = false;
+    setAllLoading(true);
+    setAllMatches([]);
+    setAllOffset(0);
+    setAllHasMore(true);
+    window.api
+      .getMatchHistory(20, 0, { account: "all" })
+      .then((result) => {
+        if (!cancelled) {
+          setAllMatches(result.matches);
+          setAllOffset(result.matches.length);
+          setAllHasMore(result.matches.length === 20);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) setAllHasMore(false);
+      })
+      .finally(() => {
+        if (!cancelled) setAllLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [isExperiment, isAllAccounts]);
+
+  useEffect(() => {
     if (syncing) {
       return window.api.onBackfillProgress((progress) => {
         setScannedCount(progress.current);
@@ -922,6 +976,136 @@ export default function Profile() {
     }, 500);
     return () => window.clearTimeout(resetTimer);
   }, [syncing]);
+
+  const selectedAccount = accounts.find((account) => account.puuid === selectedPuuid);
+  const loadMoreAll = async () => {
+    if (allLoading || !allHasMore) return;
+    setAllLoading(true);
+    try {
+      const result = await window.api.getMatchHistory(20, allOffset, { account: "all" });
+      setAllMatches((previous) => [...previous, ...result.matches]);
+      setAllOffset((previous) => previous + result.matches.length);
+      setAllHasMore(result.matches.length === 20);
+    } finally {
+      setAllLoading(false);
+    }
+  };
+
+  if (isExperiment && isAllAccounts) {
+    return (
+      <div className="mx-auto flex min-h-full w-full max-w-[1320px] flex-col gap-5">
+        <ProfileHeroExp
+          mode="all"
+          gameName={selectedAccount?.gameName ?? "Unknown"}
+          tagLine={selectedAccount?.tagLine ?? null}
+          profileIconId={selectedAccount?.profileIconId ?? null}
+          level={null}
+          platform={selectedAccount?.platform ?? null}
+          isLive={true}
+          accounts={accounts}
+          onRefresh={handleRefresh}
+          refreshing={syncing}
+        />
+
+        <div className="grid grid-cols-12 gap-5">
+          <Panel className="col-span-12 xl:col-span-8">
+            <HomeHero
+              dashboard={allDashboard}
+              loading={!allDashboard}
+              timePeriod="full"
+              champData={championData}
+            />
+          </Panel>
+
+          <Panel className="col-span-12 xl:col-span-4">
+            <h2 className="mb-4 font-display text-[16px] font-semibold text-lol-text-bright">
+              Most played champions
+            </h2>
+            <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 md:grid-cols-4">
+              {(allDashboard?.topChampions ?? []).slice(0, 4).map((champion) => (
+                <ChampCard
+                  key={champion.championId}
+                  championId={champion.championId}
+                  games={champion.games}
+                  wins={champion.wins}
+                  champData={championData}
+                />
+              ))}
+            </div>
+          </Panel>
+
+          <Panel className="col-span-12">
+            <h2 className="mb-4 font-display text-[16px] font-semibold text-lol-text-bright">
+              Records
+            </h2>
+            <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-3 lg:grid-cols-6">
+              {(
+                [
+                  { label: "Most kills", record: allDashboard?.records.mostKills },
+                  { label: "Most deaths", record: allDashboard?.records.mostDeaths },
+                  { label: "Most assists", record: allDashboard?.records.mostAssists },
+                  { label: "Most damage", record: allDashboard?.records.mostDamage },
+                  { label: "Biggest crit", record: allDashboard?.records.biggestCrit },
+                  { label: "Most CS", record: allDashboard?.records.mostCs },
+                ] as const
+              ).map(({ label, record }) =>
+                record ? (
+                  <RecordTile
+                    key={label}
+                    label={label}
+                    value={record.value}
+                    championId={record.championId}
+                    win={record.win}
+                    gameCreation={record.gameCreation}
+                  />
+                ) : (
+                  <div
+                    key={label}
+                    className="rounded-xl border border-lol-border bg-black/10 px-3.5 py-3 text-[12.5px] text-lol-text"
+                  >
+                    <span className="uppercase tracking-wider">{label}</span>
+                    <b className="my-0.5 block font-display text-[28px] font-bold leading-tight text-lol-text-bright/40">
+                      —
+                    </b>
+                  </div>
+                ),
+              )}
+            </div>
+          </Panel>
+
+          <Panel className="col-span-12">
+            <div className="mb-4 flex items-center justify-between">
+              <h2 className="font-display text-[16px] font-semibold text-lol-text-bright">
+                Recent matches
+              </h2>
+              <span className="text-[13px] text-lol-text">{allMatches.length} loaded</span>
+            </div>
+            <div
+              className="match-list-exp flex flex-col gap-2.5"
+              style={{ containerType: "inline-size" }}
+            >
+              {allMatches.map((match) => (
+                <MatchRowExperiment
+                  key={match.game_id}
+                  match={match}
+                  championName={getChampionName(championData, match.champion_id)}
+                  champData={championData}
+                />
+              ))}
+            </div>
+            <button
+              type="button"
+              onClick={loadMoreAll}
+              disabled={allLoading || !allHasMore}
+              className="mx-auto mt-4 rounded-lg border border-lol-border bg-lol-card px-4 py-2 text-sm font-medium text-lol-text-bright transition-colors hover:border-lol-crimson disabled:opacity-50"
+            >
+              {allLoading ? "Loading…" : allHasMore ? "Load more" : "All matches loaded"}
+            </button>
+          </Panel>
+        </div>
+      </div>
+    );
+  }
 
   if (error || !profile) {
     return (
@@ -941,7 +1125,6 @@ export default function Profile() {
       ? `https://ddragon.leagueoflegends.com/cdn/${profile.dataDragonVersion}/img/profileicon/${profile.profileIconId}.png`
       : null;
   const profileInitial = profile.gameName.trim().charAt(0).toUpperCase() || "?";
-  const selectedAccount = accounts.find((account) => account.puuid === selectedPuuid);
   const currentAccountLabel = selectedPuuid
     ? selectedAccount
       ? `${selectedAccount.gameName ?? "Unknown"}#${selectedAccount.tagLine ?? ""}`
@@ -1038,13 +1221,15 @@ export default function Profile() {
         <div className={isExperiment ? "min-w-0" : "min-w-0 pt-0"}>
           {isExperiment ? (
             <Panel className="contents">
-              <ProfileHero
+              <ProfileHeroExp
+                mode="single"
                 gameName={selectedAccount?.gameName ?? "Unknown"}
                 tagLine={selectedAccount?.tagLine ?? null}
                 profileIconId={profile?.profileIconId ?? selectedAccount?.profileIconId ?? null}
                 level={profile?.summonerLevel ?? null}
                 platform={profile?.platform ?? null}
                 isLive={selectedPuuid === livePuuid && livePuuid !== null}
+                accounts={accounts}
                 onRefresh={handleRefresh}
                 refreshing={syncing}
               />
