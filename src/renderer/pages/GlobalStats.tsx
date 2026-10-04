@@ -21,6 +21,8 @@ import PatchSelect from "../components/PatchSelect";
 import QueueSelect from "../components/QueueSelect";
 import { type Rarity } from "../components/RarityFilter";
 import { useHistoryScopeQueue } from "../lib/historyScope";
+import { useActiveTheme } from "../hooks/useActiveTheme";
+import { DataExp } from "../components/DataExp";
 
 type Tab = "champions" | "augments" | "items";
 type ChampSortKey = "games" | "winRate" | "pickRate" | "name";
@@ -278,6 +280,13 @@ export default function GlobalStats() {
 
     return filtered;
   }, [data, itemSearch, itemSortKey, itemSortDir, getItemName]);
+
+  const activeTheme = useActiveTheme();
+  const isExperiment = activeTheme === "experiment";
+
+  if (isExperiment) {
+    return <DataExp />;
+  }
 
   if (!data) {
     return <div className="text-lol-text text-center mt-20">Loading...</div>;

@@ -35,6 +35,7 @@ const RENDERER_SETTINGS = new Set([
   "riot_game_name",
   "riot_tag_line",
   "riot_platform",
+  "active_account",
 ]);
 
 // Registered once for the lifetime of the app — ipcMain.handle throws on a
@@ -251,7 +252,7 @@ export function registerIpcHandlers() {
           biggestCrit: toHomeRecord(records.bests.criticalStrike),
           mostCs: toHomeRecord(records.bests.cs),
         },
-        topChampions: championStats.slice(0, 5).map((champion) => ({
+        topChampions: championStats.slice(0, 10).map((champion) => ({
           championId: champion.champion_id,
           games: champion.games,
           wins: champion.wins,
@@ -529,6 +530,14 @@ export function registerIpcHandlers() {
     return lcu.getStatus();
   });
 
+  ipcMain.handle("lcu:live-game", async () => {
+    return lcu.fetchLiveGameData();
+  });
+
+  ipcMain.handle("lcu:live-session", async () => {
+    return lcu.fetchLiveSessionData();
+  });
+
   ipcMain.handle("lcu:current-puuid", async () => {
     console.log("[lcu] current puuid handler called:", {});
     if (!lcu.isClientConnected()) {
@@ -683,9 +692,12 @@ export function registerIpcHandlers() {
       return db.getOwnedItemStats(patch, queue, account);
     },
   );
-  ipcMain.handle("db:owned-rune-stats", (_event, queue?: number, patch?: string) => {
-    return db.getOwnedRuneStats(queue, patch);
-  });
+  ipcMain.handle(
+    "db:owned-rune-stats",
+    (_event, queue?: number, patch?: string, account?: string) => {
+      return db.getOwnedRuneStats(queue, patch, account);
+    },
+  );
   ipcMain.handle(
     "db:owned-item-detail",
     (_event, itemId: number, patch?: string, queue?: number) => {
@@ -878,6 +890,8 @@ export function registerIpcHandlers() {
       return { success: false, error: `Export failed: ${err.message}` };
     }
   });
+
+  ipcMain.handle("data:get-db-stats", () => db.getDbStats());
 
   ipcMain.handle("data:import", async (event) => {
     const win = senderWindow(event);

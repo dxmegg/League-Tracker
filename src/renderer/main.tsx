@@ -1,3 +1,9 @@
+import "@fontsource/chakra-petch/500.css";
+import "@fontsource/chakra-petch/600.css";
+import "@fontsource/chakra-petch/700.css";
+import "@fontsource/ibm-plex-sans/400.css";
+import "@fontsource/ibm-plex-sans/500.css";
+import "@fontsource/ibm-plex-sans/600.css";
 import { createRoot } from "react-dom/client";
 import App from "./App";
 import { initViewState } from "./lib/viewState";
@@ -21,7 +27,7 @@ Promise.resolve(window.api?.getDebugEnabled?.())
     return Promise.resolve(themeSetting)
       .catch(() => null)
       .then((stored) => {
-        const valid = stored === "test" || stored === "pink" ? stored : "test";
+        const valid = stored === "test" || stored === "experiment" ? stored : "experiment";
         document.documentElement.setAttribute("data-theme", valid);
       })
       .finally(() => {

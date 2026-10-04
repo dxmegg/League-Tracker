@@ -37,6 +37,10 @@ import {
 import { formatDuration, formatKDA, kdaRatio } from "../lib/format";
 import { scoreColor } from "../../shared/opScore";
 import type { AccountListItem } from "../lib/types";
+import { useActiveTheme } from "../hooks/useActiveTheme";
+import { useActiveAccount } from "../hooks/useActiveAccount";
+import { RecordsExp } from "../components/RecordsExp";
+import { ALL_ACCOUNTS_SENTINEL } from "../lib/accountsEvent";
 
 // Records are moments, not recency — "3 months ago" undersells a trophy, so
 // they get a real date.
@@ -360,10 +364,14 @@ function streakCard(streak: StreakRecord, win: boolean): CardDef {
 
 export default function Records() {
   const [searchParams, setSearchParams] = useSearchParams();
+  const activeTheme = useActiveTheme();
+  const isExperiment = activeTheme === "experiment";
+  const [activeAccountRaw] = useActiveAccount();
+  const account = activeAccountRaw === ALL_ACCOUNTS_SENTINEL ? "all" : activeAccountRaw;
   const queueParam = searchParams.get("queue");
   const queue = queueParam ? Number(queueParam) : undefined;
   const accountParam = searchParams.get("account") || undefined;
-  const account = accountParam || "all";
+  const urlAccount = accountParam || "all";
   const setQueue = (q: number | undefined) => {
     setSearchParams(
       (prev) => {
@@ -388,9 +396,10 @@ export default function Records() {
   };
 
   const scopedQueue = queue ?? useHistoryScopeQueue();
+  const accountForFetch = isExperiment ? account : urlAccount;
   const { data, refetch } = useIpc<RecordsData>(
-    () => window.api.getRecords(scopedQueue, account),
-    [scopedQueue, account],
+    () => window.api.getRecords(scopedQueue, accountForFetch),
+    [scopedQueue, accountForFetch],
   );
   const champData = useChampionData();
   const [puuids, setPuuids] = useState<string[] | null>(null);
@@ -414,6 +423,10 @@ export default function Records() {
     const unsub = window.api.onGamesUpdated(() => refetch());
     return unsub;
   }, [refetch]);
+
+  if (isExperiment) {
+    return <RecordsExp data={data} />;
+  }
 
   const accountSelect = (
     <FilterSelect

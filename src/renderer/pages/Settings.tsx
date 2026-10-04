@@ -4,6 +4,8 @@ import { queueLabel } from "../components/QueueSelect";
 import { FilterSelect } from "../components/FilterSelect";
 import { setRemembering } from "../lib/viewState";
 import type { BackupInfo } from "../lib/types";
+import { useActiveTheme } from "../hooks/useActiveTheme";
+import { SettingsExp } from "../components/SettingsExp";
 
 const BACKUP_REASONS: Record<string, string> = {
   auto: "Scheduled",
@@ -105,7 +107,9 @@ function Section({
 export default function Settings() {
   // Shared so a backfill started automatically on first connect shows here too
   const { running: backfilling } = useBackfill();
-  const [theme, setTheme] = useState("test");
+  const [theme, setTheme] = useState<string>(
+    () => document.documentElement.getAttribute("data-theme") ?? "experiment",
+  );
   const [autoStart, setAutoStart] = useState(false);
   // Only the packaged program has a path worth registering, so the switch says
   // so instead of pretending in a dev build
@@ -158,11 +162,7 @@ export default function Settings() {
       window.api.getSetting("remember_filters"),
       window.api.getSetting("theme"),
     ]).then(([startup, startupSupported, tray, hidden, remakes, backup, remember, storedTheme]) => {
-      setTheme(
-        storedTheme === "default" || storedTheme === "test" || storedTheme === "pink"
-          ? storedTheme
-          : "test",
-      );
+      setTheme(storedTheme === "test" || storedTheme === "experiment" ? storedTheme : "experiment");
       setAutoStart(startup === "true");
       setAutoStartSupported(startupSupported);
       setMinimizeToTray(tray !== "false");
@@ -479,6 +479,13 @@ export default function Settings() {
     }
   }, []);
 
+  const activeTheme = useActiveTheme();
+  const isExperiment = activeTheme === "experiment";
+
+  if (isExperiment) {
+    return <SettingsExp />;
+  }
+
   if (loading) return null;
 
   return (
@@ -493,18 +500,17 @@ export default function Settings() {
           <FilterSelect
             value={theme}
             onChange={(value) => {
-              if (value !== "default" && value !== "test" && value !== "pink") return;
+              if (value !== "test" && value !== "experiment") return;
               setTheme(value);
               void window.api.setSetting("theme", value);
               document.documentElement.setAttribute("data-theme", value);
             }}
-            placeholder="Noxian (Default)"
+            placeholder="First Theme"
             title="Theme"
             className="w-48"
             options={[
-              { value: "test", label: "Noxian (Default)" },
-              { value: "default", label: "Default (Legacy)" },
-              { value: "pink", label: "Pink" },
+              { value: "experiment", label: "First Theme" },
+              { value: "test", label: "Second Theme" },
             ]}
           />
         </div>

@@ -12,6 +12,8 @@ import { SearchInput } from "../components/SearchInput";
 import { isAugmentQueue } from "../../shared/queues";
 import { useNavigate } from "react-router-dom";
 import { useParams } from "react-router-dom";
+import { useActiveTheme } from "../hooks/useActiveTheme";
+import { ItemsExp } from "../components/ItemsExp";
 
 export default function Items() {
   const [queue, setQueue] = useViewState<number | undefined>("items.queue", undefined);
@@ -57,6 +59,13 @@ export default function Items() {
       setSortDesc(key !== "name");
     }
   };
+  const activeTheme = useActiveTheme();
+  const isExperiment = activeTheme === "experiment";
+
+  if (isExperiment) {
+    return <ItemsExp />;
+  }
+
   if (loading || !stats)
     return (
       <div className="flex items-center justify-center rounded-lg border border-lol-crimson/40 bg-[linear-gradient(145deg,#0c0e11_0%,#090b0d_48%,#060809_100%)] p-12">

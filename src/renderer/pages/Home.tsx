@@ -3,6 +3,7 @@ import type {
   AccountListItem,
   HomeAccountFilter,
   HomeDashboardPayload,
+  MatchDetail,
   HomeTimePeriod,
   MatchListItem,
 } from "../../shared/api";
@@ -14,9 +15,20 @@ import {
   QUEUE_SCOPE_MAYHEM,
 } from "../../shared/queues";
 import ChampionIcon from "../components/ChampionIcon";
+import { ChampCard } from "../components/ChampCard";
+import { HomeHero } from "../components/HomeHero";
 import { HomeCard } from "../components/HomeCard";
+import { LiveGameTile } from "../components/LiveGameTile";
+import { MatchRowExperiment } from "../components/MatchRowExperiment";
+import { Panel } from "../components/Panel";
+import { RecordTile } from "../components/RecordTile";
 import SummonerIcon from "../components/SummonerIcon";
-import { useChampionData } from "../hooks/useChampions";
+import { useActiveAccount } from "../hooks/useActiveAccount";
+import { useActiveTheme } from "../hooks/useActiveTheme";
+import { getChampionName, useChampionData } from "../hooks/useChampions";
+import { useLiveGame } from "../hooks/useLiveGame";
+import { useViewState } from "../hooks/useViewState";
+import { ALL_ACCOUNTS_SENTINEL } from "../lib/accountsEvent";
 import { NavLink } from "react-router-dom";
 import { GameRow } from "./MatchHistory";
 
@@ -272,7 +284,7 @@ function PlayerSummaryCard({
               Most played champions
             </div>
             <div className="grid grid-cols-5 gap-3">
-              {(dashboard?.topChampions ?? []).slice(0, 5).map((champion) => (
+              {(dashboard?.topChampions ?? []).slice(0, 10).map((champion) => (
                 <div key={champion.championId} className="flex min-w-0 flex-col items-center gap-1">
                   <ChampionIcon championId={champion.championId} size={48} className="rounded-lg" />
                   <div className="text-xs font-semibold text-lol-win">{champion.wins}W</div>
@@ -299,7 +311,7 @@ function formatShortDate(ts: number): string {
   });
 }
 
-function RecordTile({
+function LegacyRecordTile({
   label,
   record,
 }: {
@@ -353,12 +365,12 @@ function RecordsCard({
       >
         <div className="text-center text-2xl font-bold text-lol-text-bright">Records</div>
         <div className="grid flex-1 grid-cols-3 gap-3">
-          <RecordTile label="Most Kills" record={records?.mostKills ?? null} />
-          <RecordTile label="Most Deaths" record={records?.mostDeaths ?? null} />
-          <RecordTile label="Most Assists" record={records?.mostAssists ?? null} />
-          <RecordTile label="Most Damage" record={records?.mostDamage ?? null} />
-          <RecordTile label="Biggest Crit" record={records?.biggestCrit ?? null} />
-          <RecordTile label="Most CS" record={records?.mostCs ?? null} />
+          <LegacyRecordTile label="Most Kills" record={records?.mostKills ?? null} />
+          <LegacyRecordTile label="Most Deaths" record={records?.mostDeaths ?? null} />
+          <LegacyRecordTile label="Most Assists" record={records?.mostAssists ?? null} />
+          <LegacyRecordTile label="Most Damage" record={records?.mostDamage ?? null} />
+          <LegacyRecordTile label="Biggest Crit" record={records?.biggestCrit ?? null} />
+          <LegacyRecordTile label="Most CS" record={records?.mostCs ?? null} />
         </div>
       </div>
     </HomeCard>
@@ -428,13 +440,18 @@ function MatchListPanel({
   account,
   queue,
   timePeriod,
+  experiment = false,
 }: {
   account: HomeAccountFilter;
   queue: number | undefined;
   timePeriod: HomeTimePeriod;
+  experiment?: boolean;
 }) {
   const [matches, setMatches] = useState<MatchListItem[]>([]);
   const [loading, setLoading] = useState(false);
+  const [expandedId, setExpandedId] = useState<number | null>(null);
+  const [detail, setDetail] = useState<MatchDetail | null>(null);
+  const [detailLoading, setDetailLoading] = useState(false);
   const champData = useChampionData();
 
   useEffect(() => {
@@ -455,6 +472,61 @@ function MatchListPanel({
       cancelled = true;
     };
   }, [account, queue]);
+
+  useEffect(() => {
+    if (expandedId == null) {
+      setDetail(null);
+      return;
+    }
+    let cancelled = false;
+    setDetailLoading(true);
+    setDetail(null);
+    window.api
+      .getMatchDetail(expandedId)
+      .then((d) => {
+        if (!cancelled) setDetail(d);
+      })
+      .catch(() => {
+        if (!cancelled) setDetail(null);
+      })
+      .finally(() => {
+        if (!cancelled) setDetailLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [expandedId]);
+
+  const handleToggle = (gameId: number) => {
+    setExpandedId((prev) => (prev === gameId ? null : gameId));
+  };
+
+  if (experiment) {
+    return (
+      <div className={`transition-opacity ${loading ? "opacity-50" : ""}`}>
+        <div className="match-list-exp overflow-y-auto">
+          {matches.map((match) => (
+            <MatchRowExperiment
+              key={match.game_id}
+              match={match}
+              championName={getChampionName(champData, match.champion_id)}
+              champData={champData}
+              expanded={expandedId === match.game_id}
+              detail={expandedId === match.game_id ? detail : null}
+              detailLoading={expandedId === match.game_id && detailLoading}
+              puuids={null}
+              onToggle={() => handleToggle(match.game_id)}
+            />
+          ))}
+          {!loading && matches.length === 0 && (
+            <Panel className="py-6 text-center text-sm text-lol-text">
+              No games recorded in the last {timePeriodLabel(timePeriod)}
+            </Panel>
+          )}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div
@@ -490,12 +562,21 @@ function MatchListPanel({
 }
 
 export default function Home() {
-  const [account, setAccount] = useState<HomeAccountFilter>("all");
-  const [timePeriod, setTimePeriod] = useState<HomeTimePeriod>("7d");
-  const [queue, setQueue] = useState<number | undefined>(undefined);
+  const activeTheme = useActiveTheme();
+  const isExperiment = activeTheme === "experiment";
+  const live = useLiveGame();
+  const [activeAccountRaw, setActiveAccountRaw] = useActiveAccount();
+  const account: HomeAccountFilter =
+    activeAccountRaw === ALL_ACCOUNTS_SENTINEL ? "all" : activeAccountRaw;
+  const setAccount = (next: HomeAccountFilter) => {
+    setActiveAccountRaw(next === "all" || next === undefined ? ALL_ACCOUNTS_SENTINEL : next);
+  };
+  const [timePeriod, setTimePeriod] = useViewState<HomeTimePeriod>("home.timePeriod", "7d");
+  const [queue, setQueue] = useViewState<number | undefined>("home.queue", undefined);
   const [dashboard, setDashboard] = useState<HomeDashboardPayload | null>(null);
   const [loading, setLoading] = useState(false);
   const [savedAccounts, setSavedAccounts] = useState<AccountListItem[]>([]);
+  const champData = useChampionData();
 
   useEffect(() => {
     window.api
@@ -522,6 +603,137 @@ export default function Home() {
       cancelled = true;
     };
   }, [account, timePeriod, queue]);
+
+  if (isExperiment) {
+    return (
+      <div className="mx-auto flex min-h-full w-full max-w-[1320px] flex-col gap-5">
+        {/* Page head + time toggle */}
+        <div className="flex flex-wrap items-end justify-between gap-4">
+          <div>
+            <h1 className="font-display text-[30px] font-bold leading-tight tracking-[0.2px] text-lol-text-bright">
+              {account === "all" ? "All accounts" : "Account summary"}
+            </h1>
+            <p className="mt-1.5 text-lol-text">
+              {account === "all"
+                ? `Combined stats from your ${savedAccounts.length} saved accounts`
+                : "Detailed stats for the selected account"}
+            </p>
+          </div>
+          <div className="inline-flex rounded-[10px] border border-lol-border bg-lol-card p-[3px]">
+            {TIME_PERIODS.map((period) => (
+              <button
+                key={period}
+                type="button"
+                onClick={() => setTimePeriod(period)}
+                className={`rounded-[7px] px-5 py-1.5 font-display text-[13px] font-semibold transition-colors ${
+                  period === timePeriod
+                    ? "bg-lol-crimson text-white"
+                    : "text-lol-text hover:text-lol-text-bright"
+                }`}
+              >
+                {period === "full" ? "Full" : period}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* 12-column grid */}
+        <div className="grid grid-cols-12 gap-5">
+          {/* Hero: 8 columns */}
+          <Panel className="col-span-12 2xl:col-span-8">
+            <HomeHero
+              dashboard={dashboard}
+              loading={loading}
+              timePeriod={timePeriod}
+              champData={champData}
+            />
+          </Panel>
+
+          {/* Live game: 4 columns */}
+          <Panel className="col-span-12 2xl:col-span-4">
+            <LiveGameTile game={live.game} session={live.session} />
+          </Panel>
+
+          {/* Most played champions: 7 columns */}
+          <Panel className="col-span-12 2xl:col-span-7">
+            <div className="mb-4 flex items-baseline justify-between gap-3">
+              <h2 className="font-display text-[16px] font-semibold text-lol-text-bright">
+                Most played champions
+              </h2>
+              <span className="text-[13px] text-lol-text">
+                {timePeriod === "full" ? "All time" : `Last ${timePeriod}`}
+              </span>
+            </div>
+            <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 md:grid-cols-5">
+              {(dashboard?.topChampions ?? []).slice(0, 10).map((champion) => (
+                <ChampCard
+                  key={champion.championId}
+                  championId={champion.championId}
+                  games={champion.games}
+                  wins={champion.wins}
+                  champData={champData}
+                />
+              ))}
+            </div>
+          </Panel>
+
+          {/* Records: 5 columns */}
+          <Panel className="col-span-12 2xl:col-span-5">
+            <div className="mb-4 flex items-baseline justify-between gap-3">
+              <h2 className="font-display text-[16px] font-semibold text-lol-text-bright">
+                Records
+              </h2>
+              <span className="text-[13px] text-lol-text">All time</span>
+            </div>
+            <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
+              {(
+                [
+                  { label: "Most kills", record: dashboard?.records.mostKills },
+                  { label: "Most deaths", record: dashboard?.records.mostDeaths },
+                  { label: "Most assists", record: dashboard?.records.mostAssists },
+                  { label: "Most damage", record: dashboard?.records.mostDamage },
+                  { label: "Biggest crit", record: dashboard?.records.biggestCrit },
+                  { label: "Most CS", record: dashboard?.records.mostCs },
+                ] as const
+              ).map(({ label, record }) =>
+                record ? (
+                  <RecordTile
+                    key={label}
+                    label={label}
+                    value={record.value}
+                    championId={record.championId}
+                    win={record.win}
+                    gameCreation={record.gameCreation}
+                  />
+                ) : (
+                  <div
+                    key={label}
+                    className="rounded-xl border border-lol-border bg-black/10 px-3.5 py-3 text-[12.5px] text-lol-text"
+                  >
+                    <span className="uppercase tracking-wider">{label}</span>
+                    <b className="my-0.5 block font-display text-[28px] font-bold leading-tight text-lol-text-bright/40">
+                      —
+                    </b>
+                  </div>
+                ),
+              )}
+            </div>
+          </Panel>
+
+          {/* Last 20 played games: 12 columns */}
+          <Panel className="col-span-12">
+            <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+              <h2 className="font-display text-[16px] font-semibold text-lol-text-bright">
+                Last 20 played games
+              </h2>
+              <QueueFilterChips value={queue} onChange={setQueue} />
+            </div>
+            <MatchListPanel account={account} queue={queue} timePeriod={timePeriod} experiment />
+          </Panel>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex min-h-full flex-col gap-4">

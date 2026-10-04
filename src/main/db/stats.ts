@@ -50,6 +50,7 @@ export function getChampionStatsAll(
       ROUND(AVG(ps.assists), 1) as avg_assists,
       ROUND(AVG(ps.total_damage_dealt)) as avg_damage,
       ROUND(AVG(ps.gold_earned)) as avg_gold,
+      ROUND(AVG(CASE WHEN g.game_duration >= 60 THEN ps.cs * 60.0 / g.game_duration END), 1) as avg_cs_per_min,
       ROUND(AVG(ps.score), 1) as avg_score,
       SUM(CASE WHEN ps.score_badge = 'MVP' THEN 1 ELSE 0 END) as mvps,
       SUM(CASE WHEN ps.score_badge = 'ACE' THEN 1 ELSE 0 END) as aces,
@@ -181,12 +182,12 @@ export function getDashboardData(
 
   const recentForm = db
     .prepare(`
-    SELECT ps.win, g.game_id, g.is_remake, ps.champion_id, ps.kills, ps.deaths, ps.assists
+    SELECT ps.win, ps.score, g.game_id, g.is_remake, ps.champion_id, ps.kills, ps.deaths, ps.assists
     FROM games g
     JOIN ${source.table} ${source.alias} ON g.game_id = ${source.alias}.game_id
     ${whereSql}
     ORDER BY g.game_creation DESC
-    LIMIT 20
+    LIMIT 250
   `)
     .all(...queryParams);
 
@@ -204,7 +205,7 @@ export function getDashboardData(
     ${whereSql} AND g.queue_id NOT IN (${EXCLUDED_STATS_SQL})
     GROUP BY ps.champion_id
     ORDER BY games DESC
-    LIMIT 5
+    LIMIT 10
   `)
     .all(...queryParams);
 
@@ -317,7 +318,7 @@ export function getAugmentStatsWithChampions(
 } {
   const source = statsSource(account);
   const where = ["g.is_remake = 0", source.accountFilter];
-  const params: any[] = account ? [account] : [];
+  const params: any[] = account && account !== "all" ? [account] : [];
   if (patch) {
     where.push("g.game_version = ?");
     params.push(patch);
@@ -827,7 +828,7 @@ export function getOwnedItemStats(patch?: string, queue?: number, account?: stri
   const source = statsSource(account);
   const where = ["g.is_remake = 0"];
   where.push(source.accountFilter);
-  const params: any[] = account ? [account] : [];
+  const params: any[] = account && account !== "all" ? [account] : [];
   if (patch) {
     where.push("g.game_version = ?");
     params.push(patch);
@@ -930,10 +931,11 @@ export function getOwnedItemDetail(itemId: number, patch?: string, queue?: numbe
   };
 }
 
-export function getOwnedRuneStats(queue?: number, patch?: string) {
+export function getOwnedRuneStats(queue?: number, patch?: string, account?: string) {
+  const source = statsSource(account);
   const where = ["g.is_remake = 0", "g.raw_gz IS NOT NULL"];
-  where.push(localGamesFilter("g"));
-  const params: any[] = [];
+  where.push(source.accountFilter);
+  const params: any[] = account && account !== "all" ? [account] : [];
   if (patch) {
     where.push("g.game_version = ?");
     params.push(patch);
@@ -942,8 +944,8 @@ export function getOwnedRuneStats(queue?: number, patch?: string) {
   where.push(`g.queue_id NOT IN (${EXCLUDED_STATS_SQL})`);
   const rows = db
     .prepare(
-      `SELECT g.raw_gz, g.puuid, ps.win, ps.champion_id, ps.kills, ps.deaths, ps.assists
-       FROM games g JOIN player_stats ps ON ps.game_id = g.game_id
+      `SELECT g.raw_gz, g.puuid, ${source.alias}.win, ${source.alias}.champion_id, ${source.alias}.kills, ${source.alias}.deaths, ${source.alias}.assists
+       FROM games g JOIN ${source.table} ${source.alias} ON g.game_id = ${source.alias}.game_id
        WHERE ${where.join(" AND ")}`,
     )
     .all(...params) as {
@@ -1211,7 +1213,7 @@ export function getTrendsData(queue?: number, account?: string): any {
   const source = statsSource(account);
   const where = ["g.is_remake = 0"];
   where.push(source.accountFilter);
-  const params: any[] = account ? [account] : [];
+  const params: any[] = account && account !== "all" ? [account] : [];
   applyQueueFilter(where, params, queue);
   where.push(`g.queue_id NOT IN (${EXCLUDED_STATS_SQL})`);
   const whereSql = `WHERE ${where.join(" AND ")}`;

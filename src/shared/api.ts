@@ -226,6 +226,7 @@ export interface ChampionStats {
   triple_kills: number;
   quadra_kills: number;
   penta_kills: number;
+  avg_cs_per_min: number | null;
 }
 
 export interface AugmentStats {
@@ -350,6 +351,7 @@ export interface DashboardData {
   recentForm: {
     game_id: number;
     win: number;
+    score: number | null;
     is_remake: number;
     champion_id: number;
     kills: number;
@@ -393,6 +395,7 @@ export interface HomeDashboardPayload {
     recentForm: Array<{
       game_id: number;
       win: number;
+      score: number | null;
       is_remake: number;
       champion_id: number;
       kills: number;
@@ -740,6 +743,38 @@ export interface ParsedParticipant {
 
 export type LcuStatus = "disconnected" | "connecting" | "connected" | "ingame";
 
+export interface LiveGameData {
+  gameTimeSec: number;
+  gameMode: string;
+  items: Array<{ itemId: number; slot: number; displayName: string; count: number }>;
+  activePlayer: {
+    summonerName: string;
+    level: number;
+    currentGold: number;
+    championName: string;
+    kills: number;
+    deaths: number;
+    assists: number;
+    creepScore: number;
+  };
+}
+
+export interface LiveSessionData {
+  phase: string;
+  queueId: number | null;
+  queueLabel: string | null;
+  lobbySize: number | null;
+  lobbyMaxSize: number | null;
+  queueStartedAt: number | null;
+  champSelect: {
+    myChampionId: number | null;
+    myTeam: Array<{ summonerName: string; championId: number; isMe: boolean }>;
+    bench: Array<{ championId: number }>;
+    isMyTurn: boolean;
+    timeLeftMs: number | null;
+  } | null;
+}
+
 export interface BackfillProgress {
   current: number;
   total: number;
@@ -1004,7 +1039,7 @@ export interface ElectronAPI {
   ) => Promise<TeammateDetail | null>;
   getGlobalStats: (patch?: string, queue?: number) => Promise<GlobalStats>;
   getOwnedItemStats: (patch?: string, queue?: number, account?: string) => Promise<ItemStats[]>;
-  getOwnedRuneStats: (queue?: number, patch?: string) => Promise<RuneOverview>;
+  getOwnedRuneStats: (queue?: number, patch?: string, account?: string) => Promise<RuneOverview>;
   getRuneData: () => Promise<RuneData>;
   getRuneTrees: () => Promise<RuneTreeLayout>;
   getOwnedItemDetail: (itemId: number, patch?: string, queue?: number) => Promise<ItemDetail>;
@@ -1080,6 +1115,8 @@ export interface ElectronAPI {
     callback: (progress: ParticipantScoreBackfillProgress) => void,
   ) => () => void;
   getLcuStatus: () => Promise<LcuStatus>;
+  getLiveGame: () => Promise<LiveGameData | null>;
+  getLiveSession: () => Promise<LiveSessionData | null>;
   getChampionDataVersion: () => Promise<string>;
   getChampionData: () => Promise<ChampionData>;
   getAugmentData: (patch?: string) => Promise<AugmentData>;
@@ -1097,6 +1134,7 @@ export interface ElectronAPI {
     games?: number;
     error?: string;
   }>;
+  getDbStats: () => Promise<{ games: number; sizeBytes: number }>;
   importData: () => Promise<{
     success: boolean;
     imported?: number;
