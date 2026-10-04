@@ -63,3 +63,8 @@ export function winRateColor(winRate: number): string {
   if (winRate >= 37.5) return "text-orange-400";
   return "text-lol-loss";
 }
+
+// Space-separated thousands for numbers in the UI (EU convention).
+export function formatNumber(n: number): string {
+  return Math.round(n).toLocaleString("en-US").replace(/,/g, " ");
+}

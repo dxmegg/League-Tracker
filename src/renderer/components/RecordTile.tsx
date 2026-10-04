@@ -1,4 +1,5 @@
 import ChampionIcon from "./ChampionIcon";
+import { formatNumber } from "../lib/format";
 
 export function RecordTile({
   label,
@@ -23,7 +24,7 @@ export function RecordTile({
     <div className="flex flex-col rounded-xl border border-lol-border bg-black/10 px-3.5 py-3">
       <span className="text-[12.5px] uppercase tracking-wider text-lol-text">{label}</span>
       <b className="my-0.5 font-display text-[28px] font-bold leading-tight text-lol-text-bright">
-        {value.toLocaleString("en-US")}
+        {formatNumber(value)}
       </b>
       <div className="flex items-center gap-2 text-[12.5px] text-lol-text">
         <ChampionIcon championId={championId} size={22} className="rounded-full" />

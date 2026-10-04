@@ -1,4 +1,5 @@
 import type { HomeDashboardPayload, HomeTimePeriod } from "../../shared/api";
+import { formatNumber } from "../lib/format";
 
 function periodLabel(period: HomeTimePeriod): string {
   if (period === "24h") return "Last 24 hours";
@@ -32,13 +33,11 @@ export function HomeHero({
             {periodLabel(timePeriod)}
           </div>
           <div className="flex items-baseline gap-3.5 font-display text-[64px] font-bold leading-none tracking-[-1px]">
-            <span className="text-lol-win">{wins.toLocaleString("en-US")}</span>
+            <span className="text-lol-win">{formatNumber(wins)}</span>
             <span className="font-medium text-lol-text/60">–</span>
-            <span className="text-lol-loss">{losses.toLocaleString("en-US")}</span>
+            <span className="text-lol-loss">{formatNumber(losses)}</span>
           </div>
-          <div className="mt-2 text-lol-text">
-            {totalGames.toLocaleString("en-US")} games played
-          </div>
+          <div className="mt-2 text-lol-text">{formatNumber(totalGames)} games played</div>
         </div>
         <div className="text-right">
           <b className="block font-display text-[40px] font-bold leading-none text-lol-gold">
@@ -69,19 +68,19 @@ export function HomeHero({
       <div className="mt-5 grid grid-cols-4 gap-4 border-t border-lol-border/40 pt-5">
         <div>
           <b className="block font-display text-[30px] font-bold leading-tight text-lol-gold">
-            {(dashboard?.summary.totalKills ?? 0).toLocaleString("en-US")}
+            {formatNumber(dashboard?.summary.totalKills ?? 0)}
           </b>
           <span className="text-[13px] text-lol-text">Kills</span>
         </div>
         <div>
           <b className="block font-display text-[30px] font-bold leading-tight text-lol-loss">
-            {(dashboard?.summary.totalDeaths ?? 0).toLocaleString("en-US")}
+            {formatNumber(dashboard?.summary.totalDeaths ?? 0)}
           </b>
           <span className="text-[13px] text-lol-text">Deaths</span>
         </div>
         <div>
           <b className="block font-display text-[30px] font-bold leading-tight text-lol-assist">
-            {(dashboard?.summary.totalAssists ?? 0).toLocaleString("en-US")}
+            {formatNumber(dashboard?.summary.totalAssists ?? 0)}
           </b>
           <span className="text-[13px] text-lol-text">Assists</span>
         </div>

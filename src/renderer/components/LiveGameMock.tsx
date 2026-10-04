@@ -21,7 +21,7 @@ export function LiveGameMock() {
       </div>
       <div className="grid grid-cols-3 gap-2.5">
         <div className="rounded-[10px] border border-lol-border bg-black/[0.12] px-3 py-2.5">
-          <b className="block font-display text-[18px] font-bold text-lol-text-bright">
+          <b className="block whitespace-nowrap font-display text-[18px] font-bold text-lol-text-bright">
             9 / 4 / 12
           </b>
           <span className="text-[12.5px] text-lol-text">K / D / A</span>

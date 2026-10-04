@@ -1,4 +1,5 @@
 import SummonerIcon from "./SummonerIcon";
+import { formatNumber } from "../lib/format";
 
 interface HistoryStatRowProps {
   gameName: string;
@@ -47,7 +48,6 @@ export function HistoryStatRow(props: HistoryStatRowProps) {
   const winRatePct = Math.max(0, Math.min(100, props.winRate));
   const totalGames = props.wins + props.losses;
 
-  const fmt = (n: number) => Math.round(n).toLocaleString("en-US");
   const fmtSec = (s: number) => {
     const m = Math.floor(s / 60);
     const r = Math.floor(s % 60);
@@ -153,39 +153,38 @@ export function HistoryStatRow(props: HistoryStatRowProps) {
           <b className="font-display text-[13px] font-semibold text-lol-win">
             {props.kdaRatio.toFixed(2)} KDA
           </b>{" "}
-          from {props.killsTotal.toLocaleString("en-US")} /{" "}
-          {props.deathsTotal.toLocaleString("en-US")} / {props.assistsTotal.toLocaleString("en-US")}{" "}
-          in total
+          from {formatNumber(props.killsTotal)} / {formatNumber(props.deathsTotal)} /{" "}
+          {formatNumber(props.assistsTotal)} in total
         </div>
         <div className="mt-4 grid grid-cols-3 gap-x-3 gap-y-3.5 border-t border-lol-border/40 pt-4">
           <div>
             <b className="block font-display text-[16px] font-semibold text-lol-loss">
-              {fmt(props.avgDamageDealt)}
+              {formatNumber(props.avgDamageDealt)}
             </b>
             <span className="block text-[12px] leading-snug text-lol-text">
               Damage dealt
               <br />
-              {fmt(props.damageDealtTotal)} total
+              {formatNumber(props.damageDealtTotal)} total
             </span>
           </div>
           <div>
             <b className="block font-display text-[16px] font-semibold text-lol-assist">
-              {fmt(props.avgDamageTaken)}
+              {formatNumber(props.avgDamageTaken)}
             </b>
             <span className="block text-[12px] leading-snug text-lol-text">
               Damage taken
               <br />
-              {fmt(props.damageTakenTotal)} total
+              {formatNumber(props.damageTakenTotal)} total
             </span>
           </div>
           <div>
             <b className="block font-display text-[16px] font-semibold text-lol-win">
-              {fmt(props.avgHealed)}
+              {formatNumber(props.avgHealed)}
             </b>
             <span className="block text-[12px] leading-snug text-lol-text">
               Healed
               <br />
-              {fmt(props.healedTotal)} total
+              {formatNumber(props.healedTotal)} total
             </span>
           </div>
           <div>
@@ -200,12 +199,12 @@ export function HistoryStatRow(props: HistoryStatRowProps) {
           </div>
           <div>
             <b className="block font-display text-[16px] font-semibold text-lol-gold">
-              {fmt(props.avgGold)}
+              {formatNumber(props.avgGold)}
             </b>
             <span className="block text-[12px] leading-snug text-lol-text">
               Gold per game
               <br />
-              {fmt(props.goldTotal)} total
+              {formatNumber(props.goldTotal)} total
             </span>
           </div>
           <div>
@@ -223,7 +222,7 @@ export function HistoryStatRow(props: HistoryStatRowProps) {
             Multikills
           </h2>
           <b className="font-display text-[24px] font-bold text-lol-gold">
-            {props.multikillsTotal.toLocaleString("en-US")}
+            {formatNumber(props.multikillsTotal)}
           </b>
         </div>
         {(() => {

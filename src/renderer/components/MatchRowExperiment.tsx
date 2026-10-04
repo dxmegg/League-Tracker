@@ -3,7 +3,7 @@ import { isAugmentQueue } from "../../shared/queues";
 import { queueLabel } from "./QueueSelect";
 import ChampionIcon from "./ChampionIcon";
 import ItemIcon from "./ItemIcon";
-import { formatDuration, formatKDA, formatTimeAgo, kdaRatio } from "../lib/format";
+import { formatDuration, formatKDA, formatNumber, formatTimeAgo, kdaRatio } from "../lib/format";
 
 const STYLE = `
 .match-list-exp {
@@ -182,7 +182,7 @@ export function MatchRowExperiment({
                 <div className="track">
                   <i style={{ width: `${pct}%` }} />
                 </div>
-                <em>{v > 0 ? v.toLocaleString("en-US") : ""}</em>
+                <em>{v > 0 ? formatNumber(v) : ""}</em>
               </div>
             );
           })}
