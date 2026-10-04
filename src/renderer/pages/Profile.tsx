@@ -900,11 +900,12 @@ export default function Profile() {
     setScannedCount(0);
     setTotalCount(0);
     if (!selectedPuuid) return;
-    if (profileRef.current?.puuid && profileRef.current.puuid !== selectedPuuid) {
+    const sameAccount = profileRef.current?.puuid === selectedPuuid;
+    if (!sameAccount) {
       setProfile(null);
       setRecentMatches(null);
     }
-    void loadLocalProfile(selectedPuuid);
+    void loadLocalProfile(selectedPuuid, { silent: sameAccount });
   }, [selectedPuuid, loadLocalProfile, livePuuid]);
 
   useEffect(() => {
