@@ -1170,7 +1170,7 @@ export default function Profile() {
             </div>
           )}
           {isExperiment ? (
-            <div className="mb-5 grid grid-cols-1 gap-5 xl:grid-cols-[1.25fr_1fr_1fr]">
+            <div className="mb-5 grid grid-cols-1 gap-5 2xl:grid-cols-[1.25fr_1fr_1fr]">
               <Panel>
                 <div className="mb-4 flex items-baseline justify-between gap-3">
                   <h2 className="font-display text-[16px] font-semibold text-lol-text-bright">

@@ -766,7 +766,7 @@ export default function MatchHistory({
           </div>
         ))}
 
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between">
         <h1 className="flex items-center gap-2 text-xl font-bold text-lol-text-bright">
           <NoxianHerald className="shrink-0 text-lol-gold" />
           <span>

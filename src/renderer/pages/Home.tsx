@@ -3,6 +3,7 @@ import type {
   AccountListItem,
   HomeAccountFilter,
   HomeDashboardPayload,
+  MatchDetail,
   HomeTimePeriod,
   MatchListItem,
 } from "../../shared/api";
@@ -446,6 +447,9 @@ function MatchListPanel({
 }) {
   const [matches, setMatches] = useState<MatchListItem[]>([]);
   const [loading, setLoading] = useState(false);
+  const [expandedId, setExpandedId] = useState<number | null>(null);
+  const [detail, setDetail] = useState<MatchDetail | null>(null);
+  const [detailLoading, setDetailLoading] = useState(false);
   const champData = useChampionData();
 
   useEffect(() => {
@@ -467,6 +471,34 @@ function MatchListPanel({
     };
   }, [account, queue]);
 
+  useEffect(() => {
+    if (expandedId == null) {
+      setDetail(null);
+      return;
+    }
+    let cancelled = false;
+    setDetailLoading(true);
+    setDetail(null);
+    window.api
+      .getMatchDetail(expandedId)
+      .then((d) => {
+        if (!cancelled) setDetail(d);
+      })
+      .catch(() => {
+        if (!cancelled) setDetail(null);
+      })
+      .finally(() => {
+        if (!cancelled) setDetailLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [expandedId]);
+
+  const handleToggle = (gameId: number) => {
+    setExpandedId((prev) => (prev === gameId ? null : gameId));
+  };
+
   if (experiment) {
     return (
       <div className={`transition-opacity ${loading ? "opacity-50" : ""}`}>
@@ -476,6 +508,12 @@ function MatchListPanel({
               key={match.game_id}
               match={match}
               championName={getChampionName(champData, match.champion_id)}
+              champData={champData}
+              expanded={expandedId === match.game_id}
+              detail={expandedId === match.game_id ? detail : null}
+              detailLoading={expandedId === match.game_id && detailLoading}
+              puuids={null}
+              onToggle={() => handleToggle(match.game_id)}
             />
           ))}
           {!loading && matches.length === 0 && (
@@ -599,17 +637,17 @@ export default function Home() {
         {/* 12-column grid */}
         <div className="grid grid-cols-12 gap-5">
           {/* Hero: 8 columns */}
-          <Panel className="col-span-12 xl:col-span-8">
+          <Panel className="col-span-12 2xl:col-span-8">
             <HomeHero dashboard={dashboard} loading={loading} timePeriod={timePeriod} />
           </Panel>
 
           {/* Live game: 4 columns */}
-          <Panel className="col-span-12 xl:col-span-4">
+          <Panel className="col-span-12 2xl:col-span-4">
             <LiveGameMock />
           </Panel>
 
           {/* Most played champions: 7 columns */}
-          <Panel className="col-span-12 xl:col-span-7">
+          <Panel className="col-span-12 2xl:col-span-7">
             <div className="mb-4 flex items-baseline justify-between gap-3">
               <h2 className="font-display text-[16px] font-semibold text-lol-text-bright">
                 Most played champions
@@ -632,7 +670,7 @@ export default function Home() {
           </Panel>
 
           {/* Records: 5 columns */}
-          <Panel className="col-span-12 xl:col-span-5">
+          <Panel className="col-span-12 2xl:col-span-5">
             <div className="mb-4 flex items-baseline justify-between gap-3">
               <h2 className="font-display text-[16px] font-semibold text-lol-text-bright">
                 Records
