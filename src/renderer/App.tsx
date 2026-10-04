@@ -36,6 +36,7 @@ function FullHistorySection({ section }: { section: string }) {
     );
   }
   if (section === "augments") {
+    if (isExperiment) return <Augments />;
     return (
       <SectionChrome title="AUGMENTS" scope="FULL">
         <Augments />
@@ -51,6 +52,7 @@ function FullHistorySection({ section }: { section: string }) {
     );
   }
   if (section === "runes") {
+    if (isExperiment) return <Runes />;
     return (
       <SectionChrome title="RUNES" scope="FULL">
         <Runes />

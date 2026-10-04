@@ -17,6 +17,8 @@ import { FilterChip } from "../components/FilterChip";
 import { SearchInput } from "../components/SearchInput";
 import { useHistoryScopeQueue } from "../lib/historyScope";
 import { isAugmentQueue } from "../../shared/queues";
+import { useActiveTheme } from "../hooks/useActiveTheme";
+import { AugmentsExp } from "../components/AugmentsExp";
 
 type SortKey = "picks" | "winRate" | "name";
 type SortDir = "asc" | "desc";
@@ -70,6 +72,8 @@ export default function Augments() {
   const [sortDir, setSortDir] = useViewState<SortDir>("augments.sortDir", "desc");
   const [expanded, setExpanded] = useState<Set<number>>(new Set());
   const [rarityFilter, setRarityFilter] = useViewState<RarityFilter>("augments.rarity", "all");
+  const activeTheme = useActiveTheme();
+  const isExperiment = activeTheme === "experiment";
 
   useEffect(() => {
     const unsub = window.api.onGamesUpdated(() => refetch());
@@ -125,6 +129,10 @@ export default function Augments() {
 
     return filtered;
   }, [data, search, sortKey, sortDir, augmentData, rarityFilter]);
+
+  if (isExperiment) {
+    return <AugmentsExp />;
+  }
 
   if (!data) {
     return (
