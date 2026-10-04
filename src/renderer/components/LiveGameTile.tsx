@@ -157,9 +157,11 @@ export function LiveGameTile({
       </div>
       <div className="flex flex-wrap items-center gap-1">
         {[0, 1, 2, 3, 4, 5].map((slot) => {
-          const item = items.find((it) => it.slot === slot + 1);
+          const item = items.find((it) => it.slot === slot);
           return <ItemIcon key={slot} itemId={item?.itemId ?? 0} size={28} patch={null} />;
         })}
+        <span className="mx-1 h-5 w-px bg-lol-border/40" aria-hidden="true" />
+        <ItemIcon itemId={items.find((it) => it.slot === 6)?.itemId ?? 0} size={28} patch={null} />
       </div>
     </div>
   );
