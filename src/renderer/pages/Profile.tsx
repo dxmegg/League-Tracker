@@ -15,8 +15,13 @@ import type {
 } from "../../shared/api";
 import ChampionIcon from "../components/ChampionIcon";
 import { FilterChip } from "../components/FilterChip";
+import { ChampionMasteryExp } from "../components/ChampionMasteryExp";
+import { LastPlayedExp } from "../components/LastPlayedExp";
+import { MatchRowExperiment } from "../components/MatchRowExperiment";
+import { MostPlayedQueuesExp } from "../components/MostPlayedQueuesExp";
 import { Panel } from "../components/Panel";
 import { ProfileHero } from "../components/ProfileHero";
+import { RankCardExp } from "../components/RankCardExp";
 import { queueLabel } from "../components/QueueSelect";
 import { shortRegion } from "../../shared/regions";
 import { isAugmentQueue, QUEUE_LABELS } from "../../shared/queues";
@@ -1164,87 +1169,184 @@ export default function Profile() {
               </div>
             </div>
           )}
-          <div className="mt-4 grid grid-cols-[minmax(0,1fr)_256px] items-stretch gap-3">
-            <div className="flex items-stretch gap-3">
-              <LastPlayedChampionsBox
-                matches={recentMatches ?? []}
-                loading={loading}
-                champData={championData}
-              />
-              <LastGamesBox queueStats={queueStats} loading={loading} />
-            </div>
-            <div className="flex h-full w-64 flex-col rounded-lg border border-lol-crimson/40 bg-[linear-gradient(145deg,#0c0e11_0%,#090b0d_48%,#060809_100%)] px-4 py-3 shadow-[0_0_3px_rgba(150,30,30,0.55),0_0_10px_rgba(90,15,15,0.35),0_0_20px_rgba(60,10,10,0.20)] ring-1 ring-inset ring-white/[0.03]">
-              <h2 className="text-center text-xs font-bold uppercase tracking-wider text-lol-gold">
-                Champion Mastery
-              </h2>
-              {profile.totalMasteryPoints > 0 && (
-                <div className="mt-1 text-center text-[10px] text-lol-text">
-                  <span
-                    className="cursor-help font-semibold tabular-nums text-lol-text-bright"
-                    title={`${formatFullNumber(profile.totalMasteryPoints)} mastery points`}
-                  >
-                    {formatCompactNumber(profile.totalMasteryPoints)} pts
-                  </span>
-                  <span className="mx-1.5 text-lol-text/40">·</span>
-                  <span
-                    className="tabular-nums"
-                    title={`Mastery score: ${profile.totalMasteryScore}`}
-                  >
-                    {profile.totalMasteryScore} score
+          {isExperiment ? (
+            <div className="mb-5 grid grid-cols-1 gap-5 xl:grid-cols-[1.25fr_1fr_1fr]">
+              <Panel>
+                <div className="mb-4 flex items-baseline justify-between gap-3">
+                  <h2 className="font-display text-[16px] font-semibold text-lol-text-bright">
+                    Last played champions
+                  </h2>
+                </div>
+                <LastPlayedExp
+                  matches={recentMatches ?? []}
+                  loading={loading}
+                  champData={championData}
+                />
+              </Panel>
+              <Panel>
+                <div className="mb-4 flex items-baseline justify-between gap-3">
+                  <h2 className="font-display text-[16px] font-semibold text-lol-text-bright">
+                    Most played queues
+                  </h2>
+                </div>
+                <MostPlayedQueuesExp rows={queueStats} />
+              </Panel>
+              <Panel>
+                <div className="mb-4 flex items-baseline justify-between gap-3">
+                  <h2 className="font-display text-[16px] font-semibold text-lol-text-bright">
+                    Champion mastery
+                  </h2>
+                  <span className="text-[13px] text-lol-text">
+                    {profile.topMasteryChampions?.length ?? 0} champions
                   </span>
                 </div>
-              )}
-              <div className="mt-3 flex flex-1 flex-col">
-                {profile.topMasteryChampions?.length ? (
-                  <MasteryChampionStrip
-                    champions={profile.topMasteryChampions}
-                    championData={championData}
-                  />
-                ) : selectedPuuid !== livePuuid ? (
-                  <p className="py-2 text-center text-xs text-lol-text">Log in to sync mastery</p>
-                ) : (
-                  <p className="py-2 text-center text-xs text-lol-text">No mastery data</p>
+                <ChampionMasteryExp
+                  rows={profile.topMasteryChampions ?? []}
+                  champData={championData}
+                />
+              </Panel>
+            </div>
+          ) : (
+            <div className="mt-4 grid grid-cols-[minmax(0,1fr)_256px] items-stretch gap-3">
+              <div className="flex items-stretch gap-3">
+                <LastPlayedChampionsBox
+                  matches={recentMatches ?? []}
+                  loading={loading}
+                  champData={championData}
+                />
+                <LastGamesBox queueStats={queueStats} loading={loading} />
+              </div>
+              <div className="flex h-full w-64 flex-col rounded-lg border border-lol-crimson/40 bg-[linear-gradient(145deg,#0c0e11_0%,#090b0d_48%,#060809_100%)] px-4 py-3 shadow-[0_0_3px_rgba(150,30,30,0.55),0_0_10px_rgba(90,15,15,0.35),0_0_20px_rgba(60,10,10,0.20)] ring-1 ring-inset ring-white/[0.03]">
+                <h2 className="text-center text-xs font-bold uppercase tracking-wider text-lol-gold">
+                  Champion Mastery
+                </h2>
+                {profile.totalMasteryPoints > 0 && (
+                  <div className="mt-1 text-center text-[10px] text-lol-text">
+                    <span
+                      className="cursor-help font-semibold tabular-nums text-lol-text-bright"
+                      title={`${formatFullNumber(profile.totalMasteryPoints)} mastery points`}
+                    >
+                      {formatCompactNumber(profile.totalMasteryPoints)} pts
+                    </span>
+                    <span className="mx-1.5 text-lol-text/40">·</span>
+                    <span
+                      className="tabular-nums"
+                      title={`Mastery score: ${profile.totalMasteryScore}`}
+                    >
+                      {profile.totalMasteryScore} score
+                    </span>
+                  </div>
                 )}
+                <div className="mt-3 flex flex-1 flex-col">
+                  {profile.topMasteryChampions?.length ? (
+                    <MasteryChampionStrip
+                      champions={profile.topMasteryChampions}
+                      championData={championData}
+                    />
+                  ) : selectedPuuid !== livePuuid ? (
+                    <p className="py-2 text-center text-xs text-lol-text">Log in to sync mastery</p>
+                  ) : (
+                    <p className="py-2 text-center text-xs text-lol-text">No mastery data</p>
+                  )}
+                </div>
               </div>
             </div>
-          </div>
+          )}
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-5">
-        <RankCard
-          title="Ranked Solo"
-          entry={profile.rankedSolo}
-          championData={championData}
-          isLive={selectedPuuid === livePuuid}
-        />
-        <RankCard
-          title="Ranked Flex"
-          entry={profile.rankedFlex}
-          championData={championData}
-          isLive={selectedPuuid === livePuuid}
-        />
-      </div>
+      {isExperiment ? (
+        <div className="mb-5 grid grid-cols-1 gap-5 md:grid-cols-2">
+          <RankCardExp
+            title="Ranked Solo"
+            entry={profile.rankedSolo}
+            isLive={selectedPuuid === livePuuid && livePuuid !== null}
+          />
+          <RankCardExp
+            title="Ranked Flex"
+            entry={profile.rankedFlex}
+            isLive={selectedPuuid === livePuuid && livePuuid !== null}
+          />
+        </div>
+      ) : (
+        <div className="grid grid-cols-2 gap-5">
+          <RankCard
+            title="Ranked Solo"
+            entry={profile.rankedSolo}
+            championData={championData}
+            isLive={selectedPuuid === livePuuid}
+          />
+          <RankCard
+            title="Ranked Flex"
+            entry={profile.rankedFlex}
+            championData={championData}
+            isLive={selectedPuuid === livePuuid}
+          />
+        </div>
+      )}
 
-      <RecentRiotMatchesSection
-        matches={recentMatches}
-        loading={recentMatchesLoading || recentMatchesLoadingMore}
-        error={recentMatchesError}
-        puuids={null}
-        onPlayerClick={() => undefined}
-        expandedId={recentExpandedId}
-        detail={recentDetail}
-        detailLoading={recentDetailLoading}
-        availableCount={recentMatchesAvailable}
-        canLoadMore={canLoadMore}
-        champData={championData}
-        refreshing={false}
-        summary={null}
-        onToggle={handleToggleRecentMatch}
-        onLoadMore={loadMoreRecentMatches}
-        onRefresh={() => undefined}
-        onContextMenu={() => undefined}
-      />
+      {isExperiment ? (
+        <Panel>
+          <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+            <h2 className="font-display text-[16px] font-semibold text-lol-text-bright">
+              Recent matches
+            </h2>
+            <span className="text-[13px] text-lol-text">
+              {recentMatches?.length ?? 0} loaded
+              {recentMatchesAvailable ? `, up to ${recentMatchesAvailable} fetchable` : ""}
+            </span>
+          </div>
+          {recentMatchesLoading || recentMatchesLoadingMore ? (
+            <p className="py-8 text-center text-sm text-lol-text">Loading…</p>
+          ) : recentMatchesError ? (
+            <p className="rounded-md border border-lol-crimson/40 bg-lol-crimson/10 px-3 py-2 text-xs text-lol-crimson-bright">
+              {recentMatchesError}
+            </p>
+          ) : recentMatches && recentMatches.length > 0 ? (
+            <>
+              <div className="match-list-exp">
+                {recentMatches.map((match) => (
+                  <MatchRowExperiment
+                    key={match.game_id}
+                    match={match}
+                    championName={getChampionName(championData, match.champion_id)}
+                  />
+                ))}
+              </div>
+              <button
+                type="button"
+                onClick={loadMoreRecentMatches}
+                disabled={!canLoadMore}
+                className="mt-4 h-9 w-full rounded-lg border border-lol-border bg-lol-card text-sm text-lol-text transition-colors hover:border-lol-gold/60 hover:text-lol-text-bright disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {canLoadMore ? "Load More" : "All matches loaded"}
+              </button>
+            </>
+          ) : (
+            <p className="py-8 text-center text-sm text-lol-text">No recent matches</p>
+          )}
+        </Panel>
+      ) : (
+        <RecentRiotMatchesSection
+          matches={recentMatches}
+          loading={recentMatchesLoading || recentMatchesLoadingMore}
+          error={recentMatchesError}
+          puuids={null}
+          onPlayerClick={() => undefined}
+          expandedId={recentExpandedId}
+          detail={recentDetail}
+          detailLoading={recentDetailLoading}
+          availableCount={recentMatchesAvailable}
+          canLoadMore={canLoadMore}
+          champData={championData}
+          refreshing={false}
+          summary={null}
+          onToggle={handleToggleRecentMatch}
+          onLoadMore={loadMoreRecentMatches}
+          onRefresh={() => undefined}
+          onContextMenu={() => undefined}
+        />
+      )}
     </div>
   );
 }
