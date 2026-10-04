@@ -4,6 +4,7 @@ import ChampionIcon from "./ChampionIcon";
 import { ChampionCombobox } from "./ChampionCombobox";
 import { ChampionExpandedExp } from "./ChampionExpandedExp";
 import { FilterSelect } from "./FilterSelect";
+import PatchSelect from "./PatchSelect";
 import { SortableTable, type SortableColumn } from "./SortableTable";
 import { useChampionData, getChampionName } from "../hooks/useChampions";
 import { useHistoryScopeQueue } from "../lib/historyScope";
@@ -152,13 +153,7 @@ export function ChampionExp() {
               { value: "1700", label: "Arena" },
             ]}
           />
-          <FilterSelect
-            value={patch}
-            onChange={setPatch}
-            placeholder="All patches"
-            title="Patch"
-            options={[]}
-          />
+          <PatchSelect value={patch} onChange={setPatch} />
           <ChampionCombobox
             value={championFilter}
             onChange={setChampionFilter}
