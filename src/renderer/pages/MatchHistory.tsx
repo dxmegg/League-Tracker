@@ -21,6 +21,7 @@ import AugmentIcon from "../components/AugmentIcon";
 import ItemIcon from "../components/ItemIcon";
 import { HomeCard } from "../components/HomeCard";
 import { HistoryStatRow } from "../components/HistoryStatRow";
+import { MatchRowExperiment } from "../components/MatchRowExperiment";
 import { FilterChip } from "../components/FilterChip";
 import { FilterSelect } from "../components/FilterSelect";
 import { RuneCompact } from "../components/RuneSetup";
@@ -30,6 +31,7 @@ import SummonerIcon from "../components/SummonerIcon";
 import SummonerSpellIcon from "../components/SummonerSpellIcon";
 import WinRateBar from "../components/WinRateBar";
 import { NoxianHerald } from "../components/NoxianHerald";
+import { SessionHeaderExp } from "../components/SessionHeaderExp";
 import { ArrowDownIcon, StarIcon } from "../components/icons";
 import {
   formatDuration,
@@ -783,93 +785,197 @@ export default function MatchHistory({
                         : "FULL MATCH HISTORY"}
           </span>
         </h1>
-        <div className="flex items-center gap-2">
-          {filterOptions.hasFavorites && (
-            <FilterChip
-              active={favoritesOnly}
-              onClick={() => setFavoritesOnly((v) => !v)}
-              title={favoritesOnly ? "Showing favorites only" : "Only show favorites"}
-              icon={
-                <StarIcon className="h-3.5 w-3.5" fill={favoritesOnly ? "currentColor" : "none"} />
-              }
-              className={`h-8 w-8 !px-0 ${
-                favoritesOnly
-                  ? "border-lol-gold/60 bg-lol-gold/10 text-amber-400"
-                  : "border-lol-border bg-lol-card text-lol-text hover:border-lol-gold/60 hover:text-lol-text-bright"
-              }`}
-            />
-          )}
-          {/* A single-account database doesn't need an account dropdown */}
-          {(filterOptions.accounts.length > 1 || accountFilter !== undefined) && (
+        {isExperiment ? (
+          <div className="flex flex-wrap items-center gap-2">
+            {filterOptions.hasFavorites && (
+              <FilterChip
+                active={favoritesOnly}
+                onClick={() => setFavoritesOnly((v) => !v)}
+                title={favoritesOnly ? "Showing favorites only" : "Only show favorites"}
+                icon={
+                  <StarIcon
+                    className="h-3.5 w-3.5"
+                    fill={favoritesOnly ? "currentColor" : "none"}
+                  />
+                }
+                className={`h-8 w-8 !px-0 ${
+                  favoritesOnly
+                    ? "border-lol-gold/60 bg-lol-gold/10 text-amber-400"
+                    : "border-lol-border bg-lol-card text-lol-text hover:border-lol-gold/60 hover:text-lol-text-bright"
+                }`}
+              />
+            )}
+            {(filterOptions.accounts.length > 1 || accountFilter !== undefined) && (
+              <FilterSelect
+                value={accountFilter}
+                onChange={(value) => setAccountFilter(value)}
+                placeholder="All Accounts"
+                title="Account"
+                className="h-8 rounded-full border-lol-border bg-lol-card px-3 text-[12.5px]"
+                options={filterOptions.accounts.map((a) => ({
+                  value: a.puuid,
+                  label: a.name ?? "Unknown account",
+                }))}
+              />
+            )}
             <FilterSelect
-              value={accountFilter}
-              onChange={(value) => setAccountFilter(value)}
-              placeholder="All Accounts"
-              title="Account"
-              options={filterOptions.accounts.map((a) => ({
-                value: a.puuid,
-                label: a.name ?? "Unknown account",
+              value={championFilter}
+              onChange={(value) =>
+                setChampionFilter(value === undefined ? undefined : Number(value))
+              }
+              placeholder="All Champions"
+              title="Champion"
+              className="h-8 rounded-full border-lol-border bg-lol-card px-3 text-[12.5px]"
+              options={championOptions.map(({ id, name }) => ({ value: id, label: name }))}
+            />
+            <FilterSelect
+              value={patchFilter}
+              onChange={(value) => setPatchFilter(value)}
+              placeholder="All Patches"
+              title="Patch"
+              className="h-8 rounded-full border-lol-border bg-lol-card px-3 text-[12.5px]"
+              options={filterOptions.patches.map((patch) => ({
+                value: patch,
+                label: `Patch ${formatPatch(patch)}`,
               }))}
             />
-          )}
-          <FilterSelect
-            value={championFilter}
-            onChange={(value) => setChampionFilter(value === undefined ? undefined : Number(value))}
-            placeholder="All Champions"
-            title="Champion"
-            options={championOptions.map(({ id, name }) => ({ value: id, label: name }))}
-          />
-          <FilterSelect
-            value={patchFilter}
-            onChange={(value) => setPatchFilter(value)}
-            placeholder="All Patches"
-            title="Patch"
-            options={filterOptions.patches.map((patch) => ({
-              value: patch,
-              label: `Patch ${formatPatch(patch)}`,
-            }))}
-          />
-          <FilterSelect
-            title="Filter by queue type"
-            value={queueFilter}
-            onChange={(value) => setQueueFilter(value === undefined ? undefined : Number(value))}
-            placeholder="Queue Type"
-            options={filterOptions.queues.map((q) => ({
-              value: q,
-              label: q === QUEUE_GROUP_ARENA ? "All Arena" : queueLabel(q),
-            }))}
-          />
-          <div className="flex items-center gap-1">
             <FilterSelect
-              value={sort}
-              onChange={(value) => {
-                setSort(value);
-                setSortDir("desc");
-              }}
-              placeholder="Sort"
-              title="Sort"
-              options={SORT_OPTIONS}
+              title="Filter by queue type"
+              value={queueFilter}
+              onChange={(value) => setQueueFilter(value === undefined ? undefined : Number(value))}
+              placeholder="Queue Type"
+              className="h-8 rounded-full border-lol-border bg-lol-card px-3 text-[12.5px]"
+              options={filterOptions.queues.map((q) => ({
+                value: q,
+                label: q === QUEUE_GROUP_ARENA ? "All Arena" : queueLabel(q),
+              }))}
             />
-            <FilterChip
-              onClick={() => setSortDir((d) => (d === "desc" ? "asc" : "desc"))}
-              title={
-                !sort || sort === "date"
-                  ? sortDir === "desc"
-                    ? "Newest first"
-                    : "Oldest first"
-                  : sortDir === "desc"
-                    ? "Highest first"
-                    : "Lowest first"
-              }
-              icon={
-                <ArrowDownIcon
-                  className={`h-3.5 w-3.5 transition-transform ${sortDir === "asc" ? "rotate-180" : ""}`}
-                />
-              }
-              className="h-8 w-8 !px-0"
-            />
+            <div className="flex items-center gap-1">
+              <FilterSelect
+                value={sort}
+                onChange={(value) => {
+                  setSort(value);
+                  setSortDir("desc");
+                }}
+                placeholder="Sort"
+                title="Sort"
+                className="h-8 rounded-full border-lol-border bg-lol-card px-3 text-[12.5px]"
+                options={SORT_OPTIONS}
+              />
+              <FilterChip
+                onClick={() => setSortDir((d) => (d === "desc" ? "asc" : "desc"))}
+                title={
+                  !sort || sort === "date"
+                    ? sortDir === "desc"
+                      ? "Newest first"
+                      : "Oldest first"
+                    : sortDir === "desc"
+                      ? "Highest first"
+                      : "Lowest first"
+                }
+                icon={
+                  <ArrowDownIcon
+                    className={`h-3.5 w-3.5 transition-transform ${sortDir === "asc" ? "rotate-180" : ""}`}
+                  />
+                }
+                className="h-8 w-8 !px-0"
+              />
+            </div>
           </div>
-        </div>
+        ) : (
+          <div className="flex items-center gap-2">
+            {filterOptions.hasFavorites && (
+              <FilterChip
+                active={favoritesOnly}
+                onClick={() => setFavoritesOnly((v) => !v)}
+                title={favoritesOnly ? "Showing favorites only" : "Only show favorites"}
+                icon={
+                  <StarIcon
+                    className="h-3.5 w-3.5"
+                    fill={favoritesOnly ? "currentColor" : "none"}
+                  />
+                }
+                className={`h-8 w-8 !px-0 ${
+                  favoritesOnly
+                    ? "border-lol-gold/60 bg-lol-gold/10 text-amber-400"
+                    : "border-lol-border bg-lol-card text-lol-text hover:border-lol-gold/60 hover:text-lol-text-bright"
+                }`}
+              />
+            )}
+            {/* A single-account database doesn't need an account dropdown */}
+            {(filterOptions.accounts.length > 1 || accountFilter !== undefined) && (
+              <FilterSelect
+                value={accountFilter}
+                onChange={(value) => setAccountFilter(value)}
+                placeholder="All Accounts"
+                title="Account"
+                options={filterOptions.accounts.map((a) => ({
+                  value: a.puuid,
+                  label: a.name ?? "Unknown account",
+                }))}
+              />
+            )}
+            <FilterSelect
+              value={championFilter}
+              onChange={(value) =>
+                setChampionFilter(value === undefined ? undefined : Number(value))
+              }
+              placeholder="All Champions"
+              title="Champion"
+              options={championOptions.map(({ id, name }) => ({ value: id, label: name }))}
+            />
+            <FilterSelect
+              value={patchFilter}
+              onChange={(value) => setPatchFilter(value)}
+              placeholder="All Patches"
+              title="Patch"
+              options={filterOptions.patches.map((patch) => ({
+                value: patch,
+                label: `Patch ${formatPatch(patch)}`,
+              }))}
+            />
+            <FilterSelect
+              title="Filter by queue type"
+              value={queueFilter}
+              onChange={(value) => setQueueFilter(value === undefined ? undefined : Number(value))}
+              placeholder="Queue Type"
+              options={filterOptions.queues.map((q) => ({
+                value: q,
+                label: q === QUEUE_GROUP_ARENA ? "All Arena" : queueLabel(q),
+              }))}
+            />
+            <div className="flex items-center gap-1">
+              <FilterSelect
+                value={sort}
+                onChange={(value) => {
+                  setSort(value);
+                  setSortDir("desc");
+                }}
+                placeholder="Sort"
+                title="Sort"
+                options={SORT_OPTIONS}
+              />
+              <FilterChip
+                onClick={() => setSortDir((d) => (d === "desc" ? "asc" : "desc"))}
+                title={
+                  !sort || sort === "date"
+                    ? sortDir === "desc"
+                      ? "Newest first"
+                      : "Oldest first"
+                    : sortDir === "desc"
+                      ? "Highest first"
+                      : "Lowest first"
+                }
+                icon={
+                  <ArrowDownIcon
+                    className={`h-3.5 w-3.5 transition-transform ${sortDir === "asc" ? "rotate-180" : ""}`}
+                  />
+                }
+                className="h-8 w-8 !px-0"
+              />
+            </div>
+          </div>
+        )}
       </div>
 
       {loading && matches.length === 0 && (
@@ -914,18 +1020,42 @@ export default function MatchHistory({
             }}
           />
         );
+        const renderExperimentMatch = (m: MatchListItem) => (
+          <MatchRowExperiment
+            key={m.game_id}
+            match={m}
+            championName={getChampionName(champData, m.champion_id)}
+          />
+        );
         return sessions ? (
           <div className="space-y-4">
             {sessions.map((s) => (
               <div key={s.key}>
-                <SessionHeader session={s} />
-                <div className="mb-1 h-0.5 w-full bg-gradient-to-r from-lol-gold/20 via-lol-gold/10 to-transparent" />
-                <div className="space-y-1">{s.matches.map(renderMatch)}</div>
+                {isExperiment ? (
+                  <SessionHeaderExp
+                    label={sessionLabel(s.day)}
+                    games={s.matches.length}
+                    wins={s.wins}
+                    losses={s.losses}
+                    kda={s.deaths > 0 ? (s.kills + s.assists) / s.deaths : 0}
+                    score={s.avgScore ?? 0}
+                  />
+                ) : (
+                  <>
+                    <SessionHeader session={s} />
+                    <div className="mb-1 h-0.5 w-full bg-gradient-to-r from-lol-gold/20 via-lol-gold/10 to-transparent" />
+                  </>
+                )}
+                <div className="match-list-exp" style={{ containerType: "inline-size" }}>
+                  {isExperiment ? s.matches.map(renderExperimentMatch) : s.matches.map(renderMatch)}
+                </div>
               </div>
             ))}
           </div>
         ) : (
-          <div className="space-y-1">{matches.map(renderMatch)}</div>
+          <div className="match-list-exp" style={{ containerType: "inline-size" }}>
+            {isExperiment ? matches.map(renderExperimentMatch) : matches.map(renderMatch)}
+          </div>
         );
       })()}
 
