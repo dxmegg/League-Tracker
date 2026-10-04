@@ -50,6 +50,7 @@ export function getChampionStatsAll(
       ROUND(AVG(ps.assists), 1) as avg_assists,
       ROUND(AVG(ps.total_damage_dealt)) as avg_damage,
       ROUND(AVG(ps.gold_earned)) as avg_gold,
+      ROUND(AVG(CASE WHEN g.game_duration >= 60 THEN ps.cs * 60.0 / g.game_duration END), 1) as avg_cs_per_min,
       ROUND(AVG(ps.score), 1) as avg_score,
       SUM(CASE WHEN ps.score_badge = 'MVP' THEN 1 ELSE 0 END) as mvps,
       SUM(CASE WHEN ps.score_badge = 'ACE' THEN 1 ELSE 0 END) as aces,

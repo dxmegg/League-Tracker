@@ -226,6 +226,7 @@ export interface ChampionStats {
   triple_kills: number;
   quadra_kills: number;
   penta_kills: number;
+  avg_cs_per_min: number | null;
 }
 
 export interface AugmentStats {
