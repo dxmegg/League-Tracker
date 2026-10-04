@@ -15,7 +15,7 @@ type RuneChampionRow = {
   rune_id: number;
   games: number;
   winRate: number;
-} & Record<string, unknown>;
+};
 
 export function RunesExp() {
   const champions = useChampionData();

@@ -10,8 +10,6 @@ import WinRateBar from "./WinRateBar";
 import { Panel } from "./Panel";
 import { SortableTable, type SortableColumn } from "./SortableTable";
 
-type TeammateTableRow = TeammateStats & Record<string, unknown>;
-
 export function FriendsExp() {
   const queue = useHistoryScopeQueue();
   const championData = useChampionData();
@@ -27,12 +25,12 @@ export function FriendsExp() {
   const [visibleFriends, setVisibleFriends] = useState(PAGE_SIZE);
   const [visibleFoes, setVisibleFoes] = useState(PAGE_SIZE);
 
-  const friendRows = useMemo<TeammateTableRow[]>(
-    () => (friends ?? []) as TeammateTableRow[],
+  const friendRows = useMemo<TeammateStats[]>(
+    () => friends ?? [],
     [friends],
   );
-  const enemyRows = useMemo<TeammateTableRow[]>(
-    () => (enemies ?? []) as TeammateTableRow[],
+  const enemyRows = useMemo<TeammateStats[]>(
+    () => enemies ?? [],
     [enemies],
   );
 
@@ -43,7 +41,7 @@ export function FriendsExp() {
     setVisibleFoes(PAGE_SIZE);
   }, [enemyRows.length]);
 
-  const friendColumns = useMemo<SortableColumn<TeammateTableRow>[]>(
+  const friendColumns = useMemo<SortableColumn<TeammateStats>[]>(
     () => [
       {
         key: "name",
@@ -90,7 +88,7 @@ export function FriendsExp() {
     [],
   );
 
-  const enemyColumns = useMemo<SortableColumn<TeammateTableRow>[]>(
+  const enemyColumns = useMemo<SortableColumn<TeammateStats>[]>(
     () => [
       {
         key: "champion",

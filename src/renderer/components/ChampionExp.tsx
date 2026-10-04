@@ -11,8 +11,6 @@ import { useIpc } from "../hooks/useIpc";
 import { useViewState } from "../hooks/useViewState";
 import { formatNumber } from "../lib/format";
 
-type ChampionTableRow = ChampionStats & Record<string, unknown>;
-
 export function ChampionExp() {
   const champData = useChampionData();
   const [patch, setPatch] = useViewState<string | undefined>("champions.patch", undefined);
@@ -45,7 +43,7 @@ export function ChampionExp() {
     });
   }, [data, championFilter, searchText, champData]);
 
-  const columns: Array<SortableColumn<ChampionTableRow>> = useMemo(
+  const columns: Array<SortableColumn<ChampionStats>> = useMemo(
     () => [
       {
         key: "champion",
@@ -171,9 +169,9 @@ export function ChampionExp() {
       </div>
 
       <div className="min-w-0 rounded-[14px] border border-lol-border bg-[linear-gradient(180deg,var(--theme-card-hover),var(--theme-card))] p-5">
-        <SortableTable<ChampionTableRow>
+        <SortableTable<ChampionStats>
           columns={columns}
-          rows={filtered as ChampionTableRow[]}
+          rows={filtered}
           defaultSortKey="games"
           rowKey={(r) => r.champion_id}
           renderExpandedRow={(r) => (

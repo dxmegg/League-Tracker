@@ -241,27 +241,20 @@ export function getDatabase(): Database.Database {
 }
 
 export function getDbStats(): { games: number; sizeBytes: number } {
-  console.log("[db] getDbStats called:", {});
   let sizeBytes = 0;
   try {
     sizeBytes = fs.statSync(getDbPath()).size;
-  } catch (err) {
-    console.warn("[db] getDbStats database size unavailable:", {
-      error: err instanceof Error ? err.message : String(err),
-    });
+  } catch {
+    sizeBytes = 0;
   }
 
   let games = 0;
   try {
     const row = db.prepare("SELECT COUNT(*) as n FROM games").get() as { n: number } | undefined;
     games = row?.n ?? 0;
-  } catch (err) {
-    console.warn("[db] getDbStats game count unavailable:", {
-      error: err instanceof Error ? err.message : String(err),
-    });
+  } catch {
+    games = 0;
   }
 
-  const result = { games, sizeBytes };
-  console.log("[db] getDbStats done:", result);
-  return result;
+  return { games, sizeBytes };
 }

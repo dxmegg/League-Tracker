@@ -5,8 +5,6 @@ import { Panel } from "./Panel";
 import { SortableTable, type SortableColumn } from "./SortableTable";
 import SummonerIcon from "./SummonerIcon";
 
-type AccountRow = AccountListItem & Record<string, unknown>;
-
 export function DataExp() {
   const [accounts, setAccounts] = useState<AccountListItem[] | null>(null);
   const [dbStats, setDbStats] = useState<{ games: number; sizeBytes: number } | null>(null);
@@ -47,7 +45,7 @@ export function DataExp() {
 
   const sizeMb = dbStats ? (dbStats.sizeBytes / (1024 * 1024)).toFixed(1) : "—";
 
-  const columns: Array<SortableColumn<AccountRow>> = [
+  const columns: Array<SortableColumn<AccountListItem>> = [
     {
       key: "account",
       label: "Account",
@@ -109,9 +107,9 @@ export function DataExp() {
           ) : accounts.length === 0 ? (
             <div className="py-6 text-center text-sm text-lol-text">No accounts synced yet.</div>
           ) : (
-            <SortableTable<AccountRow>
+            <SortableTable<AccountListItem>
               columns={columns}
-              rows={accounts as AccountRow[]}
+              rows={accounts}
               defaultSortKey="lastSeen"
             />
           )}

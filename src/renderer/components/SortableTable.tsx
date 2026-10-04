@@ -8,7 +8,7 @@ export interface SortableColumn<T> {
   defaultDir?: "asc" | "desc";
 }
 
-interface SortableTableProps<T extends Record<string, unknown>> {
+interface SortableTableProps<T extends object> {
   columns: Array<SortableColumn<T>>;
   rows: T[];
   defaultSortKey?: string;
@@ -18,7 +18,7 @@ interface SortableTableProps<T extends Record<string, unknown>> {
   onReachBottom?: () => void;
 }
 
-export function SortableTable<T extends Record<string, unknown>>({
+export function SortableTable<T extends object>({
   columns,
   rows,
   defaultSortKey,
@@ -62,7 +62,10 @@ export function SortableTable<T extends Record<string, unknown>>({
     if (!col) return rows;
     const valueOf = col.sortValue
       ? col.sortValue
-      : (row: T) => (row[col.key] as number | string | undefined) ?? "";
+      : (row: T) => {
+          const value = Reflect.get(row, col.key);
+          return typeof value === "number" || typeof value === "string" ? value : "";
+        };
     const copy = [...rows];
     copy.sort((a, b) => {
       const va = valueOf(a);
