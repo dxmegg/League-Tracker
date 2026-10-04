@@ -1,9 +1,14 @@
 import type { MatchListItem } from "../../shared/api";
 import { isAugmentQueue } from "../../shared/queues";
 import { queueLabel } from "./QueueSelect";
+import { AugmentGrid, parseAugmentIds } from "./AugmentGrid";
 import ChampionIcon from "./ChampionIcon";
 import ItemIcon from "./ItemIcon";
+import { RuneCompact } from "./RuneSetup";
+import RuneIcon from "./RuneIcon";
+import { useRuneData } from "../hooks/useChampions";
 import { formatDuration, formatKDA, formatNumber, formatTimeAgo, kdaRatio } from "../lib/format";
+import { parseRuneIds, splitRuneSelections } from "../lib/runes";
 
 const STYLE = `
 .match-list-exp {
@@ -109,6 +114,11 @@ export function MatchRowExperiment({
 }) {
   const isWin = !!match.win;
   const isRemake = !!match.is_remake;
+  const runeData = useRuneData();
+  const augmentIds = parseAugmentIds(match.augment_ids);
+  const runeIds = parseRuneIds(match.rune_ids);
+  const statShardIds = parseRuneIds(match.stat_shard_ids);
+  const runeSetup = splitRuneSelections(runeIds, match.primary_style, match.secondary_style);
   const secondaryLabel = isAugmentQueue(match.queue_id)
     ? "Augments unavailable"
     : "Runes unavailable";
@@ -189,7 +199,36 @@ export function MatchRowExperiment({
         </div>
 
         <div className="m-items" title={secondaryLabel}>
-          <span className="h-[22px] w-[22px]" aria-hidden="true" />
+          <div className="flex items-center justify-center shrink-0">
+            {isAugmentQueue(match.queue_id) ? (
+              <AugmentGrid augmentIds={augmentIds} patch={match.game_version} />
+            ) : (
+              <RuneCompact
+                runeIds={runeIds}
+                primaryStyle={match.primary_style}
+                secondaryStyle={match.secondary_style}
+                statShardIds={statShardIds}
+                runeData={runeData}
+                version={match.game_version}
+              >
+                <span className="flex items-center gap-1 p-1 rounded-lg border border-lol-gold/40 bg-white/[0.02]">
+                  <RuneIcon
+                    runeId={runeSetup.keystone}
+                    path={runeData[runeSetup.keystone ?? 0]?.icon}
+                    version={match.game_version}
+                    size={22}
+                  />
+                  <RuneIcon
+                    runeId={match.secondary_style}
+                    path={runeData[match.secondary_style ?? 0]?.icon}
+                    version={match.game_version}
+                    size={18}
+                  />
+                </span>
+              </RuneCompact>
+            )}
+          </div>
+          <span className="text-lol-text/40 text-xs select-none">+</span>
           <div className="itg">
             {[match.item0, match.item1, match.item2, match.item3, match.item4, match.item5].map(
               (id, i) => (
