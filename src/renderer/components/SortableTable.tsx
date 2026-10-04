@@ -1,4 +1,4 @@
-import { useMemo, useState, type ReactNode } from "react";
+import { Fragment, useEffect, useMemo, useState, type ReactNode } from "react";
 
 export interface SortableColumn<T> {
   key: string;
@@ -8,23 +8,37 @@ export interface SortableColumn<T> {
   defaultDir?: "asc" | "desc";
 }
 
+interface SortableTableProps<T extends Record<string, unknown>> {
+  columns: Array<SortableColumn<T>>;
+  rows: T[];
+  defaultSortKey?: string;
+  className?: string;
+  rowKey?: (row: T) => string | number;
+  renderExpandedRow?: (row: T) => ReactNode;
+}
+
 export function SortableTable<T extends Record<string, unknown>>({
   columns,
   rows,
   defaultSortKey,
   className = "",
-}: {
-  columns: Array<SortableColumn<T>>;
-  rows: T[];
-  defaultSortKey?: string;
-  className?: string;
-}) {
+  rowKey,
+  renderExpandedRow,
+}: SortableTableProps<T>) {
   const firstKey = columns[0]?.key ?? "";
   const [sortKey, setSortKey] = useState<string>(defaultSortKey ?? firstKey);
+  const [expandedKey, setExpandedKey] = useState<string | number | null>(null);
   const [dir, setDir] = useState<"asc" | "desc">(() => {
     const col = columns.find((c) => c.key === (defaultSortKey ?? firstKey));
     return col?.defaultDir ?? "desc";
   });
+  const canExpand = Boolean(renderExpandedRow && rowKey);
+
+  useEffect(() => {
+    if (renderExpandedRow && !rowKey) {
+      console.warn("SortableTable: renderExpandedRow requires rowKey; expansion is disabled.");
+    }
+  }, [renderExpandedRow, rowKey]);
 
   const sorted = useMemo(() => {
     const col = columns.find((c) => c.key === sortKey);
@@ -80,13 +94,36 @@ export function SortableTable<T extends Record<string, unknown>>({
               </td>
             </tr>
           ) : (
-            sorted.map((row, i) => (
-              <tr key={i}>
-                {columns.map((c) => (
-                  <td key={c.key}>{c.render(row)}</td>
-                ))}
-              </tr>
-            ))
+            sorted.map((row, i) => {
+              const key = rowKey ? rowKey(row) : i;
+              return (
+                <Fragment key={key}>
+                  <tr
+                    onClick={
+                      canExpand
+                        ? () => setExpandedKey((current) => (current === key ? null : key))
+                        : undefined
+                    }
+                    className={
+                      canExpand
+                        ? "cursor-pointer transition-colors hover:bg-white/[0.03]"
+                        : undefined
+                    }
+                  >
+                    {columns.map((c) => (
+                      <td key={c.key}>{c.render(row)}</td>
+                    ))}
+                  </tr>
+                  {canExpand && expandedKey === key && (
+                    <tr>
+                      <td colSpan={columns.length} style={{ padding: 0, borderTop: 0 }}>
+                        {renderExpandedRow!(row)}
+                      </td>
+                    </tr>
+                  )}
+                </Fragment>
+              );
+            })
           )}
         </tbody>
       </table>

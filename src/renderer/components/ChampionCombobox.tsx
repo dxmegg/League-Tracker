@@ -42,7 +42,7 @@ export function ChampionCombobox({
     }
     const name = getChampionName(champData, value);
     setQuery(name);
-  }, [value, champData]);
+  }, [value, champData, onQueryChange]);
 
   useEffect(() => {
     const onDocClick = (e: MouseEvent) => {

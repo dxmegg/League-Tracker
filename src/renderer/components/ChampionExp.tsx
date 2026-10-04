@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import type { ChampionStats } from "../../shared/api";
 import ChampionIcon from "./ChampionIcon";
 import { ChampionCombobox } from "./ChampionCombobox";
+import { ChampionExpandedExp } from "./ChampionExpandedExp";
 import { FilterSelect } from "./FilterSelect";
 import { SortableTable, type SortableColumn } from "./SortableTable";
 import { useChampionData, getChampionName } from "../hooks/useChampions";
@@ -174,6 +175,10 @@ export function ChampionExp() {
           columns={columns}
           rows={filtered as ChampionTableRow[]}
           defaultSortKey="games"
+          rowKey={(r) => r.champion_id}
+          renderExpandedRow={(r) => (
+            <ChampionExpandedExp championId={r.champion_id} patch={patch} queue={scopedQueue} />
+          )}
         />
       </div>
     </div>
