@@ -17,13 +17,18 @@ import Friends from "./pages/Friends";
 import Trends from "./pages/Trends";
 import Records from "./pages/Records";
 import GlobalStats from "./pages/GlobalStats";
+import { useActiveTheme } from "./hooks/useActiveTheme";
 
 function ScopedFriendDetail() {
   return <FriendDetail />;
 }
 
 function FullHistorySection({ section }: { section: string }) {
+  const activeTheme = useActiveTheme();
+  const isExperiment = activeTheme === "experiment";
+
   if (section === "champions") {
+    if (isExperiment) return <Champions />;
     return (
       <SectionChrome title="CHAMPIONS" scope="FULL">
         <Champions />
@@ -31,6 +36,7 @@ function FullHistorySection({ section }: { section: string }) {
     );
   }
   if (section === "augments") {
+    if (isExperiment) return <Augments />;
     return (
       <SectionChrome title="AUGMENTS" scope="FULL">
         <Augments />
@@ -38,6 +44,7 @@ function FullHistorySection({ section }: { section: string }) {
     );
   }
   if (section === "items") {
+    if (isExperiment) return <Items />;
     return (
       <SectionChrome title="ITEMS" scope="FULL">
         <Items />
@@ -45,6 +52,7 @@ function FullHistorySection({ section }: { section: string }) {
     );
   }
   if (section === "runes") {
+    if (isExperiment) return <Runes />;
     return (
       <SectionChrome title="RUNES" scope="FULL">
         <Runes />
@@ -52,6 +60,8 @@ function FullHistorySection({ section }: { section: string }) {
     );
   }
   if (section === "friends") {
+    if (isExperiment)
+      return <Friends relation="friends" historyScope="full" historySection={section} />;
     return (
       <SectionChrome title="FRIENDS & FOES" scope="FULL">
         <Friends relation="friends" historyScope="full" historySection={section} />
@@ -59,6 +69,7 @@ function FullHistorySection({ section }: { section: string }) {
     );
   }
   if (section === "trends") {
+    if (isExperiment) return <Trends />;
     return (
       <SectionChrome title="TRENDS" scope="FULL">
         <Trends />
@@ -66,12 +77,14 @@ function FullHistorySection({ section }: { section: string }) {
     );
   }
   if (section === "records") {
+    if (isExperiment) return <Records />;
     return (
       <SectionChrome title="RECORDS" scope="FULL">
         <Records />
       </SectionChrome>
     );
   }
+  if (isExperiment) return <GlobalStats />;
   return (
     <SectionChrome title="MISC. DATA" scope="FULL">
       <GlobalStats />

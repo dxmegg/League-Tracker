@@ -9,6 +9,8 @@ import QueueSelect from "../components/QueueSelect";
 import PatchSelect from "../components/PatchSelect";
 import { SearchInput } from "../components/SearchInput";
 import { isAugmentQueue } from "../../shared/queues";
+import { useActiveTheme } from "../hooks/useActiveTheme";
+import { RunesExp } from "../components/RunesExp";
 
 export default function Runes({ queue }: { queue?: number }) {
   const [selectedQueue, setSelectedQueue] = useState<number | undefined>(queue);
@@ -32,6 +34,8 @@ export default function Runes({ queue }: { queue?: number }) {
     );
     return result.sort((a, b) => b.picks - a.picks);
   }, [data, runeData, search]);
+  const activeTheme = useActiveTheme();
+  const isExperiment = activeTheme === "experiment";
   const renderGroup = (title: string, category: "keystone" | "secondary") => {
     const group = rows.filter((r) => {
       const metadata = runeData?.[r.rune_id];
@@ -93,6 +97,9 @@ export default function Runes({ queue }: { queue?: number }) {
       </section>
     );
   };
+  if (isExperiment) {
+    return <RunesExp />;
+  }
   if (loading)
     return (
       <div className="flex items-center justify-center rounded-lg border border-lol-crimson/40 bg-[linear-gradient(145deg,#0c0e11_0%,#090b0d_48%,#060809_100%)] p-12">

@@ -880,6 +880,8 @@ export function registerIpcHandlers() {
     }
   });
 
+  ipcMain.handle("data:get-db-stats", () => db.getDbStats());
+
   ipcMain.handle("data:import", async (event) => {
     const win = senderWindow(event);
     const options = {

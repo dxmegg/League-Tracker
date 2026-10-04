@@ -40,6 +40,8 @@ export const PLATFORM_TO_SHORT: Record<string, string> = {
   pbe1: "PBE",
 };
 
-export function shortRegion(platform: string): string {
-  return PLATFORM_TO_SHORT[platform.toLowerCase()] ?? platform.toUpperCase();
+export function shortRegion(platform: string | null | undefined): string {
+  if (!platform) return "—";
+  const code = platform.toLowerCase().trim();
+  return PLATFORM_TO_SHORT[code] ?? code.replace(/[0-9]+$/, "").toUpperCase();
 }

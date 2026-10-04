@@ -1,4 +1,6 @@
-import type { HomeDashboardPayload, HomeTimePeriod } from "../../shared/api";
+import type { ChampionData, HomeDashboardPayload, HomeTimePeriod } from "../../shared/api";
+import ChampionIcon from "./ChampionIcon";
+import { getChampionName } from "../hooks/useChampions";
 import { formatNumber } from "../lib/format";
 
 function periodLabel(period: HomeTimePeriod): string {
@@ -12,10 +14,12 @@ export function HomeHero({
   dashboard,
   loading,
   timePeriod,
+  champData,
 }: {
   dashboard: HomeDashboardPayload | null;
   loading: boolean;
   timePeriod: HomeTimePeriod;
+  champData: ChampionData;
 }) {
   const totalGames = dashboard?.summary.totalGames ?? 0;
   const wins = dashboard?.summary.wins ?? 0;
@@ -47,17 +51,53 @@ export function HomeHero({
         </div>
       </div>
 
-      <div className="relative mt-6 flex h-24 gap-0.5" aria-hidden="true">
+      <div className="relative mt-6 flex h-24 gap-px" aria-hidden="true">
         <span className="pointer-events-none absolute inset-x-0 top-[60px] border-t border-lol-border" />
-        {ribbonData.map((game, i) => (
-          <div key={i} className="relative z-10 grid min-w-px max-w-4 flex-1 grid-rows-[60px_36px]">
-            {game.win ? (
-              <b className="h-12 self-end rounded-sm bg-lol-win" />
-            ) : (
-              <b className="h-4 self-start rounded-sm bg-lol-loss" />
-            )}
-          </div>
-        ))}
+        {ribbonData.map((game, i) => {
+          const tooltip = (
+            <span className="pointer-events-none absolute bottom-full left-1/2 z-50 mb-2 hidden -translate-x-1/2 whitespace-nowrap rounded-md border border-lol-border bg-lol-card px-2.5 py-1.5 text-left shadow-lg group-hover:block">
+              <span className="flex items-center gap-1.5">
+                <ChampionIcon championId={game.champion_id} size={18} className="rounded" />
+                <span className="font-display text-[11px] font-semibold text-lol-text-bright">
+                  {getChampionName(champData, game.champion_id)}
+                </span>
+              </span>
+              <span className="mt-0.5 block text-[11px] text-lol-text">
+                <span className="text-lol-win">{game.kills}</span>
+                <span className="mx-0.5">/</span>
+                <span className="text-lol-loss">{game.deaths}</span>
+                <span className="mx-0.5">/</span>
+                <span className="text-lol-assist">{game.assists}</span>
+                <span className="ml-2 font-display font-semibold text-lol-gold">
+                  {(game.score ?? 0).toFixed(1)}
+                </span>
+              </span>
+            </span>
+          );
+          return (
+            <div
+              key={i}
+              className="group relative z-10 grid min-w-px max-w-[5px] flex-1 grid-rows-[60px_36px]"
+            >
+              {game.win ? (
+                <b
+                  className="row-start-1 self-end rounded-sm bg-lol-win"
+                  style={{
+                    height: `${Math.max(6, Math.round((((game.score ?? 5) as number) / 10) * 60))}px`,
+                  }}
+                />
+              ) : (
+                <b
+                  className="row-start-2 self-start rounded-sm bg-lol-loss"
+                  style={{
+                    height: `${Math.max(4, Math.round((((game.score ?? 5) as number) / 10) * 36))}px`,
+                  }}
+                />
+              )}
+              {tooltip}
+            </div>
+          );
+        })}
       </div>
       <div className="mt-2 flex justify-between gap-3 text-[12px] text-lol-text/60">
         <span>Oldest</span>

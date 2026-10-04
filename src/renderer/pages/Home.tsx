@@ -26,6 +26,7 @@ import SummonerIcon from "../components/SummonerIcon";
 import { useActiveAccount } from "../hooks/useActiveAccount";
 import { useActiveTheme } from "../hooks/useActiveTheme";
 import { getChampionName, useChampionData } from "../hooks/useChampions";
+import { useViewState } from "../hooks/useViewState";
 import { ALL_ACCOUNTS_SENTINEL } from "../lib/accountsEvent";
 import { NavLink } from "react-router-dom";
 import { GameRow } from "./MatchHistory";
@@ -568,8 +569,8 @@ export default function Home() {
   const setAccount = (next: HomeAccountFilter) => {
     setActiveAccountRaw(next === "all" || next === undefined ? ALL_ACCOUNTS_SENTINEL : next);
   };
-  const [timePeriod, setTimePeriod] = useState<HomeTimePeriod>("7d");
-  const [queue, setQueue] = useState<number | undefined>(undefined);
+  const [timePeriod, setTimePeriod] = useViewState<HomeTimePeriod>("home.timePeriod", "7d");
+  const [queue, setQueue] = useViewState<number | undefined>("home.queue", undefined);
   const [dashboard, setDashboard] = useState<HomeDashboardPayload | null>(null);
   const [loading, setLoading] = useState(false);
   const [savedAccounts, setSavedAccounts] = useState<AccountListItem[]>([]);
@@ -622,7 +623,7 @@ export default function Home() {
                 key={period}
                 type="button"
                 onClick={() => setTimePeriod(period)}
-                className={`rounded-[7px] px-4 py-1.5 font-display text-[13px] font-semibold transition-colors ${
+                className={`rounded-[7px] px-5 py-1.5 font-display text-[13px] font-semibold transition-colors ${
                   period === timePeriod
                     ? "bg-lol-crimson text-white"
                     : "text-lol-text hover:text-lol-text-bright"
@@ -638,7 +639,12 @@ export default function Home() {
         <div className="grid grid-cols-12 gap-5">
           {/* Hero: 8 columns */}
           <Panel className="col-span-12 2xl:col-span-8">
-            <HomeHero dashboard={dashboard} loading={loading} timePeriod={timePeriod} />
+            <HomeHero
+              dashboard={dashboard}
+              loading={loading}
+              timePeriod={timePeriod}
+              champData={champData}
+            />
           </Panel>
 
           {/* Live game: 4 columns */}

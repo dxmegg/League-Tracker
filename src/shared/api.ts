@@ -226,6 +226,7 @@ export interface ChampionStats {
   triple_kills: number;
   quadra_kills: number;
   penta_kills: number;
+  avg_cs_per_min: number | null;
 }
 
 export interface AugmentStats {
@@ -350,6 +351,7 @@ export interface DashboardData {
   recentForm: {
     game_id: number;
     win: number;
+    score: number | null;
     is_remake: number;
     champion_id: number;
     kills: number;
@@ -393,6 +395,7 @@ export interface HomeDashboardPayload {
     recentForm: Array<{
       game_id: number;
       win: number;
+      score: number | null;
       is_remake: number;
       champion_id: number;
       kills: number;
@@ -1097,6 +1100,7 @@ export interface ElectronAPI {
     games?: number;
     error?: string;
   }>;
+  getDbStats: () => Promise<{ games: number; sizeBytes: number }>;
   importData: () => Promise<{
     success: boolean;
     imported?: number;

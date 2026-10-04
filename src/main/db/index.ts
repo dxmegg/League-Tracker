@@ -1,4 +1,5 @@
 import Database from "better-sqlite3";
+import fs from "fs";
 import { AUGMENT_SLOTS } from "../../shared/queues";
 import { getDbPath } from "./connection";
 import { getSetting, setSetting } from "./settings";
@@ -237,4 +238,30 @@ export function closeDatabase() {
 
 export function getDatabase(): Database.Database {
   return db;
+}
+
+export function getDbStats(): { games: number; sizeBytes: number } {
+  console.log("[db] getDbStats called:", {});
+  let sizeBytes = 0;
+  try {
+    sizeBytes = fs.statSync(getDbPath()).size;
+  } catch (err) {
+    console.warn("[db] getDbStats database size unavailable:", {
+      error: err instanceof Error ? err.message : String(err),
+    });
+  }
+
+  let games = 0;
+  try {
+    const row = db.prepare("SELECT COUNT(*) as n FROM games").get() as { n: number } | undefined;
+    games = row?.n ?? 0;
+  } catch (err) {
+    console.warn("[db] getDbStats game count unavailable:", {
+      error: err instanceof Error ? err.message : String(err),
+    });
+  }
+
+  const result = { games, sizeBytes };
+  console.log("[db] getDbStats done:", result);
+  return result;
 }

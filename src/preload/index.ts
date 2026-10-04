@@ -239,6 +239,7 @@ const api: ElectronAPI = {
   setSetting: (key: string, value: string) => ipcRenderer.invoke("settings:set", key, value),
 
   exportData: () => ipcRenderer.invoke("data:export"),
+  getDbStats: () => ipcRenderer.invoke("data:get-db-stats"),
 
   importData: (): Promise<{
     success: boolean;

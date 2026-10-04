@@ -4,8 +4,7 @@ import { queueLabel } from "../components/QueueSelect";
 import { FilterSelect } from "../components/FilterSelect";
 import { setRemembering } from "../lib/viewState";
 import type { BackupInfo } from "../lib/types";
-import { useActiveTheme } from "../hooks/useActiveTheme";
-import { SettingsExp } from "../components/SettingsExp";
+import { Panel } from "./Panel";
 
 const BACKUP_REASONS: Record<string, string> = {
   auto: "Scheduled",
@@ -34,22 +33,17 @@ type ButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & {
 
 function Button({ variant = "primary", children, className = "", ...props }: ButtonProps) {
   const variantClasses = {
-    primary:
-      "border border-lol-crimson/60 bg-lol-crimson/20 text-lol-text-bright hover:bg-lol-crimson/30",
-    secondary:
-      "border border-lol-border/50 bg-lol-card/40 text-lol-text hover:border-lol-crimson/40 hover:text-lol-text-bright",
-    subtle:
-      "border border-lol-border/50 bg-lol-card/40 text-lol-text hover:border-lol-crimson/40 hover:text-lol-text-bright",
-    neutral:
-      "border border-lol-border/50 bg-lol-card/40 text-lol-text hover:border-lol-crimson/40 hover:text-lol-text-bright",
-    destructive:
-      "bg-lol-crimson/15 text-lol-crimson-bright border border-lol-crimson/40 hover:bg-lol-crimson/25",
+    primary: "border border-lol-border bg-lol-card text-lol-text-bright hover:border-lol-crimson",
+    secondary: "border border-lol-border bg-lol-card text-lol-text-bright hover:border-lol-crimson",
+    subtle: "border border-lol-border bg-lol-card text-lol-text-bright hover:border-lol-crimson",
+    neutral: "border border-lol-border bg-lol-card text-lol-text-bright hover:border-lol-crimson",
+    destructive: "border border-lol-loss/60 text-lol-loss hover:border-lol-loss",
   };
 
   return (
     <button
       {...props}
-      className={`inline-flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-bold uppercase tracking-wider transition-colors disabled:opacity-50 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-lol-crimson/60 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--theme-bg-deep)] ${variantClasses[variant]} ${className}`}
+      className={`inline-flex items-center gap-1.5 rounded-lg px-4 py-2 text-sm font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-lol-crimson/60 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--theme-bg-deep)] ${variantClasses[variant]} ${className}`}
     >
       {children}
     </button>
@@ -95,16 +89,14 @@ function Section({
   className?: string;
 }) {
   return (
-    <section
-      className={`relative flex flex-col rounded-lg p-5 xl:p-6 2xl:p-7 bg-[linear-gradient(145deg,#0c0e11_0%,#090b0d_48%,#060809_100%)] border border-lol-crimson/40 shadow-[0_0_3px_rgba(150,30,30,0.55),0_0_10px_rgba(90,15,15,0.35),0_0_20px_rgba(60,10,10,0.20)] ring-1 ring-inset ring-white/[0.03] ${className}`}
-    >
-      <h2 className="text-xs font-bold uppercase tracking-wider text-lol-gold mb-4">{title}</h2>
+    <Panel className={`flex flex-col ${className}`}>
+      <h2 className="mb-4 font-display text-[16px] font-semibold text-lol-text-bright">{title}</h2>
       <div className="flex flex-col gap-3">{children}</div>
-    </section>
+    </Panel>
   );
 }
 
-export default function Settings() {
+export function SettingsExp() {
   // Shared so a backfill started automatically on first connect shows here too
   const { running: backfilling } = useBackfill();
   const [theme, setTheme] = useState("test");
@@ -481,22 +473,22 @@ export default function Settings() {
     }
   }, []);
 
-  const activeTheme = useActiveTheme();
-  const isExperiment = activeTheme === "experiment";
-
-  if (isExperiment) {
-    return <SettingsExp />;
-  }
-
   if (loading) return null;
 
   return (
-    <div className="w-full max-w-3xl xl:max-w-4xl 2xl:max-w-5xl space-y-5 2xl:space-y-6">
-      <h1 className="text-xl font-bold text-lol-text-bright">Settings</h1>
+    <div className="mx-auto flex min-h-full w-full max-w-[1320px] flex-col gap-5">
+      <div>
+        <h1 className="font-display text-[30px] font-bold leading-tight tracking-[0.2px] text-lol-text-bright">
+          Settings
+        </h1>
+        <p className="mt-1.5 text-lol-text">
+          Control synchronization, storage, and application behavior
+        </p>
+      </div>
 
       <Section title="Appearance">
-        <div className="flex items-center justify-between gap-4">
-          <label htmlFor="theme-select" className="text-sm text-lol-text-bright">
+        <div className="flex items-center justify-between gap-4 py-2.5 border-b border-lol-border/40 last:border-b-0">
+          <label htmlFor="theme-select" className="text-[13.5px] text-lol-text-bright">
             Theme
           </label>
           <FilterSelect
@@ -546,15 +538,15 @@ export default function Settings() {
             {repairing ? "Repairing..." : "Repair"}
           </Button>
         </div>
-        {backfillStatus && <p className="text-xs text-lol-text mt-2">{backfillStatus}</p>}
+        {backfillStatus && <p className="text-[12.5px] text-lol-text mt-2">{backfillStatus}</p>}
       </Section>
 
       <Section title="Data Management">
         <div className="space-y-4">
-          <div className="w-full flex items-center justify-between gap-4 px-3 py-2 xl:px-4 xl:py-3">
+          <div className="flex items-center justify-between gap-4 py-2.5 border-b border-lol-border/40 last:border-b-0 px-3 py-2 xl:px-4 xl:py-3">
             <div>
-              <p className="text-sm text-lol-text-bright">Export data</p>
-              <p className="text-xs text-lol-text mt-0.5">
+              <p className="text-[13.5px] text-lol-text-bright">Export data</p>
+              <p className="text-[12.5px] text-lol-text">
                 Save all match data to a JSON file for backup.
               </p>
             </div>
@@ -574,12 +566,12 @@ export default function Settings() {
             </p>
           )}
 
-          <div className="border-t border-lol-border" />
+          <div className="border-t border-lol-border/40" />
 
-          <div className="w-full flex items-center justify-between gap-4 px-3 py-2 xl:px-4 xl:py-3">
+          <div className="flex items-center justify-between gap-4 py-2.5 border-b border-lol-border/40 last:border-b-0 px-3 py-2 xl:px-4 xl:py-3">
             <div>
-              <p className="text-sm text-lol-text-bright">Import data</p>
-              <p className="text-xs text-lol-text mt-0.5">
+              <p className="text-[13.5px] text-lol-text-bright">Import data</p>
+              <p className="text-[12.5px] text-lol-text">
                 Load match data from a previously exported file.
               </p>
             </div>
@@ -602,13 +594,13 @@ export default function Settings() {
       </Section>
 
       <Section title="Saved accounts">
-        <p className="text-xs text-lol-text mb-4">
+        <p className="text-[12.5px] text-lol-text mb-4">
           Accounts that can appear in the Local Account and Match History views. Deleting one
           removes its summoner row and every game stored for it; games still owned by another saved
           account are kept.
         </p>
         {savedSummoners.length === 0 ? (
-          <p className="text-xs text-lol-text">No saved accounts yet.</p>
+          <p className="text-[12.5px] text-lol-text">No saved accounts yet.</p>
         ) : (
           <div className="space-y-2">
             {savedSummoners.map((summoner) => {
@@ -620,10 +612,10 @@ export default function Settings() {
               return (
                 <div
                   key={summoner.puuid}
-                  className="w-full flex items-center justify-between gap-3 rounded-md border border-lol-border px-3 py-2 xl:px-4 xl:py-3"
+                  className="flex items-center justify-between gap-4 py-2.5 border-b border-lol-border/40 last:border-b-0 gap-3 rounded-lg border border-lol-border bg-lol-card px-3 py-2 xl:px-4 xl:py-3"
                 >
                   <div className="min-w-0">
-                    <p className="text-xs text-lol-text-bright truncate">{name}</p>
+                    <p className="text-[12.5px] text-lol-text-bright truncate">{name}</p>
                     <p className="text-[11px] text-lol-text">
                       {summoner.games} game{summoner.games === 1 ? "" : "s"} stored
                     </p>
@@ -671,16 +663,16 @@ export default function Settings() {
         >
           Clean up searched accounts
         </Button>
-        {summonerStatus && <p className="mt-3 text-xs text-lol-text">{summonerStatus}</p>}
+        {summonerStatus && <p className="mt-3 text-[12.5px] text-lol-text">{summonerStatus}</p>}
       </Section>
 
       {/* General */}
       <Section title="General">
         <div className="space-y-4">
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between gap-4 py-2.5 border-b border-lol-border/40 last:border-b-0">
             <div>
-              <p className="text-sm text-lol-text-bright">Start with Windows</p>
-              <p className="text-xs text-lol-text mt-0.5">
+              <p className="text-[13.5px] text-lol-text-bright">Start with Windows</p>
+              <p className="text-[12.5px] text-lol-text">
                 Open the program in the system tray when you sign in to Windows, so your games are
                 recorded without having to remember to start it.
                 {!autoStartSupported && " Only available in the packaged program."}
@@ -693,12 +685,12 @@ export default function Settings() {
             />
           </div>
 
-          <div className="border-t border-lol-border" />
+          <div className="border-t border-lol-border/40" />
 
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between gap-4 py-2.5 border-b border-lol-border/40 last:border-b-0">
             <div>
-              <p className="text-sm text-lol-text-bright">Minimize to tray on close</p>
-              <p className="text-xs text-lol-text mt-0.5">
+              <p className="text-[13.5px] text-lol-text-bright">Minimize to tray on close</p>
+              <p className="text-[12.5px] text-lol-text">
                 When enabled, the program can keep storing your games even when the window is
                 closed. You can still close the program from the system tray.
               </p>
@@ -706,12 +698,12 @@ export default function Settings() {
             <Switch checked={minimizeToTray} onChange={handleToggle} />
           </div>
 
-          <div className="border-t border-lol-border" />
+          <div className="border-t border-lol-border/40" />
 
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between gap-4 py-2.5 border-b border-lol-border/40 last:border-b-0">
             <div>
-              <p className="text-sm text-lol-text-bright">Remember filters and sorting</p>
-              <p className="text-xs text-lol-text mt-0.5">
+              <p className="text-[13.5px] text-lol-text-bright">Remember filters and sorting</p>
+              <p className="text-[12.5px] text-lol-text">
                 Reopen every page with the filters, search, and sort order you last used. When off,
                 each page starts on its defaults again every time the program opens.
               </p>
@@ -719,12 +711,12 @@ export default function Settings() {
             <Switch checked={rememberFilters} onChange={handleRememberFiltersToggle} />
           </div>
 
-          <div className="border-t border-lol-border" />
+          <div className="border-t border-lol-border/40" />
 
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between gap-4 py-2.5 border-b border-lol-border/40 last:border-b-0">
             <div>
-              <p className="text-sm text-lol-text-bright">Hide remakes</p>
-              <p className="text-xs text-lol-text mt-0.5">
+              <p className="text-[13.5px] text-lol-text-bright">Hide remakes</p>
+              <p className="text-[12.5px] text-lol-text">
                 Leave remade games out of the match history. They are still recorded, and were never
                 counted toward your stats either way.
               </p>
@@ -736,14 +728,14 @@ export default function Settings() {
               waits until a second one shows up in the database */}
           {queues.length > 1 && (
             <>
-              <div className="border-t border-lol-border" />
+              <div className="border-t border-lol-border/40" />
 
               <div>
                 <div className="h-px bg-gradient-to-r from-lol-gold/30 via-lol-gold/10 to-transparent" />
                 <p className="text-xs font-bold uppercase tracking-wider text-lol-text">
                   Queues to include
                 </p>
-                <p className="text-xs text-lol-text mt-0.5">
+                <p className="text-[12.5px] text-lol-text">
                   Stats and match history only count the queues switched on here. Games from the
                   others are still recorded, and can be counted again by switching their queue back
                   on.
@@ -755,7 +747,7 @@ export default function Settings() {
                     return (
                       <div
                         key={q}
-                        className="w-full flex items-center justify-between py-1.5 xl:py-2"
+                        className="flex items-center justify-between gap-4 py-2.5 border-b border-lol-border/40 last:border-b-0 py-1.5 xl:py-2"
                       >
                         <p className="text-sm text-lol-text">{queueLabel(q)}</p>
                         {/* Switching off the last one would empty every page */}
@@ -777,10 +769,10 @@ export default function Settings() {
       {/* Backups */}
       <Section title="Backups">
         <div className="space-y-4">
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between gap-4 py-2.5 border-b border-lol-border/40 last:border-b-0">
             <div>
-              <p className="text-sm text-lol-text-bright">Automatic backups</p>
-              <p className="text-xs text-lol-text mt-0.5">
+              <p className="text-[13.5px] text-lol-text-bright">Automatic backups</p>
+              <p className="text-[12.5px] text-lol-text">
                 Keep a daily copy of your database on this computer, plus one before any import or
                 repair. Older copies thin out to weekly and monthly. If the database ever goes
                 missing or won't open, the newest working copy is restored on startup.
@@ -789,16 +781,16 @@ export default function Settings() {
             <Switch checked={autoBackup} onChange={handleAutoBackupToggle} />
           </div>
 
-          <div className="border-t border-lol-border" />
+          <div className="border-t border-lol-border/40" />
 
           {backups.length === 0 ? (
-            <p className="text-xs text-lol-text">No backups yet.</p>
+            <p className="text-[12.5px] text-lol-text">No backups yet.</p>
           ) : (
             <div className="space-y-1">
               {backups.map((backup) => (
                 <div
                   key={backup.file}
-                  className="w-full flex items-center justify-between gap-3 px-3 py-2 text-xs xl:px-4 xl:py-3"
+                  className="flex items-center justify-between gap-4 py-2.5 border-b border-lol-border/40 last:border-b-0 gap-3 px-3 py-2 text-xs xl:px-4 xl:py-3"
                 >
                   <div className="min-w-0">
                     <p className="text-lol-text-bright">{formatTaken(backup.created)}</p>
@@ -845,7 +837,7 @@ export default function Settings() {
               Open folder
             </Button>
           </div>
-          {backupStatus && <p className="text-xs text-lol-text">{backupStatus}</p>}
+          {backupStatus && <p className="text-[12.5px] text-lol-text">{backupStatus}</p>}
         </div>
       </Section>
 

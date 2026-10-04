@@ -1,3 +1,4 @@
+import { shortRegion } from "../../shared/regions";
 import SummonerIcon from "./SummonerIcon";
 
 export function ProfileHero({
@@ -43,7 +44,7 @@ export function ProfileHero({
           )}
         </h1>
         <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-lol-text">
-          <span>Region {platform ? platform.toUpperCase() : "—"}</span>
+          <span>Region {shortRegion(platform)}</span>
           {isLive && (
             <span className="inline-flex items-center gap-1.5 font-display text-[13px] font-semibold text-lol-win">
               <span className="h-2 w-2 rounded-full bg-lol-win" />
