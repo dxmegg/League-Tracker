@@ -1025,6 +1025,12 @@ export default function MatchHistory({
             key={m.game_id}
             match={m}
             championName={getChampionName(champData, m.champion_id)}
+            champData={champData}
+            expanded={expandedId === m.game_id}
+            detail={expandedId === m.game_id ? detail : null}
+            detailLoading={expandedId === m.game_id && detailLoading}
+            puuids={puuids}
+            onToggle={() => toggleExpand(m.game_id)}
           />
         );
         return sessions ? (
