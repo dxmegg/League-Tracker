@@ -16,7 +16,7 @@ export function SessionHeaderExp({
   score: number;
 }) {
   return (
-    <div className="mb-3">
+    <div className="mb-4">
       <div className="flex flex-wrap items-center gap-4">
         <span className="h-1.5 w-1.5 rounded-full bg-lol-gold" aria-hidden="true" />
         <span className="font-display text-[14px] font-semibold text-lol-text-bright">{label}</span>

@@ -27,7 +27,7 @@ export function RecordTile({
         {formatNumber(value)}
       </b>
       <div className="flex items-center gap-2 text-[12.5px] text-lol-text">
-        <ChampionIcon championId={championId} size={22} className="rounded-full" />
+        <ChampionIcon championId={championId} size={26} className="rounded-full" />
         <i className={`font-semibold not-italic ${win ? "text-lol-win" : "text-lol-loss"}`}>
           {win ? "WIN" : "LOSS"}
         </i>

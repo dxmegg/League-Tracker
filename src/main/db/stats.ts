@@ -186,7 +186,7 @@ export function getDashboardData(
     JOIN ${source.table} ${source.alias} ON g.game_id = ${source.alias}.game_id
     ${whereSql}
     ORDER BY g.game_creation DESC
-    LIMIT 50
+    LIMIT 250
   `)
     .all(...queryParams);
 

@@ -60,7 +60,7 @@ const STYLE = `
 .match-row .badge.mvp { background: var(--theme-gold); color: #241705; }
 .match-row .badge.ace { background: var(--theme-violet); color: #150c33; }
 .match-row .m-bars { grid-area: bars; display: grid; gap: 5px; }
-.match-row .bar { display: grid; grid-template-columns: 44px 1fr 38px; gap: 8px; align-items: center; font-size: 12px; color: var(--theme-foreground-muted); }
+.match-row .bar { display: grid; grid-template-columns: 44px 1fr 44px; gap: 8px; align-items: center; font-size: 12px; color: var(--theme-foreground-muted); }
 .match-row .bar .track { height: 4px; border-radius: 3px; background: rgba(255,255,255,0.05); overflow: hidden; }
 .match-row .bar .track i { display: block; height: 100%; border-radius: 3px; }
 .match-row .bar.d .track i { background: var(--theme-crimson); }
