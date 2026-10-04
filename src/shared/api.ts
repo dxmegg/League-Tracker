@@ -746,6 +746,7 @@ export type LcuStatus = "disconnected" | "connecting" | "connected" | "ingame";
 export interface LiveGameData {
   gameTimeSec: number;
   gameMode: string;
+  items: Array<{ itemId: number; slot: number; displayName: string; count: number }>;
   activePlayer: {
     summonerName: string;
     level: number;
@@ -756,6 +757,22 @@ export interface LiveGameData {
     assists: number;
     creepScore: number;
   };
+}
+
+export interface LiveSessionData {
+  phase: string;
+  queueId: number | null;
+  queueLabel: string | null;
+  lobbySize: number | null;
+  lobbyMaxSize: number | null;
+  queueStartedAt: number | null;
+  champSelect: {
+    myChampionId: number | null;
+    myTeam: Array<{ summonerName: string; championId: number; isMe: boolean }>;
+    bench: Array<{ championId: number }>;
+    isMyTurn: boolean;
+    timeLeftMs: number | null;
+  } | null;
 }
 
 export interface BackfillProgress {
@@ -1099,6 +1116,7 @@ export interface ElectronAPI {
   ) => () => void;
   getLcuStatus: () => Promise<LcuStatus>;
   getLiveGame: () => Promise<LiveGameData | null>;
+  getLiveSession: () => Promise<LiveSessionData | null>;
   getChampionDataVersion: () => Promise<string>;
   getChampionData: () => Promise<ChampionData>;
   getAugmentData: (patch?: string) => Promise<AugmentData>;

@@ -252,7 +252,7 @@ export function registerIpcHandlers() {
           biggestCrit: toHomeRecord(records.bests.criticalStrike),
           mostCs: toHomeRecord(records.bests.cs),
         },
-        topChampions: championStats.slice(0, 5).map((champion) => ({
+        topChampions: championStats.slice(0, 10).map((champion) => ({
           championId: champion.champion_id,
           games: champion.games,
           wins: champion.wins,
@@ -532,6 +532,10 @@ export function registerIpcHandlers() {
 
   ipcMain.handle("lcu:live-game", async () => {
     return lcu.fetchLiveGameData();
+  });
+
+  ipcMain.handle("lcu:live-session", async () => {
+    return lcu.fetchLiveSessionData();
   });
 
   ipcMain.handle("lcu:current-puuid", async () => {

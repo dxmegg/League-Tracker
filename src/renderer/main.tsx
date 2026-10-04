@@ -27,7 +27,7 @@ Promise.resolve(window.api?.getDebugEnabled?.())
     return Promise.resolve(themeSetting)
       .catch(() => null)
       .then((stored) => {
-        const valid = stored === "test" || stored === "experiment" ? stored : "test";
+        const valid = stored === "test" || stored === "experiment" ? stored : "experiment";
         document.documentElement.setAttribute("data-theme", valid);
       })
       .finally(() => {

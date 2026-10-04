@@ -161,6 +161,7 @@ const api: ElectronAPI = {
 
   getLcuStatus: () => ipcRenderer.invoke("lcu:status"),
   getLiveGame: () => ipcRenderer.invoke("lcu:live-game"),
+  getLiveSession: () => ipcRenderer.invoke("lcu:live-session"),
   getChampionDataVersion: () => ipcRenderer.invoke("dragon:version"),
 
   getChampionData: () => ipcRenderer.invoke("dragon:champions"),

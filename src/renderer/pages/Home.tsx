@@ -284,7 +284,7 @@ function PlayerSummaryCard({
               Most played champions
             </div>
             <div className="grid grid-cols-5 gap-3">
-              {(dashboard?.topChampions ?? []).slice(0, 5).map((champion) => (
+              {(dashboard?.topChampions ?? []).slice(0, 10).map((champion) => (
                 <div key={champion.championId} className="flex min-w-0 flex-col items-center gap-1">
                   <ChampionIcon championId={champion.championId} size={48} className="rounded-lg" />
                   <div className="text-xs font-semibold text-lol-win">{champion.wins}W</div>
@@ -564,7 +564,7 @@ function MatchListPanel({
 export default function Home() {
   const activeTheme = useActiveTheme();
   const isExperiment = activeTheme === "experiment";
-  const liveGame = useLiveGame();
+  const live = useLiveGame();
   const [activeAccountRaw, setActiveAccountRaw] = useActiveAccount();
   const account: HomeAccountFilter =
     activeAccountRaw === ALL_ACCOUNTS_SENTINEL ? "all" : activeAccountRaw;
@@ -651,7 +651,7 @@ export default function Home() {
 
           {/* Live game: 4 columns */}
           <Panel className="col-span-12 2xl:col-span-4">
-            <LiveGameTile data={liveGame} />
+            <LiveGameTile game={live.game} session={live.session} />
           </Panel>
 
           {/* Most played champions: 7 columns */}

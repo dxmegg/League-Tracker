@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { NavLink, useLocation } from "react-router-dom";
 import type { AccountListItem } from "../../shared/api";
 import { useBackfill } from "../hooks/useBackfill";
@@ -47,6 +47,8 @@ export function Sidebar() {
   const [refreshing, setRefreshing] = useState(false);
   const [activeAccount, setActiveAccount] = useActiveAccount();
   const [savedAccounts, setSavedAccounts] = useState<AccountListItem[]>([]);
+  const [accountsOpen, setAccountsOpen] = useState(false);
+  const accountsWrapRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     window.api
@@ -54,6 +56,29 @@ export function Sidebar() {
       .then(setSavedAccounts)
       .catch(() => setSavedAccounts([]));
   }, []);
+
+  useEffect(() => {
+    if (!accountsOpen) return;
+    const onDocClick = (e: MouseEvent) => {
+      if (!accountsWrapRef.current?.contains(e.target as Node)) setAccountsOpen(false);
+    };
+    document.addEventListener("mousedown", onDocClick);
+    return () => document.removeEventListener("mousedown", onDocClick);
+  }, [accountsOpen]);
+
+  const activeAccountData = savedAccounts.find((a) => a.puuid === activeAccount);
+  const isAll = activeAccount === ALL_ACCOUNTS_SENTINEL;
+  const accountLabel = isAll
+    ? "All accounts"
+    : activeAccountData?.gameName
+      ? `${activeAccountData.gameName}${activeAccountData.tagLine ? `#${activeAccountData.tagLine}` : ""}`
+      : "Unknown";
+  const accountSubtitle = isAll
+    ? `${savedAccounts.length} accounts`
+    : activeAccountData?.tagLine
+      ? `#${activeAccountData.tagLine}`
+      : "";
+  const accountIconId = isAll ? null : (activeAccountData?.profileIconId ?? null);
 
   const handleRefresh = useCallback(async () => {
     setRefreshing(true);
@@ -151,74 +176,115 @@ export function Sidebar() {
           ))}
         </nav>
 
-        <section>
+        <section ref={accountsWrapRef} className="relative">
           <h2 className="mb-2 px-3 text-[11px] font-semibold uppercase tracking-[0.18em] text-lol-text/60">
             Saved accounts
           </h2>
-          <div className="flex flex-col gap-1">
-            <button
-              type="button"
-              onClick={() => {
-                setActiveAccount(ALL_ACCOUNTS_SENTINEL);
-              }}
-              className={`flex items-center gap-2 rounded-lg px-3 py-1.5 text-left transition-colors ${
-                activeAccount === ALL_ACCOUNTS_SENTINEL
-                  ? "border border-lol-border/40 bg-lol-crimson/15 text-lol-text-bright"
-                  : "border border-transparent text-lol-text hover:bg-white/[0.04]"
-              }`}
-            >
-              <span
-                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-lol-crimson/60 to-lol-crimson/20 text-[11px] font-bold text-white"
-                aria-hidden="true"
-              >
-                All
-              </span>
-              <span className="min-w-0 flex-1">
-                <span className="block text-[13.5px] leading-tight">All accounts</span>
-                <span className="block text-[12px] leading-tight text-lol-text/60">
-                  {savedAccounts.length} accounts
+          <button
+            type="button"
+            onClick={() => setAccountsOpen((v) => !v)}
+            className={`flex w-full items-center gap-2 rounded-lg border px-3 py-2 text-left transition-colors ${
+              accountsOpen
+                ? "border-lol-border/60 bg-lol-crimson/15 text-lol-text-bright"
+                : "border-transparent text-lol-text hover:bg-white/[0.04] hover:text-lol-text-bright"
+            }`}
+          >
+            <span className="flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-lol-card text-[11px] font-bold text-lol-text-bright">
+              {isAll ? (
+                "All"
+              ) : accountIconId != null ? (
+                <img
+                  src={`https://raw.communitydragon.org/latest/plugins/rcp-be-lol-game-data/global/default/v1/profile-icons/${accountIconId}.jpg`}
+                  alt=""
+                  className="h-full w-full object-cover"
+                />
+              ) : (
+                accountLabel.slice(0, 2).toUpperCase()
+              )}
+            </span>
+            <span className="min-w-0 flex-1">
+              <span className="block truncate text-[13.5px] leading-tight">{accountLabel}</span>
+              {accountSubtitle && (
+                <span className="block truncate text-[12px] leading-tight text-lol-text/60">
+                  {accountSubtitle}
                 </span>
-              </span>
-            </button>
+              )}
+            </span>
+            <span className="shrink-0 text-[10px] text-lol-text/60" aria-hidden="true">
+              {accountsOpen ? "▴" : "▾"}
+            </span>
+          </button>
 
-            {savedAccounts.map((account) => {
-              const isActive = account.puuid === activeAccount;
-              const label = account.gameName
-                ? `${account.gameName}${account.tagLine ? `#${account.tagLine}` : ""}`
-                : "Unknown";
-              return (
-                <button
-                  key={account.puuid}
-                  type="button"
-                  onClick={() => {
-                    setActiveAccount(account.puuid);
-                  }}
-                  className={`flex items-center gap-2 rounded-lg px-3 py-1.5 text-left transition-colors ${
-                    isActive
-                      ? "border border-lol-border/40 bg-lol-crimson/15 text-lol-text-bright"
-                      : "border border-transparent text-lol-text hover:bg-white/[0.04]"
-                  }`}
-                >
-                  <span
-                    className="flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-lol-card text-[11px] font-bold text-lol-text-bright"
-                    aria-hidden="true"
+          <div
+            className={`absolute left-0 right-0 top-full z-50 origin-top transition-[max-height,opacity,transform] duration-200 ease-out ${
+              accountsOpen
+                ? "pointer-events-auto mt-1 max-h-[420px] scale-y-100 opacity-100"
+                : "pointer-events-none mt-0 max-h-0 scale-y-95 opacity-0"
+            }`}
+            style={{ overflow: "hidden" }}
+            aria-hidden={!accountsOpen}
+          >
+            <div className="max-h-[420px] overflow-y-auto rounded-lg border border-lol-border bg-lol-card shadow-xl">
+              <button
+                type="button"
+                onClick={() => {
+                  setActiveAccount(ALL_ACCOUNTS_SENTINEL);
+                  setAccountsOpen(false);
+                }}
+                className={`flex w-full items-center gap-2 px-3 py-2 text-left transition-colors ${
+                  isAll
+                    ? "bg-lol-crimson/15 text-lol-text-bright"
+                    : "text-lol-text hover:bg-white/[0.04] hover:text-lol-text-bright"
+                }`}
+              >
+                <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-lol-crimson/60 to-lol-crimson/20 text-[11px] font-bold text-white">
+                  All
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="block text-[13.5px] leading-tight">All accounts</span>
+                  <span className="block text-[12px] leading-tight text-lol-text/60">
+                    {savedAccounts.length} accounts
+                  </span>
+                </span>
+              </button>
+
+              {savedAccounts.map((account) => {
+                const isActive = account.puuid === activeAccount;
+                const accLabel = account.gameName
+                  ? `${account.gameName}${account.tagLine ? `#${account.tagLine}` : ""}`
+                  : "Unknown";
+                return (
+                  <button
+                    key={account.puuid}
+                    type="button"
+                    onClick={() => {
+                      setActiveAccount(account.puuid);
+                      setAccountsOpen(false);
+                    }}
+                    className={`flex w-full items-center gap-2 px-3 py-2 text-left transition-colors ${
+                      isActive
+                        ? "bg-lol-crimson/15 text-lol-text-bright"
+                        : "text-lol-text hover:bg-white/[0.04] hover:text-lol-text-bright"
+                    }`}
                   >
-                    {account.profileIconId != null ? (
-                      <img
-                        src={`https://raw.communitydragon.org/latest/plugins/rcp-be-lol-game-data/global/default/v1/profile-icons/${account.profileIconId}.jpg`}
-                        alt=""
-                        className="h-full w-full object-cover"
-                      />
-                    ) : (
-                      label.slice(0, 2).toUpperCase()
-                    )}
-                  </span>
-                  <span className="min-w-0 flex-1 truncate text-[13.5px] leading-tight">
-                    {label}
-                  </span>
-                </button>
-              );
-            })}
+                    <span className="flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-lol-card text-[11px] font-bold text-lol-text-bright">
+                      {account.profileIconId != null ? (
+                        <img
+                          src={`https://raw.communitydragon.org/latest/plugins/rcp-be-lol-game-data/global/default/v1/profile-icons/${account.profileIconId}.jpg`}
+                          alt=""
+                          className="h-full w-full object-cover"
+                        />
+                      ) : (
+                        accLabel.slice(0, 2).toUpperCase()
+                      )}
+                    </span>
+                    <span className="min-w-0 flex-1 truncate text-[13.5px] leading-tight">
+                      {accLabel}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
           </div>
         </section>
 

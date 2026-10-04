@@ -920,6 +920,8 @@ const GAMEFLOW_PHASE_PATH = "lol-gameflow/v1/gameflow-phase";
 // Game id and queue of the match currently being played, remembered from the
 // gameflow session so the phase change has something to act on.
 let liveGame: { gameId: number; queueId: number } | null = null;
+let matchmakingStartedAt: number | null = null;
+let lastTrackedPhase: string = "None";
 
 // Reconnect is the phase for rejoining a match already underway, so it counts
 // as being in a game just as much as InProgress does.
@@ -1336,6 +1338,7 @@ export function stopPolling() {
 export interface LiveGameData {
   gameTimeSec: number;
   gameMode: string;
+  items: Array<{ itemId: number; slot: number; displayName: string; count: number }>;
   activePlayer: {
     summonerName: string;
     level: number;
@@ -1374,33 +1377,40 @@ export async function fetchLiveGameData(): Promise<LiveGameData | null> {
     });
 
   try {
-    const [activeRaw, gameRaw, playersRaw] = await Promise.all([
-      get("/liveclientdata/activeplayer"),
-      get("/liveclientdata/gamestats"),
-      get("/liveclientdata/playerlist"),
-    ]);
-
-    const active = JSON.parse(activeRaw) as {
-      summonerName?: string;
-      level?: number;
-      currentGold?: number;
+    const allRaw = await get("/liveclientdata/allgamedata");
+    const all = JSON.parse(allRaw) as {
+      activePlayer?: {
+        summonerName?: string;
+        level?: number;
+        currentGold?: number;
+        championStats?: { creepScore?: number; kills?: number; deaths?: number; assists?: number };
+      };
+      allPlayers?: Array<{
+        summonerName?: string;
+        riotId?: string;
+        championName?: string;
+        level?: number;
+        isBot?: boolean;
+        scores?: { kills?: number; deaths?: number; assists?: number; creepScore?: number };
+        items?: Array<{
+          itemID?: number;
+          slot?: number;
+          displayName?: string;
+          count?: number;
+        }>;
+      }>;
+      gameData?: { gameTime?: number; gameMode?: string };
     };
-    const game = JSON.parse(gameRaw) as { gameTime?: number; gameMode?: string };
-    const players = JSON.parse(playersRaw) as Array<{
-      summonerName?: string;
-      riotId?: string;
-      championName?: string;
-      isBot?: boolean;
-      level?: number;
-      scores?: { kills?: number; deaths?: number; assists?: number; creepScore?: number };
-    }>;
+
+    const active = all.activePlayer ?? {};
+    const game = all.gameData ?? {};
+    const players = Array.isArray(all.allPlayers) ? all.allPlayers : [];
 
     const activeName = String(active.summonerName ?? "").trim();
     const activeLower = activeName.toLowerCase();
 
-    // Match the active player against the player list. Modern LoL clients may
-    // return only `riotId` ("GameName#TAG"); older ones return `summonerName`.
-    // Try every plausible identity before falling back to null.
+    // Match the active player against the player list. Modern clients return
+    // `riotId` (GameName#TAG); older ones return `summonerName`.
     const me =
       players.find((p) => p.summonerName && p.summonerName === activeName) ??
       players.find((p) => p.summonerName?.toLowerCase() === activeLower) ??
@@ -1408,34 +1418,26 @@ export async function fetchLiveGameData(): Promise<LiveGameData | null> {
       players.find((p) => p.riotId?.toLowerCase().split("#")[0] === activeLower) ??
       null;
 
-    // The playerlist `scores` object is unreliable in some game modes
-    // (Practice Tool returns 0 for creepScore). Query the dedicated scores
-    // endpoint for the authoritative values and merge.
-    let scores: {
-      kills?: number;
-      deaths?: number;
-      assists?: number;
-      creepScore?: number;
-    } = me?.scores ?? {};
+    // Prefer the player-list scores — activePlayer.championStats misses CS in
+    // some modes. Fall back to championStats only if the playerlist didn't match.
+    const scores = me?.scores ?? active.championStats ?? {};
 
-    if (activeName) {
-      try {
-        const scoresRaw = await get(
-          `/liveclientdata/playerscores?summonerName=${encodeURIComponent(activeName)}`,
-        );
-        const parsed = JSON.parse(scoresRaw) as typeof scores;
-        scores = { ...scores, ...parsed };
-      } catch {
-        // Fall back to whatever the playerlist already gave us.
-      }
-    }
+    const items = (me?.items ?? [])
+      .filter((it) => Number(it.itemID ?? 0) > 0)
+      .map((it) => ({
+        itemId: Number(it.itemID ?? 0),
+        slot: Number(it.slot ?? 0),
+        displayName: String(it.displayName ?? ""),
+        count: Number(it.count ?? 1),
+      }));
 
     return {
       gameTimeSec: Number(game.gameTime ?? 0),
       gameMode: String(game.gameMode ?? ""),
+      items,
       activePlayer: {
         summonerName: activeName,
-        level: Number(active.level ?? 0),
+        level: Number(active.level ?? me?.level ?? 0),
         currentGold: Number(active.currentGold ?? 0),
         championName: String(me?.championName ?? ""),
         kills: Number(scores.kills ?? 0),
@@ -1448,4 +1450,181 @@ export async function fetchLiveGameData(): Promise<LiveGameData | null> {
     // Not in a match, or the game client hasn't opened the port yet.
     return null;
   }
+}
+
+export interface LiveSessionData {
+  phase: string;
+  queueId: number | null;
+  queueLabel: string | null;
+  lobbySize: number | null;
+  lobbyMaxSize: number | null;
+  queueStartedAt: number | null;
+  champSelect: {
+    myChampionId: number | null;
+    myTeam: Array<{ summonerName: string; championId: number; isMe: boolean }>;
+    bench: Array<{ championId: number }>;
+    isMyTurn: boolean;
+    timeLeftMs: number | null;
+  } | null;
+}
+
+const QUEUE_LABEL_BY_ID: Record<number, string> = {
+  400: "Normal Draft",
+  420: "Ranked Solo",
+  430: "Normal Blind",
+  440: "Ranked Flex",
+  450: "ARAM",
+  480: "Swiftplay",
+  700: "Clash",
+  720: "ARAM Clash",
+  1700: "Arena",
+  1740: "Arena",
+  1750: "Arena",
+  2400: "ARAM Mayhem",
+  2450: "ARAM Mayhem",
+};
+
+export async function fetchLiveSessionData(): Promise<LiveSessionData | null> {
+  console.log("[lcu] fetchLiveSessionData called:", {});
+  if (!isClientConnected()) {
+    console.log("[lcu] fetchLiveSessionData done:", { session: null, connected: false });
+    return null;
+  }
+
+  let phase = "None";
+  try {
+    const raw = (await lcuRequest("/lol-gameflow/v1/gameflow-phase")) as unknown;
+    phase = typeof raw === "string" ? raw : "None";
+  } catch {
+    phase = "None";
+  }
+
+  if (phase === "Matchmaking" && lastTrackedPhase !== "Matchmaking") {
+    matchmakingStartedAt = Date.now();
+  }
+  if (phase !== "Matchmaking" && phase !== "ReadyCheck") {
+    matchmakingStartedAt = null;
+  }
+  lastTrackedPhase = phase;
+
+  let queueId: number | null = null;
+  try {
+    const session = (await lcuRequest("/lol-gameflow/v1/session")) as {
+      gameData?: { queue?: { id?: unknown } };
+    };
+    const qid = session?.gameData?.queue?.id;
+    if (typeof qid === "number") queueId = qid;
+  } catch {
+    queueId = null;
+  }
+
+  let lobbySize: number | null = null;
+  let lobbyMaxSize: number | null = null;
+  if (phase === "Lobby" || phase === "Matchmaking" || phase === "ReadyCheck") {
+    try {
+      const lobby = (await lcuRequest("/lol-lobby/v2/lobby")) as {
+        members?: unknown;
+        gameConfig?: { maxLobbySize?: unknown; queueId?: unknown };
+      };
+      lobbySize = Array.isArray(lobby?.members) ? lobby.members.length : null;
+      lobbyMaxSize =
+        typeof lobby?.gameConfig?.maxLobbySize === "number" ? lobby.gameConfig.maxLobbySize : null;
+      if (queueId == null && typeof lobby?.gameConfig?.queueId === "number") {
+        queueId = lobby.gameConfig.queueId;
+      }
+    } catch {
+      // Lobby endpoint may fail in transitional phases.
+    }
+  }
+
+  let champSelect: LiveSessionData["champSelect"] = null;
+  if (phase === "ChampSelect") {
+    try {
+      const session = (await lcuRequest("/lol-champ-select/v1/session")) as {
+        localPlayerCellId?: unknown;
+        myTeam?: Array<{
+          summonerId?: unknown;
+          cellId?: unknown;
+          championId?: unknown;
+        }>;
+        bench?: Array<{ championId?: unknown }>;
+        actions?: Array<
+          Array<{
+            actorCellId?: unknown;
+            type?: unknown;
+            completed?: unknown;
+            isInProgress?: unknown;
+            timer?: {
+              adjustedTimeLeftInPhase?: unknown;
+              internalNowInEpochMs?: unknown;
+            };
+          }>
+        >;
+        gameData?: { queue?: { id?: unknown } };
+      };
+      if (session) {
+        const localCellId = Number(session.localPlayerCellId ?? -1);
+        const myTeam = Array.isArray(session.myTeam)
+          ? session.myTeam.map((member) => ({
+              summonerName: String(member.summonerId ?? member.cellId ?? ""),
+              championId: Number(member.championId ?? 0),
+              isMe: Number(member.cellId) === localCellId,
+            }))
+          : [];
+        const bench = Array.isArray(session.bench)
+          ? session.bench.map((entry) => ({ championId: Number(entry.championId ?? 0) }))
+          : [];
+        const me = session.myTeam?.find((member) => Number(member.cellId) === localCellId);
+        const myChampionId = me ? Number(me.championId ?? 0) : null;
+
+        let isMyTurn = false;
+        let timeLeftMs: number | null = null;
+        for (const group of session.actions ?? []) {
+          for (const action of group ?? []) {
+            if (
+              Number(action.actorCellId) === localCellId &&
+              action.type === "pick" &&
+              !action.completed
+            ) {
+              isMyTurn = action.isInProgress === true;
+            }
+            if (action.isInProgress) {
+              timeLeftMs =
+                Number(
+                  action.timer?.adjustedTimeLeftInPhase ?? action.timer?.internalNowInEpochMs ?? 0,
+                ) || null;
+            }
+          }
+        }
+
+        if (typeof session.gameData?.queue?.id === "number") {
+          queueId = session.gameData.queue.id;
+        }
+        champSelect = { myChampionId, myTeam, bench, isMyTurn, timeLeftMs };
+      }
+    } catch {
+      // Champ-select endpoint may be unavailable during a transition.
+    }
+  }
+
+  if (phase === "None" && queueId == null && lobbySize == null && champSelect == null) {
+    console.log("[lcu] fetchLiveSessionData done:", { session: null });
+    return null;
+  }
+
+  const result = {
+    phase,
+    queueId,
+    queueLabel: queueId != null ? (QUEUE_LABEL_BY_ID[queueId] ?? `Queue ${queueId}`) : null,
+    lobbySize,
+    lobbyMaxSize,
+    queueStartedAt: matchmakingStartedAt,
+    champSelect,
+  };
+  console.log("[lcu] fetchLiveSessionData done:", {
+    phase: result.phase,
+    queueId: result.queueId,
+    lobbySize: result.lobbySize,
+  });
+  return result;
 }

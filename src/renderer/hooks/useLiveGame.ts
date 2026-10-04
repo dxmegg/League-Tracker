@@ -1,26 +1,35 @@
 import { useEffect, useState } from "react";
-import type { LiveGameData } from "../../shared/api";
+import type { LiveGameData, LiveSessionData } from "../../shared/api";
 import { useLcuStatus } from "./useLcuStatus";
 
-const POLL_MS = 2_000;
+const POLL_MS = 1_000;
 
-export function useLiveGame(): LiveGameData | null {
+export function useLiveGame(): {
+  game: LiveGameData | null;
+  session: LiveSessionData | null;
+} {
   const status = useLcuStatus();
-  const [data, setData] = useState<LiveGameData | null>(null);
+  const [data, setData] = useState<{
+    game: LiveGameData | null;
+    session: LiveSessionData | null;
+  }>({ game: null, session: null });
 
   useEffect(() => {
-    if (status !== "ingame") {
-      setData(null);
+    if (status === "disconnected" || status === "connecting") {
+      setData({ game: null, session: null });
       return;
     }
 
     let cancelled = false;
     const tick = async () => {
       try {
-        const next = await window.api.getLiveGame();
-        if (!cancelled) setData(next);
+        const [game, session] = await Promise.all([
+          window.api.getLiveGame(),
+          window.api.getLiveSession(),
+        ]);
+        if (!cancelled) setData({ game, session });
       } catch {
-        if (!cancelled) setData(null);
+        if (!cancelled) setData({ game: null, session: null });
       }
     };
 
