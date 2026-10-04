@@ -43,6 +43,7 @@ function FullHistorySection({ section }: { section: string }) {
     );
   }
   if (section === "items") {
+    if (isExperiment) return <Items />;
     return (
       <SectionChrome title="ITEMS" scope="FULL">
         <Items />

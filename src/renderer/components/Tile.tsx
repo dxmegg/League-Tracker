@@ -6,15 +6,17 @@ export function Tile({
   subtitle,
   tier,
   trackValue,
+  onClick,
 }: {
   icon: ReactNode;
   title: string;
   subtitle: string;
   tier?: "S" | "G" | "P";
   trackValue?: number;
+  onClick?: () => void;
 }) {
-  return (
-    <div className="tile">
+  const content = (
+    <>
       {tier && (
         <span className={`tier ${tier}`}>
           {tier === "S" ? "SILVER" : tier === "G" ? "GOLD" : "PRISMATIC"}
@@ -31,6 +33,18 @@ export function Tile({
           />
         </div>
       )}
-    </div>
+    </>
   );
+  if (onClick) {
+    return (
+      <button
+        type="button"
+        onClick={onClick}
+        className="tile cursor-pointer text-left transition-colors hover:border-lol-crimson/40"
+      >
+        {content}
+      </button>
+    );
+  }
+  return <div className="tile">{content}</div>;
 }
