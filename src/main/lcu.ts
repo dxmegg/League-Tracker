@@ -9,6 +9,7 @@ import {
   LeagueWebSocket,
 } from "league-connect";
 import { BrowserWindow } from "electron";
+import https from "https";
 import * as db from "./db";
 import type { CurrentSummoner, LcuStatus, ProfileExtras, RankEntry } from "../shared/api";
 import { accountByRiotId, regionalRoute } from "./riot-api";
@@ -1330,4 +1331,91 @@ export function stopPolling() {
     connectTimer = null;
   }
   stopEogListener();
+}
+
+export interface LiveGameData {
+  gameTimeSec: number;
+  gameMode: string;
+  activePlayer: {
+    summonerName: string;
+    level: number;
+    currentGold: number;
+    championName: string;
+    kills: number;
+    deaths: number;
+    assists: number;
+    creepScore: number;
+  };
+}
+
+export async function fetchLiveGameData(): Promise<LiveGameData | null> {
+  // Live Client Data API on 127.0.0.1:2999 uses a self-signed cert. This is a
+  // localhost-only service so skipping verification here is acceptable.
+  const get = (path: string) =>
+    new Promise<string>((resolve, reject) => {
+      const req = https.get(
+        { host: "127.0.0.1", port: 2999, path, rejectUnauthorized: false, timeout: 1500 },
+        (res) => {
+          if (res.statusCode !== 200) {
+            res.resume();
+            reject(new Error(`status ${res.statusCode}`));
+            return;
+          }
+          let body = "";
+          res.setEncoding("utf8");
+          res.on("data", (chunk) => (body += chunk));
+          res.on("end", () => resolve(body));
+        },
+      );
+      req.on("error", reject);
+      req.on("timeout", () => {
+        req.destroy(new Error("timeout"));
+      });
+    });
+
+  try {
+    const [activeRaw, gameRaw, playersRaw] = await Promise.all([
+      get("/liveclientdata/activeplayer"),
+      get("/liveclientdata/gamestats"),
+      get("/liveclientdata/playerlist"),
+    ]);
+
+    const active = JSON.parse(activeRaw) as {
+      summonerName?: string;
+      level?: number;
+      currentGold?: number;
+    };
+    const game = JSON.parse(gameRaw) as { gameTime?: number; gameMode?: string };
+    const players = JSON.parse(playersRaw) as Array<{
+      summonerName?: string;
+      riotId?: string;
+      championName?: string;
+      level?: number;
+      scores?: { kills?: number; deaths?: number; assists?: number; creepScore?: number };
+    }>;
+
+    // Match the active player against the player list by summoner name — the
+    // activeplayer payload doesn't include the champion or the KDA, both of
+    // which live on the playerlist entry.
+    const me =
+      players.find((p) => p.summonerName && p.summonerName === active.summonerName) ?? null;
+
+    return {
+      gameTimeSec: Number(game.gameTime ?? 0),
+      gameMode: String(game.gameMode ?? ""),
+      activePlayer: {
+        summonerName: String(active.summonerName ?? ""),
+        level: Number(active.level ?? 0),
+        currentGold: Number(active.currentGold ?? 0),
+        championName: String(me?.championName ?? ""),
+        kills: Number(me?.scores?.kills ?? 0),
+        deaths: Number(me?.scores?.deaths ?? 0),
+        assists: Number(me?.scores?.assists ?? 0),
+        creepScore: Number(me?.scores?.creepScore ?? 0),
+      },
+    };
+  } catch {
+    // Not in a match, or the game client hasn't opened the port yet.
+    return null;
+  }
 }

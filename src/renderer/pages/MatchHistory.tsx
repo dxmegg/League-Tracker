@@ -5,6 +5,7 @@ import { useIpc } from "../hooks/useIpc";
 import { useLcuStatus } from "../hooks/useLcuStatus";
 import { useBackfill } from "../hooks/useBackfill";
 import { useViewState } from "../hooks/useViewState";
+import { useActiveAccount } from "../hooks/useActiveAccount";
 import type {
   MatchListItem,
   MatchDetail,
@@ -57,6 +58,7 @@ import {
   isAugmentQueue,
 } from "../../shared/queues";
 import { parseRuneIds } from "../lib/runes";
+import { ALL_ACCOUNTS_SENTINEL } from "../lib/accountsEvent";
 
 // An empty list means something different depending on whether we're still
 // waiting on the client, mid-import, or genuinely out of games.
@@ -260,10 +262,9 @@ export default function MatchHistory({
             : scope === "arena"
               ? (queueFilter ?? QUEUE_SCOPE_ARENA)
               : queueFilter;
-  const [accountFilter, setAccountFilter] = useViewState<string | undefined>(
-    "matches.account",
-    undefined,
-  );
+  const [activeAccountRaw] = useActiveAccount();
+  const accountFilter: string | undefined =
+    activeAccountRaw === ALL_ACCOUNTS_SENTINEL ? undefined : activeAccountRaw;
   const [multikillFilter] = useViewState<MultikillType[]>("matches.multikills", []);
   const [sort, setSort] = useViewState<MatchSort | undefined>("matches.sort", undefined);
   const [sortDir, setSortDir] = useViewState<MatchSortDir>("matches.sortDir", "desc");
@@ -377,12 +378,6 @@ export default function MatchHistory({
     ) {
       setQueueFilter(undefined);
     }
-    if (
-      accountFilter !== undefined &&
-      !filterOptions.accounts.some((a) => a.puuid === accountFilter)
-    ) {
-      setAccountFilter(undefined);
-    }
     // Settles rather than loops: clearing a filter sets it to undefined, and
     // the undefined branch does nothing on the re-run.
   }, [
@@ -395,7 +390,6 @@ export default function MatchHistory({
     setChampionFilter,
     setPatchFilter,
     setQueueFilter,
-    setAccountFilter,
   ]);
 
   // Unfavoriting the last game takes the toggle button away with it, so the
@@ -806,19 +800,6 @@ export default function MatchHistory({
                 }`}
               />
             )}
-            {(filterOptions.accounts.length > 1 || accountFilter !== undefined) && (
-              <FilterSelect
-                value={accountFilter}
-                onChange={(value) => setAccountFilter(value)}
-                placeholder="All Accounts"
-                title="Account"
-                className="h-8 px-3 text-[12.5px]"
-                options={filterOptions.accounts.map((a) => ({
-                  value: a.puuid,
-                  label: a.name ?? "Unknown account",
-                }))}
-              />
-            )}
             <ChampionCombobox
               value={championFilter ?? null}
               onChange={(value) => setChampionFilter(value ?? undefined)}
@@ -896,19 +877,6 @@ export default function MatchHistory({
                     ? "border-lol-gold/60 bg-lol-gold/10 text-amber-400"
                     : "border-lol-border bg-lol-card text-lol-text hover:border-lol-gold/60 hover:text-lol-text-bright"
                 }`}
-              />
-            )}
-            {/* A single-account database doesn't need an account dropdown */}
-            {(filterOptions.accounts.length > 1 || accountFilter !== undefined) && (
-              <FilterSelect
-                value={accountFilter}
-                onChange={(value) => setAccountFilter(value)}
-                placeholder="All Accounts"
-                title="Account"
-                options={filterOptions.accounts.map((a) => ({
-                  value: a.puuid,
-                  label: a.name ?? "Unknown account",
-                }))}
               />
             )}
             <FilterSelect

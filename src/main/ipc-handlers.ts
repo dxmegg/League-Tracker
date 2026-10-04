@@ -530,6 +530,10 @@ export function registerIpcHandlers() {
     return lcu.getStatus();
   });
 
+  ipcMain.handle("lcu:live-game", async () => {
+    return lcu.fetchLiveGameData();
+  });
+
   ipcMain.handle("lcu:current-puuid", async () => {
     console.log("[lcu] current puuid handler called:", {});
     if (!lcu.isClientConnected()) {

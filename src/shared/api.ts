@@ -743,6 +743,21 @@ export interface ParsedParticipant {
 
 export type LcuStatus = "disconnected" | "connecting" | "connected" | "ingame";
 
+export interface LiveGameData {
+  gameTimeSec: number;
+  gameMode: string;
+  activePlayer: {
+    summonerName: string;
+    level: number;
+    currentGold: number;
+    championName: string;
+    kills: number;
+    deaths: number;
+    assists: number;
+    creepScore: number;
+  };
+}
+
 export interface BackfillProgress {
   current: number;
   total: number;
@@ -1083,6 +1098,7 @@ export interface ElectronAPI {
     callback: (progress: ParticipantScoreBackfillProgress) => void,
   ) => () => void;
   getLcuStatus: () => Promise<LcuStatus>;
+  getLiveGame: () => Promise<LiveGameData | null>;
   getChampionDataVersion: () => Promise<string>;
   getChampionData: () => Promise<ChampionData>;
   getAugmentData: (patch?: string) => Promise<AugmentData>;
