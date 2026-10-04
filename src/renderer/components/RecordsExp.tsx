@@ -1,4 +1,5 @@
 import type { RecordMatchRef, RecordsData, StatRecord, StreakRecord } from "../lib/types";
+import { formatDuration } from "../lib/format";
 import ChampionIcon from "./ChampionIcon";
 import { RecordTile } from "./RecordTile";
 
@@ -55,7 +56,15 @@ function StreakTile({ label, streak }: { label: string; streak: StreakRecord }) 
   );
 }
 
-function StandardRecordTile({ label, record }: { label: string; record: StatRecord }) {
+function StandardRecordTile({
+  label,
+  record,
+  formatValue,
+}: {
+  label: string;
+  record: StatRecord;
+  formatValue?: (value: number) => string;
+}) {
   return (
     <RecordTile
       label={label}
@@ -63,6 +72,7 @@ function StandardRecordTile({ label, record }: { label: string; record: StatReco
       championId={record.match.champion_id}
       win={record.match.win}
       gameCreation={record.match.game_creation}
+      formatValue={formatValue}
     />
   );
 }
@@ -129,6 +139,30 @@ export function RecordsExp({ data }: { data: RecordsData | null }) {
     ),
     bests.criticalStrike && (
       <StandardRecordTile key="criticalStrike" label="Biggest crit" record={bests.criticalStrike} />
+    ),
+    bests.longestGame && (
+      <StandardRecordTile
+        key="longestGame"
+        label="Longest game"
+        record={bests.longestGame}
+        formatValue={formatDuration}
+      />
+    ),
+    bests.fastestWin && (
+      <StandardRecordTile
+        key="fastestWin"
+        label="Fastest win"
+        record={bests.fastestWin}
+        formatValue={formatDuration}
+      />
+    ),
+    bests.fastestLoss && (
+      <StandardRecordTile
+        key="fastestLoss"
+        label="Fastest loss"
+        record={bests.fastestLoss}
+        formatValue={formatDuration}
+      />
     ),
     data.winStreak && (
       <StreakTile key="winStreak" label="Longest win streak" streak={data.winStreak} />

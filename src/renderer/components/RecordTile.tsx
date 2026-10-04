@@ -7,24 +7,27 @@ export function RecordTile({
   championId,
   win,
   gameCreation,
+  formatValue,
 }: {
   label: string;
   value: number;
   championId: number;
   win: number;
   gameCreation: number;
+  formatValue?: (value: number) => string;
 }) {
   const date = new Date(gameCreation).toLocaleDateString("en-GB", {
     day: "2-digit",
     month: "short",
     year: "numeric",
   });
+  const display = formatValue ? formatValue(value) : formatNumber(value);
 
   return (
     <div className="flex flex-col rounded-xl border border-lol-border bg-black/10 px-3.5 py-3">
       <span className="text-[12.5px] uppercase tracking-wider text-lol-text">{label}</span>
       <b className="my-0.5 font-display text-[28px] font-bold leading-tight text-lol-text-bright">
-        {formatNumber(value)}
+        {display}
       </b>
       <div className="flex items-center gap-2 text-[12.5px] text-lol-text">
         <ChampionIcon championId={championId} size={26} className="rounded-full" />
