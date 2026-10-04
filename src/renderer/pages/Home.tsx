@@ -663,7 +663,7 @@ export default function Home() {
               </span>
             </div>
             <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 md:grid-cols-5">
-              {(dashboard?.topChampions ?? []).slice(0, 5).map((champion) => (
+              {(dashboard?.topChampions ?? []).slice(0, 10).map((champion) => (
                 <ChampCard
                   key={champion.championId}
                   championId={champion.championId}
