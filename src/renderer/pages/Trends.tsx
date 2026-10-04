@@ -7,7 +7,9 @@ import { formatPatch } from "../lib/format";
 import QueueSelect from "../components/QueueSelect";
 import { FilterChip } from "../components/FilterChip";
 import { useActiveTheme } from "../hooks/useActiveTheme";
+import { useActiveAccount } from "../hooks/useActiveAccount";
 import { TrendsExp } from "../components/TrendsExp";
+import { ALL_ACCOUNTS_SENTINEL } from "../lib/accountsEvent";
 
 // ---- Time helpers ----
 
@@ -648,6 +650,10 @@ function HourChart({ hours }: { hours: TrendsData["hours"] }) {
 
 export default function Trends() {
   const [searchParams, setSearchParams] = useSearchParams();
+  const activeTheme = useActiveTheme();
+  const isExperiment = activeTheme === "experiment";
+  const [activeAccountRaw] = useActiveAccount();
+  const account = activeAccountRaw === ALL_ACCOUNTS_SENTINEL ? "all" : activeAccountRaw;
   const queueParam = searchParams.get("queue");
   const queue = queueParam ? Number(queueParam) : undefined;
   const setQueue = (q: number | undefined) => {
@@ -663,9 +669,10 @@ export default function Trends() {
   };
 
   const scopedQueue = queue ?? useHistoryScopeQueue();
+  const accountForFetch = isExperiment ? account : undefined;
   const { data, refetch } = useIpc<TrendsData>(
-    () => window.api.getTrends(scopedQueue),
-    [scopedQueue],
+    () => window.api.getTrends(scopedQueue, accountForFetch),
+    [scopedQueue, accountForFetch],
   );
 
   useEffect(() => {
@@ -720,9 +727,6 @@ export default function Trends() {
     const ticks = Array.from({ length: 5 }, (_, i) => min + ((max - min) * i) / 4);
     return { min, max, ticks };
   }, [scorePoints]);
-
-  const activeTheme = useActiveTheme();
-  const isExperiment = activeTheme === "experiment";
 
   if (isExperiment) {
     return <TrendsExp data={data} />;

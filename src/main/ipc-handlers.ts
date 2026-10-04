@@ -684,9 +684,12 @@ export function registerIpcHandlers() {
       return db.getOwnedItemStats(patch, queue, account);
     },
   );
-  ipcMain.handle("db:owned-rune-stats", (_event, queue?: number, patch?: string) => {
-    return db.getOwnedRuneStats(queue, patch);
-  });
+  ipcMain.handle(
+    "db:owned-rune-stats",
+    (_event, queue?: number, patch?: string, account?: string) => {
+      return db.getOwnedRuneStats(queue, patch, account);
+    },
+  );
   ipcMain.handle(
     "db:owned-item-detail",
     (_event, itemId: number, patch?: string, queue?: number) => {

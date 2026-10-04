@@ -1,7 +1,9 @@
 import { useMemo } from "react";
 import type { RuneOverview } from "../lib/types";
 import { useIpc } from "../hooks/useIpc";
+import { useActiveAccount } from "../hooks/useActiveAccount";
 import { useChampionData, getChampionName, useRuneData } from "../hooks/useChampions";
+import { ALL_ACCOUNTS_SENTINEL } from "../lib/accountsEvent";
 import ChampionIcon from "./ChampionIcon";
 import RuneIcon from "./RuneIcon";
 import WinRateBar from "./WinRateBar";
@@ -20,7 +22,12 @@ type RuneChampionRow = {
 export function RunesExp() {
   const champions = useChampionData();
   const runeData = useRuneData();
-  const { data, loading } = useIpc<RuneOverview>(() => window.api.getOwnedRuneStats(), []);
+  const [activeAccountRaw] = useActiveAccount();
+  const account = activeAccountRaw === ALL_ACCOUNTS_SENTINEL ? "all" : activeAccountRaw;
+  const { data, loading } = useIpc<RuneOverview>(
+    () => window.api.getOwnedRuneStats(undefined, undefined, account),
+    [account],
+  );
 
   const keystones = useMemo(
     () =>

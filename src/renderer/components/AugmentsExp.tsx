@@ -1,11 +1,13 @@
 import { useMemo, useState } from "react";
 import type { AugmentStatsDetailedResult } from "../lib/types";
 import { useIpc } from "../hooks/useIpc";
+import { useActiveAccount } from "../hooks/useActiveAccount";
 import { useAugmentData, getAugmentName } from "../hooks/useChampions";
 import AugmentIcon from "./AugmentIcon";
 import { Tile } from "./Tile";
 import { TileGrid } from "./TileGrid";
 import { formatNumber } from "../lib/format";
+import { ALL_ACCOUNTS_SENTINEL } from "../lib/accountsEvent";
 
 type RarityFilter = "all" | "kSilver" | "kGold" | "kPrismatic";
 
@@ -26,9 +28,11 @@ function tierForRarity(rarity: string | undefined): "S" | "G" | "P" | undefined 
 export function AugmentsExp() {
   const augmentData = useAugmentData();
   const [rarityFilter, setRarityFilter] = useState<RarityFilter>("all");
+  const [activeAccountRaw] = useActiveAccount();
+  const account = activeAccountRaw === ALL_ACCOUNTS_SENTINEL ? "all" : activeAccountRaw;
   const { data, loading } = useIpc<AugmentStatsDetailedResult>(
-    () => window.api.getAugmentStatsDetailed(),
-    [],
+    () => window.api.getAugmentStatsDetailed(undefined, undefined, account),
+    [account],
   );
 
   const sorted = useMemo(() => {

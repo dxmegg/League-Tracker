@@ -10,21 +10,28 @@ export function useActiveAccount(): [string, (puuid: string) => void] {
   const [puuid, setPuuid] = useState<string>(ALL_ACCOUNTS_SENTINEL);
 
   useEffect(() => {
+    // `cancelled` starts as a mount-race guard and doubles as an event latch:
+    // once a broadcast arrives, it flips true so the in-flight getSetting
+    // cannot resolve afterwards and revert the fresher value.
     let cancelled = false;
-    window.api
+
+    const initialRead = window.api
       .getSetting(ACTIVE_ACCOUNT_KEY)
-      .then((value) => {
-        if (!cancelled) setPuuid(value ?? ALL_ACCOUNTS_SENTINEL);
-      })
-      .catch(() => {
-        if (!cancelled) setPuuid(ALL_ACCOUNTS_SENTINEL);
-      });
+      .then((value) => (value ?? ALL_ACCOUNTS_SENTINEL) as string)
+      .catch(() => ALL_ACCOUNTS_SENTINEL as string);
 
     const handler = (event: Event) => {
       const detail = (event as CustomEvent<string>).detail;
+      cancelled = true;
       setPuuid(typeof detail === "string" ? detail : ALL_ACCOUNTS_SENTINEL);
     };
     window.addEventListener(ACTIVE_ACCOUNT_EVENT, handler);
+
+    initialRead.then((value) => {
+      if (cancelled) return;
+      setPuuid(value);
+    });
+
     return () => {
       cancelled = true;
       window.removeEventListener(ACTIVE_ACCOUNT_EVENT, handler);

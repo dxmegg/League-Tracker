@@ -9,18 +9,22 @@ import { SortableTable, type SortableColumn } from "./SortableTable";
 import { useChampionData, getChampionName } from "../hooks/useChampions";
 import { useHistoryScopeQueue } from "../lib/historyScope";
 import { useIpc } from "../hooks/useIpc";
+import { useActiveAccount } from "../hooks/useActiveAccount";
 import { useViewState } from "../hooks/useViewState";
 import { formatNumber } from "../lib/format";
+import { ALL_ACCOUNTS_SENTINEL } from "../lib/accountsEvent";
 
 export function ChampionExp() {
   const champData = useChampionData();
   const [patch, setPatch] = useViewState<string | undefined>("champions.patch", undefined);
   const [queue, setQueue] = useViewState<number | undefined>("champions.queue", undefined);
   const scopedQueue = queue ?? useHistoryScopeQueue();
+  const [activeAccountRaw] = useActiveAccount();
+  const account = activeAccountRaw === ALL_ACCOUNTS_SENTINEL ? "all" : activeAccountRaw;
 
   const { data, refetch } = useIpc<ChampionStats[]>(
-    () => window.api.getChampionStats(patch, scopedQueue),
-    [patch, scopedQueue],
+    () => window.api.getChampionStats(patch, scopedQueue, account),
+    [patch, scopedQueue, account],
   );
 
   useEffect(() => {

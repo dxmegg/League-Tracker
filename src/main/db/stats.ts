@@ -318,7 +318,7 @@ export function getAugmentStatsWithChampions(
 } {
   const source = statsSource(account);
   const where = ["g.is_remake = 0", source.accountFilter];
-  const params: any[] = account ? [account] : [];
+  const params: any[] = account && account !== "all" ? [account] : [];
   if (patch) {
     where.push("g.game_version = ?");
     params.push(patch);
@@ -828,7 +828,7 @@ export function getOwnedItemStats(patch?: string, queue?: number, account?: stri
   const source = statsSource(account);
   const where = ["g.is_remake = 0"];
   where.push(source.accountFilter);
-  const params: any[] = account ? [account] : [];
+  const params: any[] = account && account !== "all" ? [account] : [];
   if (patch) {
     where.push("g.game_version = ?");
     params.push(patch);
@@ -931,10 +931,11 @@ export function getOwnedItemDetail(itemId: number, patch?: string, queue?: numbe
   };
 }
 
-export function getOwnedRuneStats(queue?: number, patch?: string) {
+export function getOwnedRuneStats(queue?: number, patch?: string, account?: string) {
+  const source = statsSource(account);
   const where = ["g.is_remake = 0", "g.raw_gz IS NOT NULL"];
-  where.push(localGamesFilter("g"));
-  const params: any[] = [];
+  where.push(source.accountFilter);
+  const params: any[] = account && account !== "all" ? [account] : [];
   if (patch) {
     where.push("g.game_version = ?");
     params.push(patch);
@@ -943,8 +944,8 @@ export function getOwnedRuneStats(queue?: number, patch?: string) {
   where.push(`g.queue_id NOT IN (${EXCLUDED_STATS_SQL})`);
   const rows = db
     .prepare(
-      `SELECT g.raw_gz, g.puuid, ps.win, ps.champion_id, ps.kills, ps.deaths, ps.assists
-       FROM games g JOIN player_stats ps ON ps.game_id = g.game_id
+      `SELECT g.raw_gz, g.puuid, ${source.alias}.win, ${source.alias}.champion_id, ${source.alias}.kills, ${source.alias}.deaths, ${source.alias}.assists
+       FROM games g JOIN ${source.table} ${source.alias} ON g.game_id = ${source.alias}.game_id
        WHERE ${where.join(" AND ")}`,
     )
     .all(...params) as {
@@ -1212,7 +1213,7 @@ export function getTrendsData(queue?: number, account?: string): any {
   const source = statsSource(account);
   const where = ["g.is_remake = 0"];
   where.push(source.accountFilter);
-  const params: any[] = account ? [account] : [];
+  const params: any[] = account && account !== "all" ? [account] : [];
   applyQueueFilter(where, params, queue);
   where.push(`g.queue_id NOT IN (${EXCLUDED_STATS_SQL})`);
   const whereSql = `WHERE ${where.join(" AND ")}`;

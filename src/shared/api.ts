@@ -1007,7 +1007,7 @@ export interface ElectronAPI {
   ) => Promise<TeammateDetail | null>;
   getGlobalStats: (patch?: string, queue?: number) => Promise<GlobalStats>;
   getOwnedItemStats: (patch?: string, queue?: number, account?: string) => Promise<ItemStats[]>;
-  getOwnedRuneStats: (queue?: number, patch?: string) => Promise<RuneOverview>;
+  getOwnedRuneStats: (queue?: number, patch?: string, account?: string) => Promise<RuneOverview>;
   getRuneData: () => Promise<RuneData>;
   getRuneTrees: () => Promise<RuneTreeLayout>;
   getOwnedItemDetail: (itemId: number, patch?: string, queue?: number) => Promise<ItemDetail>;
