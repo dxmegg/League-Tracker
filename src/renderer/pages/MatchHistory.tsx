@@ -17,8 +17,8 @@ import type {
   BackfillProgress,
 } from "../lib/types";
 import ChampionIcon from "../components/ChampionIcon";
-import AugmentIcon from "../components/AugmentIcon";
 import ItemIcon from "../components/ItemIcon";
+import { parseAugmentIds, AugmentGrid } from "../components/AugmentGrid";
 import { HomeCard } from "../components/HomeCard";
 import { HistoryStatRow } from "../components/HistoryStatRow";
 import { MatchRowExperiment } from "../components/MatchRowExperiment";
@@ -766,7 +766,7 @@ export default function MatchHistory({
           </div>
         ))}
 
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between">
         <h1 className="flex items-center gap-2 text-xl font-bold text-lol-text-bright">
           <NoxianHerald className="shrink-0 text-lol-gold" />
           <span>
@@ -1025,6 +1025,12 @@ export default function MatchHistory({
             key={m.game_id}
             match={m}
             championName={getChampionName(champData, m.champion_id)}
+            champData={champData}
+            expanded={expandedId === m.game_id}
+            detail={expandedId === m.game_id ? detail : null}
+            detailLoading={expandedId === m.game_id && detailLoading}
+            puuids={puuids}
+            onToggle={() => toggleExpand(m.game_id)}
           />
         );
         return sessions ? (
@@ -1301,11 +1307,6 @@ export interface GameRowProps {
   compact?: boolean;
 }
 
-function parseAugmentIds(raw: string | null): number[] {
-  if (!raw) return [];
-  return raw.split(",").map(Number).filter(Boolean);
-}
-
 function formatNumber(value: number): string {
   if (value >= 1000) return `${(value / 1000).toFixed(1)}k`;
   return value.toString();
@@ -1351,21 +1352,6 @@ function MatchMultikillBadges({
           </span>
         ))}
       </div>
-    </div>
-  );
-}
-
-function AugmentGrid({ augmentIds, patch }: { augmentIds: number[]; patch?: string | null }) {
-  if (augmentIds.length === 0) return null;
-  const cols = augmentIds.length <= 3 ? augmentIds.length : augmentIds.length === 4 ? 2 : 3;
-
-  return (
-    <div className="grid gap-1 shrink-0" style={{ gridTemplateColumns: `repeat(${cols}, 24px)` }}>
-      {augmentIds.map((id, i) => (
-        <div key={i} className="w-6 h-6 rounded-md border border-lol-gold/30 overflow-hidden">
-          <AugmentIcon augmentId={id} size={24} patch={patch} />
-        </div>
-      ))}
     </div>
   );
 }

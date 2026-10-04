@@ -900,11 +900,12 @@ export default function Profile() {
     setScannedCount(0);
     setTotalCount(0);
     if (!selectedPuuid) return;
-    if (profileRef.current?.puuid && profileRef.current.puuid !== selectedPuuid) {
+    const sameAccount = profileRef.current?.puuid === selectedPuuid;
+    if (!sameAccount) {
       setProfile(null);
       setRecentMatches(null);
     }
-    void loadLocalProfile(selectedPuuid);
+    void loadLocalProfile(selectedPuuid, { silent: sameAccount });
   }, [selectedPuuid, loadLocalProfile, livePuuid]);
 
   useEffect(() => {
@@ -1170,7 +1171,7 @@ export default function Profile() {
             </div>
           )}
           {isExperiment ? (
-            <div className="mb-5 grid grid-cols-1 gap-5 xl:grid-cols-[1.25fr_1fr_1fr]">
+            <div className="mb-5 grid grid-cols-1 gap-5 2xl:grid-cols-[1.25fr_1fr_1fr]">
               <Panel>
                 <div className="mb-4 flex items-baseline justify-between gap-3">
                   <h2 className="font-display text-[16px] font-semibold text-lol-text-bright">

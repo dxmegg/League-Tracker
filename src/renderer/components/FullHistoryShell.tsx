@@ -20,7 +20,7 @@ export function FullHistoryShell() {
     return (
       <div className="flex h-full w-full">
         <Sidebar />
-        <div className="flex min-h-0 flex-1 flex-col">
+        <div className="flex min-h-0 min-w-0 flex-1 flex-col">
           <div className="titlebar-drag flex h-9 w-full shrink-0 items-center border-b border-lol-border/40 bg-lol-card/30">
             <div className="titlebar-no-drag ml-auto flex items-center gap-0.5 pr-2">
               <WindowControls />

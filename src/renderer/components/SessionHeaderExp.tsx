@@ -1,3 +1,5 @@
+import { formatNumber } from "../lib/format";
+
 export function SessionHeaderExp({
   label,
   games,
@@ -19,10 +21,10 @@ export function SessionHeaderExp({
         <span className="h-1.5 w-1.5 rounded-full bg-lol-gold" aria-hidden="true" />
         <span className="font-display text-[14px] font-semibold text-lol-text-bright">{label}</span>
         <span className="text-[12.5px] text-lol-text">
-          {games} {games === 1 ? "game" : "games"}
+          {formatNumber(games)} {games === 1 ? "game" : "games"}
         </span>
-        <span className="text-[12.5px] text-lol-win">{wins}W</span>
-        <span className="text-[12.5px] text-lol-loss">{losses}L</span>
+        <span className="text-[12.5px] text-lol-win">{formatNumber(wins)}W</span>
+        <span className="text-[12.5px] text-lol-loss">{formatNumber(losses)}L</span>
         <span className="text-[12.5px] text-lol-gold">{kda.toFixed(2)} KDA</span>
         <span className="text-[12.5px] text-lol-gold">{score.toFixed(1)} score</span>
       </div>

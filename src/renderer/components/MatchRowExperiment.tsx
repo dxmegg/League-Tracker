@@ -1,9 +1,15 @@
-import type { MatchListItem } from "../../shared/api";
+import type { ChampionData, MatchDetail, MatchListItem } from "../../shared/api";
 import { isAugmentQueue } from "../../shared/queues";
 import { queueLabel } from "./QueueSelect";
+import { AugmentGrid, parseAugmentIds } from "./AugmentGrid";
 import ChampionIcon from "./ChampionIcon";
 import ItemIcon from "./ItemIcon";
+import MatchScoreboardExp from "./MatchScoreboardExp";
+import { RuneCompact } from "./RuneSetup";
+import RuneIcon from "./RuneIcon";
+import { useRuneData } from "../hooks/useChampions";
 import { formatDuration, formatKDA, formatNumber, formatTimeAgo, kdaRatio } from "../lib/format";
+import { parseRuneIds, splitRuneSelections } from "../lib/runes";
 
 const STYLE = `
 .match-list-exp {
@@ -61,9 +67,9 @@ const STYLE = `
 .match-row .bar.t .track i { background: var(--theme-assist); }
 .match-row .bar.h .track i { background: var(--theme-win); }
 .match-row .bar em { font-style: normal; text-align: right; font-variant-numeric: tabular-nums; }
-.match-row .m-items { grid-area: items; display: flex; align-items: center; gap: 8px; }
+.match-row .m-items { grid-area: items; display: flex; align-items: center; gap: 8px; min-width: 0; }
 .match-row .m-items .itg { display: grid; grid-template-columns: repeat(3, 22px); gap: 3px; }
-.match-row .m-multi { grid-area: multi; display: flex; flex-wrap: wrap; gap: 5px; }
+.match-row .m-multi { grid-area: multi; display: flex; flex-wrap: wrap; gap: 5px; min-width: 0; }
 .match-row .pill { font-family: var(--theme-font-display); font-size: 11.5px; line-height: 1; font-weight: 600; padding: 5px 10px; border-radius: 9999px; border: 1px solid; }
 .match-row .pill.d { color: var(--theme-assist); border-color: rgba(77,184,255,0.5); background: rgba(77,184,255,0.10); }
 .match-row .pill.t { color: var(--theme-gold); border-color: rgba(230,188,99,0.55); background: rgba(230,188,99,0.10); }
@@ -103,20 +109,47 @@ const STYLE = `
 export function MatchRowExperiment({
   match,
   championName,
+  champData,
+  expanded = false,
+  detail = null,
+  detailLoading = false,
+  puuids = null,
+  onToggle,
+  onPlayerClick,
 }: {
   match: MatchListItem;
   championName: string;
+  champData?: ChampionData;
+  expanded?: boolean;
+  detail?: MatchDetail | null;
+  detailLoading?: boolean;
+  puuids?: string[] | null;
+  onToggle?: () => void;
+  onPlayerClick?: (player: {
+    puuid: string | null;
+    gameName: string | null;
+    tagLine: string | null;
+  }) => void;
 }) {
   const isWin = !!match.win;
   const isRemake = !!match.is_remake;
+  const runeData = useRuneData();
+  const augmentIds = parseAugmentIds(match.augment_ids);
+  const runeIds = parseRuneIds(match.rune_ids);
+  const statShardIds = parseRuneIds(match.stat_shard_ids);
+  const runeSetup = splitRuneSelections(runeIds, match.primary_style, match.secondary_style);
   const secondaryLabel = isAugmentQueue(match.queue_id)
     ? "Augments unavailable"
     : "Runes unavailable";
 
   return (
-    <>
+    <div>
       <style>{STYLE}</style>
-      <article className="match-row" data-win={isWin}>
+      <article
+        className={`match-row${onToggle ? " cursor-pointer" : ""}`}
+        data-win={isWin}
+        {...(onToggle ? { onClick: onToggle } : {})}
+      >
         <div className="m-res">
           <b className={isWin ? "text-lol-win" : "text-lol-loss"}>
             {isRemake ? "RMK" : isWin ? "Win" : "Loss"}
@@ -189,7 +222,36 @@ export function MatchRowExperiment({
         </div>
 
         <div className="m-items" title={secondaryLabel}>
-          <span className="h-[22px] w-[22px]" aria-hidden="true" />
+          <div className="flex items-center justify-center shrink-0">
+            {isAugmentQueue(match.queue_id) ? (
+              <AugmentGrid augmentIds={augmentIds} patch={match.game_version} />
+            ) : (
+              <RuneCompact
+                runeIds={runeIds}
+                primaryStyle={match.primary_style}
+                secondaryStyle={match.secondary_style}
+                statShardIds={statShardIds}
+                runeData={runeData}
+                version={match.game_version}
+              >
+                <span className="flex items-center gap-1 p-1 rounded-lg border border-lol-gold/40 bg-white/[0.02]">
+                  <RuneIcon
+                    runeId={runeSetup.keystone}
+                    path={runeData[runeSetup.keystone ?? 0]?.icon}
+                    version={match.game_version}
+                    size={22}
+                  />
+                  <RuneIcon
+                    runeId={match.secondary_style}
+                    path={runeData[match.secondary_style ?? 0]?.icon}
+                    version={match.game_version}
+                    size={18}
+                  />
+                </span>
+              </RuneCompact>
+            )}
+          </div>
+          <span className="text-lol-text/40 text-xs select-none">+</span>
           <div className="itg">
             {[match.item0, match.item1, match.item2, match.item3, match.item4, match.item5].map(
               (id, i) => (
@@ -211,6 +273,21 @@ export function MatchRowExperiment({
           <span>{formatTimeAgo(match.game_creation)}</span>
         </div>
       </article>
-    </>
+
+      {expanded && (
+        <div className="mb-2 rounded-b-xl border border-t-0 border-lol-border/60 bg-lol-card p-3">
+          {detailLoading ? (
+            <div className="py-4 text-center text-sm text-lol-text">Loading...</div>
+          ) : detail ? (
+            <MatchScoreboardExp
+              detail={detail}
+              champData={champData ?? {}}
+              puuids={puuids ?? null}
+              onPlayerClick={onPlayerClick}
+            />
+          ) : null}
+        </div>
+      )}
+    </div>
   );
 }
