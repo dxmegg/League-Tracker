@@ -60,6 +60,8 @@ function FullHistorySection({ section }: { section: string }) {
     );
   }
   if (section === "friends") {
+    if (isExperiment)
+      return <Friends relation="friends" historyScope="full" historySection={section} />;
     return (
       <SectionChrome title="FRIENDS & FOES" scope="FULL">
         <Friends relation="friends" historyScope="full" historySection={section} />

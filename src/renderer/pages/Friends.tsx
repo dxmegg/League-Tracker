@@ -11,6 +11,8 @@ import { SearchInput } from "../components/SearchInput";
 import WinRateBar from "../components/WinRateBar";
 import { formatTimeAgo, kdaRatio, kdaColor } from "../lib/format";
 import { useHistoryScopeQueue } from "../lib/historyScope";
+import { useActiveTheme } from "../hooks/useActiveTheme";
+import { FriendsExp } from "../components/FriendsExp";
 
 type SortKey = "games" | "winRate" | "kda" | "lastPlayed";
 type SortDir = "asc" | "desc";
@@ -82,6 +84,8 @@ export default function Friends({
   const [search, setSearch] = useViewState("friends.search", "");
   const [sortKey, setSortKey] = useViewState<SortKey>("friends.sortKey", "games");
   const [sortDir, setSortDir] = useViewState<SortDir>("friends.sortDir", "desc");
+  const activeTheme = useActiveTheme();
+  const isExperiment = activeTheme === "experiment";
 
   useEffect(() => {
     setVisibleCount(BATCH_SIZE);
@@ -131,6 +135,10 @@ export default function Friends({
 
     return filtered;
   }, [data, search, sortKey, sortDir]);
+
+  if (isExperiment) {
+    return <FriendsExp />;
+  }
 
   if (loading || !data) {
     return (
