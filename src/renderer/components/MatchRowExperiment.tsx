@@ -4,7 +4,7 @@ import { queueLabel } from "./QueueSelect";
 import { AugmentGrid, parseAugmentIds } from "./AugmentGrid";
 import ChampionIcon from "./ChampionIcon";
 import ItemIcon from "./ItemIcon";
-import MatchScoreboard from "./MatchScoreboard";
+import MatchScoreboardExp from "./MatchScoreboardExp";
 import { RuneCompact } from "./RuneSetup";
 import RuneIcon from "./RuneIcon";
 import { useRuneData } from "../hooks/useChampions";
@@ -279,7 +279,7 @@ export function MatchRowExperiment({
           {detailLoading ? (
             <div className="py-4 text-center text-sm text-lol-text">Loading...</div>
           ) : detail ? (
-            <MatchScoreboard
+            <MatchScoreboardExp
               detail={detail}
               champData={champData ?? {}}
               puuids={puuids ?? null}

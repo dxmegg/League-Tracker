@@ -1,0 +1,903 @@
+import { useMemo, useState, type ReactNode } from "react";
+import type { MatchDetail, ParsedParticipant } from "../lib/types";
+import { parseParticipants, groupByTeam } from "../lib/participants";
+import { getChampionName, useRuneData } from "../hooks/useChampions";
+import { formatKDA, kdaRatio } from "../lib/format";
+import { isArenaQueue, isAugmentQueue } from "../../shared/queues";
+import {
+  computeMatchScoreBreakdowns,
+  scoreColor,
+  type ScoreBreakdown,
+  type ScoreComponent,
+  type ScoreComponentKey,
+} from "../../shared/opScore";
+import ChampionIcon from "./ChampionIcon";
+import AugmentIcon from "./AugmentIcon";
+import ItemIcon from "./ItemIcon";
+import { RuneSetupGrid } from "./RuneSetup";
+import SummonerSpellIcon from "./SummonerSpellIcon";
+
+const GRID_COLS =
+  "grid-cols-[28px_minmax(140px,200px)_44px_56px_minmax(120px,180px)_minmax(120px,180px)_52px_52px_52px_240px_220px_1fr]";
+
+export default function MatchScoreboardExp({
+  detail,
+  champData,
+  puuids,
+  onPlayerClick,
+}: {
+  detail: MatchDetail;
+  champData: any;
+  puuids: string[] | null;
+  onPlayerClick?: (player: {
+    puuid: string | null;
+    gameName: string | null;
+    tagLine: string | null;
+  }) => void;
+}) {
+  const participants = useMemo(
+    () => parseParticipants(detail.participants, puuids),
+    [detail, puuids],
+  );
+  const teams = useMemo(() => groupByTeam(participants), [participants]);
+  const scores = useMemo(() => {
+    const classes: Record<number, string | undefined> = {};
+    for (const p of participants) classes[p.championId] = champData?.[p.championId]?.class;
+    return computeMatchScoreBreakdowns(participants, classes);
+  }, [participants, champData]);
+
+  const gameMaxStats = useMemo(() => {
+    let dmg = 0,
+      taken = 0,
+      gold = 0,
+      heal = 0;
+    for (const p of participants) {
+      if (p.totalDamageDealtToChampions > dmg) dmg = p.totalDamageDealtToChampions;
+      if (p.totalDamageTaken > taken) taken = p.totalDamageTaken;
+      if (p.goldEarned > gold) gold = p.goldEarned;
+      if (p.totalHeal > heal) heal = p.totalHeal;
+    }
+    return { dmg: dmg || 1, taken: taken || 1, gold: gold || 1, heal: heal || 1 };
+  }, [participants]);
+
+  if (participants.length === 0) {
+    return (
+      <div className="text-sm text-lol-text text-center py-4">Full game data not available.</div>
+    );
+  }
+
+  if (isArenaQueue(detail.game.queue_id)) {
+    return (
+      <div>
+        <ArenaScoreboard
+          participants={participants}
+          champData={champData}
+          patch={detail.game.game_version}
+          gameDuration={detail.game.game_duration}
+          onPlayerClick={onPlayerClick}
+        />
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-3">
+      {Array.from(teams.entries()).map(([teamId, players]) => (
+        <TeamScoreboard
+          key={teamId}
+          teamId={teamId}
+          players={players}
+          maxStats={gameMaxStats}
+          champData={champData}
+          scores={scores}
+          patch={detail.game.game_version}
+          gameDuration={detail.game.game_duration}
+          queueId={detail.game.queue_id}
+          onPlayerClick={onPlayerClick}
+        />
+      ))}
+    </div>
+  );
+}
+
+const ARENA_GRID_COLS =
+  "grid-cols-[28px_minmax(140px,240px)_64px_minmax(140px,220px)_minmax(140px,220px)_56px_56px_240px_220px_1fr]";
+
+function ArenaScoreboard({
+  participants,
+  champData,
+  patch,
+  gameDuration,
+  onPlayerClick,
+}: {
+  participants: ParsedParticipant[];
+  champData: any;
+  patch?: string | null;
+  gameDuration: number;
+  onPlayerClick?: (player: {
+    puuid: string | null;
+    gameName: string | null;
+    tagLine: string | null;
+  }) => void;
+}) {
+  const subteams = useMemo(() => {
+    const hasSubteams = participants.some((p) => p.playerSubteamId != null);
+
+    if (!hasSubteams) {
+      // Payload has no subteam ids: the game predates the v10 migration, or
+      // Riot simply did not include them. Fall back to one row per player so
+      // the layout is still informative rather than a single 3x3 block.
+      return participants.map((p) => ({
+        subteamId: p.participantId,
+        players: [p],
+        placement: p.playerSubteamPlacement ?? null,
+      }));
+    }
+
+    const map = new Map<number, ParsedParticipant[]>();
+    for (const p of participants) {
+      const key = p.playerSubteamId ?? p.teamId;
+      if (!map.has(key)) map.set(key, []);
+      map.get(key)!.push(p);
+    }
+    return [...map.entries()]
+      .map(([subteamId, players]) => {
+        const placement = players[0]?.playerSubteamPlacement ?? null;
+        return { subteamId, players, placement };
+      })
+      .sort((a, b) => {
+        if (a.placement == null && b.placement == null) return a.subteamId - b.subteamId;
+        if (a.placement == null) return 1;
+        if (b.placement == null) return -1;
+        return a.placement - b.placement;
+      });
+  }, [participants]);
+
+  return (
+    <div className="space-y-3">
+      {subteams.map(({ subteamId, players, placement }) => (
+        <ArenaTeamBlock
+          key={subteamId}
+          subteamId={subteamId}
+          placement={placement}
+          players={players}
+          champData={champData}
+          patch={patch}
+          gameDuration={gameDuration}
+          onPlayerClick={onPlayerClick}
+        />
+      ))}
+    </div>
+  );
+}
+
+const PLACEMENT_ORDINALS: Record<number, string> = {
+  1: "First place",
+  2: "Second place",
+  3: "Third place",
+  4: "Fourth place",
+  5: "Fifth place",
+  6: "Sixth place",
+};
+
+function placementLabel(placement: number | null, subteamId: number): string {
+  if (placement == null) return `Team ${subteamId}`;
+  return PLACEMENT_ORDINALS[placement] ?? `Placement ${placement}`;
+}
+
+function ArenaTeamBlock({
+  subteamId,
+  placement,
+  players,
+  champData,
+  patch,
+  gameDuration,
+  onPlayerClick,
+}: {
+  subteamId: number;
+  placement: number | null;
+  players: ParsedParticipant[];
+  champData: any;
+  patch?: string | null;
+  gameDuration: number;
+  onPlayerClick?: (player: {
+    puuid: string | null;
+    gameName: string | null;
+    tagLine: string | null;
+  }) => void;
+}) {
+  const isTopThree = placement != null ? placement <= 3 : (players[0]?.win ?? false);
+  const totals = players.reduce(
+    (acc, p) => {
+      acc.kills += p.kills;
+      acc.deaths += p.deaths;
+      acc.assists += p.assists;
+      acc.dmg += p.totalDamageDealtToChampions;
+      acc.taken += p.totalDamageTaken;
+      acc.gold += p.goldEarned;
+      acc.heal += p.totalHeal;
+      return acc;
+    },
+    { kills: 0, deaths: 0, assists: 0, dmg: 0, taken: 0, gold: 0, heal: 0 },
+  );
+
+  return (
+    <div className="rounded-2xl border border-lol-border bg-[linear-gradient(180deg,var(--theme-card-hover),var(--theme-card))] overflow-hidden">
+      <div
+        className={`px-4 py-2 flex flex-wrap items-baseline gap-x-4 gap-y-1 ${
+          isTopThree
+            ? "bg-gradient-to-r from-lol-win/15 via-lol-win/5 to-transparent"
+            : "bg-gradient-to-r from-lol-loss/15 via-lol-loss/5 to-transparent"
+        }`}
+      >
+        <span
+          className={`text-sm font-display font-bold uppercase tracking-wider ${
+            isTopThree ? "text-lol-win" : "text-lol-loss"
+          }`}
+        >
+          {placementLabel(placement, subteamId)}
+          {isTopThree ? " — Victory" : " — Defeat"}
+        </span>
+        <div className="flex flex-wrap items-baseline gap-x-5 gap-y-1">
+          <div className="flex items-baseline gap-x-2 border-l border-lol-border/30 pl-3 first:border-l-0 first:pl-0">
+            <TeamStat label="KDA">
+              <span className="text-lol-text-bright">
+                {formatKDA(totals.kills, totals.deaths, totals.assists)}
+              </span>
+            </TeamStat>
+          </div>
+          <div className="flex items-baseline gap-x-2 border-l border-lol-border/30 pl-3 first:border-l-0 first:pl-0">
+            <TeamStat label="Damage">
+              <span className="text-red-400">{compact(totals.dmg)}</span>
+            </TeamStat>
+          </div>
+          <div className="flex items-baseline gap-x-2 border-l border-lol-border/30 pl-3 first:border-l-0 first:pl-0">
+            <TeamStat label="Taken">
+              <span className="text-sky-400">{compact(totals.taken)}</span>
+            </TeamStat>
+          </div>
+          <div className="flex items-baseline gap-x-2 border-l border-lol-border/30 pl-3 first:border-l-0 first:pl-0">
+            <TeamStat label="Gold">
+              <span className="text-lol-gold">{compact(totals.gold)}</span>
+            </TeamStat>
+          </div>
+          <div className="flex items-baseline gap-x-2 border-l border-lol-border/30 pl-3 first:border-l-0 first:pl-0">
+            <TeamStat label="Heal">
+              <span className="text-emerald-400">{compact(totals.heal)}</span>
+            </TeamStat>
+          </div>
+        </div>
+      </div>
+      <div
+        className={`h-0.5 bg-gradient-to-r ${
+          isTopThree
+            ? "from-lol-win/40 via-lol-win/15 to-transparent"
+            : "from-lol-loss/40 via-lol-loss/15 to-transparent"
+        }`}
+      />
+
+      <div
+        className={`px-4 py-1.5 border-b border-lol-border/40 grid ${ARENA_GRID_COLS} gap-2 items-center text-[10px] font-bold text-lol-text uppercase tracking-wider bg-white/[0.015]`}
+      >
+        <span></span>
+        <span className="text-left">Player</span>
+        <span className="text-center">KDA</span>
+        <span className="text-right">Damage</span>
+        <span className="text-right">Taken</span>
+        <span className="text-right">Gold</span>
+        <span className="text-right">Heal</span>
+        <span className="text-center">Items</span>
+        <span className="text-center">Augments</span>
+        <span aria-hidden="true" />
+      </div>
+
+      {players.map((p) => (
+        <ArenaPlayerRow
+          key={p.participantId}
+          player={p}
+          placement={placement}
+          maxStats={{
+            dmg: Math.max(1, ...players.map((x) => x.totalDamageDealtToChampions)),
+            taken: Math.max(1, ...players.map((x) => x.totalDamageTaken)),
+          }}
+          champData={champData}
+          patch={patch}
+          gameDuration={gameDuration}
+          onPlayerClick={onPlayerClick}
+        />
+      ))}
+    </div>
+  );
+}
+
+function ArenaPlayerRow({
+  player: p,
+  placement,
+  maxStats,
+  champData,
+  patch,
+  gameDuration: _gameDuration,
+  onPlayerClick,
+}: {
+  player: ParsedParticipant;
+  placement: number | null;
+  maxStats: { dmg: number; taken: number };
+  champData: any;
+  patch?: string | null;
+  gameDuration: number;
+  onPlayerClick?: (player: {
+    puuid: string | null;
+    gameName: string | null;
+    tagLine: string | null;
+  }) => void;
+}) {
+  const kda = kdaRatio(p.kills, p.deaths, p.assists);
+  return (
+    <div
+      className={`px-4 py-2 border-b border-lol-border/20 last:border-b-0 grid ${ARENA_GRID_COLS} gap-2 items-center transition-colors hover:bg-white/[0.03] ${
+        p.isSelf ? "border-l-2 border-l-lol-gold bg-lol-gold/[0.06]" : ""
+      }`}
+    >
+      <div className="relative flex items-center gap-0.5">
+        <ChampionIcon championId={p.championId} size={32} />
+        <div className="flex flex-col gap-0.5">
+          <div className="rounded border border-lol-border/30 bg-white/[0.02] p-0.5">
+            <SummonerSpellIcon spellId={p.spell1Id} size={15} />
+          </div>
+          <div className="rounded border border-lol-border/30 bg-white/[0.02] p-0.5">
+            <SummonerSpellIcon spellId={p.spell2Id} size={15} />
+          </div>
+        </div>
+        <span className="absolute -left-1 -top-1 text-[9px] font-semibold text-lol-text-bright">
+          {placement != null ? placement : "—"}
+        </span>
+      </div>
+
+      <div className="min-w-0">
+        <button
+          type="button"
+          onClick={() => {
+            if (!onPlayerClick) return;
+            onPlayerClick({
+              puuid: p.puuid,
+              gameName: p.gameName ?? null,
+              tagLine: p.tagLine ?? null,
+            });
+          }}
+          disabled={!onPlayerClick || !p.puuid}
+          className={`text-xs font-display truncate text-left max-w-full transition-colors ${
+            p.isSelf ? "text-lol-gold font-semibold" : "text-lol-text-bright"
+          } ${onPlayerClick && p.puuid ? "cursor-pointer hover:text-lol-gold" : "cursor-default"}`}
+          title={p.gameName && p.tagLine ? `${p.gameName}#${p.tagLine}` : undefined}
+        >
+          {p.summonerName}
+        </button>
+        <div className="text-[10px] font-display text-lol-text truncate transition-colors hover:text-lol-gold">
+          {getChampionName(champData, p.championId)}
+        </div>
+      </div>
+
+      <div className="text-center">
+        <div className="text-[11px] font-display text-lol-text-bright">
+          {formatKDA(p.kills, p.deaths, p.assists)}
+        </div>
+        <div
+          className={`text-[10px] ${
+            parseFloat(kda) >= 3 || kda === "Perfect" ? "text-lol-gold" : "text-lol-text"
+          }`}
+        >
+          {kda}
+        </div>
+      </div>
+
+      <ScoreboardBar
+        value={p.totalDamageDealtToChampions}
+        max={maxStats.dmg}
+        color="bg-red-400/50"
+      />
+      <ScoreboardBar value={p.totalDamageTaken} max={maxStats.taken} color="bg-sky-400/50" />
+
+      <div className="text-right text-[11px] text-lol-gold">
+        {p.goldEarned >= 1000 ? `${(p.goldEarned / 1000).toFixed(1)}k` : p.goldEarned}
+      </div>
+      <div className="text-right text-[11px] text-emerald-400">
+        {p.totalHeal >= 1000 ? `${(p.totalHeal / 1000).toFixed(1)}k` : p.totalHeal}
+      </div>
+
+      <div className="flex gap-0.5 justify-center">
+        {p.items.slice(0, 6).map((itemId, i) => (
+          <div key={i} className="rounded border border-lol-border/30 bg-white/[0.02] p-0.5">
+            <ItemIcon itemId={itemId} size={22} patch={patch} />
+          </div>
+        ))}
+        <div className="ml-0.5 rounded border border-lol-border/30 bg-white/[0.02] p-0.5">
+          <ItemIcon itemId={p.items[6] ?? 0} size={22} patch={patch} />
+        </div>
+      </div>
+
+      <div className="flex items-center gap-1 justify-center">
+        {p.augments.map((augId, i) => (
+          <div key={i} className="rounded border border-lol-border/30 bg-white/[0.02] p-0.5">
+            <AugmentIcon augmentId={augId} size={22} patch={patch} />
+          </div>
+        ))}
+      </div>
+      <div aria-hidden="true" />
+    </div>
+  );
+}
+
+function TeamScoreboard({
+  teamId,
+  players,
+  maxStats,
+  champData,
+  scores,
+  patch,
+  gameDuration,
+  queueId,
+  onPlayerClick,
+}: {
+  teamId: number;
+  players: ParsedParticipant[];
+  maxStats: { dmg: number; taken: number; gold: number; heal: number };
+  champData: any;
+  scores: Map<number, ScoreBreakdown>;
+  patch?: string | null;
+  gameDuration: number;
+  queueId: number;
+  onPlayerClick?: (player: {
+    puuid: string | null;
+    gameName: string | null;
+    tagLine: string | null;
+  }) => void;
+}) {
+  const showAugments = isAugmentQueue(queueId);
+  const isWin = players[0]?.win ?? false;
+  const totals = useMemo(() => computeTeamTotals(players, scores), [players, scores]);
+
+  return (
+    <div className="rounded-2xl border border-lol-border bg-[linear-gradient(180deg,var(--theme-card-hover),var(--theme-card))] overflow-hidden">
+      {/* Team header: name on the left, team totals filling the rest of the bar */}
+      <div
+        className={`px-4 py-2 flex flex-wrap items-baseline gap-x-4 gap-y-1 ${isWin ? "bg-gradient-to-r from-lol-win/15 via-lol-win/5 to-transparent" : "bg-gradient-to-r from-lol-loss/15 via-lol-loss/5 to-transparent"}`}
+      >
+        <span
+          className={`text-sm font-display font-bold uppercase tracking-wider ${isWin ? "text-lol-win" : "text-lol-loss"}`}
+        >
+          Team {teamId === 100 ? "1" : "2"} — {isWin ? "Victory" : "Defeat"}
+        </span>
+        <div className="ml-auto flex flex-wrap items-baseline gap-x-5 gap-y-1">
+          <div className="flex items-baseline gap-x-2 border-l border-lol-border/30 pl-3 first:border-l-0 first:pl-0">
+            <TeamStat label="Avg score">
+              <span
+                className={totals.avgScore != null ? scoreColor(totals.avgScore) : "text-lol-text"}
+              >
+                {totals.avgScore != null ? totals.avgScore.toFixed(1) : "-"}
+              </span>
+            </TeamStat>
+          </div>
+          <div className="flex items-baseline gap-x-2 border-l border-lol-border/30 pl-3 first:border-l-0 first:pl-0">
+            <TeamStat label="KDA">
+              <span className="text-lol-text-bright">
+                {formatKDA(totals.kills, totals.deaths, totals.assists)}
+              </span>
+            </TeamStat>
+          </div>
+          <div className="flex items-baseline gap-x-2 border-l border-lol-border/30 pl-3 first:border-l-0 first:pl-0">
+            <TeamStat label="Damage">
+              <span className="text-red-400">{compact(totals.dmg)}</span>
+            </TeamStat>
+          </div>
+          <div className="flex items-baseline gap-x-2 border-l border-lol-border/30 pl-3 first:border-l-0 first:pl-0">
+            <TeamStat label="Taken">
+              <span className="text-sky-400">{compact(totals.taken)}</span>
+            </TeamStat>
+          </div>
+          <div className="flex items-baseline gap-x-2 border-l border-lol-border/30 pl-3 first:border-l-0 first:pl-0">
+            <TeamStat label="CS">
+              <span className="text-lol-text-bright">{totals.cs}</span>
+            </TeamStat>
+          </div>
+          <div className="flex items-baseline gap-x-2 border-l border-lol-border/30 pl-3 first:border-l-0 first:pl-0">
+            <TeamStat label="Gold">
+              <span className="text-lol-gold">{compact(totals.gold)}</span>
+            </TeamStat>
+          </div>
+          <div className="flex items-baseline gap-x-2 border-l border-lol-border/30 pl-3 first:border-l-0 first:pl-0">
+            <TeamStat label="Heal">
+              <span className="text-emerald-400">{compact(totals.heal)}</span>
+            </TeamStat>
+          </div>
+        </div>
+      </div>
+      <div
+        className={`h-0.5 bg-gradient-to-r ${
+          isWin
+            ? "from-lol-win/40 via-lol-win/15 to-transparent"
+            : "from-lol-loss/40 via-lol-loss/15 to-transparent"
+        }`}
+      />
+
+      {/* Column headers */}
+      <div
+        className={`px-4 py-1.5 border-b border-lol-border/40 grid ${GRID_COLS} gap-2 items-center text-[10px] font-bold text-lol-text uppercase tracking-wider bg-white/[0.015]`}
+      >
+        <span></span>
+        <span className="text-left">Player</span>
+        <span className="text-center">Score</span>
+        <span className="text-center">KDA</span>
+        <span className="text-right">Damage</span>
+        <span className="text-right">Taken</span>
+        <span className="text-right">Gold</span>
+        <span className="text-right">Heal</span>
+        <span className="text-right">CS</span>
+        <span className="text-center">Items</span>
+        <span className="text-center">{showAugments ? "Augments" : "Runes"}</span>
+        <span aria-hidden="true" />
+      </div>
+
+      {/* Player rows */}
+      {players.map((p) => (
+        <PlayerRow
+          key={p.participantId}
+          player={p}
+          maxStats={maxStats}
+          champData={champData}
+          score={scores.get(p.participantId)}
+          patch={patch}
+          gameDuration={gameDuration}
+          showAugments={showAugments}
+          onPlayerClick={onPlayerClick}
+        />
+      ))}
+    </div>
+  );
+}
+
+function computeTeamTotals(players: ParsedParticipant[], scores: Map<number, ScoreBreakdown>) {
+  const t = {
+    kills: 0,
+    deaths: 0,
+    assists: 0,
+    dmg: 0,
+    taken: 0,
+    cs: 0,
+    gold: 0,
+    heal: 0,
+    avgScore: null as number | null,
+  };
+  let scoreSum = 0,
+    scored = 0;
+
+  for (const p of players) {
+    t.kills += p.kills;
+    t.deaths += p.deaths;
+    t.assists += p.assists;
+    t.dmg += p.totalDamageDealtToChampions;
+    t.taken += p.totalDamageTaken;
+    t.cs += p.cs;
+    t.gold += p.goldEarned;
+    t.heal += p.totalHeal;
+    const s = scores.get(p.participantId);
+    if (s) {
+      scoreSum += s.score;
+      scored++;
+    }
+  }
+  if (scored > 0) t.avgScore = scoreSum / scored;
+  return t;
+}
+
+function TeamStat({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <div className="flex items-baseline gap-1.5 whitespace-nowrap">
+      <span className="text-[10px] font-bold uppercase tracking-wider text-lol-text">{label}</span>
+      <span className="text-[11px] font-medium tabular-nums">{children}</span>
+    </div>
+  );
+}
+
+function ScoreboardBar({ value, max, color }: { value: number; max: number; color: string }) {
+  const pct = max > 0 ? Math.round((value / max) * 100) : 0;
+  return (
+    <div className="h-4 bg-white/5 rounded ring-1 ring-lol-border/30 overflow-hidden relative">
+      <div className={`h-full rounded ${color}`} style={{ width: `${pct}%` }} />
+      <span className="absolute inset-0 flex items-center justify-end pr-1 text-[10px] font-medium text-white/90 leading-none">
+        {value >= 1000 ? `${(value / 1000).toFixed(1)}k` : value}
+      </span>
+    </div>
+  );
+}
+
+function PlayerRow({
+  player: p,
+  maxStats,
+  champData,
+  score,
+  patch,
+  gameDuration,
+  showAugments,
+  onPlayerClick,
+}: {
+  player: ParsedParticipant;
+  maxStats: { dmg: number; taken: number; gold: number; heal: number };
+  champData: any;
+  score?: ScoreBreakdown;
+  patch?: string | null;
+  gameDuration: number;
+  showAugments: boolean;
+  onPlayerClick?: (player: {
+    puuid: string | null;
+    gameName: string | null;
+    tagLine: string | null;
+  }) => void;
+}) {
+  const kda = kdaRatio(p.kills, p.deaths, p.assists);
+  const runeData = useRuneData();
+
+  return (
+    <div
+      className={`px-4 py-2 border-b border-lol-border/20 last:border-b-0 grid ${GRID_COLS} gap-2 items-center transition-colors hover:bg-white/[0.03] ${
+        p.isSelf ? "border-l-2 border-l-lol-gold bg-lol-gold/[0.06]" : ""
+      }`}
+    >
+      {/* Champion + spells; two 15px spells and the 2px gap match the 32px portrait */}
+      <div className="flex items-center gap-0.5">
+        <ChampionIcon championId={p.championId} size={32} />
+        <div className="flex flex-col gap-0.5">
+          <div className="rounded border border-lol-border/30 bg-white/[0.02] p-0.5">
+            <SummonerSpellIcon spellId={p.spell1Id} size={15} />
+          </div>
+          <div className="rounded border border-lol-border/30 bg-white/[0.02] p-0.5">
+            <SummonerSpellIcon spellId={p.spell2Id} size={15} />
+          </div>
+        </div>
+      </div>
+
+      {/* Player name */}
+      <div className="min-w-0">
+        <button
+          type="button"
+          onClick={() => {
+            if (!onPlayerClick) return;
+            onPlayerClick({
+              puuid: p.puuid,
+              gameName: p.gameName ?? null,
+              tagLine: p.tagLine ?? null,
+            });
+          }}
+          disabled={!onPlayerClick || !p.puuid}
+          className={`text-xs font-display truncate text-left max-w-full transition-colors ${
+            p.isSelf ? "text-lol-gold font-semibold" : "text-lol-text-bright hover:text-lol-gold"
+          } ${onPlayerClick && p.puuid ? "cursor-pointer" : "cursor-default"}`}
+          title={p.gameName && p.tagLine ? `${p.gameName}#${p.tagLine}` : undefined}
+        >
+          {p.summonerName}
+        </button>
+        <div className="text-[10px] font-display text-lol-text truncate transition-colors hover:text-lol-gold">
+          {getChampionName(champData, p.championId)}
+        </div>
+      </div>
+
+      {/* Score */}
+      <ScoreCell score={score} />
+
+      {/* KDA */}
+      <div className="text-center">
+        <div className="text-[11px] font-display text-lol-text-bright">
+          {formatKDA(p.kills, p.deaths, p.assists)}
+        </div>
+        <div
+          className={`text-[10px] ${parseFloat(kda) >= 3 || kda === "Perfect" ? "text-lol-gold" : "text-lol-text"}`}
+        >
+          {kda}
+        </div>
+      </div>
+
+      {/* Damage dealt */}
+      <ScoreboardBar
+        value={p.totalDamageDealtToChampions}
+        max={maxStats.dmg}
+        color="bg-red-400/50"
+      />
+
+      {/* Damage taken */}
+      <ScoreboardBar value={p.totalDamageTaken} max={maxStats.taken} color="bg-sky-400/50" />
+
+      {/* Gold */}
+      <div className="text-right text-[11px] text-lol-gold">
+        {p.goldEarned >= 1000 ? `${(p.goldEarned / 1000).toFixed(1)}k` : p.goldEarned}
+      </div>
+
+      {/* Heal */}
+      <div className="text-right text-[11px] text-emerald-400">
+        {p.totalHeal >= 1000 ? `${(p.totalHeal / 1000).toFixed(1)}k` : p.totalHeal}
+      </div>
+
+      {/* CS */}
+      <div className="text-right text-[11px] text-lol-text-bright">
+        <div>{p.cs}</div>
+        <div className="text-[9px] text-lol-text">
+          {p.cs / Math.max(gameDuration / 60, 1) > 0
+            ? `${(p.cs / Math.max(gameDuration / 60, 1)).toFixed(1)} /min`
+            : "CS"}
+        </div>
+      </div>
+
+      {/* Items */}
+      <div className="flex gap-0.5 justify-center">
+        {p.items.slice(0, 6).map((itemId, i) => (
+          <div key={i} className="rounded border border-lol-border/30 bg-white/[0.02] p-0.5">
+            <ItemIcon itemId={itemId} size={22} patch={patch} />
+          </div>
+        ))}
+        <div className="ml-0.5 rounded border border-lol-border/30 bg-white/[0.02] p-0.5">
+          <ItemIcon itemId={p.items[6] ?? 0} size={22} patch={patch} />
+        </div>
+      </div>
+
+      {/* Runes for standard queues; Arena/Mayhem show Augments instead — those
+          modes have no rune page at all, so falling back to "runes present?"
+          per player would silently show an empty grid for the whole lobby. */}
+      <div className="flex items-center gap-1 justify-center">
+        {showAugments ? (
+          p.augments.map((augId, i) => (
+            <div key={i} className="rounded border border-lol-border/30 bg-white/[0.02] p-0.5">
+              <AugmentIcon augmentId={augId} size={22} patch={patch} />
+            </div>
+          ))
+        ) : (
+          <RuneSetupGrid
+            runeIds={p.runeIds}
+            primaryStyle={p.primaryStyle}
+            secondaryStyle={p.secondaryStyle}
+            statShardIds={p.statShardIds}
+            runeData={runeData}
+            version={patch}
+          />
+        )}
+      </div>
+      <div aria-hidden="true" />
+    </div>
+  );
+}
+
+function ScoreCell({ score }: { score?: ScoreBreakdown }) {
+  const [anchor, setAnchor] = useState<DOMRect | null>(null);
+
+  return (
+    <div
+      className={`text-center ${score ? "cursor-help" : ""}`}
+      onMouseEnter={(e) => setAnchor(e.currentTarget.getBoundingClientRect())}
+      onMouseLeave={() => setAnchor(null)}
+    >
+      <div
+        className={`text-[11px] font-display font-semibold ${score ? scoreColor(score.score) : "text-lol-text"}`}
+      >
+        {score ? score.score.toFixed(1) : "-"}
+      </div>
+      {score?.badge && (
+        <div
+          className={`text-[9px] font-display font-bold leading-[15px] px-1.5 py-0.5 rounded w-fit mx-auto ${
+            score.badge === "MVP"
+              ? "bg-amber-400/20 text-amber-300"
+              : "bg-purple-500/20 text-purple-400"
+          }`}
+        >
+          {score.badge}
+        </div>
+      )}
+      {score && anchor && <ScoreBreakdownTooltip breakdown={score} anchor={anchor} />}
+    </div>
+  );
+}
+
+const COMPONENT_LABELS: Record<ScoreComponentKey, string> = {
+  kda: "KDA",
+  kp: "Kill participation",
+  dmg: "Damage dealt",
+  taken: "Damage taken",
+  heal: "Healing",
+  gold: "Gold earned",
+};
+
+const compact = (v: number) => (v >= 1000 ? `${(v / 1000).toFixed(1)}k` : Math.round(v).toString());
+
+// How the player's stat and its full-credit reference read in the tooltip:
+// kda/kp are graded against fixed caps, the rest against the lobby's best.
+function componentValue(c: ScoreComponent): string {
+  if (c.key === "kda") return `${c.value.toFixed(1)} (full at 8)`;
+  if (c.key === "kp") return `${Math.round(c.value * 100)}% (full at 90%)`;
+  return `${compact(c.value)} / ${compact(c.reference)}`;
+}
+
+function ScoreBreakdownTooltip({
+  breakdown,
+  anchor,
+}: {
+  breakdown: ScoreBreakdown;
+  anchor: DOMRect;
+}) {
+  const rows =
+    breakdown.components.length +
+    (breakdown.multikill ? 1 : 0) +
+    (breakdown.carry ? 1 : 0) +
+    (breakdown.win > 0 ? 1 : 0);
+  const width = 288;
+  const height = 74 + rows * 20;
+  // Fixed positioning escapes the team card's overflow-hidden; clamp to the
+  // viewport so rows near the window edges stay readable.
+  const left = Math.min(anchor.right + 10, window.innerWidth - width - 8);
+  const top = Math.min(
+    Math.max(anchor.top + anchor.height / 2 - height / 2, 8),
+    window.innerHeight - height - 8,
+  );
+  const clamped = breakdown.raw !== breakdown.score && (breakdown.raw > 10 || breakdown.raw < 1);
+
+  return (
+    <div
+      className="fixed z-50 pointer-events-none bg-lol-dark border border-lol-border rounded-lg px-3 py-2 shadow-lg text-left"
+      style={{ left, top, width }}
+    >
+      <div className="flex items-baseline justify-between mb-1.5">
+        <span className="text-xs font-semibold text-lol-text-bright">Score breakdown</span>
+        <span className="text-[10px] text-lol-text">
+          {breakdown.cls ? `${breakdown.cls} weights` : "Standard weights"}
+        </span>
+      </div>
+      {breakdown.components.map((c) => (
+        <div key={c.key} className="grid grid-cols-[1fr_auto] gap-2 items-baseline leading-5">
+          <span className="text-[11px] text-lol-text truncate">
+            {COMPONENT_LABELS[c.key]}
+            <span className="ml-1.5 text-[10px] text-lol-text/70">{componentValue(c)}</span>
+          </span>
+          <span className="text-[11px] tabular-nums text-lol-text-bright">
+            {c.points.toFixed(1)}
+            <span className="text-[10px] text-lol-text/70"> / {c.weight.toFixed(1)}</span>
+          </span>
+        </div>
+      ))}
+      {breakdown.multikill && (
+        <div className="grid grid-cols-[1fr_auto] gap-2 items-baseline leading-5">
+          <span className="text-[11px] text-lol-text">{breakdown.multikill.label} bonus</span>
+          <span className="text-[11px] tabular-nums text-lol-text-bright">
+            +{breakdown.multikill.points.toFixed(1)}
+          </span>
+        </div>
+      )}
+      {breakdown.carry && (
+        <div className="grid grid-cols-[1fr_auto] gap-2 items-baseline leading-5">
+          <span className="text-[11px] text-lol-text">
+            Carry bonus
+            <span className="ml-1.5 text-[10px] text-lol-text/70">
+              {breakdown.carry.lead.toFixed(2)}× next best
+            </span>
+          </span>
+          <span className="text-[11px] tabular-nums text-lol-text-bright">
+            +{breakdown.carry.points.toFixed(1)}
+          </span>
+        </div>
+      )}
+      {breakdown.win > 0 && (
+        <div className="grid grid-cols-[1fr_auto] gap-2 items-baseline leading-5">
+          <span className="text-[11px] text-lol-text">Victory bonus</span>
+          <span className="text-[11px] tabular-nums text-lol-text-bright">
+            +{breakdown.win.toFixed(1)}
+          </span>
+        </div>
+      )}
+      <div className="mt-1 pt-1 border-t border-lol-border/50 grid grid-cols-[1fr_auto] gap-2 items-baseline">
+        <span className="text-[11px] font-medium text-lol-text-bright">
+          Total
+          {clamped
+            ? ` ${breakdown.raw.toFixed(2)}, ${breakdown.raw > 10 ? "capped" : "floored"} at`
+            : ""}
+        </span>
+        <span className={`text-xs font-semibold tabular-nums ${scoreColor(breakdown.score)}`}>
+          {breakdown.score.toFixed(1)}
+        </span>
+      </div>
+    </div>
+  );
+}
