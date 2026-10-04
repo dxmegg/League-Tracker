@@ -168,6 +168,18 @@ export function getChampionName(data: ChampionData, id: number): string {
   return data[id]?.name || `Champion ${id}`;
 }
 
+// Reverse lookup: given a display name (case-insensitive), return the numeric
+// champion id. Built once per champion-data object; used by LiveGameTile
+// where the Live Client Data API returns names, not ids.
+export function findChampionIdByName(data: ChampionData, name: string): number | null {
+  if (!name) return null;
+  const target = name.toLowerCase().trim();
+  for (const [id, entry] of Object.entries(data)) {
+    if (entry.name?.toLowerCase() === target) return Number(id);
+  }
+  return null;
+}
+
 export function getAugmentName(data: AugmentData, id: number): string {
   return data[id]?.name || `Augment ${id}`;
 }

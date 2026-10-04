@@ -18,7 +18,7 @@ import ChampionIcon from "../components/ChampionIcon";
 import { ChampCard } from "../components/ChampCard";
 import { HomeHero } from "../components/HomeHero";
 import { HomeCard } from "../components/HomeCard";
-import { LiveGameMock } from "../components/LiveGameMock";
+import { LiveGameTile } from "../components/LiveGameTile";
 import { MatchRowExperiment } from "../components/MatchRowExperiment";
 import { Panel } from "../components/Panel";
 import { RecordTile } from "../components/RecordTile";
@@ -26,6 +26,7 @@ import SummonerIcon from "../components/SummonerIcon";
 import { useActiveAccount } from "../hooks/useActiveAccount";
 import { useActiveTheme } from "../hooks/useActiveTheme";
 import { getChampionName, useChampionData } from "../hooks/useChampions";
+import { useLiveGame } from "../hooks/useLiveGame";
 import { useViewState } from "../hooks/useViewState";
 import { ALL_ACCOUNTS_SENTINEL } from "../lib/accountsEvent";
 import { NavLink } from "react-router-dom";
@@ -563,6 +564,7 @@ function MatchListPanel({
 export default function Home() {
   const activeTheme = useActiveTheme();
   const isExperiment = activeTheme === "experiment";
+  const liveGame = useLiveGame();
   const [activeAccountRaw, setActiveAccountRaw] = useActiveAccount();
   const account: HomeAccountFilter =
     activeAccountRaw === ALL_ACCOUNTS_SENTINEL ? "all" : activeAccountRaw;
@@ -649,7 +651,7 @@ export default function Home() {
 
           {/* Live game: 4 columns */}
           <Panel className="col-span-12 2xl:col-span-4">
-            <LiveGameMock />
+            <LiveGameTile data={liveGame} />
           </Panel>
 
           {/* Most played champions: 7 columns */}

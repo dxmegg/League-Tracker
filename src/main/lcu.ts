@@ -1390,28 +1390,58 @@ export async function fetchLiveGameData(): Promise<LiveGameData | null> {
       summonerName?: string;
       riotId?: string;
       championName?: string;
+      isBot?: boolean;
       level?: number;
       scores?: { kills?: number; deaths?: number; assists?: number; creepScore?: number };
     }>;
 
-    // Match the active player against the player list by summoner name — the
-    // activeplayer payload doesn't include the champion or the KDA, both of
-    // which live on the playerlist entry.
+    const activeName = String(active.summonerName ?? "").trim();
+    const activeLower = activeName.toLowerCase();
+
+    // Match the active player against the player list. Modern LoL clients may
+    // return only `riotId` ("GameName#TAG"); older ones return `summonerName`.
+    // Try every plausible identity before falling back to null.
     const me =
-      players.find((p) => p.summonerName && p.summonerName === active.summonerName) ?? null;
+      players.find((p) => p.summonerName && p.summonerName === activeName) ??
+      players.find((p) => p.summonerName?.toLowerCase() === activeLower) ??
+      players.find((p) => p.riotId?.toLowerCase() === activeLower) ??
+      players.find((p) => p.riotId?.toLowerCase().split("#")[0] === activeLower) ??
+      null;
+
+    // The playerlist `scores` object is unreliable in some game modes
+    // (Practice Tool returns 0 for creepScore). Query the dedicated scores
+    // endpoint for the authoritative values and merge.
+    let scores: {
+      kills?: number;
+      deaths?: number;
+      assists?: number;
+      creepScore?: number;
+    } = me?.scores ?? {};
+
+    if (activeName) {
+      try {
+        const scoresRaw = await get(
+          `/liveclientdata/playerscores?summonerName=${encodeURIComponent(activeName)}`,
+        );
+        const parsed = JSON.parse(scoresRaw) as typeof scores;
+        scores = { ...scores, ...parsed };
+      } catch {
+        // Fall back to whatever the playerlist already gave us.
+      }
+    }
 
     return {
       gameTimeSec: Number(game.gameTime ?? 0),
       gameMode: String(game.gameMode ?? ""),
       activePlayer: {
-        summonerName: String(active.summonerName ?? ""),
+        summonerName: activeName,
         level: Number(active.level ?? 0),
         currentGold: Number(active.currentGold ?? 0),
         championName: String(me?.championName ?? ""),
-        kills: Number(me?.scores?.kills ?? 0),
-        deaths: Number(me?.scores?.deaths ?? 0),
-        assists: Number(me?.scores?.assists ?? 0),
-        creepScore: Number(me?.scores?.creepScore ?? 0),
+        kills: Number(scores.kills ?? 0),
+        deaths: Number(scores.deaths ?? 0),
+        assists: Number(scores.assists ?? 0),
+        creepScore: Number(scores.creepScore ?? 0),
       },
     };
   } catch {
