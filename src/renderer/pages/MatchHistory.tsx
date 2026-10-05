@@ -1334,11 +1334,6 @@ export function GameRow({
   compact = false,
 }: GameRowProps) {
   const isRemake = !!match.is_remake;
-  console.log("[card] spells", {
-    spell1: match.spell1,
-    spell2: match.spell2,
-    queue: match.queue_id,
-  });
   const isWin = !!match.win;
   const isArena = isAugmentQueue(match.queue_id);
   const placement = match.player_subteam_placement;

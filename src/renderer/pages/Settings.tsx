@@ -500,7 +500,15 @@ export default function Settings() {
           <FilterSelect
             value={theme}
             onChange={(value) => {
-              if (value !== "test" && value !== "experiment") return;
+              if (
+                value !== "test" &&
+                value !== "experiment" &&
+                value !== "experiment2" &&
+                value !== "experiment3" &&
+                value !== "experiment4" &&
+                value !== "experiment5"
+              )
+                return;
               setTheme(value);
               void window.api.setSetting("theme", value);
               document.documentElement.setAttribute("data-theme", value);
@@ -511,6 +519,10 @@ export default function Settings() {
             options={[
               { value: "experiment", label: "First Theme" },
               { value: "test", label: "Second Theme" },
+              { value: "experiment2", label: "Third Theme" },
+              { value: "experiment3", label: "Fourth Theme" },
+              { value: "experiment4", label: "Fifth Theme" },
+              { value: "experiment5", label: "Sixth Theme" },
             ]}
           />
         </div>

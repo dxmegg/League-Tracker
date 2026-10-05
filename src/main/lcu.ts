@@ -1485,9 +1485,7 @@ const QUEUE_LABEL_BY_ID: Record<number, string> = {
 };
 
 export async function fetchLiveSessionData(): Promise<LiveSessionData | null> {
-  console.log("[lcu] fetchLiveSessionData called:", {});
   if (!isClientConnected()) {
-    console.log("[lcu] fetchLiveSessionData done:", { session: null, connected: false });
     return null;
   }
 
@@ -1608,7 +1606,6 @@ export async function fetchLiveSessionData(): Promise<LiveSessionData | null> {
   }
 
   if (phase === "None" && queueId == null && lobbySize == null && champSelect == null) {
-    console.log("[lcu] fetchLiveSessionData done:", { session: null });
     return null;
   }
 
@@ -1621,10 +1618,5 @@ export async function fetchLiveSessionData(): Promise<LiveSessionData | null> {
     queueStartedAt: matchmakingStartedAt,
     champSelect,
   };
-  console.log("[lcu] fetchLiveSessionData done:", {
-    phase: result.phase,
-    queueId: result.queueId,
-    lobbySize: result.lobbySize,
-  });
   return result;
 }

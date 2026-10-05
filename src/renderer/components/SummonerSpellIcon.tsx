@@ -17,9 +17,6 @@ export default function SummonerSpellIcon({
   const [broken, setBroken] = useState(false);
   const spell = spellId != null && spellId > 0 ? spells[spellId] : undefined;
 
-  if (spellId && !spell?.iconPath) {
-    console.log("[spell] unresolved id", spellId, "cache size", Object.keys(spells).length);
-  }
   if (!spell?.iconPath) return null;
   if (broken) return null;
 

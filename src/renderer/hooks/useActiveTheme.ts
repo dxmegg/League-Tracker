@@ -16,5 +16,10 @@ export function useActiveTheme(): string {
     return () => observer.disconnect();
   }, []);
 
-  return theme;
+  return theme === "experiment2" ||
+    theme === "experiment3" ||
+    theme === "experiment4" ||
+    theme === "experiment5"
+    ? "experiment"
+    : theme;
 }

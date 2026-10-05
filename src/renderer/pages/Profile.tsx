@@ -636,10 +636,6 @@ export default function Profile() {
   const [recentMatchesLoadingMore, setRecentMatchesLoadingMore] = useState(false);
   const recentOffsetRef = useRef(0);
   const canLoadMore = (recentMatches?.length ?? 0) < recentMatchesAvailable;
-  // TODO: cleanup in Phase 15 — unused setter
-  const [recentMatchesLoading, _setRecentMatchesLoading] = useState(false);
-  // TODO: cleanup in Phase 15 — unused setter
-  const [recentMatchesError, _setRecentMatchesError] = useState<string | null>(null);
   const [recentExpandedId, setRecentExpandedId] = useState<number | null>(null);
   const [recentDetail, setRecentDetail] = useState<MatchDetail | null>(null);
   const [recentDetailLoading, setRecentDetailLoading] = useState(false);
@@ -1482,12 +1478,8 @@ export default function Profile() {
               {recentMatchesAvailable ? `, up to ${recentMatchesAvailable} fetchable` : ""}
             </span>
           </div>
-          {recentMatchesLoading || recentMatchesLoadingMore ? (
+          {recentMatchesLoadingMore ? (
             <p className="py-8 text-center text-sm text-lol-text">Loading…</p>
-          ) : recentMatchesError ? (
-            <p className="rounded-md border border-lol-crimson/40 bg-lol-crimson/10 px-3 py-2 text-xs text-lol-crimson-bright">
-              {recentMatchesError}
-            </p>
           ) : recentMatches && recentMatches.length > 0 ? (
             <>
               <div className="match-list-exp">
@@ -1515,8 +1507,8 @@ export default function Profile() {
       ) : (
         <RecentRiotMatchesSection
           matches={recentMatches}
-          loading={recentMatchesLoading || recentMatchesLoadingMore}
-          error={recentMatchesError}
+          loading={recentMatchesLoadingMore}
+          error={null}
           puuids={null}
           onPlayerClick={() => undefined}
           expandedId={recentExpandedId}
