@@ -290,23 +290,18 @@ export function registerIpcHandlers() {
     "db:most-played-queue",
     (_event, puuid: string, _gameName: string, _tagLine: string) => {
       let result = db.getMostPlayedQueue(puuid);
-      const totalRows = db
+      const _totalRows = db
         .getDatabase()
         .prepare("SELECT COUNT(*) AS n FROM match_participants WHERE puuid = ?")
         .get(puuid) as { n: number };
-      console.log("[most-played] puuid:", puuid);
-      console.log("[most-played] rows in match_participants:", totalRows.n);
-      console.log("[most-played] result:", result);
       return result;
     },
   );
 
   ipcMain.handle(
     "db:total-matches-played",
-    (_event, puuid: string, gameName: string, tagLine: string) => {
-      console.log("[total-matches] received:", { puuid, gameName, tagLine });
+    (_event, puuid: string, _gameName: string, _tagLine: string) => {
       const result = db.getTotalMatchesPlayed(puuid);
-      console.log("[total-matches] result:", result);
       return result;
     },
   );
@@ -402,7 +397,6 @@ export function registerIpcHandlers() {
     async (_event, gameName: string, tagLine: string, platform: string, force = false) => {
       const key = `profile:${platform.toLowerCase()}:${gameName.toLowerCase()}:${tagLine.toLowerCase()}:${force}`;
       return dedupe(key, async () => {
-        console.log("[profile] received:", { gameName, tagLine, platform });
         try {
           return await riot.getProfileDataByRiotId(gameName, tagLine, platform, force);
         } catch (err) {
@@ -466,8 +460,6 @@ export function registerIpcHandlers() {
     async (_event, puuid: string, platform: string, count: number) => {
       try {
         const result = await riot.importRecentRiotMatches(puuid, platform, count);
-        console.log("[ipc] import-recent result:", result);
-        console.log("[ipc] tracked rows for", puuid, db.getTrackedRowCountForPuuid(puuid));
         return result;
       } catch (err) {
         return { error: riot.friendlyRiotError(err, "match") };
