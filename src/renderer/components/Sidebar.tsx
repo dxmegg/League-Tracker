@@ -51,10 +51,26 @@ export function Sidebar() {
   const accountsWrapRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    window.api
-      .listAccountsWithData()
-      .then(setSavedAccounts)
-      .catch(() => setSavedAccounts([]));
+    let cancelled = false;
+
+    const load = () => {
+      window.api
+        .listAccountsWithData()
+        .then((next) => {
+          if (!cancelled) setSavedAccounts(next);
+        })
+        .catch(() => {
+          if (!cancelled) setSavedAccounts([]);
+        });
+    };
+
+    load();
+    const unsubscribe = window.api.onGamesUpdated(load);
+
+    return () => {
+      cancelled = true;
+      unsubscribe();
+    };
   }, []);
 
   useEffect(() => {
@@ -117,7 +133,7 @@ export function Sidebar() {
           </svg>
           <div className="min-w-0">
             <div className="font-bold text-[17px] leading-tight text-lol-text-bright">
-              League Tracker
+              Rift Records
             </div>
             <div className="mt-1 text-[11.5px] leading-snug text-lol-text/60">
               Work in progress, forked from yhprum

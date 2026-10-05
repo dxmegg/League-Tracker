@@ -1,4 +1,4 @@
-# LeagueTracker
+# Rift Records
 
 Desktop app for tracking complete League of Legends match history locally. It can connect to the League Client (LCU) for automatic detection. It was made solely for myself—for my own use—though I did want to share it with a specific person, which is why it is here.
 <img width="1280" height="820" alt="image" src="https://raw.githubusercontent.com/dxmegg/League-Tracker/refs/heads/main/1.png" />
@@ -21,13 +21,13 @@ Original project can be found here: [https://github.com/Yhprum/mayhem-tracker](h
 
 <img width="1280" height="820" alt="image" src="https://raw.githubusercontent.com/dxmegg/League-Tracker/refs/heads/main/2.png" />
 
-# League Tracker
+# Rift Records
 
 
 A desktop companion for League of Legends players who want a clear and convenient way to review their match history and track their progress.
 
 
-League Tracker stores your match data locally and turns it into an easy-to-read dashboard. View your recent games, champion performance, queue statistics, win rates, KDA, damage, items, runes, multikills, champion mastery, and more — all in one place.
+Rift Records stores your match data locally and turns it into an easy-to-read dashboard. View your recent games, champion performance, queue statistics, win rates, KDA, damage, items, runes, multikills, champion mastery, and more — all in one place.
 
 
 ## Features
@@ -58,7 +58,7 @@ League Tracker stores your match data locally and turns it into an easy-to-read 
 This project is still a work in progress. Some features may be incomplete, buggy, or not work as expected.
 
 
-League Tracker is a personal fork of the original [Mayhem Tracker](https://github.com/Yhprum/mayhem-tracker).
+Rift Records is a personal fork of the original [Mayhem Tracker](https://github.com/Yhprum/mayhem-tracker).
 
 
 ## Development
@@ -78,7 +78,7 @@ npm run dist      # Build the Windows portable executable
 ## Disclaimer
 
 
-League Tracker was created under Riot Games' ["Legal Jibber Jabber" policy](https://www.riotgames.com/en/legal-jibber-jabber) using assets owned by Riot Games. Riot Games does not endorse or sponsor this project.
+Rift Records was created under Riot Games' ["Legal Jibber Jabber" policy](https://www.riotgames.com/en/legal-jibber-jabber) using assets owned by Riot Games. Riot Games does not endorse or sponsor this project.
 
 
 ## Credits & Acknowledgements

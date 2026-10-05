@@ -99,17 +99,17 @@ export default function TopNav() {
       <button
         type="button"
         onClick={() => window.api.openUrl("https://github.com/dxmegg/League-Tracker")}
-        aria-label="Open League Tracker GitHub repository"
+        aria-label="Open Rift Records GitHub repository"
         className="titlebar-no-drag flex h-full shrink-0 items-center gap-2.5 px-3 transition-opacity hover:opacity-80 focus:outline-none focus:ring-2 focus:ring-lol-gold/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-lol-gold/60 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--theme-bg-deep)]"
       >
         <img
           src={AVATAR_SOURCE}
-          alt="League Tracker avatar"
+          alt="Rift Records avatar"
           className="h-8 w-8 rounded-full object-cover"
         />
         <span className="hidden 2xl:flex flex-col justify-center text-left leading-none">
           <span className="font-bold text-[13px] tracking-[0.02em] text-lol-text-bright">
-            League Tracker
+            Rift Records
           </span>
           <span className="mt-1 text-[8px] font-semibold uppercase tracking-[0.25em] text-lol-gold/80">
             WIP - FORKED FROM YHPRUM

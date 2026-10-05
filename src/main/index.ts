@@ -65,7 +65,7 @@ function createWindow(): BrowserWindow {
   const { width: workAreaWidth } = screen.getPrimaryDisplay().workAreaSize;
 
   mainWindow = new BrowserWindow({
-    title: "League Tracker",
+    title: "Rift Records",
     width: Math.min(1440, workAreaWidth - 40),
     height: 820,
     minWidth: 1440,
@@ -155,7 +155,7 @@ function createTray() {
     },
   ]);
 
-  tray.setToolTip("LeagueTracker");
+  tray.setToolTip("Rift Records");
   tray.setContextMenu(contextMenu);
   tray.on("double-click", () => {
     mainWindow?.show();
