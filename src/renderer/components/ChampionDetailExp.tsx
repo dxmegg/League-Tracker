@@ -1,10 +1,11 @@
-import { useMemo, type ReactNode } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import type {
   AugmentStats,
   ChampionKeystoneStat,
   ChampionMatchups,
   ChampionQueueStat,
+  ChampionDetailStats,
   ChampionStats,
   ChampionWeeklyWinRate,
   ItemStats,
@@ -34,7 +35,7 @@ import { useHistoryScopeQueue } from "../lib/historyScope";
 import { useIpc } from "../hooks/useIpc";
 import { useActiveAccount } from "../hooks/useActiveAccount";
 import { useViewState } from "../hooks/useViewState";
-import { formatNumber } from "../lib/format";
+import { formatDuration, formatNumber, formatPlaytime } from "../lib/format";
 import { ALL_ACCOUNTS_SENTINEL } from "../lib/accountsEvent";
 
 export function ChampionDetailExp() {
@@ -45,6 +46,7 @@ export function ChampionDetailExp() {
 
   const [patch, setPatch] = useViewState<string | undefined>("champions.patch", undefined);
   const [queue, setQueue] = useViewState<number | undefined>("champions.queue", undefined);
+  const [wrTab, setWrTab] = useState<"weekly" | "monthly" | "overall">("weekly");
   const scopedQueue = queue ?? useHistoryScopeQueue();
   const [activeAccountRaw] = useActiveAccount();
   const account = activeAccountRaw === ALL_ACCOUNTS_SENTINEL ? "all" : activeAccountRaw;
@@ -54,12 +56,26 @@ export function ChampionDetailExp() {
     [patch, scopedQueue, account],
   );
 
+  const { data: detailStats } = useIpc<ChampionDetailStats>(
+    () => window.api.getChampionDetailStats(id, patch, scopedQueue, account),
+    [id, patch, scopedQueue, account],
+  );
+
   const stats = useMemo(() => allStats?.find((s) => s.champion_id === id) ?? null, [allStats, id]);
 
   const { data: matchHistory } = useIpc<{ matches: MatchListItem[]; total: number }>(
     () => window.api.getChampionMatchHistory(id, 20, 0, patch, scopedQueue, account),
     [id, patch, scopedQueue, account],
   );
+
+  const streak = useMemo(() => {
+    const matches = matchHistory?.matches;
+    if (!matches || matches.length === 0) return null;
+
+    const type = matches[0].win === 1 ? "W" : "L";
+    const count = matches.findIndex((match) => (match.win === 1 ? "W" : "L") !== type);
+    return { type, count: count === -1 ? matches.length : count };
+  }, [matchHistory]);
 
   const { data: keystones, loading: keystonesLoading } = useIpc<ChampionKeystoneStat[]>(
     () => window.api.getChampionKeystones(id, account),
@@ -75,6 +91,49 @@ export function ChampionDetailExp() {
     () => window.api.getChampionWeeklyWinRate(id, account),
     [id, account],
   );
+
+  const wrSeries = useMemo(() => {
+    const entries = weeklyWinRate ?? [];
+    if (entries.length === 0) {
+      return { values: [], last: null, peak: 0, low: 0 };
+    }
+
+    let values: (number | null)[];
+    if (wrTab === "weekly") {
+      values = entries.map((entry) => (entry.games > 0 ? (entry.wins / entry.games) * 100 : null));
+    } else if (wrTab === "monthly") {
+      values = [];
+      for (let i = 0; i < entries.length; i += 4) {
+        const chunk = entries.slice(i, i + 4);
+        const games = chunk.reduce((sum, entry) => sum + entry.games, 0);
+        const wins = chunk.reduce((sum, entry) => sum + entry.wins, 0);
+        values.push(games > 0 ? (wins / games) * 100 : null);
+      }
+    } else {
+      let games = 0;
+      let wins = 0;
+      values = entries.map((entry) => {
+        games += entry.games;
+        wins += entry.wins;
+        return games > 0 ? (wins / games) * 100 : null;
+      });
+    }
+
+    const nonNullValues = values.filter((value): value is number => value != null);
+    return {
+      values,
+      last: nonNullValues.at(-1) ?? null,
+      peak: nonNullValues.length > 0 ? Math.max(...nonNullValues) : 0,
+      low: nonNullValues.length > 0 ? Math.min(...nonNullValues) : 0,
+    };
+  }, [weeklyWinRate, wrTab]);
+
+  const overallWR = useMemo(() => {
+    if (!weeklyWinRate || weeklyWinRate.length === 0) return null;
+    const games = weeklyWinRate.reduce((sum, entry) => sum + entry.games, 0);
+    const wins = weeklyWinRate.reduce((sum, entry) => sum + entry.wins, 0);
+    return games > 0 ? (wins / games) * 100 : null;
+  }, [weeklyWinRate]);
 
   const { data: matchups, loading: matchupsLoading } = useIpc<ChampionMatchups>(
     () => window.api.getChampionMatchups(id, account),
@@ -192,6 +251,49 @@ export function ChampionDetailExp() {
             />
             <Stat label="Avg damage" value={formatNumber(stats.avg_damage)} sub="" />
             <Stat label="Avg gold" value={formatNumber(stats.avg_gold)} sub="" />
+            <Stat
+              label="Kill participation"
+              value={detailStats ? `${(detailStats.killParticipation * 100).toFixed(1)}%` : "—"}
+              sub=""
+            />
+            <Stat
+              label="Damage share"
+              value={detailStats ? `${(detailStats.damageShare * 100).toFixed(1)}%` : "—"}
+              sub=""
+            />
+            <Stat
+              label="Avg damage taken"
+              value={detailStats ? formatNumber(Math.round(detailStats.avgDamageTaken)) : "—"}
+              sub=""
+            />
+            <Stat
+              label="Avg heal"
+              value={detailStats ? formatNumber(Math.round(detailStats.avgHeal)) : "—"}
+              sub=""
+            />
+            <Stat
+              label="Gold / min"
+              value={detailStats ? Math.round(detailStats.goldPerMin).toString() : "—"}
+              sub=""
+            />
+            <Stat
+              label="Avg game length"
+              value={detailStats ? formatDuration(Math.round(detailStats.avgGameLength)) : "—"}
+              sub=""
+            />
+            <Stat
+              label="Total time played"
+              value={detailStats ? formatPlaytime(Math.round(detailStats.totalTimePlayed)) : "—"}
+              sub=""
+            />
+            <Stat
+              label="Streak"
+              value={streak ? `${streak.type}${streak.count}` : "—"}
+              sub=""
+              valueClass={
+                streak?.type === "W" ? "text-lol-win" : streak?.type === "L" ? "text-lol-loss" : ""
+              }
+            />
           </div>
 
           <div className="grid grid-cols-1 gap-5 xl:grid-cols-2">
@@ -314,19 +416,62 @@ export function ChampionDetailExp() {
             </Panel>
 
             <Panel className="xl:col-span-2">
-              <SectionHeading title="Win rate by week" />
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <SectionHeading title="Win rate" />
+                <div className="flex items-center gap-1 rounded-md border border-lol-border/60 bg-lol-card/40 p-0.5">
+                  {(["weekly", "monthly", "overall"] as const).map((tab) => (
+                    <button
+                      key={tab}
+                      type="button"
+                      data-tab={tab}
+                      aria-pressed={wrTab === tab}
+                      onClick={() => setWrTab(tab)}
+                      className={`rounded px-2.5 py-1 text-xs font-semibold transition-colors ${
+                        wrTab === tab
+                          ? "bg-lol-gold/15 text-lol-gold"
+                          : "text-lol-text hover:text-lol-text-bright"
+                      }`}
+                    >
+                      {tab[0].toUpperCase() + tab.slice(1)}
+                    </button>
+                  ))}
+                </div>
+              </div>
               {weeklyWinRateLoading || !weeklyWinRate ? (
                 <SectionLoading />
               ) : (
-                <LineChartExp
-                  values={weeklyWinRate.map((week) =>
-                    week.games > 0 ? (week.wins / week.games) * 100 : 0,
-                  )}
-                  format={(value) => value.toFixed(1) + "%"}
-                  color="var(--theme-win)"
-                  min={20}
-                  max={100}
-                />
+                <>
+                  <div className="mb-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-[12.5px] text-lol-text">
+                    <span>
+                      Now:{" "}
+                      <b className="text-lol-text-bright">
+                        {wrSeries.last != null ? wrSeries.last.toFixed(1) + "%" : "—"}
+                      </b>
+                    </span>
+                    <span>
+                      Peak: <b className="text-lol-win">{wrSeries.peak.toFixed(1)}%</b> / Low:{" "}
+                      <b className="text-lol-loss">{wrSeries.low.toFixed(1)}%</b>
+                    </span>
+                    {overallWR != null &&
+                      wrSeries.last != null &&
+                      (() => {
+                        const delta = wrSeries.last - overallWR;
+                        return (
+                          <span className={delta >= 0 ? "text-lol-win" : "text-lol-loss"}>
+                            {(delta >= 0 ? "+" : "") + delta.toFixed(1) + "pp vs overall"}
+                          </span>
+                        );
+                      })()}
+                  </div>
+                  <LineChartExp
+                    values={wrSeries.values.map((value) => value ?? 0)}
+                    format={(value) => value.toFixed(1) + "%"}
+                    color="var(--theme-win)"
+                    min={0}
+                    max={100}
+                    baseline={50}
+                  />
+                </>
               )}
             </Panel>
 
