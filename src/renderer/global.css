@@ -610,6 +610,22 @@ html[data-theme="test"] #root {
     border-radius: 5px 5px 0 0;
     background: var(--theme-crimson);
   }
+
+  .mk0 {
+    color: var(--theme-assist, #4db8ff);
+  }
+
+  .mk1 {
+    color: var(--theme-gold, #e6bc63);
+  }
+
+  .mk2 {
+    color: #e08a4a;
+  }
+
+  .mk3 {
+    color: var(--theme-loss, #f0566e);
+  }
 }
 
 /* Scrollbar styling */

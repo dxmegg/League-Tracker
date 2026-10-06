@@ -207,7 +207,7 @@ export function getAugmentStatsAll(
   const source = statsSource(account);
   const where = ["g.is_remake = 0"];
   where.push(source.accountFilter);
-  const params: any[] = account ? [account] : [];
+  const params: any[] = account && account !== "all" ? [account] : [];
   if (championId !== undefined) {
     where.push("ps.champion_id = ?");
     params.push(championId);
