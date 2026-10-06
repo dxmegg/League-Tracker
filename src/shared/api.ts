@@ -238,6 +238,7 @@ export interface ChampionDetailStats {
   goldPerMin: number;
   avgGameLength: number; // seconds
   totalTimePlayed: number; // seconds
+  longestWinStreak: number; // best consecutive wins ever on this champion
 }
 
 export interface ChampionQueueStat {

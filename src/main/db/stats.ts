@@ -1407,56 +1407,64 @@ export function getChampionDetailStats(
   goldPerMin: number;
   avgGameLength: number;
   totalTimePlayed: number;
+  longestWinStreak: number;
 } {
-  const source = statsSource(account);
-  const where = ["g.is_remake = 0"];
-  where.push(source.accountFilter);
-  const params: any[] = account && account !== "all" ? [account] : [];
-  if (patch) {
-    where.push("g.game_version = ?");
-    params.push(patch);
-  }
-  applyQueueFilter(where, params, queue);
-  const statsPlaceholders = NO_STATS_QUEUE_IDS.map(() => "?").join(",");
+  const mp = participantFilter(patch, queue as number | undefined);
+  const accountClause = (() => {
+    if (account === "all") return "mp.puuid IN (SELECT puuid FROM summoner)";
+    if (account) return "mp.puuid = ?";
+    return "mp.puuid = g.puuid AND g.source != 'search-import'";
+  })();
+  const accountParams: any[] = account && account !== "all" ? [account] : [];
+  const mpSql = `${mp.sql} AND ${accountClause}`;
 
   const result = db
     .prepare(`
-      WITH champion_games AS (
-        SELECT ${source.alias}.game_id, ${source.alias}.team_id, ${source.alias}.win,
-               ${source.alias}.kills, ${source.alias}.assists,
-               ${source.alias}.total_damage_dealt, ${source.alias}.total_damage_taken,
-               ${source.alias}.total_heal, ${source.alias}.gold_earned,
-               g.game_duration
-        FROM ${source.table} ${source.alias}
-        JOIN games g ON ${source.alias}.game_id = g.game_id
-        WHERE ${where.join(" AND ")}
-          AND ${source.alias}.champion_id = ?
-          AND g.queue_id NOT IN (${statsPlaceholders})
+      WITH champion_rows AS (
+        SELECT mp.game_id, mp.team_id, mp.win, mp.kills, mp.assists,
+               mp.total_damage_dealt, mp.total_damage_taken, mp.total_heal,
+               mp.gold_earned, g.game_duration, g.game_creation
+        FROM match_participants mp
+        JOIN games g ON mp.game_id = g.game_id
+        WHERE ${mpSql} AND mp.champion_id = ? AND g.is_remake = 0
       ),
       teams AS (
         SELECT mp.game_id, mp.team_id,
                SUM(mp.total_damage_dealt) AS team_damage,
                SUM(mp.kills) AS team_kills
         FROM match_participants mp
-        WHERE mp.game_id IN (SELECT game_id FROM champion_games)
+        WHERE mp.game_id IN (SELECT game_id FROM champion_rows)
         GROUP BY mp.game_id, mp.team_id
+      ),
+      ordered AS (
+        SELECT win,
+               ROW_NUMBER() OVER (ORDER BY game_creation ASC) AS rn_all,
+               ROW_NUMBER() OVER (PARTITION BY win ORDER BY game_creation ASC) AS rn_win
+        FROM champion_rows
+      ),
+      streaks AS (
+        SELECT COUNT(*) AS len
+        FROM ordered
+        WHERE win = 1
+        GROUP BY (rn_all - rn_win)
       )
       SELECT
         COUNT(*) AS games,
         AVG(CASE WHEN t.team_kills > 0
-                 THEN (cg.kills + cg.assists) * 1.0 / t.team_kills END) AS killParticipation,
+                 THEN (cr.kills + cr.assists) * 1.0 / t.team_kills END) AS killParticipation,
         AVG(CASE WHEN t.team_damage > 0
-                 THEN cg.total_damage_dealt * 1.0 / t.team_damage END) AS damageShare,
-        AVG(cg.total_damage_taken) AS avgDamageTaken,
-        AVG(cg.total_heal) AS avgHeal,
-        AVG(CASE WHEN cg.game_duration >= 60
-                 THEN cg.gold_earned * 60.0 / cg.game_duration END) AS goldPerMin,
-        AVG(cg.game_duration) AS avgGameLength,
-        SUM(cg.game_duration) AS totalTimePlayed
-      FROM champion_games cg
-      JOIN teams t ON t.game_id = cg.game_id AND t.team_id = cg.team_id
+                 THEN cr.total_damage_dealt * 1.0 / t.team_damage END) AS damageShare,
+        AVG(cr.total_damage_taken) AS avgDamageTaken,
+        AVG(cr.total_heal) AS avgHeal,
+        AVG(CASE WHEN cr.game_duration >= 60
+                 THEN cr.gold_earned * 60.0 / cr.game_duration END) AS goldPerMin,
+        AVG(cr.game_duration) AS avgGameLength,
+        SUM(cr.game_duration) AS totalTimePlayed,
+        COALESCE((SELECT MAX(len) FROM streaks), 0) AS longestWinStreak
+      FROM champion_rows cr
+      JOIN teams t ON t.game_id = cr.game_id AND t.team_id = cr.team_id
     `)
-    .get(...params, championId, ...NO_STATS_QUEUE_IDS) as {
+    .get(...mp.params, ...accountParams, championId) as {
     games: number | null;
     killParticipation: number | null;
     damageShare: number | null;
@@ -1465,9 +1473,10 @@ export function getChampionDetailStats(
     goldPerMin: number | null;
     avgGameLength: number | null;
     totalTimePlayed: number | null;
+    longestWinStreak: number | null;
   };
 
-  const normalized = {
+  return {
     games: result?.games ?? 0,
     killParticipation: result?.killParticipation ?? 0,
     damageShare: result?.damageShare ?? 0,
@@ -1476,8 +1485,8 @@ export function getChampionDetailStats(
     goldPerMin: result?.goldPerMin ?? 0,
     avgGameLength: result?.avgGameLength ?? 0,
     totalTimePlayed: result?.totalTimePlayed ?? 0,
+    longestWinStreak: result?.longestWinStreak ?? 0,
   };
-  return normalized;
 }
 
 // Everything the Trends page draws, in one round trip. Days are the finest

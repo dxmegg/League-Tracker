@@ -289,7 +289,11 @@ export function ChampionDetailExp() {
             <Stat
               label="Streak"
               value={streak ? `${streak.type}${streak.count}` : "—"}
-              sub=""
+              sub={
+                streak && detailStats && detailStats.longestWinStreak > 0
+                  ? `max W${detailStats.longestWinStreak}`
+                  : ""
+              }
               valueClass={
                 streak?.type === "W" ? "text-lol-win" : streak?.type === "L" ? "text-lol-loss" : ""
               }
