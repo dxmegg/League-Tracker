@@ -1409,14 +1409,26 @@ export function getChampionDetailStats(
   totalTimePlayed: number;
   longestWinStreak: number;
 } {
-  const mp = participantFilter(patch, queue as number | undefined);
-  const accountClause = (() => {
-    if (account === "all") return "mp.puuid IN (SELECT puuid FROM summoner)";
-    if (account) return "mp.puuid = ?";
-    return "mp.puuid = g.puuid AND g.source != 'search-import'";
-  })();
-  const accountParams: any[] = account && account !== "all" ? [account] : [];
-  const mpSql = `${mp.sql} AND ${accountClause}`;
+  const where: string[] = ["g.is_remake = 0", "g.source != 'search-import'"];
+  const statsPlaceholders = NO_STATS_QUEUE_IDS.map(() => "?").join(",");
+  const params: any[] = [];
+  where.push(`g.queue_id NOT IN (${statsPlaceholders})`);
+  params.push(...NO_STATS_QUEUE_IDS);
+
+  if (patch) {
+    where.push("g.game_version = ?");
+    params.push(patch);
+  }
+  applyQueueFilter(where, params, queue, "g");
+
+  if (account === "all") {
+    where.push("g.puuid IN (SELECT puuid FROM summoner)");
+  } else if (account) {
+    where.push("mp.puuid = ?");
+    params.push(account);
+  } else {
+    where.push("mp.puuid = g.puuid");
+  }
 
   const result = db
     .prepare(`
@@ -1426,7 +1438,7 @@ export function getChampionDetailStats(
                mp.gold_earned, g.game_duration, g.game_creation
         FROM match_participants mp
         JOIN games g ON mp.game_id = g.game_id
-        WHERE ${mpSql} AND mp.champion_id = ? AND g.is_remake = 0
+        WHERE ${where.join(" AND ")} AND mp.champion_id = ?
       ),
       teams AS (
         SELECT mp.game_id, mp.team_id,
@@ -1464,7 +1476,7 @@ export function getChampionDetailStats(
       FROM champion_rows cr
       JOIN teams t ON t.game_id = cr.game_id AND t.team_id = cr.team_id
     `)
-    .get(...mp.params, ...accountParams, championId) as {
+    .get(...params, championId) as {
     games: number | null;
     killParticipation: number | null;
     damageShare: number | null;
