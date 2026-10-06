@@ -14,6 +14,7 @@ type NewFilterSelectProps<T extends string | number> = {
   className?: string;
   title?: string;
   disabled?: boolean;
+  allowClear?: boolean;
 };
 
 export function FilterSelect<T extends string | number>(props: NewFilterSelectProps<T>) {
@@ -72,6 +73,21 @@ export function FilterSelect<T extends string | number>(props: NewFilterSelectPr
           role="listbox"
           className="absolute left-0 top-full z-50 mt-1 max-h-80 min-w-full overflow-y-auto rounded-md border border-lol-crimson/40 bg-[linear-gradient(145deg,#0c0e11_0%,#090b0d_48%,#060809_100%)] p-1 shadow-[0_0_4px_rgba(150,30,30,0.35),0_0_12px_rgba(90,15,15,0.20)] ring-1 ring-inset ring-white/[0.03]"
         >
+          {props.allowClear && (
+            <button
+              type="button"
+              role="option"
+              aria-selected={props.value === undefined}
+              onClick={() => selectOption(undefined)}
+              className={`block w-full rounded-md px-2.5 py-1.5 text-left text-xs font-bold uppercase tracking-wider transition-colors ${
+                props.value === undefined
+                  ? "bg-lol-crimson/20 text-lol-text-bright"
+                  : "text-lol-text hover:bg-lol-crimson/10 hover:text-lol-text-bright"
+              }`}
+            >
+              {props.placeholder}
+            </button>
+          )}
           {props.options.map((option) => (
             <button
               key={String(option.value)}

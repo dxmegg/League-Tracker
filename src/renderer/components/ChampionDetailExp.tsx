@@ -72,6 +72,7 @@ export function ChampionDetailExp() {
             value={queue != null ? String(queue) : undefined}
             onChange={(v) => setQueue(v === undefined ? undefined : Number(v))}
             placeholder="All queues"
+            allowClear
             title="Queue"
             options={[
               { value: "420", label: "Ranked Solo" },
