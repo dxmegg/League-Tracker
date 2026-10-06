@@ -387,6 +387,24 @@ async function resolveDataBranch(patch?: string): Promise<string> {
   return patch;
 }
 
+function parseDataDragonItems(version: string, ddragonData: any): Record<number, ItemInfo> {
+  const items: Record<number, ItemInfo> = {};
+  for (const [key, entry] of Object.entries(ddragonData?.data ?? {})) {
+    const id = parseInt(key, 10);
+    if (!Number.isFinite(id) || !(entry as any)?.name) continue;
+    const item = entry as any;
+    items[id] = {
+      name: item.name,
+      description: item.description || "",
+      iconPath: `https://ddragon.leagueoflegends.com/cdn/${version}/img/item/${item.image.full}`,
+      branch: "ddragon",
+      price: Number.isFinite(Number(item.gold?.total)) ? Number(item.gold.total) : undefined,
+      from: Array.isArray(item.from) ? item.from : undefined,
+    };
+  }
+  return items;
+}
+
 export function loadItemData(patch?: string): Promise<Record<number, ItemInfo>> {
   const key = patch ?? "latest";
   const cached = itemCache.get(key);
@@ -408,20 +426,40 @@ export function loadItemData(patch?: string): Promise<Record<number, ItemInfo>> 
         // branch 404s and we fall back to "latest", icons must be built from
         // "latest" too, not the branch that failed.
         let usedBranch = branch;
+        let cdragonFailed = false;
         try {
-          data = await fetchJson(itemsJsonUrl(branch));
-        } catch (err) {
-          if (branch === "latest") throw err;
           try {
-            data = await fetchJson(itemsJsonUrl("latest"));
-          } catch (fallbackError) {
-            console.error(
-              `Failed to load item data from ${branch} and latest fallback`,
-              fallbackError,
-            );
-            throw fallbackError;
+            data = await fetchJson(itemsJsonUrl(branch));
+          } catch (err) {
+            if (branch === "latest") throw err;
+            try {
+              data = await fetchJson(itemsJsonUrl("latest"));
+            } catch (fallbackError) {
+              console.error(
+                `Failed to load item data from ${branch} and latest fallback`,
+                fallbackError,
+              );
+              throw fallbackError;
+            }
+            usedBranch = "latest";
           }
-          usedBranch = "latest";
+        } catch {
+          cdragonFailed = true;
+          console.warn(
+            "[dragon] loadItemData: CommunityDragon unreachable, trying Data Dragon fallback",
+          );
+        }
+        if (cdragonFailed) {
+          const versions = await fetchJson("https://ddragon.leagueoflegends.com/api/versions.json");
+          const version = String(versions[0]);
+          const ddragonJson = await fetchJson(dataDragonItemsUrl(version));
+          const ddragonItems = parseDataDragonItems(version, ddragonJson);
+          console.warn(
+            `[dragon] loadItemData: using Data Dragon ${version} (${Object.keys(ddragonItems).length} items)`,
+          );
+          itemCache.set(key, ddragonItems);
+          writeDragonCache(`items-${key}`, ddragonItems);
+          return ddragonItems;
         }
         let dataDragon: any = null;
         try {

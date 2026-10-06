@@ -27,9 +27,13 @@ export default function ItemIcon({ itemId, size = 24, patch }: ItemIconProps) {
   const sources = useMemo(() => {
     const urls: string[] = [];
     if (item?.iconPath) {
-      urls.push(CDRAGON_ASSET_URL(item.branch, item.iconPath));
-      const base = stripIconVariant(item.iconPath);
-      if (base) urls.push(CDRAGON_ASSET_URL(item.branch, base));
+      if (item.iconPath.startsWith("http://") || item.iconPath.startsWith("https://")) {
+        urls.push(item.iconPath);
+      } else {
+        urls.push(CDRAGON_ASSET_URL(item.branch, item.iconPath));
+        const base = stripIconVariant(item.iconPath);
+        if (base) urls.push(CDRAGON_ASSET_URL(item.branch, base));
+      }
     }
     // No tier below this: an item with no CommunityDragon mapping, or whose
     // icons all fail, falls through to the placeholder below.
