@@ -124,6 +124,80 @@ export function getChampionKeystones(
     .all(...params) as Array<{ runeId: number; picks: number; wins: number }>;
 }
 
+export function getChampionWeeklyWinRate(
+  championId: number,
+  account?: string,
+): Array<{ weekStart: number; games: number; wins: number }> {
+  // Groups by Monday 00:00 of each ISO week. Timestamps are epoch ms.
+  const source = statsSource(account);
+  const where = ["g.is_remake = 0"];
+  where.push(source.accountFilter);
+  where.push(`${source.alias}.champion_id = ?`);
+  where.push(`g.queue_id NOT IN (${EXCLUDED_STATS_SQL})`);
+  const params: any[] = account && account !== "all" ? [account, championId] : [championId];
+  return db
+    .prepare(`
+        SELECT
+          CAST(strftime('%s', date(g.game_creation / 1000, 'unixepoch', 'weekday 0', '-6 days')) AS INTEGER) * 1000 as weekStart,
+          COUNT(*) as games,
+          SUM(${source.alias}.win) as wins
+        FROM ${source.table} ${source.alias}
+        JOIN games g ON ${source.alias}.game_id = g.game_id
+        WHERE ${where.join(" AND ")}
+        GROUP BY weekStart
+        ORDER BY weekStart ASC
+        LIMIT 24
+      `)
+    .all(...params) as Array<{ weekStart: number; games: number; wins: number }>;
+}
+
+export function getChampionMatchups(
+  championId: number,
+  account?: string,
+): {
+  best: Array<{ championId: number; games: number; wins: number }>;
+  worst: Array<{ championId: number; games: number; wins: number }>;
+} {
+  // Finds the player's games with this champion, then finds the enemy team's
+  // most-frequent opposing champion per game. Only counts games where the
+  // OWNED player was on the winning or losing team, and only teammates' opposing
+  // champions are counted (the enemy team, opposite team_id from the owner).
+  const accountFilter =
+    account === "all" || account === undefined
+      ? "owner.puuid IN (SELECT puuid FROM summoner)"
+      : "owner.puuid = ?";
+  const params: any[] = account && account !== "all" ? [championId, account] : [championId];
+  const rows = db
+    .prepare(`
+        SELECT enemy.champion_id as championId,
+               COUNT(DISTINCT owner.game_id) as games,
+               SUM(CASE WHEN owner.win = 1 THEN 1 ELSE 0 END) as wins
+        FROM match_participants owner
+        JOIN match_participants enemy
+          ON enemy.game_id = owner.game_id
+         AND enemy.team_id != owner.team_id
+        JOIN games g ON g.game_id = owner.game_id
+        WHERE g.is_remake = 0
+          AND owner.champion_id = ?
+          AND enemy.champion_id > 0
+          AND g.queue_id NOT IN (${EXCLUDED_STATS_SQL})
+          AND ${accountFilter}
+        GROUP BY enemy.champion_id
+        HAVING games >= 3
+        ORDER BY games DESC
+      `)
+    .all(...params) as Array<{ championId: number; games: number; wins: number }>;
+
+  // Sort by win rate, then games. Min 3 games already enforced by HAVING.
+  const withWr = rows.map((r) => ({ ...r, wr: r.games > 0 ? r.wins / r.games : 0 }));
+  const best = [...withWr].sort((a, b) => b.wr - a.wr || b.games - a.games).slice(0, 5);
+  const worst = [...withWr].sort((a, b) => a.wr - b.wr || b.games - a.games).slice(0, 5);
+  return {
+    best: best.map(({ championId, games, wins }) => ({ championId, games, wins })),
+    worst: worst.map(({ championId, games, wins }) => ({ championId, games, wins })),
+  };
+}
+
 export function getAugmentStatsAll(
   championId?: number,
   patch?: string,
@@ -447,12 +521,14 @@ export function getChampionItemStats(
   championId: number,
   patch?: string,
   queue?: number,
+  account?: string,
 ): { item_id: number; picks: number; wins: number }[] {
+  const source = statsSource(account);
   const extraWhere: string[] = [];
   extraWhere.push("g.is_remake = 0");
-  extraWhere.push(localGamesFilter("g"));
+  extraWhere.push(source.accountFilter);
   extraWhere.push(`g.queue_id NOT IN (${EXCLUDED_STATS_SQL})`);
-  const extraParams: any[] = [];
+  const extraParams: any[] = account && account !== "all" ? [account] : [];
   if (patch) {
     extraWhere.push("g.game_version = ?");
     extraParams.push(patch);
@@ -462,7 +538,7 @@ export function getChampionItemStats(
   const itemCols = ["item0", "item1", "item2", "item3", "item4", "item5", "item6"];
   const excludedList = EXCLUDED_ITEM_IDS.join(", ");
   const subquery = (col: string) =>
-    `SELECT ps.${col} as item_id, ps.win FROM player_stats ps JOIN games g ON ps.game_id = g.game_id WHERE ps.champion_id = ? AND ps.${col} IS NOT NULL AND ps.${col} > 0 AND ps.${col} NOT IN (${excludedList})${extraSql}`;
+    `SELECT ${source.alias}.${col} as item_id, ${source.alias}.win FROM ${source.table} ${source.alias} JOIN games g ON ${source.alias}.game_id = g.game_id WHERE ${source.alias}.champion_id = ? AND ${source.alias}.${col} IS NOT NULL AND ${source.alias}.${col} > 0 AND ${source.alias}.${col} NOT IN (${excludedList})${extraSql}`;
   const params = itemCols.flatMap(() => [championId, ...extraParams]);
   return db
     .prepare(`
@@ -1128,6 +1204,7 @@ export function getGlobalChampionDetail(
   championId: number,
   patch?: string,
   queue?: number,
+  account?: string,
 ): {
   champion_id: number;
   games: number;
@@ -1151,6 +1228,14 @@ export function getGlobalChampionDetail(
 } {
   const mp = participantFilter(patch, queue);
   const mpa = participantFilter(patch, queue, "mpa");
+  const accountSql = (alias: string) =>
+    account && account !== "all"
+      ? ` AND EXISTS (SELECT 1 FROM match_participants owner WHERE owner.game_id = ${alias}.game_id AND owner.puuid = ?)`
+      : "";
+  const mpSql = `${mp.sql}${accountSql("mp")}`;
+  const mpaSql = `${mpa.sql}${accountSql("mpa")}`;
+  const mpParams = account && account !== "all" ? [...mp.params, account] : mp.params;
+  const mpaParams = account && account !== "all" ? [...mpa.params, account] : mpa.params;
 
   // Shares are per-game ratios averaged over the games they're defined in, so
   // a game with no team damage/kills recorded can't drag the average to zero —
@@ -1162,7 +1247,7 @@ export function getGlobalChampionDetail(
                SUM(mp.total_damage_dealt) as team_damage,
                SUM(mp.kills) as team_kills
         FROM match_participants mp
-        WHERE ${mp.sql}
+        WHERE ${mpSql}
         GROUP BY mp.game_id, mp.team_id
       )
       SELECT COUNT(*) as games,
@@ -1184,17 +1269,17 @@ export function getGlobalChampionDetail(
                       THEN (mp.kills + mp.assists) * 1.0 / t.team_kills END) as killParticipation
       FROM match_participants mp
       JOIN teams t ON t.game_id = mp.game_id AND t.team_id = mp.team_id
-      WHERE ${mp.sql} AND mp.champion_id = ?
+      WHERE ${mpSql} AND mp.champion_id = ?
     `)
-    .get(...mp.params, ...mp.params, championId) as any;
+    .get(...mpParams, ...mpParams, championId) as any;
 
   const slots = db
     .prepare(`
       SELECT COUNT(*) as count
       FROM match_participants mp
-      WHERE ${mp.sql} AND mp.champion_id > 0
+      WHERE ${mpSql} AND mp.champion_id > 0
     `)
-    .get(...mp.params) as { count: number };
+    .get(...mpParams) as { count: number };
 
   const itemCols = [0, 1, 2, 3, 4, 5, 6];
   const excludedList = EXCLUDED_ITEM_IDS.join(", ");
@@ -1206,7 +1291,7 @@ export function getGlobalChampionDetail(
           .map(
             (i) => `SELECT mp.item${i} as item_id, mp.win as win
                 FROM match_participants mp
-                WHERE ${mp.sql} AND mp.champion_id = ?
+                WHERE ${mpSql} AND mp.champion_id = ?
                   AND mp.item${i} > 0 AND mp.item${i} NOT IN (${excludedList})`,
           )
           .join("\n        UNION ALL\n        ")}
@@ -1214,7 +1299,7 @@ export function getGlobalChampionDetail(
       GROUP BY item_id
       ORDER BY picks DESC
     `)
-    .all(...itemCols.flatMap(() => [...mp.params, championId])) as {
+    .all(...itemCols.flatMap(() => [...mpParams, championId])) as {
     item_id: number;
     picks: number;
     wins: number;
@@ -1224,11 +1309,11 @@ export function getGlobalChampionDetail(
     .prepare(`
       SELECT mpa.augment_id, COUNT(*) as picks, SUM(mpa.win) as wins
       FROM match_participant_augments mpa
-      WHERE ${mpa.sql} AND mpa.champion_id = ?
+      WHERE ${mpaSql} AND mpa.champion_id = ?
       GROUP BY mpa.augment_id
       ORDER BY picks DESC
     `)
-    .all(...mpa.params, championId) as {
+    .all(...mpaParams, championId) as {
     augment_id: number;
     picks: number;
     wins: number;

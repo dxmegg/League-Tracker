@@ -241,6 +241,23 @@ export interface ChampionKeystoneStat {
   wins: number;
 }
 
+export interface ChampionWeeklyWinRate {
+  weekStart: number;
+  games: number;
+  wins: number;
+}
+
+export interface ChampionMatchup {
+  championId: number;
+  games: number;
+  wins: number;
+}
+
+export interface ChampionMatchups {
+  best: ChampionMatchup[];
+  worst: ChampionMatchup[];
+}
+
 export interface AugmentStats {
   augment_id: number;
   picks: number;
@@ -972,6 +989,11 @@ export interface ElectronAPI {
   getChampionStats: (patch?: string, queue?: number, account?: string) => Promise<ChampionStats[]>;
   getChampionQueueStats: (championId: number, account?: string) => Promise<ChampionQueueStat[]>;
   getChampionKeystones: (championId: number, account?: string) => Promise<ChampionKeystoneStat[]>;
+  getChampionWeeklyWinRate: (
+    championId: number,
+    account?: string,
+  ) => Promise<ChampionWeeklyWinRate[]>;
+  getChampionMatchups: (championId: number, account?: string) => Promise<ChampionMatchups>;
   getAugmentStats: (
     championId?: number,
     patch?: string,
@@ -1044,6 +1066,7 @@ export interface ElectronAPI {
     championId: number,
     patch?: string,
     queue?: number,
+    account?: string,
   ) => Promise<ItemStats[]>;
   getTeammateStats: (queue?: number, relation?: "friends" | "enemies") => Promise<TeammateStats[]>;
   getTeammateDetail: (
@@ -1063,6 +1086,7 @@ export interface ElectronAPI {
     championId: number,
     patch?: string,
     queue?: number,
+    account?: string,
   ) => Promise<GlobalChampionDetail>;
   getSummonerPuuid: () => Promise<string | null>;
   getAllSummonerPuuids: () => Promise<string[]>;
