@@ -529,10 +529,11 @@ export function getChampionMatchHistory(
   account?: string,
 ): { matches: any[]; total: number } {
   const source = statsSource(account);
+  const hasConcreteAccount = account !== undefined && account !== "all";
   const playerPuuidSql = account ? "ps.puuid" : "g.puuid";
   const where = ["ps.champion_id = ?"];
   where.push(source.accountFilter);
-  const params: any[] = [championId, ...(account ? [account] : [])];
+  const params: any[] = hasConcreteAccount ? [championId, account] : [championId];
   if (patch) {
     where.push("g.game_version = ?");
     params.push(patch);
