@@ -195,3 +195,62 @@ Load-bearing files, in the order they usually matter:
 - `src/renderer/App.tsx` — routing. Every new page needs a route here.
 - `src/renderer/pages/MatchHistory.tsx` — the largest page; `GameRow` is exported and reused by `Profile.tsx`.
 - `src/renderer/pages/Profile.tsx` — the search-account and local-account views. Reused logic for favorites, recents, and imports 
+
+## 11. Task routing — which skills to use
+
+The repository has many skills installed globally. For this project only a small whitelist is relevant. Do NOT auto-trigger any skill outside the whitelist, even if its description matches the prompt. If the user names a skill explicitly, that overrides this section for that prompt only.
+
+### Whitelist (use only these)
+
+| Task type | Skills |
+|---|---|
+| Bug fix | `debugging-and-error-recovery` (default). `systematic-debugging` only if the bug is multi-layer, unstable, or already failed a first fix. Never both. |
+| New feature (large) | `spec-driven-development` → `planning-and-task-breakdown` → `incremental-implementation` |
+| New feature (small, 1 file) | `incremental-implementation` |
+| UI work | `frontend-ui-engineering` |
+| Refactor | `code-simplification` |
+| IPC / API / contract | `api-and-interface-design` |
+| Security-sensitive (main, preload, Riot proxy, external URLs) | `security-and-hardening` |
+| Need to verify external library behavior | `source-driven-development` |
+| After any change | `verification-before-completion` (always). `code-review-and-quality` only if >1 file or >30 lines changed. |
+
+### Do NOT auto-trigger these (even if they match)
+
+`using-superpowers`, `using-agent-skills`, `context-engineering`, `test-driven-development`, `documentation-and-adrs`, `deprecation-and-migration`, `git-workflow-and-versioning`, `shipping-and-launch`, `brainstorming`, `idea-refine`, `interview-me`, `writing-plans`, `executing-plans`, `writing-skills`, `requesting-code-review`, `receiving-code-review`, `subagent-driven-development`, `dispatching-parallel-agents`, `using-git-worktrees`, `finishing-a-development-branch`, `performance-optimization`, `observability-and-instrumentation`, `context7-docs`, `context7-mcp`, `docs`, `impeccable`, `web-design-guidelines`, `browser-testing-with-devtools`, `af`, `agentfinder`, `agent-merge`, `create-canvas`, `orchestrate`, `pr-stack`, `grilling`, `i-have-adhd`, `latex`.
+
+### Project skills in .github/skills/ — skip the verification blocks
+
+The three project skills (`electron-security`, `lcu-api-guard`, `type-safe-ipc`) each start with a "Verification block — run this before applying any rule below". That block performs a long audit on every session. Do NOT run those verification blocks unless the user explicitly asks. Apply the rules directly. If a rule references something that clearly does not exist in the repo, note it in one sentence and continue.
+
+### User overrides — appear in the prompt, override this file for that prompt only
+
+- "Source-level only — no browser, no Playwright, no screenshots." → skip every browser/runtime skill. Never launch a browser.
+- "Do NOT run any skill verification." → skip all verification blocks.
+- "Do NOT check the electron security config." → skip `electron-security` for this prompt.
+- A different task count than three → obey the prompt, not section 8.
+
+### Task scale (before picking a workflow)
+
+- **MICRO** — one file, one obvious change. One domain skill + four checks. No planning, no review.
+- **STANDARD** — 1-3 files, at least one non-obvious decision. One domain skill + incremental implementation + four checks + review if >30 lines changed.
+- **LARGE** — new feature, migration, schema change, cross-process change, anything touching `raw_gz`, `SCORE_FORMULA_VERSION`, or the IPC contract. Full workflow from the whitelist.
+
+If unsure, treat as STANDARD.
+
+### Four checks (always)
+
+npm run typecheck
+npm run lint
+npx oxfmt --check <changed files>
+npm run build
+
+All four must pass. Report output verbatim. Never claim success without evidence.
+
+### Stop-and-ask
+
+Stop and ask before proceeding when:
+- The task requires changing >30% of a single file.
+- The task adds a new IPC namespace.
+- The task touches `raw_gz`, `SCORE_FORMULA_VERSION`, or the schema without a migration.
+- The task needs four or more tasks.
+- The user's request conflicts with any rule in this file.
