@@ -31,6 +31,43 @@ async function fetchJson(url: string): Promise<any> {
 
 const championCacheFile = () => path.join(getDataDir(), "champion-cache.json");
 
+// 24h TTL on disk — fresh enough to pick up hotfixes, long enough that a
+// normal session never pays the fetch. A stale entry is still served when the
+// network is down; see the hydrate functions below.
+const DRAGON_CACHE_TTL_MS = 24 * 60 * 60 * 1000;
+const dragonCacheFile = (name: string) => path.join(getDataDir(), `dragon-${name}.json`);
+
+function readDragonCache<T>(name: string): T | null {
+  try {
+    const raw = JSON.parse(fs.readFileSync(dragonCacheFile(name), "utf8"));
+    if (!raw?.savedAt || !raw?.data) return null;
+    if (Date.now() - raw.savedAt > DRAGON_CACHE_TTL_MS) return null;
+    return raw.data as T;
+  } catch {
+    return null;
+  }
+}
+
+function readDragonCacheStale<T>(name: string): T | null {
+  // Same as readDragonCache but ignores the TTL — used as a fallback when a
+  // fresh fetch fails so a 522 never blanks the UI.
+  try {
+    const raw = JSON.parse(fs.readFileSync(dragonCacheFile(name), "utf8"));
+    if (!raw?.data) return null;
+    return raw.data as T;
+  } catch {
+    return null;
+  }
+}
+
+function writeDragonCache<T>(name: string, data: T): void {
+  try {
+    fs.writeFileSync(dragonCacheFile(name), JSON.stringify({ savedAt: Date.now(), data }));
+  } catch (err) {
+    console.error(`Failed to persist dragon cache ${name}:`, err);
+  }
+}
+
 // Last successfully fetched champion data, so offline startups still have
 // names and classes (and scoring stays consistent with the previous run).
 function hydrateChampionCacheFromDisk() {
@@ -137,24 +174,41 @@ export function loadAugmentData(patch?: string): Promise<Record<number, AugmentI
   let promise = augmentPromises.get(key);
   if (!promise) {
     promise = (async () => {
-      const branch = await resolveDataBranch(patch);
-      let resolved = branch;
-      let data: any;
       try {
-        data = await fetchJson(cherryAugmentsUrl(branch));
+        const freshFromDisk = readDragonCache<Record<number, AugmentInfo>>(`augments-${key}`);
+        if (freshFromDisk) {
+          augmentCaches.set(key, freshFromDisk);
+          return freshFromDisk;
+        }
+
+        const branch = await resolveDataBranch(patch);
+        let resolved = branch;
+        let data: any;
+        try {
+          data = await fetchJson(cherryAugmentsUrl(branch));
+        } catch (err) {
+          if (branch === "latest") throw err;
+          // An archived branch that isn't there is better answered with current
+          // data than with nothing.
+          resolved = "latest";
+          data = await fetchJson(cherryAugmentsUrl("latest"));
+        }
+        const augments = parseAugments(data, resolved);
+        augmentCaches.set(key, augments);
+        console.log(
+          `Loaded ${Object.keys(augments).length} augments from CommunityDragon (${resolved})`,
+        );
+        writeDragonCache(`augments-${key}`, augments);
+        return augments;
       } catch (err) {
-        if (branch === "latest") throw err;
-        // An archived branch that isn't there is better answered with current
-        // data than with nothing.
-        resolved = "latest";
-        data = await fetchJson(cherryAugmentsUrl("latest"));
+        const stale = readDragonCacheStale<Record<number, AugmentInfo>>(`augments-${key}`);
+        if (stale) {
+          augmentCaches.set(key, stale);
+          console.warn(`[dragon] loadAugmentData fell back to stale disk cache (${key})`);
+          return stale;
+        }
+        throw err;
       }
-      const augments = parseAugments(data, resolved);
-      augmentCaches.set(key, augments);
-      console.log(
-        `Loaded ${Object.keys(augments).length} augments from CommunityDragon (${resolved})`,
-      );
-      return augments;
     })();
     // Drop failed loads so a later request can retry
     promise.catch(() => augmentPromises.delete(key));
@@ -177,6 +231,10 @@ let runeDataCache: Record<
   { name: string; longDesc: string; icon: string; category: "keystone" | "secondary" | "tree" }
 > | null = null;
 export async function loadRuneData() {
+  if (!runeDataCache) {
+    const fresh = readDragonCache<NonNullable<typeof runeDataCache>>("runes");
+    if (fresh) runeDataCache = fresh;
+  }
   if (runeDataCache) return runeDataCache;
   try {
     const roots = (await fetchJson(
@@ -233,8 +291,15 @@ export async function loadRuneData() {
       };
     }
     runeDataCache = data;
+    writeDragonCache("runes", data);
     return data;
   } catch (err) {
+    const stale = readDragonCacheStale<NonNullable<typeof runeDataCache>>("runes");
+    if (stale) {
+      runeDataCache = stale;
+      console.warn("[dragon] loadRuneData fell back to stale disk cache");
+      return stale;
+    }
     console.error("Failed to load rune data:", err);
     return {};
   }
@@ -330,56 +395,75 @@ export function loadItemData(patch?: string): Promise<Record<number, ItemInfo>> 
   let promise = itemPromises.get(key);
   if (!promise) {
     promise = (async () => {
-      const branch = await resolveDataBranch(patch);
-      let data: any;
-      // Track the branch that actually served the data: if the historical
-      // branch 404s and we fall back to "latest", icons must be built from
-      // "latest" too, not the branch that failed.
-      let usedBranch = branch;
       try {
-        data = await fetchJson(itemsJsonUrl(branch));
-      } catch (err) {
-        if (branch === "latest") throw err;
+        const freshFromDisk = readDragonCache<Record<number, ItemInfo>>(`items-${key}`);
+        if (freshFromDisk) {
+          itemCache.set(key, freshFromDisk);
+          return freshFromDisk;
+        }
+
+        const branch = await resolveDataBranch(patch);
+        let data: any;
+        // Track the branch that actually served the data: if the historical
+        // branch 404s and we fall back to "latest", icons must be built from
+        // "latest" too, not the branch that failed.
+        let usedBranch = branch;
         try {
-          data = await fetchJson(itemsJsonUrl("latest"));
-        } catch (fallbackError) {
-          console.error(
-            `Failed to load item data from ${branch} and latest fallback`,
-            fallbackError,
-          );
-          throw fallbackError;
+          data = await fetchJson(itemsJsonUrl(branch));
+        } catch (err) {
+          if (branch === "latest") throw err;
+          try {
+            data = await fetchJson(itemsJsonUrl("latest"));
+          } catch (fallbackError) {
+            console.error(
+              `Failed to load item data from ${branch} and latest fallback`,
+              fallbackError,
+            );
+            throw fallbackError;
+          }
+          usedBranch = "latest";
         }
-        usedBranch = "latest";
-      }
-      let dataDragon: any = null;
-      try {
-        const versions = await fetchJson("https://ddragon.leagueoflegends.com/api/versions.json");
-        const patch = usedBranch === "latest" ? String(versions[0]) : usedBranch;
-        dataDragon = await fetchJson(dataDragonItemsUrl(patch));
-      } catch {
-        // CommunityDragon remains the source for descriptions and icons.
-      }
-      const items: Record<number, ItemInfo> = {};
-      if (Array.isArray(data)) {
-        for (const item of data) {
-          const ddragonItem = dataDragon?.data?.[String(item.id)];
-          items[item.id] = {
-            name: item.name || "",
-            // Riot ships this already resolved — no @Var@ placeholders to substitute,
-            // unlike the augment tooltips, which name their values indirectly.
-            description: item.description || "",
-            iconPath: item.iconPath || "",
-            branch: usedBranch,
-            price: Number.isFinite(Number(ddragonItem?.gold?.total))
-              ? Number(ddragonItem.gold.total)
-              : undefined,
-            from: Array.isArray(item.from) ? item.from : undefined,
-          };
+        let dataDragon: any = null;
+        try {
+          const versions = await fetchJson("https://ddragon.leagueoflegends.com/api/versions.json");
+          const patch = usedBranch === "latest" ? String(versions[0]) : usedBranch;
+          dataDragon = await fetchJson(dataDragonItemsUrl(patch));
+        } catch {
+          // CommunityDragon remains the source for descriptions and icons.
         }
+        const items: Record<number, ItemInfo> = {};
+        if (Array.isArray(data)) {
+          for (const item of data) {
+            const ddragonItem = dataDragon?.data?.[String(item.id)];
+            items[item.id] = {
+              name: item.name || "",
+              // Riot ships this already resolved — no @Var@ placeholders to substitute,
+              // unlike the augment tooltips, which name their values indirectly.
+              description: item.description || "",
+              iconPath: item.iconPath || "",
+              branch: usedBranch,
+              price: Number.isFinite(Number(ddragonItem?.gold?.total))
+                ? Number(ddragonItem.gold.total)
+                : undefined,
+              from: Array.isArray(item.from) ? item.from : undefined,
+            };
+          }
+        }
+        itemCache.set(key, items);
+        console.log(
+          `Loaded ${Object.keys(items).length} items from CommunityDragon (${usedBranch})`,
+        );
+        writeDragonCache(`items-${key}`, items);
+        return items;
+      } catch (err) {
+        const stale = readDragonCacheStale<Record<number, ItemInfo>>(`items-${key}`);
+        if (stale) {
+          itemCache.set(key, stale);
+          console.warn(`[dragon] loadItemData fell back to stale disk cache (${key})`);
+          return stale;
+        }
+        throw err;
       }
-      itemCache.set(key, items);
-      console.log(`Loaded ${Object.keys(items).length} items from CommunityDragon (${usedBranch})`);
-      return items;
     })();
     // Drop failed loads so a later request can retry
     promise.catch(() => itemPromises.delete(key));
@@ -396,38 +480,55 @@ let spellPromise: Promise<Record<number, SummonerSpellInfo>> | null = null;
 // Summoner spell art doesn't change patch to patch the way item art does, so
 // one "latest" fetch serves every game.
 export function loadSummonerSpellData(): Promise<Record<number, SummonerSpellInfo>> {
+  if (!spellCache) {
+    const fresh = readDragonCache<Record<number, SummonerSpellInfo>>("spells");
+    if (fresh) spellCache = fresh;
+  }
   if (spellCache) return Promise.resolve(spellCache);
   if (!spellPromise) {
     spellPromise = (async () => {
-      const data = await fetchJson(
-        "https://raw.communitydragon.org/latest/plugins/rcp-be-lol-game-data/global/default/v1/summoner-spells.json",
-      );
-      const spells: Record<number, SummonerSpellInfo> = {};
-      if (Array.isArray(data)) {
-        for (const spell of data) {
-          spells[spell.id] = { name: spell.name || "", iconPath: spell.iconPath || "" };
-        }
-      }
       try {
-        const versions = await fetchJson("https://ddragon.leagueoflegends.com/api/versions.json");
-        const ddragon = await fetchJson(
-          `https://ddragon.leagueoflegends.com/cdn/${versions[0]}/data/en_US/summoner.json`,
+        const data = await fetchJson(
+          "https://raw.communitydragon.org/latest/plugins/rcp-be-lol-game-data/global/default/v1/summoner-spells.json",
         );
-        for (const entry of Object.values(ddragon?.data ?? {}) as any[]) {
-          const id = Number(entry?.key);
-          if (!Number.isFinite(id) || spells[id]) continue;
-          spells[id] = {
-            name: entry.name ?? "",
-            iconPath: `/lol-game-data/assets/v1/summoner-spells/${entry.id}.png`,
-          };
+        const spells: Record<number, SummonerSpellInfo> = {};
+        if (Array.isArray(data)) {
+          for (const spell of data) {
+            spells[spell.id] = { name: spell.name || "", iconPath: spell.iconPath || "" };
+          }
         }
-      } catch {
-        // CommunityDragon remains the source; a missing Data Dragon fetch is not
-        // fatal, it only means some spell ids stay unresolved.
+
+        try {
+          const versions = await fetchJson("https://ddragon.leagueoflegends.com/api/versions.json");
+          const ddragon = await fetchJson(
+            `https://ddragon.leagueoflegends.com/cdn/${versions[0]}/data/en_US/summoner.json`,
+          );
+          for (const entry of Object.values(ddragon?.data ?? {}) as any[]) {
+            const id = Number(entry?.key);
+            if (!Number.isFinite(id) || spells[id]) continue;
+            spells[id] = {
+              name: entry.name ?? "",
+              iconPath: `/lol-game-data/assets/v1/summoner-spells/${entry.id}.png`,
+            };
+          }
+        } catch {
+          // CommunityDragon remains the source; a missing Data Dragon fetch is not
+          // fatal, it only means some spell ids stay unresolved.
+        }
+
+        spellCache = spells;
+        console.log(`Loaded ${Object.keys(spells).length} summoner spells from CommunityDragon`);
+        writeDragonCache("spells", spells);
+        return spells;
+      } catch (err) {
+        const stale = readDragonCacheStale<Record<number, SummonerSpellInfo>>("spells");
+        if (stale) {
+          spellCache = stale;
+          console.warn("[dragon] loadSummonerSpellData fell back to stale disk cache");
+          return stale;
+        }
+        throw err;
       }
-      spellCache = spells;
-      console.log(`Loaded ${Object.keys(spells).length} summoner spells from CommunityDragon`);
-      return spells;
     })();
     // Drop failed loads so a later request can retry
     spellPromise.catch(() => {
