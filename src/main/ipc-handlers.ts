@@ -123,6 +123,14 @@ export function registerIpcHandlers() {
     },
   );
 
+  ipcMain.handle("db:champion-queue-stats", (_event, championId: number, account?: string) => {
+    return db.getChampionQueueStats(championId, account);
+  });
+
+  ipcMain.handle("db:champion-keystones", (_event, championId: number, account?: string) => {
+    return db.getChampionKeystones(championId, account);
+  });
+
   ipcMain.handle(
     "db:augment-stats",
     (_event, championId?: number, patch?: string, queue?: number, account?: string) => {

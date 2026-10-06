@@ -84,6 +84,8 @@ export {
 } from "./payloads";
 export {
   getChampionStatsAll,
+  getChampionQueueStats,
+  getChampionKeystones,
   getAugmentStatsAll,
   getDashboardData,
   getAugmentStatsWithChampions,

@@ -229,6 +229,18 @@ export interface ChampionStats {
   avg_cs_per_min: number | null;
 }
 
+export interface ChampionQueueStat {
+  queueId: number;
+  games: number;
+  wins: number;
+}
+
+export interface ChampionKeystoneStat {
+  runeId: number;
+  picks: number;
+  wins: number;
+}
+
 export interface AugmentStats {
   augment_id: number;
   picks: number;
@@ -958,6 +970,8 @@ export interface ElectronAPI {
   getMatchDetail: (gameId: number) => Promise<MatchDetail>;
   toggleFavorite: (gameId: number) => Promise<boolean>;
   getChampionStats: (patch?: string, queue?: number, account?: string) => Promise<ChampionStats[]>;
+  getChampionQueueStats: (championId: number, account?: string) => Promise<ChampionQueueStat[]>;
+  getChampionKeystones: (championId: number, account?: string) => Promise<ChampionKeystoneStat[]>;
   getAugmentStats: (
     championId?: number,
     patch?: string,

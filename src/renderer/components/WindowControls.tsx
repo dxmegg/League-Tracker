@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { MaximizeIcon, MinusIcon, RestoreIcon, XIcon } from "./icons";
+import { MaximizeIcon, MinusIcon, RefreshIcon, RestoreIcon, XIcon } from "./icons";
 
 export function WindowControls() {
   const [maximized, setMaximized] = useState(false);
@@ -11,6 +11,14 @@ export function WindowControls() {
 
   return (
     <>
+      <button
+        type="button"
+        onClick={() => window.location.reload()}
+        title="Refresh"
+        className="titlebar-no-drag flex h-8 w-8 items-center justify-center text-lol-text transition-colors hover:bg-white/5 hover:text-lol-text-bright focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-lol-gold/60"
+      >
+        <RefreshIcon className="h-3.5 w-3.5" />
+      </button>
       <button
         type="button"
         onClick={() => window.api.minimizeWindow()}

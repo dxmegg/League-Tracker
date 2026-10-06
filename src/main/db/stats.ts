@@ -68,6 +68,62 @@ export function getChampionStatsAll(
     .all(...params, ...timeFilter.params, ...NO_STATS_QUEUE_IDS);
 }
 
+export function getChampionQueueStats(
+  championId: number,
+  account?: string,
+): Array<{ queueId: number; games: number; wins: number }> {
+  const source = statsSource(account);
+  const where = ["g.is_remake = 0"];
+  where.push(source.accountFilter);
+  where.push(`${source.alias}.champion_id = ?`);
+  where.push(`g.queue_id NOT IN (${EXCLUDED_STATS_SQL})`);
+  const params: any[] = account && account !== "all" ? [account, championId] : [championId];
+  return db
+    .prepare(`
+        SELECT g.queue_id as queueId,
+               COUNT(*) as games,
+               SUM(${source.alias}.win) as wins
+        FROM ${source.table} ${source.alias}
+        JOIN games g ON ${source.alias}.game_id = g.game_id
+        WHERE ${where.join(" AND ")}
+        GROUP BY g.queue_id
+        ORDER BY games DESC
+      `)
+    .all(...params) as Array<{ queueId: number; games: number; wins: number }>;
+}
+
+export function getChampionKeystones(
+  championId: number,
+  account?: string,
+): Array<{ runeId: number; picks: number; wins: number }> {
+  // The keystone sits in match_participants.rune0 (first perk of the primary tree).
+  // Reads the participant row for the OWNED player only, so the same champion
+  // played by a teammate on the same game is not counted.
+  const accountFilter =
+    account === "all" || account === undefined
+      ? "mp.puuid IN (SELECT puuid FROM summoner)"
+      : "mp.puuid = ?";
+  const params: any[] = account && account !== "all" ? [championId, account] : [championId];
+  return db
+    .prepare(`
+        SELECT mp.rune0 as runeId,
+               COUNT(*) as picks,
+               SUM(mp.win) as wins
+        FROM match_participants mp
+        JOIN games g ON g.game_id = mp.game_id
+        WHERE g.is_remake = 0
+          AND mp.champion_id = ?
+          AND mp.rune0 IS NOT NULL
+          AND mp.rune0 > 0
+          AND g.queue_id NOT IN (${EXCLUDED_STATS_SQL})
+          AND ${accountFilter}
+        GROUP BY mp.rune0
+        ORDER BY picks DESC
+        LIMIT 15
+      `)
+    .all(...params) as Array<{ runeId: number; picks: number; wins: number }>;
+}
+
 export function getAugmentStatsAll(
   championId?: number,
   patch?: string,
