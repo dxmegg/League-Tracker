@@ -564,11 +564,11 @@ export function getChampionMatchHistory(
     .get(...params) as any;
   const matches = db
     .prepare(`
-    SELECT g.game_id, g.game_creation, g.game_duration, g.is_remake, g.favorite,
+    SELECT g.game_id, g.game_creation, g.game_duration, g.is_remake, g.favorite, g.queue_id,
            ${playerPuuidSql} as puuid,
            ps.champion_id, ps.win, ps.kills, ps.deaths, ps.assists,
            ps.double_kills, ps.triple_kills, ps.quadra_kills, ps.penta_kills,
-           ps.total_damage_dealt, ps.total_damage_taken, ps.total_heal, ps.gold_earned,
+           ps.total_damage_dealt, ps.total_damage_taken, ps.total_heal, ps.gold_earned, ps.cs,
            ps.score, ps.score_badge,
            COALESCE(ps.spell1, (
              SELECT mp.spell1 FROM match_participants mp
@@ -578,7 +578,7 @@ export function getChampionMatchHistory(
              SELECT mp.spell2 FROM match_participants mp
              WHERE mp.game_id = g.game_id AND mp.puuid = ${playerPuuidSql}
            )) as spell2,
-           ps.item0, ps.item1, ps.item2, ps.item3, ps.item4, ps.item5,
+           ps.item0, ps.item1, ps.item2, ps.item3, ps.item4, ps.item5, ps.item6,
            ${augmentIdsSql} as augment_ids,
            (SELECT mp.team_position FROM match_participants mp
              WHERE mp.game_id = g.game_id AND mp.puuid = g.puuid) as team_position,

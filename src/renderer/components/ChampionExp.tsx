@@ -273,7 +273,7 @@ export function ChampionExp() {
                       <td>{formatNumber(r.avg_damage)}</td>
                       <td>{formatNumber(r.avg_gold)}</td>
                       <td>
-                        <div className="flex flex-wrap items-center justify-end gap-x-2 gap-y-0.5 text-[11.5px] tabular-nums">
+                        <div className="grid w-max grid-cols-2 gap-x-2 gap-y-0.5 text-[10.5px] tabular-nums ml-auto">
                           <span className="mk0 whitespace-nowrap" title="Double kills">
                             D {formatNumber(r.double_kills)}
                           </span>

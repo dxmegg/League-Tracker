@@ -1,12 +1,35 @@
-import { useMemo } from "react";
+import { useMemo, type ReactNode } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import type { ChampionStats, MatchListItem } from "../../shared/api";
+import type {
+  AugmentStats,
+  ChampionKeystoneStat,
+  ChampionMatchups,
+  ChampionQueueStat,
+  ChampionStats,
+  ChampionWeeklyWinRate,
+  ItemStats,
+  MatchListItem,
+} from "../../shared/api";
+import { QUEUE_LABELS } from "../../shared/queues";
+import AugmentIcon from "./AugmentIcon";
 import ChampionIcon from "./ChampionIcon";
+import ItemIcon from "./ItemIcon";
+import { LineChartExp } from "./LineChartExp";
 import { MatchRowExperiment } from "./MatchRowExperiment";
 import { Panel } from "./Panel";
 import PatchSelect from "./PatchSelect";
+import RuneIcon from "./RuneIcon";
 import { FilterSelect } from "./FilterSelect";
-import { useChampionData, getChampionName } from "../hooks/useChampions";
+import WinRateBar from "./WinRateBar";
+import {
+  getAugmentName,
+  getChampionName,
+  getItemName,
+  useAugmentData,
+  useChampionData,
+  useItemData,
+  useRuneData,
+} from "../hooks/useChampions";
 import { useHistoryScopeQueue } from "../lib/historyScope";
 import { useIpc } from "../hooks/useIpc";
 import { useActiveAccount } from "../hooks/useActiveAccount";
@@ -38,6 +61,39 @@ export function ChampionDetailExp() {
     [id, patch, scopedQueue, account],
   );
 
+  const { data: keystones, loading: keystonesLoading } = useIpc<ChampionKeystoneStat[]>(
+    () => window.api.getChampionKeystones(id, account),
+    [id, account],
+  );
+
+  const { data: queueStats, loading: queueStatsLoading } = useIpc<ChampionQueueStat[]>(
+    () => window.api.getChampionQueueStats(id, account),
+    [id, account],
+  );
+
+  const { data: weeklyWinRate, loading: weeklyWinRateLoading } = useIpc<ChampionWeeklyWinRate[]>(
+    () => window.api.getChampionWeeklyWinRate(id, account),
+    [id, account],
+  );
+
+  const { data: matchups, loading: matchupsLoading } = useIpc<ChampionMatchups>(
+    () => window.api.getChampionMatchups(id, account),
+    [id, account],
+  );
+
+  const { data: items, loading: itemsLoading } = useIpc<ItemStats[]>(
+    () => window.api.getChampionItemStats(id, patch, scopedQueue, account),
+    [id, patch, scopedQueue, account],
+  );
+
+  const { data: augments, loading: augmentsLoading } = useIpc<AugmentStats[]>(
+    () => window.api.getAugmentStats(id, patch, scopedQueue, account),
+    [id, patch, scopedQueue, account],
+  );
+
+  const augmentData = useAugmentData(patch);
+  const itemData = useItemData(patch);
+  const runeData = useRuneData();
   const name = getChampionName(champData, id);
   const games = stats?.games ?? 0;
   const wins = stats?.wins ?? 0;
@@ -138,6 +194,155 @@ export function ChampionDetailExp() {
             <Stat label="Avg gold" value={formatNumber(stats.avg_gold)} sub="" />
           </div>
 
+          <div className="grid grid-cols-1 gap-5 xl:grid-cols-2">
+            <Panel>
+              <SectionHeading title="Top augments" aside="Pick rate and win rate" />
+              {augmentsLoading || !augments ? (
+                <SectionLoading />
+              ) : (
+                <div className="flex flex-col gap-1.5">
+                  {augments
+                    .slice()
+                    .sort((a, b) => b.picks - a.picks)
+                    .slice(0, 6)
+                    .map((a) => (
+                      <RateRow
+                        key={a.augment_id}
+                        icon={<AugmentIcon augmentId={a.augment_id} size={24} />}
+                        name={getAugmentName(augmentData, a.augment_id)}
+                        wins={a.wins}
+                        total={a.picks}
+                        count={`${a.picks}x`}
+                      />
+                    ))}
+                  {augments.length === 0 && <NoData />}
+                </div>
+              )}
+            </Panel>
+
+            <Panel>
+              <SectionHeading title="Top items" aside="Most built" />
+              {itemsLoading || !items ? (
+                <SectionLoading />
+              ) : (
+                <div className="flex flex-col gap-1.5">
+                  {items
+                    .slice()
+                    .sort((a, b) => b.picks - a.picks)
+                    .slice(0, 6)
+                    .map((item) => (
+                      <RateRow
+                        key={item.item_id}
+                        icon={<ItemIcon itemId={item.item_id} size={24} patch={patch} />}
+                        name={getItemName(itemData, item.item_id)}
+                        wins={item.wins}
+                        total={item.picks}
+                        count={`${item.picks}x`}
+                      />
+                    ))}
+                  {items.length === 0 && <NoData />}
+                </div>
+              )}
+            </Panel>
+
+            <Panel>
+              <SectionHeading title="Keystones" aside="Picks" />
+              {keystonesLoading || !keystones ? (
+                <SectionLoading />
+              ) : (
+                <div className="flex flex-col gap-1.5">
+                  {keystones
+                    .slice()
+                    .sort((a, b) => b.picks - a.picks)
+                    .slice(0, 6)
+                    .map((keystone) => (
+                      <RateRow
+                        key={keystone.runeId}
+                        icon={
+                          <RuneIcon
+                            runeId={keystone.runeId}
+                            path={runeData[keystone.runeId]?.icon}
+                            size={22}
+                          />
+                        }
+                        name={runeData[keystone.runeId]?.name ?? `Rune ${keystone.runeId}`}
+                        wins={keystone.wins}
+                        total={keystone.picks}
+                        count={`${keystone.picks}x`}
+                      />
+                    ))}
+                  {keystones.length === 0 && <NoData />}
+                </div>
+              )}
+            </Panel>
+
+            <Panel>
+              <SectionHeading title="Games by queue" />
+              {queueStatsLoading || !queueStats ? (
+                <SectionLoading />
+              ) : (
+                <div className="flex flex-col gap-1.5">
+                  {queueStats.map((queueStat) => {
+                    const queueWr =
+                      queueStat.games > 0 ? (queueStat.wins / queueStat.games) * 100 : 0;
+                    return (
+                      <div
+                        key={queueStat.queueId}
+                        className="flex items-center gap-3 rounded-lg bg-black/10 px-3 py-2 text-[12px]"
+                      >
+                        <span className="min-w-0 flex-1 truncate text-lol-text-bright">
+                          {QUEUE_LABELS[queueStat.queueId] ?? `Queue ${queueStat.queueId}`}
+                        </span>
+                        <span className="shrink-0 text-lol-text">{queueStat.games}</span>
+                        <span className="shrink-0 text-lol-text">
+                          <span className="text-lol-win">{queueStat.wins}W</span>{" "}
+                          <span className="text-lol-loss">{queueStat.games - queueStat.wins}L</span>
+                        </span>
+                        <span
+                          className={`w-12 shrink-0 text-right tabular-nums ${
+                            queueWr >= 50 ? "text-lol-win" : "text-lol-loss"
+                          }`}
+                        >
+                          {queueWr.toFixed(1)}%
+                        </span>
+                      </div>
+                    );
+                  })}
+                  {queueStats.length === 0 && <NoData />}
+                </div>
+              )}
+            </Panel>
+
+            <Panel className="xl:col-span-2">
+              <SectionHeading title="Win rate by week" />
+              {weeklyWinRateLoading || !weeklyWinRate ? (
+                <SectionLoading />
+              ) : (
+                <LineChartExp
+                  values={weeklyWinRate.map((week) =>
+                    week.games > 0 ? (week.wins / week.games) * 100 : 0,
+                  )}
+                  format={(value) => value.toFixed(1) + "%"}
+                  color="var(--theme-win)"
+                  min={20}
+                  max={100}
+                />
+              )}
+            </Panel>
+
+            <Panel className="xl:col-span-2">
+              <SectionHeading title="Matchups" />
+              {matchupsLoading || !matchups ? (
+                <SectionLoading />
+              ) : (
+                <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
+                  <MatchupColumn title="Best vs" matchups={matchups.best} champData={champData} />
+                  <MatchupColumn title="Worst vs" matchups={matchups.worst} champData={champData} />
+                </div>
+              )}
+            </Panel>
+          </div>
+
           <Panel>
             <div className="mb-4 flex items-baseline justify-between">
               <h2 className="font-display text-[16px] font-semibold text-lol-text-bright">
@@ -192,6 +397,99 @@ function Stat({
         {value}
       </b>
       {sub && <div className="text-[12px] text-lol-text">{sub}</div>}
+    </div>
+  );
+}
+
+function SectionHeading({ title, aside }: { title: string; aside?: string }) {
+  return (
+    <div className="mb-4 flex items-baseline justify-between gap-3">
+      <h2 className="font-display text-[16px] font-semibold text-lol-text-bright">{title}</h2>
+      {aside && <span className="text-[12px] text-lol-text">{aside}</span>}
+    </div>
+  );
+}
+
+function SectionLoading() {
+  return <p className="py-3 text-sm text-lol-text">Loading…</p>;
+}
+
+function NoData() {
+  return <span className="text-[12.5px] text-lol-text">No data</span>;
+}
+
+function RateRow({
+  icon,
+  name,
+  wins,
+  total,
+  count,
+}: {
+  icon: ReactNode;
+  name: string;
+  wins: number;
+  total: number;
+  count: string;
+}) {
+  const rate = total > 0 ? (wins / total) * 100 : 0;
+  return (
+    <div className="flex min-w-0 items-center gap-2">
+      {icon}
+      <span className="min-w-0 flex-1 truncate text-[12.5px] text-lol-text-bright">{name}</span>
+      <span className="shrink-0 text-[11px] text-lol-text">{count}</span>
+      <div className="w-20 shrink-0">
+        <WinRateBar wins={wins} total={total} showPercent={false} />
+      </div>
+      <span
+        className={`w-11 shrink-0 text-right text-[11px] tabular-nums ${
+          rate >= 50 ? "text-lol-win" : "text-lol-loss"
+        }`}
+      >
+        {rate.toFixed(1)}%
+      </span>
+    </div>
+  );
+}
+
+function MatchupColumn({
+  title,
+  matchups,
+  champData,
+}: {
+  title: string;
+  matchups: { championId: number; games: number; wins: number }[];
+  champData: ReturnType<typeof useChampionData>;
+}) {
+  return (
+    <div className="min-w-0">
+      <h3 className="mb-2 text-[12px] font-semibold uppercase tracking-wider text-lol-text">
+        {title}
+      </h3>
+      <div className="flex flex-col gap-1.5">
+        {matchups.length > 0 ? (
+          matchups.map((matchup) => {
+            const rate = matchup.games > 0 ? (matchup.wins / matchup.games) * 100 : 0;
+            return (
+              <div key={matchup.championId} className="flex items-center gap-2 text-[12px]">
+                <ChampionIcon championId={matchup.championId} size={22} />
+                <span className="min-w-0 flex-1 truncate text-lol-text-bright">
+                  {getChampionName(champData, matchup.championId)}
+                </span>
+                <span className="shrink-0 text-lol-text">{matchup.games} games</span>
+                <span
+                  className={`w-11 shrink-0 text-right tabular-nums ${
+                    rate >= 50 ? "text-lol-win" : "text-lol-loss"
+                  }`}
+                >
+                  {rate.toFixed(1)}%
+                </span>
+              </div>
+            );
+          })
+        ) : (
+          <NoData />
+        )}
+      </div>
     </div>
   );
 }
