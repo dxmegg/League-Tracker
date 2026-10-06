@@ -229,6 +229,17 @@ export interface ChampionStats {
   avg_cs_per_min: number | null;
 }
 
+export interface ChampionDetailStats {
+  games: number;
+  killParticipation: number; // 0-1, averaged per-game ratio
+  damageShare: number; // 0-1, averaged per-game ratio
+  avgDamageTaken: number;
+  avgHeal: number;
+  goldPerMin: number;
+  avgGameLength: number; // seconds
+  totalTimePlayed: number; // seconds
+}
+
 export interface ChampionQueueStat {
   queueId: number;
   games: number;
@@ -987,6 +998,12 @@ export interface ElectronAPI {
   getMatchDetail: (gameId: number) => Promise<MatchDetail>;
   toggleFavorite: (gameId: number) => Promise<boolean>;
   getChampionStats: (patch?: string, queue?: number, account?: string) => Promise<ChampionStats[]>;
+  getChampionDetailStats: (
+    championId: number,
+    patch?: string,
+    queue?: number,
+    account?: string,
+  ) => Promise<ChampionDetailStats>;
   getChampionQueueStats: (championId: number, account?: string) => Promise<ChampionQueueStat[]>;
   getChampionKeystones: (championId: number, account?: string) => Promise<ChampionKeystoneStat[]>;
   getChampionWeeklyWinRate: (

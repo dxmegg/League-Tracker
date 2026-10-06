@@ -97,6 +97,7 @@ export {
   getOwnedItemDetail,
   getOwnedRuneStats,
   getGlobalChampionDetail,
+  getChampionDetailStats,
   getTrendsData,
   getRecords,
   getTeammateStats,

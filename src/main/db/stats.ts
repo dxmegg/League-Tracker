@@ -1393,6 +1393,93 @@ export function getGlobalChampionDetail(
   };
 }
 
+export function getChampionDetailStats(
+  championId: number,
+  patch?: string,
+  queue?: number | number[],
+  account?: string,
+): {
+  games: number;
+  killParticipation: number;
+  damageShare: number;
+  avgDamageTaken: number;
+  avgHeal: number;
+  goldPerMin: number;
+  avgGameLength: number;
+  totalTimePlayed: number;
+} {
+  const source = statsSource(account);
+  const where = ["g.is_remake = 0"];
+  where.push(source.accountFilter);
+  const params: any[] = account && account !== "all" ? [account] : [];
+  if (patch) {
+    where.push("g.game_version = ?");
+    params.push(patch);
+  }
+  applyQueueFilter(where, params, queue);
+  const statsPlaceholders = NO_STATS_QUEUE_IDS.map(() => "?").join(",");
+
+  const result = db
+    .prepare(`
+      WITH champion_games AS (
+        SELECT ${source.alias}.game_id, ${source.alias}.team_id, ${source.alias}.win,
+               ${source.alias}.kills, ${source.alias}.assists,
+               ${source.alias}.total_damage_dealt, ${source.alias}.total_damage_taken,
+               ${source.alias}.total_heal, ${source.alias}.gold_earned,
+               g.game_duration
+        FROM ${source.table} ${source.alias}
+        JOIN games g ON ${source.alias}.game_id = g.game_id
+        WHERE ${where.join(" AND ")}
+          AND ${source.alias}.champion_id = ?
+          AND g.queue_id NOT IN (${statsPlaceholders})
+      ),
+      teams AS (
+        SELECT mp.game_id, mp.team_id,
+               SUM(mp.total_damage_dealt) AS team_damage,
+               SUM(mp.kills) AS team_kills
+        FROM match_participants mp
+        WHERE mp.game_id IN (SELECT game_id FROM champion_games)
+        GROUP BY mp.game_id, mp.team_id
+      )
+      SELECT
+        COUNT(*) AS games,
+        AVG(CASE WHEN t.team_kills > 0
+                 THEN (cg.kills + cg.assists) * 1.0 / t.team_kills END) AS killParticipation,
+        AVG(CASE WHEN t.team_damage > 0
+                 THEN cg.total_damage_dealt * 1.0 / t.team_damage END) AS damageShare,
+        AVG(cg.total_damage_taken) AS avgDamageTaken,
+        AVG(cg.total_heal) AS avgHeal,
+        AVG(CASE WHEN cg.game_duration >= 60
+                 THEN cg.gold_earned * 60.0 / cg.game_duration END) AS goldPerMin,
+        AVG(cg.game_duration) AS avgGameLength,
+        SUM(cg.game_duration) AS totalTimePlayed
+      FROM champion_games cg
+      JOIN teams t ON t.game_id = cg.game_id AND t.team_id = cg.team_id
+    `)
+    .get(...params, championId, ...NO_STATS_QUEUE_IDS) as {
+    games: number | null;
+    killParticipation: number | null;
+    damageShare: number | null;
+    avgDamageTaken: number | null;
+    avgHeal: number | null;
+    goldPerMin: number | null;
+    avgGameLength: number | null;
+    totalTimePlayed: number | null;
+  };
+
+  const normalized = {
+    games: result?.games ?? 0,
+    killParticipation: result?.killParticipation ?? 0,
+    damageShare: result?.damageShare ?? 0,
+    avgDamageTaken: result?.avgDamageTaken ?? 0,
+    avgHeal: result?.avgHeal ?? 0,
+    goldPerMin: result?.goldPerMin ?? 0,
+    avgGameLength: result?.avgGameLength ?? 0,
+    totalTimePlayed: result?.totalTimePlayed ?? 0,
+  };
+  return normalized;
+}
+
 // Everything the Trends page draws, in one round trip. Days are the finest
 // grain the page uses, so the renderer re-buckets them into weeks or months
 // itself instead of asking again; patches and clock buckets can't be derived

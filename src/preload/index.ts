@@ -2,6 +2,7 @@ import { contextBridge, ipcRenderer } from "electron";
 import type {
   BackfillProgress,
   BackfillResult,
+  ChampionDetailStats,
   ElectronAPI,
   LcuStatus,
   MatchFilters,
@@ -38,6 +39,14 @@ const api: ElectronAPI = {
 
   getChampionStats: (patch?: string, queue?: number, account?: string) =>
     ipcRenderer.invoke("db:champion-stats", patch, queue, account),
+
+  getChampionDetailStats: (
+    championId: number,
+    patch?: string,
+    queue?: number,
+    account?: string,
+  ): Promise<ChampionDetailStats> =>
+    ipcRenderer.invoke("db:champion-detail-stats", championId, patch, queue, account),
 
   getChampionQueueStats: (championId: number, account?: string) =>
     ipcRenderer.invoke("db:champion-queue-stats", championId, account),
