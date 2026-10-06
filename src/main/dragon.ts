@@ -20,7 +20,7 @@ let championReady: Promise<void> | null = null;
 // this replaces recursed on Location with no limit and no timeout.
 async function fetchJson(url: string): Promise<any> {
   const res = await fetch(url, {
-    headers: { "User-Agent": "LeagueTracker/1.0.4" },
+    headers: { "User-Agent": "RiftRecords/1.0.6" },
     signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
   });
   if (!res.ok) {
@@ -618,7 +618,7 @@ async function probeUrl(url: string): Promise<IconProbe> {
   try {
     const res = await fetch(url, {
       method: "HEAD",
-      headers: { "User-Agent": "LeagueTracker/1.0.1" },
+      headers: { "User-Agent": "RiftRecords/1.0.6" },
       signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
     });
     if (res.ok) return "ok";

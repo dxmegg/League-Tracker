@@ -7,6 +7,7 @@ import Settings from "./pages/Settings";
 import Profile from "./pages/Profile";
 import HistorySection from "./pages/HistorySection";
 import GlobalChampionDetail from "./pages/GlobalChampionDetail";
+import { ChampionDetailExp } from "./components/ChampionDetailExp";
 import ItemDetail from "./pages/ItemDetail";
 import Home from "./pages/Home";
 import Champions from "./pages/Champions";
@@ -18,6 +19,11 @@ import Trends from "./pages/Trends";
 import Records from "./pages/Records";
 import GlobalStats from "./pages/GlobalStats";
 import { useActiveTheme } from "./hooks/useActiveTheme";
+
+function ChampionsDetailRoute() {
+  const activeTheme = useActiveTheme();
+  return activeTheme === "experiment" ? <ChampionDetailExp /> : <GlobalChampionDetail />;
+}
 
 function ScopedFriendDetail() {
   return <FriendDetail />;
@@ -117,7 +123,7 @@ export default function App() {
           <Route path="/home" element={<Home />} />
           <Route path="/local" element={<Profile />} />
           <Route path="/champions" element={<FullHistorySection section="champions" />} />
-          <Route path="/champions/:championId" element={<GlobalChampionDetail />} />
+          <Route path="/champions/:championId" element={<ChampionsDetailRoute />} />
           <Route path="/items" element={<FullHistorySection section="items" />} />
           <Route path="/items/:itemId" element={<ItemDetail />} />
           <Route path="/augments" element={<FullHistorySection section="augments" />} />

@@ -124,6 +124,29 @@ export function registerIpcHandlers() {
   );
 
   ipcMain.handle(
+    "db:champion-detail-stats",
+    (_event, championId: number, patch?: string, queue?: number, account?: string) => {
+      return db.getChampionDetailStats(championId, patch, queue, account);
+    },
+  );
+
+  ipcMain.handle("db:champion-queue-stats", (_event, championId: number, account?: string) => {
+    return db.getChampionQueueStats(championId, account);
+  });
+
+  ipcMain.handle("db:champion-keystones", (_event, championId: number, account?: string) => {
+    return db.getChampionKeystones(championId, account);
+  });
+
+  ipcMain.handle("db:champion-weekly-winrate", (_event, championId: number, account?: string) => {
+    return db.getChampionWeeklyWinRate(championId, account);
+  });
+
+  ipcMain.handle("db:champion-matchups", (_event, championId: number, account?: string) => {
+    return db.getChampionMatchups(championId, account);
+  });
+
+  ipcMain.handle(
     "db:augment-stats",
     (_event, championId?: number, patch?: string, queue?: number, account?: string) => {
       return db.getAugmentStatsAll(championId, patch, queue, account);
@@ -654,8 +677,8 @@ export function registerIpcHandlers() {
 
   ipcMain.handle(
     "db:champion-item-stats",
-    (_event, championId: number, patch?: string, queue?: number) => {
-      return db.getChampionItemStats(championId, patch, queue);
+    (_event, championId: number, patch?: string, queue?: number, account?: string) => {
+      return db.getChampionItemStats(championId, patch, queue, account);
     },
   );
 
@@ -707,8 +730,8 @@ export function registerIpcHandlers() {
 
   ipcMain.handle(
     "db:global-champion-detail",
-    (_event, championId: number, patch?: string, queue?: number) => {
-      return db.getGlobalChampionDetail(championId, patch, queue);
+    (_event, championId: number, patch?: string, queue?: number, account?: string) => {
+      return db.getGlobalChampionDetail(championId, patch, queue, account);
     },
   );
 

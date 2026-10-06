@@ -1,7 +1,7 @@
 {
   "name": "league-tracker",
-  "version": "1.0.5",
-  "description": "ARAM Mayhem match history tracker",
+  "version": "1.0.6",
+  "description": "League of Legends match history tracker",
   "license": "MIT",
   "main": "./out/main/index.js",
   "scripts": {
@@ -53,7 +53,7 @@
   },
   "build": {
     "appId": "com.dxmegg.leaguetracker",
-    "productName": "League Tracker",
+    "productName": "Rift Records",
     "publish": {
       "provider": "github",
       "owner": "dxmegg",
@@ -70,7 +70,7 @@
     "win": {
       "target": "portable",
       "icon": "assets/icon.png",
-      "artifactName": "LeagueTracker.exe"
+      "artifactName": "RiftRecords.exe"
     },
     "portable": {
       "unpackDirName": true

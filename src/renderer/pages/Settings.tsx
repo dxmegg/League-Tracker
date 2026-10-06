@@ -871,7 +871,7 @@ export default function Settings() {
               }}
               className="text-lol-gold hover:underline"
             >
-              League Tracker
+              Rift Records
             </a>{" "}
             - By{" "}
             <a

@@ -2,6 +2,7 @@ import { contextBridge, ipcRenderer } from "electron";
 import type {
   BackfillProgress,
   BackfillResult,
+  ChampionDetailStats,
   ElectronAPI,
   LcuStatus,
   MatchFilters,
@@ -38,6 +39,26 @@ const api: ElectronAPI = {
 
   getChampionStats: (patch?: string, queue?: number, account?: string) =>
     ipcRenderer.invoke("db:champion-stats", patch, queue, account),
+
+  getChampionDetailStats: (
+    championId: number,
+    patch?: string,
+    queue?: number,
+    account?: string,
+  ): Promise<ChampionDetailStats> =>
+    ipcRenderer.invoke("db:champion-detail-stats", championId, patch, queue, account),
+
+  getChampionQueueStats: (championId: number, account?: string) =>
+    ipcRenderer.invoke("db:champion-queue-stats", championId, account),
+
+  getChampionKeystones: (championId: number, account?: string) =>
+    ipcRenderer.invoke("db:champion-keystones", championId, account),
+
+  getChampionWeeklyWinRate: (championId: number, account?: string) =>
+    ipcRenderer.invoke("db:champion-weekly-winrate", championId, account),
+
+  getChampionMatchups: (championId: number, account?: string) =>
+    ipcRenderer.invoke("db:champion-matchups", championId, account),
 
   getAugmentStats: (championId?: number, patch?: string, queue?: number, account?: string) =>
     ipcRenderer.invoke("db:augment-stats", championId, patch, queue, account),
@@ -174,8 +195,8 @@ const api: ElectronAPI = {
 
   getSummonerSpellData: () => ipcRenderer.invoke("dragon:summoner-spells"),
 
-  getChampionItemStats: (championId: number, patch?: string, queue?: number) =>
-    ipcRenderer.invoke("db:champion-item-stats", championId, patch, queue),
+  getChampionItemStats: (championId: number, patch?: string, queue?: number, account?: string) =>
+    ipcRenderer.invoke("db:champion-item-stats", championId, patch, queue, account),
 
   getTeammateStats: (queue?: number, relation?: "friends" | "enemies") =>
     ipcRenderer.invoke("db:teammate-stats", queue, relation),
@@ -199,8 +220,8 @@ const api: ElectronAPI = {
   getRecords: (queue?: number, account?: string) =>
     ipcRenderer.invoke("db:records", queue, account),
 
-  getGlobalChampionDetail: (championId: number, patch?: string, queue?: number) =>
-    ipcRenderer.invoke("db:global-champion-detail", championId, patch, queue),
+  getGlobalChampionDetail: (championId: number, patch?: string, queue?: number, account?: string) =>
+    ipcRenderer.invoke("db:global-champion-detail", championId, patch, queue, account),
 
   getSummonerPuuid: () => ipcRenderer.invoke("db:summoner-puuid"),
 

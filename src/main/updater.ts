@@ -95,7 +95,7 @@ function parseDigest(digest: unknown): string | null {
 export async function checkForUpdate(): Promise<UpdateInfo> {
   try {
     const res = await fetch(`${UPDATE_API_URL}?per_page=${RELEASE_PAGE_SIZE}`, {
-      headers: { "User-Agent": "league-tracker" },
+      headers: { "User-Agent": "rift-records" },
       signal: AbortSignal.timeout(CHECK_TIMEOUT_MS),
     });
     if (!res.ok) return { hasUpdate: false, error: "No releases found" };
@@ -188,7 +188,7 @@ export async function downloadAndInstall(
   try {
     armStallTimer();
     const res = await fetch(assetUrl, {
-      headers: { "User-Agent": "league-tracker" },
+      headers: { "User-Agent": "rift-records" },
       signal: controller.signal,
     });
     if (!res.ok || !res.body) {

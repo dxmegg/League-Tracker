@@ -84,6 +84,10 @@ export {
 } from "./payloads";
 export {
   getChampionStatsAll,
+  getChampionQueueStats,
+  getChampionKeystones,
+  getChampionWeeklyWinRate,
+  getChampionMatchups,
   getAugmentStatsAll,
   getDashboardData,
   getAugmentStatsWithChampions,
@@ -93,6 +97,7 @@ export {
   getOwnedItemDetail,
   getOwnedRuneStats,
   getGlobalChampionDetail,
+  getChampionDetailStats,
   getTrendsData,
   getRecords,
   getTeammateStats,

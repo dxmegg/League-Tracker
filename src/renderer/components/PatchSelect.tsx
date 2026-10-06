@@ -31,6 +31,7 @@ export default function PatchSelect({
       value={value}
       onChange={(v) => onChange(v)}
       placeholder="All Patches"
+      allowClear
       title="Patch"
       options={patches.map((p) => ({ value: p, label: `Patch ${formatPatch(p)}` }))}
     />
