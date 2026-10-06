@@ -298,7 +298,7 @@ export function createIndexes() {
 // versioning, so it could be missing any subset of the columns v1 adds — which
 // is why each step checks for its column rather than assuming. A database that
 // createTables just built is also version 0, and lands on the same no-op path.
-export const SCHEMA_VERSION = 20;
+export const SCHEMA_VERSION = 21;
 
 export function tableColumns(table: string): Set<string> {
   const rows = db.pragma(`table_info(${table})`) as { name: string }[];
@@ -969,6 +969,18 @@ export async function migrateToV20() {
 
   console.log("[db] v20 added participant score column");
 }
+
+export function migrateToV21(): void {
+  // The rune columns on match_participants have always been in the schema
+  // but were never written by the ingestion path. This migration re-derives
+  // every participant row from its stored raw_gz payload, which now
+  // includes the rune fields.
+  const result = rebuildParticipantsFromPayloads();
+  console.log(
+    `[db] v21 rune backfill: ${result.normalized} rows rewritten, ${result.unusable} unreadable payloads`,
+  );
+}
+
 export async function runMigrations() {
   const current = db.pragma("user_version", { simple: true }) as number;
   if (current >= SCHEMA_VERSION) return;
@@ -1023,6 +1035,7 @@ export async function runMigrations() {
   if (current < 18) migrateToV18();
   if (current < 19) migrateToV19();
   if (current < 20) await migrateToV20();
+  if (current < 21) migrateToV21();
 
   db.pragma(`user_version = ${SCHEMA_VERSION}`);
 }

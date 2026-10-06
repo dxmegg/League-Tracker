@@ -579,6 +579,14 @@ export function getChampionMatchHistory(
              WHERE mp.game_id = g.game_id AND mp.puuid = ${playerPuuidSql}
            )) as spell2,
            ps.item0, ps.item1, ps.item2, ps.item3, ps.item4, ps.item5, ps.item6,
+           (SELECT GROUP_CONCAT(mp.rune0 || ',' || mp.rune1 || ',' || mp.rune2 || ',' || mp.rune3 || ',' || mp.rune4 || ',' || mp.rune5)
+             FROM match_participants mp
+             WHERE mp.game_id = g.game_id AND mp.puuid = ${playerPuuidSql}
+               AND mp.rune0 IS NOT NULL AND mp.rune0 > 0) as rune_ids,
+           (SELECT mp.primary_style FROM match_participants mp
+             WHERE mp.game_id = g.game_id AND mp.puuid = ${playerPuuidSql}) as primary_style,
+           (SELECT mp.secondary_style FROM match_participants mp
+             WHERE mp.game_id = g.game_id AND mp.puuid = ${playerPuuidSql}) as secondary_style,
            ${augmentIdsSql} as augment_ids,
            (SELECT mp.team_position FROM match_participants mp
              WHERE mp.game_id = g.game_id AND mp.puuid = g.puuid) as team_position,

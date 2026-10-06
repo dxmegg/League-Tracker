@@ -16,7 +16,7 @@ import {
   EXCLUDED_CS_SQL,
   GAME_MAX_STATS_SQL,
 } from "./filters";
-import { displayName } from "./payloads";
+import { displayName, participantRowsFromRaw } from "./payloads";
 import { groupByGame, scoreInputsFromRows, SCORE_ROW_COLUMNS, type ScoreRow } from "./scoring";
 
 export function getChampionStatsAll(
@@ -96,32 +96,80 @@ export function getChampionKeystones(
   championId: number,
   account?: string,
 ): Array<{ runeId: number; picks: number; wins: number }> {
-  // The keystone sits in match_participants.rune0 (first perk of the primary tree).
-  // Reads the participant row for the OWNED player only, so the same champion
-  // played by a teammate on the same game is not counted.
-  const accountFilter =
-    account === "all" || account === undefined
-      ? "mp.puuid IN (SELECT puuid FROM summoner)"
-      : "mp.puuid = ?";
-  const params: any[] = account && account !== "all" ? [championId, account] : [championId];
-  return db
+  const source = statsSource(account);
+  const where = ["g.is_remake = 0", "g.raw_gz IS NOT NULL"];
+  where.push(source.accountFilter);
+  where.push(`${source.alias}.champion_id = ?`);
+  where.push(`g.queue_id NOT IN (${EXCLUDED_STATS_SQL})`);
+  const params: any[] = account && account !== "all" ? [account, championId] : [championId];
+
+  const rows = db
     .prepare(`
-        SELECT mp.rune0 as runeId,
-               COUNT(*) as picks,
-               SUM(mp.win) as wins
-        FROM match_participants mp
-        JOIN games g ON g.game_id = mp.game_id
-        WHERE g.is_remake = 0
-          AND mp.champion_id = ?
-          AND mp.rune0 IS NOT NULL
-          AND mp.rune0 > 0
-          AND g.queue_id NOT IN (${EXCLUDED_STATS_SQL})
-          AND ${accountFilter}
-        GROUP BY mp.rune0
-        ORDER BY picks DESC
-        LIMIT 15
+        SELECT g.raw_gz,
+               ${source.alias}.puuid as puuid,
+               ${source.alias}.win as win,
+               ${source.alias}.champion_id as champion_id,
+               ${source.alias}.kills as kills,
+               ${source.alias}.deaths as deaths,
+               ${source.alias}.assists as assists
+        FROM games g
+        JOIN ${source.table} ${source.alias} ON ${source.alias}.game_id = g.game_id
+        WHERE ${where.join(" AND ")}
       `)
-    .all(...params) as Array<{ runeId: number; picks: number; wins: number }>;
+    .all(...params) as Array<{
+    raw_gz: Buffer;
+    puuid: string;
+    win: number;
+    champion_id: number;
+    kills: number;
+    deaths: number;
+    assists: number;
+  }>;
+
+  const totals = new Map<number, { picks: number; wins: number }>();
+
+  for (const row of rows) {
+    let raw: any;
+    try {
+      raw = JSON.parse(zlib.gunzipSync(row.raw_gz).toString("utf8"));
+    } catch {
+      continue;
+    }
+
+    // participantRowsFromRaw handles every rune layout we have ever seen
+    // (perks.styles[0].selections[0].perk, participant.perk0, and the
+    // participant.stats.perk0 fallback). The keystone lands in `rune0`.
+    let participantRows: any[];
+    try {
+      participantRows = participantRowsFromRaw(raw);
+    } catch {
+      continue;
+    }
+
+    // Match the owner the same way the write path does: exact PUUID first,
+    // then champion + KDA fallback for payloads that lack a matching UUID.
+    const owner =
+      participantRows.find((p) => p.puuid === row.puuid) ??
+      participantRows.find(
+        (p) =>
+          p.champion_id === row.champion_id &&
+          p.kills === row.kills &&
+          p.deaths === row.deaths &&
+          p.assists === row.assists,
+      );
+
+    if (!owner || !owner.rune0) continue;
+
+    const current = totals.get(owner.rune0) ?? { picks: 0, wins: 0 };
+    current.picks++;
+    current.wins += row.win;
+    totals.set(owner.rune0, current);
+  }
+
+  return [...totals.entries()]
+    .map(([runeId, v]) => ({ runeId, picks: v.picks, wins: v.wins }))
+    .sort((a, b) => b.picks - a.picks)
+    .slice(0, 15);
 }
 
 export function getChampionWeeklyWinRate(

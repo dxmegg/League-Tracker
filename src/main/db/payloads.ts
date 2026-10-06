@@ -290,7 +290,9 @@ export function participantStatements() {
           total_damage_dealt_all, true_damage_dealt,
           is_remake, queue_id, game_version,
           spell1, spell2, item0, item1, item2, item3, item4, item5, item6,
-          team_position
+          team_position,
+          rune0, rune1, rune2, rune3, rune4, rune5,
+          primary_style, secondary_style
         ) VALUES (
           @game_id, @participant_id, @puuid, @game_name, @tag_line, @profile_icon,
           @team_id, @player_subteam_id, @player_subteam_placement, @champion_id, @win, @kills, @deaths, @assists,
@@ -300,7 +302,9 @@ export function participantStatements() {
           @total_damage_dealt_all, @true_damage_dealt,
           @is_remake, @queue_id, @game_version,
           @spell1, @spell2, @item0, @item1, @item2, @item3, @item4, @item5, @item6,
-          @team_position
+          @team_position,
+          @rune0, @rune1, @rune2, @rune3, @rune4, @rune5,
+          @primary_style, @secondary_style
         )
       `),
       augment: db.prepare(`
@@ -372,6 +376,14 @@ export function writeParticipants(
       item4: row.items[4],
       item5: row.items[5],
       item6: row.items[6],
+      rune0: row.rune0,
+      rune1: row.rune1,
+      rune2: row.rune2,
+      rune3: row.rune3,
+      rune4: row.rune4,
+      rune5: row.rune5,
+      primary_style: row.primary_style,
+      secondary_style: row.secondary_style,
     });
 
     for (const aug of row.augments) {

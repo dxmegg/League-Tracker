@@ -330,17 +330,105 @@ export function ChampionDetailExp() {
               )}
             </Panel>
 
-            <Panel className="xl:col-span-2">
-              <SectionHeading title="Matchups" />
-              {matchupsLoading || !matchups ? (
-                <SectionLoading />
-              ) : (
-                <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
-                  <MatchupColumn title="Best vs" matchups={matchups.best} champData={champData} />
-                  <MatchupColumn title="Worst vs" matchups={matchups.worst} champData={champData} />
+            <div className="grid grid-cols-1 gap-5 xl:col-span-2 xl:grid-cols-2">
+              <Panel>
+                <div className="mb-4 flex items-baseline justify-between">
+                  <h2 className="font-display text-[16px] font-semibold text-lol-win">
+                    Best matchups
+                  </h2>
+                  <span className="text-[13px] text-lol-text">Your win rate vs</span>
                 </div>
-              )}
-            </Panel>
+                {matchupsLoading || !matchups ? (
+                  <SectionLoading />
+                ) : (
+                  <div className="flex flex-col gap-2">
+                    {matchups.best.length === 0 ? (
+                      <p className="py-4 text-center text-[13px] text-lol-text">No data</p>
+                    ) : (
+                      matchups.best.map((m) => {
+                        const wr = m.games > 0 ? (m.wins / m.games) * 100 : 0;
+                        return (
+                          <div
+                            key={m.championId}
+                            className="grid grid-cols-[28px_minmax(0,1fr)_32px_minmax(80px,1fr)_48px] items-center gap-2.5"
+                          >
+                            <ChampionIcon
+                              championId={m.championId}
+                              size={28}
+                              className="rounded-lg"
+                            />
+                            <span className="truncate text-[13.5px] text-lol-text-bright">
+                              {getChampionName(champData, m.championId)}
+                            </span>
+                            <span className="text-right text-[11.5px] tabular-nums text-lol-text/70">
+                              {m.games}g
+                            </span>
+                            <div className="h-[5px] overflow-hidden rounded-full bg-white/[0.05]">
+                              <i
+                                className="block h-full rounded-full bg-lol-win"
+                                style={{ width: `${Math.min(100, wr)}%` }}
+                              />
+                            </div>
+                            <span className="text-right text-[12px] font-semibold tabular-nums text-lol-win">
+                              {wr.toFixed(1)}%
+                            </span>
+                          </div>
+                        );
+                      })
+                    )}
+                  </div>
+                )}
+              </Panel>
+
+              <Panel>
+                <div className="mb-4 flex items-baseline justify-between">
+                  <h2 className="font-display text-[16px] font-semibold text-lol-loss">
+                    Worst matchups
+                  </h2>
+                  <span className="text-[13px] text-lol-text">Your win rate vs</span>
+                </div>
+                {matchupsLoading || !matchups ? (
+                  <SectionLoading />
+                ) : (
+                  <div className="flex flex-col gap-2">
+                    {matchups.worst.length === 0 ? (
+                      <p className="py-4 text-center text-[13px] text-lol-text">No data</p>
+                    ) : (
+                      matchups.worst.map((m) => {
+                        const wr = m.games > 0 ? (m.wins / m.games) * 100 : 0;
+                        return (
+                          <div
+                            key={m.championId}
+                            className="grid grid-cols-[28px_minmax(0,1fr)_32px_minmax(80px,1fr)_48px] items-center gap-2.5"
+                          >
+                            <ChampionIcon
+                              championId={m.championId}
+                              size={28}
+                              className="rounded-lg"
+                            />
+                            <span className="truncate text-[13.5px] text-lol-text-bright">
+                              {getChampionName(champData, m.championId)}
+                            </span>
+                            <span className="text-right text-[11.5px] tabular-nums text-lol-text/70">
+                              {m.games}g
+                            </span>
+                            <div className="h-[5px] overflow-hidden rounded-full bg-white/[0.05]">
+                              <i
+                                className="block h-full rounded-full bg-lol-loss"
+                                style={{ width: `${Math.min(100, wr)}%` }}
+                              />
+                            </div>
+                            <span className="text-right text-[12px] font-semibold tabular-nums text-lol-loss">
+                              {wr.toFixed(1)}%
+                            </span>
+                          </div>
+                        );
+                      })
+                    )}
+                  </div>
+                )}
+              </Panel>
+            </div>
           </div>
 
           <Panel>
@@ -447,49 +535,6 @@ function RateRow({
       >
         {rate.toFixed(1)}%
       </span>
-    </div>
-  );
-}
-
-function MatchupColumn({
-  title,
-  matchups,
-  champData,
-}: {
-  title: string;
-  matchups: { championId: number; games: number; wins: number }[];
-  champData: ReturnType<typeof useChampionData>;
-}) {
-  return (
-    <div className="min-w-0">
-      <h3 className="mb-2 text-[12px] font-semibold uppercase tracking-wider text-lol-text">
-        {title}
-      </h3>
-      <div className="flex flex-col gap-1.5">
-        {matchups.length > 0 ? (
-          matchups.map((matchup) => {
-            const rate = matchup.games > 0 ? (matchup.wins / matchup.games) * 100 : 0;
-            return (
-              <div key={matchup.championId} className="flex items-center gap-2 text-[12px]">
-                <ChampionIcon championId={matchup.championId} size={22} />
-                <span className="min-w-0 flex-1 truncate text-lol-text-bright">
-                  {getChampionName(champData, matchup.championId)}
-                </span>
-                <span className="shrink-0 text-lol-text">{matchup.games} games</span>
-                <span
-                  className={`w-11 shrink-0 text-right tabular-nums ${
-                    rate >= 50 ? "text-lol-win" : "text-lol-loss"
-                  }`}
-                >
-                  {rate.toFixed(1)}%
-                </span>
-              </div>
-            );
-          })
-        ) : (
-          <NoData />
-        )}
-      </div>
     </div>
   );
 }
