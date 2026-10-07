@@ -997,6 +997,9 @@ export interface ElectronAPI {
   ) => Promise<MatchFilterOptions>;
   getStoredQueues: () => Promise<number[]>;
   getMatchDetail: (gameId: number) => Promise<MatchDetail>;
+  getTimeline: (gameId: number) => Promise<TimelineData | null>;
+  fetchTimeline: (gameId: number, platform?: string) => Promise<TimelineData | null>;
+  reparseTimelines: (limit: number) => Promise<number>;
   toggleFavorite: (gameId: number) => Promise<boolean>;
   getChampionStats: (patch?: string, queue?: number, account?: string) => Promise<ChampionStats[]>;
   getChampionDetailStats: (
@@ -1220,4 +1223,57 @@ export interface ElectronAPI {
   closeWindow: () => Promise<void>;
   isWindowMaximized: () => Promise<boolean>;
   onMaximizedChanged: (callback: (maximized: boolean) => void) => () => void;
+}
+
+export interface TimelineStatus {
+  game_id: number;
+  fetched_at: number;
+  frame_count: number;
+  event_count: number;
+  fetch_error: string | null;
+}
+
+export interface TimelineFrame {
+  frame_index: number;
+  timestamp_ms: number;
+  participant_id: number;
+  puuid: string | null;
+  level: number | null;
+  xp: number | null;
+  gold: number | null;
+  cs: number | null;
+  position_x: number | null;
+  position_y: number | null;
+  attack_damage: number | null;
+  ability_power: number | null;
+  armor: number | null;
+  magic_resist: number | null;
+  attack_speed: number | null;
+  ability_haste: number | null;
+  move_speed: number | null;
+  max_health: number | null;
+  current_health: number | null;
+}
+
+export interface TimelineEvent {
+  event_index: number;
+  timestamp_ms: number;
+  event_type: string;
+  participant_id: number | null;
+  killer_id: number | null;
+  victim_id: number | null;
+  team_id: number | null;
+  item_id: number | null;
+  skill_slot: number | null;
+  level_up_type: string | null;
+  ward_type: string | null;
+  building_type: string | null;
+  monster_type: string | null;
+  monster_subtype: string | null;
+}
+
+export interface TimelineData {
+  status: TimelineStatus | null;
+  frames: TimelineFrame[];
+  events: TimelineEvent[];
 }

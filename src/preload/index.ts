@@ -12,6 +12,7 @@ import type {
   RestoreOlderGamesResult,
   HomeAccountFilter,
   HomeTimePeriod,
+  TimelineData,
 } from "../shared/api";
 
 // Annotated rather than inferred, so the compiler checks this object against
@@ -34,6 +35,14 @@ const api: ElectronAPI = {
   getStoredQueues: () => ipcRenderer.invoke("db:stored-queues"),
 
   getMatchDetail: (gameId: number) => ipcRenderer.invoke("db:match-detail", gameId),
+
+  getTimeline: (gameId: number) => ipcRenderer.invoke("db:timeline-get", gameId),
+
+  fetchTimeline: (gameId: number, platform?: string): Promise<TimelineData | null> =>
+    ipcRenderer.invoke("db:timeline-fetch", gameId, platform),
+
+  reparseTimelines: (limit: number): Promise<number> =>
+    ipcRenderer.invoke("db:timeline-reparse", limit),
 
   toggleFavorite: (gameId: number) => ipcRenderer.invoke("db:toggle-favorite", gameId),
 

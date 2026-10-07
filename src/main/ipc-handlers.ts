@@ -11,6 +11,8 @@ import * as opgg from "./opgg";
 import { getBackupDir } from "./paths";
 import { openExternalUrl } from "./security";
 import { applyAutoStart, isAutoStartSupported } from "./autostart";
+import { fetchMatchTimeline } from "./riot-api";
+import { parseTimeline } from "./timeline";
 import { dbg } from "../shared/debug";
 import type {
   DashboardData,
@@ -111,6 +113,25 @@ export function registerIpcHandlers() {
   ipcMain.handle("db:match-detail", (_event, gameId: number) => {
     return db.getMatchDetail(gameId);
   });
+
+  ipcMain.handle("db:timeline-get", (_event, gameId: number) => db.getTimeline(gameId));
+
+  ipcMain.handle("db:timeline-fetch", async (_event, gameId: number, platform?: string) => {
+    try {
+      const resolved = platform ?? db.resolveGamePlatform(gameId);
+      if (!resolved) throw new Error(`No platform found for game ${gameId}`);
+      const raw = await fetchMatchTimeline(gameId, resolved);
+      const parsed = parseTimeline(raw);
+      db.insertTimeline(gameId, parsed, raw);
+      return db.getTimeline(gameId);
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "Unknown error";
+      db.markTimelineFetchError(gameId, message);
+      throw new Error(message);
+    }
+  });
+
+  ipcMain.handle("db:timeline-reparse", (_event, limit: number) => db.reparsedTimelines(limit));
 
   ipcMain.handle("db:toggle-favorite", (_event, gameId: number) => {
     return db.toggleFavorite(gameId);

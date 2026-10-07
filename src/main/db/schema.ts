@@ -298,7 +298,7 @@ export function createIndexes() {
 // versioning, so it could be missing any subset of the columns v1 adds — which
 // is why each step checks for its column rather than assuming. A database that
 // createTables just built is also version 0, and lands on the same no-op path.
-export const SCHEMA_VERSION = 21;
+export const SCHEMA_VERSION = 22;
 
 export function tableColumns(table: string): Set<string> {
   const rows = db.pragma(`table_info(${table})`) as { name: string }[];
@@ -981,6 +981,64 @@ export function migrateToV21(): void {
   );
 }
 
+export function migrateToV22(): void {
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS match_timeline_status (
+      game_id      INTEGER PRIMARY KEY,
+      fetched_at   INTEGER NOT NULL,
+      frame_count  INTEGER NOT NULL,
+      event_count  INTEGER NOT NULL,
+      fetch_error   TEXT,
+      raw_gz        BLOB
+    );
+
+    CREATE TABLE IF NOT EXISTS match_timeline_frames (
+      game_id         INTEGER NOT NULL,
+      frame_index     INTEGER NOT NULL,
+      timestamp_ms    INTEGER NOT NULL,
+      participant_id  INTEGER NOT NULL,
+      puuid           TEXT,
+      level           INTEGER,
+      xp              INTEGER,
+      gold            INTEGER,
+      cs              INTEGER,
+      position_x      INTEGER,
+      position_y      INTEGER,
+      attack_damage   INTEGER,
+      ability_power   INTEGER,
+      armor           INTEGER,
+      magic_resist    INTEGER,
+      attack_speed    REAL,
+      ability_haste   INTEGER,
+      move_speed      INTEGER,
+      max_health      INTEGER,
+      current_health  INTEGER,
+      PRIMARY KEY (game_id, frame_index, participant_id)
+    );
+
+    CREATE TABLE IF NOT EXISTS match_timeline_events (
+      game_id          INTEGER NOT NULL,
+      event_index      INTEGER NOT NULL,
+      timestamp_ms     INTEGER NOT NULL,
+      event_type       TEXT NOT NULL,
+      participant_id   INTEGER,
+      killer_id        INTEGER,
+      victim_id        INTEGER,
+      team_id          INTEGER,
+      item_id          INTEGER,
+      skill_slot       INTEGER,
+      level_up_type    TEXT,
+      ward_type        TEXT,
+      building_type    TEXT,
+      monster_type     TEXT,
+      monster_subtype  TEXT,
+      raw_json         TEXT,
+      PRIMARY KEY (game_id, event_index)
+    );
+  `);
+  console.log("[db] v22 added timeline tables");
+}
+
 export async function runMigrations() {
   const current = db.pragma("user_version", { simple: true }) as number;
   if (current >= SCHEMA_VERSION) return;
@@ -1036,6 +1094,7 @@ export async function runMigrations() {
   if (current < 19) migrateToV19();
   if (current < 20) await migrateToV20();
   if (current < 21) migrateToV21();
+  if (current < 22) migrateToV22();
 
   db.pragma(`user_version = ${SCHEMA_VERSION}`);
 }

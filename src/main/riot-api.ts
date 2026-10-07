@@ -1033,3 +1033,17 @@ export function friendlyRiotError(err: unknown, context: "account" | "match" = "
   }
   return err instanceof Error ? err.message : String(err);
 }
+
+export async function fetchMatchTimeline(gameId: number, platform: string): Promise<any> {
+  const route = regionalRoute(platform);
+  // Riot Match-V5 requires the matchId to carry the platform prefix
+  // (EUN1_4011462332), while we store the bare numeric game_id in SQLite.
+  const fullMatchId = `${platform.toUpperCase()}_${gameId}`;
+  const payload = await riotFetch<any>(
+    `https://${route}.api.riotgames.com/lol/match/v5/matches/${fullMatchId}/timeline`,
+    platform,
+    undefined,
+    `timeline-${gameId}`,
+  );
+  return payload;
+}
