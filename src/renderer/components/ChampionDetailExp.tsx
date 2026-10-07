@@ -1,4 +1,4 @@
-import { useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import type {
   AugmentStats,
@@ -56,7 +56,7 @@ export function ChampionDetailExp() {
     [patch, scopedQueue, account],
   );
 
-  const { data: detailStats } = useIpc<ChampionDetailStats>(
+  const { data: detailStats, error: detailStatsError } = useIpc<ChampionDetailStats>(
     () => window.api.getChampionDetailStats(id, patch, scopedQueue, account),
     [id, patch, scopedQueue, account],
   );
@@ -134,6 +134,12 @@ export function ChampionDetailExp() {
     const wins = weeklyWinRate.reduce((sum, entry) => sum + entry.wins, 0);
     return games > 0 ? (wins / games) * 100 : null;
   }, [weeklyWinRate]);
+
+  useEffect(() => {
+    if (detailStatsError) {
+      console.error("[CH-8] getChampionDetailStats failed:", detailStatsError);
+    }
+  }, [detailStatsError]);
 
   const { data: matchups, loading: matchupsLoading } = useIpc<ChampionMatchups>(
     () => window.api.getChampionMatchups(id, account),
