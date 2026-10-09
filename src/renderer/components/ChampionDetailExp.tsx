@@ -161,40 +161,70 @@ export function ChampionDetailExp() {
   const wrSeries = useMemo(() => {
     const entries = weeklyWinRate ?? [];
     if (wrTab === "full") {
-      const fullRate =
-        globalDetail && globalDetail.games > 0
-          ? (globalDetail.wins / globalDetail.games) * 100
-          : null;
+      const sortedEntries = entries
+        .slice()
+        .sort((a, b) => new Date(a.weekStart).getTime() - new Date(b.weekStart).getTime());
+      let cumulativeGames = 0;
+      let cumulativeWins = 0;
+      const values: number[] = [];
+      const labels: string[] = [];
+      const cumulativeGameCounts: number[] = [];
+      for (const entry of sortedEntries) {
+        cumulativeGames += entry.games;
+        cumulativeWins += entry.wins;
+        cumulativeGameCounts.push(cumulativeGames);
+        values.push(cumulativeGames > 0 ? (cumulativeWins / cumulativeGames) * 100 : 0);
+        labels.push(
+          new Date(entry.weekStart).toLocaleDateString("en-US", {
+            month: "short",
+            day: "numeric",
+            timeZone: "UTC",
+          }),
+        );
+      }
+      const totalGames = cumulativeGameCounts.at(-1) ?? 0;
+      const hasQualifiedSeries = values.length >= 2 && totalGames >= 3;
       return {
-        values: fullRate == null ? [] : [fullRate],
-        last: fullRate,
-        peak: fullRate ?? 0,
-        low: fullRate ?? 0,
+        values,
+        labels,
+        last: totalGames >= 3 ? (values.at(-1) ?? null) : null,
+        peak: hasQualifiedSeries ? Math.max(...values) : null,
+        low: hasQualifiedSeries ? Math.min(...values) : null,
       };
     }
 
-    const buckets = new Map<string, { games: number; wins: number }>();
+    const buckets = new Map<string, { games: number; wins: number; label: string }>();
     for (const entry of entries) {
       const date = new Date(entry.weekStart);
       const key =
         wrTab === "weekly"
           ? String(entry.weekStart)
           : `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, "0")}`;
-      const current = buckets.get(key) ?? { games: 0, wins: 0 };
+      const label =
+        wrTab === "weekly"
+          ? date.toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" })
+          : date.toLocaleDateString("en-US", { month: "short", timeZone: "UTC" }).slice(0, 3);
+      const current = buckets.get(key) ?? { games: 0, wins: 0, label };
       current.games += entry.games;
       current.wins += entry.wins;
       buckets.set(key, current);
     }
-    const values = [...buckets.values()].map((bucket) =>
+    const bucketValues = [...buckets.values()];
+    const values = bucketValues.map((bucket) =>
       bucket.games > 0 ? (bucket.wins / bucket.games) * 100 : 0,
     );
+    const labels = bucketValues.map((bucket) => bucket.label);
+    const qualifyingValues = bucketValues
+      .filter((bucket) => bucket.games >= 3)
+      .map((bucket) => (bucket.wins / bucket.games) * 100);
     return {
       values,
-      last: values.at(-1) ?? null,
-      peak: values.length > 0 ? Math.max(...values) : 0,
-      low: values.length > 0 ? Math.min(...values) : 0,
+      labels,
+      last: qualifyingValues.at(-1) ?? null,
+      peak: qualifyingValues.length > 0 ? Math.max(...qualifyingValues) : null,
+      low: qualifyingValues.length > 0 ? Math.min(...qualifyingValues) : null,
     };
-  }, [globalDetail, weeklyWinRate, wrTab]);
+  }, [weeklyWinRate, wrTab]);
 
   if (!stats || games === 0) {
     return (
@@ -423,7 +453,13 @@ function OverviewTab({
   globalDetailLoading: boolean;
   weeklyWinRate: ChampionWeeklyWinRate[] | null;
   weeklyWinRateLoading: boolean;
-  wrSeries: { values: number[]; last: number | null; peak: number; low: number };
+  wrSeries: {
+    values: number[];
+    labels: string[];
+    last: number | null;
+    peak: number | null;
+    low: number | null;
+  };
   wrTab: "weekly" | "monthly" | "full";
   setWrTab: (tab: "weekly" | "monthly" | "full") => void;
   roleStats: ChampionRoleStat[] | null;
@@ -475,18 +511,48 @@ function OverviewTab({
                 </b>
               </span>
               <span>
-                Peak: <b className="text-lol-win">{wrSeries.peak.toFixed(1)}%</b> / Low:{" "}
-                <b className="text-lol-loss">{wrSeries.low.toFixed(1)}%</b>
+                Peak:{" "}
+                <b className="text-lol-win">
+                  {wrSeries.peak != null ? `${wrSeries.peak.toFixed(1)}%` : "—"}
+                </b>{" "}
+                / Low:{" "}
+                <b className="text-lol-loss">
+                  {wrSeries.low != null ? `${wrSeries.low.toFixed(1)}%` : "—"}
+                </b>
               </span>
             </div>
-            <LineChartExp
-              values={wrSeries.values}
-              format={(value) => `${value.toFixed(1)}%`}
-              color="var(--theme-win)"
-              min={0}
-              max={100}
-              baseline={50}
-            />
+            {wrSeries.values.length < 2 ? (
+              <div className="flex flex-col items-center justify-center py-6">
+                <div
+                  className={`font-display text-4xl font-bold ${
+                    (wrSeries.values[0] ?? 0) >= 50 ? "text-lol-win" : "text-lol-loss"
+                  }`}
+                >
+                  {wrSeries.values[0] != null ? `${wrSeries.values[0].toFixed(1)}%` : "—"}
+                </div>
+                <span className="mt-1 text-xs text-lol-text">
+                  {wrTab === "full"
+                    ? `Overall win rate across ${globalDetail.games} games`
+                    : `from ${wrSeries.values.length} bucket${wrSeries.values.length === 1 ? "" : "s"}`}
+                </span>
+              </div>
+            ) : (
+              <LineChartExp
+                values={wrSeries.values}
+                format={(value) => `${value.toFixed(1)}%`}
+                color="var(--theme-win)"
+                min={0}
+                max={100}
+                baseline={50}
+                xLabels={wrSeries.labels}
+                yFormat={(value) => `${value.toFixed(0)}%`}
+                yTicks={[0, 25, 50, 75, 100]}
+              />
+            )}
+            <p className="mt-2 text-xs text-lol-text">
+              Weeks with fewer than 3 games are shown in the chart but excluded from Now / Peak /
+              Low.
+            </p>
           </>
         )}
       </Panel>
