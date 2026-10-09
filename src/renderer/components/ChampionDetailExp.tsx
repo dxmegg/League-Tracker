@@ -2,26 +2,17 @@ import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import type {
   AugmentStats,
-  ChampionKeystoneStat,
-  ChampionMatchups,
-  ChampionQueueStat,
   ChampionDetailStats,
+  ChampionKeystoneStat,
+  ChampionRoleStat,
   ChampionStats,
   ChampionWeeklyWinRate,
+  GlobalChampionDetail,
   ItemStats,
   MatchListItem,
 } from "../../shared/api";
 import { QUEUE_LABELS } from "../../shared/queues";
-import AugmentIcon from "./AugmentIcon";
-import ChampionIcon from "./ChampionIcon";
-import ItemIcon from "./ItemIcon";
-import { LineChartExp } from "./LineChartExp";
-import { MatchRowExperiment } from "./MatchRowExperiment";
-import { Panel } from "./Panel";
-import PatchSelect from "./PatchSelect";
-import RuneIcon from "./RuneIcon";
-import { FilterSelect } from "./FilterSelect";
-import WinRateBar from "./WinRateBar";
+import { useActiveAccount } from "../hooks/useActiveAccount";
 import {
   getAugmentName,
   getChampionName,
@@ -31,130 +22,131 @@ import {
   useItemData,
   useRuneData,
 } from "../hooks/useChampions";
-import { useHistoryScopeQueue } from "../lib/historyScope";
 import { useIpc } from "../hooks/useIpc";
-import { useActiveAccount } from "../hooks/useActiveAccount";
 import { useViewState } from "../hooks/useViewState";
-import { formatDuration, formatNumber, formatPlaytime } from "../lib/format";
 import { ALL_ACCOUNTS_SENTINEL } from "../lib/accountsEvent";
+import { formatDuration, formatNumber, formatPlaytime } from "../lib/format";
+import { useHistoryScopeQueue } from "../lib/historyScope";
+import AugmentIcon from "./AugmentIcon";
+import ChampionIcon from "./ChampionIcon";
+import { FilterSelect } from "./FilterSelect";
+import { LineChartExp } from "./LineChartExp";
+import { MatchRowExperiment } from "./MatchRowExperiment";
+import { Panel } from "./Panel";
+import PatchSelect from "./PatchSelect";
+import RuneIcon from "./RuneIcon";
+import { TabStrip, type TabStripItem } from "./TabStrip";
+import WinRateBar from "./WinRateBar";
+import ItemIcon from "./ItemIcon";
+
+const TAB_ITEMS: TabStripItem[] = [
+  { key: "ov", label: "Overview" },
+  { key: "cb", label: "Combat", disabled: true },
+  { key: "ec", label: "Economy", disabled: true },
+  { key: "fa", label: "Farm", disabled: true },
+  { key: "ob", label: "Objectives", disabled: true },
+  { key: "vi", label: "Vision", disabled: true },
+  { key: "ab", label: "Abilities", disabled: true },
+  { key: "it", label: "Items", disabled: true },
+  { key: "ru", label: "Runes", disabled: true },
+  { key: "mu", label: "Matchups", disabled: true },
+  { key: "sy", label: "Synergies", disabled: true },
+  { key: "tl", label: "Timeline", disabled: true },
+  { key: "tr", label: "Trends", disabled: true },
+  { key: "rc", label: "Records", disabled: true },
+  { key: "ma", label: "Matches", disabled: true },
+  { key: "ms", label: "Mastery", disabled: true },
+];
+
+type RateSort = "count" | "winRate";
 
 export function ChampionDetailExp() {
   const { championId = "" } = useParams<{ championId: string }>();
   const id = Number(championId);
   const navigate = useNavigate();
   const champData = useChampionData();
-
   const [patch, setPatch] = useViewState<string | undefined>("champions.patch", undefined);
   const [queue, setQueue] = useViewState<number | undefined>("champions.queue", undefined);
-  const [wrTab, setWrTab] = useState<"weekly" | "monthly" | "overall">("weekly");
+  const [activeTab, setActiveTab] = useState("ov");
+  const [wrTab, setWrTab] = useState<"weekly" | "monthly" | "full">("weekly");
+  const [augmentSort, setAugmentSort] = useState<RateSort>("count");
+  const [itemSort, setItemSort] = useState<RateSort>("count");
+  const [keystoneSort, setKeystoneSort] = useState<RateSort>("count");
   const scopedQueue = queue ?? useHistoryScopeQueue();
   const [activeAccountRaw] = useActiveAccount();
   const account = activeAccountRaw === ALL_ACCOUNTS_SENTINEL ? "all" : activeAccountRaw;
+  const overviewActive = activeTab === "ov";
 
   const { data: allStats } = useIpc<ChampionStats[]>(
     () => window.api.getChampionStats(patch, scopedQueue, account),
     [patch, scopedQueue, account],
   );
-
   const { data: detailStats, error: detailStatsError } = useIpc<ChampionDetailStats>(
     () => window.api.getChampionDetailStats(id, patch, scopedQueue, account),
     [id, patch, scopedQueue, account],
   );
-
-  const stats = useMemo(() => allStats?.find((s) => s.champion_id === id) ?? null, [allStats, id]);
-
   const { data: matchHistory } = useIpc<{ matches: MatchListItem[]; total: number }>(
-    () => window.api.getChampionMatchHistory(id, 20, 0, patch, scopedQueue, account),
-    [id, patch, scopedQueue, account],
+    () =>
+      overviewActive
+        ? window.api.getChampionMatchHistory(id, 8, 0, patch, scopedQueue, account)
+        : Promise.resolve({ matches: [], total: 0 }),
+    [overviewActive, id, patch, scopedQueue, account],
+  );
+  const { data: globalDetail, loading: globalDetailLoading } = useIpc<GlobalChampionDetail | null>(
+    () =>
+      overviewActive
+        ? window.api.getGlobalChampionDetail(id, patch, scopedQueue, account)
+        : Promise.resolve(null),
+    [overviewActive, id, patch, scopedQueue, account],
+  );
+  const { data: keystones, loading: keystonesLoading } = useIpc<ChampionKeystoneStat[]>(
+    () =>
+      overviewActive
+        ? window.api.getChampionKeystones(id, account)
+        : Promise.resolve([] as ChampionKeystoneStat[]),
+    [overviewActive, id, account],
+  );
+  const { data: queueStats, loading: queueStatsLoading } = useIpc<
+    Array<{ queueId: number; games: number; wins: number }>
+  >(
+    () =>
+      overviewActive
+        ? window.api.getChampionQueueStats(id, account)
+        : Promise.resolve([] as Array<{ queueId: number; games: number; wins: number }>),
+    [overviewActive, id, account],
+  );
+  const { data: roleStats, loading: roleStatsLoading } = useIpc<ChampionRoleStat[]>(
+    () =>
+      overviewActive
+        ? window.api.getChampionRoleStats(id, patch, scopedQueue)
+        : Promise.resolve([] as ChampionRoleStat[]),
+    [overviewActive, id, patch, scopedQueue],
+  );
+  const { data: weeklyWinRate, loading: weeklyWinRateLoading } = useIpc<ChampionWeeklyWinRate[]>(
+    () =>
+      overviewActive
+        ? window.api.getChampionWeeklyWinRate(id, account)
+        : Promise.resolve([] as ChampionWeeklyWinRate[]),
+    [overviewActive, id, account],
   );
 
+  const stats = useMemo(
+    () => allStats?.find((item) => item.champion_id === id) ?? null,
+    [allStats, id],
+  );
   const streak = useMemo(() => {
     const matches = matchHistory?.matches;
     if (!matches || matches.length === 0) return null;
-
     const type = matches[0].win === 1 ? "W" : "L";
     const count = matches.findIndex((match) => (match.win === 1 ? "W" : "L") !== type);
     return { type, count: count === -1 ? matches.length : count };
   }, [matchHistory]);
-
-  const { data: keystones, loading: keystonesLoading } = useIpc<ChampionKeystoneStat[]>(
-    () => window.api.getChampionKeystones(id, account),
-    [id, account],
-  );
-
-  const { data: queueStats, loading: queueStatsLoading } = useIpc<ChampionQueueStat[]>(
-    () => window.api.getChampionQueueStats(id, account),
-    [id, account],
-  );
-
-  const { data: weeklyWinRate, loading: weeklyWinRateLoading } = useIpc<ChampionWeeklyWinRate[]>(
-    () => window.api.getChampionWeeklyWinRate(id, account),
-    [id, account],
-  );
-
-  const wrSeries = useMemo(() => {
-    const entries = weeklyWinRate ?? [];
-    if (entries.length === 0) {
-      return { values: [], last: null, peak: 0, low: 0 };
-    }
-
-    let values: (number | null)[];
-    if (wrTab === "weekly") {
-      values = entries.map((entry) => (entry.games > 0 ? (entry.wins / entry.games) * 100 : null));
-    } else if (wrTab === "monthly") {
-      values = [];
-      for (let i = 0; i < entries.length; i += 4) {
-        const chunk = entries.slice(i, i + 4);
-        const games = chunk.reduce((sum, entry) => sum + entry.games, 0);
-        const wins = chunk.reduce((sum, entry) => sum + entry.wins, 0);
-        values.push(games > 0 ? (wins / games) * 100 : null);
-      }
-    } else {
-      let games = 0;
-      let wins = 0;
-      values = entries.map((entry) => {
-        games += entry.games;
-        wins += entry.wins;
-        return games > 0 ? (wins / games) * 100 : null;
-      });
-    }
-
-    const nonNullValues = values.filter((value): value is number => value != null);
-    return {
-      values,
-      last: nonNullValues.at(-1) ?? null,
-      peak: nonNullValues.length > 0 ? Math.max(...nonNullValues) : 0,
-      low: nonNullValues.length > 0 ? Math.min(...nonNullValues) : 0,
-    };
-  }, [weeklyWinRate, wrTab]);
-
-  const overallWR = useMemo(() => {
-    if (!weeklyWinRate || weeklyWinRate.length === 0) return null;
-    const games = weeklyWinRate.reduce((sum, entry) => sum + entry.games, 0);
-    const wins = weeklyWinRate.reduce((sum, entry) => sum + entry.wins, 0);
-    return games > 0 ? (wins / games) * 100 : null;
-  }, [weeklyWinRate]);
 
   useEffect(() => {
     if (detailStatsError) {
       console.error("[CH-8] getChampionDetailStats failed:", detailStatsError);
     }
   }, [detailStatsError]);
-
-  const { data: matchups, loading: matchupsLoading } = useIpc<ChampionMatchups>(
-    () => window.api.getChampionMatchups(id, account),
-    [id, account],
-  );
-
-  const { data: items, loading: itemsLoading } = useIpc<ItemStats[]>(
-    () => window.api.getChampionItemStats(id, patch, scopedQueue, account),
-    [id, patch, scopedQueue, account],
-  );
-
-  const { data: augments, loading: augmentsLoading } = useIpc<AugmentStats[]>(
-    () => window.api.getAugmentStats(id, patch, scopedQueue, account),
-    [id, patch, scopedQueue, account],
-  );
 
   const augmentData = useAugmentData(patch);
   const itemData = useItemData(patch);
@@ -165,6 +157,63 @@ export function ChampionDetailExp() {
   const losses = games - wins;
   const wr = games > 0 ? (wins / games) * 100 : 0;
   const kda = stats && stats.deaths > 0 ? (stats.kills + stats.assists) / stats.deaths : null;
+
+  const wrSeries = useMemo(() => {
+    const entries = weeklyWinRate ?? [];
+    if (wrTab === "full") {
+      const fullRate =
+        globalDetail && globalDetail.games > 0
+          ? (globalDetail.wins / globalDetail.games) * 100
+          : null;
+      return {
+        values: fullRate == null ? [] : [fullRate],
+        last: fullRate,
+        peak: fullRate ?? 0,
+        low: fullRate ?? 0,
+      };
+    }
+
+    const buckets = new Map<string, { games: number; wins: number }>();
+    for (const entry of entries) {
+      const date = new Date(entry.weekStart);
+      const key =
+        wrTab === "weekly"
+          ? String(entry.weekStart)
+          : `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, "0")}`;
+      const current = buckets.get(key) ?? { games: 0, wins: 0 };
+      current.games += entry.games;
+      current.wins += entry.wins;
+      buckets.set(key, current);
+    }
+    const values = [...buckets.values()].map((bucket) =>
+      bucket.games > 0 ? (bucket.wins / bucket.games) * 100 : 0,
+    );
+    return {
+      values,
+      last: values.at(-1) ?? null,
+      peak: values.length > 0 ? Math.max(...values) : 0,
+      low: values.length > 0 ? Math.min(...values) : 0,
+    };
+  }, [globalDetail, weeklyWinRate, wrTab]);
+
+  if (!stats || games === 0) {
+    return (
+      <div className="mx-auto flex min-h-full w-full max-w-[1320px] flex-col gap-5">
+        <button
+          type="button"
+          onClick={() => navigate("/champions")}
+          className="self-start rounded-lg border border-lol-border bg-lol-card px-3 py-1.5 text-sm font-medium text-lol-text-bright transition-colors hover:border-lol-crimson"
+        >
+          ← All champions
+        </button>
+        <Panel>
+          <p className="py-8 text-center text-sm text-lol-text">
+            No games with this champion for the selected filters.
+          </p>
+        </Panel>
+      </div>
+    );
+  }
 
   return (
     <div className="mx-auto flex min-h-full w-full max-w-[1320px] flex-col gap-5">
@@ -191,7 +240,7 @@ export function ChampionDetailExp() {
         <div className="flex flex-wrap items-center gap-2">
           <FilterSelect
             value={queue != null ? String(queue) : undefined}
-            onChange={(v) => setQueue(v === undefined ? undefined : Number(v))}
+            onChange={(value) => setQueue(value === undefined ? undefined : Number(value))}
             placeholder="All queues"
             allowClear
             title="Queue"
@@ -207,417 +256,464 @@ export function ChampionDetailExp() {
         </div>
       </div>
 
-      {!stats || games === 0 ? (
-        <Panel>
-          <p className="py-8 text-center text-sm text-lol-text">
-            No games with this champion for the selected filters.
-          </p>
-        </Panel>
+      <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-4">
+        <Stat
+          label="Games"
+          value={formatNumber(games)}
+          sub={`${formatNumber(wins)}W · ${formatNumber(losses)}L`}
+        />
+        <Stat
+          label="Win rate"
+          value={`${wr.toFixed(1)}%`}
+          sub=""
+          valueClass={wr >= 50 ? "text-lol-win" : "text-lol-loss"}
+        />
+        <Stat
+          label="KDA"
+          value={kda != null ? kda.toFixed(2) : "Perfect"}
+          sub={`${stats.avg_kills.toFixed(1)} / ${stats.avg_deaths.toFixed(1)} / ${stats.avg_assists.toFixed(1)}`}
+          valueClass={
+            kda != null && kda >= 4
+              ? "text-lol-gold"
+              : kda != null && kda >= 3
+                ? "text-lol-win"
+                : ""
+          }
+        />
+        <Stat
+          label="CS / min"
+          value={stats.avg_cs_per_min != null ? stats.avg_cs_per_min.toFixed(1) : "—"}
+          sub=""
+        />
+        <Stat
+          label="Score"
+          value={stats.avg_score != null ? stats.avg_score.toFixed(1) : "—"}
+          sub=""
+          valueClass="text-lol-gold"
+        />
+        <Stat
+          label="MVP / ACE"
+          value={`${formatNumber(stats.mvps)} / ${formatNumber(stats.aces)}`}
+          sub=""
+        />
+        <Stat label="Avg damage" value={formatNumber(stats.avg_damage)} sub="" />
+        <Stat label="Avg gold" value={formatNumber(stats.avg_gold)} sub="" />
+        <Stat
+          label="Kill participation"
+          value={detailStats ? `${(detailStats.killParticipation * 100).toFixed(1)}%` : "—"}
+          sub=""
+        />
+        <Stat
+          label="Damage share"
+          value={detailStats ? `${(detailStats.damageShare * 100).toFixed(1)}%` : "—"}
+          sub=""
+        />
+        <Stat
+          label="Avg damage taken"
+          value={detailStats ? formatNumber(Math.round(detailStats.avgDamageTaken)) : "—"}
+          sub=""
+        />
+        <Stat
+          label="Avg heal"
+          value={detailStats ? formatNumber(Math.round(detailStats.avgHeal)) : "—"}
+          sub=""
+        />
+        <Stat
+          label="Gold / min"
+          value={detailStats ? Math.round(detailStats.goldPerMin).toString() : "—"}
+          sub=""
+        />
+        <Stat
+          label="Avg game length"
+          value={detailStats ? formatDuration(Math.round(detailStats.avgGameLength)) : "—"}
+          sub=""
+        />
+        <Stat
+          label="Total time played"
+          value={detailStats ? formatPlaytime(Math.round(detailStats.totalTimePlayed)) : "—"}
+          sub=""
+        />
+        <Stat
+          label="Streak"
+          value={streak ? `${streak.type}${streak.count}` : "—"}
+          sub={
+            streak && detailStats && detailStats.longestWinStreak > 0
+              ? `max W${detailStats.longestWinStreak}`
+              : ""
+          }
+          valueClass={
+            streak?.type === "W" ? "text-lol-win" : streak?.type === "L" ? "text-lol-loss" : ""
+          }
+        />
+      </div>
+
+      <TabStrip items={TAB_ITEMS} active={activeTab} onChange={setActiveTab} />
+
+      {activeTab === "ov" ? (
+        <OverviewTab
+          globalDetail={globalDetail}
+          globalDetailLoading={globalDetailLoading}
+          weeklyWinRate={weeklyWinRate}
+          weeklyWinRateLoading={weeklyWinRateLoading}
+          wrSeries={wrSeries}
+          wrTab={wrTab}
+          setWrTab={setWrTab}
+          roleStats={roleStats}
+          roleStatsLoading={roleStatsLoading}
+          augments={globalDetail?.augments ?? []}
+          augmentData={augmentData}
+          augmentSort={augmentSort}
+          setAugmentSort={setAugmentSort}
+          items={globalDetail?.items ?? []}
+          itemData={itemData}
+          patch={patch}
+          itemSort={itemSort}
+          setItemSort={setItemSort}
+          keystones={keystones}
+          keystonesLoading={keystonesLoading}
+          runeData={runeData}
+          keystoneSort={keystoneSort}
+          setKeystoneSort={setKeystoneSort}
+          queueStats={queueStats}
+          queueStatsLoading={queueStatsLoading}
+          matchHistory={matchHistory}
+          championName={name}
+          champData={champData}
+        />
       ) : (
-        <>
-          <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-4">
-            <Stat
-              label="Games"
-              value={formatNumber(games)}
-              sub={`${formatNumber(wins)}W · ${formatNumber(losses)}L`}
-            />
-            <Stat
-              label="Win rate"
-              value={`${wr.toFixed(1)}%`}
-              sub=""
-              valueClass={wr >= 50 ? "text-lol-win" : "text-lol-loss"}
-            />
-            <Stat
-              label="KDA"
-              value={kda != null ? kda.toFixed(2) : "Perfect"}
-              sub={`${stats.avg_kills.toFixed(1)} / ${stats.avg_deaths.toFixed(1)} / ${stats.avg_assists.toFixed(1)}`}
-              valueClass={
-                kda != null && kda >= 4
-                  ? "text-lol-gold"
-                  : kda != null && kda >= 3
-                    ? "text-lol-win"
-                    : ""
-              }
-            />
-            <Stat
-              label="CS / min"
-              value={stats.avg_cs_per_min != null ? stats.avg_cs_per_min.toFixed(1) : "—"}
-              sub=""
-            />
-            <Stat
-              label="Score"
-              value={stats.avg_score != null ? stats.avg_score.toFixed(1) : "—"}
-              sub=""
-              valueClass="text-lol-gold"
-            />
-            <Stat
-              label="MVP / ACE"
-              value={`${formatNumber(stats.mvps)} / ${formatNumber(stats.aces)}`}
-              sub=""
-            />
-            <Stat label="Avg damage" value={formatNumber(stats.avg_damage)} sub="" />
-            <Stat label="Avg gold" value={formatNumber(stats.avg_gold)} sub="" />
-            <Stat
-              label="Kill participation"
-              value={detailStats ? `${(detailStats.killParticipation * 100).toFixed(1)}%` : "—"}
-              sub=""
-            />
-            <Stat
-              label="Damage share"
-              value={detailStats ? `${(detailStats.damageShare * 100).toFixed(1)}%` : "—"}
-              sub=""
-            />
-            <Stat
-              label="Avg damage taken"
-              value={detailStats ? formatNumber(Math.round(detailStats.avgDamageTaken)) : "—"}
-              sub=""
-            />
-            <Stat
-              label="Avg heal"
-              value={detailStats ? formatNumber(Math.round(detailStats.avgHeal)) : "—"}
-              sub=""
-            />
-            <Stat
-              label="Gold / min"
-              value={detailStats ? Math.round(detailStats.goldPerMin).toString() : "—"}
-              sub=""
-            />
-            <Stat
-              label="Avg game length"
-              value={detailStats ? formatDuration(Math.round(detailStats.avgGameLength)) : "—"}
-              sub=""
-            />
-            <Stat
-              label="Total time played"
-              value={detailStats ? formatPlaytime(Math.round(detailStats.totalTimePlayed)) : "—"}
-              sub=""
-            />
-            <Stat
-              label="Streak"
-              value={streak ? `${streak.type}${streak.count}` : "—"}
-              sub={
-                streak && detailStats && detailStats.longestWinStreak > 0
-                  ? `max W${detailStats.longestWinStreak}`
-                  : ""
-              }
-              valueClass={
-                streak?.type === "W" ? "text-lol-win" : streak?.type === "L" ? "text-lol-loss" : ""
-              }
-            />
-          </div>
-
-          <div className="grid grid-cols-1 gap-5 xl:grid-cols-2">
-            <Panel>
-              <SectionHeading title="Top augments" aside="Pick rate and win rate" />
-              {augmentsLoading || !augments ? (
-                <SectionLoading />
-              ) : (
-                <div className="flex flex-col gap-1.5">
-                  {augments
-                    .slice()
-                    .sort((a, b) => b.picks - a.picks)
-                    .slice(0, 6)
-                    .map((a) => (
-                      <RateRow
-                        key={a.augment_id}
-                        icon={<AugmentIcon augmentId={a.augment_id} size={24} />}
-                        name={getAugmentName(augmentData, a.augment_id)}
-                        wins={a.wins}
-                        total={a.picks}
-                        count={`${a.picks}x`}
-                      />
-                    ))}
-                  {augments.length === 0 && <NoData />}
-                </div>
-              )}
-            </Panel>
-
-            <Panel>
-              <SectionHeading title="Top items" aside="Most built" />
-              {itemsLoading || !items ? (
-                <SectionLoading />
-              ) : (
-                <div className="flex flex-col gap-1.5">
-                  {items
-                    .slice()
-                    .sort((a, b) => b.picks - a.picks)
-                    .slice(0, 6)
-                    .map((item) => (
-                      <RateRow
-                        key={item.item_id}
-                        icon={<ItemIcon itemId={item.item_id} size={24} patch={patch} />}
-                        name={getItemName(itemData, item.item_id)}
-                        wins={item.wins}
-                        total={item.picks}
-                        count={`${item.picks}x`}
-                      />
-                    ))}
-                  {items.length === 0 && <NoData />}
-                </div>
-              )}
-            </Panel>
-
-            <Panel>
-              <SectionHeading title="Keystones" aside="Picks" />
-              {keystonesLoading || !keystones ? (
-                <SectionLoading />
-              ) : (
-                <div className="flex flex-col gap-1.5">
-                  {keystones
-                    .slice()
-                    .sort((a, b) => b.picks - a.picks)
-                    .slice(0, 6)
-                    .map((keystone) => (
-                      <RateRow
-                        key={keystone.runeId}
-                        icon={
-                          <RuneIcon
-                            runeId={keystone.runeId}
-                            path={runeData[keystone.runeId]?.icon}
-                            size={22}
-                          />
-                        }
-                        name={runeData[keystone.runeId]?.name ?? `Rune ${keystone.runeId}`}
-                        wins={keystone.wins}
-                        total={keystone.picks}
-                        count={`${keystone.picks}x`}
-                      />
-                    ))}
-                  {keystones.length === 0 && <NoData />}
-                </div>
-              )}
-            </Panel>
-
-            <Panel>
-              <SectionHeading title="Games by queue" />
-              {queueStatsLoading || !queueStats ? (
-                <SectionLoading />
-              ) : (
-                <div className="flex flex-col gap-1.5">
-                  {queueStats.map((queueStat) => {
-                    const queueWr =
-                      queueStat.games > 0 ? (queueStat.wins / queueStat.games) * 100 : 0;
-                    return (
-                      <div
-                        key={queueStat.queueId}
-                        className="flex items-center gap-3 rounded-lg bg-black/10 px-3 py-2 text-[12px]"
-                      >
-                        <span className="min-w-0 flex-1 truncate text-lol-text-bright">
-                          {QUEUE_LABELS[queueStat.queueId] ?? `Queue ${queueStat.queueId}`}
-                        </span>
-                        <span className="shrink-0 text-lol-text">{queueStat.games}</span>
-                        <span className="shrink-0 text-lol-text">
-                          <span className="text-lol-win">{queueStat.wins}W</span>{" "}
-                          <span className="text-lol-loss">{queueStat.games - queueStat.wins}L</span>
-                        </span>
-                        <span
-                          className={`w-12 shrink-0 text-right tabular-nums ${
-                            queueWr >= 50 ? "text-lol-win" : "text-lol-loss"
-                          }`}
-                        >
-                          {queueWr.toFixed(1)}%
-                        </span>
-                      </div>
-                    );
-                  })}
-                  {queueStats.length === 0 && <NoData />}
-                </div>
-              )}
-            </Panel>
-
-            <Panel className="xl:col-span-2">
-              <div className="flex flex-wrap items-center justify-between gap-3">
-                <SectionHeading title="Win rate" />
-                <div className="flex items-center gap-1 rounded-md border border-lol-border/60 bg-lol-card/40 p-0.5">
-                  {(["weekly", "monthly", "overall"] as const).map((tab) => (
-                    <button
-                      key={tab}
-                      type="button"
-                      data-tab={tab}
-                      aria-pressed={wrTab === tab}
-                      onClick={() => setWrTab(tab)}
-                      className={`rounded px-2.5 py-1 text-xs font-semibold transition-colors ${
-                        wrTab === tab
-                          ? "bg-lol-gold/15 text-lol-gold"
-                          : "text-lol-text hover:text-lol-text-bright"
-                      }`}
-                    >
-                      {tab[0].toUpperCase() + tab.slice(1)}
-                    </button>
-                  ))}
-                </div>
-              </div>
-              {weeklyWinRateLoading || !weeklyWinRate ? (
-                <SectionLoading />
-              ) : (
-                <>
-                  <div className="mb-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-[12.5px] text-lol-text">
-                    <span>
-                      Now:{" "}
-                      <b className="text-lol-text-bright">
-                        {wrSeries.last != null ? wrSeries.last.toFixed(1) + "%" : "—"}
-                      </b>
-                    </span>
-                    <span>
-                      Peak: <b className="text-lol-win">{wrSeries.peak.toFixed(1)}%</b> / Low:{" "}
-                      <b className="text-lol-loss">{wrSeries.low.toFixed(1)}%</b>
-                    </span>
-                    {overallWR != null &&
-                      wrSeries.last != null &&
-                      (() => {
-                        const delta = wrSeries.last - overallWR;
-                        return (
-                          <span className={delta >= 0 ? "text-lol-win" : "text-lol-loss"}>
-                            {(delta >= 0 ? "+" : "") + delta.toFixed(1) + "pp vs overall"}
-                          </span>
-                        );
-                      })()}
-                  </div>
-                  <LineChartExp
-                    values={wrSeries.values.map((value) => value ?? 0)}
-                    format={(value) => value.toFixed(1) + "%"}
-                    color="var(--theme-win)"
-                    min={0}
-                    max={100}
-                    baseline={50}
-                  />
-                </>
-              )}
-            </Panel>
-
-            <div className="grid grid-cols-1 gap-5 xl:col-span-2 xl:grid-cols-2">
-              <Panel>
-                <div className="mb-4 flex items-baseline justify-between">
-                  <h2 className="font-display text-[16px] font-semibold text-lol-win">
-                    Best matchups
-                  </h2>
-                  <span className="text-[13px] text-lol-text">Your win rate vs</span>
-                </div>
-                {matchupsLoading || !matchups ? (
-                  <SectionLoading />
-                ) : (
-                  <div className="flex flex-col gap-2">
-                    {matchups.best.length === 0 ? (
-                      <p className="py-4 text-center text-[13px] text-lol-text">No data</p>
-                    ) : (
-                      matchups.best.map((m) => {
-                        const wr = m.games > 0 ? (m.wins / m.games) * 100 : 0;
-                        return (
-                          <div
-                            key={m.championId}
-                            className="grid grid-cols-[28px_minmax(0,1fr)_32px_minmax(80px,1fr)_48px] items-center gap-2.5"
-                          >
-                            <ChampionIcon
-                              championId={m.championId}
-                              size={28}
-                              className="rounded-lg"
-                            />
-                            <span className="truncate text-[13.5px] text-lol-text-bright">
-                              {getChampionName(champData, m.championId)}
-                            </span>
-                            <span className="text-right text-[11.5px] tabular-nums text-lol-text/70">
-                              {m.games}g
-                            </span>
-                            <div className="h-[5px] overflow-hidden rounded-full bg-white/[0.05]">
-                              <i
-                                className="block h-full rounded-full bg-lol-win"
-                                style={{ width: `${Math.min(100, wr)}%` }}
-                              />
-                            </div>
-                            <span className="text-right text-[12px] font-semibold tabular-nums text-lol-win">
-                              {wr.toFixed(1)}%
-                            </span>
-                          </div>
-                        );
-                      })
-                    )}
-                  </div>
-                )}
-              </Panel>
-
-              <Panel>
-                <div className="mb-4 flex items-baseline justify-between">
-                  <h2 className="font-display text-[16px] font-semibold text-lol-loss">
-                    Worst matchups
-                  </h2>
-                  <span className="text-[13px] text-lol-text">Your win rate vs</span>
-                </div>
-                {matchupsLoading || !matchups ? (
-                  <SectionLoading />
-                ) : (
-                  <div className="flex flex-col gap-2">
-                    {matchups.worst.length === 0 ? (
-                      <p className="py-4 text-center text-[13px] text-lol-text">No data</p>
-                    ) : (
-                      matchups.worst.map((m) => {
-                        const wr = m.games > 0 ? (m.wins / m.games) * 100 : 0;
-                        return (
-                          <div
-                            key={m.championId}
-                            className="grid grid-cols-[28px_minmax(0,1fr)_32px_minmax(80px,1fr)_48px] items-center gap-2.5"
-                          >
-                            <ChampionIcon
-                              championId={m.championId}
-                              size={28}
-                              className="rounded-lg"
-                            />
-                            <span className="truncate text-[13.5px] text-lol-text-bright">
-                              {getChampionName(champData, m.championId)}
-                            </span>
-                            <span className="text-right text-[11.5px] tabular-nums text-lol-text/70">
-                              {m.games}g
-                            </span>
-                            <div className="h-[5px] overflow-hidden rounded-full bg-white/[0.05]">
-                              <i
-                                className="block h-full rounded-full bg-lol-loss"
-                                style={{ width: `${Math.min(100, wr)}%` }}
-                              />
-                            </div>
-                            <span className="text-right text-[12px] font-semibold tabular-nums text-lol-loss">
-                              {wr.toFixed(1)}%
-                            </span>
-                          </div>
-                        );
-                      })
-                    )}
-                  </div>
-                )}
-              </Panel>
-            </div>
-          </div>
-
-          <Panel>
-            <div className="mb-4 flex items-baseline justify-between">
-              <h2 className="font-display text-[16px] font-semibold text-lol-text-bright">
-                Recent games
-              </h2>
-              <span className="text-[13px] text-lol-text">
-                {matchHistory?.matches.length ?? 0} loaded
-                {matchHistory?.total ? ` · up to ${matchHistory.total} available` : ""}
-              </span>
-            </div>
-            <div
-              className="match-list-exp flex flex-col gap-2.5"
-              style={{ containerType: "inline-size" }}
-            >
-              {(matchHistory?.matches ?? []).length === 0 ? (
-                <p className="py-6 text-center text-sm text-lol-text">No games</p>
-              ) : (
-                matchHistory!.matches.map((match) => (
-                  <MatchRowExperiment
-                    key={match.game_id}
-                    match={match}
-                    championName={name}
-                    champData={champData}
-                  />
-                ))
-              )}
-            </div>
-          </Panel>
-        </>
+        <Panel>
+          <p className="py-8 text-center text-sm text-lol-text">This tab lands in a later phase.</p>
+        </Panel>
       )}
     </div>
   );
+}
+
+function OverviewTab({
+  globalDetail,
+  globalDetailLoading,
+  weeklyWinRate,
+  weeklyWinRateLoading,
+  wrSeries,
+  wrTab,
+  setWrTab,
+  roleStats,
+  roleStatsLoading,
+  augments,
+  augmentData,
+  augmentSort,
+  setAugmentSort,
+  items,
+  itemData,
+  patch,
+  itemSort,
+  setItemSort,
+  keystones,
+  keystonesLoading,
+  runeData,
+  keystoneSort,
+  setKeystoneSort,
+  queueStats,
+  queueStatsLoading,
+  matchHistory,
+  championName,
+  champData,
+}: {
+  globalDetail: GlobalChampionDetail | null;
+  globalDetailLoading: boolean;
+  weeklyWinRate: ChampionWeeklyWinRate[] | null;
+  weeklyWinRateLoading: boolean;
+  wrSeries: { values: number[]; last: number | null; peak: number; low: number };
+  wrTab: "weekly" | "monthly" | "full";
+  setWrTab: (tab: "weekly" | "monthly" | "full") => void;
+  roleStats: ChampionRoleStat[] | null;
+  roleStatsLoading: boolean;
+  augments: AugmentStats[];
+  augmentData: ReturnType<typeof useAugmentData>;
+  augmentSort: RateSort;
+  setAugmentSort: (sort: RateSort) => void;
+  items: ItemStats[];
+  itemData: ReturnType<typeof useItemData>;
+  patch?: string;
+  itemSort: RateSort;
+  setItemSort: (sort: RateSort) => void;
+  keystones: ChampionKeystoneStat[] | null;
+  keystonesLoading: boolean;
+  runeData: ReturnType<typeof useRuneData>;
+  keystoneSort: RateSort;
+  setKeystoneSort: (sort: RateSort) => void;
+  queueStats: Array<{ queueId: number; games: number; wins: number }> | null;
+  queueStatsLoading: boolean;
+  matchHistory: { matches: MatchListItem[]; total: number } | null;
+  championName: string;
+  champData: ReturnType<typeof useChampionData>;
+}) {
+  return (
+    <div className="grid grid-cols-1 gap-5 xl:grid-cols-2">
+      <Panel className="xl:col-span-2">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <SectionHeading title="Win rate over time" />
+          <SortButtons
+            value={wrTab}
+            options={[
+              ["weekly", "Weekly"],
+              ["monthly", "Monthly"],
+              ["full", "Full"],
+            ]}
+            onChange={setWrTab}
+          />
+        </div>
+        {weeklyWinRateLoading || globalDetailLoading || !weeklyWinRate || !globalDetail ? (
+          <SectionLoading />
+        ) : (
+          <>
+            <div className="mb-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-[12.5px] text-lol-text">
+              <span>
+                Now:{" "}
+                <b className="text-lol-text-bright">
+                  {wrSeries.last != null ? `${wrSeries.last.toFixed(1)}%` : "—"}
+                </b>
+              </span>
+              <span>
+                Peak: <b className="text-lol-win">{wrSeries.peak.toFixed(1)}%</b> / Low:{" "}
+                <b className="text-lol-loss">{wrSeries.low.toFixed(1)}%</b>
+              </span>
+            </div>
+            <LineChartExp
+              values={wrSeries.values}
+              format={(value) => `${value.toFixed(1)}%`}
+              color="var(--theme-win)"
+              min={0}
+              max={100}
+              baseline={50}
+            />
+          </>
+        )}
+      </Panel>
+
+      <Panel>
+        <SectionHeading title="Role split" aside="Games and win rate" />
+        {roleStatsLoading || !roleStats ? (
+          <SectionLoading />
+        ) : roleStats.length === 0 ? (
+          <NoData text="No role data" />
+        ) : (
+          <div className="flex flex-col gap-2.5">
+            {roleStats.map((role) => (
+              <RoleRow key={role.role} role={role.role} games={role.games} wins={role.wins} />
+            ))}
+          </div>
+        )}
+      </Panel>
+
+      <RatePanel
+        title="Top augments"
+        sort={augmentSort}
+        options={[
+          ["count", "Most picked"],
+          ["winRate", "Best win rate"],
+        ]}
+        onSortChange={setAugmentSort}
+        loading={globalDetailLoading}
+        empty={augments.length === 0}
+      >
+        {sortRates(augments, augmentSort).map((augment) => (
+          <RateRow
+            key={augment.augment_id}
+            icon={<AugmentIcon augmentId={augment.augment_id} size={24} />}
+            name={getAugmentName(augmentData, augment.augment_id)}
+            wins={augment.wins}
+            total={augment.picks}
+            count={`${augment.picks}x`}
+          />
+        ))}
+      </RatePanel>
+
+      <RatePanel
+        title="Top items"
+        sort={itemSort}
+        options={[
+          ["count", "Most built"],
+          ["winRate", "Best win rate"],
+        ]}
+        onSortChange={setItemSort}
+        loading={globalDetailLoading}
+        empty={items.length === 0}
+      >
+        {sortRates(items, itemSort).map((item) => (
+          <RateRow
+            key={item.item_id}
+            icon={<ItemIcon itemId={item.item_id} size={24} patch={patch} />}
+            name={getItemName(itemData, item.item_id)}
+            wins={item.wins}
+            total={item.picks}
+            count={`${item.picks}x`}
+          />
+        ))}
+      </RatePanel>
+
+      <RatePanel
+        title="Keystones"
+        sort={keystoneSort}
+        options={[
+          ["count", "Most played"],
+          ["winRate", "Best win rate"],
+        ]}
+        onSortChange={setKeystoneSort}
+        loading={keystonesLoading}
+        empty={!keystones || keystones.length === 0}
+      >
+        {sortRates(keystones ?? [], keystoneSort).map((keystone) => (
+          <RateRow
+            key={keystone.runeId}
+            icon={
+              <RuneIcon runeId={keystone.runeId} path={runeData[keystone.runeId]?.icon} size={22} />
+            }
+            name={runeData[keystone.runeId]?.name ?? `Rune ${keystone.runeId}`}
+            wins={keystone.wins}
+            total={keystone.picks}
+            count={`${keystone.picks}x`}
+          />
+        ))}
+      </RatePanel>
+
+      <Panel>
+        <SectionHeading title="Games by queue" />
+        {queueStatsLoading || !queueStats ? (
+          <SectionLoading />
+        ) : queueStats.length === 0 ? (
+          <NoData />
+        ) : (
+          <div className="flex flex-col gap-1.5">
+            {queueStats.map((queueStat) => (
+              <div
+                key={queueStat.queueId}
+                className="flex items-center gap-3 rounded-lg bg-black/10 px-3 py-2 text-[12px]"
+              >
+                <span className="min-w-0 flex-1 truncate text-lol-text-bright">
+                  {QUEUE_LABELS[queueStat.queueId] ?? `Queue ${queueStat.queueId}`}
+                </span>
+                <span className="shrink-0 text-lol-text">{queueStat.games}</span>
+                <span className="shrink-0 text-lol-text">
+                  <span className="text-lol-win">{queueStat.wins}W</span>{" "}
+                  <span className="text-lol-loss">{queueStat.games - queueStat.wins}L</span>
+                </span>
+                <div className="w-20 shrink-0">
+                  <WinRateBar wins={queueStat.wins} total={queueStat.games} showPercent={false} />
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </Panel>
+
+      <Panel className="xl:col-span-2">
+        <div className="mb-4 flex items-baseline justify-between gap-3">
+          <h2 className="font-display text-[16px] font-semibold text-lol-text-bright">
+            Recent games
+          </h2>
+          <span className="text-[13px] text-lol-text">
+            {matchHistory?.matches.length ?? 0} loaded
+          </span>
+        </div>
+        <div
+          className="match-list-exp flex flex-col gap-2.5"
+          style={{ containerType: "inline-size" }}
+        >
+          {!matchHistory || matchHistory.matches.length === 0 ? (
+            <p className="py-6 text-center text-sm text-lol-text">No games</p>
+          ) : (
+            matchHistory.matches.map((match) => (
+              <MatchRowExperiment
+                key={match.game_id}
+                match={match}
+                championName={championName}
+                champData={champData}
+              />
+            ))
+          )}
+        </div>
+      </Panel>
+    </div>
+  );
+}
+
+function RatePanel({
+  title,
+  sort,
+  options,
+  onSortChange,
+  loading,
+  empty,
+  children,
+}: {
+  title: string;
+  sort: RateSort;
+  options: [RateSort, string][];
+  onSortChange: (sort: RateSort) => void;
+  loading: boolean;
+  empty: boolean;
+  children: ReactNode;
+}) {
+  return (
+    <Panel>
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+        <SectionHeading title={title} />
+        <SortButtons value={sort} options={options} onChange={onSortChange} />
+      </div>
+      {loading ? (
+        <SectionLoading />
+      ) : empty ? (
+        <NoData />
+      ) : (
+        <div className="flex max-h-[340px] flex-col gap-2 overflow-y-auto">{children}</div>
+      )}
+    </Panel>
+  );
+}
+
+function SortButtons<T extends string>({
+  value,
+  options,
+  onChange,
+}: {
+  value: T;
+  options: [T, string][];
+  onChange: (value: T) => void;
+}) {
+  return (
+    <div className="flex items-center gap-1 rounded-md border border-lol-border/60 bg-lol-card/40 p-0.5">
+      {options.map(([key, label]) => (
+        <button
+          key={key}
+          type="button"
+          aria-pressed={value === key}
+          onClick={() => onChange(key)}
+          className={`rounded px-2.5 py-1 text-xs font-semibold transition-colors ${
+            value === key
+              ? "bg-lol-crimson text-lol-text-bright"
+              : "text-lol-text hover:text-lol-text-bright"
+          }`}
+        >
+          {label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+function sortRates<T extends { picks: number; wins: number }>(items: T[], sort: RateSort) {
+  return items
+    .slice()
+    .sort((a, b) => {
+      if (sort === "winRate") {
+        const aRate = a.picks > 0 ? a.wins / a.picks : 0;
+        const bRate = b.picks > 0 ? b.wins / b.picks : 0;
+        return bRate - aRate || b.picks - a.picks;
+      }
+      return b.picks - a.picks;
+    })
+    .slice(0, 15);
 }
 
 function Stat({
@@ -657,8 +753,20 @@ function SectionLoading() {
   return <p className="py-3 text-sm text-lol-text">Loading…</p>;
 }
 
-function NoData() {
-  return <span className="text-[12.5px] text-lol-text">No data</span>;
+function NoData({ text = "No data" }: { text?: string }) {
+  return <span className="text-[12.5px] text-lol-text">{text}</span>;
+}
+
+function RoleRow({ role, games, wins }: ChampionRoleStat) {
+  return (
+    <div className="flex items-center gap-3">
+      <span className="w-20 shrink-0 text-xs font-semibold text-lol-text-bright">{role}</span>
+      <span className="w-12 shrink-0 text-right text-xs tabular-nums text-lol-text">{games}</span>
+      <div className="min-w-0 flex-1">
+        <WinRateBar wins={wins} total={games} />
+      </div>
+    </div>
+  );
 }
 
 function RateRow({
@@ -684,9 +792,7 @@ function RateRow({
         <WinRateBar wins={wins} total={total} showPercent={false} />
       </div>
       <span
-        className={`w-11 shrink-0 text-right text-[11px] tabular-nums ${
-          rate >= 50 ? "text-lol-win" : "text-lol-loss"
-        }`}
+        className={`w-11 shrink-0 text-right text-[11px] tabular-nums ${rate >= 50 ? "text-lol-win" : "text-lol-loss"}`}
       >
         {rate.toFixed(1)}%
       </span>

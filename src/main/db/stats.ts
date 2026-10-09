@@ -19,6 +19,12 @@ import {
 import { displayName, participantRowsFromRaw } from "./payloads";
 import { groupByGame, scoreInputsFromRows, SCORE_ROW_COLUMNS, type ScoreRow } from "./scoring";
 
+export interface ChampionRoleStat {
+  role: string;
+  games: number;
+  wins: number;
+}
+
 export function getChampionStatsAll(
   patch?: string,
   queue?: number | number[],
@@ -90,6 +96,29 @@ export function getChampionQueueStats(
         ORDER BY games DESC
       `)
     .all(...params) as Array<{ queueId: number; games: number; wins: number }>;
+}
+
+export function getChampionRoleStats(
+  championId: number,
+  patch?: string,
+  queue?: number,
+): ChampionRoleStat[] {
+  console.log("[db] getChampionRoleStats called:", { championId, patch, queue });
+  const filter = participantFilter(patch, queue);
+  const rows = db
+    .prepare(`
+      SELECT
+        COALESCE(NULLIF(mp.team_position, ''), 'UNKNOWN') as role,
+        COUNT(*) as games,
+        SUM(mp.win) as wins
+      FROM match_participants mp
+      WHERE ${filter.sql} AND mp.champion_id = ?
+      GROUP BY COALESCE(NULLIF(mp.team_position, ''), 'UNKNOWN')
+      ORDER BY games DESC
+    `)
+    .all(...filter.params, championId) as ChampionRoleStat[];
+  console.log("[db] getChampionRoleStats done:", { count: rows.length });
+  return rows;
 }
 
 export function getChampionKeystones(
