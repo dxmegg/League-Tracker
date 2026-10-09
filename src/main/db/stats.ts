@@ -1433,6 +1433,49 @@ export function getChampionDetailStats(
   damageShare: number;
   avgDamageTaken: number;
   avgHeal: number;
+  avgPhysicalDamageDealt: number;
+  maxPhysicalDamageDealt: number;
+  totalPhysicalDamageDealt: number;
+  avgMagicDamageDealt: number;
+  maxMagicDamageDealt: number;
+  totalMagicDamageDealt: number;
+  avgPhysicalDamageTaken: number;
+  maxPhysicalDamageTaken: number;
+  totalPhysicalDamageTaken: number;
+  avgMagicDamageTaken: number;
+  maxMagicDamageTaken: number;
+  totalMagicDamageTaken: number;
+  avgTrueDamageTaken: number;
+  maxTrueDamageTaken: number;
+  totalTrueDamageTaken: number;
+  avgDamageSelfMitigated: number;
+  maxDamageSelfMitigated: number;
+  totalDamageSelfMitigated: number;
+  avgDamageToObjectives: number;
+  maxDamageToObjectives: number;
+  totalDamageToObjectives: number;
+  avgDamageToTurrets: number;
+  maxDamageToTurrets: number;
+  totalDamageToTurrets: number;
+  avgTimeCcOthers: number;
+  maxTimeCcOthers: number;
+  totalTimeCcOthers: number;
+  avgTotalCcDealt: number;
+  maxTotalCcDealt: number;
+  totalTotalCcDealt: number;
+  avgLongestAlive: number;
+  maxLongestAlive: number;
+  totalLongestAlive: number;
+  avgKillingSprees: number;
+  maxKillingSprees: number;
+  totalKillingSprees: number;
+  avgFirstBloodKill: number;
+  maxFirstBloodKill: number;
+  totalFirstBloodKill: number;
+  avgFirstBloodAssist: number;
+  maxFirstBloodAssist: number;
+  totalFirstBloodAssist: number;
+  avgCcPerMin: number;
   goldPerMin: number;
   avgGameLength: number;
   totalTimePlayed: number;
@@ -1464,6 +1507,12 @@ export function getChampionDetailStats(
       WITH champion_rows AS (
         SELECT mp.game_id, mp.team_id, mp.win, mp.kills, mp.assists,
                mp.total_damage_dealt, mp.total_damage_taken, mp.total_heal,
+               mp.physical_damage_dealt, mp.magic_damage_dealt,
+               mp.physical_damage_taken, mp.magic_damage_taken,
+               mp.true_damage_taken, mp.damage_self_mitigated,
+               mp.damage_to_objectives, mp.damage_to_turrets,
+               mp.time_cc_others, mp.total_cc_dealt, mp.longest_alive,
+               mp.killing_sprees, mp.first_blood_kill, mp.first_blood_assist,
                mp.gold_earned, g.game_duration, g.game_creation
         FROM match_participants mp
         JOIN games g ON mp.game_id = g.game_id
@@ -1497,6 +1546,50 @@ export function getChampionDetailStats(
                  THEN cr.total_damage_dealt * 1.0 / t.team_damage END) AS damageShare,
         AVG(cr.total_damage_taken) AS avgDamageTaken,
         AVG(cr.total_heal) AS avgHeal,
+        AVG(cr.physical_damage_dealt) AS avgPhysicalDamageDealt,
+        MAX(cr.physical_damage_dealt) AS maxPhysicalDamageDealt,
+        SUM(cr.physical_damage_dealt) AS totalPhysicalDamageDealt,
+        AVG(cr.magic_damage_dealt) AS avgMagicDamageDealt,
+        MAX(cr.magic_damage_dealt) AS maxMagicDamageDealt,
+        SUM(cr.magic_damage_dealt) AS totalMagicDamageDealt,
+        AVG(cr.physical_damage_taken) AS avgPhysicalDamageTaken,
+        MAX(cr.physical_damage_taken) AS maxPhysicalDamageTaken,
+        SUM(cr.physical_damage_taken) AS totalPhysicalDamageTaken,
+        AVG(cr.magic_damage_taken) AS avgMagicDamageTaken,
+        MAX(cr.magic_damage_taken) AS maxMagicDamageTaken,
+        SUM(cr.magic_damage_taken) AS totalMagicDamageTaken,
+        AVG(cr.true_damage_taken) AS avgTrueDamageTaken,
+        MAX(cr.true_damage_taken) AS maxTrueDamageTaken,
+        SUM(cr.true_damage_taken) AS totalTrueDamageTaken,
+        AVG(cr.damage_self_mitigated) AS avgDamageSelfMitigated,
+        MAX(cr.damage_self_mitigated) AS maxDamageSelfMitigated,
+        SUM(cr.damage_self_mitigated) AS totalDamageSelfMitigated,
+        AVG(cr.damage_to_objectives) AS avgDamageToObjectives,
+        MAX(cr.damage_to_objectives) AS maxDamageToObjectives,
+        SUM(cr.damage_to_objectives) AS totalDamageToObjectives,
+        AVG(cr.damage_to_turrets) AS avgDamageToTurrets,
+        MAX(cr.damage_to_turrets) AS maxDamageToTurrets,
+        SUM(cr.damage_to_turrets) AS totalDamageToTurrets,
+        AVG(cr.time_cc_others) AS avgTimeCcOthers,
+        MAX(cr.time_cc_others) AS maxTimeCcOthers,
+        SUM(cr.time_cc_others) AS totalTimeCcOthers,
+        AVG(cr.total_cc_dealt) AS avgTotalCcDealt,
+        MAX(cr.total_cc_dealt) AS maxTotalCcDealt,
+        SUM(cr.total_cc_dealt) AS totalTotalCcDealt,
+        AVG(cr.longest_alive) AS avgLongestAlive,
+        MAX(cr.longest_alive) AS maxLongestAlive,
+        SUM(cr.longest_alive) AS totalLongestAlive,
+        AVG(cr.killing_sprees) AS avgKillingSprees,
+        MAX(cr.killing_sprees) AS maxKillingSprees,
+        SUM(cr.killing_sprees) AS totalKillingSprees,
+        AVG(cr.first_blood_kill) AS avgFirstBloodKill,
+        MAX(cr.first_blood_kill) AS maxFirstBloodKill,
+        SUM(cr.first_blood_kill) AS totalFirstBloodKill,
+        AVG(cr.first_blood_assist) AS avgFirstBloodAssist,
+        MAX(cr.first_blood_assist) AS maxFirstBloodAssist,
+        SUM(cr.first_blood_assist) AS totalFirstBloodAssist,
+        AVG(CASE WHEN cr.game_duration > 0
+                 THEN cr.time_cc_others * 60.0 / cr.game_duration END) AS avgCcPerMin,
         AVG(CASE WHEN cr.game_duration >= 60
                  THEN cr.gold_earned * 60.0 / cr.game_duration END) AS goldPerMin,
         AVG(cr.game_duration) AS avgGameLength,
@@ -1511,6 +1604,49 @@ export function getChampionDetailStats(
     damageShare: number | null;
     avgDamageTaken: number | null;
     avgHeal: number | null;
+    avgPhysicalDamageDealt: number | null;
+    maxPhysicalDamageDealt: number | null;
+    totalPhysicalDamageDealt: number | null;
+    avgMagicDamageDealt: number | null;
+    maxMagicDamageDealt: number | null;
+    totalMagicDamageDealt: number | null;
+    avgPhysicalDamageTaken: number | null;
+    maxPhysicalDamageTaken: number | null;
+    totalPhysicalDamageTaken: number | null;
+    avgMagicDamageTaken: number | null;
+    maxMagicDamageTaken: number | null;
+    totalMagicDamageTaken: number | null;
+    avgTrueDamageTaken: number | null;
+    maxTrueDamageTaken: number | null;
+    totalTrueDamageTaken: number | null;
+    avgDamageSelfMitigated: number | null;
+    maxDamageSelfMitigated: number | null;
+    totalDamageSelfMitigated: number | null;
+    avgDamageToObjectives: number | null;
+    maxDamageToObjectives: number | null;
+    totalDamageToObjectives: number | null;
+    avgDamageToTurrets: number | null;
+    maxDamageToTurrets: number | null;
+    totalDamageToTurrets: number | null;
+    avgTimeCcOthers: number | null;
+    maxTimeCcOthers: number | null;
+    totalTimeCcOthers: number | null;
+    avgTotalCcDealt: number | null;
+    maxTotalCcDealt: number | null;
+    totalTotalCcDealt: number | null;
+    avgLongestAlive: number | null;
+    maxLongestAlive: number | null;
+    totalLongestAlive: number | null;
+    avgKillingSprees: number | null;
+    maxKillingSprees: number | null;
+    totalKillingSprees: number | null;
+    avgFirstBloodKill: number | null;
+    maxFirstBloodKill: number | null;
+    totalFirstBloodKill: number | null;
+    avgFirstBloodAssist: number | null;
+    maxFirstBloodAssist: number | null;
+    totalFirstBloodAssist: number | null;
+    avgCcPerMin: number | null;
     goldPerMin: number | null;
     avgGameLength: number | null;
     totalTimePlayed: number | null;
@@ -1523,6 +1659,49 @@ export function getChampionDetailStats(
     damageShare: result?.damageShare ?? 0,
     avgDamageTaken: result?.avgDamageTaken ?? 0,
     avgHeal: result?.avgHeal ?? 0,
+    avgPhysicalDamageDealt: result?.avgPhysicalDamageDealt ?? 0,
+    maxPhysicalDamageDealt: result?.maxPhysicalDamageDealt ?? 0,
+    totalPhysicalDamageDealt: result?.totalPhysicalDamageDealt ?? 0,
+    avgMagicDamageDealt: result?.avgMagicDamageDealt ?? 0,
+    maxMagicDamageDealt: result?.maxMagicDamageDealt ?? 0,
+    totalMagicDamageDealt: result?.totalMagicDamageDealt ?? 0,
+    avgPhysicalDamageTaken: result?.avgPhysicalDamageTaken ?? 0,
+    maxPhysicalDamageTaken: result?.maxPhysicalDamageTaken ?? 0,
+    totalPhysicalDamageTaken: result?.totalPhysicalDamageTaken ?? 0,
+    avgMagicDamageTaken: result?.avgMagicDamageTaken ?? 0,
+    maxMagicDamageTaken: result?.maxMagicDamageTaken ?? 0,
+    totalMagicDamageTaken: result?.totalMagicDamageTaken ?? 0,
+    avgTrueDamageTaken: result?.avgTrueDamageTaken ?? 0,
+    maxTrueDamageTaken: result?.maxTrueDamageTaken ?? 0,
+    totalTrueDamageTaken: result?.totalTrueDamageTaken ?? 0,
+    avgDamageSelfMitigated: result?.avgDamageSelfMitigated ?? 0,
+    maxDamageSelfMitigated: result?.maxDamageSelfMitigated ?? 0,
+    totalDamageSelfMitigated: result?.totalDamageSelfMitigated ?? 0,
+    avgDamageToObjectives: result?.avgDamageToObjectives ?? 0,
+    maxDamageToObjectives: result?.maxDamageToObjectives ?? 0,
+    totalDamageToObjectives: result?.totalDamageToObjectives ?? 0,
+    avgDamageToTurrets: result?.avgDamageToTurrets ?? 0,
+    maxDamageToTurrets: result?.maxDamageToTurrets ?? 0,
+    totalDamageToTurrets: result?.totalDamageToTurrets ?? 0,
+    avgTimeCcOthers: result?.avgTimeCcOthers ?? 0,
+    maxTimeCcOthers: result?.maxTimeCcOthers ?? 0,
+    totalTimeCcOthers: result?.totalTimeCcOthers ?? 0,
+    avgTotalCcDealt: result?.avgTotalCcDealt ?? 0,
+    maxTotalCcDealt: result?.maxTotalCcDealt ?? 0,
+    totalTotalCcDealt: result?.totalTotalCcDealt ?? 0,
+    avgLongestAlive: result?.avgLongestAlive ?? 0,
+    maxLongestAlive: result?.maxLongestAlive ?? 0,
+    totalLongestAlive: result?.totalLongestAlive ?? 0,
+    avgKillingSprees: result?.avgKillingSprees ?? 0,
+    maxKillingSprees: result?.maxKillingSprees ?? 0,
+    totalKillingSprees: result?.totalKillingSprees ?? 0,
+    avgFirstBloodKill: result?.avgFirstBloodKill ?? 0,
+    maxFirstBloodKill: result?.maxFirstBloodKill ?? 0,
+    totalFirstBloodKill: result?.totalFirstBloodKill ?? 0,
+    avgFirstBloodAssist: result?.avgFirstBloodAssist ?? 0,
+    maxFirstBloodAssist: result?.maxFirstBloodAssist ?? 0,
+    totalFirstBloodAssist: result?.totalFirstBloodAssist ?? 0,
+    avgCcPerMin: result?.avgCcPerMin ?? 0,
     goldPerMin: result?.goldPerMin ?? 0,
     avgGameLength: result?.avgGameLength ?? 0,
     totalTimePlayed: result?.totalTimePlayed ?? 0,

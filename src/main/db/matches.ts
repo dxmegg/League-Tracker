@@ -570,6 +570,34 @@ export function getChampionMatchHistory(
            ps.double_kills, ps.triple_kills, ps.quadra_kills, ps.penta_kills,
            ps.total_damage_dealt, ps.total_damage_taken, ps.total_heal, ps.gold_earned, ps.cs,
            ps.score, ps.score_badge,
+           (SELECT mp.physical_damage_dealt FROM match_participants mp
+             WHERE mp.game_id = g.game_id AND mp.puuid = ${playerPuuidSql}) AS physical_damage_dealt,
+           (SELECT mp.magic_damage_dealt FROM match_participants mp
+             WHERE mp.game_id = g.game_id AND mp.puuid = ${playerPuuidSql}) AS magic_damage_dealt,
+           (SELECT mp.physical_damage_taken FROM match_participants mp
+             WHERE mp.game_id = g.game_id AND mp.puuid = ${playerPuuidSql}) AS physical_damage_taken,
+           (SELECT mp.magic_damage_taken FROM match_participants mp
+             WHERE mp.game_id = g.game_id AND mp.puuid = ${playerPuuidSql}) AS magic_damage_taken,
+           (SELECT mp.true_damage_taken FROM match_participants mp
+             WHERE mp.game_id = g.game_id AND mp.puuid = ${playerPuuidSql}) AS true_damage_taken,
+           (SELECT mp.damage_self_mitigated FROM match_participants mp
+             WHERE mp.game_id = g.game_id AND mp.puuid = ${playerPuuidSql}) AS damage_self_mitigated,
+           (SELECT mp.damage_to_objectives FROM match_participants mp
+             WHERE mp.game_id = g.game_id AND mp.puuid = ${playerPuuidSql}) AS damage_to_objectives,
+           (SELECT mp.damage_to_turrets FROM match_participants mp
+             WHERE mp.game_id = g.game_id AND mp.puuid = ${playerPuuidSql}) AS damage_to_turrets,
+           (SELECT mp.time_cc_others FROM match_participants mp
+             WHERE mp.game_id = g.game_id AND mp.puuid = ${playerPuuidSql}) AS time_cc_others,
+           (SELECT mp.total_cc_dealt FROM match_participants mp
+             WHERE mp.game_id = g.game_id AND mp.puuid = ${playerPuuidSql}) AS total_cc_dealt,
+           (SELECT mp.longest_alive FROM match_participants mp
+             WHERE mp.game_id = g.game_id AND mp.puuid = ${playerPuuidSql}) AS longest_alive,
+           (SELECT mp.killing_sprees FROM match_participants mp
+             WHERE mp.game_id = g.game_id AND mp.puuid = ${playerPuuidSql}) AS killing_sprees,
+           (SELECT mp.first_blood_kill FROM match_participants mp
+             WHERE mp.game_id = g.game_id AND mp.puuid = ${playerPuuidSql}) AS first_blood_kill,
+           (SELECT mp.first_blood_assist FROM match_participants mp
+             WHERE mp.game_id = g.game_id AND mp.puuid = ${playerPuuidSql}) AS first_blood_assist,
            COALESCE(ps.spell1, (
              SELECT mp.spell1 FROM match_participants mp
              WHERE mp.game_id = g.game_id AND mp.puuid = ${playerPuuidSql}
