@@ -1,6 +1,6 @@
 import zlib from "zlib";
 import type { TimelineData, TimelineEvent, TimelineFrame, TimelineStatus } from "../../shared/api";
-import { ARENA_QUEUE_IDS, MAYHEM_QUEUE_IDS } from "../../shared/queues";
+import { MAYHEM_QUEUE_IDS, QUEUE_ID_CUSTOM, TUTORIAL_QUEUE_IDS } from "../../shared/queues";
 import { parseTimeline, type ParsedTimeline } from "../timeline";
 import { acquireRequestSlot, fetchMatchTimeline, RiotApiError } from "../riot-api";
 import { db } from "../db";
@@ -18,7 +18,11 @@ export interface BackfillResult extends BackfillProgress {
   cancelled: boolean;
 }
 
-const TIMELINE_EXCLUDED_QUEUE_IDS = new Set([...MAYHEM_QUEUE_IDS, ...ARENA_QUEUE_IDS]);
+const TIMELINE_EXCLUDED_QUEUE_IDS = new Set([
+  ...MAYHEM_QUEUE_IDS,
+  QUEUE_ID_CUSTOM,
+  ...TUTORIAL_QUEUE_IDS,
+]);
 
 export function isTimelineSkippedQueue(queueId: number): boolean {
   return TIMELINE_EXCLUDED_QUEUE_IDS.has(queueId);

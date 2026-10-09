@@ -1041,6 +1041,29 @@ export function migrateToV22(): void {
 
 export async function runMigrations() {
   const current = db.pragma("user_version", { simple: true }) as number;
+  function timelineTablesPresent(): boolean {
+    const names = new Set(
+      (
+        db.prepare("SELECT name FROM sqlite_master WHERE type='table'").all() as {
+          name: string;
+        }[]
+      ).map((row) => row.name),
+    );
+    return (
+      names.has("match_timeline_status") &&
+      names.has("match_timeline_frames") &&
+      names.has("match_timeline_events")
+    );
+  }
+
+  // Safety net for databases that were stamped to SCHEMA_VERSION by the
+  // version-0 empty-DB shortcut before migrateToV22 existed. migrateToV22 is
+  // idempotent (CREATE TABLE IF NOT EXISTS), so running it unconditionally
+  // when the tables are absent is safe.
+  if (!timelineTablesPresent()) {
+    migrateToV22();
+  }
+
   if (current >= SCHEMA_VERSION) return;
 
   // A freshly created database already has every column the migrations would
@@ -1068,7 +1091,7 @@ export async function runMigrations() {
       "mastery_json",
       "last_seen",
     ].every((column) => tableColumns("summoner").has(column));
-  if (current === 0 && gamesCount.n === 0 && currentSchemaReady) {
+  if (current === 0 && gamesCount.n === 0 && currentSchemaReady && timelineTablesPresent()) {
     db.pragma(`user_version = ${SCHEMA_VERSION}`);
     return;
   }

@@ -1008,6 +1008,9 @@ export interface ElectronAPI {
   onTimelineBackfillProgress: (
     callback: (progress: TimelineBackfillProgress) => void,
   ) => () => void;
+  onTimelineBackfillDone: (
+    callback: (payload: { cancelled: boolean; progress: TimelineBackfillProgress | null }) => void,
+  ) => () => void;
   toggleFavorite: (gameId: number) => Promise<boolean>;
   getChampionStats: (patch?: string, queue?: number, account?: string) => Promise<ChampionStats[]>;
   getChampionDetailStats: (

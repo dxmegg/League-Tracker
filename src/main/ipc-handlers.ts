@@ -161,6 +161,12 @@ export function registerIpcHandlers() {
         console.error("[db] timeline backfill failed:", error);
       })
       .finally(() => {
+        if (win && !win.isDestroyed()) {
+          win.webContents.send("db:timeline-backfill-done", {
+            cancelled: signal.cancelled,
+            progress: activeTimelineBackfill?.progress ?? null,
+          });
+        }
         if (activeTimelineBackfill?.signal === signal) {
           activeTimelineBackfill = null;
         }

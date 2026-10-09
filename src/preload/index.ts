@@ -60,6 +60,17 @@ const api: ElectronAPI = {
     return () => ipcRenderer.removeListener("db:timeline-backfill-progress", handler);
   },
 
+  onTimelineBackfillDone: (
+    callback: (payload: { cancelled: boolean; progress: TimelineBackfillProgress | null }) => void,
+  ) => {
+    const handler = (
+      _event: unknown,
+      payload: { cancelled: boolean; progress: TimelineBackfillProgress | null },
+    ) => callback(payload);
+    ipcRenderer.on("db:timeline-backfill-done", handler);
+    return () => ipcRenderer.removeListener("db:timeline-backfill-done", handler);
+  },
+
   toggleFavorite: (gameId: number) => ipcRenderer.invoke("db:toggle-favorite", gameId),
 
   getChampionStats: (patch?: string, queue?: number, account?: string) =>
