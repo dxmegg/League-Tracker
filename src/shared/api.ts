@@ -1188,6 +1188,7 @@ export interface ElectronAPI {
   getChampionData: () => Promise<ChampionData>;
   getAugmentData: (patch?: string) => Promise<AugmentData>;
   resolveAugmentIcon: (id: number, patch?: string) => Promise<string | null>;
+  cacheDragonAsset: (remoteUrl: string) => Promise<string | null>;
   getItemData: (patch?: string) => Promise<ItemData>;
   getSummonerSpellData: () => Promise<SummonerSpellData>;
   onStatusChanged: (callback: (status: LcuStatus) => void) => () => void;

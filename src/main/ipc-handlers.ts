@@ -8,6 +8,7 @@ import * as updater from "./updater";
 import * as backup from "./backup";
 import * as mcp from "./mcp";
 import * as opgg from "./opgg";
+import { cacheDragonAsset } from "./dragon-assets";
 import { getBackupDir } from "./paths";
 import { openExternalUrl } from "./security";
 import { applyAutoStart, isAutoStartSupported } from "./autostart";
@@ -720,6 +721,8 @@ export function registerIpcHandlers() {
       return null;
     }
   });
+
+  ipcMain.handle("dragon:asset-cache", (_event, remoteUrl: string) => cacheDragonAsset(remoteUrl));
 
   ipcMain.handle("dragon:items", async (_event, patch?: string) => {
     try {

@@ -216,6 +216,7 @@ const api: ElectronAPI = {
 
   resolveAugmentIcon: (id: number, patch?: string) =>
     ipcRenderer.invoke("dragon:augment-icon", id, patch),
+  cacheDragonAsset: (remoteUrl: string) => ipcRenderer.invoke("dragon:asset-cache", remoteUrl),
   getItemData: (patch?: string) => ipcRenderer.invoke("dragon:items", patch),
 
   getSummonerSpellData: () => ipcRenderer.invoke("dragon:summoner-spells"),
