@@ -598,6 +598,50 @@ export function getChampionMatchHistory(
              WHERE mp.game_id = g.game_id AND mp.puuid = ${playerPuuidSql}) AS first_blood_kill,
            (SELECT mp.first_blood_assist FROM match_participants mp
              WHERE mp.game_id = g.game_id AND mp.puuid = ${playerPuuidSql}) AS first_blood_assist,
+           (SELECT mp.gold_spent FROM match_participants mp
+             WHERE mp.game_id = g.game_id AND mp.puuid = ${playerPuuidSql}) AS gold_spent,
+           (SELECT mp.champ_level FROM match_participants mp
+             WHERE mp.game_id = g.game_id AND mp.puuid = ${playerPuuidSql}) AS champ_level,
+           (SELECT mp.total_minions_killed FROM match_participants mp
+             WHERE mp.game_id = g.game_id AND mp.puuid = ${playerPuuidSql}) AS total_minions_killed,
+           (SELECT mp.neutral_minions_killed FROM match_participants mp
+             WHERE mp.game_id = g.game_id AND mp.puuid = ${playerPuuidSql}) AS neutral_minions_killed,
+           (SELECT mp.neutral_minions_enemy_jungle FROM match_participants mp
+             WHERE mp.game_id = g.game_id AND mp.puuid = ${playerPuuidSql}) AS neutral_minions_enemy_jungle,
+           (SELECT mp.neutral_minions_team_jungle FROM match_participants mp
+             WHERE mp.game_id = g.game_id AND mp.puuid = ${playerPuuidSql}) AS neutral_minions_team_jungle,
+           (SELECT mp.turret_kills FROM match_participants mp
+             WHERE mp.game_id = g.game_id AND mp.puuid = ${playerPuuidSql}) AS turret_kills,
+           (SELECT mp.inhibitor_kills FROM match_participants mp
+             WHERE mp.game_id = g.game_id AND mp.puuid = ${playerPuuidSql}) AS inhibitor_kills,
+           (SELECT mp.turret_plates_taken FROM match_participants mp
+             WHERE mp.game_id = g.game_id AND mp.puuid = ${playerPuuidSql}) AS turret_plates_taken,
+           (SELECT mp.first_tower_kill FROM match_participants mp
+             WHERE mp.game_id = g.game_id AND mp.puuid = ${playerPuuidSql}) AS first_tower_kill,
+           (SELECT mp.first_tower_assist FROM match_participants mp
+             WHERE mp.game_id = g.game_id AND mp.puuid = ${playerPuuidSql}) AS first_tower_assist,
+           (SELECT mp.first_inhibitor_kill FROM match_participants mp
+             WHERE mp.game_id = g.game_id AND mp.puuid = ${playerPuuidSql}) AS first_inhibitor_kill,
+           (SELECT mp.first_inhibitor_assist FROM match_participants mp
+             WHERE mp.game_id = g.game_id AND mp.puuid = ${playerPuuidSql}) AS first_inhibitor_assist,
+           (SELECT mp.baron_kills FROM match_participants mp
+             WHERE mp.game_id = g.game_id AND mp.puuid = ${playerPuuidSql}) AS baron_kills,
+           (SELECT mp.objectives_stolen FROM match_participants mp
+             WHERE mp.game_id = g.game_id AND mp.puuid = ${playerPuuidSql}) AS objectives_stolen,
+           (SELECT mp.objectives_stolen_assists FROM match_participants mp
+             WHERE mp.game_id = g.game_id AND mp.puuid = ${playerPuuidSql}) AS objectives_stolen_assists,
+           (SELECT mp.total_units_healed FROM match_participants mp
+             WHERE mp.game_id = g.game_id AND mp.puuid = ${playerPuuidSql}) AS total_units_healed,
+           (SELECT mp.vision_score FROM match_participants mp
+             WHERE mp.game_id = g.game_id AND mp.puuid = ${playerPuuidSql}) AS vision_score,
+           (SELECT mp.wards_placed FROM match_participants mp
+             WHERE mp.game_id = g.game_id AND mp.puuid = ${playerPuuidSql}) AS wards_placed,
+           (SELECT mp.wards_killed FROM match_participants mp
+             WHERE mp.game_id = g.game_id AND mp.puuid = ${playerPuuidSql}) AS wards_killed,
+           (SELECT mp.vision_wards_bought FROM match_participants mp
+             WHERE mp.game_id = g.game_id AND mp.puuid = ${playerPuuidSql}) AS vision_wards_bought,
+           (SELECT mp.sight_wards_bought FROM match_participants mp
+             WHERE mp.game_id = g.game_id AND mp.puuid = ${playerPuuidSql}) AS sight_wards_bought,
            COALESCE(ps.spell1, (
              SELECT mp.spell1 FROM match_participants mp
              WHERE mp.game_id = g.game_id AND mp.puuid = ${playerPuuidSql}
