@@ -73,6 +73,28 @@ export interface RawParticipantRow {
   killing_sprees: number;
   first_blood_kill: number;
   first_blood_assist: number;
+  gold_spent: number;
+  champ_level: number;
+  total_minions_killed: number;
+  neutral_minions_killed: number;
+  neutral_minions_enemy_jungle: number;
+  neutral_minions_team_jungle: number;
+  turret_kills: number;
+  inhibitor_kills: number;
+  turret_plates_taken: number;
+  first_tower_kill: number;
+  first_tower_assist: number;
+  first_inhibitor_kill: number;
+  first_inhibitor_assist: number;
+  baron_kills: number;
+  objectives_stolen: number;
+  objectives_stolen_assists: number;
+  total_units_healed: number;
+  vision_score: number;
+  wards_placed: number;
+  wards_killed: number;
+  vision_wards_bought: number;
+  sight_wards_bought: number;
   spell1: number | null;
   spell2: number | null;
   rune0: number | null;
@@ -264,6 +286,28 @@ export function participantRowsFromRaw(raw: any): RawParticipantRow[] {
       killing_sprees: s.killingSprees ?? 0,
       first_blood_kill: s.firstBloodKill ? 1 : 0,
       first_blood_assist: s.firstBloodAssist ? 1 : 0,
+      gold_spent: s.goldSpent ?? 0,
+      champ_level: s.champLevel ?? 0,
+      total_minions_killed: s.totalMinionsKilled ?? 0,
+      neutral_minions_killed: s.neutralMinionsKilled ?? 0,
+      neutral_minions_enemy_jungle: s.neutralMinionsKilledEnemyJungle ?? 0,
+      neutral_minions_team_jungle: s.neutralMinionsKilledTeamJungle ?? 0,
+      turret_kills: s.turretKills ?? 0,
+      inhibitor_kills: s.inhibitorKills ?? 0,
+      turret_plates_taken: s.turretPlatesTaken ?? 0,
+      first_tower_kill: s.firstTowerKill ? 1 : 0,
+      first_tower_assist: s.firstTowerAssist ? 1 : 0,
+      first_inhibitor_kill: s.firstInhibitorKill ? 1 : 0,
+      first_inhibitor_assist: s.firstInhibitorAssist ? 1 : 0,
+      baron_kills: s.baronKills ?? 0,
+      objectives_stolen: s.objectivesStolen ?? 0,
+      objectives_stolen_assists: s.objectivesStolenAssists ?? 0,
+      total_units_healed: s.totalUnitsHealed ?? 0,
+      vision_score: s.visionScore ?? 0,
+      wards_placed: s.wardsPlaced ?? 0,
+      wards_killed: s.wardsKilled ?? 0,
+      vision_wards_bought: s.visionWardsBoughtInGame ?? 0,
+      sight_wards_bought: s.sightWardsBoughtInGame ?? 0,
       spell1: p.spell1Id ?? p.summoner1Id ?? s.spell1Id ?? s.summoner1Id ?? null,
       spell2: p.spell2Id ?? p.summoner2Id ?? s.spell2Id ?? s.summoner2Id ?? null,
       cs:
@@ -320,6 +364,12 @@ export function participantStatements() {
           true_damage_taken, damage_self_mitigated, damage_to_objectives, damage_to_turrets,
           time_cc_others, total_cc_dealt, longest_alive, killing_sprees,
           first_blood_kill, first_blood_assist,
+          gold_spent, champ_level, total_minions_killed, neutral_minions_killed,
+          neutral_minions_enemy_jungle, neutral_minions_team_jungle, turret_kills,
+          inhibitor_kills, turret_plates_taken, first_tower_kill, first_tower_assist,
+          first_inhibitor_kill, first_inhibitor_assist, baron_kills, objectives_stolen,
+          objectives_stolen_assists, total_units_healed, vision_score, wards_placed,
+          wards_killed, vision_wards_bought, sight_wards_bought,
           is_remake, queue_id, game_version,
           spell1, spell2, item0, item1, item2, item3, item4, item5, item6,
           team_position,
@@ -336,6 +386,12 @@ export function participantStatements() {
           @true_damage_taken, @damage_self_mitigated, @damage_to_objectives, @damage_to_turrets,
           @time_cc_others, @total_cc_dealt, @longest_alive, @killing_sprees,
           @first_blood_kill, @first_blood_assist,
+          @gold_spent, @champ_level, @total_minions_killed, @neutral_minions_killed,
+          @neutral_minions_enemy_jungle, @neutral_minions_team_jungle, @turret_kills,
+          @inhibitor_kills, @turret_plates_taken, @first_tower_kill, @first_tower_assist,
+          @first_inhibitor_kill, @first_inhibitor_assist, @baron_kills, @objectives_stolen,
+          @objectives_stolen_assists, @total_units_healed, @vision_score, @wards_placed,
+          @wards_killed, @vision_wards_bought, @sight_wards_bought,
           @is_remake, @queue_id, @game_version,
           @spell1, @spell2, @item0, @item1, @item2, @item3, @item4, @item5, @item6,
           @team_position,
@@ -413,6 +469,28 @@ export function writeParticipants(
       killing_sprees: row.killing_sprees,
       first_blood_kill: row.first_blood_kill,
       first_blood_assist: row.first_blood_assist,
+      gold_spent: row.gold_spent,
+      champ_level: row.champ_level,
+      total_minions_killed: row.total_minions_killed,
+      neutral_minions_killed: row.neutral_minions_killed,
+      neutral_minions_enemy_jungle: row.neutral_minions_enemy_jungle,
+      neutral_minions_team_jungle: row.neutral_minions_team_jungle,
+      turret_kills: row.turret_kills,
+      inhibitor_kills: row.inhibitor_kills,
+      turret_plates_taken: row.turret_plates_taken,
+      first_tower_kill: row.first_tower_kill,
+      first_tower_assist: row.first_tower_assist,
+      first_inhibitor_kill: row.first_inhibitor_kill,
+      first_inhibitor_assist: row.first_inhibitor_assist,
+      baron_kills: row.baron_kills,
+      objectives_stolen: row.objectives_stolen,
+      objectives_stolen_assists: row.objectives_stolen_assists,
+      total_units_healed: row.total_units_healed,
+      vision_score: row.vision_score,
+      wards_placed: row.wards_placed,
+      wards_killed: row.wards_killed,
+      vision_wards_bought: row.vision_wards_bought,
+      sight_wards_bought: row.sight_wards_bought,
       team_position: row.team_position,
       is_remake: meta.is_remake,
       queue_id: meta.queue_id,
@@ -488,7 +566,29 @@ export async function backfillParticipantCombatStats(
         longest_alive = ?,
         killing_sprees = ?,
         first_blood_kill = ?,
-        first_blood_assist = ?
+        first_blood_assist = ?,
+        gold_spent = ?,
+        champ_level = ?,
+        total_minions_killed = ?,
+        neutral_minions_killed = ?,
+        neutral_minions_enemy_jungle = ?,
+        neutral_minions_team_jungle = ?,
+        turret_kills = ?,
+        inhibitor_kills = ?,
+        turret_plates_taken = ?,
+        first_tower_kill = ?,
+        first_tower_assist = ?,
+        first_inhibitor_kill = ?,
+        first_inhibitor_assist = ?,
+        baron_kills = ?,
+        objectives_stolen = ?,
+        objectives_stolen_assists = ?,
+        total_units_healed = ?,
+        vision_score = ?,
+        wards_placed = ?,
+        wards_killed = ?,
+        vision_wards_bought = ?,
+        sight_wards_bought = ?
     WHERE game_id = ? AND participant_id = ?
   `);
 
@@ -520,6 +620,28 @@ export async function backfillParticipantCombatStats(
               participant.killing_sprees,
               participant.first_blood_kill,
               participant.first_blood_assist,
+              participant.gold_spent,
+              participant.champ_level,
+              participant.total_minions_killed,
+              participant.neutral_minions_killed,
+              participant.neutral_minions_enemy_jungle,
+              participant.neutral_minions_team_jungle,
+              participant.turret_kills,
+              participant.inhibitor_kills,
+              participant.turret_plates_taken,
+              participant.first_tower_kill,
+              participant.first_tower_assist,
+              participant.first_inhibitor_kill,
+              participant.first_inhibitor_assist,
+              participant.baron_kills,
+              participant.objectives_stolen,
+              participant.objectives_stolen_assists,
+              participant.total_units_healed,
+              participant.vision_score,
+              participant.wards_placed,
+              participant.wards_killed,
+              participant.vision_wards_bought,
+              participant.sight_wards_bought,
               row.game_id,
               participant.participant_id,
             ).changes;

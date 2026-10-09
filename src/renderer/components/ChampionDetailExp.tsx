@@ -41,7 +41,7 @@ import ItemIcon from "./ItemIcon";
 
 const TAB_ITEMS: TabStripItem[] = [
   { key: "ov", label: "Overview" },
-  { key: "cb", label: "Combat", disabled: true },
+  { key: "cb", label: "Combat" },
   { key: "ec", label: "Economy", disabled: true },
   { key: "fa", label: "Farm", disabled: true },
   { key: "ob", label: "Objectives", disabled: true },
@@ -60,6 +60,23 @@ const TAB_ITEMS: TabStripItem[] = [
 
 type RateSort = "count" | "winRate";
 
+type CombatMatch = MatchListItem & {
+  physical_damage_dealt: number | null;
+  magic_damage_dealt: number | null;
+  physical_damage_taken: number | null;
+  magic_damage_taken: number | null;
+  true_damage_taken: number | null;
+  damage_self_mitigated: number | null;
+  damage_to_objectives: number | null;
+  damage_to_turrets: number | null;
+  time_cc_others: number | null;
+  total_cc_dealt: number | null;
+  longest_alive: number | null;
+  killing_sprees: number | null;
+  first_blood_kill: number | null;
+  first_blood_assist: number | null;
+};
+
 export function ChampionDetailExp() {
   const { championId = "" } = useParams<{ championId: string }>();
   const id = Number(championId);
@@ -76,28 +93,41 @@ export function ChampionDetailExp() {
   const [activeAccountRaw] = useActiveAccount();
   const account = activeAccountRaw === ALL_ACCOUNTS_SENTINEL ? "all" : activeAccountRaw;
   const overviewActive = activeTab === "ov";
+  const combatActive = activeTab === "cb";
+  const detailActive = overviewActive || combatActive;
 
   const { data: allStats } = useIpc<ChampionStats[]>(
     () => window.api.getChampionStats(patch, scopedQueue, account),
     [patch, scopedQueue, account],
   );
-  const { data: detailStats, error: detailStatsError } = useIpc<ChampionDetailStats>(
+  const {
+    data: detailStats,
+    loading: detailLoading,
+    error: detailStatsError,
+  } = useIpc<ChampionDetailStats>(
     () => window.api.getChampionDetailStats(id, patch, scopedQueue, account),
     [id, patch, scopedQueue, account],
   );
   const { data: matchHistory } = useIpc<{ matches: MatchListItem[]; total: number }>(
     () =>
-      overviewActive
-        ? window.api.getChampionMatchHistory(id, 8, 0, patch, scopedQueue, account)
+      detailActive
+        ? window.api.getChampionMatchHistory(
+            id,
+            combatActive ? 20 : 8,
+            0,
+            patch,
+            scopedQueue,
+            account,
+          )
         : Promise.resolve({ matches: [], total: 0 }),
-    [overviewActive, id, patch, scopedQueue, account],
+    [detailActive, combatActive, id, patch, scopedQueue, account],
   );
   const { data: globalDetail, loading: globalDetailLoading } = useIpc<GlobalChampionDetail | null>(
     () =>
-      overviewActive
+      detailActive
         ? window.api.getGlobalChampionDetail(id, patch, scopedQueue, account)
         : Promise.resolve(null),
-    [overviewActive, id, patch, scopedQueue, account],
+    [detailActive, id, patch, scopedQueue, account],
   );
   const { data: keystones, loading: keystonesLoading } = useIpc<ChampionKeystoneStat[]>(
     () =>
@@ -423,6 +453,13 @@ export function ChampionDetailExp() {
           championName={name}
           champData={champData}
         />
+      ) : activeTab === "cb" ? (
+        <CombatTab
+          detail={detailStats}
+          detailLoading={detailLoading}
+          matchHistory={matchHistory}
+          globalDetail={globalDetail}
+        />
       ) : (
         <Panel>
           <p className="py-8 text-center text-sm text-lol-text">This tab lands in a later phase.</p>
@@ -717,6 +754,362 @@ function OverviewTab({
       </Panel>
     </div>
   );
+}
+
+function CombatTab({
+  detail,
+  detailLoading,
+  matchHistory,
+  globalDetail,
+}: {
+  detail: ChampionDetailStats | null;
+  detailLoading: boolean;
+  matchHistory: { matches: MatchListItem[]; total: number } | null;
+  globalDetail: GlobalChampionDetail | null;
+}) {
+  if (detailLoading) return <SectionLoading />;
+  if (!detail || detail.games === 0) return <NoData text="No combat data" />;
+
+  const matches = (matchHistory?.matches as CombatMatch[] | undefined) ?? [];
+  const chartMatches = matches
+    .slice()
+    .sort((a, b) => a.game_creation - b.game_creation)
+    .slice(-20);
+  const labels = chartMatches.map((match) =>
+    new Date(match.game_creation).toLocaleDateString("en-US", {
+      month: "short",
+      day: "numeric",
+    }),
+  );
+  const chart = (title: string, values: number[], color: string) => (
+    <div className="min-w-0 flex-1">
+      <p className="mb-1 text-xs font-semibold uppercase tracking-wider text-lol-text">{title}</p>
+      <LineChartExp
+        values={values}
+        format={(value) => value.toLocaleString()}
+        color={color}
+        xLabels={labels}
+        yFormat={(value) => value.toLocaleString()}
+        yTicks={[0, Math.max(...values, 1)]}
+      />
+    </div>
+  );
+  const dealtTrueAvg = Math.max(
+    0,
+    (globalDetail?.avgDamage ?? 0) - detail.avgPhysicalDamageDealt - detail.avgMagicDamageDealt,
+  );
+  const dealtTrueValues = matches.map((match) =>
+    Math.max(
+      0,
+      match.total_damage_dealt -
+        (match.physical_damage_dealt ?? 0) -
+        (match.magic_damage_dealt ?? 0),
+    ),
+  );
+  const dealtTrueBest = dealtTrueValues.length > 0 ? Math.max(...dealtTrueValues) : null;
+  const dealtTrueTotal =
+    dealtTrueValues.length > 0 ? dealtTrueValues.reduce((sum, value) => sum + value, 0) : null;
+
+  return (
+    <div className="grid grid-cols-1 gap-5 xl:grid-cols-2">
+      <Panel className="xl:col-span-2">
+        <SectionHeading title="K/D/A over the last 20 games" />
+        {chartMatches.length === 0 ? (
+          <NoData />
+        ) : (
+          <div className="flex flex-col gap-5 lg:flex-row">
+            {chart(
+              "Kills",
+              chartMatches.map((match) => match.kills),
+              "var(--theme-win)",
+            )}
+            {chart(
+              "Deaths",
+              chartMatches.map((match) => match.deaths),
+              "var(--theme-loss)",
+            )}
+            {chart(
+              "Assists",
+              chartMatches.map((match) => match.assists),
+              "var(--theme-text)",
+            )}
+          </div>
+        )}
+      </Panel>
+
+      <CombatDamagePanel
+        title="Damage dealt"
+        segments={[
+          ["Physical", detail.avgPhysicalDamageDealt, "var(--theme-win)"],
+          ["Magic", detail.avgMagicDamageDealt, "var(--theme-gold)"],
+          ["True", dealtTrueAvg, "var(--theme-loss)"],
+        ]}
+        rows={[
+          [
+            "Physical",
+            detail.avgPhysicalDamageDealt,
+            detail.maxPhysicalDamageDealt,
+            detail.totalPhysicalDamageDealt,
+          ],
+          [
+            "Magic",
+            detail.avgMagicDamageDealt,
+            detail.maxMagicDamageDealt,
+            detail.totalMagicDamageDealt,
+          ],
+          ["True", dealtTrueAvg, dealtTrueBest, dealtTrueTotal],
+        ]}
+      />
+
+      <CombatDamagePanel
+        title="Damage taken"
+        segments={[
+          ["Physical", detail.avgPhysicalDamageTaken, "var(--theme-win)"],
+          ["Magic", detail.avgMagicDamageTaken, "var(--theme-gold)"],
+          ["True", detail.avgTrueDamageTaken, "var(--theme-loss)"],
+        ]}
+        rows={[
+          [
+            "Physical",
+            detail.avgPhysicalDamageTaken,
+            detail.maxPhysicalDamageTaken,
+            detail.totalPhysicalDamageTaken,
+          ],
+          [
+            "Magic",
+            detail.avgMagicDamageTaken,
+            detail.maxMagicDamageTaken,
+            detail.totalMagicDamageTaken,
+          ],
+          [
+            "True",
+            detail.avgTrueDamageTaken,
+            detail.maxTrueDamageTaken,
+            detail.totalTrueDamageTaken,
+          ],
+        ]}
+      />
+
+      <Panel>
+        <SectionHeading title="Crowd control" />
+        <CombatStatTable
+          rows={[
+            [
+              "Time CCing others (sec)",
+              detail.avgTimeCcOthers,
+              detail.maxTimeCcOthers,
+              detail.totalTimeCcOthers,
+              formatSeconds,
+            ],
+            [
+              "Total CC dealt (sec)",
+              detail.avgTotalCcDealt,
+              detail.maxTotalCcDealt,
+              detail.totalTotalCcDealt,
+              formatSeconds,
+            ],
+          ]}
+        />
+        <div className="mt-3 flex items-center justify-between border-t border-lol-border/50 pt-3 text-xs">
+          <span className="text-lol-text">CC per minute</span>
+          <b className="tabular-nums text-lol-text-bright">
+            {formatCombatNumber(detail.avgCcPerMin)}
+          </b>
+        </div>
+      </Panel>
+
+      <Panel>
+        <SectionHeading title="Objectives & turrets" />
+        <CombatStatTable
+          rows={[
+            [
+              "Damage to objectives",
+              detail.avgDamageToObjectives,
+              detail.maxDamageToObjectives,
+              detail.totalDamageToObjectives,
+              formatCombatNumber,
+            ],
+            [
+              "Damage to turrets",
+              detail.avgDamageToTurrets,
+              detail.maxDamageToTurrets,
+              detail.totalDamageToTurrets,
+              formatCombatNumber,
+            ],
+          ]}
+        />
+      </Panel>
+
+      <Panel>
+        <SectionHeading title="Longevity & sprees" />
+        <CombatStatTable
+          rows={[
+            [
+              "Longest alive (sec)",
+              detail.avgLongestAlive,
+              detail.maxLongestAlive,
+              detail.totalLongestAlive,
+              formatSeconds,
+            ],
+            [
+              "Killing sprees",
+              detail.avgKillingSprees,
+              detail.maxKillingSprees,
+              detail.totalKillingSprees,
+              formatCombatNumber,
+            ],
+            [
+              "Damage self-mitigated",
+              detail.avgDamageSelfMitigated,
+              detail.maxDamageSelfMitigated,
+              detail.totalDamageSelfMitigated,
+              formatCombatNumber,
+            ],
+          ]}
+        />
+      </Panel>
+
+      <Panel>
+        <SectionHeading title="First blood" />
+        <div className="grid grid-cols-2 gap-3">
+          <CombatTile
+            label="First blood kills"
+            value={detail.totalFirstBloodKill}
+            subtitle={`across ${formatCombatNumber(detail.games)} games (${formatPercent(detail.totalFirstBloodKill, detail.games)})`}
+          />
+          <CombatTile
+            label="First blood assists"
+            value={detail.totalFirstBloodAssist}
+            subtitle={`across ${formatCombatNumber(detail.games)} games (${formatPercent(detail.totalFirstBloodAssist, detail.games)})`}
+          />
+        </div>
+      </Panel>
+
+      <Panel>
+        <SectionHeading title="Multikills" />
+        <div className="flex flex-col gap-2 text-xs">
+          <div className="grid grid-cols-[1fr_auto_auto] gap-3 border-b border-lol-border/50 pb-2 font-semibold text-lol-text">
+            <span>Multikill type</span>
+            <span>Total</span>
+            <span>Per game (%)</span>
+          </div>
+          {[
+            { label: "Double kills", value: globalDetail?.doubleKills },
+            { label: "Triple kills", value: globalDetail?.tripleKills },
+            { label: "Quadra kills", value: globalDetail?.quadraKills },
+            { label: "Penta kills", value: globalDetail?.pentaKills },
+          ].map(({ label, value }) => (
+            <div key={label} className="grid grid-cols-[1fr_auto_auto] gap-3 text-lol-text-bright">
+              <span>{label}</span>
+              <span className="tabular-nums">{formatCombatNumber(value)}</span>
+              <span className="tabular-nums">{formatPercent(value, detail.games)}</span>
+            </div>
+          ))}
+        </div>
+      </Panel>
+    </div>
+  );
+}
+
+function CombatDamagePanel({
+  title,
+  segments,
+  rows,
+}: {
+  title: string;
+  segments: [string, number, string][];
+  rows: CombatStatTableRow[];
+}) {
+  const total = segments.reduce((sum, [, value]) => sum + Math.max(value, 0), 0);
+  return (
+    <Panel>
+      <SectionHeading title={title} />
+      <div className="mb-4 flex h-3 overflow-hidden rounded-full bg-black/20">
+        {segments.map(([label, value, color]) => (
+          <div
+            key={label}
+            title={`${label}: ${formatCombatNumber(value)}`}
+            className="h-full"
+            style={{
+              width: `${total > 0 ? (Math.max(value, 0) / total) * 100 : 0}%`,
+              backgroundColor: color,
+            }}
+          />
+        ))}
+      </div>
+      <CombatStatTable rows={rows} />
+    </Panel>
+  );
+}
+
+type CombatStatTableRow = [
+  string,
+  number | null | undefined,
+  number | null | undefined,
+  number | null | undefined,
+  ((value: number | null | undefined) => string)?,
+];
+
+function CombatStatTable({ rows }: { rows: CombatStatTableRow[] }) {
+  return (
+    <div className="flex flex-col gap-2 text-xs">
+      <div className="grid grid-cols-[1fr_auto_auto_auto] gap-3 border-b border-lol-border/50 pb-2 font-semibold text-lol-text">
+        <span>Stat</span>
+        <span>Avg</span>
+        <span>Best</span>
+        <span>Total</span>
+      </div>
+      {rows.map(([label, avg, best, total, formatter]) => {
+        const format = formatter ?? formatCombatNumber;
+        return (
+          <div
+            key={label}
+            className="grid grid-cols-[1fr_auto_auto_auto] gap-3 text-lol-text-bright"
+          >
+            <span>{label}</span>
+            <span className="tabular-nums">{format(avg)}</span>
+            <span className="tabular-nums">{format(best)}</span>
+            <span className="tabular-nums">{format(total)}</span>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function CombatTile({
+  label,
+  value,
+  subtitle,
+}: {
+  label: string;
+  value: number | null | undefined;
+  subtitle: string;
+}) {
+  return (
+    <div className="rounded-lg border border-lol-border bg-black/10 p-3">
+      <span className="text-xs text-lol-text">{label}</span>
+      <b className="mt-1 block font-display text-2xl text-lol-text-bright">
+        {formatCombatNumber(value)}
+      </b>
+      <span className="mt-1 block text-[11px] text-lol-text">{subtitle}</span>
+    </div>
+  );
+}
+
+function formatCombatNumber(value: number | null | undefined) {
+  return value == null || !Number.isFinite(value) ? "—" : value.toLocaleString();
+}
+
+function formatSeconds(value: number | null | undefined) {
+  if (value == null || !Number.isFinite(value)) return "—";
+  const seconds = Math.max(0, Math.round(value));
+  return `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")}`;
+}
+
+function formatPercent(value: number | null | undefined, total: number) {
+  if (value == null || total <= 0) return "—";
+  return `${((value / total) * 100).toFixed(1)}%`;
 }
 
 function RatePanel({

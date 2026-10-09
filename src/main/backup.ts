@@ -42,7 +42,8 @@ export type BackupReason =
   | "pre-repair"
   | "pre-restore"
   | "pre-migration-20"
-  | "pre-migration-23";
+  | "pre-migration-23"
+  | "pre-migration-24";
 
 export interface BackupInfo {
   file: string;
