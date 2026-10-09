@@ -42,9 +42,9 @@ import ItemIcon from "./ItemIcon";
 const TAB_ITEMS: TabStripItem[] = [
   { key: "ov", label: "Overview" },
   { key: "cb", label: "Combat" },
-  { key: "ec", label: "Economy", disabled: true },
-  { key: "fa", label: "Farm", disabled: true },
-  { key: "ob", label: "Objectives", disabled: true },
+  { key: "ec", label: "Economy" },
+  { key: "fa", label: "Farm" },
+  { key: "ob", label: "Objectives" },
   { key: "vi", label: "Vision", disabled: true },
   { key: "ab", label: "Abilities", disabled: true },
   { key: "it", label: "Items", disabled: true },
@@ -94,7 +94,11 @@ export function ChampionDetailExp() {
   const account = activeAccountRaw === ALL_ACCOUNTS_SENTINEL ? "all" : activeAccountRaw;
   const overviewActive = activeTab === "ov";
   const combatActive = activeTab === "cb";
-  const detailActive = overviewActive || combatActive;
+  const economyActive = activeTab === "ec";
+  const farmActive = activeTab === "fa";
+  const objectivesActive = activeTab === "ob";
+  const detailActive =
+    overviewActive || combatActive || economyActive || farmActive || objectivesActive;
 
   const { data: allStats } = useIpc<ChampionStats[]>(
     () => window.api.getChampionStats(patch, scopedQueue, account),
@@ -460,6 +464,12 @@ export function ChampionDetailExp() {
           matchHistory={matchHistory}
           globalDetail={globalDetail}
         />
+      ) : activeTab === "ec" ? (
+        <EconomyTab detail={detailStats} detailLoading={detailLoading} />
+      ) : activeTab === "fa" ? (
+        <FarmTab detail={detailStats} detailLoading={detailLoading} />
+      ) : activeTab === "ob" ? (
+        <ObjectivesTab detail={detailStats} detailLoading={detailLoading} />
       ) : (
         <Panel>
           <p className="py-8 text-center text-sm text-lol-text">This tab lands in a later phase.</p>
@@ -1006,6 +1016,224 @@ function CombatTab({
             </div>
           ))}
         </div>
+      </Panel>
+    </div>
+  );
+}
+
+function EconomyTab({
+  detail,
+  detailLoading,
+}: {
+  detail: ChampionDetailStats | null;
+  detailLoading: boolean;
+}) {
+  if (detailLoading) return <SectionLoading />;
+  if (!detail || detail.games === 0) return <NoData text="No data" />;
+
+  return (
+    <div className="grid grid-cols-1 gap-5 xl:grid-cols-2">
+      <Panel>
+        <SectionHeading title="Gold" />
+        <CombatStatTable
+          rows={[
+            [
+              "Gold spent",
+              detail.avgGoldSpent,
+              detail.maxGoldSpent,
+              detail.totalGoldSpent,
+              formatCombatNumber,
+            ],
+          ]}
+        />
+        <div className="mt-3 flex items-center justify-between border-t border-lol-border/50 pt-3 text-xs">
+          <span className="text-lol-text">Gold per minute</span>
+          <b className="tabular-nums text-lol-text-bright">{detail.goldPerMin.toFixed(0)}</b>
+        </div>
+        <div className="mt-2 flex items-center justify-between text-xs">
+          <span className="text-lol-text">Max champion level reached</span>
+          <b className="tabular-nums text-lol-text-bright">{detail.maxChampLevel}</b>
+        </div>
+      </Panel>
+
+      <Panel>
+        <SectionHeading title="Time" />
+        <CombatStatTable
+          rows={[
+            ["Avg game length", detail.avgGameLength, null, null, formatSeconds],
+            ["Total time played", null, null, detail.totalTimePlayed, formatSeconds],
+          ]}
+        />
+        <div className="mt-3 flex items-center justify-between border-t border-lol-border/50 pt-3 text-xs">
+          <span className="text-lol-text">Longest win streak</span>
+          <b className="tabular-nums text-lol-text-bright">{detail.longestWinStreak}</b>
+        </div>
+      </Panel>
+    </div>
+  );
+}
+
+function FarmTab({
+  detail,
+  detailLoading,
+}: {
+  detail: ChampionDetailStats | null;
+  detailLoading: boolean;
+}) {
+  if (detailLoading) return <SectionLoading />;
+  if (!detail || detail.games === 0) return <NoData text="No data" />;
+
+  return (
+    <div className="grid grid-cols-1 gap-5 xl:grid-cols-2">
+      <Panel>
+        <SectionHeading title="Minion split" />
+        <CombatStatTable
+          rows={[
+            [
+              "Lane minions",
+              detail.avgTotalMinionsKilled,
+              detail.maxTotalMinionsKilled,
+              detail.totalTotalMinionsKilled,
+            ],
+            [
+              "Jungle minions (all)",
+              detail.avgNeutralMinionsKilled,
+              detail.maxNeutralMinionsKilled,
+              detail.totalNeutralMinionsKilled,
+            ],
+            [
+              "Jungle minions (enemy)",
+              detail.avgNeutralMinionsEnemyJungle,
+              detail.maxNeutralMinionsEnemyJungle,
+              detail.totalNeutralMinionsEnemyJungle,
+            ],
+            [
+              "Jungle minions (team)",
+              detail.avgNeutralMinionsTeamJungle,
+              detail.maxNeutralMinionsTeamJungle,
+              detail.totalNeutralMinionsTeamJungle,
+            ],
+          ]}
+        />
+      </Panel>
+
+      <Panel>
+        <SectionHeading title="Per minute" />
+        <div className="flex flex-col gap-3 text-xs">
+          <div className="flex items-center justify-between">
+            <span className="text-lol-text">Games played</span>
+            <b className="tabular-nums text-lol-text-bright">{detail.games}</b>
+          </div>
+          <div className="flex items-center justify-between">
+            <span className="text-lol-text">Avg game length</span>
+            <b className="tabular-nums text-lol-text-bright">
+              {formatSeconds(detail.avgGameLength)}
+            </b>
+          </div>
+        </div>
+      </Panel>
+    </div>
+  );
+}
+
+function ObjectivesTab({
+  detail,
+  detailLoading,
+}: {
+  detail: ChampionDetailStats | null;
+  detailLoading: boolean;
+}) {
+  if (detailLoading) return <SectionLoading />;
+  if (!detail || detail.games === 0) return <NoData text="No data" />;
+
+  return (
+    <div className="grid grid-cols-1 gap-5 xl:grid-cols-2">
+      <Panel>
+        <SectionHeading title="Turrets & inhibitors" />
+        <CombatStatTable
+          rows={[
+            ["Turret kills", detail.avgTurretKills, detail.maxTurretKills, detail.totalTurretKills],
+            [
+              "Inhibitor kills",
+              detail.avgInhibitorKills,
+              detail.maxInhibitorKills,
+              detail.totalInhibitorKills,
+            ],
+            [
+              "Turret plates taken",
+              detail.avgTurretPlatesTaken,
+              detail.maxTurretPlatesTaken,
+              detail.totalTurretPlatesTaken,
+            ],
+            ["Baron kills", detail.avgBaronKills, detail.maxBaronKills, detail.totalBaronKills],
+          ]}
+        />
+      </Panel>
+
+      <Panel>
+        <SectionHeading title="Damage to objectives" />
+        <CombatStatTable
+          rows={[
+            [
+              "Damage to objectives",
+              detail.avgDamageToObjectives,
+              detail.maxDamageToObjectives,
+              detail.totalDamageToObjectives,
+            ],
+            [
+              "Damage to turrets",
+              detail.avgDamageToTurrets,
+              detail.maxDamageToTurrets,
+              detail.totalDamageToTurrets,
+            ],
+          ]}
+        />
+      </Panel>
+
+      <Panel className="xl:col-span-2">
+        <SectionHeading title="First blood objectives" />
+        <div className="grid grid-cols-2 gap-3">
+          <CombatTile
+            label="First tower kills"
+            value={detail.totalFirstTowerKill}
+            subtitle={`across ${formatCombatNumber(detail.games)} games (${formatPercent(detail.totalFirstTowerKill, detail.games)})`}
+          />
+          <CombatTile
+            label="First tower assists"
+            value={detail.totalFirstTowerAssist}
+            subtitle={`across ${formatCombatNumber(detail.games)} games (${formatPercent(detail.totalFirstTowerAssist, detail.games)})`}
+          />
+          <CombatTile
+            label="First inhibitor kills"
+            value={detail.totalFirstInhibitorKill}
+            subtitle={`across ${formatCombatNumber(detail.games)} games (${formatPercent(detail.totalFirstInhibitorKill, detail.games)})`}
+          />
+          <CombatTile
+            label="First inhibitor assists"
+            value={detail.totalFirstInhibitorAssist}
+            subtitle={`across ${formatCombatNumber(detail.games)} games (${formatPercent(detail.totalFirstInhibitorAssist, detail.games)})`}
+          />
+        </div>
+      </Panel>
+
+      <Panel>
+        <SectionHeading title="Stolen objectives" />
+        <CombatStatTable
+          rows={[
+            [
+              "Objectives stolen",
+              detail.avgObjectivesStolen,
+              detail.maxObjectivesStolen,
+              detail.totalObjectivesStolen,
+            ],
+            [
+              "Objectives stolen assists",
+              detail.avgObjectivesStolenAssists,
+              detail.maxObjectivesStolenAssists,
+              detail.totalObjectivesStolenAssists,
+            ],
+          ]}
+        />
       </Panel>
     </div>
   );
