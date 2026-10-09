@@ -78,6 +78,7 @@ export {
   normalizeTeamPosition,
   participantRowsFromRaw,
   participantStatements,
+  backfillParticipantCombatStats,
   writeParticipants,
   extractRunes,
   resetParticipantStatements,

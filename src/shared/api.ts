@@ -1006,6 +1006,13 @@ export interface ElectronAPI {
   getTimeline: (gameId: number) => Promise<TimelineData | null>;
   fetchTimeline: (gameId: number, platform?: string) => Promise<TimelineData | null>;
   reparseTimelines: (limit: number) => Promise<number>;
+  backfillCombatStats: (options?: { batchSize?: number }) => Promise<{
+    updated: number;
+    scanned: number;
+  }>;
+  onBackfillCombatStatsProgress: (
+    callback: (progress: { done: number; total: number }) => void,
+  ) => () => void;
   timelineBackfillStart: (options: {
     limit: number;
   }) => Promise<{ started: true } | { started: false; reason: "already-running" }>;

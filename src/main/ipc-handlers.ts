@@ -53,6 +53,7 @@ let activeTimelineBackfill: {
   signal: { cancelled: boolean };
   progress: BackfillProgress;
 } | null = null;
+let activeCombatBackfill: Promise<{ updated: number; scanned: number }> | null = null;
 
 function dedupe<T>(key: string, factory: () => Promise<T>): Promise<T> {
   const existing = inFlightRequests.get(key) as Promise<T> | undefined;
@@ -181,6 +182,39 @@ export function registerIpcHandlers() {
     if (!activeTimelineBackfill) return { stopped: false };
     activeTimelineBackfill.signal.cancelled = true;
     return { stopped: true };
+  });
+
+  ipcMain.handle("db:backfill-combat-stats", async (event, options?: { batchSize?: number }) => {
+    if (
+      options !== undefined &&
+      (typeof options !== "object" ||
+        options === null ||
+        (options.batchSize !== undefined &&
+          (!Number.isInteger(options.batchSize) || options.batchSize <= 0)))
+    ) {
+      throw new TypeError("batchSize must be a positive integer");
+    }
+    if (activeCombatBackfill !== null) {
+      throw new Error("Combat stats backfill is already running");
+    }
+
+    const win = senderWindow(event);
+    console.log("[db] backfill-combat-stats handler called:", {
+      batchSize: options?.batchSize ?? 200,
+    });
+    const operation = db.backfillParticipantCombatStats((done: number, total: number) => {
+      if (win && !win.isDestroyed()) {
+        win.webContents.send("db:backfill-combat-stats-progress", { done, total });
+      }
+    }, options?.batchSize);
+    activeCombatBackfill = operation;
+    try {
+      const result = await operation;
+      console.log("[db] backfill-combat-stats handler done:", result);
+      return result;
+    } finally {
+      if (activeCombatBackfill === operation) activeCombatBackfill = null;
+    }
   });
 
   ipcMain.handle("db:toggle-favorite", (_event, gameId: number) => {

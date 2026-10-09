@@ -46,6 +46,18 @@ const api: ElectronAPI = {
   reparseTimelines: (limit: number): Promise<number> =>
     ipcRenderer.invoke("db:timeline-reparse", limit),
 
+  backfillCombatStats: (options?: { batchSize?: number }) =>
+    ipcRenderer.invoke("db:backfill-combat-stats", options),
+
+  onBackfillCombatStatsProgress: (
+    callback: (progress: { done: number; total: number }) => void,
+  ) => {
+    const handler = (_event: unknown, progress: { done: number; total: number }) =>
+      callback(progress);
+    ipcRenderer.on("db:backfill-combat-stats-progress", handler);
+    return () => ipcRenderer.removeListener("db:backfill-combat-stats-progress", handler);
+  },
+
   timelineBackfillStart: (options: { limit: number }) =>
     ipcRenderer.invoke("db:timeline-backfill-start", options),
 
