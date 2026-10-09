@@ -85,6 +85,7 @@ export {
 export {
   getChampionStatsAll,
   getChampionQueueStats,
+  getChampionRoleStats,
   getChampionKeystones,
   getChampionWeeklyWinRate,
   getChampionMatchups,

@@ -247,6 +247,12 @@ export interface ChampionQueueStat {
   wins: number;
 }
 
+export interface ChampionRoleStat {
+  role: string;
+  games: number;
+  wins: number;
+}
+
 export interface ChampionKeystoneStat {
   runeId: number;
   picks: number;
@@ -1020,6 +1026,11 @@ export interface ElectronAPI {
     account?: string,
   ) => Promise<ChampionDetailStats>;
   getChampionQueueStats: (championId: number, account?: string) => Promise<ChampionQueueStat[]>;
+  getChampionRoleStats: (
+    championId: number,
+    patch?: string,
+    queue?: number,
+  ) => Promise<ChampionRoleStat[]>;
   getChampionKeystones: (championId: number, account?: string) => Promise<ChampionKeystoneStat[]>;
   getChampionWeeklyWinRate: (
     championId: number,

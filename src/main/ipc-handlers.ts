@@ -205,6 +205,16 @@ export function registerIpcHandlers() {
     return db.getChampionQueueStats(championId, account);
   });
 
+  ipcMain.handle(
+    "db:champion-role-stats",
+    (_event, championId: number, patch?: string, queue?: number) => {
+      console.log("[db] champion-role-stats handler called:", { championId, patch, queue });
+      const result = db.getChampionRoleStats(championId, patch, queue);
+      console.log("[db] champion-role-stats handler done:", { count: result.length });
+      return result;
+    },
+  );
+
   ipcMain.handle("db:champion-keystones", (_event, championId: number, account?: string) => {
     return db.getChampionKeystones(championId, account);
   });
