@@ -1,7 +1,97 @@
 import zlib from "zlib";
 import type { TimelineData, TimelineEvent, TimelineFrame, TimelineStatus } from "../../shared/api";
+import { ARENA_QUEUE_IDS, MAYHEM_QUEUE_IDS } from "../../shared/queues";
 import { parseTimeline, type ParsedTimeline } from "../timeline";
+import { acquireRequestSlot, fetchMatchTimeline, RiotApiError } from "../riot-api";
 import { db } from "../db";
+
+export interface BackfillProgress {
+  current: number;
+  total: number;
+  succeeded: number;
+  failed: number;
+  skipped: number;
+  currentGameId: string | null;
+}
+
+export interface BackfillResult extends BackfillProgress {
+  cancelled: boolean;
+}
+
+const TIMELINE_EXCLUDED_QUEUE_IDS = new Set([...MAYHEM_QUEUE_IDS, ...ARENA_QUEUE_IDS]);
+
+export async function backfillTimeline(options: {
+  limit: number;
+  onProgress?: (progress: BackfillProgress) => void;
+  signal?: { cancelled: boolean };
+}): Promise<BackfillResult> {
+  const { limit, onProgress, signal } = options;
+  const gameIds = listGamesMissingTimeline(limit);
+  const progress: BackfillProgress = {
+    current: 0,
+    total: gameIds.length,
+    succeeded: 0,
+    failed: 0,
+    skipped: 0,
+    currentGameId: null,
+  };
+
+  console.log("[db] backfillTimeline called:", { limit, total: gameIds.length });
+  const report = () => onProgress?.({ ...progress });
+  report();
+
+  for (const gameId of gameIds) {
+    if (signal?.cancelled) break;
+
+    progress.currentGameId = String(gameId);
+    const queue = db.prepare("SELECT queue_id FROM games WHERE game_id = ?").get(gameId) as
+      | { queue_id: number }
+      | undefined;
+    if (queue && TIMELINE_EXCLUDED_QUEUE_IDS.has(queue.queue_id)) {
+      progress.skipped++;
+      progress.current++;
+      report();
+      continue;
+    }
+
+    if (signal?.cancelled) break;
+    await acquireRequestSlot();
+    if (signal?.cancelled) break;
+
+    try {
+      const platform = resolveGamePlatform(gameId);
+      if (!platform) throw new Error(`No platform found for game ${gameId}`);
+      const raw = await fetchMatchTimeline(gameId, platform);
+      const parsed = parseTimeline(raw);
+      insertTimeline(gameId, parsed, raw);
+      progress.succeeded++;
+    } catch (error) {
+      if (error instanceof RiotApiError && error.status === 403) {
+        markTimelineFetchError(gameId, error.message);
+        progress.skipped++;
+      } else {
+        markTimelineFetchError(gameId, error instanceof Error ? error.message : String(error));
+        progress.failed++;
+      }
+    }
+    progress.current++;
+    report();
+  }
+
+  const result = {
+    ...progress,
+    currentGameId: signal?.cancelled ? null : progress.currentGameId,
+    cancelled: signal?.cancelled === true,
+  };
+  console.log("[db] backfillTimeline done:", {
+    current: result.current,
+    succeeded: result.succeeded,
+    failed: result.failed,
+    skipped: result.skipped,
+    cancelled: result.cancelled,
+  });
+  return result;
+}
 
 export function resolveGamePlatform(gameId: number): string | null {
   const row = db

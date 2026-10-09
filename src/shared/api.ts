@@ -1000,6 +1000,14 @@ export interface ElectronAPI {
   getTimeline: (gameId: number) => Promise<TimelineData | null>;
   fetchTimeline: (gameId: number, platform?: string) => Promise<TimelineData | null>;
   reparseTimelines: (limit: number) => Promise<number>;
+  timelineBackfillStart: (options: {
+    limit: number;
+  }) => Promise<{ started: true } | { started: false; reason: "already-running" }>;
+  timelineBackfillStatus: () => Promise<TimelineBackfillProgress | null>;
+  timelineBackfillStop: () => Promise<{ stopped: boolean }>;
+  onTimelineBackfillProgress: (
+    callback: (progress: TimelineBackfillProgress) => void,
+  ) => () => void;
   toggleFavorite: (gameId: number) => Promise<boolean>;
   getChampionStats: (patch?: string, queue?: number, account?: string) => Promise<ChampionStats[]>;
   getChampionDetailStats: (
@@ -1223,6 +1231,19 @@ export interface ElectronAPI {
   closeWindow: () => Promise<void>;
   isWindowMaximized: () => Promise<boolean>;
   onMaximizedChanged: (callback: (maximized: boolean) => void) => () => void;
+}
+
+export interface TimelineBackfillProgress {
+  current: number;
+  total: number;
+  succeeded: number;
+  failed: number;
+  skipped: number;
+  currentGameId: string | null;
+}
+
+export interface TimelineBackfillResult extends TimelineBackfillProgress {
+  cancelled: boolean;
 }
 
 export interface TimelineStatus {

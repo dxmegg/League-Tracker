@@ -13,6 +13,7 @@ import type {
   HomeAccountFilter,
   HomeTimePeriod,
   TimelineData,
+  TimelineBackfillProgress,
 } from "../shared/api";
 
 // Annotated rather than inferred, so the compiler checks this object against
@@ -43,6 +44,21 @@ const api: ElectronAPI = {
 
   reparseTimelines: (limit: number): Promise<number> =>
     ipcRenderer.invoke("db:timeline-reparse", limit),
+
+  timelineBackfillStart: (options: { limit: number }) =>
+    ipcRenderer.invoke("db:timeline-backfill-start", options),
+
+  timelineBackfillStatus: (): Promise<TimelineBackfillProgress | null> =>
+    ipcRenderer.invoke("db:timeline-backfill-status"),
+
+  timelineBackfillStop: (): Promise<{ stopped: boolean }> =>
+    ipcRenderer.invoke("db:timeline-backfill-stop"),
+
+  onTimelineBackfillProgress: (callback: (progress: TimelineBackfillProgress) => void) => {
+    const handler = (_event: unknown, progress: TimelineBackfillProgress) => callback(progress);
+    ipcRenderer.on("db:timeline-backfill-progress", handler);
+    return () => ipcRenderer.removeListener("db:timeline-backfill-progress", handler);
+  },
 
   toggleFavorite: (gameId: number) => ipcRenderer.invoke("db:toggle-favorite", gameId),
 

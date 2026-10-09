@@ -14,6 +14,7 @@ import { applyAutoStart, isAutoStartSupported } from "./autostart";
 import { fetchMatchTimeline } from "./riot-api";
 import { parseTimeline } from "./timeline";
 import { dbg } from "../shared/debug";
+import type { BackfillProgress } from "./db/timeline";
 import type {
   DashboardData,
   HomeAccountFilter,
@@ -49,6 +50,10 @@ function senderWindow(event: { sender: Electron.WebContents }): BrowserWindow | 
 }
 
 const inFlightRequests = new Map<string, Promise<unknown>>();
+let activeTimelineBackfill: {
+  signal: { cancelled: boolean };
+  progress: BackfillProgress;
+} | null = null;
 
 function dedupe<T>(key: string, factory: () => Promise<T>): Promise<T> {
   const existing = inFlightRequests.get(key) as Promise<T> | undefined;
@@ -132,6 +137,56 @@ export function registerIpcHandlers() {
   });
 
   ipcMain.handle("db:timeline-reparse", (_event, limit: number) => db.reparsedTimelines(limit));
+
+  ipcMain.handle("db:timeline-backfill-start", (event, options: { limit: number }) => {
+    if (activeTimelineBackfill !== null) {
+      return { started: false, reason: "already-running" as const };
+    }
+
+    const signal = { cancelled: false };
+    activeTimelineBackfill = {
+      signal,
+      progress: {
+        current: 0,
+        total: 0,
+        succeeded: 0,
+        failed: 0,
+        skipped: 0,
+        currentGameId: null,
+      },
+    };
+    const win = senderWindow(event);
+    void db
+      .backfillTimeline({
+        limit: options.limit,
+        signal,
+        onProgress: (progress) => {
+          if (activeTimelineBackfill?.signal !== signal) return;
+          activeTimelineBackfill.progress = progress;
+          if (win && !win.isDestroyed()) {
+            win.webContents.send("db:timeline-backfill-progress", progress);
+          }
+        },
+      })
+      .catch((error: unknown) => {
+        console.error("[db] timeline backfill failed:", error);
+      })
+      .finally(() => {
+        if (activeTimelineBackfill?.signal === signal) {
+          activeTimelineBackfill = null;
+        }
+      });
+
+    return { started: true as const };
+  });
+
+  ipcMain.handle("db:timeline-backfill-status", () => activeTimelineBackfill?.progress ?? null);
+
+  ipcMain.handle("db:timeline-backfill-stop", () => {
+    if (!activeTimelineBackfill) return { stopped: false };
+    activeTimelineBackfill.signal.cancelled = true;
+    return { stopped: true };
+  });
 
   ipcMain.handle("db:toggle-favorite", (_event, gameId: number) => {
     return db.toggleFavorite(gameId);

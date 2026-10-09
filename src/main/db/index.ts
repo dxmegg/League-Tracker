@@ -157,6 +157,7 @@ export {
   markTimelineFetchError,
   reparsedTimelines,
   listGamesMissingTimeline,
+  backfillTimeline,
 } from "./timeline";
 
 export type GameSource = "lcu" | "riot-sync" | "search-import";

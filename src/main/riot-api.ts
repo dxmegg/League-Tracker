@@ -503,7 +503,7 @@ let lastRequestAt = 0;
 let rateLimitPausedUntil = 0;
 let nextRequestStartAt = 0;
 
-async function acquireRequestSlot(): Promise<() => void> {
+export async function acquireRequestSlot(): Promise<() => void> {
   const now = Date.now();
   const startAt = Math.max(now, nextRequestStartAt, rateLimitPausedUntil);
   nextRequestStartAt = startAt + REQUEST_PACING_MS;
