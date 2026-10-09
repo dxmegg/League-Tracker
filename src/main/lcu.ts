@@ -411,6 +411,19 @@ function notifyGamesUpdated(win?: BrowserWindow | null) {
   }
 }
 
+function autoFetchTimelineQuiet(gameId: number, queueId: number): void {
+  if (db.isTimelineSkippedQueue(queueId)) return;
+
+  // Keep the post-game screen responsive; a failed Riot timeline request must
+  // not change the outcome of the match capture.
+  void db.fetchAndStoreTimeline(gameId).catch((err) => {
+    console.log(
+      `[timeline] auto-fetch failed for game ${gameId}:`,
+      err instanceof Error ? err.message : err,
+    );
+  });
+}
+
 function sgpMatchIdsUrl(host: string, puuid: string, startIndex: number, count: number) {
   return (
     `${host}/match-history-query/v1/products/lol/player/${puuid}` +
@@ -869,6 +882,7 @@ export async function fetchNewGames(
     if (inserted) {
       newGamesCount++;
       console.log(`Stored League game ${fullGame.gameId}`);
+      autoFetchTimelineQuiet(fullGame.gameId, fullGame.queueId);
     }
   }
 
@@ -980,6 +994,7 @@ async function captureEogGame(
           win.webContents.send("lcu:participant-score-progress", { phase: "scores", done, total });
         }
       });
+      autoFetchTimelineQuiet(gameId, game.queueId);
     }
     eogPending.delete(gameId);
   } catch (err) {

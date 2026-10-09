@@ -151,6 +151,8 @@ export {
 export { writeExportTo, importData, repairPuuids, reconcileOwnerPuuids } from "./transfer";
 export {
   resolveGamePlatform,
+  fetchAndStoreTimeline,
+  isTimelineSkippedQueue,
   getTimelineStatus,
   getTimeline,
   insertTimeline,

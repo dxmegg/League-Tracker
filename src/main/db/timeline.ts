@@ -20,6 +20,32 @@ export interface BackfillResult extends BackfillProgress {
 
 const TIMELINE_EXCLUDED_QUEUE_IDS = new Set([...MAYHEM_QUEUE_IDS, ...ARENA_QUEUE_IDS]);
 
+export function isTimelineSkippedQueue(queueId: number): boolean {
+  return TIMELINE_EXCLUDED_QUEUE_IDS.has(queueId);
+}
+
+export async function fetchAndStoreTimeline(gameId: number, platform?: string): Promise<void> {
+  console.log("[db] fetchAndStoreTimeline called:", { gameId, platform });
+  try {
+    await acquireRequestSlot();
+    const resolvedPlatform = platform?.trim() || resolveGamePlatform(gameId);
+    if (!resolvedPlatform) throw new Error(`No platform found for game ${gameId}`);
+    const raw = await fetchMatchTimeline(gameId, resolvedPlatform);
+    const parsed = parseTimeline(raw);
+    insertTimeline(gameId, parsed, raw);
+    console.log("[db] fetchAndStoreTimeline done:", {
+      gameId,
+      frameCount: parsed.frames.length,
+      eventCount: parsed.events.length,
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    markTimelineFetchError(gameId, message);
+    console.error("[db] fetchAndStoreTimeline failed:", { gameId, message });
+    throw error;
+  }
+}
+
 export async function backfillTimeline(options: {
   limit: number;
   onProgress?: (progress: BackfillProgress) => void;
@@ -47,7 +73,7 @@ export async function backfillTimeline(options: {
     const queue = db.prepare("SELECT queue_id FROM games WHERE game_id = ?").get(gameId) as
       | { queue_id: number }
       | undefined;
-    if (queue && TIMELINE_EXCLUDED_QUEUE_IDS.has(queue.queue_id)) {
+    if (queue && isTimelineSkippedQueue(queue.queue_id)) {
       progress.skipped++;
       progress.current++;
       report();
@@ -55,22 +81,15 @@ export async function backfillTimeline(options: {
     }
 
     if (signal?.cancelled) break;
-    await acquireRequestSlot();
     if (signal?.cancelled) break;
 
     try {
-      const platform = resolveGamePlatform(gameId);
-      if (!platform) throw new Error(`No platform found for game ${gameId}`);
-      const raw = await fetchMatchTimeline(gameId, platform);
-      const parsed = parseTimeline(raw);
-      insertTimeline(gameId, parsed, raw);
+      await fetchAndStoreTimeline(gameId);
       progress.succeeded++;
     } catch (error) {
       if (error instanceof RiotApiError && error.status === 403) {
-        markTimelineFetchError(gameId, error.message);
         progress.skipped++;
       } else {
-        markTimelineFetchError(gameId, error instanceof Error ? error.message : String(error));
         progress.failed++;
       }
     }

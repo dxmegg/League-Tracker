@@ -12,8 +12,6 @@ import { cacheDragonAsset } from "./dragon-assets";
 import { getBackupDir } from "./paths";
 import { openExternalUrl } from "./security";
 import { applyAutoStart, isAutoStartSupported } from "./autostart";
-import { fetchMatchTimeline } from "./riot-api";
-import { parseTimeline } from "./timeline";
 import { dbg } from "../shared/debug";
 import type { BackfillProgress } from "./db/timeline";
 import type {
@@ -123,18 +121,8 @@ export function registerIpcHandlers() {
   ipcMain.handle("db:timeline-get", (_event, gameId: number) => db.getTimeline(gameId));
 
   ipcMain.handle("db:timeline-fetch", async (_event, gameId: number, platform?: string) => {
-    try {
-      const resolved = platform ?? db.resolveGamePlatform(gameId);
-      if (!resolved) throw new Error(`No platform found for game ${gameId}`);
-      const raw = await fetchMatchTimeline(gameId, resolved);
-      const parsed = parseTimeline(raw);
-      db.insertTimeline(gameId, parsed, raw);
-      return db.getTimeline(gameId);
-    } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : "Unknown error";
-      db.markTimelineFetchError(gameId, message);
-      throw new Error(message);
-    }
+    await db.fetchAndStoreTimeline(gameId, platform);
+    return db.getTimeline(gameId);
   });
 
   ipcMain.handle("db:timeline-reparse", (_event, limit: number) => db.reparsedTimelines(limit));
