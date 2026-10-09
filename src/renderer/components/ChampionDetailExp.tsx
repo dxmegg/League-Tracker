@@ -168,25 +168,28 @@ export function ChampionDetailExp() {
       let cumulativeWins = 0;
       const values: number[] = [];
       const labels: string[] = [];
+      const tooltips: string[] = [];
       const cumulativeGameCounts: number[] = [];
       for (const entry of sortedEntries) {
         cumulativeGames += entry.games;
         cumulativeWins += entry.wins;
         cumulativeGameCounts.push(cumulativeGames);
-        values.push(cumulativeGames > 0 ? (cumulativeWins / cumulativeGames) * 100 : 0);
-        labels.push(
-          new Date(entry.weekStart).toLocaleDateString("en-US", {
-            month: "short",
-            day: "numeric",
-            timeZone: "UTC",
-          }),
-        );
+        const wr = cumulativeGames > 0 ? (cumulativeWins / cumulativeGames) * 100 : 0;
+        const label = new Date(entry.weekStart).toLocaleDateString("en-US", {
+          month: "short",
+          day: "numeric",
+          timeZone: "UTC",
+        });
+        values.push(wr);
+        labels.push(label);
+        tooltips.push(`${label} · ${wr.toFixed(1)}% cumulative · ${cumulativeGames} games total`);
       }
       const totalGames = cumulativeGameCounts.at(-1) ?? 0;
       const hasQualifiedSeries = values.length >= 2 && totalGames >= 3;
       return {
         values,
         labels,
+        tooltips,
         last: totalGames >= 3 ? (values.at(-1) ?? null) : null,
         peak: hasQualifiedSeries ? Math.max(...values) : null,
         low: hasQualifiedSeries ? Math.min(...values) : null,
@@ -203,7 +206,11 @@ export function ChampionDetailExp() {
       const label =
         wrTab === "weekly"
           ? date.toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" })
-          : date.toLocaleDateString("en-US", { month: "short", timeZone: "UTC" }).slice(0, 3);
+          : date.toLocaleDateString("en-US", {
+              month: "short",
+              year: "numeric",
+              timeZone: "UTC",
+            });
       const current = buckets.get(key) ?? { games: 0, wins: 0, label };
       current.games += entry.games;
       current.wins += entry.wins;
@@ -214,12 +221,18 @@ export function ChampionDetailExp() {
       bucket.games > 0 ? (bucket.wins / bucket.games) * 100 : 0,
     );
     const labels = bucketValues.map((bucket) => bucket.label);
+    const tooltips = bucketValues.map((bucket, index) => {
+      const wr = values[index];
+      const gameLabel = bucket.games === 1 ? "game" : "games";
+      return `${bucket.label} · ${wr.toFixed(1)}% · ${bucket.games} ${gameLabel}`;
+    });
     const qualifyingValues = bucketValues
       .filter((bucket) => bucket.games >= 3)
       .map((bucket) => (bucket.wins / bucket.games) * 100);
     return {
       values,
       labels,
+      tooltips,
       last: qualifyingValues.at(-1) ?? null,
       peak: qualifyingValues.length > 0 ? Math.max(...qualifyingValues) : null,
       low: qualifyingValues.length > 0 ? Math.min(...qualifyingValues) : null,
@@ -456,6 +469,7 @@ function OverviewTab({
   wrSeries: {
     values: number[];
     labels: string[];
+    tooltips: string[];
     last: number | null;
     peak: number | null;
     low: number | null;
@@ -545,6 +559,7 @@ function OverviewTab({
                 max={100}
                 baseline={50}
                 xLabels={wrSeries.labels}
+                tooltips={wrSeries.tooltips}
                 yFormat={(value) => `${value.toFixed(0)}%`}
                 yTicks={[0, 25, 50, 75, 100]}
               />
