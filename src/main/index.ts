@@ -29,6 +29,7 @@ import { applySecurityPolicy } from "./security";
 import { ensureStartMenuShortcut } from "./shortcut";
 import { syncAutoStart, HIDDEN_FLAG } from "./autostart";
 import { PROXY_BASE_URL } from "../shared/proxy";
+import { registerDragonAssetProtocol, registerDragonAssetScheme } from "./dragon-assets";
 
 let mainWindow: BrowserWindow | null = null;
 let tray: Tray | null = null;
@@ -37,6 +38,8 @@ let didFinalFetch = false;
 
 // How long quitting will wait on the last sync before giving up and exiting
 const FINAL_FETCH_TIMEOUT_MS = 5_000;
+
+registerDragonAssetScheme();
 
 const gotTheLock = app.requestSingleInstanceLock();
 
@@ -257,6 +260,7 @@ app.whenReady().then(async () => {
   // Registered once, outside createWindow: ipcMain.handle throws if the same
   // channel is claimed twice, which a second createWindow would have done.
   registerIpcHandlers();
+  registerDragonAssetProtocol();
 
   const win = createWindow();
   createTray();

@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, type ButtonHTMLAttributes, type ReactNode } from "react";
 import { useBackfill } from "../hooks/useBackfill";
+import { useTimelineBackfill } from "../hooks/useTimelineBackfill";
 import { queueLabel } from "../components/QueueSelect";
 import { FilterSelect } from "../components/FilterSelect";
 import { setRemembering } from "../lib/viewState";
@@ -24,6 +25,14 @@ function formatTaken(timestamp: number): string {
     hour: "2-digit",
     minute: "2-digit",
   })}`;
+}
+
+function formatDuration(milliseconds: number): string {
+  const seconds = Math.floor(milliseconds / 1_000);
+  if (seconds < 60) return `${seconds}s`;
+  const minutes = Math.floor(seconds / 60);
+  if (minutes < 60) return `${minutes}m ${seconds % 60}s`;
+  return `${Math.floor(minutes / 60)}h ${minutes % 60}m`;
 }
 
 type ButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & {
@@ -99,6 +108,15 @@ function Section({
 export function SettingsExp() {
   // Shared so a backfill started automatically on first connect shows here too
   const { running: backfilling } = useBackfill();
+  const {
+    running: timelineBackfilling,
+    progress: timelineProgress,
+    percent: timelinePercent,
+    etaMs: timelineEtaMs,
+    start: startTimelineBackfill,
+    stop: stopTimelineBackfill,
+  } = useTimelineBackfill();
+  const anyRunning = backfilling || timelineBackfilling;
   const [theme, setTheme] = useState<string>(
     () => document.documentElement.getAttribute("data-theme") ?? "experiment",
   );
@@ -142,6 +160,8 @@ export function SettingsExp() {
   >([]);
   const [confirmDeleteSummoner, setConfirmDeleteSummoner] = useState<string | null>(null);
   const [summonerStatus, setSummonerStatus] = useState<string | null>(null);
+  const [timelineLimit, setTimelineLimit] = useState(100);
+  const [timelineMessage, setTimelineMessage] = useState<string | null>(null);
 
   useEffect(() => {
     Promise.all([
@@ -471,6 +491,28 @@ export function SettingsExp() {
     }
   }, []);
 
+  const handleTimelineStart = useCallback(async () => {
+    setTimelineMessage(null);
+    try {
+      const result = await startTimelineBackfill(timelineLimit);
+      if (!result.started) setTimelineMessage("A backfill is already running.");
+    } catch (err) {
+      setTimelineMessage(
+        `Timeline backfill failed: ${err instanceof Error ? err.message : String(err)}`,
+      );
+    }
+  }, [startTimelineBackfill, timelineLimit]);
+
+  const handleTimelineStop = useCallback(async () => {
+    await stopTimelineBackfill();
+  }, [stopTimelineBackfill]);
+
+  useEffect(() => {
+    if (!timelineMessage) return;
+    const timer = window.setTimeout(() => setTimelineMessage(null), 8_000);
+    return () => window.clearTimeout(timer);
+  }, [timelineMessage]);
+
   if (loading) return null;
 
   return (
@@ -522,13 +564,13 @@ export function SettingsExp() {
 
       <Section title="League history sync">
         <div className="flex items-center gap-2 mt-3">
-          <Button variant="primary" onClick={handleBackfill} disabled={backfilling}>
+          <Button variant="primary" onClick={handleBackfill} disabled={anyRunning}>
             {backfilling ? "Working..." : "Backfill"}
           </Button>
           <Button
             variant="secondary"
             onClick={handleForceFullBackfill}
-            disabled={backfilling}
+            disabled={anyRunning}
             title="Walk the entire Riot history from page 0, ignoring the cached completion flag. Use this to test whether the current cap is our page limit or Riot's own cutoff."
           >
             Force Backfill
@@ -549,6 +591,63 @@ export function SettingsExp() {
           </Button>
         </div>
         {backfillStatus && <p className="text-[12.5px] text-lol-text mt-2">{backfillStatus}</p>}
+      </Section>
+
+      <Section title="Timeline backfill">
+        <p className="text-[12.5px] text-lol-text">
+          Fetches detailed timeline data (gold, items, abilities over time) for stored matches.
+          Skips Arena and Mayhem automatically.
+        </p>
+        <Panel className="flex flex-col gap-3">
+          <label className="flex items-center justify-between gap-4 text-[13.5px] text-lol-text-bright">
+            <span>Games to scan</span>
+            <input
+              type="number"
+              min={1}
+              max={5000}
+              value={timelineLimit}
+              disabled={timelineBackfilling}
+              onChange={(event) =>
+                setTimelineLimit(Math.min(5000, Math.max(1, Number(event.target.value) || 1)))
+              }
+              className="w-24 rounded-lg border border-lol-border bg-lol-card px-3 py-2 text-right text-sm text-lol-text-bright outline-none focus:border-lol-crimson"
+            />
+          </label>
+          <div className="flex items-center gap-2">
+            <Button variant="primary" onClick={handleTimelineStart} disabled={timelineBackfilling}>
+              {timelineBackfilling ? "Working..." : "Start backfill"}
+            </Button>
+            <Button
+              variant="secondary"
+              onClick={handleTimelineStop}
+              disabled={!timelineBackfilling}
+            >
+              Stop
+            </Button>
+          </div>
+          {timelineProgress && (
+            <div className="space-y-2 text-[12.5px] text-lol-text">
+              <div className="h-[5px] overflow-hidden rounded-full bg-white/[0.05]">
+                <i
+                  className="block h-full rounded-full bg-lol-gold"
+                  style={{ width: `${timelinePercent}%` }}
+                />
+              </div>
+              <p>
+                {timelineProgress.current} of {timelineProgress.total} scanned · succeeded{" "}
+                {timelineProgress.succeeded} · failed {timelineProgress.failed} · skipped{" "}
+                {timelineProgress.skipped}
+              </p>
+              {timelineProgress.currentGameId !== null && (
+                <p className="text-[11.5px]">Current game: {timelineProgress.currentGameId}</p>
+              )}
+              {timelinePercent > 0 && timelineEtaMs !== null && (
+                <p>ETA: {formatDuration(timelineEtaMs)}</p>
+              )}
+            </div>
+          )}
+          {timelineMessage && <p className="text-[12.5px] text-lol-text">{timelineMessage}</p>}
+        </Panel>
       </Section>
 
       <Section title="Data Management">

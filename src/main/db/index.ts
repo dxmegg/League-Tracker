@@ -149,6 +149,18 @@ export {
   runMigrations,
 } from "./schema";
 export { writeExportTo, importData, repairPuuids, reconcileOwnerPuuids } from "./transfer";
+export {
+  resolveGamePlatform,
+  fetchAndStoreTimeline,
+  isTimelineSkippedQueue,
+  getTimelineStatus,
+  getTimeline,
+  insertTimeline,
+  markTimelineFetchError,
+  reparsedTimelines,
+  listGamesMissingTimeline,
+  backfillTimeline,
+} from "./timeline";
 
 export type GameSource = "lcu" | "riot-sync" | "search-import";
 

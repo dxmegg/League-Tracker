@@ -23,17 +23,8 @@ const rarityTextColor: Record<string, string> = {
   kPrismatic: "text-fuchsia-400",
 };
 
-// One lookup per augment for the whole renderer: a retired augment shows up on
-// every row of the stats pages, and they'd otherwise each ask the main process.
 const fallbackLookups = new Map<number, Promise<string | null>>();
-// The settled result of those lookups, so a remount can start on the archived
-// URL instead of waiting a tick for the promise to come back around.
 const fallbackResults = new Map<number, string | null>();
-// Live "latest" URLs already known to 404. Without this, every remount of a
-// retired augment — re-sorting a list, reopening an expanded row — replays the
-// dead paths and shows a broken <img> until the fallback lands, which is what
-// made the icon flicker each time.
-const deadSources = new Set<string>();
 
 function lookupFallbackIcon(augmentId: number, patch?: string | null): Promise<string | null> {
   let promise = fallbackLookups.get(augmentId);
@@ -63,10 +54,8 @@ export default function AugmentIcon({
 }: AugmentIconProps) {
   const augmentData = useAugmentData(patch);
   const aug = augmentData[augmentId];
-  const [attempt, setAttempt] = useState(0);
-  const [fallback, setFallback] = useState<string | null>(
-    () => fallbackResults.get(augmentId) ?? null,
-  );
+  const [src, setSrc] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
 
   const sources = useMemo(() => {
     if (!aug?.iconPath) return [];
@@ -76,36 +65,41 @@ export default function AugmentIcon({
     const branch = aug.branch || "latest";
     const large = CDRAGON_ASSET_URL(branch, aug.iconPath.replace("small", "large"));
     const small = CDRAGON_ASSET_URL(branch, aug.iconPath);
-    return [...new Set([large, small])].filter((url) => !deadSources.has(url));
+    return [...new Set([large, small])];
   }, [aug?.iconPath, aug?.branch]);
 
-  // Augment data arrives after the first render, so the live paths appear late;
-  // start over on them, keeping whatever fallback is already known.
   useEffect(() => {
-    setAttempt(0);
-    setFallback(fallbackResults.get(augmentId) ?? null);
-  }, [sources, augmentId]);
+    let cancelled = false;
+    setSrc(null);
+    setLoading(sources.length > 0);
 
-  // Augments Riot has cut keep their name and rarity on "latest" but lose their
-  // art, so once the live paths 404 ask the main process to dig the icon out of
-  // an archived patch branch.
-  const exhausted = attempt >= sources.length;
-  const resolved = fallbackResults.has(augmentId);
-  useEffect(() => {
-    if (!exhausted || resolved) return;
-    let active = true;
-    lookupFallbackIcon(augmentId, patch).then((url) => {
-      if (active) setFallback(url);
-    });
+    void (async () => {
+      for (const candidate of sources) {
+        const cached = await window.api.cacheDragonAsset(candidate);
+        if (cached) {
+          if (!cancelled) setSrc(cached);
+          if (!cancelled) setLoading(false);
+          return;
+        }
+      }
+
+      const fallbackUrl =
+        fallbackResults.get(augmentId) ?? (await lookupFallbackIcon(augmentId, patch));
+      if (fallbackUrl) {
+        const cached = await window.api.cacheDragonAsset(fallbackUrl);
+        if (cached && !cancelled) setSrc(cached);
+      }
+      if (!cancelled) setLoading(false);
+    })();
+
     return () => {
-      active = false;
+      cancelled = true;
     };
-  }, [exhausted, resolved, augmentId, patch]);
+  }, [augmentId, patch, sources]);
 
   const name = aug?.name || `Augment ${augmentId}`;
   const borderClass = rarityBorder[aug?.rarity ?? ""] || "";
   const nameColor = rarityTextColor[aug?.rarity ?? ""] || "text-lol-text-bright";
-  const src = sources[attempt] ?? fallback;
 
   const rarityLabel = getAugmentRarityLabel(aug?.rarity ?? "");
 
@@ -135,23 +129,13 @@ export default function AugmentIcon({
     >
       {/* The native tooltip stays for the moment before augment data lands. */}
       <div className="flex items-center gap-1.5 min-w-0" title={aug ? undefined : name}>
-        {src ? (
+        {!loading && src ? (
           <img
-            key={src}
             src={src}
             alt={name}
             width={size}
             height={size}
             className={`rounded shrink-0 ${borderClass}`}
-            onError={() => {
-              // Step down the live paths first, remembering the dead one so no
-              // other icon retries it; a failed fallback has nothing left to try,
-              // so drop to the placeholder.
-              if (attempt < sources.length) {
-                deadSources.add(sources[attempt]);
-                setAttempt((a) => a + 1);
-              } else setFallback(null);
-            }}
           />
         ) : (
           // Keeps the rarity ring and the hover tooltip so an augment with no art

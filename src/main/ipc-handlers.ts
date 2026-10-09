@@ -8,10 +8,12 @@ import * as updater from "./updater";
 import * as backup from "./backup";
 import * as mcp from "./mcp";
 import * as opgg from "./opgg";
+import { cacheDragonAsset } from "./dragon-assets";
 import { getBackupDir } from "./paths";
 import { openExternalUrl } from "./security";
 import { applyAutoStart, isAutoStartSupported } from "./autostart";
 import { dbg } from "../shared/debug";
+import type { BackfillProgress } from "./db/timeline";
 import type {
   DashboardData,
   HomeAccountFilter,
@@ -47,6 +49,10 @@ function senderWindow(event: { sender: Electron.WebContents }): BrowserWindow | 
 }
 
 const inFlightRequests = new Map<string, Promise<unknown>>();
+let activeTimelineBackfill: {
+  signal: { cancelled: boolean };
+  progress: BackfillProgress;
+} | null = null;
 
 function dedupe<T>(key: string, factory: () => Promise<T>): Promise<T> {
   const existing = inFlightRequests.get(key) as Promise<T> | undefined;
@@ -110,6 +116,71 @@ export function registerIpcHandlers() {
 
   ipcMain.handle("db:match-detail", (_event, gameId: number) => {
     return db.getMatchDetail(gameId);
+  });
+
+  ipcMain.handle("db:timeline-get", (_event, gameId: number) => db.getTimeline(gameId));
+
+  ipcMain.handle("db:timeline-fetch", async (_event, gameId: number, platform?: string) => {
+    await db.fetchAndStoreTimeline(gameId, platform);
+    return db.getTimeline(gameId);
+  });
+
+  ipcMain.handle("db:timeline-reparse", (_event, limit: number) => db.reparsedTimelines(limit));
+
+  ipcMain.handle("db:timeline-backfill-start", (event, options: { limit: number }) => {
+    if (activeTimelineBackfill !== null) {
+      return { started: false, reason: "already-running" as const };
+    }
+
+    const signal = { cancelled: false };
+    activeTimelineBackfill = {
+      signal,
+      progress: {
+        current: 0,
+        total: 0,
+        succeeded: 0,
+        failed: 0,
+        skipped: 0,
+        currentGameId: null,
+      },
+    };
+    const win = senderWindow(event);
+    void db
+      .backfillTimeline({
+        limit: options.limit,
+        signal,
+        onProgress: (progress) => {
+          if (activeTimelineBackfill?.signal !== signal) return;
+          activeTimelineBackfill.progress = progress;
+          if (win && !win.isDestroyed()) {
+            win.webContents.send("db:timeline-backfill-progress", progress);
+          }
+        },
+      })
+      .catch((error: unknown) => {
+        console.error("[db] timeline backfill failed:", error);
+      })
+      .finally(() => {
+        if (win && !win.isDestroyed()) {
+          win.webContents.send("db:timeline-backfill-done", {
+            cancelled: signal.cancelled,
+            progress: activeTimelineBackfill?.progress ?? null,
+          });
+        }
+        if (activeTimelineBackfill?.signal === signal) {
+          activeTimelineBackfill = null;
+        }
+      });
+
+    return { started: true as const };
+  });
+
+  ipcMain.handle("db:timeline-backfill-status", () => activeTimelineBackfill?.progress ?? null);
+
+  ipcMain.handle("db:timeline-backfill-stop", () => {
+    if (!activeTimelineBackfill) return { stopped: false };
+    activeTimelineBackfill.signal.cancelled = true;
+    return { stopped: true };
   });
 
   ipcMain.handle("db:toggle-favorite", (_event, gameId: number) => {
@@ -644,6 +715,8 @@ export function registerIpcHandlers() {
       return null;
     }
   });
+
+  ipcMain.handle("dragon:asset-cache", (_event, remoteUrl: string) => cacheDragonAsset(remoteUrl));
 
   ipcMain.handle("dragon:items", async (_event, patch?: string) => {
     try {

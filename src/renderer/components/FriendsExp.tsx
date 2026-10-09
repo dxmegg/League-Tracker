@@ -25,14 +25,8 @@ export function FriendsExp() {
   const [visibleFriends, setVisibleFriends] = useState(PAGE_SIZE);
   const [visibleFoes, setVisibleFoes] = useState(PAGE_SIZE);
 
-  const friendRows = useMemo<TeammateStats[]>(
-    () => friends ?? [],
-    [friends],
-  );
-  const enemyRows = useMemo<TeammateStats[]>(
-    () => enemies ?? [],
-    [enemies],
-  );
+  const friendRows = useMemo<TeammateStats[]>(() => friends ?? [], [friends]);
+  const enemyRows = useMemo<TeammateStats[]>(() => enemies ?? [], [enemies]);
 
   useEffect(() => {
     setVisibleFriends(PAGE_SIZE);

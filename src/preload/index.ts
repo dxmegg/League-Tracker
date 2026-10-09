@@ -12,6 +12,8 @@ import type {
   RestoreOlderGamesResult,
   HomeAccountFilter,
   HomeTimePeriod,
+  TimelineData,
+  TimelineBackfillProgress,
 } from "../shared/api";
 
 // Annotated rather than inferred, so the compiler checks this object against
@@ -34,6 +36,40 @@ const api: ElectronAPI = {
   getStoredQueues: () => ipcRenderer.invoke("db:stored-queues"),
 
   getMatchDetail: (gameId: number) => ipcRenderer.invoke("db:match-detail", gameId),
+
+  getTimeline: (gameId: number) => ipcRenderer.invoke("db:timeline-get", gameId),
+
+  fetchTimeline: (gameId: number, platform?: string): Promise<TimelineData | null> =>
+    ipcRenderer.invoke("db:timeline-fetch", gameId, platform),
+
+  reparseTimelines: (limit: number): Promise<number> =>
+    ipcRenderer.invoke("db:timeline-reparse", limit),
+
+  timelineBackfillStart: (options: { limit: number }) =>
+    ipcRenderer.invoke("db:timeline-backfill-start", options),
+
+  timelineBackfillStatus: (): Promise<TimelineBackfillProgress | null> =>
+    ipcRenderer.invoke("db:timeline-backfill-status"),
+
+  timelineBackfillStop: (): Promise<{ stopped: boolean }> =>
+    ipcRenderer.invoke("db:timeline-backfill-stop"),
+
+  onTimelineBackfillProgress: (callback: (progress: TimelineBackfillProgress) => void) => {
+    const handler = (_event: unknown, progress: TimelineBackfillProgress) => callback(progress);
+    ipcRenderer.on("db:timeline-backfill-progress", handler);
+    return () => ipcRenderer.removeListener("db:timeline-backfill-progress", handler);
+  },
+
+  onTimelineBackfillDone: (
+    callback: (payload: { cancelled: boolean; progress: TimelineBackfillProgress | null }) => void,
+  ) => {
+    const handler = (
+      _event: unknown,
+      payload: { cancelled: boolean; progress: TimelineBackfillProgress | null },
+    ) => callback(payload);
+    ipcRenderer.on("db:timeline-backfill-done", handler);
+    return () => ipcRenderer.removeListener("db:timeline-backfill-done", handler);
+  },
 
   toggleFavorite: (gameId: number) => ipcRenderer.invoke("db:toggle-favorite", gameId),
 
@@ -191,6 +227,7 @@ const api: ElectronAPI = {
 
   resolveAugmentIcon: (id: number, patch?: string) =>
     ipcRenderer.invoke("dragon:augment-icon", id, patch),
+  cacheDragonAsset: (remoteUrl: string) => ipcRenderer.invoke("dragon:asset-cache", remoteUrl),
   getItemData: (patch?: string) => ipcRenderer.invoke("dragon:items", patch),
 
   getSummonerSpellData: () => ipcRenderer.invoke("dragon:summoner-spells"),

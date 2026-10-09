@@ -21,7 +21,8 @@ function stripIconVariant(iconPath: string): string | null {
 
 export default function ItemIcon({ itemId, size = 24, patch }: ItemIconProps) {
   const items = useItemData(patch);
-  const [attempt, setAttempt] = useState(0);
+  const [src, setSrc] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
 
   const item = items[itemId];
   const sources = useMemo(() => {
@@ -35,18 +36,50 @@ export default function ItemIcon({ itemId, size = 24, patch }: ItemIconProps) {
         if (base) urls.push(CDRAGON_ASSET_URL(item.branch, base));
       }
     }
-    // No tier below this: an item with no CommunityDragon mapping, or whose
-    // icons all fail, falls through to the placeholder below.
     return urls;
   }, [item?.iconPath, item?.branch]);
 
   useEffect(() => {
-    setAttempt(0);
-  }, [sources]);
+    let cancelled = false;
+    setSrc(null);
+    setLoading(itemId > 0);
 
-  const src = sources[attempt];
+    if (!itemId || itemId === 0) {
+      setLoading(false);
+      return () => {
+        cancelled = true;
+      };
+    }
 
-  if (!itemId || itemId === 0 || !src) {
+    void (async () => {
+      const candidates = [...sources];
+      const isAbsolute =
+        item?.iconPath?.startsWith("http://") || item?.iconPath?.startsWith("https://");
+      if (!isAbsolute) {
+        const version = await window.api.getChampionDataVersion();
+        if (!cancelled && version && version !== "none") {
+          candidates.push(
+            `https://ddragon.leagueoflegends.com/cdn/${version}/img/item/${itemId}.png`,
+          );
+        }
+      }
+
+      for (const candidate of candidates) {
+        const cached = await window.api.cacheDragonAsset(candidate);
+        if (cached) {
+          if (!cancelled) setSrc(cached);
+          break;
+        }
+      }
+      if (!cancelled) setLoading(false);
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [item?.iconPath, itemId, sources]);
+
+  if (loading || !src) {
     return (
       <div
         className="rounded bg-white/5 border border-white/10"
@@ -66,7 +99,6 @@ export default function ItemIcon({ itemId, size = 24, patch }: ItemIconProps) {
       }
     >
       <img
-        key={src}
         src={src}
         alt=""
         // No title= — the browser's own tooltip would surface a second later
@@ -74,7 +106,6 @@ export default function ItemIcon({ itemId, size = 24, patch }: ItemIconProps) {
         width={size}
         height={size}
         className="rounded"
-        onError={() => setAttempt((a) => a + 1)}
       />
     </HoverCard>
   );

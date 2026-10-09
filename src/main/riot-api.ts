@@ -503,7 +503,7 @@ let lastRequestAt = 0;
 let rateLimitPausedUntil = 0;
 let nextRequestStartAt = 0;
 
-async function acquireRequestSlot(): Promise<() => void> {
+export async function acquireRequestSlot(): Promise<() => void> {
   const now = Date.now();
   const startAt = Math.max(now, nextRequestStartAt, rateLimitPausedUntil);
   nextRequestStartAt = startAt + REQUEST_PACING_MS;
@@ -1032,4 +1032,18 @@ export function friendlyRiotError(err: unknown, context: "account" | "match" = "
     if (err.status >= 500) return "Riot API is temporarily unavailable";
   }
   return err instanceof Error ? err.message : String(err);
+}
+
+export async function fetchMatchTimeline(gameId: number, platform: string): Promise<any> {
+  const route = regionalRoute(platform);
+  // Riot Match-V5 requires the matchId to carry the platform prefix
+  // (EUN1_4011462332), while we store the bare numeric game_id in SQLite.
+  const fullMatchId = `${platform.toUpperCase()}_${gameId}`;
+  const payload = await riotFetch<any>(
+    `https://${route}.api.riotgames.com/lol/match/v5/matches/${fullMatchId}/timeline`,
+    platform,
+    undefined,
+    `timeline-${gameId}`,
+  );
+  return payload;
 }

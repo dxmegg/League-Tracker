@@ -997,6 +997,20 @@ export interface ElectronAPI {
   ) => Promise<MatchFilterOptions>;
   getStoredQueues: () => Promise<number[]>;
   getMatchDetail: (gameId: number) => Promise<MatchDetail>;
+  getTimeline: (gameId: number) => Promise<TimelineData | null>;
+  fetchTimeline: (gameId: number, platform?: string) => Promise<TimelineData | null>;
+  reparseTimelines: (limit: number) => Promise<number>;
+  timelineBackfillStart: (options: {
+    limit: number;
+  }) => Promise<{ started: true } | { started: false; reason: "already-running" }>;
+  timelineBackfillStatus: () => Promise<TimelineBackfillProgress | null>;
+  timelineBackfillStop: () => Promise<{ stopped: boolean }>;
+  onTimelineBackfillProgress: (
+    callback: (progress: TimelineBackfillProgress) => void,
+  ) => () => void;
+  onTimelineBackfillDone: (
+    callback: (payload: { cancelled: boolean; progress: TimelineBackfillProgress | null }) => void,
+  ) => () => void;
   toggleFavorite: (gameId: number) => Promise<boolean>;
   getChampionStats: (patch?: string, queue?: number, account?: string) => Promise<ChampionStats[]>;
   getChampionDetailStats: (
@@ -1177,6 +1191,7 @@ export interface ElectronAPI {
   getChampionData: () => Promise<ChampionData>;
   getAugmentData: (patch?: string) => Promise<AugmentData>;
   resolveAugmentIcon: (id: number, patch?: string) => Promise<string | null>;
+  cacheDragonAsset: (remoteUrl: string) => Promise<string | null>;
   getItemData: (patch?: string) => Promise<ItemData>;
   getSummonerSpellData: () => Promise<SummonerSpellData>;
   onStatusChanged: (callback: (status: LcuStatus) => void) => () => void;
@@ -1220,4 +1235,70 @@ export interface ElectronAPI {
   closeWindow: () => Promise<void>;
   isWindowMaximized: () => Promise<boolean>;
   onMaximizedChanged: (callback: (maximized: boolean) => void) => () => void;
+}
+
+export interface TimelineBackfillProgress {
+  current: number;
+  total: number;
+  succeeded: number;
+  failed: number;
+  skipped: number;
+  currentGameId: string | null;
+}
+
+export interface TimelineBackfillResult extends TimelineBackfillProgress {
+  cancelled: boolean;
+}
+
+export interface TimelineStatus {
+  game_id: number;
+  fetched_at: number;
+  frame_count: number;
+  event_count: number;
+  fetch_error: string | null;
+}
+
+export interface TimelineFrame {
+  frame_index: number;
+  timestamp_ms: number;
+  participant_id: number;
+  puuid: string | null;
+  level: number | null;
+  xp: number | null;
+  gold: number | null;
+  cs: number | null;
+  position_x: number | null;
+  position_y: number | null;
+  attack_damage: number | null;
+  ability_power: number | null;
+  armor: number | null;
+  magic_resist: number | null;
+  attack_speed: number | null;
+  ability_haste: number | null;
+  move_speed: number | null;
+  max_health: number | null;
+  current_health: number | null;
+}
+
+export interface TimelineEvent {
+  event_index: number;
+  timestamp_ms: number;
+  event_type: string;
+  participant_id: number | null;
+  killer_id: number | null;
+  victim_id: number | null;
+  team_id: number | null;
+  item_id: number | null;
+  skill_slot: number | null;
+  level_up_type: string | null;
+  ward_type: string | null;
+  building_type: string | null;
+  monster_type: string | null;
+  monster_subtype: string | null;
+}
+
+export interface TimelineData {
+  status: TimelineStatus | null;
+  frames: TimelineFrame[];
+  events: TimelineEvent[];
 }
