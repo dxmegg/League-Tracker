@@ -114,6 +114,42 @@ export function createTables() {
       -- damage to champions, and the biggest single crit of the game.
       total_damage_dealt_all INTEGER NOT NULL DEFAULT 0,
       true_damage_dealt      INTEGER NOT NULL DEFAULT 0,
+      physical_damage_dealt  INTEGER NOT NULL DEFAULT 0,
+      magic_damage_dealt     INTEGER NOT NULL DEFAULT 0,
+      physical_damage_taken  INTEGER NOT NULL DEFAULT 0,
+      magic_damage_taken     INTEGER NOT NULL DEFAULT 0,
+      true_damage_taken      INTEGER NOT NULL DEFAULT 0,
+      damage_self_mitigated  INTEGER NOT NULL DEFAULT 0,
+      damage_to_objectives   INTEGER NOT NULL DEFAULT 0,
+      damage_to_turrets      INTEGER NOT NULL DEFAULT 0,
+      time_cc_others         INTEGER NOT NULL DEFAULT 0,
+      total_cc_dealt         INTEGER NOT NULL DEFAULT 0,
+      longest_alive          INTEGER NOT NULL DEFAULT 0,
+      killing_sprees         INTEGER NOT NULL DEFAULT 0,
+      first_blood_kill       INTEGER NOT NULL DEFAULT 0,
+      first_blood_assist     INTEGER NOT NULL DEFAULT 0,
+      gold_spent             INTEGER NOT NULL DEFAULT 0,
+      champ_level            INTEGER NOT NULL DEFAULT 0,
+      total_minions_killed   INTEGER NOT NULL DEFAULT 0,
+      neutral_minions_killed INTEGER NOT NULL DEFAULT 0,
+      neutral_minions_enemy_jungle INTEGER NOT NULL DEFAULT 0,
+      neutral_minions_team_jungle  INTEGER NOT NULL DEFAULT 0,
+      turret_kills           INTEGER NOT NULL DEFAULT 0,
+      inhibitor_kills        INTEGER NOT NULL DEFAULT 0,
+      turret_plates_taken    INTEGER NOT NULL DEFAULT 0,
+      first_tower_kill       INTEGER NOT NULL DEFAULT 0,
+      first_tower_assist     INTEGER NOT NULL DEFAULT 0,
+      first_inhibitor_kill   INTEGER NOT NULL DEFAULT 0,
+      first_inhibitor_assist INTEGER NOT NULL DEFAULT 0,
+      baron_kills            INTEGER NOT NULL DEFAULT 0,
+      objectives_stolen      INTEGER NOT NULL DEFAULT 0,
+      objectives_stolen_assists INTEGER NOT NULL DEFAULT 0,
+      total_units_healed     INTEGER NOT NULL DEFAULT 0,
+      vision_score           INTEGER NOT NULL DEFAULT 0,
+      wards_placed           INTEGER NOT NULL DEFAULT 0,
+      wards_killed           INTEGER NOT NULL DEFAULT 0,
+      vision_wards_bought    INTEGER NOT NULL DEFAULT 0,
+      sight_wards_bought     INTEGER NOT NULL DEFAULT 0,
       -- Copied down from games so an aggregate over every participant never
       -- has to join back. Kept honest by trg_games_denorm_*, since these are
       -- the only three game columns a stats query filters on.
@@ -298,7 +334,7 @@ export function createIndexes() {
 // versioning, so it could be missing any subset of the columns v1 adds — which
 // is why each step checks for its column rather than assuming. A database that
 // createTables just built is also version 0, and lands on the same no-op path.
-export const SCHEMA_VERSION = 22;
+export const SCHEMA_VERSION = 24;
 
 export function tableColumns(table: string): Set<string> {
   const rows = db.pragma(`table_info(${table})`) as { name: string }[];
@@ -970,6 +1006,76 @@ export async function migrateToV20() {
   console.log("[db] v20 added participant score column");
 }
 
+export async function migrateToV23() {
+  const columns = tableColumns("match_participants");
+  const additions = [
+    ["physical_damage_dealt", "INTEGER NOT NULL DEFAULT 0"],
+    ["magic_damage_dealt", "INTEGER NOT NULL DEFAULT 0"],
+    ["physical_damage_taken", "INTEGER NOT NULL DEFAULT 0"],
+    ["magic_damage_taken", "INTEGER NOT NULL DEFAULT 0"],
+    ["true_damage_taken", "INTEGER NOT NULL DEFAULT 0"],
+    ["damage_self_mitigated", "INTEGER NOT NULL DEFAULT 0"],
+    ["damage_to_objectives", "INTEGER NOT NULL DEFAULT 0"],
+    ["damage_to_turrets", "INTEGER NOT NULL DEFAULT 0"],
+    ["time_cc_others", "INTEGER NOT NULL DEFAULT 0"],
+    ["total_cc_dealt", "INTEGER NOT NULL DEFAULT 0"],
+    ["longest_alive", "INTEGER NOT NULL DEFAULT 0"],
+    ["killing_sprees", "INTEGER NOT NULL DEFAULT 0"],
+    ["first_blood_kill", "INTEGER NOT NULL DEFAULT 0"],
+    ["first_blood_assist", "INTEGER NOT NULL DEFAULT 0"],
+  ] as const;
+
+  if (additions.some(([name]) => !columns.has(name))) {
+    await backup.backupQuietly("pre-migration-23");
+  }
+  for (const [name, definition] of additions) {
+    if (!columns.has(name)) {
+      db.exec(`ALTER TABLE match_participants ADD COLUMN ${name} ${definition}`);
+    }
+  }
+
+  console.log("[db] v23 added participant combat columns");
+}
+
+export async function migrateToV24() {
+  const columns = tableColumns("match_participants");
+  const additions = [
+    ["gold_spent", "INTEGER NOT NULL DEFAULT 0"],
+    ["champ_level", "INTEGER NOT NULL DEFAULT 0"],
+    ["total_minions_killed", "INTEGER NOT NULL DEFAULT 0"],
+    ["neutral_minions_killed", "INTEGER NOT NULL DEFAULT 0"],
+    ["neutral_minions_enemy_jungle", "INTEGER NOT NULL DEFAULT 0"],
+    ["neutral_minions_team_jungle", "INTEGER NOT NULL DEFAULT 0"],
+    ["turret_kills", "INTEGER NOT NULL DEFAULT 0"],
+    ["inhibitor_kills", "INTEGER NOT NULL DEFAULT 0"],
+    ["turret_plates_taken", "INTEGER NOT NULL DEFAULT 0"],
+    ["first_tower_kill", "INTEGER NOT NULL DEFAULT 0"],
+    ["first_tower_assist", "INTEGER NOT NULL DEFAULT 0"],
+    ["first_inhibitor_kill", "INTEGER NOT NULL DEFAULT 0"],
+    ["first_inhibitor_assist", "INTEGER NOT NULL DEFAULT 0"],
+    ["baron_kills", "INTEGER NOT NULL DEFAULT 0"],
+    ["objectives_stolen", "INTEGER NOT NULL DEFAULT 0"],
+    ["objectives_stolen_assists", "INTEGER NOT NULL DEFAULT 0"],
+    ["total_units_healed", "INTEGER NOT NULL DEFAULT 0"],
+    ["vision_score", "INTEGER NOT NULL DEFAULT 0"],
+    ["wards_placed", "INTEGER NOT NULL DEFAULT 0"],
+    ["wards_killed", "INTEGER NOT NULL DEFAULT 0"],
+    ["vision_wards_bought", "INTEGER NOT NULL DEFAULT 0"],
+    ["sight_wards_bought", "INTEGER NOT NULL DEFAULT 0"],
+  ] as const;
+
+  if (additions.some(([name]) => !columns.has(name))) {
+    await backup.backupQuietly("pre-migration-24");
+  }
+  for (const [name, definition] of additions) {
+    if (!columns.has(name)) {
+      db.exec(`ALTER TABLE match_participants ADD COLUMN ${name} ${definition}`);
+    }
+  }
+
+  console.log("[db] v24 added participant economy, farm, objective, and vision columns");
+}
+
 export function migrateToV21(): void {
   // The rune columns on match_participants have always been in the schema
   // but were never written by the ingestion path. This migration re-derives
@@ -1056,12 +1162,67 @@ export async function runMigrations() {
     );
   }
 
+  function combatColumnsPresent(): boolean {
+    const columns = tableColumns("match_participants");
+    return [
+      "physical_damage_dealt",
+      "magic_damage_dealt",
+      "physical_damage_taken",
+      "magic_damage_taken",
+      "true_damage_taken",
+      "damage_self_mitigated",
+      "damage_to_objectives",
+      "damage_to_turrets",
+      "time_cc_others",
+      "total_cc_dealt",
+      "longest_alive",
+      "killing_sprees",
+      "first_blood_kill",
+      "first_blood_assist",
+    ].every((column) => columns.has(column));
+  }
+
+  function economyColumnsPresent(): boolean {
+    const columns = tableColumns("match_participants");
+    return [
+      "gold_spent",
+      "champ_level",
+      "total_minions_killed",
+      "neutral_minions_killed",
+      "neutral_minions_enemy_jungle",
+      "neutral_minions_team_jungle",
+      "turret_kills",
+      "inhibitor_kills",
+      "turret_plates_taken",
+      "first_tower_kill",
+      "first_tower_assist",
+      "first_inhibitor_kill",
+      "first_inhibitor_assist",
+      "baron_kills",
+      "objectives_stolen",
+      "objectives_stolen_assists",
+      "total_units_healed",
+      "vision_score",
+      "wards_placed",
+      "wards_killed",
+      "vision_wards_bought",
+      "sight_wards_bought",
+    ].every((column) => columns.has(column));
+  }
+
   // Safety net for databases that were stamped to SCHEMA_VERSION by the
   // version-0 empty-DB shortcut before migrateToV22 existed. migrateToV22 is
   // idempotent (CREATE TABLE IF NOT EXISTS), so running it unconditionally
   // when the tables are absent is safe.
   if (!timelineTablesPresent()) {
     migrateToV22();
+  }
+
+  if (current >= SCHEMA_VERSION && !combatColumnsPresent()) {
+    await migrateToV23();
+  }
+  if (current >= SCHEMA_VERSION && !economyColumnsPresent()) {
+    await migrateToV24();
   }
 
   if (current >= SCHEMA_VERSION) return;
@@ -1091,7 +1252,14 @@ export async function runMigrations() {
       "mastery_json",
       "last_seen",
     ].every((column) => tableColumns("summoner").has(column));
-  if (current === 0 && gamesCount.n === 0 && currentSchemaReady && timelineTablesPresent()) {
+  if (
+    current === 0 &&
+    gamesCount.n === 0 &&
+    currentSchemaReady &&
+    timelineTablesPresent() &&
+    combatColumnsPresent() &&
+    economyColumnsPresent()
+  ) {
     db.pragma(`user_version = ${SCHEMA_VERSION}`);
     return;
   }
@@ -1116,6 +1284,8 @@ export async function runMigrations() {
   if (current < 18) migrateToV18();
   if (current < 19) migrateToV19();
   if (current < 20) await migrateToV20();
+  if (current < 23) await migrateToV23();
+  if (current < 24) await migrateToV24();
   if (current < 21) migrateToV21();
   if (current < 22) migrateToV22();
 

@@ -6,6 +6,7 @@ export function LineChartExp({
   max,
   baseline,
   xLabels,
+  tooltips,
   yFormat,
   yTicks,
   paddingLeft,
@@ -18,6 +19,7 @@ export function LineChartExp({
   max?: number;
   baseline?: number;
   xLabels?: string[];
+  tooltips?: string[];
   yFormat?: (v: number) => string;
   yTicks?: number[];
   paddingLeft?: number;
@@ -44,9 +46,27 @@ export function LineChartExp({
   const y = (v: number) => plotTop + (1 - (v - lo) / range) * plotHeight;
 
   const points = values.map((v, i) => `${x(i)},${y(v).toFixed(1)}`).join(" ");
-  const xLabelIndices = xLabels?.length
-    ? [...new Set([0, Math.floor((values.length - 1) / 2), values.length - 1])]
-    : [];
+  const xLabelIndices = (() => {
+    if (!xLabels?.length) return [];
+    const step = values.length <= 6 ? 1 : values.length <= 12 ? 2 : values.length <= 20 ? 3 : 4;
+    const lastIndex = values.length - 1;
+    const candidates = new Set<number>([0, lastIndex]);
+    for (let index = step; index < lastIndex; index += step) candidates.add(index);
+
+    const sorted = [...candidates].sort((a, b) => a - b);
+    const accepted = [sorted[0]];
+    const unitsPerIndex = (plotRight - plotLeft) / (values.length - 1 || 1);
+    for (const index of sorted.slice(1)) {
+      const spacing = unitsPerIndex * (index - accepted[accepted.length - 1]);
+      if (spacing >= 55 || index === lastIndex) {
+        if (index === lastIndex && spacing < 55 && accepted.length > 1) {
+          accepted.pop();
+        }
+        accepted.push(index);
+      }
+    }
+    return accepted;
+  })();
 
   return (
     <svg className="svgc" viewBox={`0 0 ${W} ${H}`} role="img">
@@ -92,7 +112,7 @@ export function LineChartExp({
       />
       {values.map((v, i) => (
         <circle key={i} cx={x(i)} cy={y(v).toFixed(1)} r="4" fill={color}>
-          <title>{format(v)}</title>
+          <title>{tooltips ? tooltips[i] : format(v)}</title>
         </circle>
       ))}
       {xLabelIndices.map((index) => {
