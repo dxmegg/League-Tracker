@@ -230,6 +230,9 @@ const api: ElectronAPI = {
       account,
     ),
 
+  getChampionRecords: (championId: number, patch?: string, queue?: number, account?: string) =>
+    ipcRenderer.invoke("db:champion-records", championId, patch, queue, account),
+
   refreshGames: () => ipcRenderer.invoke("lcu:refresh"),
 
   syncRiotHistory: (): Promise<RiotSyncResult | { error: string }> =>

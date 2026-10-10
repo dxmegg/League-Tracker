@@ -921,6 +921,18 @@ export interface RecordsData {
   lossStreak: StreakRecord | null;
 }
 
+export interface ChampionRecord {
+  key: string;
+  label: string;
+  value: number;
+  gameId: number | null;
+  gameDuration?: number;
+}
+
+export interface ChampionRecordsResult {
+  records: ChampionRecord[];
+}
+
 export interface GlobalStats {
   champions: { champion_id: number; games: number; wins: number }[];
   augments: { augment_id: number; picks: number; wins: number }[];
@@ -1349,6 +1361,12 @@ export interface ElectronAPI {
     queue?: number,
     account?: string,
   ) => Promise<{ matches: MatchListItem[]; total: number }>;
+  getChampionRecords: (
+    championId: number,
+    patch?: string,
+    queue?: number,
+    account?: string,
+  ) => Promise<ChampionRecordsResult>;
   getChampionItemStats: (
     championId: number,
     patch?: string,

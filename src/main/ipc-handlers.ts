@@ -250,6 +250,16 @@ export function registerIpcHandlers() {
   );
 
   ipcMain.handle(
+    "db:champion-records",
+    (_event, championId: number, patch?: string, queue?: number, account?: string) => {
+      console.log("[db] champion-records handler called:", { championId, patch, queue, account });
+      const result = db.getChampionRecords(championId, patch, queue, account);
+      console.log("[db] champion-records handler done:", { count: result.records.length });
+      return result;
+    },
+  );
+
+  ipcMain.handle(
     "db:champion-timeline-games",
     (
       _event,

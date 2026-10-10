@@ -71,6 +71,18 @@ export interface ChampionTrendsData {
   weekdays: ChampionTrendsWeekday[];
 }
 
+export interface ChampionRecord {
+  key: string;
+  label: string;
+  value: number;
+  gameId: number | null;
+  gameDuration?: number;
+}
+
+export interface ChampionRecordsResult {
+  records: ChampionRecord[];
+}
+
 export function getChampionStatsAll(
   patch?: string,
   queue?: number | number[],
@@ -2538,6 +2550,115 @@ export function getTrendsData(queue?: number, account?: string): any {
     .all(...params);
 
   return { daily, patches, hours, weekdays };
+}
+
+export function getChampionRecords(
+  championId: number,
+  patch?: string,
+  queue?: number,
+  account?: string,
+): ChampionRecordsResult {
+  console.log("[db] getChampionRecords called:", { championId, patch, queue, account });
+
+  const source = statsSource(account);
+  const participant = participantFilter(patch, undefined, "mp");
+  const ownerPuuidSql = account ? "ps.puuid" : "g.puuid";
+  const where = [
+    source.accountFilter,
+    participant.sql,
+    "mp.champion_id = ?",
+    `mp.puuid = ${ownerPuuidSql}`,
+    "g.is_remake = 0",
+  ];
+  const params: any[] = [];
+  if (account && account !== "all") params.push(account);
+  params.push(...participant.params, championId);
+  applyQueueFilter(where, params, queue, "g");
+  const fromSql = `
+    FROM match_participants mp
+    JOIN games g ON g.game_id = mp.game_id
+    JOIN ${source.table} ps ON ps.game_id = g.game_id
+  `;
+  const whereSql = `WHERE ${where.join(" AND ")}`;
+  const query = (expression: string, order: "DESC" | "ASC" = "DESC", extra = "") =>
+    db
+      .prepare(`
+        SELECT ${expression} AS value, g.game_id, g.game_duration
+        ${fromSql}
+        ${whereSql}${extra}
+        ORDER BY ${expression} ${order}, g.game_id ASC
+        LIMIT 1
+      `)
+      .get(...params) as { value: number; game_id: number; game_duration: number } | undefined;
+
+  const definitions: Array<{
+    key: string;
+    label: string;
+    expression: string;
+    order?: "DESC" | "ASC";
+    extra?: string;
+  }> = [
+    { key: "kills", label: "Most kills", expression: "mp.kills" },
+    { key: "deaths", label: "Most deaths", expression: "mp.deaths" },
+    { key: "assists", label: "Most assists", expression: "mp.assists" },
+    {
+      key: "kda",
+      label: "Best KDA",
+      expression: "(mp.kills + mp.assists) * 1.0 / MAX(1, mp.deaths)",
+    },
+    { key: "cs", label: "Most CS", expression: "mp.cs" },
+    { key: "damage", label: "Most damage", expression: "mp.total_damage_dealt" },
+    {
+      key: "damageTaken",
+      label: "Most damage taken",
+      expression: "mp.total_damage_taken",
+    },
+    { key: "healing", label: "Most healing", expression: "mp.total_heal" },
+    { key: "gold", label: "Most gold", expression: "mp.gold_earned" },
+    { key: "longestGame", label: "Longest game", expression: "g.game_duration" },
+    {
+      key: "shortestWin",
+      label: "Shortest win",
+      expression: "g.game_duration",
+      order: "ASC",
+      extra: " AND mp.win = 1",
+    },
+    { key: "turretKills", label: "Most turret kills", expression: "mp.turret_kills" },
+    {
+      key: "objectivesStolen",
+      label: "Most objectives stolen",
+      expression: "mp.objectives_stolen",
+    },
+    {
+      key: "firstBloodKills",
+      label: "Most first blood kills",
+      expression: "mp.first_blood_kill",
+    },
+    { key: "doubleKills", label: "Most double kills", expression: "mp.double_kills" },
+    { key: "tripleKills", label: "Most triple kills", expression: "mp.triple_kills" },
+    { key: "quadraKills", label: "Most quadra kills", expression: "mp.quadra_kills" },
+    { key: "pentaKills", label: "Most penta kills", expression: "mp.penta_kills" },
+    { key: "longestAlive", label: "Longest alive", expression: "mp.longest_alive" },
+  ];
+
+  const records = db.transaction(() =>
+    definitions.flatMap(({ key, label, expression, order, extra }) => {
+      const row = query(expression, order, extra);
+      if (!row || row.value == null) return [];
+      return [
+        {
+          key,
+          label,
+          value: row.value,
+          gameId: row.game_id,
+          gameDuration: row.game_duration,
+        },
+      ];
+    }),
+  )();
+
+  console.log("[db] getChampionRecords done:", { count: records.length });
+  return { records };
 }
 
 export function getChampionTrendsData(
