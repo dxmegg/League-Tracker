@@ -43,11 +43,13 @@ import { formatDuration, formatNumber, formatPlaytime, formatTimeAgo } from "../
 import { useHistoryScopeQueue } from "../lib/historyScope";
 import AugmentIcon from "./AugmentIcon";
 import ChampionIcon from "./ChampionIcon";
+import { DonutChart } from "./DonutChart";
 import { FilterSelect } from "./FilterSelect";
 import { LineChartExp } from "./LineChartExp";
 import { MatchRowExperiment } from "./MatchRowExperiment";
 import { Panel } from "./Panel";
 import PatchSelect from "./PatchSelect";
+import { RadarChart } from "./RadarChart";
 import RuneIcon from "./RuneIcon";
 import SummonerIcon from "./SummonerIcon";
 import SummonerSpellIcon from "./SummonerSpellIcon";
@@ -1496,6 +1498,20 @@ function ItemsTab({
         ))}
       </RatePanel>
 
+      <Panel>
+        <SectionHeading title="Item categories" source="m" />
+        {/* Placeholder data; backend item-category split lands in a follow-up phase. */}
+        <DonutChart
+          segments={[
+            { label: "Damage", value: 38, color: "var(--theme-crimson)" },
+            { label: "Penetration", value: 12, color: "var(--theme-gold)" },
+            { label: "Utility", value: 14, color: "var(--theme-assist)" },
+            { label: "Defense", value: 24, color: "var(--theme-win)" },
+            { label: "Boots", value: 12, color: "var(--theme-violet)" },
+          ]}
+        />
+      </Panel>
+
       <Panel className="xl:col-span-2">
         <SectionHeading title="Build slots" source="m" aside="Last 20 games" />
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 xl:grid-cols-7">
@@ -1727,8 +1743,8 @@ function MatchupsTab({
     return value(b) - value(a) || a.championId - b.championId;
   });
 
-  return (
-    <Panel className="xl:col-span-2">
+  return [
+    <Panel className="xl:col-span-2" key="matchups">
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
         <SectionHeading
           title="Matchups"
@@ -1797,8 +1813,22 @@ function MatchupsTab({
           })}
         </div>
       )}
-    </Panel>
-  );
+    </Panel>,
+    <Panel className="xl:col-span-2" key="enemy-class">
+      <SectionHeading title="Performance by enemy class" source="d" />
+      {/* Placeholder data; backend enemy-class performance lands in a follow-up phase. */}
+      <RadarChart
+        axes={["Assassin", "Mage", "Fighter", "Tank", "Marksman", "Support"]}
+        series={[
+          {
+            values: [62, 71, 58, 55, 74, 68],
+            color: "var(--theme-crimson)",
+            label: "Your win rate by class",
+          },
+        ]}
+      />
+    </Panel>,
+  ];
 }
 
 type SynergySort = "games" | "winRate" | "kda";
@@ -2036,6 +2066,25 @@ function TrendsTab({
       <Panel>
         <SectionHeading title="By hour of day" source="m" />
         <TrendBars rows={hours} />
+      </Panel>
+      <Panel className="xl:col-span-2">
+        <SectionHeading title="Skill profile" source="d" />
+        {/* Placeholder data; backend skill-profile metrics land in a follow-up phase. */}
+        <RadarChart
+          axes={["Combat", "Farm", "Objectives", "Vision", "Survival", "Teamplay"]}
+          series={[
+            {
+              values: [72, 68, 55, 41, 63, 58],
+              color: "var(--theme-foreground-muted)",
+              label: "All time",
+            },
+            {
+              values: [75, 66, 60, 48, 61, 62],
+              color: "var(--theme-crimson)",
+              label: "Last 30 days",
+            },
+          ]}
+        />
       </Panel>
     </div>
   );
@@ -2514,6 +2563,19 @@ function AbilitiesTab({
       </Panel>
 
       <Panel>
+        <SectionHeading title="Cast distribution" source="t" />
+        {/* Placeholder data; backend ability-cast distribution lands in a follow-up phase. */}
+        <DonutChart
+          segments={[
+            { label: "Q", value: 32, color: "var(--theme-assist)" },
+            { label: "W", value: 22, color: "var(--theme-win)" },
+            { label: "E", value: 38, color: "var(--theme-gold)" },
+            { label: "R", value: 8, color: "var(--theme-crimson)" },
+          ]}
+        />
+      </Panel>
+
+      <Panel>
         <SectionHeading
           title="R rank timing"
           source="t"
@@ -2875,6 +2937,22 @@ function EconomyTab({
           <span className="text-lol-text">Max champion level reached</span>
           <b className="tabular-nums text-lol-text-bright">{detail.maxChampLevel}</b>
         </div>
+      </Panel>
+
+      <Panel>
+        <SectionHeading title="Gold sources" source="m" />
+        {/* Placeholder data; backend gold-source split lands in a follow-up phase. */}
+        <DonutChart
+          segments={[
+            { label: "Minions", value: 42, color: "var(--theme-gold)" },
+            { label: "Kills", value: 22, color: "var(--theme-crimson)" },
+            { label: "Assists", value: 10, color: "var(--theme-assist)" },
+            { label: "Objectives", value: 12, color: "var(--theme-win)" },
+            { label: "Passive", value: 14, color: "var(--theme-foreground-muted)" },
+          ]}
+          centerLabel="42%"
+          centerSub="from minions"
+        />
       </Panel>
 
       <Panel>
