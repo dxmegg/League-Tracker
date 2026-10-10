@@ -1,4 +1,5 @@
 import fs from "fs";
+import zlib from "zlib";
 import { db, type GameSource } from "../db";
 import { unpackRaw } from "./payloads";
 import { insertGameFull, insertTrackedStatsOnly } from "./ingest";
@@ -9,18 +10,18 @@ import { rebuildParticipantsFromPayloads } from "./schema";
 
 // ---- Export / Import ----
 
-// Games are read a page at a time and written straight to disk, rather than
-// building the whole backup in memory and handing one huge string to
-// writeFileSync. Two reasons: a library of a few thousand games is a hundred
-// megabytes-plus of JSON to hold twice over, and every await here returns the
-// main process to the event loop, so exporting no longer freezes the window.
+// Every record is written independently so neither the exporter nor importer
+// needs to materialize the complete backup as one V8 string.
 const EXPORT_PAGE_SIZE = 200;
+const TIMELINE_PAGE_SIZE = 5000;
 
 export async function writeExportTo(filePath: string): Promise<number> {
-  const out = fs.createWriteStream(filePath, { encoding: "utf8" });
-  const write = (chunk: string) =>
+  const out = fs.createWriteStream(filePath);
+  const gz = zlib.createGzip();
+  gz.pipe(out);
+  const write = (record: object) =>
     new Promise<void>((resolve, reject) => {
-      out.write(chunk, (err) => (err ? reject(err) : resolve()));
+      gz.write(`${JSON.stringify(record)}\n`, (err) => (err ? reject(err) : resolve()));
     });
 
   let count = 0;
@@ -31,9 +32,15 @@ export async function writeExportTo(filePath: string): Promise<number> {
     const riotSyncState = db
       .prepare("SELECT puuid, platform, last_sync_at, last_match_id, complete FROM riot_sync_state")
       .all();
-    await write(
-      `{"version":4,"summoners":${JSON.stringify(summoners)},"settings":${JSON.stringify(settings)},"ignoredGames":${JSON.stringify(ignoredGames)},"riotSyncState":${JSON.stringify(riotSyncState)},"games":[`,
-    );
+    await write({ type: "header", version: 6, exportedAt: Date.now() });
+    for (const summoner of summoners) await write({ type: "summoner", data: summoner });
+    for (const setting of settings) await write({ type: "setting", data: setting });
+    for (const ignoredGame of ignoredGames) {
+      await write({ type: "ignoredGame", data: ignoredGame });
+    }
+    for (const syncState of riotSyncState) {
+      await write({ type: "riotSyncState", data: syncState });
+    }
 
     // Keyset paging, not LIMIT/OFFSET: each query completes before the next
     // await, so no statement is left open across one — a statement still
@@ -58,7 +65,6 @@ export async function writeExportTo(filePath: string): Promise<number> {
       }[];
       if (rows.length === 0) break;
 
-      let chunk = "";
       for (const row of rows) {
         // A backup stays the untouched payloads, so an import into any version
         // rebuilds whatever that version derives from them.
@@ -67,24 +73,106 @@ export async function writeExportTo(filePath: string): Promise<number> {
         game._ownerPuuid = row.puuid;
         game._favorite = row.favorite;
         game._source = row.source;
-        chunk += (count === 0 ? "" : ",") + JSON.stringify(game);
+        await write({ type: "game", data: game });
         count++;
       }
       lastId = rows[rows.length - 1].game_id;
-      await write(chunk);
     }
 
-    await write("]}");
+    const statusPage = db.prepare(`
+      SELECT game_id, fetched_at, frame_count, event_count, fetch_error, raw_gz
+      FROM match_timeline_status
+      WHERE game_id > ?
+      ORDER BY game_id
+      LIMIT ?
+    `);
+    let lastStatusId = 0;
+    for (;;) {
+      const rows = statusPage.all(lastStatusId, TIMELINE_PAGE_SIZE) as Array<{
+        game_id: number;
+        fetched_at: number;
+        frame_count: number;
+        event_count: number;
+        fetch_error: string | null;
+        raw_gz: Buffer | null;
+      }>;
+      if (rows.length === 0) break;
+      for (const row of rows) {
+        await write({
+          type: "timelineStatus",
+          data: {
+            ...row,
+            raw_gz: row.raw_gz?.toString("base64") ?? null,
+          },
+        });
+      }
+      lastStatusId = rows[rows.length - 1].game_id;
+    }
+
+    const framePage = db.prepare(`
+      SELECT game_id, frame_index, timestamp_ms, participant_id, puuid, level, xp, gold, cs,
+             position_x, position_y, attack_damage, ability_power, armor, magic_resist,
+             attack_speed, ability_haste, move_speed, max_health, current_health
+      FROM match_timeline_frames
+      WHERE (game_id, frame_index, participant_id) > (?, ?, ?)
+      ORDER BY game_id, frame_index, participant_id
+      LIMIT ?
+    `);
+    let lastFrame = { game_id: 0, frame_index: -1, participant_id: -1 };
+    for (;;) {
+      const rows = framePage.all(
+        lastFrame.game_id,
+        lastFrame.frame_index,
+        lastFrame.participant_id,
+        TIMELINE_PAGE_SIZE,
+      ) as Array<
+        { game_id: number; frame_index: number; participant_id: number } & Record<string, unknown>
+      >;
+      if (rows.length === 0) break;
+      for (const row of rows) await write({ type: "timelineFrame", data: row });
+      const last = rows[rows.length - 1];
+      lastFrame = {
+        game_id: last.game_id,
+        frame_index: last.frame_index,
+        participant_id: last.participant_id,
+      };
+    }
+
+    const eventPage = db.prepare(`
+      SELECT game_id, event_index, timestamp_ms, event_type, participant_id, killer_id, victim_id,
+             team_id, item_id, skill_slot, level_up_type, ward_type, building_type,
+             monster_type, monster_subtype, raw_json
+      FROM match_timeline_events
+      WHERE (game_id, event_index) > (?, ?)
+      ORDER BY game_id, event_index
+      LIMIT ?
+    `);
+    let lastEvent = { game_id: 0, event_index: -1 };
+    for (;;) {
+      const rows = eventPage.all(
+        lastEvent.game_id,
+        lastEvent.event_index,
+        TIMELINE_PAGE_SIZE,
+      ) as Array<{ game_id: number; event_index: number } & Record<string, unknown>>;
+      if (rows.length === 0) break;
+      for (const row of rows) await write({ type: "timelineEvent", data: row });
+      const last = rows[rows.length - 1];
+      lastEvent = { game_id: last.game_id, event_index: last.event_index };
+    }
   } finally {
     await new Promise<void>((resolve, reject) => {
-      out.on("error", reject);
-      out.end(() => resolve());
+      out.once("error", reject);
+      gz.once("error", reject);
+      out.once("finish", resolve);
+      gz.end();
     });
   }
   return count;
 }
 
-export function importData(data: any): { imported: number; total: number; skipped: number } {
+type ImportResult = { imported: number; total: number; skipped: number };
+
+function importLegacyData(data: any): ImportResult {
   if (data.version >= 4) {
     for (const summoner of data.summoners ?? []) {
       try {
@@ -162,6 +250,7 @@ export function importData(data: any): { imported: number; total: number; skippe
     }
     return { imported, total, skipped: total - imported };
   }
+
   if (data.version >= 3) {
     for (const s of data.summoners ?? []) {
       upsertSummoner(s);
@@ -188,6 +277,269 @@ export function importData(data: any): { imported: number; total: number; skippe
     if (insertGameFull(game, puuid, "lcu")) imported++;
   }
   return { imported, total, skipped: total - imported };
+}
+
+const MAX_IMPORT_LINE_BYTES = 50 * 1024 * 1024;
+
+export async function importData(filePath: string): Promise<ImportResult> {
+  console.log("[db] importData called:", { filePath });
+  const handle = await fs.promises.open(filePath, "r");
+  const magic = Buffer.alloc(2);
+  try {
+    await handle.read(magic, 0, 2, 0);
+  } finally {
+    await handle.close();
+  }
+
+  if (magic[0] !== 0x1f || magic[1] !== 0x8b) {
+    const raw = await fs.promises.readFile(filePath, "utf8");
+    const data = JSON.parse(raw);
+    if (!data || typeof data !== "object" || !Array.isArray(data.games)) {
+      throw new Error("That file isn't a Mayhem Tracker backup");
+    }
+    const result = importLegacyData(data);
+    console.log("[db] importData done:", result);
+    return result;
+  }
+
+  const input = fs.createReadStream(filePath).pipe(zlib.createGunzip());
+  const restoreSetting = db.prepare("INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)");
+  const restoreIgnoredGame = db.prepare("INSERT OR IGNORE INTO ignored_games (game_id) VALUES (?)");
+  const restoreSyncState = db.prepare(`
+      INSERT OR REPLACE INTO riot_sync_state
+        (puuid, platform, last_sync_at, last_match_id, complete)
+      VALUES (?, ?, ?, ?, ?)
+    `);
+  const restoreStatus = db.prepare(`
+      INSERT OR REPLACE INTO match_timeline_status
+        (game_id, fetched_at, frame_count, event_count, fetch_error, raw_gz)
+      VALUES (?, ?, ?, ?, ?, ?)
+    `);
+  const deleteTimelineFrames = db.prepare("DELETE FROM match_timeline_frames WHERE game_id = ?");
+  const deleteTimelineEvents = db.prepare("DELETE FROM match_timeline_events WHERE game_id = ?");
+  const restoreFrame = db.prepare(`
+      INSERT OR REPLACE INTO match_timeline_frames (
+        game_id, frame_index, timestamp_ms, participant_id, puuid, level, xp, gold, cs,
+        position_x, position_y, attack_damage, ability_power, armor, magic_resist,
+        attack_speed, ability_haste, move_speed, max_health, current_health
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `);
+  const restoreEvent = db.prepare(`
+      INSERT OR REPLACE INTO match_timeline_events (
+        game_id, event_index, timestamp_ms, event_type, participant_id, killer_id,
+        victim_id, team_id, item_id, skill_slot, level_up_type, ward_type,
+        building_type, monster_type, monster_subtype, raw_json
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `);
+
+  const games: Array<{ data: any }> = [];
+  const statuses: Array<{ data: any }> = [];
+  const frames: Array<{ data: any }> = [];
+  const events: Array<{ data: any }> = [];
+  const statusGameIds = new Set<number>();
+  const clearedTimelineGameIds = new Set<number>();
+  let imported = 0;
+  let total = 0;
+  let skipped = 0;
+
+  const flushGames = () => {
+    for (const record of games.splice(0)) {
+      total++;
+      const game = record.data;
+      try {
+        const puuid = game?._ownerPuuid;
+        if (!puuid) {
+          skipped++;
+          continue;
+        }
+        const source: GameSource = game._source ?? "lcu";
+        if (insertGameFull(game, puuid, source, source === "search-import")) imported++;
+        db.prepare("UPDATE games SET favorite = ? WHERE game_id = ?").run(
+          game._favorite ?? 0,
+          game.gameId,
+        );
+      } catch (err: unknown) {
+        skipped++;
+        console.warn("[db] v6 game restore failed:", {
+          gameId: game?.gameId,
+          error: err instanceof Error ? err.message : String(err),
+        });
+      }
+    }
+  };
+  const flushStatuses = () => {
+    const tx = db.transaction(() => {
+      for (const record of statuses.splice(0)) {
+        const status = record.data;
+        const rawGz =
+          typeof status.raw_gz === "string" ? Buffer.from(status.raw_gz, "base64") : null;
+        restoreStatus.run(
+          status.game_id,
+          status.fetched_at,
+          status.frame_count,
+          status.event_count,
+          status.fetch_error,
+          rawGz,
+        );
+        statusGameIds.add(status.game_id);
+      }
+    });
+    tx();
+  };
+  const flushFrames = () => {
+    const tx = db.transaction(() => {
+      for (const record of frames.splice(0)) {
+        const frame = record.data;
+        if (statusGameIds.has(frame.game_id) && !clearedTimelineGameIds.has(frame.game_id)) {
+          deleteTimelineFrames.run(frame.game_id);
+          deleteTimelineEvents.run(frame.game_id);
+          clearedTimelineGameIds.add(frame.game_id);
+        }
+        restoreFrame.run(
+          frame.game_id,
+          frame.frame_index,
+          frame.timestamp_ms,
+          frame.participant_id,
+          frame.puuid,
+          frame.level,
+          frame.xp,
+          frame.gold,
+          frame.cs,
+          frame.position_x,
+          frame.position_y,
+          frame.attack_damage,
+          frame.ability_power,
+          frame.armor,
+          frame.magic_resist,
+          frame.attack_speed,
+          frame.ability_haste,
+          frame.move_speed,
+          frame.max_health,
+          frame.current_health,
+        );
+      }
+    });
+    tx();
+  };
+  const flushEvents = () => {
+    const tx = db.transaction(() => {
+      for (const record of events.splice(0)) {
+        const event = record.data;
+        if (statusGameIds.has(event.game_id) && !clearedTimelineGameIds.has(event.game_id)) {
+          deleteTimelineFrames.run(event.game_id);
+          deleteTimelineEvents.run(event.game_id);
+          clearedTimelineGameIds.add(event.game_id);
+        }
+        restoreEvent.run(
+          event.game_id,
+          event.event_index,
+          event.timestamp_ms,
+          event.event_type,
+          event.participant_id,
+          event.killer_id,
+          event.victim_id,
+          event.team_id,
+          event.item_id,
+          event.skill_slot,
+          event.level_up_type,
+          event.ward_type,
+          event.building_type,
+          event.monster_type,
+          event.monster_subtype,
+          event.raw_json,
+        );
+      }
+    });
+    tx();
+  };
+
+  let pending = Buffer.alloc(0);
+  let headerSeen = false;
+  let lineNumber = 0;
+  const processLine = (line: string) => {
+    if (!line.trim()) return;
+    lineNumber++;
+    let record: { type?: string; version?: number; data?: any };
+    try {
+      record = JSON.parse(line);
+    } catch (err) {
+      throw new Error(
+        `Invalid JSON on backup line ${lineNumber}: ${err instanceof Error ? err.message : String(err)}`,
+      );
+    }
+    if (!headerSeen) {
+      if (record.type !== "header" || typeof record.version !== "number" || record.version < 6) {
+        throw new Error("That file isn't a supported League Tracker v6 backup");
+      }
+      headerSeen = true;
+      return;
+    }
+    switch (record.type) {
+      case "summoner":
+        restoreSummonerFull(record.data);
+        break;
+      case "setting":
+        restoreSetting.run(record.data.key, record.data.value);
+        break;
+      case "ignoredGame":
+        restoreIgnoredGame.run(record.data.game_id);
+        break;
+      case "riotSyncState":
+        restoreSyncState.run(
+          record.data.puuid,
+          record.data.platform,
+          record.data.last_sync_at,
+          record.data.last_match_id,
+          record.data.complete,
+        );
+        break;
+      case "game":
+        games.push({ data: record.data });
+        if (games.length >= 200) flushGames();
+        break;
+      case "timelineStatus":
+        statuses.push({ data: record.data });
+        if (statuses.length >= 200) flushStatuses();
+        break;
+      case "timelineFrame":
+        frames.push({ data: record.data });
+        if (frames.length >= TIMELINE_PAGE_SIZE) flushFrames();
+        break;
+      case "timelineEvent":
+        events.push({ data: record.data });
+        if (events.length >= TIMELINE_PAGE_SIZE) flushEvents();
+        break;
+      default:
+        throw new Error(`Unknown record type on backup line ${lineNumber}`);
+    }
+  };
+
+  for await (const chunk of input) {
+    pending = Buffer.concat([pending, chunk as Buffer]);
+    if (pending.length > MAX_IMPORT_LINE_BYTES && pending.indexOf(0x0a) === -1) {
+      throw new Error("Backup line exceeds the 50 MB limit");
+    }
+    let newline = pending.indexOf(0x0a);
+    while (newline !== -1) {
+      const line = pending.subarray(0, newline);
+      if (line.length > MAX_IMPORT_LINE_BYTES)
+        throw new Error("Backup line exceeds the 50 MB limit");
+      processLine(line.toString("utf8").replace(/\r$/, ""));
+      pending = pending.subarray(newline + 1);
+      newline = pending.indexOf(0x0a);
+    }
+  }
+  if (pending.length > MAX_IMPORT_LINE_BYTES)
+    throw new Error("Backup line exceeds the 50 MB limit");
+  if (pending.length > 0) processLine(pending.toString("utf8"));
+  if (!headerSeen) throw new Error("That file isn't a League Tracker backup");
+  flushGames();
+  flushStatuses();
+  flushFrames();
+  flushEvents();
+  const result = { imported, total, skipped: total - imported };
+  console.log("[db] importData done:", result);
+  return result;
 }
 
 // ---- Repair ----
