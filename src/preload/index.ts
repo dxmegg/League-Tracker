@@ -4,6 +4,8 @@ import type {
   BackfillResult,
   ChampionDetailStats,
   ChampionRoleStat,
+  ChampionTimelineGame,
+  ChampionTrendsData,
   ElectronAPI,
   LcuStatus,
   MatchFilters,
@@ -41,6 +43,15 @@ const api: ElectronAPI = {
   getMatchDetail: (gameId: number) => ipcRenderer.invoke("db:match-detail", gameId),
 
   getTimeline: (gameId: number) => ipcRenderer.invoke("db:timeline-get", gameId),
+
+  getChampionTimelineGames: (
+    championId: number,
+    limit: number,
+    patch?: string,
+    queue?: number,
+    account?: string,
+  ): Promise<ChampionTimelineGame[]> =>
+    ipcRenderer.invoke("db:champion-timeline-games", championId, limit, patch, queue, account),
 
   fetchTimeline: (gameId: number, platform?: string): Promise<TimelineData | null> =>
     ipcRenderer.invoke("db:timeline-fetch", gameId, platform),
@@ -287,6 +298,14 @@ const api: ElectronAPI = {
 
   getChampionSkillOrders: (championId: number, patch?: string, queue?: number, account?: string) =>
     ipcRenderer.invoke("db:champion-skill-orders", championId, patch, queue, account),
+
+  getChampionTrendsData: (
+    championId: number,
+    patch?: string,
+    queue?: number,
+    account?: string,
+  ): Promise<ChampionTrendsData> =>
+    ipcRenderer.invoke("db:champion-trends", championId, patch, queue, account),
 
   getTeammateStats: (queue?: number, relation?: "friends" | "enemies") =>
     ipcRenderer.invoke("db:teammate-stats", queue, relation),

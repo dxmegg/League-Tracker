@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import type {
   AugmentStats,
+  ChampionAllyRow,
   ChampionDetailStats,
   ChampionKeystoneStat,
   ChampionMatchupRow,
@@ -9,10 +10,14 @@ import type {
   ChampionRoleStat,
   ChampionStats,
   ChampionSkillOrdersResult,
+  ChampionTeammateRow,
+  ChampionTimelineGame,
+  ChampionTrendsData,
   ChampionWeeklyWinRate,
   GlobalChampionDetail,
   ItemStats,
   MatchListItem,
+  TimelineData,
 } from "../../shared/api";
 import { QUEUE_LABELS } from "../../shared/queues";
 import { useActiveAccount } from "../hooks/useActiveAccount";
@@ -39,6 +44,7 @@ import { MatchRowExperiment } from "./MatchRowExperiment";
 import { Panel } from "./Panel";
 import PatchSelect from "./PatchSelect";
 import RuneIcon from "./RuneIcon";
+import SummonerIcon from "./SummonerIcon";
 import SummonerSpellIcon from "./SummonerSpellIcon";
 import { TabStrip, type TabStripItem } from "./TabStrip";
 import WinRateBar from "./WinRateBar";
@@ -55,9 +61,9 @@ const TAB_ITEMS: TabStripItem[] = [
   { key: "it", label: "Items" },
   { key: "ru", label: "Runes" },
   { key: "mu", label: "Matchups" },
-  { key: "sy", label: "Synergies", disabled: true },
-  { key: "tl", label: "Timeline", disabled: true },
-  { key: "tr", label: "Trends", disabled: true },
+  { key: "sy", label: "Synergies" },
+  { key: "tl", label: "Timeline" },
+  { key: "tr", label: "Trends" },
   { key: "rc", label: "Records", disabled: true },
   { key: "ma", label: "Matches", disabled: true },
   { key: "ms", label: "Mastery", disabled: true },
@@ -94,6 +100,7 @@ export function ChampionDetailExp() {
   const [augmentSort, setAugmentSort] = useState<RateSort>("count");
   const [itemSort, setItemSort] = useState<RateSort>("count");
   const [keystoneSort, setKeystoneSort] = useState<RateSort>("count");
+  const [selectedTimelineGameId, setSelectedTimelineGameId] = useState<number | null>(null);
   const scopedQueue = queue ?? useHistoryScopeQueue();
   const [activeAccountRaw] = useActiveAccount();
   const account = activeAccountRaw === ALL_ACCOUNTS_SENTINEL ? "all" : activeAccountRaw;
@@ -107,6 +114,9 @@ export function ChampionDetailExp() {
   const abilitiesActive = activeTab === "ab";
   const runesActive = activeTab === "ru";
   const matchupsActive = activeTab === "mu";
+  const synergiesActive = activeTab === "sy";
+  const trendsActive = activeTab === "tr";
+  const timelineActive = activeTab === "tl";
   const detailActive =
     overviewActive ||
     combatActive ||
@@ -155,6 +165,45 @@ export function ChampionDetailExp() {
         ? window.api.getChampionMatchupList(id, patch, scopedQueue, account)
         : Promise.resolve(null),
     [matchupsActive, id, patch, scopedQueue, account],
+  );
+  const { data: allyStats, loading: allyStatsLoading } = useIpc<ChampionAllyRow[] | null>(
+    () =>
+      synergiesActive
+        ? window.api.getChampionAllyStats(id, patch, scopedQueue, account)
+        : Promise.resolve(null),
+    [synergiesActive, id, patch, scopedQueue, account],
+  );
+  const { data: teammateStats, loading: teammateStatsLoading } = useIpc<
+    ChampionTeammateRow[] | null
+  >(
+    () =>
+      synergiesActive
+        ? window.api.getChampionTeammateStats(id, patch, scopedQueue, account)
+        : Promise.resolve(null),
+    [synergiesActive, id, patch, scopedQueue, account],
+  );
+  const { data: trends, loading: trendsLoading } = useIpc<ChampionTrendsData | null>(
+    () =>
+      trendsActive
+        ? window.api.getChampionTrendsData(id, patch, scopedQueue, account)
+        : Promise.resolve(null),
+    [trendsActive, id, patch, scopedQueue, account],
+  );
+  const { data: timelineGames, loading: timelineGamesLoading } = useIpc<
+    ChampionTimelineGame[] | null
+  >(
+    () =>
+      timelineActive
+        ? window.api.getChampionTimelineGames(id, 20, patch, scopedQueue, account)
+        : Promise.resolve(null),
+    [timelineActive, id, patch, scopedQueue, account],
+  );
+  const { data: timelineData, loading: timelineLoading } = useIpc<TimelineData | null>(
+    () =>
+      timelineActive && selectedTimelineGameId != null
+        ? window.api.getTimeline(selectedTimelineGameId)
+        : Promise.resolve(null),
+    [timelineActive, selectedTimelineGameId],
   );
   const { data: matchHistory } = useIpc<{ matches: MatchListItem[]; total: number }>(
     () =>
@@ -230,6 +279,17 @@ export function ChampionDetailExp() {
   const itemData = useItemData(patch);
   const runeData = useRuneData();
   const name = getChampionName(champData, id);
+  useEffect(() => {
+    if (
+      timelineActive &&
+      timelineGames != null &&
+      timelineGames.length > 0 &&
+      (selectedTimelineGameId == null ||
+        !timelineGames.some((game) => game.gameId === selectedTimelineGameId))
+    ) {
+      setSelectedTimelineGameId(timelineGames[0].gameId);
+    }
+  }, [timelineActive, timelineGames, selectedTimelineGameId]);
   const games = stats?.games ?? 0;
   const wins = stats?.wins ?? 0;
   const losses = games - wins;
@@ -544,6 +604,27 @@ export function ChampionDetailExp() {
           matchupsLoading={matchupListLoading}
           champData={champData}
           account={account}
+        />
+      ) : activeTab === "sy" ? (
+        <SynergiesTab
+          allies={allyStats}
+          alliesLoading={allyStatsLoading}
+          teammates={teammateStats}
+          teammatesLoading={teammateStatsLoading}
+          champData={champData}
+          account={account}
+        />
+      ) : activeTab === "tr" ? (
+        <TrendsTab trends={trends} trendsLoading={trendsLoading} />
+      ) : activeTab === "tl" ? (
+        <TimelineTab
+          games={timelineGames}
+          gamesLoading={timelineGamesLoading}
+          selectedGameId={selectedTimelineGameId}
+          onSelectGame={setSelectedTimelineGameId}
+          timeline={timelineData}
+          timelineLoading={timelineLoading}
+          champData={champData}
         />
       ) : (
         <Panel>
@@ -1354,6 +1435,605 @@ function MatchupsTab({
         </div>
       )}
     </Panel>
+  );
+}
+
+type SynergySort = "games" | "winRate" | "kda";
+
+type TrendBucket = {
+  label: string;
+  games: number;
+  wins: number;
+  kills: number;
+  deaths: number;
+  assists: number;
+  scoreSum: number;
+  scoredGames: number;
+  csSum: number;
+};
+
+function bucketTrendDays(
+  days: ChampionTrendsData["daily"],
+  mode: "weekly" | "monthly",
+): TrendBucket[] {
+  const buckets = new Map<string, TrendBucket>();
+  for (const day of days) {
+    const date = new Date(`${day.day}T00:00:00`);
+    const key =
+      mode === "monthly"
+        ? day.day.slice(0, 7)
+        : (() => {
+            const weekStart = new Date(date);
+            const dayOfWeek = weekStart.getDay();
+            weekStart.setDate(weekStart.getDate() - (dayOfWeek === 0 ? 6 : dayOfWeek - 1));
+            return weekStart.toISOString().slice(0, 10);
+          })();
+    const current = buckets.get(key) ?? {
+      label: key,
+      games: 0,
+      wins: 0,
+      kills: 0,
+      deaths: 0,
+      assists: 0,
+      scoreSum: 0,
+      scoredGames: 0,
+      csSum: 0,
+    };
+    current.games += day.games;
+    current.wins += day.wins;
+    current.kills += day.kills;
+    current.deaths += day.deaths;
+    current.assists += day.assists;
+    current.scoreSum += day.score_sum ?? 0;
+    current.scoredGames += day.scored_games;
+    current.csSum += day.cs_sum ?? 0;
+    buckets.set(key, current);
+  }
+  return [...buckets.values()].sort((a, b) => a.label.localeCompare(b.label));
+}
+
+function shortTrendDate(label: string, mode: "weekly" | "monthly") {
+  const date = new Date(`${label}${mode === "monthly" ? "-01" : "T00:00:00"}`);
+  return date.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+}
+
+function TrendChartPanel({
+  title,
+  values,
+  labels,
+  color,
+  format,
+  min,
+  max,
+  baseline,
+}: {
+  title: string;
+  values: number[];
+  labels: string[];
+  color: string;
+  format: (value: number) => string;
+  min?: number;
+  max?: number;
+  baseline?: number;
+}) {
+  return (
+    <Panel>
+      <SectionHeading title={title} />
+      <LineChartExp
+        values={values}
+        format={format}
+        color={color}
+        xLabels={labels}
+        min={min}
+        max={max}
+        baseline={baseline}
+        height={200}
+      />
+    </Panel>
+  );
+}
+
+function TrendsTab({
+  trends,
+  trendsLoading,
+}: {
+  trends: ChampionTrendsData | null;
+  trendsLoading: boolean;
+}) {
+  const [period, setPeriod] = useState<"weekly" | "monthly">("weekly");
+  const buckets = useMemo(
+    () => (trends ? bucketTrendDays(trends.daily, period) : []),
+    [trends, period],
+  );
+  const labels = buckets.map((bucket) => shortTrendDate(bucket.label, period));
+  const winRates = buckets.map((bucket) => (bucket.wins / Math.max(1, bucket.games)) * 100);
+  const kdas = buckets.map(
+    (bucket) => (bucket.kills + bucket.assists) / Math.max(1, bucket.deaths),
+  );
+  const scores = buckets.map((bucket) => bucket.scoreSum / Math.max(1, bucket.scoredGames));
+  const averageCs = buckets.map((bucket) => bucket.csSum / Math.max(1, bucket.games));
+  const patches = trends?.patches.slice(-12) ?? [];
+  const weekdays = Array.from({ length: 7 }, (_, index) =>
+    trends?.weekdays.find((row) => row.weekday === (index + 1) % 7),
+  );
+  const hours = Array.from({ length: 8 }, (_, index) => {
+    const rows =
+      trends?.hours.filter((row) => row.hour >= index * 3 && row.hour < index * 3 + 3) ?? [];
+    return {
+      games: rows.reduce((sum, row) => sum + row.games, 0),
+      wins: rows.reduce((sum, row) => sum + row.wins, 0),
+      label: `${String(index * 3).padStart(2, "0")}-${String(index * 3 + 3).padStart(2, "0")}`,
+    };
+  });
+
+  if (trendsLoading) return <SectionLoading />;
+  if (trends == null) return <NoData text="No trends data yet" />;
+
+  return (
+    <div className="grid grid-cols-1 gap-5 xl:grid-cols-2">
+      <Panel className="xl:col-span-2">
+        <div className="mb-4 flex items-center justify-between gap-3">
+          <SectionHeading title="Win rate over time" />
+          <div className="flex gap-1 rounded border border-lol-border p-0.5 text-xs">
+            {(["weekly", "monthly"] as const).map((value) => (
+              <button
+                key={value}
+                type="button"
+                className={`rounded px-2 py-1 ${period === value ? "bg-lol-crimson text-white" : "text-lol-text"}`}
+                onClick={() => setPeriod(value)}
+              >
+                {value[0].toUpperCase() + value.slice(1)}
+              </button>
+            ))}
+          </div>
+        </div>
+        <LineChartExp
+          values={winRates}
+          format={(value) => `${value.toFixed(1)}%`}
+          color="var(--theme-win)"
+          xLabels={labels}
+          min={0}
+          max={100}
+          baseline={50}
+          height={200}
+        />
+      </Panel>
+      <Panel className="xl:col-span-2">
+        <SectionHeading title="Average KDA over time" />
+        <LineChartExp
+          values={kdas}
+          format={(value) => value.toFixed(2)}
+          color="var(--theme-assist)"
+          xLabels={labels}
+          height={200}
+        />
+      </Panel>
+      <TrendChartPanel
+        title="Average score over time"
+        values={scores}
+        labels={labels}
+        color="var(--theme-gold)"
+        format={(value) => value.toFixed(1)}
+        min={0}
+        max={10}
+      />
+      <TrendChartPanel
+        title="Average CS per game"
+        values={averageCs}
+        labels={labels}
+        color="var(--theme-violet)"
+        format={(value) => value.toFixed(1)}
+      />
+      <Panel className="xl:col-span-2">
+        <SectionHeading title="Win rate by patch" />
+        <div className="flex flex-col gap-2 text-xs">
+          {patches.map((row) => (
+            <div
+              key={row.patch}
+              className="grid grid-cols-[1fr_auto_auto_minmax(8rem,1fr)] items-center gap-3"
+            >
+              <span className="font-semibold text-lol-text-bright">{row.patch}</span>
+              <span className="tabular-nums">{row.games}</span>
+              <span className="tabular-nums">
+                <span className="text-lol-win">{row.wins}W</span>-
+                <span className="text-lol-loss">{row.games - row.wins}L</span>
+              </span>
+              <span className="flex items-center gap-2">
+                <WinRateBar wins={row.wins} total={row.games} showPercent={false} />
+                <span className="w-11 text-right tabular-nums">
+                  {formatPercent(row.wins, row.games)}
+                </span>
+              </span>
+            </div>
+          ))}
+        </div>
+      </Panel>
+      <Panel>
+        <SectionHeading title="By day of week" />
+        <TrendBars
+          rows={weekdays.map((row, index) => ({
+            label: ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"][index],
+            games: row?.games ?? 0,
+            wins: row?.wins ?? 0,
+          }))}
+        />
+      </Panel>
+      <Panel>
+        <SectionHeading title="By hour of day" />
+        <TrendBars rows={hours} />
+      </Panel>
+    </div>
+  );
+}
+
+function TrendBars({ rows }: { rows: Array<{ label: string; games: number; wins: number }> }) {
+  return (
+    <div className="flex h-40 items-end gap-2">
+      {rows.map((row) => {
+        const rate = row.games > 0 ? (row.wins / row.games) * 100 : 0;
+        return (
+          <div key={row.label} className="flex min-w-0 flex-1 flex-col items-center gap-1">
+            <span className="text-[10px] tabular-nums text-lol-text">
+              {row.games ? `${rate.toFixed(0)}%` : "—"}
+            </span>
+            <div className="flex h-24 w-full items-end rounded-sm bg-lol-border/30">
+              <div className="w-full rounded-sm bg-lol-win" style={{ height: `${rate}%` }} />
+            </div>
+            <span className="truncate text-[10px] text-lol-text">{row.label}</span>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function TimelineTab({
+  games,
+  gamesLoading,
+  selectedGameId,
+  onSelectGame,
+  timeline,
+  timelineLoading,
+  champData,
+}: {
+  games: ChampionTimelineGame[] | null;
+  gamesLoading: boolean;
+  selectedGameId: number | null;
+  onSelectGame: (gameId: number) => void;
+  timeline: TimelineData | null;
+  timelineLoading: boolean;
+  champData: ReturnType<typeof useChampionData>;
+}) {
+  const itemData = useItemData();
+  const selectedGame = games?.find((game) => game.gameId === selectedGameId) ?? null;
+  const ownerFrames =
+    selectedGame && timeline
+      ? timeline.frames.filter((frame) => frame.puuid === selectedGame.ownerPuuid)
+      : [];
+  const labels = ownerFrames.map((frame) => `${Math.round(frame.timestamp_ms / 60000)}m`);
+  const events =
+    timeline?.events
+      .filter((event) =>
+        [
+          "CHAMPION_KILL",
+          "ELITE_MONSTER_KILL",
+          "BUILDING_KILL",
+          "TURRET_PLATE_DESTROYED",
+          "ITEM_PURCHASED",
+        ].includes(event.event_type),
+      )
+      .slice(0, 60) ?? [];
+
+  if (gamesLoading) return <SectionLoading />;
+  if (games == null || games.length === 0)
+    return <NoData text="No timeline data for this champion" />;
+
+  return (
+    <div className="grid grid-cols-1 gap-5">
+      <Panel>
+        <SectionHeading title="Game picker" />
+        <div className="flex gap-2 overflow-x-auto pb-1">
+          {games.map((game) => (
+            <button
+              key={game.gameId}
+              type="button"
+              className={`flex shrink-0 items-center gap-2 rounded-lg border px-3 py-2 text-left ${
+                game.gameId === selectedGameId
+                  ? "border-lol-crimson bg-lol-crimson/15"
+                  : "border-lol-border bg-black/10"
+              }`}
+              onClick={() => onSelectGame(game.gameId)}
+            >
+              <ChampionIcon championId={game.championId} size={24} className="rounded-md" />
+              <span className="flex flex-col text-xs">
+                <span className={game.win ? "text-lol-win" : "text-lol-loss"}>
+                  {game.win ? "W" : "L"} · {game.kills}/{game.deaths}/{game.assists}
+                </span>
+                <span className="text-lol-text">{formatTimeAgo(game.gameCreation)}</span>
+              </span>
+            </button>
+          ))}
+        </div>
+      </Panel>
+      {timelineLoading ? (
+        <Panel>
+          <SectionLoading />
+        </Panel>
+      ) : timeline == null || ownerFrames.length === 0 ? (
+        <Panel>
+          <NoData text="No timeline selected" />
+        </Panel>
+      ) : (
+        <>
+          <Panel className="xl:col-span-2">
+            <SectionHeading title="Gold and CS curves" />
+            <LineChartExp
+              values={ownerFrames.map((frame) => frame.gold ?? 0)}
+              series={[
+                {
+                  values: ownerFrames.map((frame) => frame.gold ?? 0),
+                  color: "var(--theme-gold)",
+                  label: "Gold",
+                },
+                {
+                  values: ownerFrames.map((frame) => (frame.cs ?? 0) * 10),
+                  color: "var(--theme-violet)",
+                  label: "CS (×10)",
+                },
+              ]}
+              format={(value) => value.toLocaleString()}
+              xLabels={labels}
+              min={0}
+              height={200}
+            />
+          </Panel>
+          <Panel className="xl:col-span-2">
+            <SectionHeading title="Level and XP" />
+            <LineChartExp
+              values={ownerFrames.map((frame) => (frame.level ?? 0) * 100)}
+              series={[
+                {
+                  values: ownerFrames.map((frame) => (frame.level ?? 0) * 100),
+                  color: "var(--theme-assist)",
+                  label: "Level (×100)",
+                },
+                {
+                  values: ownerFrames.map((frame) => (frame.xp ?? 0) / 10),
+                  color: "var(--theme-win)",
+                  label: "XP (÷10)",
+                },
+              ]}
+              format={(value) => value.toFixed(0)}
+              xLabels={labels}
+              min={0}
+              height={200}
+            />
+          </Panel>
+          <Panel>
+            <SectionHeading title="Events" />
+            <div className="flex max-h-[420px] flex-col gap-2 overflow-y-auto text-xs">
+              {events.length === 0 ? (
+                <NoData text="No timeline events" />
+              ) : (
+                events.map((event) => (
+                  <div
+                    key={event.event_index}
+                    className="flex gap-3 border-b border-lol-border/40 pb-2"
+                  >
+                    <span className="w-12 shrink-0 tabular-nums text-lol-text">
+                      {formatSeconds(event.timestamp_ms / 1000)}
+                    </span>
+                    <span className="text-lol-text-bright">
+                      {timelineEventDescription(event, itemData, champData)}
+                    </span>
+                  </div>
+                ))
+              )}
+            </div>
+          </Panel>
+        </>
+      )}
+    </div>
+  );
+}
+
+function timelineEventDescription(
+  event: TimelineData["events"][number],
+  itemData: ReturnType<typeof useItemData>,
+  _champData: ReturnType<typeof useChampionData>,
+) {
+  if (event.event_type === "ITEM_PURCHASED" && event.item_id != null) {
+    return `Participant ${event.participant_id ?? "?"} purchased ${getItemName(itemData, event.item_id)}`;
+  }
+  if (event.event_type === "CHAMPION_KILL") {
+    return `Participant ${event.killer_id ?? "?"} killed participant ${event.victim_id ?? "?"}`;
+  }
+  if (event.event_type === "ELITE_MONSTER_KILL") {
+    return `${event.monster_type ?? "Monster"} defeated by participant ${event.killer_id ?? "?"}`;
+  }
+  if (event.event_type === "BUILDING_KILL") {
+    return `${event.building_type ?? "Building"} destroyed`;
+  }
+  return "Turret plate destroyed";
+}
+
+function SynergiesTab({
+  allies,
+  alliesLoading,
+  teammates,
+  teammatesLoading,
+  champData,
+  account: _account,
+}: {
+  allies: ChampionAllyRow[] | null;
+  alliesLoading: boolean;
+  teammates: ChampionTeammateRow[] | null;
+  teammatesLoading: boolean;
+  champData: ReturnType<typeof useChampionData>;
+  account: string;
+}) {
+  const [allySort, setAllySort] = useState<SynergySort>("games");
+  const [teammateSort, setTeammateSort] = useState<SynergySort>("games");
+
+  const sortRows = <T extends ChampionAllyRow | ChampionTeammateRow>(
+    rows: T[],
+    sort: SynergySort,
+  ) =>
+    rows.slice().sort((a, b) => {
+      const value = (row: T) => {
+        const games = Math.max(1, row.games);
+        if (sort === "winRate") return row.wins / games;
+        if (sort === "kda") return (row.kills + row.assists) / Math.max(1, row.deaths);
+        return row.games;
+      };
+      return value(b) - value(a);
+    });
+
+  const sortedAllies = sortRows(allies ?? [], allySort);
+  const sortedTeammates = sortRows(teammates ?? [], teammateSort);
+
+  return (
+    <div className="grid grid-cols-1 gap-5 xl:grid-cols-2">
+      <Panel>
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+          <SectionHeading title="Best allies" />
+          <SortButtons
+            value={allySort}
+            options={[
+              ["games", "Most games"],
+              ["winRate", "Best win rate"],
+              ["kda", "Best KDA"],
+            ]}
+            onChange={setAllySort}
+          />
+        </div>
+        {alliesLoading ? (
+          <SectionLoading />
+        ) : sortedAllies.length === 0 ? (
+          <NoData text="No ally data yet" />
+        ) : (
+          <>
+            <div className="flex max-h-[520px] flex-col gap-2 overflow-y-auto text-xs">
+              {sortedAllies.slice(0, 30).map((row) => {
+                const games = Math.max(1, row.games);
+                const kda = (row.kills + row.assists) / Math.max(1, row.deaths);
+                return (
+                  <div
+                    key={row.championId}
+                    className="grid min-w-[540px] grid-cols-[minmax(10rem,1fr)_auto_minmax(8rem,auto)_minmax(9rem,auto)] items-center gap-3 text-lol-text-bright"
+                  >
+                    <span className="flex min-w-0 items-center gap-2">
+                      <ChampionIcon championId={row.championId} size={24} className="rounded-md" />
+                      <span className="truncate">{getChampionName(champData, row.championId)}</span>
+                    </span>
+                    <span className="shrink-0 whitespace-nowrap text-lol-text">
+                      {row.games} games
+                    </span>
+                    <span className="shrink-0 whitespace-nowrap">
+                      <span className="text-lol-win">{row.wins}W</span>-
+                      <span className="text-lol-loss">{row.games - row.wins}L</span>
+                    </span>
+                    <span className="flex items-center justify-end gap-2 whitespace-nowrap">
+                      <span className="w-16">
+                        <WinRateBar wins={row.wins} total={row.games} showPercent={false} />
+                      </span>
+                      <span className="w-11 text-right tabular-nums">
+                        {formatPercent(row.wins, row.games)}
+                      </span>
+                      <span className="w-28 text-right tabular-nums text-lol-text">
+                        {(row.kills / games).toFixed(1)} / {(row.deaths / games).toFixed(1)} /{" "}
+                        {(row.assists / games).toFixed(1)} · {kda.toFixed(2)}
+                      </span>
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+            {sortedAllies.length > 30 && (
+              <p className="mt-3 text-xs text-lol-text">+{sortedAllies.length - 30} more allies</p>
+            )}
+          </>
+        )}
+      </Panel>
+
+      <Panel>
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+          <SectionHeading title="Best duo partners" />
+          <SortButtons
+            value={teammateSort}
+            options={[
+              ["games", "Most games"],
+              ["winRate", "Best win rate"],
+              ["kda", "Best KDA"],
+            ]}
+            onChange={setTeammateSort}
+          />
+        </div>
+        {teammatesLoading ? (
+          <SectionLoading />
+        ) : sortedTeammates.length === 0 ? (
+          <NoData text="No duo data yet" />
+        ) : (
+          <>
+            <div className="flex max-h-[520px] flex-col gap-2 overflow-y-auto text-xs">
+              {sortedTeammates.slice(0, 30).map((row) => {
+                const games = Math.max(1, row.games);
+                const kda = (row.kills + row.assists) / Math.max(1, row.deaths);
+                const initials = row.name.slice(0, 2).toUpperCase();
+                return (
+                  <div
+                    key={row.puuid}
+                    className="grid min-w-[540px] grid-cols-[minmax(10rem,1fr)_auto_minmax(8rem,auto)_minmax(9rem,auto)] items-center gap-3 text-lol-text-bright"
+                  >
+                    <span className="flex min-w-0 items-center gap-2">
+                      {row.profileIcon != null ? (
+                        <SummonerIcon iconId={row.profileIcon} size={24} />
+                      ) : (
+                        <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-lol-border/60 text-[9px] font-semibold text-lol-text-bright">
+                          {initials}
+                        </span>
+                      )}
+                      <span className="min-w-0 truncate">
+                        <span className="block truncate">{row.name}</span>
+                        {row.topChampionId != null && (
+                          <span className="block truncate text-[10px] text-lol-text">
+                            Most played with: {getChampionName(champData, row.topChampionId)}
+                          </span>
+                        )}
+                      </span>
+                    </span>
+                    <span className="shrink-0 whitespace-nowrap text-lol-text">
+                      {row.games} games
+                    </span>
+                    <span className="shrink-0 whitespace-nowrap">
+                      <span className="text-lol-win">{row.wins}W</span>-
+                      <span className="text-lol-loss">{row.games - row.wins}L</span>
+                    </span>
+                    <span className="flex items-center justify-end gap-2 whitespace-nowrap">
+                      <span className="w-16">
+                        <WinRateBar wins={row.wins} total={row.games} showPercent={false} />
+                      </span>
+                      <span className="w-11 text-right tabular-nums">
+                        {formatPercent(row.wins, row.games)}
+                      </span>
+                      <span className="w-28 text-right tabular-nums text-lol-text">
+                        {(row.kills / games).toFixed(1)} / {(row.deaths / games).toFixed(1)} /{" "}
+                        {(row.assists / games).toFixed(1)} · {kda.toFixed(2)}
+                      </span>
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+            {sortedTeammates.length > 30 && (
+              <p className="mt-3 text-xs text-lol-text">
+                +{sortedTeammates.length - 30} more duo partners
+              </p>
+            )}
+          </>
+        )}
+      </Panel>
+    </div>
   );
 }
 

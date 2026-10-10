@@ -828,6 +828,46 @@ export interface TrendsData {
   weekdays: { weekday: number; games: number; wins: number }[];
 }
 
+export interface ChampionTrendsDay {
+  day: string;
+  games: number;
+  wins: number;
+  kills: number;
+  deaths: number;
+  assists: number;
+  score_sum: number | null;
+  scored_games: number;
+  cs_sum: number | null;
+  gold_sum: number | null;
+}
+
+export interface ChampionTrendsPatch {
+  patch: string;
+  games: number;
+  wins: number;
+  avg_score: number | null;
+  first_played: number;
+}
+
+export interface ChampionTrendsHour {
+  hour: number;
+  games: number;
+  wins: number;
+}
+
+export interface ChampionTrendsWeekday {
+  weekday: number;
+  games: number;
+  wins: number;
+}
+
+export interface ChampionTrendsData {
+  daily: ChampionTrendsDay[];
+  patches: ChampionTrendsPatch[];
+  hours: ChampionTrendsHour[];
+  weekdays: ChampionTrendsWeekday[];
+}
+
 // Just enough of a game to draw a record's context line and open its match.
 export interface RecordMatchRef {
   game_id: number;
@@ -1209,6 +1249,19 @@ export interface ElectronAPI {
     championId: number,
     account?: string,
   ) => Promise<ChampionWeeklyWinRate[]>;
+  getChampionTrendsData: (
+    championId: number,
+    patch?: string,
+    queue?: number,
+    account?: string,
+  ) => Promise<ChampionTrendsData>;
+  getChampionTimelineGames: (
+    championId: number,
+    limit: number,
+    patch?: string,
+    queue?: number,
+    account?: string,
+  ) => Promise<ChampionTimelineGame[]>;
   getChampionMatchups: (championId: number, account?: string) => Promise<ChampionMatchups>;
   getChampionMatchupList: (
     championId: number,
@@ -1525,4 +1578,17 @@ export interface TimelineData {
   status: TimelineStatus | null;
   frames: TimelineFrame[];
   events: TimelineEvent[];
+}
+
+export interface ChampionTimelineGame {
+  gameId: number;
+  gameCreation: number;
+  queueId: number;
+  championId: number;
+  ownerPuuid: string | null;
+  win: number;
+  kills: number;
+  deaths: number;
+  assists: number;
+  frameCount: number;
 }

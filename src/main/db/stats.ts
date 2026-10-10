@@ -31,6 +31,46 @@ export interface ChampionRoleStat {
   wins: number;
 }
 
+export interface ChampionTrendsDay {
+  day: string;
+  games: number;
+  wins: number;
+  kills: number;
+  deaths: number;
+  assists: number;
+  score_sum: number | null;
+  scored_games: number;
+  cs_sum: number | null;
+  gold_sum: number | null;
+}
+
+export interface ChampionTrendsPatch {
+  patch: string;
+  games: number;
+  wins: number;
+  avg_score: number | null;
+  first_played: number;
+}
+
+export interface ChampionTrendsHour {
+  hour: number;
+  games: number;
+  wins: number;
+}
+
+export interface ChampionTrendsWeekday {
+  weekday: number;
+  games: number;
+  wins: number;
+}
+
+export interface ChampionTrendsData {
+  daily: ChampionTrendsDay[];
+  patches: ChampionTrendsPatch[];
+  hours: ChampionTrendsHour[];
+  weekdays: ChampionTrendsWeekday[];
+}
+
 export function getChampionStatsAll(
   patch?: string,
   queue?: number | number[],
@@ -2498,6 +2538,101 @@ export function getTrendsData(queue?: number, account?: string): any {
     .all(...params);
 
   return { daily, patches, hours, weekdays };
+}
+
+export function getChampionTrendsData(
+  championId: number,
+  patch?: string,
+  queue?: number,
+  account?: string,
+): ChampionTrendsData {
+  console.log("[db] getChampionTrendsData called:", { championId, patch, queue, account });
+
+  const source = statsSource(account);
+  const participant = participantFilter(patch, undefined, "mp");
+  const ownerPuuidSql = account ? "ps.puuid" : "g.puuid";
+  const where = [
+    source.accountFilter,
+    participant.sql,
+    "mp.champion_id = ?",
+    `mp.puuid = ${ownerPuuidSql}`,
+  ];
+  const params: any[] = [];
+  if (account && account !== "all") params.push(account);
+  params.push(...participant.params, championId);
+  applyQueueFilter(where, params, queue, "g");
+  const whereSql = `WHERE ${where.join(" AND ")}`;
+  const fromSql = `
+    FROM games g
+    JOIN match_participants mp ON mp.game_id = g.game_id
+    JOIN ${source.table} ps ON ps.game_id = g.game_id
+  `;
+
+  const daily = db
+    .prepare(`
+      SELECT date(g.game_creation / 1000, 'unixepoch', 'localtime') as day,
+             COUNT(*) as games,
+             SUM(mp.win) as wins,
+             SUM(mp.kills) as kills,
+             SUM(mp.deaths) as deaths,
+             SUM(mp.assists) as assists,
+             SUM(ps.score) as score_sum,
+             COUNT(ps.score) as scored_games,
+             SUM(mp.cs) as cs_sum,
+             SUM(mp.gold_earned) as gold_sum
+      ${fromSql}
+      ${whereSql}
+      GROUP BY day
+      ORDER BY day
+    `)
+    .all(...params) as ChampionTrendsDay[];
+
+  const patches = db
+    .prepare(`
+      SELECT g.game_version as patch,
+             COUNT(*) as games,
+             SUM(mp.win) as wins,
+             AVG(ps.score) as avg_score,
+             MIN(g.game_creation) as first_played
+      ${fromSql}
+      ${whereSql} AND g.game_version IS NOT NULL AND g.game_version != ''
+      GROUP BY g.game_version
+      ORDER BY first_played
+    `)
+    .all(...params) as ChampionTrendsPatch[];
+
+  const hours = db
+    .prepare(`
+      SELECT CAST(strftime('%H', g.game_creation / 1000, 'unixepoch', 'localtime') AS INTEGER) as hour,
+             COUNT(*) as games,
+             SUM(mp.win) as wins
+      ${fromSql}
+      ${whereSql}
+      GROUP BY hour
+      ORDER BY hour
+    `)
+    .all(...params) as ChampionTrendsHour[];
+
+  const weekdays = db
+    .prepare(`
+      SELECT CAST(strftime('%w', g.game_creation / 1000, 'unixepoch', 'localtime') AS INTEGER) as weekday,
+             COUNT(*) as games,
+             SUM(mp.win) as wins
+      ${fromSql}
+      ${whereSql}
+      GROUP BY weekday
+      ORDER BY weekday
+    `)
+    .all(...params) as ChampionTrendsWeekday[];
+
+  const result = { daily, patches, hours, weekdays };
+  console.log("[db] getChampionTrendsData done:", {
+    daily: daily.length,
+    patches: patches.length,
+    hours: hours.length,
+    weekdays: weekdays.length,
+  });
+  return result;
 }
 
 // The trophy case: best single-game marks and longest streaks, from one
