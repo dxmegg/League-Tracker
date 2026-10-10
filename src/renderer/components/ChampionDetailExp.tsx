@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useState, type ReactElement, type ReactNode } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import type {
   AugmentStats,
@@ -56,22 +56,22 @@ import WinRateBar from "./WinRateBar";
 import ItemIcon from "./ItemIcon";
 
 const TAB_ITEMS: TabStripItem[] = [
-  { key: "ov", label: "Overview" },
-  { key: "cb", label: "Combat" },
-  { key: "ec", label: "Economy" },
-  { key: "fa", label: "Farm" },
-  { key: "ob", label: "Objectives" },
-  { key: "vi", label: "Vision" },
-  { key: "ab", label: "Abilities" },
-  { key: "it", label: "Items" },
-  { key: "ru", label: "Runes" },
-  { key: "mu", label: "Matchups" },
-  { key: "sy", label: "Synergies" },
-  { key: "tl", label: "Timeline" },
-  { key: "tr", label: "Trends" },
-  { key: "rc", label: "Records" },
-  { key: "ma", label: "Matches" },
-  { key: "ms", label: "Mastery" },
+  { key: "ov", label: "Overview", accent: "var(--theme-assist)" },
+  { key: "cb", label: "Combat", accent: "var(--theme-loss)" },
+  { key: "ec", label: "Economy", accent: "var(--theme-gold)" },
+  { key: "fa", label: "Farm", accent: "var(--theme-win)" },
+  { key: "ob", label: "Objectives", accent: "var(--theme-crimson)" },
+  { key: "vi", label: "Vision", accent: "var(--theme-assist)" },
+  { key: "ab", label: "Abilities", accent: "var(--theme-gold)" },
+  { key: "it", label: "Items", accent: "var(--theme-gold)" },
+  { key: "ru", label: "Runes", accent: "var(--theme-violet)" },
+  { key: "mu", label: "Matchups", accent: "var(--theme-loss)" },
+  { key: "sy", label: "Synergies", accent: "var(--theme-win)" },
+  { key: "tl", label: "Timeline", accent: "var(--theme-assist)" },
+  { key: "tr", label: "Trends", accent: "var(--theme-gold)" },
+  { key: "rc", label: "Records", accent: "var(--theme-crimson)" },
+  { key: "ma", label: "Matches", accent: "var(--theme-text)" },
+  { key: "ms", label: "Mastery", accent: "var(--theme-violet)" },
 ];
 
 type RateSort = "count" | "winRate";
@@ -658,7 +658,7 @@ export function ChampionDetailExp() {
           champData={champData}
         />
       ) : activeTab === "rc" ? (
-        <RecordsTab records={records} recordsLoading={recordsLoading} />
+        <RecordsTab records={records} recordsLoading={recordsLoading} matchHistory={matchHistory} />
       ) : matchesActive ? (
         <MatchesTab
           championId={id}
@@ -708,16 +708,70 @@ const RECORD_GROUPS: Array<[string, string[]]> = [
 export function RecordsTab({
   records,
   recordsLoading,
+  matchHistory,
 }: {
   records: ChampionRecordsResult | null;
   recordsLoading: boolean;
+  matchHistory: { matches: MatchListItem[]; total: number } | null;
 }) {
+  const champData = useChampionData();
   if (recordsLoading) return <SectionLoading />;
   if (!records || records.records.length === 0) return <NoData />;
 
+  const podium = (matchHistory?.matches ?? [])
+    .slice()
+    .sort(
+      (a, b) =>
+        (b.score ?? Number.NEGATIVE_INFINITY) - (a.score ?? Number.NEGATIVE_INFINITY) ||
+        b.game_creation - a.game_creation,
+    )
+    .slice(0, 3);
   const byKey = new Map(records.records.map((record) => [record.key, record]));
   return (
     <div className="flex flex-col gap-5">
+      <InsightsPanel
+        insights={[
+          {
+            kind: "info",
+            text: "Personal bests for this champion — the specific game that holds each record is shown on the card.",
+          },
+        ]}
+      />
+      <Panel>
+        <SectionHeading title="Podium — best games" />
+        {podium.length === 0 ? (
+          <NoData text="No games to rank" />
+        ) : (
+          <div className="flex flex-col gap-2">
+            {podium.map((match, index) => (
+              <div
+                key={match.game_id}
+                className="flex items-center gap-3 rounded-lg border border-lol-border/40 bg-black/10 px-3 py-2"
+              >
+                <span aria-label={`Place ${index + 1}`} className="text-base">
+                  {["🥇", "🥈", "🥉"][index]}
+                </span>
+                <ChampionIcon championId={match.champion_id} size={28} className="rounded-md" />
+                <span className="min-w-0 flex-1 truncate text-xs font-semibold text-lol-text-bright">
+                  {getChampionName(champData, match.champion_id)}
+                </span>
+                <span className="shrink-0 text-xs tabular-nums text-lol-text-bright">
+                  {match.kills}/{match.deaths}/{match.assists}
+                </span>
+                <span className="shrink-0 text-xs tabular-nums text-lol-gold">
+                  {match.score == null ? "—" : match.score.toFixed(1)}
+                </span>
+                <span className="shrink-0 text-xs tabular-nums text-lol-text">
+                  {formatSeconds(match.game_duration)}
+                </span>
+                <span className="shrink-0 text-xs text-lol-text">
+                  {formatTimeAgo(match.game_creation)}
+                </span>
+              </div>
+            ))}
+          </div>
+        )}
+      </Panel>
       {RECORD_GROUPS.map(([group, keys]) => {
         const groupRecords = keys
           .map((key) => byKey.get(key))
@@ -1246,8 +1300,16 @@ function VisionTab({
 
   return (
     <div className="grid grid-cols-1 gap-5 xl:grid-cols-2">
+      <InsightsPanel
+        insights={[
+          {
+            kind: "info",
+            text: "Placeholder — vision insights land in a follow-up phase.",
+          },
+        ]}
+      />
       <Panel className="xl:col-span-2">
-        <SectionHeading title="Vision score" />
+        <SectionHeading title="Vision score" source="m" />
         <CombatStatTable
           rows={[
             [
@@ -1290,7 +1352,7 @@ function VisionTab({
       </Panel>
 
       <Panel>
-        <SectionHeading title="Per minute" />
+        <SectionHeading title="Per minute" source="d" />
         <div className="flex flex-col gap-3 text-xs">
           {[
             ["Vision score / min", perMinute(detail.avgVisionScore)],
@@ -1306,7 +1368,7 @@ function VisionTab({
       </Panel>
 
       <Panel>
-        <SectionHeading title="Ratio" />
+        <SectionHeading title="Ratio" source="d" />
         <div className="flex flex-col gap-3 text-xs">
           <div className="flex items-center justify-between">
             <span className="text-lol-text">Ward kill ratio</span>
@@ -1320,7 +1382,7 @@ function VisionTab({
       </Panel>
 
       <Panel className="xl:col-span-2">
-        <SectionHeading title="Recent games" />
+        <SectionHeading title="Recent games" source="m" />
         {recentMatches.length === 0 ? (
           <NoData />
         ) : (
@@ -1402,8 +1464,17 @@ function ItemsTab({
 
   return (
     <div className="grid grid-cols-1 gap-5 xl:grid-cols-2">
+      <InsightsPanel
+        insights={[
+          {
+            kind: "info",
+            text: "Placeholder — item build insights land in a follow-up phase.",
+          },
+        ]}
+      />
       <RatePanel
         title="Top items"
+        source="m"
         sort={sort}
         options={[
           ["count", "Most built"],
@@ -1426,7 +1497,7 @@ function ItemsTab({
       </RatePanel>
 
       <Panel className="xl:col-span-2">
-        <SectionHeading title="Build slots" aside="Last 20 games" />
+        <SectionHeading title="Build slots" source="m" aside="Last 20 games" />
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 xl:grid-cols-7">
           {slotItems.map((slot, index) => (
             <div
@@ -1454,7 +1525,7 @@ function ItemsTab({
       </Panel>
 
       <Panel className="xl:col-span-2">
-        <SectionHeading title="Recent builds" aside="Last 10 games" />
+        <SectionHeading title="Recent builds" source="m" aside="Last 10 games" />
         {recentMatches.length === 0 ? (
           <NoData />
         ) : (
@@ -1791,6 +1862,7 @@ function shortTrendDate(label: string, mode: "weekly" | "monthly") {
 
 function TrendChartPanel({
   title,
+  source,
   values,
   labels,
   color,
@@ -1800,6 +1872,7 @@ function TrendChartPanel({
   baseline,
 }: {
   title: string;
+  source?: keyof typeof SOURCE_LABELS;
   values: number[];
   labels: string[];
   color: string;
@@ -1810,7 +1883,7 @@ function TrendChartPanel({
 }) {
   return (
     <Panel>
-      <SectionHeading title={title} />
+      <SectionHeading title={title} source={source} />
       <LineChartExp
         values={values}
         format={format}
@@ -1863,9 +1936,17 @@ function TrendsTab({
 
   return (
     <div className="grid grid-cols-1 gap-5 xl:grid-cols-2">
+      <InsightsPanel
+        insights={[
+          {
+            kind: "info",
+            text: "Placeholder — trend insights land in a follow-up phase.",
+          },
+        ]}
+      />
       <Panel className="xl:col-span-2">
         <div className="mb-4 flex items-center justify-between gap-3">
-          <SectionHeading title="Win rate over time" />
+          <SectionHeading title="Win rate over time" source="m" />
           <div className="flex gap-1 rounded border border-lol-border p-0.5 text-xs">
             {(["weekly", "monthly"] as const).map((value) => (
               <button
@@ -1891,7 +1972,7 @@ function TrendsTab({
         />
       </Panel>
       <Panel className="xl:col-span-2">
-        <SectionHeading title="Average KDA over time" />
+        <SectionHeading title="Average KDA over time" source="m" />
         <LineChartExp
           values={kdas}
           format={(value) => value.toFixed(2)}
@@ -1902,6 +1983,7 @@ function TrendsTab({
       </Panel>
       <TrendChartPanel
         title="Average score over time"
+        source="m"
         values={scores}
         labels={labels}
         color="var(--theme-gold)"
@@ -1911,13 +1993,14 @@ function TrendsTab({
       />
       <TrendChartPanel
         title="Average CS per game"
+        source="m"
         values={averageCs}
         labels={labels}
         color="var(--theme-violet)"
         format={(value) => value.toFixed(1)}
       />
       <Panel className="xl:col-span-2">
-        <SectionHeading title="Win rate by patch" />
+        <SectionHeading title="Win rate by patch" source="m" />
         <div className="flex flex-col gap-2 text-xs">
           {patches.map((row) => (
             <div
@@ -1941,7 +2024,7 @@ function TrendsTab({
         </div>
       </Panel>
       <Panel>
-        <SectionHeading title="By day of week" />
+        <SectionHeading title="By day of week" source="m" />
         <TrendBars
           rows={weekdays.map((row, index) => ({
             label: ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"][index],
@@ -1951,7 +2034,7 @@ function TrendsTab({
         />
       </Panel>
       <Panel>
-        <SectionHeading title="By hour of day" />
+        <SectionHeading title="By hour of day" source="m" />
         <TrendBars rows={hours} />
       </Panel>
     </div>
@@ -2022,8 +2105,16 @@ function TimelineTab({
 
   return (
     <div className="grid grid-cols-1 gap-5">
+      <InsightsPanel
+        insights={[
+          {
+            kind: "info",
+            text: "Timeline data is available for a subset of games (those fetched while logged in).",
+          },
+        ]}
+      />
       <Panel>
-        <SectionHeading title="Game picker" />
+        <SectionHeading title="Game picker" source="t" />
         <div className="flex gap-2 overflow-x-auto pb-1">
           {games.map((game) => (
             <button
@@ -2058,7 +2149,7 @@ function TimelineTab({
       ) : (
         <>
           <Panel className="xl:col-span-2">
-            <SectionHeading title="Gold and CS curves" />
+            <SectionHeading title="Gold and CS curves" source="t" />
             <LineChartExp
               values={ownerFrames.map((frame) => frame.gold ?? 0)}
               series={[
@@ -2080,7 +2171,7 @@ function TimelineTab({
             />
           </Panel>
           <Panel className="xl:col-span-2">
-            <SectionHeading title="Level and XP" />
+            <SectionHeading title="Level and XP" source="t" />
             <LineChartExp
               values={ownerFrames.map((frame) => (frame.level ?? 0) * 100)}
               series={[
@@ -2102,7 +2193,7 @@ function TimelineTab({
             />
           </Panel>
           <Panel>
-            <SectionHeading title="Events" />
+            <SectionHeading title="Events" source="t" />
             <div className="flex max-h-[420px] flex-col gap-2 overflow-y-auto text-xs">
               {events.length === 0 ? (
                 <NoData text="No timeline events" />
@@ -2369,8 +2460,16 @@ function AbilitiesTab({
 
   return (
     <div className="grid grid-cols-1 gap-5 xl:grid-cols-2">
+      <InsightsPanel
+        insights={[
+          {
+            kind: "info",
+            text: "Per-ability damage is not exposed by any Riot API. Skill orders are shown from timeline data when available.",
+          },
+        ]}
+      />
       <Panel className="xl:col-span-2">
-        <SectionHeading title="Skill order" />
+        <SectionHeading title="Skill order" source="t" />
         {orders.length === 0 ? (
           <NoData text="No skill data yet (requires timeline)" />
         ) : (
@@ -2415,7 +2514,11 @@ function AbilitiesTab({
       </Panel>
 
       <Panel>
-        <SectionHeading title="R rank timing" aside={`Based on ${rTiming.sampleSize} games`} />
+        <SectionHeading
+          title="R rank timing"
+          source="t"
+          aside={`Based on ${rTiming.sampleSize} games`}
+        />
         <div className="flex flex-col gap-3 text-xs">
           {[
             ["R rank 1", formatRankTiming(rTiming.avgR1Min)],
@@ -2431,7 +2534,7 @@ function AbilitiesTab({
       </Panel>
 
       <Panel>
-        <SectionHeading title="Summoner spells" />
+        <SectionHeading title="Summoner spells" source="m" />
         {(skillOrders?.summonerSpells ?? []).length === 0 ? (
           <NoData />
         ) : (
@@ -2462,7 +2565,7 @@ function AbilitiesTab({
       </Panel>
 
       <Panel className="xl:col-span-2">
-        <SectionHeading title="Per-ability damage" />
+        <SectionHeading title="Per-ability damage" source="d" />
         <div className="rounded-lg border border-dashed border-amber-400/40 bg-amber-400/5 p-4 text-sm text-lol-text">
           Per-ability damage (Q/W/E/R breakdown) is not available in any public Riot API. This
           section is intentionally empty.
@@ -2739,8 +2842,20 @@ function EconomyTab({
 
   return (
     <div className="grid grid-cols-1 gap-5 xl:grid-cols-2">
+      <InsightsPanel
+        insights={[
+          {
+            kind: "good",
+            text: "Gold income peaks in the mid game — plan your item spikes around it.",
+          },
+          {
+            kind: "info",
+            text: "Placeholder — real gold-lead insights land in a follow-up phase.",
+          },
+        ]}
+      />
       <Panel>
-        <SectionHeading title="Gold" />
+        <SectionHeading title="Gold" source="m" />
         <CombatStatTable
           rows={[
             [
@@ -2763,7 +2878,7 @@ function EconomyTab({
       </Panel>
 
       <Panel>
-        <SectionHeading title="Time" />
+        <SectionHeading title="Time" source="d" />
         <CombatStatTable
           rows={[
             ["Avg game length", detail.avgGameLength, null, null, formatSeconds],
@@ -2791,8 +2906,20 @@ function FarmTab({
 
   return (
     <div className="grid grid-cols-1 gap-5 xl:grid-cols-2">
+      <InsightsPanel
+        insights={[
+          {
+            kind: "good",
+            text: "CS per minute is consistent across game lengths.",
+          },
+          {
+            kind: "info",
+            text: "Placeholder — real farming insights land in a follow-up phase.",
+          },
+        ]}
+      />
       <Panel>
-        <SectionHeading title="Minion split" />
+        <SectionHeading title="Minion split" source="m" />
         <CombatStatTable
           rows={[
             [
@@ -2824,7 +2951,7 @@ function FarmTab({
       </Panel>
 
       <Panel>
-        <SectionHeading title="Per minute" />
+        <SectionHeading title="Per minute" source="d" />
         <div className="flex flex-col gap-3 text-xs">
           <div className="flex items-center justify-between">
             <span className="text-lol-text">Games played</span>
@@ -2854,8 +2981,16 @@ function ObjectivesTab({
 
   return (
     <div className="grid grid-cols-1 gap-5 xl:grid-cols-2">
+      <InsightsPanel
+        insights={[
+          {
+            kind: "info",
+            text: "Placeholder — objective control insights land in a follow-up phase.",
+          },
+        ]}
+      />
       <Panel>
-        <SectionHeading title="Turrets & inhibitors" />
+        <SectionHeading title="Turrets & inhibitors" source="m" />
         <CombatStatTable
           rows={[
             ["Turret kills", detail.avgTurretKills, detail.maxTurretKills, detail.totalTurretKills],
@@ -2877,7 +3012,7 @@ function ObjectivesTab({
       </Panel>
 
       <Panel>
-        <SectionHeading title="Damage to objectives" />
+        <SectionHeading title="Damage to objectives" source="m" />
         <CombatStatTable
           rows={[
             [
@@ -2897,7 +3032,7 @@ function ObjectivesTab({
       </Panel>
 
       <Panel className="xl:col-span-2">
-        <SectionHeading title="First blood objectives" />
+        <SectionHeading title="First blood objectives" source="m" />
         <div className="grid grid-cols-2 gap-3">
           <CombatTile
             label="First tower kills"
@@ -2923,7 +3058,7 @@ function ObjectivesTab({
       </Panel>
 
       <Panel>
-        <SectionHeading title="Stolen objectives" />
+        <SectionHeading title="Stolen objectives" source="m" />
         <CombatStatTable
           rows={[
             [
@@ -3048,6 +3183,7 @@ function formatPercent(value: number | null | undefined, total: number) {
 
 function RatePanel({
   title,
+  source,
   sort,
   options,
   onSortChange,
@@ -3056,6 +3192,7 @@ function RatePanel({
   children,
 }: {
   title: string;
+  source?: keyof typeof SOURCE_LABELS;
   sort: RateSort;
   options: [RateSort, string][];
   onSortChange: (sort: RateSort) => void;
@@ -3066,7 +3203,7 @@ function RatePanel({
   return (
     <Panel>
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-        <SectionHeading title={title} />
+        <SectionHeading title={title} source={source} />
         <SortButtons value={sort} options={options} onChange={onSortChange} />
       </div>
       {loading ? (
@@ -3148,10 +3285,66 @@ function Stat({
   );
 }
 
-function SectionHeading({ title, aside }: { title: string; aside?: string }) {
+const SOURCE_LABELS = {
+  m: "Match-V5",
+  t: "Timeline",
+  d: "Derived",
+  l: "LCU",
+  dd: "Data Dragon",
+} as const;
+
+function SourceBadge({ kind }: { kind: keyof typeof SOURCE_LABELS }): ReactElement {
+  return (
+    <span className="rounded border border-lol-border/60 px-2 py-0.5 font-display text-[10px] font-semibold uppercase tracking-wider text-lol-text">
+      {SOURCE_LABELS[kind]}
+    </span>
+  );
+}
+
+export interface Insight {
+  kind: "good" | "warn" | "info" | "bad";
+  text: string;
+}
+
+// Placeholder copy is temporary; the next phase replaces it with computed stats.
+function InsightsPanel({ insights }: { insights: Insight[] }): ReactElement {
+  const borderColors: Record<Insight["kind"], string> = {
+    good: "var(--theme-win)",
+    warn: "var(--theme-gold)",
+    info: "var(--theme-assist)",
+    bad: "var(--theme-loss)",
+  };
+
+  return (
+    <div className="flex flex-col gap-2">
+      {insights.map((insight, index) => (
+        <div
+          key={`${insight.kind}-${index}`}
+          className="rounded-r-lg bg-white/[0.02] px-3 py-2 text-xs text-lol-text-bright"
+          style={{ borderLeft: `3px solid ${borderColors[insight.kind]}` }}
+        >
+          {insight.text}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function SectionHeading({
+  title,
+  aside,
+  source,
+}: {
+  title: string;
+  aside?: string;
+  source?: keyof typeof SOURCE_LABELS;
+}) {
   return (
     <div className="mb-4 flex items-baseline justify-between gap-3">
-      <h2 className="font-display text-[16px] font-semibold text-lol-text-bright">{title}</h2>
+      <h2 className="flex items-center gap-2 font-display text-[16px] font-semibold text-lol-text-bright">
+        {title}
+        {source && <SourceBadge kind={source} />}
+      </h2>
       {aside && <span className="text-[12px] text-lol-text">{aside}</span>}
     </div>
   );
