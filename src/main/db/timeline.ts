@@ -107,6 +107,7 @@ export async function backfillTimeline(options: {
       progress.skipped++;
       progress.current++;
       report();
+      markTimelineFetchError(gameId, "skipped: unsupported queue " + queue.queue_id);
       continue;
     }
 
