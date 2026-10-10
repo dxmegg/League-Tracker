@@ -39,6 +39,10 @@ const STYLE = `
 .match-row[data-win="false"] {
   background: linear-gradient(90deg, rgba(240,86,110,0.11) 0%, transparent 55%), var(--theme-card);
 }
+.match-row[data-remake="true"] {
+  --edge: rgba(255,255,255,0.08);
+  background: var(--theme-card);
+}
 .match-row .m-res { grid-area: res; }
 .match-row .m-res b { display: block; font-family: var(--theme-font-display); font-size: 19px; line-height: 1.1; font-weight: 700; }
 .match-row .m-res span { color: var(--theme-foreground-muted); font-size: 12.5px; }
@@ -132,7 +136,7 @@ export function MatchRowExperiment({
   }) => void;
 }) {
   const isWin = !!match.win;
-  const isRemake = !!match.is_remake;
+  const isRemake = match.is_remake === 1;
   const runeData = useRuneData();
   const augmentIds = parseAugmentIds(match.augment_ids);
   const runeIds = parseRuneIds(match.rune_ids);
@@ -148,11 +152,12 @@ export function MatchRowExperiment({
       <article
         className={`match-row${onToggle ? " cursor-pointer" : ""}`}
         data-win={isWin}
+        data-remake={isRemake}
         {...(onToggle ? { onClick: onToggle } : {})}
       >
         <div className="m-res">
-          <b className={isWin ? "text-lol-win" : "text-lol-loss"}>
-            {isRemake ? "RMK" : isWin ? "Win" : "Loss"}
+          <b className={isRemake ? "text-lol-text" : isWin ? "text-lol-win" : "text-lol-loss"}>
+            {isRemake ? "Remake" : isWin ? "Win" : "Loss"}
           </b>
           <span>{queueLabel(match.queue_id)}</span>
         </div>
