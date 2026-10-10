@@ -260,6 +260,13 @@ export function registerIpcHandlers() {
     return db.getChampionKeystones(championId, account);
   });
 
+  ipcMain.handle(
+    "db:champion-rune-stats",
+    (_event, championId: number, patch?: string, queue?: number, account?: string) => {
+      return db.getChampionRuneStats(championId, patch, queue, account);
+    },
+  );
+
   ipcMain.handle("db:champion-weekly-winrate", (_event, championId: number, account?: string) => {
     return db.getChampionWeeklyWinRate(championId, account);
   });
@@ -267,6 +274,13 @@ export function registerIpcHandlers() {
   ipcMain.handle("db:champion-matchups", (_event, championId: number, account?: string) => {
     return db.getChampionMatchups(championId, account);
   });
+
+  ipcMain.handle(
+    "db:champion-matchup-list",
+    (_event, championId: number, patch?: string, queue?: number, account?: string) => {
+      return db.getChampionMatchupList(championId, patch, queue, account);
+    },
+  );
 
   ipcMain.handle(
     "db:augment-stats",

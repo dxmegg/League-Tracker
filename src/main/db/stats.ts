@@ -201,6 +201,92 @@ export function getChampionKeystones(
     .slice(0, 15);
 }
 
+export interface ChampionRuneStatsResult {
+  keystones: Array<{ runeId: number; picks: number; wins: number }>;
+  primaryTrees: Array<{ styleId: number; picks: number; wins: number }>;
+  secondaryTrees: Array<{ styleId: number; picks: number; wins: number }>;
+  pages: Array<{ runes: string; picks: number; wins: number }>;
+}
+
+export function getChampionRuneStats(
+  championId: number,
+  patch?: string,
+  queue?: number,
+  account?: string,
+): ChampionRuneStatsResult {
+  console.log("[db] getChampionRuneStats called:", { championId, patch, queue, account });
+
+  const source = statsSource(account);
+  const participant = participantFilter(patch, undefined, "mp");
+  const where = [source.accountFilter, participant.sql, "mp.champion_id = ?"];
+  const params: any[] = [];
+  if (account && account !== "all") params.push(account);
+  params.push(...participant.params, championId);
+  applyQueueFilter(where, params, queue, "g");
+
+  const championRows = `
+    champion_rows AS (
+      SELECT mp.rune0, mp.rune1, mp.rune2, mp.rune3, mp.rune4, mp.rune5,
+             mp.primary_style, mp.secondary_style, mp.win
+      FROM match_participants mp
+      JOIN games g ON g.game_id = mp.game_id
+      JOIN ${source.table} ps ON ps.game_id = mp.game_id AND ps.puuid = mp.puuid
+      WHERE ${where.join(" AND ")}
+    )`;
+  const query = (select: string) =>
+    db.prepare(`WITH ${championRows} ${select}`).all(...params) as Array<{
+      runeId?: number;
+      styleId?: number;
+      runes?: string;
+      picks: number;
+      wins: number;
+    }>;
+
+  const keystones = query(`
+    SELECT rune0 AS runeId, COUNT(*) AS picks, COALESCE(SUM(win), 0) AS wins
+    FROM champion_rows
+    WHERE rune0 IS NOT NULL AND rune0 > 0
+    GROUP BY rune0
+    ORDER BY picks DESC
+    LIMIT 15
+  `).map(({ runeId, picks, wins }) => ({ runeId: runeId!, picks, wins }));
+  const primaryTrees = query(`
+    SELECT primary_style AS styleId, COUNT(*) AS picks, COALESCE(SUM(win), 0) AS wins
+    FROM champion_rows
+    WHERE primary_style IS NOT NULL AND primary_style > 0
+    GROUP BY primary_style
+    ORDER BY picks DESC
+    LIMIT 15
+  `).map(({ styleId, picks, wins }) => ({ styleId: styleId!, picks, wins }));
+  const secondaryTrees = query(`
+    SELECT secondary_style AS styleId, COUNT(*) AS picks, COALESCE(SUM(win), 0) AS wins
+    FROM champion_rows
+    WHERE secondary_style IS NOT NULL AND secondary_style > 0
+    GROUP BY secondary_style
+    ORDER BY picks DESC
+    LIMIT 15
+  `).map(({ styleId, picks, wins }) => ({ styleId: styleId!, picks, wins }));
+  const pages = query(`
+    SELECT rune0 || ',' || rune1 || ',' || rune2 || ',' || rune3 || ',' || rune4 || ',' || rune5 AS runes,
+           COUNT(*) AS picks,
+           COALESCE(SUM(win), 0) AS wins
+    FROM champion_rows
+    WHERE rune0 IS NOT NULL AND rune0 > 0
+    GROUP BY runes
+    ORDER BY picks DESC
+    LIMIT 20
+  `).map(({ runes, picks, wins }) => ({ runes: runes!, picks, wins }));
+
+  const result = { keystones, primaryTrees, secondaryTrees, pages };
+  console.log("[db] getChampionRuneStats done:", {
+    keystones: keystones.length,
+    primaryTrees: primaryTrees.length,
+    secondaryTrees: secondaryTrees.length,
+    pages: pages.length,
+  });
+  return result;
+}
+
 export function getChampionWeeklyWinRate(
   championId: number,
   account?: string,
@@ -273,6 +359,73 @@ export function getChampionMatchups(
     best: best.map(({ championId, games, wins }) => ({ championId, games, wins })),
     worst: worst.map(({ championId, games, wins }) => ({ championId, games, wins })),
   };
+}
+
+export interface ChampionMatchupRow {
+  championId: number;
+  games: number;
+  wins: number;
+  kills: number;
+  deaths: number;
+  assists: number;
+  cs: number;
+  goldEarned: number;
+}
+
+export function getChampionMatchupList(
+  championId: number,
+  patch?: string,
+  queue?: number,
+  account?: string,
+): ChampionMatchupRow[] {
+  console.log("[db] getChampionMatchupList called:", { championId, patch, queue, account });
+
+  const source = statsSource(account);
+  const participant = participantFilter(patch, undefined, "owner");
+  const where = [source.accountFilter, participant.sql, "owner.champion_id = ?"];
+  const params: any[] = [];
+  if (account && account !== "all") params.push(account);
+  params.push(...participant.params, championId);
+  applyQueueFilter(where, params, queue, "g");
+
+  const rows = db
+    .prepare(`
+      WITH matchup_rows AS (
+        SELECT owner.game_id,
+               enemy.champion_id AS championId,
+               MAX(owner.win) AS wins,
+               MAX(owner.kills) AS kills,
+               MAX(owner.deaths) AS deaths,
+               MAX(owner.assists) AS assists,
+               MAX(owner.cs) AS cs,
+               MAX(owner.gold_earned) AS goldEarned
+        FROM match_participants owner
+        JOIN games g ON g.game_id = owner.game_id
+        JOIN ${source.table} ps ON ps.game_id = owner.game_id AND ps.puuid = owner.puuid
+        JOIN match_participants enemy
+          ON enemy.game_id = owner.game_id
+         AND enemy.team_id != owner.team_id
+        WHERE ${where.join(" AND ")}
+          AND enemy.champion_id > 0
+        GROUP BY owner.game_id, enemy.champion_id
+      )
+      SELECT championId,
+             COUNT(*) AS games,
+             COALESCE(SUM(wins), 0) AS wins,
+             COALESCE(SUM(kills), 0) AS kills,
+             COALESCE(SUM(deaths), 0) AS deaths,
+             COALESCE(SUM(assists), 0) AS assists,
+             COALESCE(SUM(cs), 0) AS cs,
+             COALESCE(SUM(goldEarned), 0) AS goldEarned
+      FROM matchup_rows
+      GROUP BY championId
+      HAVING games >= 1
+      ORDER BY games DESC, championId ASC
+    `)
+    .all(...params) as ChampionMatchupRow[];
+
+  console.log("[db] getChampionMatchupList done:", { count: rows.length });
+  return rows;
 }
 
 export function getAugmentStatsAll(

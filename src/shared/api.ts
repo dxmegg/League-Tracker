@@ -380,6 +380,13 @@ export interface ChampionKeystoneStat {
   wins: number;
 }
 
+export interface ChampionRuneStatsResult {
+  keystones: Array<{ runeId: number; picks: number; wins: number }>;
+  primaryTrees: Array<{ styleId: number; picks: number; wins: number }>;
+  secondaryTrees: Array<{ styleId: number; picks: number; wins: number }>;
+  pages: Array<{ runes: string; picks: number; wins: number }>;
+}
+
 export interface ChampionWeeklyWinRate {
   weekStart: number;
   games: number;
@@ -390,6 +397,17 @@ export interface ChampionMatchup {
   championId: number;
   games: number;
   wins: number;
+}
+
+export interface ChampionMatchupRow {
+  championId: number;
+  games: number;
+  wins: number;
+  kills: number;
+  deaths: number;
+  assists: number;
+  cs: number;
+  goldEarned: number;
 }
 
 export interface ChampionMatchups {
@@ -1160,11 +1178,23 @@ export interface ElectronAPI {
     queue?: number,
   ) => Promise<ChampionRoleStat[]>;
   getChampionKeystones: (championId: number, account?: string) => Promise<ChampionKeystoneStat[]>;
+  getChampionRuneStats: (
+    championId: number,
+    patch?: string,
+    queue?: number,
+    account?: string,
+  ) => Promise<ChampionRuneStatsResult>;
   getChampionWeeklyWinRate: (
     championId: number,
     account?: string,
   ) => Promise<ChampionWeeklyWinRate[]>;
   getChampionMatchups: (championId: number, account?: string) => Promise<ChampionMatchups>;
+  getChampionMatchupList: (
+    championId: number,
+    patch?: string,
+    queue?: number,
+    account?: string,
+  ) => Promise<ChampionMatchupRow[]>;
   getAugmentStats: (
     championId?: number,
     patch?: string,

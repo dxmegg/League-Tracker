@@ -110,11 +110,17 @@ const api: ElectronAPI = {
   getChampionKeystones: (championId: number, account?: string) =>
     ipcRenderer.invoke("db:champion-keystones", championId, account),
 
+  getChampionRuneStats: (championId: number, patch?: string, queue?: number, account?: string) =>
+    ipcRenderer.invoke("db:champion-rune-stats", championId, patch, queue, account),
+
   getChampionWeeklyWinRate: (championId: number, account?: string) =>
     ipcRenderer.invoke("db:champion-weekly-winrate", championId, account),
 
   getChampionMatchups: (championId: number, account?: string) =>
     ipcRenderer.invoke("db:champion-matchups", championId, account),
+
+  getChampionMatchupList: (championId: number, patch?: string, queue?: number, account?: string) =>
+    ipcRenderer.invoke("db:champion-matchup-list", championId, patch, queue, account),
 
   getAugmentStats: (championId?: number, patch?: string, queue?: number, account?: string) =>
     ipcRenderer.invoke("db:augment-stats", championId, patch, queue, account),
