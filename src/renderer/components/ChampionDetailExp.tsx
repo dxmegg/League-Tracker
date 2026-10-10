@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import type {
   AugmentStats,
+  ChampionAllyRow,
   ChampionDetailStats,
   ChampionKeystoneStat,
   ChampionMatchupRow,
@@ -9,6 +10,7 @@ import type {
   ChampionRoleStat,
   ChampionStats,
   ChampionSkillOrdersResult,
+  ChampionTeammateRow,
   ChampionWeeklyWinRate,
   GlobalChampionDetail,
   ItemStats,
@@ -39,6 +41,7 @@ import { MatchRowExperiment } from "./MatchRowExperiment";
 import { Panel } from "./Panel";
 import PatchSelect from "./PatchSelect";
 import RuneIcon from "./RuneIcon";
+import SummonerIcon from "./SummonerIcon";
 import SummonerSpellIcon from "./SummonerSpellIcon";
 import { TabStrip, type TabStripItem } from "./TabStrip";
 import WinRateBar from "./WinRateBar";
@@ -55,7 +58,7 @@ const TAB_ITEMS: TabStripItem[] = [
   { key: "it", label: "Items" },
   { key: "ru", label: "Runes" },
   { key: "mu", label: "Matchups" },
-  { key: "sy", label: "Synergies", disabled: true },
+  { key: "sy", label: "Synergies" },
   { key: "tl", label: "Timeline", disabled: true },
   { key: "tr", label: "Trends", disabled: true },
   { key: "rc", label: "Records", disabled: true },
@@ -107,6 +110,7 @@ export function ChampionDetailExp() {
   const abilitiesActive = activeTab === "ab";
   const runesActive = activeTab === "ru";
   const matchupsActive = activeTab === "mu";
+  const synergiesActive = activeTab === "sy";
   const detailActive =
     overviewActive ||
     combatActive ||
@@ -155,6 +159,22 @@ export function ChampionDetailExp() {
         ? window.api.getChampionMatchupList(id, patch, scopedQueue, account)
         : Promise.resolve(null),
     [matchupsActive, id, patch, scopedQueue, account],
+  );
+  const { data: allyStats, loading: allyStatsLoading } = useIpc<ChampionAllyRow[] | null>(
+    () =>
+      synergiesActive
+        ? window.api.getChampionAllyStats(id, patch, scopedQueue, account)
+        : Promise.resolve(null),
+    [synergiesActive, id, patch, scopedQueue, account],
+  );
+  const { data: teammateStats, loading: teammateStatsLoading } = useIpc<
+    ChampionTeammateRow[] | null
+  >(
+    () =>
+      synergiesActive
+        ? window.api.getChampionTeammateStats(id, patch, scopedQueue, account)
+        : Promise.resolve(null),
+    [synergiesActive, id, patch, scopedQueue, account],
   );
   const { data: matchHistory } = useIpc<{ matches: MatchListItem[]; total: number }>(
     () =>
@@ -542,6 +562,15 @@ export function ChampionDetailExp() {
         <MatchupsTab
           matchups={matchupList}
           matchupsLoading={matchupListLoading}
+          champData={champData}
+          account={account}
+        />
+      ) : activeTab === "sy" ? (
+        <SynergiesTab
+          allies={allyStats}
+          alliesLoading={allyStatsLoading}
+          teammates={teammateStats}
+          teammatesLoading={teammateStatsLoading}
           champData={champData}
           account={account}
         />
@@ -1354,6 +1383,188 @@ function MatchupsTab({
         </div>
       )}
     </Panel>
+  );
+}
+
+type SynergySort = "games" | "winRate" | "kda";
+
+function SynergiesTab({
+  allies,
+  alliesLoading,
+  teammates,
+  teammatesLoading,
+  champData,
+  account: _account,
+}: {
+  allies: ChampionAllyRow[] | null;
+  alliesLoading: boolean;
+  teammates: ChampionTeammateRow[] | null;
+  teammatesLoading: boolean;
+  champData: ReturnType<typeof useChampionData>;
+  account: string;
+}) {
+  const [allySort, setAllySort] = useState<SynergySort>("games");
+  const [teammateSort, setTeammateSort] = useState<SynergySort>("games");
+
+  const sortRows = <T extends ChampionAllyRow | ChampionTeammateRow>(
+    rows: T[],
+    sort: SynergySort,
+  ) =>
+    rows.slice().sort((a, b) => {
+      const value = (row: T) => {
+        const games = Math.max(1, row.games);
+        if (sort === "winRate") return row.wins / games;
+        if (sort === "kda") return (row.kills + row.assists) / Math.max(1, row.deaths);
+        return row.games;
+      };
+      return value(b) - value(a);
+    });
+
+  const sortedAllies = sortRows(allies ?? [], allySort);
+  const sortedTeammates = sortRows(teammates ?? [], teammateSort);
+
+  return (
+    <div className="grid grid-cols-1 gap-5 xl:grid-cols-2">
+      <Panel>
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+          <SectionHeading title="Best allies" />
+          <SortButtons
+            value={allySort}
+            options={[
+              ["games", "Most games"],
+              ["winRate", "Best win rate"],
+              ["kda", "Best KDA"],
+            ]}
+            onChange={setAllySort}
+          />
+        </div>
+        {alliesLoading ? (
+          <SectionLoading />
+        ) : sortedAllies.length === 0 ? (
+          <NoData text="No ally data yet" />
+        ) : (
+          <>
+            <div className="flex max-h-[520px] flex-col gap-2 overflow-y-auto text-xs">
+              {sortedAllies.slice(0, 30).map((row) => {
+                const games = Math.max(1, row.games);
+                const kda = (row.kills + row.assists) / Math.max(1, row.deaths);
+                return (
+                  <div
+                    key={row.championId}
+                    className="grid min-w-[540px] grid-cols-[minmax(10rem,1fr)_auto_minmax(8rem,auto)_minmax(9rem,auto)] items-center gap-3 text-lol-text-bright"
+                  >
+                    <span className="flex min-w-0 items-center gap-2">
+                      <ChampionIcon championId={row.championId} size={24} className="rounded-md" />
+                      <span className="truncate">{getChampionName(champData, row.championId)}</span>
+                    </span>
+                    <span className="shrink-0 whitespace-nowrap text-lol-text">
+                      {row.games} games
+                    </span>
+                    <span className="shrink-0 whitespace-nowrap">
+                      <span className="text-lol-win">{row.wins}W</span>-
+                      <span className="text-lol-loss">{row.games - row.wins}L</span>
+                    </span>
+                    <span className="flex items-center justify-end gap-2 whitespace-nowrap">
+                      <span className="w-16">
+                        <WinRateBar wins={row.wins} total={row.games} showPercent={false} />
+                      </span>
+                      <span className="w-11 text-right tabular-nums">
+                        {formatPercent(row.wins, row.games)}
+                      </span>
+                      <span className="w-28 text-right tabular-nums text-lol-text">
+                        {(row.kills / games).toFixed(1)} / {(row.deaths / games).toFixed(1)} /{" "}
+                        {(row.assists / games).toFixed(1)} · {kda.toFixed(2)}
+                      </span>
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+            {sortedAllies.length > 30 && (
+              <p className="mt-3 text-xs text-lol-text">+{sortedAllies.length - 30} more allies</p>
+            )}
+          </>
+        )}
+      </Panel>
+
+      <Panel>
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+          <SectionHeading title="Best duo partners" />
+          <SortButtons
+            value={teammateSort}
+            options={[
+              ["games", "Most games"],
+              ["winRate", "Best win rate"],
+              ["kda", "Best KDA"],
+            ]}
+            onChange={setTeammateSort}
+          />
+        </div>
+        {teammatesLoading ? (
+          <SectionLoading />
+        ) : sortedTeammates.length === 0 ? (
+          <NoData text="No duo data yet" />
+        ) : (
+          <>
+            <div className="flex max-h-[520px] flex-col gap-2 overflow-y-auto text-xs">
+              {sortedTeammates.slice(0, 30).map((row) => {
+                const games = Math.max(1, row.games);
+                const kda = (row.kills + row.assists) / Math.max(1, row.deaths);
+                const initials = row.name.slice(0, 2).toUpperCase();
+                return (
+                  <div
+                    key={row.puuid}
+                    className="grid min-w-[540px] grid-cols-[minmax(10rem,1fr)_auto_minmax(8rem,auto)_minmax(9rem,auto)] items-center gap-3 text-lol-text-bright"
+                  >
+                    <span className="flex min-w-0 items-center gap-2">
+                      {row.profileIcon != null ? (
+                        <SummonerIcon iconId={row.profileIcon} size={24} />
+                      ) : (
+                        <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-lol-border/60 text-[9px] font-semibold text-lol-text-bright">
+                          {initials}
+                        </span>
+                      )}
+                      <span className="min-w-0 truncate">
+                        <span className="block truncate">{row.name}</span>
+                        {row.topChampionId != null && (
+                          <span className="block truncate text-[10px] text-lol-text">
+                            Most played with: {getChampionName(champData, row.topChampionId)}
+                          </span>
+                        )}
+                      </span>
+                    </span>
+                    <span className="shrink-0 whitespace-nowrap text-lol-text">
+                      {row.games} games
+                    </span>
+                    <span className="shrink-0 whitespace-nowrap">
+                      <span className="text-lol-win">{row.wins}W</span>-
+                      <span className="text-lol-loss">{row.games - row.wins}L</span>
+                    </span>
+                    <span className="flex items-center justify-end gap-2 whitespace-nowrap">
+                      <span className="w-16">
+                        <WinRateBar wins={row.wins} total={row.games} showPercent={false} />
+                      </span>
+                      <span className="w-11 text-right tabular-nums">
+                        {formatPercent(row.wins, row.games)}
+                      </span>
+                      <span className="w-28 text-right tabular-nums text-lol-text">
+                        {(row.kills / games).toFixed(1)} / {(row.deaths / games).toFixed(1)} /{" "}
+                        {(row.assists / games).toFixed(1)} · {kda.toFixed(2)}
+                      </span>
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+            {sortedTeammates.length > 30 && (
+              <p className="mt-3 text-xs text-lol-text">
+                +{sortedTeammates.length - 30} more duo partners
+              </p>
+            )}
+          </>
+        )}
+      </Panel>
+    </div>
   );
 }
 
