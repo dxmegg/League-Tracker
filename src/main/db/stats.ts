@@ -1518,6 +1518,21 @@ export function getChampionDetailStats(
   avgGameLength: number;
   totalTimePlayed: number;
   longestWinStreak: number;
+  avgVisionScore: number;
+  maxVisionScore: number;
+  totalVisionScore: number;
+  avgWardsPlaced: number;
+  maxWardsPlaced: number;
+  totalWardsPlaced: number;
+  avgWardsKilled: number;
+  maxWardsKilled: number;
+  totalWardsKilled: number;
+  avgVisionWardsBought: number;
+  maxVisionWardsBought: number;
+  totalVisionWardsBought: number;
+  avgSightWardsBought: number;
+  maxSightWardsBought: number;
+  totalSightWardsBought: number;
 } {
   const where: string[] = ["g.is_remake = 0", "g.source != 'search-import'"];
   const statsPlaceholders = NO_STATS_QUEUE_IDS.map(() => "?").join(",");
@@ -1557,6 +1572,8 @@ export function getChampionDetailStats(
                mp.turret_plates_taken, mp.baron_kills, mp.objectives_stolen,
                mp.objectives_stolen_assists, mp.first_tower_kill, mp.first_tower_assist,
                mp.first_inhibitor_kill, mp.first_inhibitor_assist,
+               mp.vision_score, mp.wards_placed, mp.wards_killed,
+               mp.vision_wards_bought, mp.sight_wards_bought,
                mp.gold_earned, g.game_duration, g.game_creation
         FROM match_participants mp
         JOIN games g ON mp.game_id = g.game_id
@@ -1666,6 +1683,21 @@ export function getChampionDetailStats(
         AVG(cr.objectives_stolen_assists) AS avgObjectivesStolenAssists,
         MAX(cr.objectives_stolen_assists) AS maxObjectivesStolenAssists,
         SUM(cr.objectives_stolen_assists) AS totalObjectivesStolenAssists,
+        AVG(cr.vision_score) AS avgVisionScore,
+        MAX(cr.vision_score) AS maxVisionScore,
+        SUM(cr.vision_score) AS totalVisionScore,
+        AVG(cr.wards_placed) AS avgWardsPlaced,
+        MAX(cr.wards_placed) AS maxWardsPlaced,
+        SUM(cr.wards_placed) AS totalWardsPlaced,
+        AVG(cr.wards_killed) AS avgWardsKilled,
+        MAX(cr.wards_killed) AS maxWardsKilled,
+        SUM(cr.wards_killed) AS totalWardsKilled,
+        AVG(cr.vision_wards_bought) AS avgVisionWardsBought,
+        MAX(cr.vision_wards_bought) AS maxVisionWardsBought,
+        SUM(cr.vision_wards_bought) AS totalVisionWardsBought,
+        AVG(cr.sight_wards_bought) AS avgSightWardsBought,
+        MAX(cr.sight_wards_bought) AS maxSightWardsBought,
+        SUM(cr.sight_wards_bought) AS totalSightWardsBought,
         SUM(cr.first_tower_kill) AS totalFirstTowerKill,
         SUM(cr.first_tower_assist) AS totalFirstTowerAssist,
         SUM(cr.first_inhibitor_kill) AS totalFirstInhibitorKill,
@@ -1766,6 +1798,21 @@ export function getChampionDetailStats(
     totalFirstTowerAssist: number | null;
     totalFirstInhibitorKill: number | null;
     totalFirstInhibitorAssist: number | null;
+    avgVisionScore: number | null;
+    maxVisionScore: number | null;
+    totalVisionScore: number | null;
+    avgWardsPlaced: number | null;
+    maxWardsPlaced: number | null;
+    totalWardsPlaced: number | null;
+    avgWardsKilled: number | null;
+    maxWardsKilled: number | null;
+    totalWardsKilled: number | null;
+    avgVisionWardsBought: number | null;
+    maxVisionWardsBought: number | null;
+    totalVisionWardsBought: number | null;
+    avgSightWardsBought: number | null;
+    maxSightWardsBought: number | null;
+    totalSightWardsBought: number | null;
     avgCcPerMin: number | null;
     goldPerMin: number | null;
     avgGameLength: number | null;
@@ -1859,6 +1906,21 @@ export function getChampionDetailStats(
     totalFirstTowerAssist: result?.totalFirstTowerAssist ?? 0,
     totalFirstInhibitorKill: result?.totalFirstInhibitorKill ?? 0,
     totalFirstInhibitorAssist: result?.totalFirstInhibitorAssist ?? 0,
+    avgVisionScore: result?.avgVisionScore ?? 0,
+    maxVisionScore: result?.maxVisionScore ?? 0,
+    totalVisionScore: result?.totalVisionScore ?? 0,
+    avgWardsPlaced: result?.avgWardsPlaced ?? 0,
+    maxWardsPlaced: result?.maxWardsPlaced ?? 0,
+    totalWardsPlaced: result?.totalWardsPlaced ?? 0,
+    avgWardsKilled: result?.avgWardsKilled ?? 0,
+    maxWardsKilled: result?.maxWardsKilled ?? 0,
+    totalWardsKilled: result?.totalWardsKilled ?? 0,
+    avgVisionWardsBought: result?.avgVisionWardsBought ?? 0,
+    maxVisionWardsBought: result?.maxVisionWardsBought ?? 0,
+    totalVisionWardsBought: result?.totalVisionWardsBought ?? 0,
+    avgSightWardsBought: result?.avgSightWardsBought ?? 0,
+    maxSightWardsBought: result?.maxSightWardsBought ?? 0,
+    totalSightWardsBought: result?.totalSightWardsBought ?? 0,
     avgCcPerMin: result?.avgCcPerMin ?? 0,
     goldPerMin: result?.goldPerMin ?? 0,
     avgGameLength: result?.avgGameLength ?? 0,
