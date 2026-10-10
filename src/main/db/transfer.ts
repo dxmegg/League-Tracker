@@ -322,7 +322,7 @@ export async function importData(filePath: string): Promise<ImportResult> {
         game_id, frame_index, timestamp_ms, participant_id, puuid, level, xp, gold, cs,
         position_x, position_y, attack_damage, ability_power, armor, magic_resist,
         attack_speed, ability_haste, move_speed, max_health, current_health
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
   const restoreEvent = db.prepare(`
       INSERT OR REPLACE INTO match_timeline_events (
