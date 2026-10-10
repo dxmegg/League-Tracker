@@ -200,7 +200,7 @@ export function getTimeline(gameId: number): TimelineData | null {
 }
 
 export function getChampionTimelineGames(
-  championId: number,
+  championId: number | null,
   limit: number,
   patch?: string,
   queue?: number,
@@ -220,13 +220,14 @@ export function getChampionTimelineGames(
   const where = [
     source.accountFilter,
     participant.sql,
-    "mp.champion_id = ?",
     `mp.puuid = ${ownerPuuidSql}`,
     "s.frame_count > 0",
   ];
+  if (championId !== null) where.splice(2, 0, "mp.champion_id = ?");
   const params: any[] = [];
   if (account && account !== "all") params.push(account);
-  params.push(...participant.params, championId);
+  params.push(...participant.params);
+  if (championId !== null) params.push(championId);
   applyQueueFilter(where, params, queue, "g");
 
   const rows = db
@@ -256,7 +257,7 @@ export function getChampionTimelineGames(
 }
 
 export function getChampionTimelineAverages(
-  championId: number,
+  championId: number | null,
   patch?: string,
   queue?: number,
   account?: string,
@@ -269,9 +270,13 @@ export function getChampionTimelineAverages(
   });
 
   const participant = participantFilter(patch, undefined, "mp");
-  const where = [participant.sql, "mp.champion_id = ?", "s.frame_count > 0"];
+  const where = [participant.sql, "s.frame_count > 0"];
   const params: any[] = [];
-  params.push(...participant.params, championId);
+  if (championId !== null) {
+    where.splice(1, 0, "mp.champion_id = ?");
+  }
+  params.push(...participant.params);
+  if (championId !== null) params.push(championId);
   if (account === "all") {
     where.push("mp.puuid IN (SELECT puuid FROM summoner)");
   } else if (account) {

@@ -98,7 +98,8 @@ type CombatMatch = MatchListItem & {
 
 export function ChampionDetailExp() {
   const { championId = "" } = useParams<{ championId: string }>();
-  const id = Number(championId);
+  const isSummary = championId === "summary";
+  const id = isSummary ? null : Number(championId);
   const navigate = useNavigate();
   const champData = useChampionData();
   const [patch, setPatch] = useViewState<string | undefined>("champions.patch", undefined);
@@ -160,15 +161,15 @@ export function ChampionDetailExp() {
   );
   const { data: skillOrders, loading: skillOrdersLoading } = useIpc<ChampionSkillOrdersResult>(
     () =>
-      abilitiesActive
-        ? window.api.getChampionSkillOrders(id, patch, scopedQueue, account)
+      abilitiesActive && !isSummary
+        ? window.api.getChampionSkillOrders(id ?? 0, patch, scopedQueue, account)
         : Promise.resolve({
             topOrders: [],
             rTiming: { avgR1Min: null, avgR2Min: null, avgR3Min: null, sampleSize: 0 },
             summonerSpells: [],
             timelineCoverage: { gamesWithTimeline: 0, totalGames: 0 },
           }),
-    [abilitiesActive, id, patch, scopedQueue, account],
+    [abilitiesActive, isSummary, id, patch, scopedQueue, account],
   );
   const { data: runeStats, loading: runeStatsLoading } = useIpc<ChampionRuneStatsResult | null>(
     () =>
@@ -225,9 +226,9 @@ export function ChampionDetailExp() {
   );
   const { data: matchHistory } = useIpc<{ matches: MatchListItem[]; total: number }>(
     () =>
-      detailActive
+      detailActive && !isSummary
         ? window.api.getChampionMatchHistory(
-            id,
+            id ?? 0,
             combatActive || itemsActive ? 20 : 8,
             0,
             patch,
@@ -235,7 +236,7 @@ export function ChampionDetailExp() {
             account,
           )
         : Promise.resolve({ matches: [], total: 0 }),
-    [detailActive, combatActive, itemsActive, id, patch, scopedQueue, account],
+    [detailActive, isSummary, combatActive, itemsActive, id, patch, scopedQueue, account],
   );
   const { data: records, loading: recordsLoading } = useIpc<ChampionRecordsResult | null>(
     () =>
@@ -293,10 +294,50 @@ export function ChampionDetailExp() {
     [overviewActive, id, account],
   );
 
-  const stats = useMemo(
-    () => allStats?.find((item) => item.champion_id === id) ?? null,
+  const championStats = useMemo<ChampionStats | null>(
+    () => (id == null ? null : (allStats?.find((item) => item.champion_id === id) ?? null)),
     [allStats, id],
   );
+  const stats = useMemo<ChampionStats>(() => {
+    if (championStats) return championStats;
+    const aggregate = allStats?.reduce(
+      (total, item) => ({
+        games: total.games + item.games,
+        wins: total.wins + item.wins,
+        kills: total.kills + item.kills,
+        deaths: total.deaths + item.deaths,
+        assists: total.assists + item.assists,
+        damage: total.damage + item.avg_damage * item.games,
+        gold: total.gold + item.avg_gold * item.games,
+      }),
+      { games: 0, wins: 0, kills: 0, deaths: 0, assists: 0, damage: 0, gold: 0 },
+    );
+    const aggregateGames = aggregate?.games ?? 0;
+    return {
+      champion_id: 0,
+      games: globalDetail?.games ?? aggregateGames,
+      wins: globalDetail?.wins ?? aggregate?.wins ?? 0,
+      kills: globalDetail?.kills ?? aggregate?.kills ?? 0,
+      deaths: globalDetail?.deaths ?? aggregate?.deaths ?? 0,
+      assists: globalDetail?.assists ?? aggregate?.assists ?? 0,
+      avg_kills: 0,
+      avg_deaths: 0,
+      avg_assists: 0,
+      avg_damage:
+        globalDetail?.avgDamage ??
+        (aggregateGames > 0 ? (aggregate?.damage ?? 0) / aggregateGames : 0),
+      avg_gold:
+        globalDetail?.avgGold ?? (aggregateGames > 0 ? (aggregate?.gold ?? 0) / aggregateGames : 0),
+      avg_score: null,
+      mvps: 0,
+      aces: 0,
+      double_kills: globalDetail?.doubleKills ?? 0,
+      triple_kills: globalDetail?.tripleKills ?? 0,
+      quadra_kills: globalDetail?.quadraKills ?? 0,
+      penta_kills: globalDetail?.pentaKills ?? 0,
+      avg_cs_per_min: null,
+    };
+  }, [allStats, championStats, globalDetail]);
   const streak = useMemo(() => {
     const matches = matchHistory?.matches;
     if (!matches || matches.length === 0) return null;
@@ -314,7 +355,7 @@ export function ChampionDetailExp() {
   const augmentData = useAugmentData(patch);
   const itemData = useItemData(patch);
   const runeData = useRuneData();
-  const name = getChampionName(champData, id);
+  const name = isSummary ? "All champions summary" : getChampionName(champData, id ?? 0);
   const mastery = useMemo<MasteryChampion | null>(() => {
     return masterySource?.topMasteryChampions.find((item) => item.championId === id) ?? null;
   }, [id, masterySource]);
@@ -331,8 +372,8 @@ export function ChampionDetailExp() {
       setSelectedTimelineGameId(timelineGames[0].gameId);
     }
   }, [timelineActive, timelineGames, selectedTimelineGameId]);
-  const games = stats?.games ?? 0;
-  const wins = stats?.wins ?? 0;
+  const games = stats?.games ?? detailStats?.games ?? 0;
+  const wins = stats?.wins ?? globalDetail?.wins ?? 0;
   const losses = games - wins;
   const wr = games > 0 ? (wins / games) * 100 : 0;
   const kda = stats && stats.deaths > 0 ? (stats.kills + stats.assists) / stats.deaths : null;
@@ -418,7 +459,7 @@ export function ChampionDetailExp() {
     };
   }, [weeklyWinRate, wrTab]);
 
-  if (!stats || games === 0) {
+  if ((!isSummary && !championStats) || games === 0) {
     return (
       <div className="mx-auto flex min-h-full w-full max-w-[1320px] flex-col gap-5">
         <button
@@ -430,7 +471,9 @@ export function ChampionDetailExp() {
         </button>
         <Panel>
           <p className="py-8 text-center text-sm text-lol-text">
-            No games with this champion for the selected filters.
+            {isSummary
+              ? "No games for the selected filters."
+              : "No games with this champion for the selected filters."}
           </p>
         </Panel>
       </div>
@@ -449,13 +492,21 @@ export function ChampionDetailExp() {
 
       <div className="flex flex-wrap items-center justify-between gap-4 rounded-[14px] border border-lol-border bg-[linear-gradient(180deg,var(--theme-card-hover),var(--theme-card))] p-5">
         <div className="flex min-w-0 items-center gap-4">
-          <ChampionIcon championId={id} size={76} className="rounded-2xl" />
+          {isSummary ? (
+            <div className="flex h-[76px] w-[76px] items-center justify-center rounded-2xl border border-lol-gold/40 bg-lol-gold/10 text-center font-display text-xs font-bold text-lol-gold">
+              ALL
+            </div>
+          ) : (
+            <ChampionIcon championId={id ?? 0} size={76} className="rounded-2xl" />
+          )}
           <div className="min-w-0">
             <h1 className="font-display text-[28px] font-bold leading-tight text-lol-text-bright">
               {name}
             </h1>
             <p className="mt-1 text-lol-text">
-              {formatNumber(games)} games · {formatNumber(wins)}W {formatNumber(losses)}L
+              {isSummary
+                ? "Aggregated across every champion you've played"
+                : `${formatNumber(games)} games · ${formatNumber(wins)}W ${formatNumber(losses)}L`}
             </p>
           </div>
         </div>
@@ -640,12 +691,18 @@ export function ChampionDetailExp() {
           patch={patch}
         />
       ) : activeTab === "ab" ? (
-        <AbilitiesTab
-          detail={detailStats}
-          detailLoading={detailLoading}
-          skillOrders={skillOrders}
-          skillOrdersLoading={skillOrdersLoading}
-        />
+        isSummary ? (
+          <Panel>
+            <NoData text="Abilities are champion-specific." />
+          </Panel>
+        ) : (
+          <AbilitiesTab
+            detail={detailStats}
+            detailLoading={detailLoading}
+            skillOrders={skillOrders}
+            skillOrdersLoading={skillOrdersLoading}
+          />
+        )
       ) : activeTab === "ru" ? (
         <RunesTab
           detail={runeStats}
@@ -684,20 +741,32 @@ export function ChampionDetailExp() {
       ) : activeTab === "rc" ? (
         <RecordsTab records={records} recordsLoading={recordsLoading} matchHistory={matchHistory} />
       ) : matchesActive ? (
-        <MatchesTab
-          championId={id}
-          patch={patch}
-          queue={scopedQueue}
-          account={account}
-          championName={name}
-          champData={champData}
-        />
+        isSummary ? (
+          <Panel>
+            <NoData text="Match list is champion-specific. Open a champion to see their matches." />
+          </Panel>
+        ) : (
+          <MatchesTab
+            championId={id ?? 0}
+            patch={patch}
+            queue={scopedQueue}
+            account={account}
+            championName={name}
+            champData={champData}
+          />
+        )
       ) : activeTab === "ms" ? (
-        <MasteryTab
-          mastery={mastery}
-          masteryLoading={masteryLoading}
-          accountName={masteryAccountName}
-        />
+        isSummary ? (
+          <Panel>
+            <NoData text="Mastery is champion-specific." />
+          </Panel>
+        ) : (
+          <MasteryTab
+            mastery={mastery}
+            masteryLoading={masteryLoading}
+            accountName={masteryAccountName}
+          />
+        )
       ) : (
         <Panel>
           <p className="py-8 text-center text-sm text-lol-text">This tab lands in a later phase.</p>
@@ -1810,7 +1879,7 @@ function RunesTab({
   detail: ChampionRuneStatsResult | null;
   detailLoading: boolean;
   runeData: ReturnType<typeof useRuneData>;
-  championId: number;
+  championId: number | null;
 }) {
   const [keystoneSort, setKeystoneSort] = useState<RateSort>("count");
   const keystones = detail?.keystones ?? [];
