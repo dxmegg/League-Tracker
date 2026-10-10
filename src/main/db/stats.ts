@@ -184,6 +184,7 @@ export function getChampionKeystones(
   account?: string,
 ): Array<{ runeId: number; picks: number; wins: number }> {
   const source = statsSource(account);
+  const ownerPuuidSql = account ? "ps.puuid" : "g.puuid";
   const where = ["g.is_remake = 0", "g.raw_gz IS NOT NULL"];
   where.push(source.accountFilter);
   where.push(`${source.alias}.champion_id = ?`);
@@ -193,7 +194,7 @@ export function getChampionKeystones(
   const rows = db
     .prepare(`
         SELECT g.raw_gz,
-               ${source.alias}.puuid as puuid,
+               ${ownerPuuidSql} as puuid,
                ${source.alias}.win as win,
                ${source.alias}.champion_id as champion_id,
                ${source.alias}.kills as kills,
@@ -274,9 +275,14 @@ export function getChampionRuneStats(
 ): ChampionRuneStatsResult {
   console.log("[db] getChampionRuneStats called:", { championId, patch, queue, account });
 
-  const source = statsSource(account);
   const participant = participantFilter(patch, undefined, "mp");
-  const where = [source.accountFilter, participant.sql, "mp.champion_id = ?"];
+  const ownerFilter =
+    account === "all"
+      ? "mp.puuid IN (SELECT puuid FROM summoner)"
+      : account
+        ? "mp.puuid = ?"
+        : "mp.puuid = g.puuid";
+  const where = [ownerFilter, participant.sql, "mp.champion_id = ?"];
   const params: any[] = [];
   if (account && account !== "all") params.push(account);
   params.push(...participant.params, championId);
@@ -288,7 +294,6 @@ export function getChampionRuneStats(
              mp.primary_style, mp.secondary_style, mp.win
       FROM match_participants mp
       JOIN games g ON g.game_id = mp.game_id
-      JOIN ${source.table} ps ON ps.game_id = mp.game_id AND ps.puuid = mp.puuid
       WHERE ${where.join(" AND ")}
     )`;
   const query = (select: string) =>
@@ -438,9 +443,14 @@ export function getChampionMatchupList(
 ): ChampionMatchupRow[] {
   console.log("[db] getChampionMatchupList called:", { championId, patch, queue, account });
 
-  const source = statsSource(account);
   const participant = participantFilter(patch, undefined, "owner");
-  const where = [source.accountFilter, participant.sql, "owner.champion_id = ?"];
+  const ownerFilter =
+    account === "all"
+      ? "owner.puuid IN (SELECT puuid FROM summoner)"
+      : account
+        ? "owner.puuid = ?"
+        : "owner.puuid = g.puuid";
+  const where = [ownerFilter, participant.sql, "owner.champion_id = ?"];
   const params: any[] = [];
   if (account && account !== "all") params.push(account);
   params.push(...participant.params, championId);
@@ -459,7 +469,6 @@ export function getChampionMatchupList(
                MAX(owner.gold_earned) AS goldEarned
         FROM match_participants owner
         JOIN games g ON g.game_id = owner.game_id
-        JOIN ${source.table} ps ON ps.game_id = owner.game_id AND ps.puuid = owner.puuid
         JOIN match_participants enemy
           ON enemy.game_id = owner.game_id
          AND enemy.team_id != owner.team_id
@@ -494,9 +503,14 @@ export function getChampionAllyStats(
 ): ChampionAllyRow[] {
   console.log("[db] getChampionAllyStats called:", { championId, patch, queue, account });
 
-  const source = statsSource(account);
   const participant = participantFilter(patch, undefined, "me");
-  const where = [source.accountFilter, participant.sql, "me.champion_id = ?"];
+  const ownerFilter =
+    account === "all"
+      ? "me.puuid IN (SELECT puuid FROM summoner)"
+      : account
+        ? "me.puuid = ?"
+        : "me.puuid = g.puuid";
+  const where = [ownerFilter, participant.sql, "me.champion_id = ?"];
   const params: any[] = [];
   if (account && account !== "all") params.push(account);
   params.push(...participant.params, championId);
@@ -513,7 +527,6 @@ export function getChampionAllyStats(
                MAX(ally.assists) AS assists
         FROM match_participants me
         JOIN games g ON g.game_id = me.game_id
-        JOIN ${source.table} ps ON ps.game_id = me.game_id AND ps.puuid = me.puuid
         JOIN match_participants ally
           ON ally.game_id = me.game_id
          AND ally.team_id = me.team_id
@@ -547,10 +560,15 @@ export function getChampionTeammateStats(
 ): ChampionTeammateRow[] {
   console.log("[db] getChampionTeammateStats called:", { championId, patch, queue, account });
 
-  const source = statsSource(account);
   const participant = participantFilter(patch, undefined, "me");
+  const ownerFilter =
+    account === "all"
+      ? "me.puuid IN (SELECT puuid FROM summoner)"
+      : account
+        ? "me.puuid = ?"
+        : "me.puuid = g.puuid";
   const where = [
-    source.accountFilter,
+    ownerFilter,
     participant.sql,
     "me.champion_id = ?",
     "ally.puuid IS NOT NULL",
@@ -591,7 +609,6 @@ export function getChampionTeammateStats(
                MAX(ally.assists) AS assists
         FROM match_participants me
         JOIN games g ON g.game_id = me.game_id
-        JOIN ${source.table} ps ON ps.game_id = me.game_id AND ps.puuid = me.puuid
         JOIN match_participants ally
           ON ally.game_id = me.game_id
          AND ally.team_id = me.team_id
