@@ -283,6 +283,20 @@ export function registerIpcHandlers() {
   );
 
   ipcMain.handle(
+    "db:champion-ally-stats",
+    (_event, championId: number, patch?: string, queue?: number, account?: string) => {
+      return db.getChampionAllyStats(championId, patch, queue, account);
+    },
+  );
+
+  ipcMain.handle(
+    "db:champion-teammate-stats",
+    (_event, championId: number, patch?: string, queue?: number, account?: string) => {
+      return db.getChampionTeammateStats(championId, patch, queue, account);
+    },
+  );
+
+  ipcMain.handle(
     "db:augment-stats",
     (_event, championId?: number, patch?: string, queue?: number, account?: string) => {
       return db.getAugmentStatsAll(championId, patch, queue, account);

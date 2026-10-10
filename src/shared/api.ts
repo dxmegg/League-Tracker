@@ -410,6 +410,27 @@ export interface ChampionMatchupRow {
   goldEarned: number;
 }
 
+export interface ChampionAllyRow {
+  championId: number;
+  games: number;
+  wins: number;
+  kills: number;
+  deaths: number;
+  assists: number;
+}
+
+export interface ChampionTeammateRow {
+  puuid: string;
+  name: string;
+  profileIcon: number | null;
+  games: number;
+  wins: number;
+  kills: number;
+  deaths: number;
+  assists: number;
+  topChampionId: number | null;
+}
+
 export interface ChampionMatchups {
   best: ChampionMatchup[];
   worst: ChampionMatchup[];
@@ -1195,6 +1216,18 @@ export interface ElectronAPI {
     queue?: number,
     account?: string,
   ) => Promise<ChampionMatchupRow[]>;
+  getChampionAllyStats: (
+    championId: number,
+    patch?: string,
+    queue?: number,
+    account?: string,
+  ) => Promise<ChampionAllyRow[]>;
+  getChampionTeammateStats: (
+    championId: number,
+    patch?: string,
+    queue?: number,
+    account?: string,
+  ) => Promise<ChampionTeammateRow[]>;
   getAugmentStats: (
     championId?: number,
     patch?: string,

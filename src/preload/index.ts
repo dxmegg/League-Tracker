@@ -122,6 +122,16 @@ const api: ElectronAPI = {
   getChampionMatchupList: (championId: number, patch?: string, queue?: number, account?: string) =>
     ipcRenderer.invoke("db:champion-matchup-list", championId, patch, queue, account),
 
+  getChampionAllyStats: (championId: number, patch?: string, queue?: number, account?: string) =>
+    ipcRenderer.invoke("db:champion-ally-stats", championId, patch, queue, account),
+
+  getChampionTeammateStats: (
+    championId: number,
+    patch?: string,
+    queue?: number,
+    account?: string,
+  ) => ipcRenderer.invoke("db:champion-teammate-stats", championId, patch, queue, account),
+
   getAugmentStats: (championId?: number, patch?: string, queue?: number, account?: string) =>
     ipcRenderer.invoke("db:augment-stats", championId, patch, queue, account),
 

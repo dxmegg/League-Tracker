@@ -3,7 +3,13 @@ import { getAllPuuids } from "./summoner";
 import zlib from "zlib";
 import { NO_STATS_QUEUE_IDS } from "../../shared/queues";
 import { computeMatchScores } from "../../shared/opScore";
-import type { ChampionSkillOrder, ChampionSkillOrdersResult, ItemStats } from "../../shared/api";
+import type {
+  ChampionAllyRow,
+  ChampionSkillOrder,
+  ChampionSkillOrdersResult,
+  ChampionTeammateRow,
+  ItemStats,
+} from "../../shared/api";
 import { getChampionClasses } from "../dragon";
 import {
   applyQueueFilter,
@@ -425,6 +431,206 @@ export function getChampionMatchupList(
     .all(...params) as ChampionMatchupRow[];
 
   console.log("[db] getChampionMatchupList done:", { count: rows.length });
+  return rows;
+}
+
+export function getChampionAllyStats(
+  championId: number,
+  patch?: string,
+  queue?: number,
+  account?: string,
+): ChampionAllyRow[] {
+  console.log("[db] getChampionAllyStats called:", { championId, patch, queue, account });
+
+  const source = statsSource(account);
+  const participant = participantFilter(patch, undefined, "me");
+  const where = [source.accountFilter, participant.sql, "me.champion_id = ?"];
+  const params: any[] = [];
+  if (account && account !== "all") params.push(account);
+  params.push(...participant.params, championId);
+  applyQueueFilter(where, params, queue, "g");
+
+  const rows = db
+    .prepare(`
+      WITH ally_rows AS (
+        SELECT me.game_id,
+               ally.champion_id AS championId,
+               MAX(me.win) AS wins,
+               MAX(ally.kills) AS kills,
+               MAX(ally.deaths) AS deaths,
+               MAX(ally.assists) AS assists
+        FROM match_participants me
+        JOIN games g ON g.game_id = me.game_id
+        JOIN ${source.table} ps ON ps.game_id = me.game_id AND ps.puuid = me.puuid
+        JOIN match_participants ally
+          ON ally.game_id = me.game_id
+         AND ally.team_id = me.team_id
+         AND ally.participant_id != me.participant_id
+        WHERE ${where.join(" AND ")}
+          AND ally.champion_id > 0
+        GROUP BY me.game_id, ally.champion_id
+      )
+      SELECT championId,
+             COUNT(*) AS games,
+             COALESCE(SUM(wins), 0) AS wins,
+             COALESCE(SUM(kills), 0) AS kills,
+             COALESCE(SUM(deaths), 0) AS deaths,
+             COALESCE(SUM(assists), 0) AS assists
+      FROM ally_rows
+      GROUP BY championId
+      HAVING games >= 1
+      ORDER BY games DESC, championId ASC
+    `)
+    .all(...params) as ChampionAllyRow[];
+
+  console.log("[db] getChampionAllyStats done:", { count: rows.length });
+  return rows;
+}
+
+export function getChampionTeammateStats(
+  championId: number,
+  patch?: string,
+  queue?: number,
+  account?: string,
+): ChampionTeammateRow[] {
+  console.log("[db] getChampionTeammateStats called:", { championId, patch, queue, account });
+
+  const source = statsSource(account);
+  const participant = participantFilter(patch, undefined, "me");
+  const where = [
+    source.accountFilter,
+    participant.sql,
+    "me.champion_id = ?",
+    "ally.puuid IS NOT NULL",
+    "ally.puuid != ''",
+    "(ally.puuid NOT IN (SELECT puuid FROM summoner))",
+  ];
+  const params: any[] = [];
+  if (account && account !== "all") params.push(account);
+  params.push(...participant.params, championId);
+  applyQueueFilter(where, params, queue, "g");
+
+  interface TeammateAggregate {
+    name: string;
+    profileIcon: number | null;
+    games: number;
+    wins: number;
+    kills: number;
+    deaths: number;
+    assists: number;
+    lastPlayed: number;
+    gameIds: Set<number>;
+    championGames: Map<number, Set<number>>;
+  }
+
+  const sourceRows = db
+    .prepare(`
+      WITH teammate_rows AS (
+        SELECT me.game_id,
+               g.game_creation,
+               ally.puuid AS puuid,
+               ally.game_name AS game_name,
+               ally.tag_line AS tag_line,
+               ally.profile_icon AS profile_icon,
+               ally.champion_id AS champion_id,
+               MAX(me.win) AS wins,
+               MAX(ally.kills) AS kills,
+               MAX(ally.deaths) AS deaths,
+               MAX(ally.assists) AS assists
+        FROM match_participants me
+        JOIN games g ON g.game_id = me.game_id
+        JOIN ${source.table} ps ON ps.game_id = me.game_id AND ps.puuid = me.puuid
+        JOIN match_participants ally
+          ON ally.game_id = me.game_id
+         AND ally.team_id = me.team_id
+         AND ally.participant_id != me.participant_id
+        WHERE ${where.join(" AND ")}
+          AND ally.champion_id > 0
+        GROUP BY me.game_id, ally.puuid, ally.champion_id
+      )
+      SELECT game_id, game_creation, puuid, game_name, tag_line, profile_icon,
+             champion_id, wins, kills, deaths, assists
+      FROM teammate_rows
+      ORDER BY game_creation DESC
+    `)
+    .all(...params) as Array<{
+    game_id: number;
+    game_creation: number;
+    puuid: string;
+    game_name: string | null;
+    tag_line: string | null;
+    profile_icon: number | null;
+    champion_id: number;
+    wins: number;
+    kills: number;
+    deaths: number;
+    assists: number;
+  }>;
+
+  const aggregates = new Map<string, TeammateAggregate>();
+  for (const row of sourceRows) {
+    let aggregate = aggregates.get(row.puuid);
+    if (!aggregate) {
+      aggregate = {
+        name: displayName(row.game_name, row.tag_line) ?? "Unknown teammate",
+        profileIcon: row.profile_icon,
+        games: 0,
+        wins: 0,
+        kills: 0,
+        deaths: 0,
+        assists: 0,
+        lastPlayed: row.game_creation,
+        gameIds: new Set(),
+        championGames: new Map(),
+      };
+      aggregates.set(row.puuid, aggregate);
+    }
+
+    if (row.game_creation >= aggregate.lastPlayed) {
+      aggregate.name = displayName(row.game_name, row.tag_line) ?? "Unknown teammate";
+      if (row.profile_icon != null) aggregate.profileIcon = row.profile_icon;
+      aggregate.lastPlayed = row.game_creation;
+    }
+
+    if (!aggregate.gameIds.has(row.game_id)) {
+      aggregate.gameIds.add(row.game_id);
+      aggregate.games++;
+      if (row.wins) aggregate.wins++;
+    }
+
+    aggregate.kills += row.kills;
+    aggregate.deaths += row.deaths;
+    aggregate.assists += row.assists;
+
+    let gamesForChampion = aggregate.championGames.get(row.champion_id);
+    if (!gamesForChampion) {
+      gamesForChampion = new Set();
+      aggregate.championGames.set(row.champion_id, gamesForChampion);
+    }
+    gamesForChampion.add(row.game_id);
+  }
+
+  const rows = Array.from(aggregates.entries())
+    .map(([puuid, aggregate]) => {
+      const topChampionId =
+        Array.from(aggregate.championGames.entries()).sort(
+          (a, b) => b[1].size - a[1].size || a[0] - b[0],
+        )[0]?.[0] ?? null;
+      return {
+        puuid,
+        name: aggregate.name,
+        profileIcon: aggregate.profileIcon,
+        games: aggregate.games,
+        wins: aggregate.wins,
+        kills: aggregate.kills,
+        deaths: aggregate.deaths,
+        assists: aggregate.assists,
+        topChampionId,
+      };
+    })
+    .sort((a, b) => b.games - a.games || a.name.localeCompare(b.name));
+
+  console.log("[db] getChampionTeammateStats done:", { count: rows.length });
   return rows;
 }
 
