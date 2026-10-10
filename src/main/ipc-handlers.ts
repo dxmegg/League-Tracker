@@ -235,6 +235,13 @@ export function registerIpcHandlers() {
     },
   );
 
+  ipcMain.handle(
+    "db:champion-skill-orders",
+    (_event, championId: number, patch?: string, queue?: number, account?: string) => {
+      return db.getChampionSkillOrders(championId, patch, queue, account);
+    },
+  );
+
   ipcMain.handle("db:champion-queue-stats", (_event, championId: number, account?: string) => {
     return db.getChampionQueueStats(championId, account);
   });
@@ -253,6 +260,13 @@ export function registerIpcHandlers() {
     return db.getChampionKeystones(championId, account);
   });
 
+  ipcMain.handle(
+    "db:champion-rune-stats",
+    (_event, championId: number, patch?: string, queue?: number, account?: string) => {
+      return db.getChampionRuneStats(championId, patch, queue, account);
+    },
+  );
+
   ipcMain.handle("db:champion-weekly-winrate", (_event, championId: number, account?: string) => {
     return db.getChampionWeeklyWinRate(championId, account);
   });
@@ -260,6 +274,27 @@ export function registerIpcHandlers() {
   ipcMain.handle("db:champion-matchups", (_event, championId: number, account?: string) => {
     return db.getChampionMatchups(championId, account);
   });
+
+  ipcMain.handle(
+    "db:champion-matchup-list",
+    (_event, championId: number, patch?: string, queue?: number, account?: string) => {
+      return db.getChampionMatchupList(championId, patch, queue, account);
+    },
+  );
+
+  ipcMain.handle(
+    "db:champion-ally-stats",
+    (_event, championId: number, patch?: string, queue?: number, account?: string) => {
+      return db.getChampionAllyStats(championId, patch, queue, account);
+    },
+  );
+
+  ipcMain.handle(
+    "db:champion-teammate-stats",
+    (_event, championId: number, patch?: string, queue?: number, account?: string) => {
+      return db.getChampionTeammateStats(championId, patch, queue, account);
+    },
+  );
 
   ipcMain.handle(
     "db:augment-stats",
@@ -1001,8 +1036,8 @@ export function registerIpcHandlers() {
     const win = senderWindow(event);
     const options = {
       title: "Export Mayhem Data",
-      defaultPath: `mayhem-backup-${new Date().toISOString().slice(0, 10)}.json`,
-      filters: [{ name: "JSON", extensions: ["json"] }],
+      defaultPath: `mayhem-backup-${new Date().toISOString().slice(0, 10)}.json.gz`,
+      filters: [{ name: "League Tracker backup", extensions: ["json.gz", "gz"] }],
     };
     // Parented to the window when there is one, so the dialog is modal
     const result = win
@@ -1010,8 +1045,12 @@ export function registerIpcHandlers() {
       : await dialog.showSaveDialog(options);
     if (result.canceled || !result.filePath) return { success: false };
     try {
-      const games = await db.writeExportTo(result.filePath);
-      return { success: true, path: result.filePath, games };
+      const exportResult = await db.writeExportTo(result.filePath, (progress) => {
+        if (win && !win.isDestroyed()) {
+          win.webContents.send("data:export-progress", progress);
+        }
+      });
+      return { success: true, path: result.filePath, games: exportResult.games };
     } catch (err: any) {
       // A partial file would still look like a backup, so don't leave one
       try {
@@ -1029,7 +1068,7 @@ export function registerIpcHandlers() {
     const win = senderWindow(event);
     const options = {
       title: "Import Mayhem Data",
-      filters: [{ name: "JSON", extensions: ["json"] }],
+      filters: [{ name: "League Tracker backup", extensions: ["json.gz", "gz", "json"] }],
       properties: ["openFile" as const],
     };
     const dialogResult = win
@@ -1040,15 +1079,14 @@ export function registerIpcHandlers() {
     // JSON and well-formed JSON that isn't a backup all have to come back as
     // messages rather than as a thrown "Error invoking remote method".
     try {
-      const raw = await fs.promises.readFile(dialogResult.filePaths[0], "utf-8");
-      const data = JSON.parse(raw);
-      if (!data || typeof data !== "object" || !Array.isArray(data.games)) {
-        return { success: false, error: "That file isn't a Mayhem Tracker backup" };
-      }
       // Snapshot first: an import writes into every table, and this is the last
       // moment the database is known to be in the state the user chose it from.
       await backup.backupQuietly("pre-import");
-      const result = db.importData(data);
+      const result = await db.importData(dialogResult.filePaths[0], (progress) => {
+        if (win && !win.isDestroyed()) {
+          win.webContents.send("data:import-progress", progress);
+        }
+      });
       return {
         success: true,
         imported: result.imported,

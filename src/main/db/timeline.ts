@@ -294,13 +294,13 @@ export function listGamesMissingTimeline(limit: number): number[] {
   console.log("[db] listGamesMissingTimeline called:", { limit });
   const rows = db
     .prepare(`
-      SELECT game_id
-      FROM games
-      WHERE game_id NOT IN (
-        SELECT game_id
-        FROM match_timeline_status
-        WHERE fetch_error IS NULL
-      )
+      SELECT g.game_id
+      FROM games g
+      LEFT JOIN match_timeline_status s ON s.game_id = g.game_id
+      WHERE s.game_id IS NULL
+        AND g.game_creation > (
+          CAST(strftime('%s', 'now') AS INTEGER) - 365 * 24 * 60 * 60
+        ) * 1000
       ORDER BY game_creation DESC
       LIMIT ?
     `)

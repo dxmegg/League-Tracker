@@ -23,7 +23,7 @@ export function TabStrip({
     for (let step = 1; step <= items.length; step++) {
       const index = (startIndex + direction * step + items.length) % items.length;
       if (!items[index]?.disabled) {
-        buttonRefs.current[index]?.focus();
+        buttonRefs.current[index]?.focus({ preventScroll: true });
         return;
       }
     }
@@ -49,6 +49,7 @@ export function TabStrip({
             aria-disabled={item.disabled ? "true" : undefined}
             disabled={item.disabled}
             tabIndex={isActive ? 0 : -1}
+            onMouseDown={(event) => event.preventDefault()}
             onClick={() => {
               if (!item.disabled) onChange(item.key);
             }}
