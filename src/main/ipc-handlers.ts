@@ -242,6 +242,27 @@ export function registerIpcHandlers() {
     },
   );
 
+  ipcMain.handle(
+    "db:champion-trends",
+    (_event, championId: number, patch?: string, queue?: number, account?: string) => {
+      return db.getChampionTrendsData(championId, patch, queue, account);
+    },
+  );
+
+  ipcMain.handle(
+    "db:champion-timeline-games",
+    (
+      _event,
+      championId: number,
+      limit: number,
+      patch?: string,
+      queue?: number,
+      account?: string,
+    ) => {
+      return db.getChampionTimelineGames(championId, limit, patch, queue, account);
+    },
+  );
+
   ipcMain.handle("db:champion-queue-stats", (_event, championId: number, account?: string) => {
     return db.getChampionQueueStats(championId, account);
   });

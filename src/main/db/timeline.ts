@@ -4,6 +4,7 @@ import { MAYHEM_QUEUE_IDS, QUEUE_ID_CUSTOM, TUTORIAL_QUEUE_IDS } from "../../sha
 import { parseTimeline, type ParsedTimeline } from "../timeline";
 import { acquireRequestSlot, fetchMatchTimeline, RiotApiError } from "../riot-api";
 import { db } from "../db";
+import { applyQueueFilter, participantFilter, statsSource } from "./filters";
 
 export interface BackfillProgress {
   current: number;
@@ -16,6 +17,19 @@ export interface BackfillProgress {
 
 export interface BackfillResult extends BackfillProgress {
   cancelled: boolean;
+}
+
+export interface ChampionTimelineGame {
+  gameId: number;
+  gameCreation: number;
+  queueId: number;
+  championId: number;
+  ownerPuuid: string | null;
+  win: number;
+  kills: number;
+  deaths: number;
+  assists: number;
+  frameCount: number;
 }
 
 const TIMELINE_EXCLUDED_QUEUE_IDS = new Set([
@@ -171,6 +185,62 @@ export function getTimeline(gameId: number): TimelineData | null {
   const result = { status, frames, events };
   console.log("[db] getTimeline done:", { frameCount: frames.length, eventCount: events.length });
   return result;
+}
+
+export function getChampionTimelineGames(
+  championId: number,
+  limit: number,
+  patch?: string,
+  queue?: number,
+  account?: string,
+): ChampionTimelineGame[] {
+  console.log("[db] getChampionTimelineGames called:", {
+    championId,
+    limit,
+    patch,
+    queue,
+    account,
+  });
+
+  const source = statsSource(account);
+  const participant = participantFilter(patch, undefined, "mp");
+  const ownerPuuidSql = account ? "ps.puuid" : "g.puuid";
+  const where = [
+    source.accountFilter,
+    participant.sql,
+    "mp.champion_id = ?",
+    `mp.puuid = ${ownerPuuidSql}`,
+    "s.frame_count > 0",
+  ];
+  const params: any[] = [];
+  if (account && account !== "all") params.push(account);
+  params.push(...participant.params, championId);
+  applyQueueFilter(where, params, queue, "g");
+
+  const rows = db
+    .prepare(`
+      SELECT g.game_id AS gameId,
+             g.game_creation AS gameCreation,
+             g.queue_id AS queueId,
+             mp.champion_id AS championId,
+             g.puuid AS ownerPuuid,
+             mp.win,
+             mp.kills,
+             mp.deaths,
+             mp.assists,
+             s.frame_count AS frameCount
+      FROM match_participants mp
+      JOIN games g ON g.game_id = mp.game_id
+      JOIN ${source.table} ps ON ps.game_id = g.game_id
+      JOIN match_timeline_status s ON s.game_id = g.game_id
+      WHERE ${where.join(" AND ")}
+      ORDER BY g.game_creation DESC
+      LIMIT ?
+    `)
+    .all(...params, limit) as ChampionTimelineGame[];
+
+  console.log("[db] getChampionTimelineGames done:", { count: rows.length });
+  return rows;
 }
 
 export function insertTimeline(gameId: number, parsed: ParsedTimeline, rawPayload: any): void {
