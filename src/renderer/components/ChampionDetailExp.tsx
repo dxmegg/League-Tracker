@@ -264,6 +264,13 @@ export function ChampionDetailExp() {
         : Promise.resolve(null),
     [detailActive, id, patch, scopedQueue, account],
   );
+  const { data: augmentStats, loading: augmentStatsLoading } = useIpc<AugmentStats[]>(
+    () =>
+      overviewActive
+        ? window.api.getAugmentStats(id ?? undefined, patch, scopedQueue, account)
+        : Promise.resolve([] as AugmentStats[]),
+    [overviewActive, id, patch, scopedQueue, account],
+  );
   const { data: keystones, loading: keystonesLoading } = useIpc<ChampionKeystoneStat[]>(
     () =>
       overviewActive
@@ -690,7 +697,8 @@ export function ChampionDetailExp() {
           setWrTab={setWrTab}
           roleStats={roleStats}
           roleStatsLoading={roleStatsLoading}
-          augments={globalDetail?.augments ?? []}
+          augments={augmentStats ?? []}
+          augmentsLoading={augmentStatsLoading}
           augmentData={augmentData}
           augmentSort={augmentSort}
           setAugmentSort={setAugmentSort}
@@ -1229,6 +1237,7 @@ function OverviewTab({
   roleStats,
   roleStatsLoading,
   augments,
+  augmentsLoading,
   augmentData,
   augmentSort,
   setAugmentSort,
@@ -1270,6 +1279,7 @@ function OverviewTab({
   roleStats: ChampionRoleStat[] | null;
   roleStatsLoading: boolean;
   augments: AugmentStats[];
+  augmentsLoading: boolean;
   augmentData: ReturnType<typeof useAugmentData>;
   augmentSort: RateSort;
   setAugmentSort: (sort: RateSort) => void;
@@ -1420,7 +1430,15 @@ function OverviewTab({
         ) : isSummary ? (
           <div className="flex flex-col gap-2.5">
             {roleStats.map((role) => (
-              <RoleRow key={role.role} role={role.role} games={role.games} wins={role.wins} />
+              <RoleRow
+                key={role.role}
+                role={role.role}
+                games={role.games}
+                wins={role.wins}
+                kills={role.kills}
+                deaths={role.deaths}
+                assists={role.assists}
+              />
             ))}
           </div>
         ) : (
@@ -1434,6 +1452,9 @@ function OverviewTab({
                   role={role.role}
                   games={role.games}
                   wins={role.wins}
+                  kills={role.kills}
+                  deaths={role.deaths}
+                  assists={role.assists}
                   baseline={
                     globalDetail && globalDetail.games > 0
                       ? (globalDetail.wins / globalDetail.games) * 100
@@ -1454,7 +1475,7 @@ function OverviewTab({
           ["winRate", "Best win rate"],
         ]}
         onSortChange={setAugmentSort}
-        loading={globalDetailLoading}
+        loading={globalDetailLoading || augmentsLoading}
         empty={augments.length === 0}
       >
         {sortRates(augments, augmentSort).map((augment) => (
@@ -1469,7 +1490,7 @@ function OverviewTab({
             sampleSize={augment.picks}
             secondary={
               !isSummary
-                ? `KDA — · score — · ${globalDetail?.games ? ((augment.picks / globalDetail.games) * 100).toFixed(1) : "—"}% pick`
+                ? `KDA ${formatOptionalKda(augment.kills, augment.deaths, augment.assists)} · score — · ${globalDetail?.games ? ((augment.picks / globalDetail.games) * 100).toFixed(1) : "—"}% pick`
                 : undefined
             }
           />
@@ -1532,7 +1553,11 @@ function OverviewTab({
               count={`${keystone.picks}x`}
               baseline={isSummary ? undefined : baseline}
               sampleSize={keystone.picks}
-              secondary={!isSummary ? "KDA — · score —" : undefined}
+              secondary={
+                !isSummary
+                  ? `KDA ${formatOptionalKda(keystone.kills, keystone.deaths, keystone.assists)} · score —`
+                  : undefined
+              }
             />
           ))}
         </RatePanel>
@@ -1572,8 +1597,8 @@ function OverviewTab({
                       }}
                     />
                   </div>
-                  <span className="text-lol-text">{formatRowKda(queueStat)}</span>
-                  <span className="text-right text-lol-text">
+                  <span className="text-sm text-lol-text">{formatRowKda(queueStat)}</span>
+                  <span className="text-right text-sm text-lol-text">
                     {formatSmallMetric(queueStat.avgScore)}
                   </span>
                 </div>
@@ -4353,13 +4378,13 @@ function RoleRow({
             </div>
           </div>
           <span className={`text-right text-xs tabular-nums ${rateColor}`}>{rate.toFixed(1)}%</span>
-          <span className="text-right text-xs tabular-nums text-lol-text">
+          <span className="text-right text-sm tabular-nums text-lol-text">
             {formatOptionalKda(kills, deaths, assists)}
           </span>
-          <span className="text-right text-xs tabular-nums text-lol-text">
+          <span className="text-right text-sm tabular-nums text-lol-text">
             {formatSmallMetric(avgCsPerMin)}
           </span>
-          <span className="text-right text-xs tabular-nums text-lol-text">
+          <span className="text-right text-sm tabular-nums text-lol-text">
             {formatSmallMetric(avgScore)}
           </span>
         </>
@@ -4374,7 +4399,7 @@ function RoleRow({
 
 function formatOptionalKda(kills?: number, deaths?: number, assists?: number) {
   if (kills == null || deaths == null || assists == null) return "—";
-  return `${kills.toFixed(1)}/${deaths.toFixed(1)}/${assists.toFixed(1)}`;
+  return `${kills.toFixed(1)} / ${deaths.toFixed(1)} / ${assists.toFixed(1)}`;
 }
 
 function formatRowKda(row: { kills?: number; deaths?: number; assists?: number; games: number }) {
@@ -4419,7 +4444,7 @@ function RateRow({
       {icon}
       <div className="min-w-0 flex-1">
         <span className="block truncate text-[12.5px] text-lol-text-bright">{name}</span>
-        {secondary && <span className="block truncate text-[10px] text-lol-text">{secondary}</span>}
+        {secondary && <span className="block truncate text-xs text-lol-text">{secondary}</span>}
       </div>
       <span className="shrink-0 text-[11px] text-lol-text">{count}</span>
       {sparse && (
