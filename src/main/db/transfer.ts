@@ -15,6 +15,23 @@ import { rebuildParticipantsFromPayloads } from "./schema";
 // megabytes-plus of JSON to hold twice over, and every await here returns the
 // main process to the event loop, so exporting no longer freezes the window.
 const EXPORT_PAGE_SIZE = 200;
+const TIMELINE_EXPORT_PAGE_SIZE = 5000;
+
+function timelineStatusForExport(row: Record<string, unknown>): Record<string, unknown> {
+  return {
+    ...row,
+    raw_gz: row.raw_gz instanceof Buffer ? row.raw_gz.toString("base64") : null,
+  };
+}
+
+async function writeJsonArray(
+  write: (chunk: string) => Promise<void>,
+  rows: Record<string, unknown>[],
+): Promise<void> {
+  for (const [index, row] of rows.entries()) {
+    await write(`${index === 0 ? "" : ","}${JSON.stringify(row)}`);
+  }
+}
 
 export async function writeExportTo(filePath: string): Promise<number> {
   const out = fs.createWriteStream(filePath, { encoding: "utf8" });
@@ -31,9 +48,83 @@ export async function writeExportTo(filePath: string): Promise<number> {
     const riotSyncState = db
       .prepare("SELECT puuid, platform, last_sync_at, last_match_id, complete FROM riot_sync_state")
       .all();
+    const timelineStatus = db.prepare("SELECT * FROM match_timeline_status").all() as Record<
+      string,
+      unknown
+    >[];
     await write(
-      `{"version":4,"summoners":${JSON.stringify(summoners)},"settings":${JSON.stringify(settings)},"ignoredGames":${JSON.stringify(ignoredGames)},"riotSyncState":${JSON.stringify(riotSyncState)},"games":[`,
+      `{"version":5,"summoners":${JSON.stringify(summoners)},"settings":${JSON.stringify(settings)},"ignoredGames":${JSON.stringify(ignoredGames)},"riotSyncState":${JSON.stringify(riotSyncState)},"timelineStatus":[`,
     );
+    await writeJsonArray(write, timelineStatus.map(timelineStatusForExport));
+    await write(`],"timelineFrames":[`);
+
+    const framePage = db.prepare(`
+      SELECT game_id, frame_index, timestamp_ms, participant_id, puuid, level, xp, gold, cs,
+        position_x, position_y, attack_damage, ability_power, armor, magic_resist,
+        attack_speed, ability_haste, move_speed, max_health, current_health
+      FROM match_timeline_frames
+      WHERE (game_id > ?)
+        OR (game_id = ? AND frame_index > ?)
+        OR (game_id = ? AND frame_index = ? AND participant_id > ?)
+      ORDER BY game_id, frame_index, participant_id
+      LIMIT ?
+    `);
+    let lastFrame = { gameId: 0, frameIndex: -1, participantId: -1 };
+    let firstFrame = true;
+    for (;;) {
+      const rows = framePage.all(
+        lastFrame.gameId,
+        lastFrame.gameId,
+        lastFrame.frameIndex,
+        lastFrame.gameId,
+        lastFrame.frameIndex,
+        lastFrame.participantId,
+        TIMELINE_EXPORT_PAGE_SIZE,
+      ) as Record<string, unknown>[];
+      if (rows.length === 0) break;
+      for (const row of rows) {
+        await write(`${firstFrame ? "" : ","}${JSON.stringify(row)}`);
+        firstFrame = false;
+      }
+      const last = rows[rows.length - 1];
+      lastFrame = {
+        gameId: last.game_id as number,
+        frameIndex: last.frame_index as number,
+        participantId: last.participant_id as number,
+      };
+    }
+    await write(`],"timelineEvents":[`);
+
+    const eventPage = db.prepare(`
+      SELECT game_id, event_index, timestamp_ms, event_type, participant_id, killer_id,
+        victim_id, team_id, item_id, skill_slot, level_up_type, ward_type, building_type,
+        monster_type, monster_subtype, raw_json
+      FROM match_timeline_events
+      WHERE (game_id > ?) OR (game_id = ? AND event_index > ?)
+      ORDER BY game_id, event_index
+      LIMIT ?
+    `);
+    let lastEvent = { gameId: 0, eventIndex: -1 };
+    let firstEvent = true;
+    for (;;) {
+      const rows = eventPage.all(
+        lastEvent.gameId,
+        lastEvent.gameId,
+        lastEvent.eventIndex,
+        TIMELINE_EXPORT_PAGE_SIZE,
+      ) as Record<string, unknown>[];
+      if (rows.length === 0) break;
+      for (const row of rows) {
+        await write(`${firstEvent ? "" : ","}${JSON.stringify(row)}`);
+        firstEvent = false;
+      }
+      const last = rows[rows.length - 1];
+      lastEvent = {
+        gameId: last.game_id as number,
+        eventIndex: last.event_index as number,
+      };
+    }
+    await write(`],"games":[`);
 
     // Keyset paging, not LIMIT/OFFSET: each query completes before the next
     // await, so no statement is left open across one — a statement still
@@ -84,7 +175,107 @@ export async function writeExportTo(filePath: string): Promise<number> {
   return count;
 }
 
+function restoreTimelineData(data: any): void {
+  const timelineStatus = data.timelineStatus;
+  if (!Array.isArray(timelineStatus) || timelineStatus.length === 0) return;
+
+  const restore = db.transaction(() => {
+    const deleteFrames = db.prepare("DELETE FROM match_timeline_frames WHERE game_id = ?");
+    const deleteEvents = db.prepare("DELETE FROM match_timeline_events WHERE game_id = ?");
+    const restoreStatus = db.prepare(`
+      INSERT OR REPLACE INTO match_timeline_status
+        (game_id, fetched_at, frame_count, event_count, fetch_error, raw_gz)
+      VALUES (?, ?, ?, ?, ?, ?)
+    `);
+    const restoreFrame = db.prepare(`
+      INSERT OR REPLACE INTO match_timeline_frames
+        (game_id, frame_index, timestamp_ms, participant_id, puuid, level, xp, gold, cs,
+         position_x, position_y, attack_damage, ability_power, armor, magic_resist,
+         attack_speed, ability_haste, move_speed, max_health, current_health)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `);
+    const restoreEvent = db.prepare(`
+      INSERT OR REPLACE INTO match_timeline_events
+        (game_id, event_index, timestamp_ms, event_type, participant_id, killer_id,
+         victim_id, team_id, item_id, skill_slot, level_up_type, ward_type,
+         building_type, monster_type, monster_subtype, raw_json)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `);
+
+    const gameIds = new Set<number>();
+    for (const status of timelineStatus) {
+      const rawGz =
+        typeof status.raw_gz === "string" && status.raw_gz.length > 0
+          ? Buffer.from(status.raw_gz, "base64")
+          : null;
+      gameIds.add(status.game_id);
+      restoreStatus.run(
+        status.game_id,
+        status.fetched_at,
+        status.frame_count,
+        status.event_count,
+        status.fetch_error ?? null,
+        rawGz,
+      );
+    }
+    for (const gameId of gameIds) {
+      deleteFrames.run(gameId);
+      deleteEvents.run(gameId);
+    }
+    for (const frame of data.timelineFrames ?? []) {
+      restoreFrame.run(
+        frame.game_id,
+        frame.frame_index,
+        frame.timestamp_ms,
+        frame.participant_id,
+        frame.puuid ?? null,
+        frame.level ?? null,
+        frame.xp ?? null,
+        frame.gold ?? null,
+        frame.cs ?? null,
+        frame.position_x ?? null,
+        frame.position_y ?? null,
+        frame.attack_damage ?? null,
+        frame.ability_power ?? null,
+        frame.armor ?? null,
+        frame.magic_resist ?? null,
+        frame.attack_speed ?? null,
+        frame.ability_haste ?? null,
+        frame.move_speed ?? null,
+        frame.max_health ?? null,
+        frame.current_health ?? null,
+      );
+    }
+    for (const event of data.timelineEvents ?? []) {
+      restoreEvent.run(
+        event.game_id,
+        event.event_index,
+        event.timestamp_ms,
+        event.event_type,
+        event.participant_id ?? null,
+        event.killer_id ?? null,
+        event.victim_id ?? null,
+        event.team_id ?? null,
+        event.item_id ?? null,
+        event.skill_slot ?? null,
+        event.level_up_type ?? null,
+        event.ward_type ?? null,
+        event.building_type ?? null,
+        event.monster_type ?? null,
+        event.monster_subtype ?? null,
+        event.raw_json ?? null,
+      );
+    }
+  });
+  restore();
+}
+
 export function importData(data: any): { imported: number; total: number; skipped: number } {
+  if (data.version >= 5) {
+    const result = importData({ ...data, version: 4 });
+    restoreTimelineData(data);
+    return result;
+  }
   if (data.version >= 4) {
     for (const summoner of data.summoners ?? []) {
       try {
