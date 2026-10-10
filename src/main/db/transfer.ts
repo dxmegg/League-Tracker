@@ -329,7 +329,7 @@ export async function importData(filePath: string): Promise<ImportResult> {
         game_id, event_index, timestamp_ms, event_type, participant_id, killer_id,
         victim_id, team_id, item_id, skill_slot, level_up_type, ward_type,
         building_type, monster_type, monster_subtype, raw_json
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
 
   const games: Array<{ data: any }> = [];
