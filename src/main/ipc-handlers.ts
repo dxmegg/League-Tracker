@@ -273,6 +273,24 @@ export function registerIpcHandlers() {
     },
   );
 
+  ipcMain.handle(
+    "db:champion-timeline-averages",
+    (_event, championId: number, patch?: string, queue?: number, account?: string) => {
+      if (!Number.isInteger(championId) || championId <= 0) {
+        throw new TypeError("championId must be a positive integer");
+      }
+      console.log("[db] champion-timeline-averages handler called:", {
+        championId,
+        patch,
+        queue,
+        account,
+      });
+      const result = db.getChampionTimelineAverages(championId, patch, queue, account);
+      console.log("[db] champion-timeline-averages handler done:", { count: result.length });
+      return result;
+    },
+  );
+
   ipcMain.handle("db:champion-queue-stats", (_event, championId: number, account?: string) => {
     return db.getChampionQueueStats(championId, account);
   });

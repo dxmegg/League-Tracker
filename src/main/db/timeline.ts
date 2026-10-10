@@ -6,6 +6,18 @@ import { acquireRequestSlot, fetchMatchTimeline, RiotApiError } from "../riot-ap
 import { db } from "../db";
 import { applyQueueFilter, participantFilter, statsSource } from "./filters";
 
+export interface TimelineBucket {
+  minute: number;
+  avgGold: number | null;
+  avgCs: number | null;
+  avgXp: number | null;
+  avgLevel: number | null;
+  avgGoldDiffVsLaneOpponent: number | null;
+  avgCsDiffVsLaneOpponent: number | null;
+  avgXpDiffVsLaneOpponent: number | null;
+  sampleGames: number;
+}
+
 export interface BackfillProgress {
   current: number;
   total: number;
@@ -241,6 +253,158 @@ export function getChampionTimelineGames(
 
   console.log("[db] getChampionTimelineGames done:", { count: rows.length });
   return rows;
+}
+
+export function getChampionTimelineAverages(
+  championId: number,
+  patch?: string,
+  queue?: number,
+  account?: string,
+): TimelineBucket[] {
+  console.log("[db] getChampionTimelineAverages called:", {
+    championId,
+    patch,
+    queue,
+    account,
+  });
+
+  const participant = participantFilter(patch, undefined, "mp");
+  const where = [participant.sql, "mp.champion_id = ?", "s.frame_count > 0"];
+  const params: any[] = [];
+  params.push(...participant.params, championId);
+  if (account === "all") {
+    where.push("mp.puuid IN (SELECT puuid FROM summoner)");
+  } else if (account) {
+    where.push("mp.puuid = ?");
+    params.push(account);
+  } else {
+    where.push("mp.puuid = g.puuid");
+  }
+  applyQueueFilter(where, params, queue, "g");
+
+  const games = db
+    .prepare(`
+      SELECT g.game_id AS gameId,
+             mp.participant_id AS ownerParticipantId,
+             mp.team_id AS ownerTeamId,
+             mp.team_position AS ownerPosition
+      FROM match_participants mp
+      JOIN games g ON g.game_id = mp.game_id
+      JOIN match_timeline_status s ON s.game_id = g.game_id
+      WHERE ${where.join(" AND ")}
+    `)
+    .all(...params) as Array<{
+    gameId: number;
+    ownerParticipantId: number;
+    ownerTeamId: number;
+    ownerPosition: string | null;
+  }>;
+
+  const targetMinutes = [5, 10, 15, 20, 25, 30];
+  const buckets = targetMinutes.map((minute) => ({
+    minute,
+    gold: [] as number[],
+    cs: [] as number[],
+    xp: [] as number[],
+    level: [] as number[],
+    goldDiff: [] as number[],
+    csDiff: [] as number[],
+    xpDiff: [] as number[],
+    sampleGames: 0,
+  }));
+  const findClosestFrame = (
+    frames: TimelineFrame[],
+    participantId: number,
+    minute: number,
+  ): TimelineFrame | null => {
+    const targetMs = minute * 60_000;
+    let closest: TimelineFrame | null = null;
+    let closestDistance = Number.POSITIVE_INFINITY;
+    for (const frame of frames) {
+      if (frame.participant_id !== participantId) continue;
+      const distance = Math.abs(frame.timestamp_ms - targetMs);
+      if (distance <= 60_000 && distance < closestDistance) {
+        closest = frame;
+        closestDistance = distance;
+      }
+    }
+    return closest;
+  };
+  const average = (values: number[]) =>
+    values.length === 0 ? null : values.reduce((sum, value) => sum + value, 0) / values.length;
+
+  const opponentQuery = db.prepare(`
+    SELECT participant_id AS participantId
+    FROM match_participants
+    WHERE game_id = ?
+      AND team_id != ?
+      AND team_position = ?
+      AND team_position IS NOT NULL
+      AND team_position != ''
+    ORDER BY participant_id
+    LIMIT 1
+  `);
+  const framesQuery = db.prepare(`
+    SELECT frame_index, timestamp_ms, participant_id, puuid, level, xp, gold, cs,
+           position_x, position_y, attack_damage, ability_power, armor, magic_resist,
+           attack_speed, ability_haste, move_speed, max_health, current_health
+    FROM match_timeline_frames
+    WHERE game_id = ?
+      AND participant_id IN (?, ?)
+    ORDER BY timestamp_ms
+  `);
+
+  for (const game of games) {
+    const opponent =
+      game.ownerPosition == null || game.ownerPosition === ""
+        ? null
+        : (opponentQuery.get(game.gameId, game.ownerTeamId, game.ownerPosition) as
+            | { participantId: number }
+            | undefined);
+    const frames = framesQuery.all(
+      game.gameId,
+      game.ownerParticipantId,
+      opponent?.participantId ?? -1,
+    ) as TimelineFrame[];
+    for (const bucket of buckets) {
+      const ownerFrame = findClosestFrame(frames, game.ownerParticipantId, bucket.minute);
+      if (!ownerFrame) continue;
+      bucket.sampleGames += 1;
+      if (ownerFrame.gold != null) bucket.gold.push(ownerFrame.gold);
+      if (ownerFrame.cs != null) bucket.cs.push(ownerFrame.cs);
+      if (ownerFrame.xp != null) bucket.xp.push(ownerFrame.xp);
+      if (ownerFrame.level != null) bucket.level.push(ownerFrame.level);
+      if (!opponent) continue;
+      const opponentFrame = findClosestFrame(frames, opponent.participantId, bucket.minute);
+      if (!opponentFrame) continue;
+      if (ownerFrame.gold != null && opponentFrame.gold != null) {
+        bucket.goldDiff.push(ownerFrame.gold - opponentFrame.gold);
+      }
+      if (ownerFrame.cs != null && opponentFrame.cs != null) {
+        bucket.csDiff.push(ownerFrame.cs - opponentFrame.cs);
+      }
+      if (ownerFrame.xp != null && opponentFrame.xp != null) {
+        bucket.xpDiff.push(ownerFrame.xp - opponentFrame.xp);
+      }
+    }
+  }
+
+  const result = buckets.map((bucket) => ({
+    minute: bucket.minute,
+    avgGold: average(bucket.gold),
+    avgCs: average(bucket.cs),
+    avgXp: average(bucket.xp),
+    avgLevel: average(bucket.level),
+    avgGoldDiffVsLaneOpponent: average(bucket.goldDiff),
+    avgCsDiffVsLaneOpponent: average(bucket.csDiff),
+    avgXpDiffVsLaneOpponent: average(bucket.xpDiff),
+    sampleGames: bucket.sampleGames,
+  }));
+  console.log("[db] getChampionTimelineAverages done:", {
+    bucketCount: result.length,
+    games: games.length,
+  });
+  return result;
 }
 
 export function insertTimeline(gameId: number, parsed: ParsedTimeline, rawPayload: any): void {

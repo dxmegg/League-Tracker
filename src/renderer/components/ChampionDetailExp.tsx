@@ -15,6 +15,7 @@ import type {
   ChampionTrendsData,
   ChampionWeeklyWinRate,
   ChampionRecordsResult,
+  TimelineBucket,
   GlobalChampionDetail,
   ItemStats,
   MasteryChampion,
@@ -150,6 +151,13 @@ export function ChampionDetailExp() {
     () => window.api.getChampionDetailStats(id, patch, scopedQueue, account),
     [id, patch, scopedQueue, account],
   );
+  const { data: timelineAverages, loading: timelineAveragesLoading } = useIpc<TimelineBucket[]>(
+    () =>
+      economyActive || farmActive
+        ? window.api.getChampionTimelineAverages(id, patch, scopedQueue, account)
+        : Promise.resolve([]),
+    [economyActive, farmActive, id, patch, scopedQueue, account],
+  );
   const { data: skillOrders, loading: skillOrdersLoading } = useIpc<ChampionSkillOrdersResult>(
     () =>
       abilitiesActive
@@ -265,10 +273,10 @@ export function ChampionDetailExp() {
     Array<{ queueId: number; games: number; wins: number }>
   >(
     () =>
-      overviewActive
+      overviewActive || economyActive || farmActive
         ? window.api.getChampionQueueStats(id, account)
         : Promise.resolve([] as Array<{ queueId: number; games: number; wins: number }>),
-    [overviewActive, id, account],
+    [overviewActive, economyActive, farmActive, id, account],
   );
   const { data: roleStats, loading: roleStatsLoading } = useIpc<ChampionRoleStat[]>(
     () =>
@@ -602,9 +610,23 @@ export function ChampionDetailExp() {
           globalDetail={globalDetail}
         />
       ) : activeTab === "ec" ? (
-        <EconomyTab detail={detailStats} detailLoading={detailLoading} />
+        <EconomyTab
+          detail={detailStats}
+          detailLoading={detailLoading}
+          timeline={timelineAverages}
+          timelineLoading={timelineAveragesLoading}
+          queueStats={queueStats}
+          queueStatsLoading={queueStatsLoading}
+        />
       ) : activeTab === "fa" ? (
-        <FarmTab detail={detailStats} detailLoading={detailLoading} />
+        <FarmTab
+          detail={detailStats}
+          detailLoading={detailLoading}
+          timeline={timelineAverages}
+          timelineLoading={timelineAveragesLoading}
+          queueStats={queueStats}
+          queueStatsLoading={queueStatsLoading}
+        />
       ) : activeTab === "ob" ? (
         <ObjectivesTab detail={detailStats} detailLoading={detailLoading} />
       ) : activeTab === "vi" ? (
@@ -3034,12 +3056,42 @@ function CombatTab({
 function EconomyTab({
   detail,
   detailLoading,
+  timeline,
+  timelineLoading,
+  queueStats,
+  queueStatsLoading,
 }: {
   detail: ChampionDetailStats | null;
   detailLoading: boolean;
+  timeline: TimelineBucket[] | null;
+  timelineLoading: boolean;
+  queueStats: Array<{ queueId: number; games: number; wins: number }> | null;
+  queueStatsLoading: boolean;
 }) {
   if (detailLoading) return <SectionLoading />;
   if (!detail || detail.games === 0) return <NoData text="No data" />;
+  if (timelineLoading) return <SectionLoading />;
+
+  const buckets = timeline ?? [];
+  const bucketAt = (minute: number) => buckets.find((bucket) => bucket.minute === minute);
+  const goldValues = buckets.flatMap((bucket) => (bucket.avgGold == null ? [] : [bucket.avgGold]));
+  const goldLabels = buckets
+    .filter((bucket) => bucket.avgGold != null)
+    .map((bucket) => `${bucket.minute}m`);
+  const goldLead = buckets.flatMap((bucket) =>
+    bucket.avgGoldDiffVsLaneOpponent == null ? [] : [bucket.avgGoldDiffVsLaneOpponent],
+  );
+  const xpLead = buckets.flatMap((bucket) =>
+    bucket.avgXpDiffVsLaneOpponent == null ? [] : [bucket.avgXpDiffVsLaneOpponent],
+  );
+  const timelineGames = buckets.reduce((sum, bucket) => sum + bucket.sampleGames, 0);
+  const damagePerGold =
+    detail.avgGoldSpent > 0
+      ? (detail.avgPhysicalDamageDealt + detail.avgMagicDamageDealt) / detail.avgGoldSpent
+      : null;
+  const value = (number: number | null | undefined, digits = 0) =>
+    number == null ? "—" : number.toLocaleString(undefined, { maximumFractionDigits: digits });
+  const queueRows = queueStats ?? [];
 
   return (
     <div className="grid grid-cols-1 gap-5 xl:grid-cols-2">
@@ -3047,14 +3099,53 @@ function EconomyTab({
         insights={[
           {
             kind: "good",
-            text: "Gold income peaks in the mid game — plan your item spikes around it.",
+            text: `Gold timeline averages are based on ${timelineGames} game-minute samples.`,
           },
           {
             kind: "info",
-            text: "Placeholder — real gold-lead insights land in a follow-up phase.",
+            text:
+              goldLead.length > 0
+                ? "Lane gold lead is shown at the nearest available timeline minute."
+                : "Lane gold lead is not available without a matching opponent timeline.",
           },
         ]}
       />
+      <Panel className="xl:col-span-2">
+        <SectionHeading title="Economy snapshot" source="d" />
+        <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
+          <Stat
+            label="Gold/min"
+            value={detail.goldPerMin.toFixed(0)}
+            sub="Average earned per minute"
+          />
+          <Stat label="Ahead @10" value="—" sub="Percentage unavailable" />
+          <Stat
+            label="Gold lead @15"
+            value={value(bucketAt(15)?.avgGoldDiffVsLaneOpponent)}
+            sub="Versus lane opponent"
+          />
+          <Stat
+            label="Gold efficiency"
+            value={value(damagePerGold, 2)}
+            sub="Damage per gold spent"
+          />
+          <Stat label="Items bought" value="—" sub="Not stored in aggregate stats" />
+          <Stat label="Comebacks" value="—" sub="Not available from current data" />
+        </div>
+      </Panel>
+      <Panel>
+        <SectionHeading title="Gold over time" source="d" />
+        {goldValues.length < 2 ? (
+          <NoData text="Not enough timeline data" />
+        ) : (
+          <LineChartExp
+            values={goldValues}
+            xLabels={goldLabels}
+            format={(item) => value(item)}
+            color="var(--theme-gold)"
+          />
+        )}
+      </Panel>
       <Panel>
         <SectionHeading title="Gold" source="m" />
         <CombatStatTable
@@ -3068,45 +3159,122 @@ function EconomyTab({
             ],
           ]}
         />
-        <div className="mt-3 flex items-center justify-between border-t border-lol-border/50 pt-3 text-xs">
-          <span className="text-lol-text">Gold per minute</span>
-          <b className="tabular-nums text-lol-text-bright">{detail.goldPerMin.toFixed(0)}</b>
-        </div>
-        <div className="mt-2 flex items-center justify-between text-xs">
-          <span className="text-lol-text">Max champion level reached</span>
-          <b className="tabular-nums text-lol-text-bright">{detail.maxChampLevel}</b>
-        </div>
       </Panel>
-
       <Panel>
-        <SectionHeading title="Gold sources" source="m" />
-        {/* Placeholder data; backend gold-source split lands in a follow-up phase. */}
-        <DonutChart
-          segments={[
-            { label: "Minions", value: 42, color: "var(--theme-gold)" },
-            { label: "Kills", value: 22, color: "var(--theme-crimson)" },
-            { label: "Assists", value: 10, color: "var(--theme-assist)" },
-            { label: "Objectives", value: 12, color: "var(--theme-win)" },
-            { label: "Passive", value: 14, color: "var(--theme-foreground-muted)" },
-          ]}
-          centerLabel="42%"
-          centerSub="from minions"
-        />
-      </Panel>
-
-      <Panel>
-        <SectionHeading title="Time" source="d" />
-        <CombatStatTable
-          rows={[
-            ["Avg game length", detail.avgGameLength, null, null, formatSeconds],
-            ["Total time played", null, null, detail.totalTimePlayed, formatSeconds],
-          ]}
-        />
-        <div className="mt-3 flex items-center justify-between border-t border-lol-border/50 pt-3 text-xs">
-          <span className="text-lol-text">Longest win streak</span>
-          <b className="tabular-nums text-lol-text-bright">{detail.longestWinStreak}</b>
+        <SectionHeading title="Lead vs lane opponent" source="d" />
+        <div className="flex flex-col gap-2 text-xs">
+          <div className="grid grid-cols-[1fr_auto] gap-3 border-b border-lol-border/50 pb-2 font-semibold text-lol-text">
+            <span>Stat</span>
+            <span>Avg</span>
+          </div>
+          {[
+            ["Gold diff @5", bucketAt(5)?.avgGoldDiffVsLaneOpponent],
+            ["Gold diff @10", bucketAt(10)?.avgGoldDiffVsLaneOpponent],
+            ["Gold diff @15", bucketAt(15)?.avgGoldDiffVsLaneOpponent],
+            ["Gold diff @20", bucketAt(20)?.avgGoldDiffVsLaneOpponent],
+            ["XP diff @10", bucketAt(10)?.avgXpDiffVsLaneOpponent],
+            ["XP diff @15", bucketAt(15)?.avgXpDiffVsLaneOpponent],
+          ].map(([label, stat]) => (
+            <div key={label} className="grid grid-cols-[1fr_auto] gap-3 text-lol-text-bright">
+              <span>{label}</span>
+              <span className="tabular-nums">{value(stat as number | null | undefined)}</span>
+            </div>
+          ))}
         </div>
       </Panel>
+      <Panel>
+        <SectionHeading title="Levels & XP" source="d" />
+        <div className="flex flex-col gap-2 text-xs">
+          {[
+            ["Final level", detail.maxChampLevel],
+            ["Level @5", bucketAt(5)?.avgLevel],
+            ["Level @10", bucketAt(10)?.avgLevel],
+            ["Level @15", bucketAt(15)?.avgLevel],
+            ["Level @20", bucketAt(20)?.avgLevel],
+          ].map(([label, stat]) => (
+            <div key={label} className="flex items-center justify-between text-lol-text-bright">
+              <span className="text-lol-text">{label}</span>
+              <span className="tabular-nums">{value(stat as number | null | undefined, 1)}</span>
+            </div>
+          ))}
+        </div>
+      </Panel>
+      <Panel>
+        <SectionHeading title="Gold lead curve" source="d" />
+        {goldLead.length < 2 ? (
+          <NoData text="Not enough lane timeline data" />
+        ) : (
+          <LineChartExp
+            values={goldLead}
+            format={(item) => value(item)}
+            color="var(--theme-gold)"
+          />
+        )}
+      </Panel>
+      <Panel>
+        <SectionHeading title="XP lead curve" source="d" />
+        {xpLead.length < 2 ? (
+          <NoData text="Not enough lane timeline data" />
+        ) : (
+          <LineChartExp
+            values={xpLead}
+            format={(item) => value(item)}
+            color="var(--theme-violet)"
+          />
+        )}
+      </Panel>
+      <Panel>
+        <SectionHeading title="Gold spending" source="m" />
+        <div className="flex flex-col gap-2 text-xs">
+          <div className="flex items-center justify-between">
+            <span className="text-lol-text">Gold spent average</span>
+            <span className="tabular-nums text-lol-text-bright">{value(detail.avgGoldSpent)}</span>
+          </div>
+        </div>
+      </Panel>
+      <Panel>
+        <SectionHeading title="Economy by queue" source="m" />
+        {queueStatsLoading ? (
+          <SectionLoading />
+        ) : queueRows.length === 0 ? (
+          <NoData text="No queue data" />
+        ) : (
+          <div className="flex flex-col gap-2 text-xs">
+            <div className="grid grid-cols-[1fr_auto_auto_auto_auto_auto] gap-2 border-b border-lol-border/50 pb-2 font-semibold text-lol-text">
+              <span>Queue</span>
+              <span>Games</span>
+              <span>Gold/min</span>
+              <span>Avg gold</span>
+              <span>CS/min</span>
+              <span>KDA</span>
+            </div>
+            {queueRows.map((row) => (
+              <div
+                key={row.queueId}
+                className="grid grid-cols-[1fr_auto_auto_auto_auto_auto] gap-2 text-lol-text-bright"
+              >
+                <span>{QUEUE_LABELS[row.queueId] ?? row.queueId}</span>
+                <span className="tabular-nums">{row.games}</span>
+                <span>—</span>
+                <span>—</span>
+                <span>—</span>
+                <span>—</span>
+              </div>
+            ))}
+          </div>
+        )}
+      </Panel>
+      {[
+        ["Gold sources", "Gold-source split not available"],
+        ["WR by gold lead @15", "Gold lead outcomes are not available"],
+        ["Gold lead distribution", "Per-game lead distribution is not available"],
+        ["Spending timeline", "Item purchase timeline is not available"],
+      ].map(([title, text]) => (
+        <Panel key={title}>
+          <SectionHeading title={title} source="d" />
+          <NoData text={text} />
+        </Panel>
+      ))}
     </div>
   );
 }
@@ -3114,12 +3282,31 @@ function EconomyTab({
 function FarmTab({
   detail,
   detailLoading,
+  timeline,
+  timelineLoading,
+  queueStats,
+  queueStatsLoading,
 }: {
   detail: ChampionDetailStats | null;
   detailLoading: boolean;
+  timeline: TimelineBucket[] | null;
+  timelineLoading: boolean;
+  queueStats: Array<{ queueId: number; games: number; wins: number }> | null;
+  queueStatsLoading: boolean;
 }) {
   if (detailLoading) return <SectionLoading />;
   if (!detail || detail.games === 0) return <NoData text="No data" />;
+  if (timelineLoading) return <SectionLoading />;
+
+  const buckets = timeline ?? [];
+  const bucketAt = (minute: number) => buckets.find((bucket) => bucket.minute === minute);
+  const csValues = buckets.flatMap((bucket) => (bucket.avgCs == null ? [] : [bucket.avgCs]));
+  const csLead = buckets.flatMap((bucket) =>
+    bucket.avgCsDiffVsLaneOpponent == null ? [] : [bucket.avgCsDiffVsLaneOpponent],
+  );
+  const timelineGames = buckets.reduce((sum, bucket) => sum + bucket.sampleGames, 0);
+  const value = (number: number | null | undefined, digits = 1) =>
+    number == null ? "—" : number.toLocaleString(undefined, { maximumFractionDigits: digits });
 
   return (
     <div className="grid grid-cols-1 gap-5 xl:grid-cols-2">
@@ -3127,14 +3314,40 @@ function FarmTab({
         insights={[
           {
             kind: "good",
-            text: "CS per minute is consistent across game lengths.",
+            text: `CS pace is based on ${timelineGames} game-minute samples with timeline data.`,
           },
           {
             kind: "info",
-            text: "Placeholder — real farming insights land in a follow-up phase.",
+            text:
+              csLead.length > 0
+                ? "The CS curve can be compared with the nearest available lane-opponent frame."
+                : "Lane CS lead is not available without a matching opponent timeline.",
           },
         ]}
       />
+      <Panel className="xl:col-span-2">
+        <SectionHeading title="Farm snapshot" source="d" />
+        <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
+          <Stat
+            label="CS/min"
+            value={
+              detail.avgGameLength > 0
+                ? (detail.avgTotalMinionsKilled / (detail.avgGameLength / 60)).toFixed(1)
+                : "—"
+            }
+            sub="Average minions per minute"
+          />
+          <Stat label="CS @10" value={value(bucketAt(10)?.avgCs)} sub="Timeline average" />
+          <Stat
+            label="CS diff @15"
+            value={value(bucketAt(15)?.avgCsDiffVsLaneOpponent)}
+            sub="Versus lane opponent"
+          />
+          <Stat label="8+ CS/min games" value="—" sub="Not available from current data" />
+          <Stat label="Jungle share" value="—" sub="Percentage unavailable" />
+          <Stat label="Possible CS @10" value="—" sub="Not available from current data" />
+        </div>
+      </Panel>
       <Panel>
         <SectionHeading title="Minion split" source="m" />
         <CombatStatTable
@@ -3166,22 +3379,97 @@ function FarmTab({
           ]}
         />
       </Panel>
-
       <Panel>
-        <SectionHeading title="Per minute" source="d" />
-        <div className="flex flex-col gap-3 text-xs">
+        <SectionHeading title="CS pace" source="d" />
+        <div className="flex flex-col gap-2 text-xs">
+          <div className="grid grid-cols-[1fr_auto] gap-3 border-b border-lol-border/50 pb-2 font-semibold text-lol-text">
+            <span>Stat</span>
+            <span>Avg</span>
+          </div>
+          {[5, 10, 15, 20, 25, 30].map((minute) => (
+            <div key={minute} className="grid grid-cols-[1fr_auto] gap-3 text-lol-text-bright">
+              <span>CS @{minute}</span>
+              <span className="tabular-nums">{value(bucketAt(minute)?.avgCs)}</span>
+            </div>
+          ))}
+        </div>
+      </Panel>
+      <Panel>
+        <SectionHeading title="CS curve" source="d" />
+        {csValues.length < 2 ? (
+          <NoData text="Not enough timeline data" />
+        ) : (
+          <LineChartExp
+            values={csValues}
+            format={(item) => value(item)}
+            color="var(--theme-violet)"
+          />
+        )}
+      </Panel>
+      <Panel>
+        <SectionHeading title="CS lead vs lane opponent" source="d" />
+        {csLead.length < 2 ? (
+          <NoData text="Not enough lane timeline data" />
+        ) : (
+          <LineChartExp values={csLead} format={(item) => value(item)} color="var(--theme-win)" />
+        )}
+      </Panel>
+      <Panel>
+        <SectionHeading title="Jungle share" source="m" />
+        <div className="flex flex-col gap-2 text-xs">
           <div className="flex items-center justify-between">
-            <span className="text-lol-text">Games played</span>
-            <b className="tabular-nums text-lol-text-bright">{detail.games}</b>
+            <span className="text-lol-text">Allied jungle</span>
+            <span className="tabular-nums text-lol-text-bright">
+              {value(detail.avgNeutralMinionsTeamJungle)}
+            </span>
           </div>
           <div className="flex items-center justify-between">
-            <span className="text-lol-text">Avg game length</span>
-            <b className="tabular-nums text-lol-text-bright">
-              {formatSeconds(detail.avgGameLength)}
-            </b>
+            <span className="text-lol-text">Enemy jungle</span>
+            <span className="tabular-nums text-lol-text-bright">
+              {value(detail.avgNeutralMinionsEnemyJungle)}
+            </span>
           </div>
         </div>
       </Panel>
+      <Panel>
+        <SectionHeading title="Farm by queue" source="m" />
+        {queueStatsLoading ? (
+          <SectionLoading />
+        ) : (queueStats ?? []).length === 0 ? (
+          <NoData text="No queue data" />
+        ) : (
+          <div className="flex flex-col gap-2 text-xs">
+            <div className="grid grid-cols-[1fr_auto_auto_auto] gap-2 border-b border-lol-border/50 pb-2 font-semibold text-lol-text">
+              <span>Queue</span>
+              <span>Games</span>
+              <span>CS/min</span>
+              <span>Avg CS</span>
+            </div>
+            {(queueStats ?? []).map((row) => (
+              <div
+                key={row.queueId}
+                className="grid grid-cols-[1fr_auto_auto_auto] gap-2 text-lol-text-bright"
+              >
+                <span>{QUEUE_LABELS[row.queueId] ?? row.queueId}</span>
+                <span className="tabular-nums">{row.games}</span>
+                <span>—</span>
+                <span>—</span>
+              </div>
+            ))}
+          </div>
+        )}
+      </Panel>
+      {[
+        ["CS per game histogram", "Per-game CS distribution is not available"],
+        ["WR by CS @10", "CS-at-10 outcomes are not available per game"],
+        ["CS by game phase", "Phase-specific CS aggregation is not available"],
+        ["Where CS comes from", "Lane/jungle source split is not available"],
+      ].map(([title, text]) => (
+        <Panel key={title}>
+          <SectionHeading title={title} source="d" />
+          <NoData text={text} />
+        </Panel>
+      ))}
     </div>
   );
 }

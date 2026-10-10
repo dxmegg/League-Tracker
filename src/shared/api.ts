@@ -1276,6 +1276,12 @@ export interface ElectronAPI {
     queue?: number,
     account?: string,
   ) => Promise<ChampionTimelineGame[]>;
+  getChampionTimelineAverages: (
+    championId: number,
+    patch?: string,
+    queue?: number,
+    account?: string,
+  ) => Promise<TimelineBucket[]>;
   getChampionMatchups: (championId: number, account?: string) => Promise<ChampionMatchups>;
   getChampionMatchupList: (
     championId: number,
@@ -1611,4 +1617,16 @@ export interface ChampionTimelineGame {
   deaths: number;
   assists: number;
   frameCount: number;
+}
+
+export interface TimelineBucket {
+  minute: number;
+  avgGold: number | null;
+  avgCs: number | null;
+  avgXp: number | null;
+  avgLevel: number | null;
+  avgGoldDiffVsLaneOpponent: number | null;
+  avgCsDiffVsLaneOpponent: number | null;
+  avgXpDiffVsLaneOpponent: number | null;
+  sampleGames: number;
 }

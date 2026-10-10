@@ -5,6 +5,7 @@ import type {
   ChampionDetailStats,
   ChampionRoleStat,
   ChampionTimelineGame,
+  TimelineBucket,
   ChampionTrendsData,
   ElectronAPI,
   LcuStatus,
@@ -52,6 +53,14 @@ const api: ElectronAPI = {
     account?: string,
   ): Promise<ChampionTimelineGame[]> =>
     ipcRenderer.invoke("db:champion-timeline-games", championId, limit, patch, queue, account),
+
+  getChampionTimelineAverages: (
+    championId: number,
+    patch?: string,
+    queue?: number,
+    account?: string,
+  ): Promise<TimelineBucket[]> =>
+    ipcRenderer.invoke("db:champion-timeline-averages", championId, patch, queue, account),
 
   fetchTimeline: (gameId: number, platform?: string): Promise<TimelineData | null> =>
     ipcRenderer.invoke("db:timeline-fetch", gameId, platform),
