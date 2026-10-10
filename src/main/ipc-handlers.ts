@@ -300,9 +300,14 @@ export function registerIpcHandlers() {
 
   ipcMain.handle(
     "db:champion-role-stats",
-    (_event, championId: number | null, patch?: string, queue?: number) => {
-      console.log("[db] champion-role-stats handler called:", { championId, patch, queue });
-      const result = db.getChampionRoleStats(championId, patch, queue);
+    (_event, championId: number | null, patch?: string, queue?: number, account?: string) => {
+      console.log("[db] champion-role-stats handler called:", {
+        championId,
+        patch,
+        queue,
+        account,
+      });
+      const result = db.getChampionRoleStats(championId, patch, queue, account);
       console.log("[db] champion-role-stats handler done:", { count: result.length });
       return result;
     },

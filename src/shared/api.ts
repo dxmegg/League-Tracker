@@ -366,12 +366,22 @@ export interface ChampionQueueStat {
   queueId: number;
   games: number;
   wins: number;
+  kills?: number;
+  deaths?: number;
+  assists?: number;
+  avgScore?: number | null;
+  avgGameLength?: number | null;
 }
 
 export interface ChampionRoleStat {
   role: string;
   games: number;
   wins: number;
+  kills?: number;
+  deaths?: number;
+  assists?: number;
+  avgCsPerMin?: number | null;
+  avgScore?: number | null;
 }
 
 export interface ChampionKeystoneStat {
@@ -951,6 +961,9 @@ export interface GlobalChampionDetail {
   kills: number;
   deaths: number;
   assists: number;
+  totalKills: number;
+  totalDeaths: number;
+  totalAssists: number;
   avgDamage: number;
   avgDamageTaken: number;
   avgGold: number;
@@ -1254,6 +1267,7 @@ export interface ElectronAPI {
     championId: number | null,
     patch?: string,
     queue?: number,
+    account?: string,
   ) => Promise<ChampionRoleStat[]>;
   getChampionKeystones: (
     championId: number | null,

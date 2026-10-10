@@ -161,9 +161,17 @@ export function getChampionRoleStats(
   championId: number | null,
   patch?: string,
   queue?: number,
+  account?: string,
 ): ChampionRoleStat[] {
-  console.log("[db] getChampionRoleStats called:", { championId, patch, queue });
+  console.log("[db] getChampionRoleStats called:", { championId, patch, queue, account });
   const filter = participantFilter(patch, queue);
+  const ownerFilter =
+    account === "all"
+      ? "mp.puuid IN (SELECT puuid FROM summoner)"
+      : account
+        ? "mp.puuid = ?"
+        : "mp.puuid IN (SELECT puuid FROM summoner)";
+  const ownerParams: string[] = account && account !== "all" ? [account] : [];
   const rows = db
     .prepare(`
       SELECT
@@ -172,10 +180,15 @@ export function getChampionRoleStats(
         SUM(mp.win) as wins
       FROM match_participants mp
       WHERE ${filter.sql}${championId !== null ? " AND mp.champion_id = ?" : ""}
+        AND ${ownerFilter}
       GROUP BY COALESCE(NULLIF(mp.team_position, ''), 'UNKNOWN')
       ORDER BY games DESC
     `)
-    .all(...filter.params, ...(championId !== null ? [championId] : [])) as ChampionRoleStat[];
+    .all(
+      ...filter.params,
+      ...(championId !== null ? [championId] : []),
+      ...ownerParams,
+    ) as ChampionRoleStat[];
   console.log("[db] getChampionRoleStats done:", { count: rows.length });
   return rows;
 }
@@ -1715,10 +1728,8 @@ export function getOwnedRuneStats(queue?: number, patch?: string, account?: stri
   };
 }
 
-// Everything we know about one champion across every stored game, counting all
-// ten players in each game (not just our own). Items and augments come from the
-// participant tables for the same reason — the player_stats/game_augments
-// tables only hold our own picks.
+// Everything we know about one champion across the stored games owned by the
+// tracked accounts. Each matching game still includes every participant.
 export function getGlobalChampionDetail(
   championId: number | null,
   patch?: string,
@@ -1731,6 +1742,9 @@ export function getGlobalChampionDetail(
   kills: number;
   deaths: number;
   assists: number;
+  totalKills: number;
+  totalDeaths: number;
+  totalAssists: number;
   avgDamage: number;
   avgDamageTaken: number;
   avgGold: number;
@@ -1749,8 +1763,12 @@ export function getGlobalChampionDetail(
   const mpa = participantFilter(patch, queue, "mpa");
   const accountSql = (alias: string) =>
     account && account !== "all"
-      ? ` AND EXISTS (SELECT 1 FROM match_participants owner WHERE owner.game_id = ${alias}.game_id AND owner.puuid = ?)`
-      : "";
+      ? alias === "mp"
+        ? ` AND ${alias}.puuid = ?`
+        : ` AND EXISTS (SELECT 1 FROM match_participants owner WHERE owner.game_id = ${alias}.game_id AND owner.puuid = ?)`
+      : alias === "mp"
+        ? ` AND ${alias}.puuid IN (SELECT puuid FROM summoner)`
+        : ` AND EXISTS (SELECT 1 FROM match_participants owner WHERE owner.game_id = ${alias}.game_id AND owner.puuid IN (SELECT puuid FROM summoner))`;
   const mpSql = `${mp.sql}${accountSql("mp")}`;
   const mpaSql = `${mpa.sql}${accountSql("mpa")}`;
   const mpParams = account && account !== "all" ? [...mp.params, account] : mp.params;
@@ -1851,6 +1869,9 @@ export function getGlobalChampionDetail(
     kills: totals?.kills ?? 0,
     deaths: totals?.deaths ?? 0,
     assists: totals?.assists ?? 0,
+    totalKills: totals?.kills ?? 0,
+    totalDeaths: totals?.deaths ?? 0,
+    totalAssists: totals?.assists ?? 0,
     avgDamage: avg(totals?.damage),
     avgDamageTaken: avg(totals?.damageTaken),
     avgGold: avg(totals?.gold),

@@ -144,6 +144,13 @@ export function ChampionExp() {
           <p className="mt-1.5 text-lol-text">Your performance on every champion, all accounts</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            onClick={() => navigate("/champions/summary")}
+            className="h-9 rounded-md border border-lol-border/60 bg-lol-card/40 px-3 text-xs text-lol-text-bright transition-colors hover:border-lol-gold/60 focus-visible:outline-none focus-visible:border-lol-gold/60 focus-visible:ring-1 focus-visible:ring-lol-gold/40"
+          >
+            Check summary
+          </button>
           <FilterSelect
             value={queue != null ? String(queue) : undefined}
             onChange={(v) => setQueue(v === undefined ? undefined : Number(v))}

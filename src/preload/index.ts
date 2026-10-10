@@ -138,8 +138,9 @@ const api: ElectronAPI = {
     championId: number | null,
     patch?: string,
     queue?: number,
+    account?: string,
   ): Promise<ChampionRoleStat[]> =>
-    ipcRenderer.invoke("db:champion-role-stats", championId, patch, queue),
+    ipcRenderer.invoke("db:champion-role-stats", championId, patch, queue, account),
 
   getChampionKeystones: (championId: number | null, account?: string) =>
     ipcRenderer.invoke("db:champion-keystones", championId, account),

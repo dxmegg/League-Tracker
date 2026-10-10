@@ -8,6 +8,7 @@ import type {
   ChampionMatchupRow,
   ChampionRuneStatsResult,
   ChampionRoleStat,
+  ChampionQueueStat,
   ChampionStats,
   ChampionSkillOrdersResult,
   ChampionTeammateRow,
@@ -282,7 +283,7 @@ export function ChampionDetailExp() {
   const { data: roleStats, loading: roleStatsLoading } = useIpc<ChampionRoleStat[]>(
     () =>
       overviewActive
-        ? window.api.getChampionRoleStats(id, patch, scopedQueue)
+        ? window.api.getChampionRoleStats(id, patch, scopedQueue, account)
         : Promise.resolve([] as ChampionRoleStat[]),
     [overviewActive, id, patch, scopedQueue],
   );
@@ -309,8 +310,28 @@ export function ChampionDetailExp() {
         assists: total.assists + item.assists,
         damage: total.damage + item.avg_damage * item.games,
         gold: total.gold + item.avg_gold * item.games,
+        avgScoreTotal: total.avgScoreTotal + (item.avg_score ?? 0) * item.games,
+        avgScoreGames: total.avgScoreGames + (item.avg_score != null ? item.games : 0),
+        mvps: total.mvps + item.mvps,
+        aces: total.aces + item.aces,
+        avgCsPerMinTotal: total.avgCsPerMinTotal + (item.avg_cs_per_min ?? 0) * item.games,
+        avgCsPerMinGames: total.avgCsPerMinGames + (item.avg_cs_per_min != null ? item.games : 0),
       }),
-      { games: 0, wins: 0, kills: 0, deaths: 0, assists: 0, damage: 0, gold: 0 },
+      {
+        games: 0,
+        wins: 0,
+        kills: 0,
+        deaths: 0,
+        assists: 0,
+        damage: 0,
+        gold: 0,
+        avgScoreTotal: 0,
+        avgScoreGames: 0,
+        mvps: 0,
+        aces: 0,
+        avgCsPerMinTotal: 0,
+        avgCsPerMinGames: 0,
+      },
     );
     const aggregateGames = aggregate?.games ?? 0;
     return {
@@ -320,31 +341,41 @@ export function ChampionDetailExp() {
       kills: globalDetail?.kills ?? aggregate?.kills ?? 0,
       deaths: globalDetail?.deaths ?? aggregate?.deaths ?? 0,
       assists: globalDetail?.assists ?? aggregate?.assists ?? 0,
-      avg_kills: 0,
-      avg_deaths: 0,
-      avg_assists: 0,
+      avg_kills: aggregateGames > 0 ? (aggregate?.kills ?? 0) / aggregateGames : 0,
+      avg_deaths: aggregateGames > 0 ? (aggregate?.deaths ?? 0) / aggregateGames : 0,
+      avg_assists: aggregateGames > 0 ? (aggregate?.assists ?? 0) / aggregateGames : 0,
       avg_damage:
         globalDetail?.avgDamage ??
         (aggregateGames > 0 ? (aggregate?.damage ?? 0) / aggregateGames : 0),
       avg_gold:
         globalDetail?.avgGold ?? (aggregateGames > 0 ? (aggregate?.gold ?? 0) / aggregateGames : 0),
-      avg_score: null,
-      mvps: 0,
-      aces: 0,
+      avg_score:
+        aggregate && aggregate.avgScoreGames > 0
+          ? aggregate.avgScoreTotal / aggregate.avgScoreGames
+          : null,
+      mvps: aggregate?.mvps ?? 0,
+      aces: aggregate?.aces ?? 0,
       double_kills: globalDetail?.doubleKills ?? 0,
       triple_kills: globalDetail?.tripleKills ?? 0,
       quadra_kills: globalDetail?.quadraKills ?? 0,
       penta_kills: globalDetail?.pentaKills ?? 0,
-      avg_cs_per_min: null,
+      avg_cs_per_min:
+        aggregate && aggregate.avgCsPerMinGames > 0
+          ? aggregate.avgCsPerMinTotal / aggregate.avgCsPerMinGames
+          : null,
     };
   }, [allStats, championStats, globalDetail]);
   const streak = useMemo(() => {
     const matches = matchHistory?.matches;
-    if (!matches || matches.length === 0) return null;
+    if (!matches || matches.length === 0) {
+      return isSummary && detailStats && detailStats.longestWinStreak > 0
+        ? { type: "W" as const, count: detailStats.longestWinStreak }
+        : null;
+    }
     const type = matches[0].win === 1 ? "W" : "L";
     const count = matches.findIndex((match) => (match.win === 1 ? "W" : "L") !== type);
     return { type, count: count === -1 ? matches.length : count };
-  }, [matchHistory]);
+  }, [detailStats, isSummary, matchHistory]);
 
   useEffect(() => {
     if (detailStatsError) {
@@ -362,14 +393,13 @@ export function ChampionDetailExp() {
   const masteryAccountName =
     masterySource && "gameName" in masterySource ? masterySource.gameName : null;
   useEffect(() => {
+    const firstGame = timelineGames?.[0];
+    if (!timelineActive || !firstGame) return;
     if (
-      timelineActive &&
-      timelineGames != null &&
-      timelineGames.length > 0 &&
-      (selectedTimelineGameId == null ||
-        !timelineGames.some((game) => game.gameId === selectedTimelineGameId))
+      selectedTimelineGameId == null ||
+      !timelineGames.some((game) => game.gameId === selectedTimelineGameId)
     ) {
-      setSelectedTimelineGameId(timelineGames[0].gameId);
+      setSelectedTimelineGameId(firstGame.gameId);
     }
   }, [timelineActive, timelineGames, selectedTimelineGameId]);
   const games = stats?.games ?? detailStats?.games ?? 0;
@@ -408,11 +438,19 @@ export function ChampionDetailExp() {
       const hasQualifiedSeries = values.length >= 2 && totalGames >= 3;
       return {
         values,
+        games: cumulativeGameCounts,
         labels,
         tooltips,
         last: totalGames >= 3 ? (values.at(-1) ?? null) : null,
+        lastGames: totalGames >= 3 ? (cumulativeGameCounts.at(-1) ?? null) : null,
         peak: hasQualifiedSeries ? Math.max(...values) : null,
         low: hasQualifiedSeries ? Math.min(...values) : null,
+        peakGames: hasQualifiedSeries
+          ? (cumulativeGameCounts[values.indexOf(Math.max(...values))] ?? null)
+          : null,
+        lowGames: hasQualifiedSeries
+          ? (cumulativeGameCounts[values.indexOf(Math.min(...values))] ?? null)
+          : null,
       };
     }
 
@@ -451,11 +489,25 @@ export function ChampionDetailExp() {
       .map((bucket) => (bucket.wins / bucket.games) * 100);
     return {
       values,
+      games: bucketValues.map((bucket) => bucket.games),
       labels,
       tooltips,
       last: qualifyingValues.at(-1) ?? null,
+      lastGames: bucketValues.filter((bucket) => bucket.games >= 3).at(-1)?.games ?? null,
       peak: qualifyingValues.length > 0 ? Math.max(...qualifyingValues) : null,
       low: qualifyingValues.length > 0 ? Math.min(...qualifyingValues) : null,
+      peakGames:
+        qualifyingValues.length > 0
+          ? (bucketValues.filter((bucket) => bucket.games >= 3)[
+              qualifyingValues.indexOf(Math.max(...qualifyingValues))
+            ]?.games ?? null)
+          : null,
+      lowGames:
+        qualifyingValues.length > 0
+          ? (bucketValues.filter((bucket) => bucket.games >= 3)[
+              qualifyingValues.indexOf(Math.min(...qualifyingValues))
+            ]?.games ?? null)
+          : null,
     };
   }, [weeklyWinRate, wrTab]);
 
@@ -566,7 +618,11 @@ export function ChampionDetailExp() {
         />
         <Stat
           label="MVP / ACE"
-          value={`${formatNumber(stats.mvps)} / ${formatNumber(stats.aces)}`}
+          value={
+            isSummary && (!allStats || allStats.length === 0)
+              ? "—"
+              : `${formatNumber(stats.mvps)} / ${formatNumber(stats.aces)}`
+          }
           sub=""
         />
         <Stat label="Avg damage" value={formatNumber(stats.avg_damage)} sub="" />
@@ -629,6 +685,7 @@ export function ChampionDetailExp() {
           weeklyWinRate={weeklyWinRate}
           weeklyWinRateLoading={weeklyWinRateLoading}
           wrSeries={wrSeries}
+          isSummary={isSummary}
           wrTab={wrTab}
           setWrTab={setWrTab}
           roleStats={roleStats}
@@ -1166,6 +1223,7 @@ function OverviewTab({
   weeklyWinRate,
   weeklyWinRateLoading,
   wrSeries,
+  isSummary,
   wrTab,
   setWrTab,
   roleStats,
@@ -1199,9 +1257,14 @@ function OverviewTab({
     labels: string[];
     tooltips: string[];
     last: number | null;
+    games: number[];
+    lastGames: number | null;
     peak: number | null;
     low: number | null;
+    peakGames: number | null;
+    lowGames: number | null;
   };
+  isSummary: boolean;
   wrTab: "weekly" | "monthly" | "full";
   setWrTab: (tab: "weekly" | "monthly" | "full") => void;
   roleStats: ChampionRoleStat[] | null;
@@ -1220,12 +1283,14 @@ function OverviewTab({
   runeData: ReturnType<typeof useRuneData>;
   keystoneSort: RateSort;
   setKeystoneSort: (sort: RateSort) => void;
-  queueStats: Array<{ queueId: number; games: number; wins: number }> | null;
+  queueStats: ChampionQueueStat[] | null;
   queueStatsLoading: boolean;
   matchHistory: { matches: MatchListItem[]; total: number } | null;
   championName: string;
   champData: ReturnType<typeof useChampionData>;
 }) {
+  const baseline =
+    globalDetail && globalDetail.games > 0 ? (globalDetail.wins / globalDetail.games) * 100 : null;
   return (
     <div className="grid grid-cols-1 gap-5 xl:grid-cols-2">
       <Panel className="xl:col-span-2">
@@ -1246,22 +1311,62 @@ function OverviewTab({
         ) : (
           <>
             <div className="mb-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-[12.5px] text-lol-text">
-              <span>
-                Now:{" "}
-                <b className="text-lol-text-bright">
-                  {wrSeries.last != null ? `${wrSeries.last.toFixed(1)}%` : "—"}
-                </b>
-              </span>
-              <span>
-                Peak:{" "}
-                <b className="text-lol-win">
-                  {wrSeries.peak != null ? `${wrSeries.peak.toFixed(1)}%` : "—"}
-                </b>{" "}
-                / Low:{" "}
-                <b className="text-lol-loss">
-                  {wrSeries.low != null ? `${wrSeries.low.toFixed(1)}%` : "—"}
-                </b>
-              </span>
+              {isSummary ? (
+                <>
+                  <span>
+                    Now:{" "}
+                    <b className="text-lol-text-bright">
+                      {wrSeries.last != null ? `${wrSeries.last.toFixed(1)}%` : "—"}
+                    </b>
+                  </span>
+                  <span>
+                    Peak:{" "}
+                    <b className="text-lol-win">
+                      {wrSeries.peak != null ? `${wrSeries.peak.toFixed(1)}%` : "—"}
+                    </b>{" "}
+                    / Low:{" "}
+                    <b className="text-lol-loss">
+                      {wrSeries.low != null ? `${wrSeries.low.toFixed(1)}%` : "—"}
+                    </b>
+                  </span>
+                </>
+              ) : (
+                <>
+                  <span>
+                    Now:{" "}
+                    <b className="text-lol-text-bright">
+                      {wrSeries.last != null ? `${wrSeries.last.toFixed(1)}%` : "—"}
+                    </b>{" "}
+                    ({wrSeries.lastGames ?? 0} games)
+                  </span>
+                  <span>
+                    Peak:{" "}
+                    <b className="text-lol-win">
+                      {wrSeries.peak != null ? `${wrSeries.peak.toFixed(1)}%` : "—"}
+                    </b>{" "}
+                    ({wrSeries.peakGames ?? 0}) / Low:{" "}
+                    <b className="text-lol-loss">
+                      {wrSeries.low != null ? `${wrSeries.low.toFixed(1)}%` : "—"}
+                    </b>{" "}
+                    ({wrSeries.lowGames ?? 0})
+                  </span>
+                </>
+              )}
+              {!isSummary && (
+                <span
+                  className={`rounded-full border px-2 py-0.5 text-[11px] font-semibold ${
+                    wrSeries.last != null && globalDetail.games > 0
+                      ? wrSeries.last - (globalDetail.wins / globalDetail.games) * 100 >= 0
+                        ? "border-lol-win/40 bg-lol-win/10 text-lol-win"
+                        : "border-lol-loss/40 bg-lol-loss/10 text-lol-loss"
+                      : "border-lol-border/60 text-lol-text"
+                  }`}
+                >
+                  {wrSeries.last != null && globalDetail.games > 0
+                    ? `${wrSeries.last - (globalDetail.wins / globalDetail.games) * 100 >= 0 ? "+" : ""}${(wrSeries.last - (globalDetail.wins / globalDetail.games) * 100).toFixed(1)} pts`
+                    : "— pts"}
+                </span>
+              )}
             </div>
             {wrSeries.values.length < 2 ? (
               <div className="flex flex-col items-center justify-center py-6">
@@ -1285,11 +1390,17 @@ function OverviewTab({
                 color="var(--theme-win)"
                 min={0}
                 max={100}
-                baseline={50}
                 xLabels={wrSeries.labels}
                 tooltips={wrSeries.tooltips}
                 yFormat={(value) => `${value.toFixed(0)}%`}
                 yTicks={[0, 25, 50, 75, 100]}
+                baseline={isSummary ? 50 : (globalDetail.wins / globalDetail.games) * 100}
+                secondaryValues={isSummary ? undefined : wrSeries.games}
+                hollowIndices={
+                  isSummary
+                    ? []
+                    : wrSeries.games.flatMap((games, index) => (games < 3 ? [index] : []))
+                }
               />
             )}
             <p className="mt-2 text-xs text-lol-text">
@@ -1306,11 +1417,31 @@ function OverviewTab({
           <SectionLoading />
         ) : roleStats.length === 0 ? (
           <NoData text="No role data" />
-        ) : (
+        ) : isSummary ? (
           <div className="flex flex-col gap-2.5">
             {roleStats.map((role) => (
               <RoleRow key={role.role} role={role.role} games={role.games} wins={role.wins} />
             ))}
+          </div>
+        ) : (
+          <div className="flex flex-col gap-2">
+            {roleStats
+              .slice()
+              .sort((a, b) => Number(a.role === "UNKNOWN") - Number(b.role === "UNKNOWN"))
+              .map((role) => (
+                <RoleRow
+                  key={role.role}
+                  role={role.role}
+                  games={role.games}
+                  wins={role.wins}
+                  baseline={
+                    globalDetail && globalDetail.games > 0
+                      ? (globalDetail.wins / globalDetail.games) * 100
+                      : null
+                  }
+                  detailed
+                />
+              ))}
           </div>
         )}
       </Panel>
@@ -1334,57 +1465,78 @@ function OverviewTab({
             wins={augment.wins}
             total={augment.picks}
             count={`${augment.picks}x`}
-          />
-        ))}
-      </RatePanel>
-
-      <RatePanel
-        title="Top items"
-        sort={itemSort}
-        options={[
-          ["count", "Most built"],
-          ["winRate", "Best win rate"],
-        ]}
-        onSortChange={setItemSort}
-        loading={globalDetailLoading}
-        empty={items.length === 0}
-      >
-        {sortRates(items, itemSort).map((item) => (
-          <RateRow
-            key={item.item_id}
-            icon={<ItemIcon itemId={item.item_id} size={24} patch={patch} />}
-            name={getItemName(itemData, item.item_id)}
-            wins={item.wins}
-            total={item.picks}
-            count={`${item.picks}x`}
-          />
-        ))}
-      </RatePanel>
-
-      <RatePanel
-        title="Keystones"
-        sort={keystoneSort}
-        options={[
-          ["count", "Most played"],
-          ["winRate", "Best win rate"],
-        ]}
-        onSortChange={setKeystoneSort}
-        loading={keystonesLoading}
-        empty={!keystones || keystones.length === 0}
-      >
-        {sortRates(keystones ?? [], keystoneSort).map((keystone) => (
-          <RateRow
-            key={keystone.runeId}
-            icon={
-              <RuneIcon runeId={keystone.runeId} path={runeData[keystone.runeId]?.icon} size={22} />
+            baseline={isSummary ? undefined : baseline}
+            sampleSize={augment.picks}
+            secondary={
+              !isSummary
+                ? `KDA — · score — · ${globalDetail?.games ? ((augment.picks / globalDetail.games) * 100).toFixed(1) : "—"}% pick`
+                : undefined
             }
-            name={runeData[keystone.runeId]?.name ?? `Rune ${keystone.runeId}`}
-            wins={keystone.wins}
-            total={keystone.picks}
-            count={`${keystone.picks}x`}
           />
         ))}
       </RatePanel>
+
+      <div
+        className={isSummary ? "contents" : "grid grid-cols-1 gap-5 xl:col-span-2 xl:grid-cols-2"}
+      >
+        <RatePanel
+          title="Top items"
+          sort={itemSort}
+          options={[
+            ["count", "Most built"],
+            ["winRate", "Best win rate"],
+          ]}
+          onSortChange={setItemSort}
+          loading={globalDetailLoading}
+          empty={items.length === 0}
+        >
+          {sortRates(items, itemSort).map((item, index) => (
+            <RateRow
+              key={item.item_id}
+              icon={<ItemIcon itemId={item.item_id} size={24} patch={patch} />}
+              name={getItemName(itemData, item.item_id)}
+              wins={item.wins}
+              total={item.picks}
+              count={`${item.picks}x`}
+              baseline={isSummary ? undefined : baseline}
+              sampleSize={item.picks}
+              secondary={!isSummary ? `avg buy — · slot ${index + 1}` : undefined}
+            />
+          ))}
+        </RatePanel>
+
+        <RatePanel
+          title="Keystones"
+          sort={keystoneSort}
+          options={[
+            ["count", "Most played"],
+            ["winRate", "Best win rate"],
+          ]}
+          onSortChange={setKeystoneSort}
+          loading={keystonesLoading}
+          empty={!keystones || keystones.length === 0}
+        >
+          {sortRates(keystones ?? [], keystoneSort).map((keystone) => (
+            <RateRow
+              key={keystone.runeId}
+              icon={
+                <RuneIcon
+                  runeId={keystone.runeId}
+                  path={runeData[keystone.runeId]?.icon}
+                  size={22}
+                />
+              }
+              name={runeData[keystone.runeId]?.name ?? `Rune ${keystone.runeId}`}
+              wins={keystone.wins}
+              total={keystone.picks}
+              count={`${keystone.picks}x`}
+              baseline={isSummary ? undefined : baseline}
+              sampleSize={keystone.picks}
+              secondary={!isSummary ? "KDA — · score —" : undefined}
+            />
+          ))}
+        </RatePanel>
+      </div>
 
       <Panel>
         <SectionHeading title="Games by queue" />
@@ -1394,24 +1546,38 @@ function OverviewTab({
           <NoData />
         ) : (
           <div className="flex flex-col gap-1.5">
-            {queueStats.map((queueStat) => (
-              <div
-                key={queueStat.queueId}
-                className="flex items-center gap-3 rounded-lg bg-black/10 px-3 py-2 text-[12px]"
-              >
-                <span className="min-w-0 flex-1 truncate text-lol-text-bright">
-                  {QUEUE_LABELS[queueStat.queueId] ?? `Queue ${queueStat.queueId}`}
-                </span>
-                <span className="shrink-0 text-lol-text">{queueStat.games}</span>
-                <span className="shrink-0 text-lol-text">
-                  <span className="text-lol-win">{queueStat.wins}W</span>{" "}
-                  <span className="text-lol-loss">{queueStat.games - queueStat.wins}L</span>
-                </span>
-                <div className="w-20 shrink-0">
-                  <WinRateBar wins={queueStat.wins} total={queueStat.games} showPercent={false} />
+            {queueStats
+              .slice()
+              .sort((a, b) => b.games - a.games)
+              .map((queueStat) => (
+                <div
+                  key={queueStat.queueId}
+                  className="grid grid-cols-[minmax(0,1fr)_auto_auto_auto_auto] items-center gap-3 rounded-lg bg-black/10 px-3 py-2 text-[12px]"
+                >
+                  <span className="min-w-0 flex-1 truncate text-lol-text-bright">
+                    {QUEUE_LABELS[queueStat.queueId] ?? `Queue ${queueStat.queueId}`}
+                  </span>
+                  <span className="text-lol-text">{queueStat.games} games</span>
+                  <div className="flex h-2 w-20 overflow-hidden rounded-full bg-lol-loss/20">
+                    <span
+                      className="bg-lol-win"
+                      style={{
+                        width: `${queueStat.games > 0 ? (queueStat.wins / queueStat.games) * 100 : 0}%`,
+                      }}
+                    />
+                    <span
+                      className="bg-lol-loss"
+                      style={{
+                        width: `${queueStat.games > 0 ? ((queueStat.games - queueStat.wins) / queueStat.games) * 100 : 0}%`,
+                      }}
+                    />
+                  </div>
+                  <span className="text-lol-text">{formatRowKda(queueStat)}</span>
+                  <span className="text-right text-lol-text">
+                    {formatSmallMetric(queueStat.avgScore)}
+                  </span>
                 </div>
-              </div>
-            ))}
+              ))}
           </div>
         )}
       </Panel>
@@ -4145,16 +4311,79 @@ function NoData({ text = "No data" }: { text?: string }) {
   return <span className="text-[12.5px] text-lol-text">{text}</span>;
 }
 
-function RoleRow({ role, games, wins }: ChampionRoleStat) {
+function RoleRow({
+  role,
+  games,
+  wins,
+  kills,
+  deaths,
+  assists,
+  avgCsPerMin,
+  avgScore,
+  baseline,
+  detailed = false,
+}: ChampionRoleStat & { baseline?: number | null; detailed?: boolean }) {
+  const rate = games > 0 ? (wins / games) * 100 : 0;
+  const delta = baseline == null ? null : rate - baseline;
+  const rateColor =
+    delta != null && delta >= 2
+      ? "text-lol-win"
+      : delta != null && delta <= -2
+        ? "text-lol-loss"
+        : "text-lol-text";
+  const unknown = role === "UNKNOWN";
   return (
-    <div className="flex items-center gap-3">
-      <span className="w-20 shrink-0 text-xs font-semibold text-lol-text-bright">{role}</span>
-      <span className="w-12 shrink-0 text-right text-xs tabular-nums text-lol-text">{games}</span>
-      <div className="min-w-0 flex-1">
-        <WinRateBar wins={wins} total={games} />
-      </div>
+    <div
+      className={`grid items-center gap-2 ${detailed ? "grid-cols-[minmax(0,1fr)_auto_auto_minmax(92px,1fr)_auto_auto_auto]" : "grid-cols-[minmax(0,1fr)_auto_minmax(92px,1fr)]"} ${unknown ? "text-lol-text/50" : ""}`}
+    >
+      <span
+        className={`min-w-0 truncate text-xs font-semibold ${unknown ? "text-lol-text/50" : "text-lol-text-bright"}`}
+      >
+        {unknown ? "role not recorded (older games)" : role}
+      </span>
+      <span className="text-right text-xs tabular-nums text-lol-text">{games}</span>
+      {detailed ? (
+        <>
+          <span className="text-right text-xs tabular-nums text-lol-text">
+            {wins}–{games - wins}
+          </span>
+          <div className="min-w-0">
+            <div className={games < 3 ? "opacity-40 grayscale" : ""}>
+              <WinRateBar wins={wins} total={games} showPercent={false} />
+            </div>
+          </div>
+          <span className={`text-right text-xs tabular-nums ${rateColor}`}>{rate.toFixed(1)}%</span>
+          <span className="text-right text-xs tabular-nums text-lol-text">
+            {formatOptionalKda(kills, deaths, assists)}
+          </span>
+          <span className="text-right text-xs tabular-nums text-lol-text">
+            {formatSmallMetric(avgCsPerMin)}
+          </span>
+          <span className="text-right text-xs tabular-nums text-lol-text">
+            {formatSmallMetric(avgScore)}
+          </span>
+        </>
+      ) : (
+        <div className="min-w-0">
+          <WinRateBar wins={wins} total={games} />
+        </div>
+      )}
     </div>
   );
+}
+
+function formatOptionalKda(kills?: number, deaths?: number, assists?: number) {
+  if (kills == null || deaths == null || assists == null) return "—";
+  return `${kills.toFixed(1)}/${deaths.toFixed(1)}/${assists.toFixed(1)}`;
+}
+
+function formatRowKda(row: { kills?: number; deaths?: number; assists?: number; games: number }) {
+  if (row.games < 3) return "—";
+  return formatOptionalKda(row.kills, row.deaths, row.assists);
+}
+
+function formatSmallMetric(value?: number | null) {
+  return value == null ? "—" : value.toFixed(1);
 }
 
 function RateRow({
@@ -4163,26 +4392,48 @@ function RateRow({
   wins,
   total,
   count,
+  baseline,
+  sampleSize,
+  secondary,
 }: {
   icon: ReactNode;
   name: string;
   wins: number;
   total: number;
   count: string;
+  baseline?: number | null;
+  sampleSize?: number;
+  secondary?: string;
 }) {
   const rate = total > 0 ? (wins / total) * 100 : 0;
+  const delta = baseline == null ? null : rate - baseline;
+  const deltaClass =
+    delta != null && delta >= 0
+      ? "text-lol-win"
+      : delta != null
+        ? "text-lol-loss"
+        : "text-lol-text";
+  const sparse = sampleSize != null && sampleSize < 3;
   return (
     <div className="flex min-w-0 items-center gap-2">
       {icon}
-      <span className="min-w-0 flex-1 truncate text-[12.5px] text-lol-text-bright">{name}</span>
+      <div className="min-w-0 flex-1">
+        <span className="block truncate text-[12.5px] text-lol-text-bright">{name}</span>
+        {secondary && <span className="block truncate text-[10px] text-lol-text">{secondary}</span>}
+      </div>
       <span className="shrink-0 text-[11px] text-lol-text">{count}</span>
-      <div className="w-20 shrink-0">
+      {sparse && (
+        <span className="shrink-0 rounded border border-lol-border/60 px-1 py-0.5 text-[9px] text-lol-text">
+          n&lt;3
+        </span>
+      )}
+      <div className={`w-20 shrink-0 ${sparse ? "opacity-40 grayscale" : ""}`}>
         <WinRateBar wins={wins} total={total} showPercent={false} />
       </div>
       <span
-        className={`w-11 shrink-0 text-right text-[11px] tabular-nums ${rate >= 50 ? "text-lol-win" : "text-lol-loss"}`}
+        className={`w-[76px] shrink-0 text-right text-[11px] tabular-nums ${baseline == null ? (rate >= 50 ? "text-lol-win" : "text-lol-loss") : deltaClass}`}
       >
-        {rate.toFixed(1)}%
+        {rate.toFixed(1)}%{delta != null && ` ${delta >= 0 ? "+" : ""}${delta.toFixed(1)}`}
       </span>
     </div>
   );
