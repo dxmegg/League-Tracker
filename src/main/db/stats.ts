@@ -3,7 +3,7 @@ import { getAllPuuids } from "./summoner";
 import zlib from "zlib";
 import { NO_STATS_QUEUE_IDS } from "../../shared/queues";
 import { computeMatchScores } from "../../shared/opScore";
-import type { ItemStats } from "../../shared/api";
+import type { ChampionSkillOrder, ChampionSkillOrdersResult, ItemStats } from "../../shared/api";
 import { getChampionClasses } from "../dragon";
 import {
   applyQueueFilter,
@@ -1927,6 +1927,140 @@ export function getChampionDetailStats(
     totalTimePlayed: result?.totalTimePlayed ?? 0,
     longestWinStreak: result?.longestWinStreak ?? 0,
   };
+}
+
+export type { ChampionSkillOrder, ChampionSkillOrdersResult } from "../../shared/api";
+
+export function getChampionSkillOrders(
+  championId: number,
+  patch?: string,
+  queue?: number,
+  account?: string,
+): ChampionSkillOrdersResult {
+  console.log("[db] getChampionSkillOrders called:", { championId, patch, queue, account });
+
+  const source = statsSource(account);
+  const playerPuuidSql = account ? "ps.puuid" : "g.puuid";
+  const participant = participantFilter(patch, undefined, "mp");
+  const where = ["ps.champion_id = ?", source.accountFilter, participant.sql];
+  const params: any[] = [championId];
+  if (account && account !== "all") params.push(account);
+  params.push(...participant.params);
+  applyQueueFilter(where, params, queue, "g");
+
+  const championGamesCte = `
+    champion_games AS (
+      SELECT g.game_id, mp.participant_id, ps.spell1, ps.spell2, ps.win
+      FROM games g
+      JOIN ${source.table} ps ON g.game_id = ps.game_id
+      JOIN match_participants mp
+        ON mp.game_id = g.game_id AND mp.puuid = ${playerPuuidSql}
+      WHERE ${where.join(" AND ")}
+    )`;
+
+  const skillEventsCte = `
+    skill_events AS (
+      SELECT cg.game_id, e.event_index, e.timestamp_ms, e.skill_slot
+      FROM champion_games cg
+      JOIN match_timeline_events e
+        ON e.game_id = cg.game_id
+       AND e.participant_id = cg.participant_id
+       AND e.event_type = 'SKILL_LEVEL_UP'
+       AND e.skill_slot IS NOT NULL
+    )`;
+
+  const topOrders = db
+    .prepare(`
+      WITH ${championGamesCte},
+      ${skillEventsCte},
+      game_orders AS (
+        SELECT game_id, GROUP_CONCAT(skill_slot, ',') AS skill_order, COUNT(*) AS skill_count
+        FROM (
+          SELECT game_id, event_index, timestamp_ms, skill_slot
+          FROM skill_events
+          ORDER BY game_id, timestamp_ms, event_index
+        )
+        GROUP BY game_id
+      )
+      SELECT skill_order AS "order", COUNT(*) AS picks
+      FROM game_orders
+      WHERE skill_count >= 15
+      GROUP BY skill_order
+      ORDER BY picks DESC, "order" ASC
+      LIMIT 20
+    `)
+    .all(...params) as ChampionSkillOrder[];
+
+  const timing = db
+    .prepare(`
+      WITH ${championGamesCte},
+      ${skillEventsCte},
+      r_events AS (
+        SELECT game_id, timestamp_ms,
+               ROW_NUMBER() OVER (PARTITION BY game_id ORDER BY timestamp_ms, event_index) AS rn
+        FROM skill_events
+        WHERE skill_slot = 4
+      )
+      SELECT
+        (SELECT AVG(timestamp_ms / 60000.0) FROM r_events WHERE rn = 1) AS avgR1Min,
+        (SELECT AVG(timestamp_ms / 60000.0) FROM r_events WHERE rn = 2) AS avgR2Min,
+        (SELECT AVG(timestamp_ms / 60000.0) FROM r_events WHERE rn = 3) AS avgR3Min,
+        COUNT(DISTINCT game_id) AS sampleSize
+      FROM skill_events
+    `)
+    .get(...params) as {
+    avgR1Min: number | null;
+    avgR2Min: number | null;
+    avgR3Min: number | null;
+    sampleSize: number;
+  };
+
+  const summonerSpells = db
+    .prepare(`
+      WITH ${championGamesCte}
+      SELECT
+        CAST(spell1 AS TEXT) || ',' || CAST(spell2 AS TEXT) AS pair,
+        COUNT(*) AS picks,
+        COALESCE(SUM(win), 0) AS wins
+      FROM champion_games
+      GROUP BY spell1, spell2
+      ORDER BY picks DESC, pair ASC
+      LIMIT 10
+    `)
+    .all(...params) as Array<{ pair: string; picks: number; wins: number }>;
+
+  const coverage = db
+    .prepare(`
+      WITH ${championGamesCte},
+      ${skillEventsCte}
+      SELECT
+        COUNT(DISTINCT skill_events.game_id) AS gamesWithTimeline,
+        (SELECT COUNT(*) FROM champion_games) AS totalGames
+      FROM skill_events
+    `)
+    .get(...params) as { gamesWithTimeline: number; totalGames: number };
+
+  const result: ChampionSkillOrdersResult = {
+    topOrders,
+    rTiming: {
+      avgR1Min: timing?.avgR1Min ?? null,
+      avgR2Min: timing?.avgR2Min ?? null,
+      avgR3Min: timing?.avgR3Min ?? null,
+      sampleSize: timing?.sampleSize ?? 0,
+    },
+    summonerSpells,
+    timelineCoverage: {
+      gamesWithTimeline: coverage?.gamesWithTimeline ?? 0,
+      totalGames: coverage?.totalGames ?? 0,
+    },
+  };
+  console.log("[db] getChampionSkillOrders done:", {
+    topOrders: result.topOrders.length,
+    summonerSpells: result.summonerSpells.length,
+    gamesWithTimeline: result.timelineCoverage.gamesWithTimeline,
+    totalGames: result.timelineCoverage.totalGames,
+  });
+  return result;
 }
 
 // Everything the Trends page draws, in one round trip. Days are the finest

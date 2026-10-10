@@ -6,6 +6,7 @@ import type {
   ChampionKeystoneStat,
   ChampionRoleStat,
   ChampionStats,
+  ChampionSkillOrdersResult,
   ChampionWeeklyWinRate,
   GlobalChampionDetail,
   ItemStats,
@@ -21,6 +22,7 @@ import {
   useChampionData,
   useItemData,
   useRuneData,
+  useSummonerSpellData,
 } from "../hooks/useChampions";
 import { useIpc } from "../hooks/useIpc";
 import { useViewState } from "../hooks/useViewState";
@@ -35,6 +37,7 @@ import { MatchRowExperiment } from "./MatchRowExperiment";
 import { Panel } from "./Panel";
 import PatchSelect from "./PatchSelect";
 import RuneIcon from "./RuneIcon";
+import SummonerSpellIcon from "./SummonerSpellIcon";
 import { TabStrip, type TabStripItem } from "./TabStrip";
 import WinRateBar from "./WinRateBar";
 import ItemIcon from "./ItemIcon";
@@ -46,7 +49,7 @@ const TAB_ITEMS: TabStripItem[] = [
   { key: "fa", label: "Farm" },
   { key: "ob", label: "Objectives" },
   { key: "vi", label: "Vision" },
-  { key: "ab", label: "Abilities", disabled: true },
+  { key: "ab", label: "Abilities" },
   { key: "it", label: "Items" },
   { key: "ru", label: "Runes", disabled: true },
   { key: "mu", label: "Matchups", disabled: true },
@@ -99,6 +102,7 @@ export function ChampionDetailExp() {
   const objectivesActive = activeTab === "ob";
   const visionActive = activeTab === "vi";
   const itemsActive = activeTab === "it";
+  const abilitiesActive = activeTab === "ab";
   const detailActive =
     overviewActive ||
     combatActive ||
@@ -106,7 +110,8 @@ export function ChampionDetailExp() {
     farmActive ||
     objectivesActive ||
     visionActive ||
-    itemsActive;
+    itemsActive ||
+    abilitiesActive;
 
   const { data: allStats } = useIpc<ChampionStats[]>(
     () => window.api.getChampionStats(patch, scopedQueue, account),
@@ -119,6 +124,18 @@ export function ChampionDetailExp() {
   } = useIpc<ChampionDetailStats>(
     () => window.api.getChampionDetailStats(id, patch, scopedQueue, account),
     [id, patch, scopedQueue, account],
+  );
+  const { data: skillOrders, loading: skillOrdersLoading } = useIpc<ChampionSkillOrdersResult>(
+    () =>
+      abilitiesActive
+        ? window.api.getChampionSkillOrders(id, patch, scopedQueue, account)
+        : Promise.resolve({
+            topOrders: [],
+            rTiming: { avgR1Min: null, avgR2Min: null, avgR3Min: null, sampleSize: 0 },
+            summonerSpells: [],
+            timelineCoverage: { gamesWithTimeline: 0, totalGames: 0 },
+          }),
+    [abilitiesActive, id, patch, scopedQueue, account],
   );
   const { data: matchHistory } = useIpc<{ matches: MatchListItem[]; total: number }>(
     () =>
@@ -487,6 +504,13 @@ export function ChampionDetailExp() {
           itemData={itemData}
           matchHistory={matchHistory}
           patch={patch}
+        />
+      ) : activeTab === "ab" ? (
+        <AbilitiesTab
+          detail={detailStats}
+          detailLoading={detailLoading}
+          skillOrders={skillOrders}
+          skillOrdersLoading={skillOrdersLoading}
         />
       ) : (
         <Panel>
@@ -1070,6 +1094,149 @@ function ItemsTab({
             })}
           </div>
         )}
+      </Panel>
+    </div>
+  );
+}
+
+const SKILL_LABELS: Record<number, { label: string; className: string }> = {
+  1: { label: "Q", className: "bg-blue-400/20 text-blue-400" },
+  2: { label: "W", className: "bg-green-400/20 text-green-400" },
+  3: { label: "E", className: "bg-red-400/20 text-red-400" },
+  4: { label: "R", className: "bg-amber-400/20 text-amber-400" },
+};
+
+function AbilitiesTab({
+  detail,
+  detailLoading,
+  skillOrders,
+  skillOrdersLoading,
+}: {
+  detail: ChampionDetailStats | null;
+  detailLoading: boolean;
+  skillOrders: ChampionSkillOrdersResult | null;
+  skillOrdersLoading: boolean;
+}) {
+  const spells = useSummonerSpellData();
+
+  if (detailLoading || skillOrdersLoading) return <SectionLoading />;
+  if (!detail || detail.games === 0) return <NoData text="No ability data" />;
+
+  const orders = skillOrders?.topOrders.slice(0, 5) ?? [];
+  const timelineCoverage = skillOrders?.timelineCoverage ?? {
+    gamesWithTimeline: 0,
+    totalGames: 0,
+  };
+  const rTiming = skillOrders?.rTiming ?? {
+    avgR1Min: null,
+    avgR2Min: null,
+    avgR3Min: null,
+    sampleSize: 0,
+  };
+  const sampleSize = timelineCoverage.gamesWithTimeline;
+  const formatRankTiming = (value: number | null) =>
+    value == null ? "—" : `${value.toFixed(1)} min`;
+
+  return (
+    <div className="grid grid-cols-1 gap-5 xl:grid-cols-2">
+      <Panel className="xl:col-span-2">
+        <SectionHeading title="Skill order" />
+        {orders.length === 0 ? (
+          <NoData text="No skill data yet (requires timeline)" />
+        ) : (
+          <>
+            <p className="mb-3 text-xs text-lol-text">
+              Based on {timelineCoverage.gamesWithTimeline} of {timelineCoverage.totalGames} games
+              with timeline data
+            </p>
+            <div className="flex flex-col gap-2 text-xs">
+              <div className="grid grid-cols-[2rem_minmax(0,1fr)_auto_auto] gap-3 border-b border-lol-border/50 pb-2 font-semibold text-lol-text">
+                <span>#</span>
+                <span>Order</span>
+                <span>Picks</span>
+                <span>Sample</span>
+              </div>
+              {orders.map((entry, index) => (
+                <div
+                  key={entry.order}
+                  className="grid grid-cols-[2rem_minmax(0,1fr)_auto_auto] items-center gap-3 text-lol-text-bright"
+                >
+                  <span className="tabular-nums text-lol-text">{index + 1}</span>
+                  <div className="flex flex-wrap gap-1">
+                    {entry.order.split(",").map((slot, slotIndex) => {
+                      const skill = SKILL_LABELS[Number(slot)];
+                      return skill ? (
+                        <span
+                          key={`${entry.order}-${slotIndex}`}
+                          className={`inline-flex h-5 w-5 items-center justify-center rounded text-[10px] font-bold ${skill.className}`}
+                        >
+                          {skill.label}
+                        </span>
+                      ) : null;
+                    })}
+                  </div>
+                  <span className="tabular-nums">{entry.picks}</span>
+                  <span className="tabular-nums">{formatPercent(entry.picks, sampleSize)}</span>
+                </div>
+              ))}
+            </div>
+          </>
+        )}
+      </Panel>
+
+      <Panel>
+        <SectionHeading title="R rank timing" aside={`Based on ${rTiming.sampleSize} games`} />
+        <div className="flex flex-col gap-3 text-xs">
+          {[
+            ["R rank 1", formatRankTiming(rTiming.avgR1Min)],
+            ["R rank 2", formatRankTiming(rTiming.avgR2Min)],
+            ["R rank 3", formatRankTiming(rTiming.avgR3Min)],
+          ].map(([label, value]) => (
+            <div key={label} className="flex items-center justify-between">
+              <span className="text-lol-text">{label}</span>
+              <b className="tabular-nums text-lol-text-bright">{value}</b>
+            </div>
+          ))}
+        </div>
+      </Panel>
+
+      <Panel>
+        <SectionHeading title="Summoner spells" />
+        {(skillOrders?.summonerSpells ?? []).length === 0 ? (
+          <NoData />
+        ) : (
+          <div className="flex flex-col gap-3 text-xs">
+            {(skillOrders?.summonerSpells ?? []).map((spellPair) => {
+              const ids = spellPair.pair.split(",").map(Number);
+              const names = ids.map((id) => spells[id]?.name ?? `Spell ${id}`);
+              return (
+                <div
+                  key={spellPair.pair}
+                  className="grid grid-cols-[minmax(8rem,1fr)_auto_minmax(5rem,1fr)] items-center gap-3"
+                >
+                  <span
+                    className="flex items-center gap-2 text-lol-text-bright"
+                    title={names.join(" + ")}
+                  >
+                    <SummonerSpellIcon spellId={ids[0] ?? null} size={24} />
+                    <SummonerSpellIcon spellId={ids[1] ?? null} size={24} />
+                    <span className="truncate">{names.join(" + ")}</span>
+                  </span>
+                  <span className="tabular-nums text-lol-text">{spellPair.picks}</span>
+                  <WinRateBar wins={spellPair.wins} total={spellPair.picks} />
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </Panel>
+
+      <Panel className="xl:col-span-2">
+        <SectionHeading title="Per-ability damage" />
+        <div className="rounded-lg border border-dashed border-amber-400/40 bg-amber-400/5 p-4 text-sm text-lol-text">
+          Per-ability damage (Q/W/E/R breakdown) is not available in any public Riot API. This
+          section is intentionally empty.
+        </div>
       </Panel>
     </div>
   );

@@ -342,6 +342,26 @@ export interface ChampionDetailStats {
   longestWinStreak: number; // best consecutive wins ever on this champion
 }
 
+export interface ChampionSkillOrder {
+  order: string;
+  picks: number;
+}
+
+export interface ChampionSkillOrdersResult {
+  topOrders: ChampionSkillOrder[];
+  rTiming: {
+    avgR1Min: number | null;
+    avgR2Min: number | null;
+    avgR3Min: number | null;
+    sampleSize: number;
+  };
+  summonerSpells: Array<{ pair: string; picks: number; wins: number }>;
+  timelineCoverage: {
+    gamesWithTimeline: number;
+    totalGames: number;
+  };
+}
+
 export interface ChampionQueueStat {
   queueId: number;
   games: number;
@@ -1219,6 +1239,12 @@ export interface ElectronAPI {
     queue?: number,
     account?: string,
   ) => Promise<ItemStats[]>;
+  getChampionSkillOrders: (
+    championId: number,
+    patch?: string,
+    queue?: number,
+    account?: string,
+  ) => Promise<ChampionSkillOrdersResult>;
   getTeammateStats: (queue?: number, relation?: "friends" | "enemies") => Promise<TeammateStats[]>;
   getTeammateDetail: (
     key: string,

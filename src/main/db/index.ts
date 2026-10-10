@@ -100,6 +100,7 @@ export {
   getOwnedRuneStats,
   getGlobalChampionDetail,
   getChampionDetailStats,
+  getChampionSkillOrders,
   getTrendsData,
   getRecords,
   getTeammateStats,
