@@ -388,6 +388,10 @@ export interface ChampionKeystoneStat {
   runeId: number;
   picks: number;
   wins: number;
+  kills?: number;
+  deaths?: number;
+  assists?: number;
+  avgScore?: number | null;
 }
 
 export interface ChampionRuneStatsResult {
@@ -450,12 +454,18 @@ export interface AugmentStats {
   augment_id: number;
   picks: number;
   wins: number;
+  kills?: number;
+  deaths?: number;
+  assists?: number;
+  avgScore?: number | null;
 }
 
 export interface ItemStats {
   item_id: number;
   picks: number;
   wins: number;
+  avgBuyTime?: number | null;
+  commonPurchaseSlot?: number | null;
 }
 export interface RuneStats {
   rune_id: number;
