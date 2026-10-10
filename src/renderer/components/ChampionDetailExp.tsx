@@ -15,6 +15,7 @@ import type {
   ChampionTrendsData,
   ChampionWeeklyWinRate,
   ChampionRecordsResult,
+  TimelineBucket,
   GlobalChampionDetail,
   ItemStats,
   MasteryChampion,
@@ -97,7 +98,8 @@ type CombatMatch = MatchListItem & {
 
 export function ChampionDetailExp() {
   const { championId = "" } = useParams<{ championId: string }>();
-  const id = Number(championId);
+  const isSummary = championId === "summary";
+  const id = isSummary ? null : Number(championId);
   const navigate = useNavigate();
   const champData = useChampionData();
   const [patch, setPatch] = useViewState<string | undefined>("champions.patch", undefined);
@@ -150,17 +152,24 @@ export function ChampionDetailExp() {
     () => window.api.getChampionDetailStats(id, patch, scopedQueue, account),
     [id, patch, scopedQueue, account],
   );
+  const { data: timelineAverages, loading: timelineAveragesLoading } = useIpc<TimelineBucket[]>(
+    () =>
+      economyActive || farmActive
+        ? window.api.getChampionTimelineAverages(id, patch, scopedQueue, account)
+        : Promise.resolve([]),
+    [economyActive, farmActive, id, patch, scopedQueue, account],
+  );
   const { data: skillOrders, loading: skillOrdersLoading } = useIpc<ChampionSkillOrdersResult>(
     () =>
-      abilitiesActive
-        ? window.api.getChampionSkillOrders(id, patch, scopedQueue, account)
+      abilitiesActive && !isSummary
+        ? window.api.getChampionSkillOrders(id ?? 0, patch, scopedQueue, account)
         : Promise.resolve({
             topOrders: [],
             rTiming: { avgR1Min: null, avgR2Min: null, avgR3Min: null, sampleSize: 0 },
             summonerSpells: [],
             timelineCoverage: { gamesWithTimeline: 0, totalGames: 0 },
           }),
-    [abilitiesActive, id, patch, scopedQueue, account],
+    [abilitiesActive, isSummary, id, patch, scopedQueue, account],
   );
   const { data: runeStats, loading: runeStatsLoading } = useIpc<ChampionRuneStatsResult | null>(
     () =>
@@ -217,9 +226,9 @@ export function ChampionDetailExp() {
   );
   const { data: matchHistory } = useIpc<{ matches: MatchListItem[]; total: number }>(
     () =>
-      detailActive
+      detailActive && !isSummary
         ? window.api.getChampionMatchHistory(
-            id,
+            id ?? 0,
             combatActive || itemsActive ? 20 : 8,
             0,
             patch,
@@ -227,7 +236,7 @@ export function ChampionDetailExp() {
             account,
           )
         : Promise.resolve({ matches: [], total: 0 }),
-    [detailActive, combatActive, itemsActive, id, patch, scopedQueue, account],
+    [detailActive, isSummary, combatActive, itemsActive, id, patch, scopedQueue, account],
   );
   const { data: records, loading: recordsLoading } = useIpc<ChampionRecordsResult | null>(
     () =>
@@ -265,10 +274,10 @@ export function ChampionDetailExp() {
     Array<{ queueId: number; games: number; wins: number }>
   >(
     () =>
-      overviewActive
+      overviewActive || economyActive || farmActive
         ? window.api.getChampionQueueStats(id, account)
         : Promise.resolve([] as Array<{ queueId: number; games: number; wins: number }>),
-    [overviewActive, id, account],
+    [overviewActive, economyActive, farmActive, id, account],
   );
   const { data: roleStats, loading: roleStatsLoading } = useIpc<ChampionRoleStat[]>(
     () =>
@@ -285,10 +294,50 @@ export function ChampionDetailExp() {
     [overviewActive, id, account],
   );
 
-  const stats = useMemo(
-    () => allStats?.find((item) => item.champion_id === id) ?? null,
+  const championStats = useMemo<ChampionStats | null>(
+    () => (id == null ? null : (allStats?.find((item) => item.champion_id === id) ?? null)),
     [allStats, id],
   );
+  const stats = useMemo<ChampionStats>(() => {
+    if (championStats) return championStats;
+    const aggregate = allStats?.reduce(
+      (total, item) => ({
+        games: total.games + item.games,
+        wins: total.wins + item.wins,
+        kills: total.kills + item.kills,
+        deaths: total.deaths + item.deaths,
+        assists: total.assists + item.assists,
+        damage: total.damage + item.avg_damage * item.games,
+        gold: total.gold + item.avg_gold * item.games,
+      }),
+      { games: 0, wins: 0, kills: 0, deaths: 0, assists: 0, damage: 0, gold: 0 },
+    );
+    const aggregateGames = aggregate?.games ?? 0;
+    return {
+      champion_id: 0,
+      games: globalDetail?.games ?? aggregateGames,
+      wins: globalDetail?.wins ?? aggregate?.wins ?? 0,
+      kills: globalDetail?.kills ?? aggregate?.kills ?? 0,
+      deaths: globalDetail?.deaths ?? aggregate?.deaths ?? 0,
+      assists: globalDetail?.assists ?? aggregate?.assists ?? 0,
+      avg_kills: 0,
+      avg_deaths: 0,
+      avg_assists: 0,
+      avg_damage:
+        globalDetail?.avgDamage ??
+        (aggregateGames > 0 ? (aggregate?.damage ?? 0) / aggregateGames : 0),
+      avg_gold:
+        globalDetail?.avgGold ?? (aggregateGames > 0 ? (aggregate?.gold ?? 0) / aggregateGames : 0),
+      avg_score: null,
+      mvps: 0,
+      aces: 0,
+      double_kills: globalDetail?.doubleKills ?? 0,
+      triple_kills: globalDetail?.tripleKills ?? 0,
+      quadra_kills: globalDetail?.quadraKills ?? 0,
+      penta_kills: globalDetail?.pentaKills ?? 0,
+      avg_cs_per_min: null,
+    };
+  }, [allStats, championStats, globalDetail]);
   const streak = useMemo(() => {
     const matches = matchHistory?.matches;
     if (!matches || matches.length === 0) return null;
@@ -306,7 +355,7 @@ export function ChampionDetailExp() {
   const augmentData = useAugmentData(patch);
   const itemData = useItemData(patch);
   const runeData = useRuneData();
-  const name = getChampionName(champData, id);
+  const name = isSummary ? "All champions summary" : getChampionName(champData, id ?? 0);
   const mastery = useMemo<MasteryChampion | null>(() => {
     return masterySource?.topMasteryChampions.find((item) => item.championId === id) ?? null;
   }, [id, masterySource]);
@@ -323,8 +372,8 @@ export function ChampionDetailExp() {
       setSelectedTimelineGameId(timelineGames[0].gameId);
     }
   }, [timelineActive, timelineGames, selectedTimelineGameId]);
-  const games = stats?.games ?? 0;
-  const wins = stats?.wins ?? 0;
+  const games = stats?.games ?? detailStats?.games ?? 0;
+  const wins = stats?.wins ?? globalDetail?.wins ?? 0;
   const losses = games - wins;
   const wr = games > 0 ? (wins / games) * 100 : 0;
   const kda = stats && stats.deaths > 0 ? (stats.kills + stats.assists) / stats.deaths : null;
@@ -410,7 +459,7 @@ export function ChampionDetailExp() {
     };
   }, [weeklyWinRate, wrTab]);
 
-  if (!stats || games === 0) {
+  if ((!isSummary && !championStats) || games === 0) {
     return (
       <div className="mx-auto flex min-h-full w-full max-w-[1320px] flex-col gap-5">
         <button
@@ -422,7 +471,9 @@ export function ChampionDetailExp() {
         </button>
         <Panel>
           <p className="py-8 text-center text-sm text-lol-text">
-            No games with this champion for the selected filters.
+            {isSummary
+              ? "No games for the selected filters."
+              : "No games with this champion for the selected filters."}
           </p>
         </Panel>
       </div>
@@ -441,13 +492,21 @@ export function ChampionDetailExp() {
 
       <div className="flex flex-wrap items-center justify-between gap-4 rounded-[14px] border border-lol-border bg-[linear-gradient(180deg,var(--theme-card-hover),var(--theme-card))] p-5">
         <div className="flex min-w-0 items-center gap-4">
-          <ChampionIcon championId={id} size={76} className="rounded-2xl" />
+          {isSummary ? (
+            <div className="flex h-[76px] w-[76px] items-center justify-center rounded-2xl border border-lol-gold/40 bg-lol-gold/10 text-center font-display text-xs font-bold text-lol-gold">
+              ALL
+            </div>
+          ) : (
+            <ChampionIcon championId={id ?? 0} size={76} className="rounded-2xl" />
+          )}
           <div className="min-w-0">
             <h1 className="font-display text-[28px] font-bold leading-tight text-lol-text-bright">
               {name}
             </h1>
             <p className="mt-1 text-lol-text">
-              {formatNumber(games)} games · {formatNumber(wins)}W {formatNumber(losses)}L
+              {isSummary
+                ? "Aggregated across every champion you've played"
+                : `${formatNumber(games)} games · ${formatNumber(wins)}W ${formatNumber(losses)}L`}
             </p>
           </div>
         </div>
@@ -602,9 +661,23 @@ export function ChampionDetailExp() {
           globalDetail={globalDetail}
         />
       ) : activeTab === "ec" ? (
-        <EconomyTab detail={detailStats} detailLoading={detailLoading} />
+        <EconomyTab
+          detail={detailStats}
+          detailLoading={detailLoading}
+          timeline={timelineAverages}
+          timelineLoading={timelineAveragesLoading}
+          queueStats={queueStats}
+          queueStatsLoading={queueStatsLoading}
+        />
       ) : activeTab === "fa" ? (
-        <FarmTab detail={detailStats} detailLoading={detailLoading} />
+        <FarmTab
+          detail={detailStats}
+          detailLoading={detailLoading}
+          timeline={timelineAverages}
+          timelineLoading={timelineAveragesLoading}
+          queueStats={queueStats}
+          queueStatsLoading={queueStatsLoading}
+        />
       ) : activeTab === "ob" ? (
         <ObjectivesTab detail={detailStats} detailLoading={detailLoading} />
       ) : activeTab === "vi" ? (
@@ -618,12 +691,18 @@ export function ChampionDetailExp() {
           patch={patch}
         />
       ) : activeTab === "ab" ? (
-        <AbilitiesTab
-          detail={detailStats}
-          detailLoading={detailLoading}
-          skillOrders={skillOrders}
-          skillOrdersLoading={skillOrdersLoading}
-        />
+        isSummary ? (
+          <Panel>
+            <NoData text="Abilities are champion-specific." />
+          </Panel>
+        ) : (
+          <AbilitiesTab
+            detail={detailStats}
+            detailLoading={detailLoading}
+            skillOrders={skillOrders}
+            skillOrdersLoading={skillOrdersLoading}
+          />
+        )
       ) : activeTab === "ru" ? (
         <RunesTab
           detail={runeStats}
@@ -662,20 +741,32 @@ export function ChampionDetailExp() {
       ) : activeTab === "rc" ? (
         <RecordsTab records={records} recordsLoading={recordsLoading} matchHistory={matchHistory} />
       ) : matchesActive ? (
-        <MatchesTab
-          championId={id}
-          patch={patch}
-          queue={scopedQueue}
-          account={account}
-          championName={name}
-          champData={champData}
-        />
+        isSummary ? (
+          <Panel>
+            <NoData text="Match list is champion-specific. Open a champion to see their matches." />
+          </Panel>
+        ) : (
+          <MatchesTab
+            championId={id ?? 0}
+            patch={patch}
+            queue={scopedQueue}
+            account={account}
+            championName={name}
+            champData={champData}
+          />
+        )
       ) : activeTab === "ms" ? (
-        <MasteryTab
-          mastery={mastery}
-          masteryLoading={masteryLoading}
-          accountName={masteryAccountName}
-        />
+        isSummary ? (
+          <Panel>
+            <NoData text="Mastery is champion-specific." />
+          </Panel>
+        ) : (
+          <MasteryTab
+            mastery={mastery}
+            masteryLoading={masteryLoading}
+            accountName={masteryAccountName}
+          />
+        )
       ) : (
         <Panel>
           <p className="py-8 text-center text-sm text-lol-text">This tab lands in a later phase.</p>
@@ -729,6 +820,18 @@ export function RecordsTab({
     )
     .slice(0, 3);
   const byKey = new Map(records.records.map((record) => [record.key, record]));
+  const almostRecords = records.records
+    .filter((record) => record.secondValue != null && record.value > 0)
+    .map((record) => {
+      const gap = record.value - record.secondValue!;
+      return { record, gap, gapPct: gap / record.value };
+    })
+    .sort((a, b) => a.gapPct - b.gapPct)
+    .slice(0, 5);
+  const formatRecordValue = (record: ChampionRecordsResult["records"][number], value: number) =>
+    ["longestGame", "shortestWin", "longestAlive"].includes(record.key)
+      ? formatSeconds(value)
+      : value.toLocaleString(undefined, { maximumFractionDigits: 2 });
   return (
     <div className="flex flex-col gap-5">
       <InsightsPanel
@@ -774,6 +877,34 @@ export function RecordsTab({
           </div>
         )}
       </Panel>
+      <Panel>
+        <SectionHeading title="Almost records" source="d" />
+        {almostRecords.length === 0 ? (
+          <NoData text="Not enough games to compare records" />
+        ) : (
+          <div className="flex flex-col gap-3">
+            {almostRecords.map(({ record, gapPct }) => (
+              <div key={record.key} className="flex flex-col gap-1.5">
+                <div className="flex items-center gap-2 text-xs">
+                  <span className="min-w-0 flex-1 truncate text-lol-text">{record.label}</span>
+                  <span className="shrink-0 font-display tabular-nums text-lol-gold">
+                    {formatRecordValue(record, record.value)}
+                  </span>
+                  <span className="shrink-0 tabular-nums text-lol-text">
+                    2nd: {formatRecordValue(record, record.secondValue!)}
+                  </span>
+                </div>
+                <div className="h-1.5 overflow-hidden rounded-full bg-lol-border/50">
+                  <div
+                    className="h-full rounded-full bg-lol-gold"
+                    style={{ width: `${(1 - gapPct) * 100}%` }}
+                  />
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </Panel>
       {RECORD_GROUPS.map(([group, keys]) => {
         const groupRecords = keys
           .map((key) => byKey.get(key))
@@ -790,9 +921,7 @@ export function RecordsTab({
                 >
                   <span className="text-xs text-lol-text">{record.label}</span>
                   <b className="mt-1 block font-display text-2xl text-lol-text-bright">
-                    {["longestGame", "shortestWin", "longestAlive"].includes(record.key)
-                      ? formatSeconds(record.value)
-                      : record.value.toLocaleString(undefined, { maximumFractionDigits: 2 })}
+                    {formatRecordValue(record, record.value)}
                   </b>
                   <span className="mt-1 block text-[11px] text-lol-text">
                     Game {record.gameId ?? "—"}
@@ -946,7 +1075,7 @@ export function MasteryTab({
 }) {
   if (masteryLoading) return <SectionLoading />;
   if (!mastery) {
-    return <NoData text="Mastery data unavailable — play this champion on the connected account" />;
+    return <NoData text="No mastery data" />;
   }
 
   return (
@@ -978,6 +1107,54 @@ export function MasteryTab({
             </div>
           ))}
         </div>
+      </Panel>
+      <Panel>
+        <SectionHeading title="Level thresholds" source="l" />
+        <table className="w-full text-xs">
+          <thead className="border-b border-lol-border/50 text-left text-lol-text">
+            <tr>
+              <th className="pb-2 font-semibold">Level</th>
+              <th className="pb-2 text-right font-semibold">Points needed</th>
+              <th className="pb-2 text-right font-semibold">Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            {[
+              [5, 10_000],
+              [6, 13_000],
+              [7, 21_600],
+              [8, 33_000],
+              [9, 47_000],
+              [10, 63_000],
+              [11, 80_000],
+              [12, 101_600],
+            ].map(([level, points], index, thresholds) => {
+              const reached = mastery.points >= points;
+              const next =
+                !reached &&
+                thresholds.slice(0, index).every(([, threshold]) => mastery.points >= threshold);
+              return (
+                <tr key={level} className="border-b border-lol-border/50 last:border-0">
+                  <td className="py-2 text-lol-text-bright">Level {level}</td>
+                  <td className="py-2 text-right tabular-nums text-lol-text-bright">
+                    {points.toLocaleString()}
+                  </td>
+                  <td
+                    className={`py-2 text-right tabular-nums ${
+                      reached ? "text-lol-win" : next ? "text-lol-text" : "text-lol-text"
+                    }`}
+                  >
+                    {reached
+                      ? "Reached"
+                      : next
+                        ? `${(points - mastery.points).toLocaleString()} to go`
+                        : "—"}
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
       </Panel>
     </div>
   );
@@ -1305,11 +1482,33 @@ function VisionTab({
       <InsightsPanel
         insights={[
           {
-            kind: "info",
-            text: "Placeholder — vision insights land in a follow-up phase.",
+            kind: detail.avgVisionScore >= 1 ? "good" : "info",
+            text: `${detail.avgVisionScore.toFixed(1)} average vision score over ${detail.games.toLocaleString()} games.`,
           },
         ]}
       />
+      <div className="grid grid-cols-2 gap-3 xl:col-span-2 xl:grid-cols-4">
+        <CombatTile
+          label="Vision score"
+          value={detail.avgVisionScore}
+          subtitle={`best ${formatCombatNumber(detail.maxVisionScore)}`}
+        />
+        <CombatTile
+          label="Wards placed"
+          value={detail.avgWardsPlaced}
+          subtitle={`best ${formatCombatNumber(detail.maxWardsPlaced)}`}
+        />
+        <CombatTile
+          label="Wards killed"
+          value={detail.avgWardsKilled}
+          subtitle={`best ${formatCombatNumber(detail.maxWardsKilled)}`}
+        />
+        <CombatTile
+          label="Control ward share"
+          value={wardShareTotal > 0 ? (detail.avgVisionWardsBought / wardShareTotal) * 100 : null}
+          subtitle="of purchased wards"
+        />
+      </div>
       <Panel className="xl:col-span-2">
         <SectionHeading title="Vision score" source="m" />
         <CombatStatTable
@@ -1463,17 +1662,57 @@ function ItemsTab({
   const slotItems = slotCounts.map((counts) =>
     [...counts.entries()].sort((a, b) => b[1] - a[1] || a[0] - b[0]).slice(0, 3),
   );
+  const buildVariants = new Map<string, { items: number[]; games: number; wins: number }>();
+  const itemPairs = new Map<string, number>();
+  for (const match of recentMatches) {
+    const itemIds = [match.item0, match.item1, match.item2, match.item3, match.item4, match.item5]
+      .filter((itemId): itemId is number => itemId != null && itemId > 0)
+      .sort((a, b) => a - b);
+    if (itemIds.length > 0) {
+      const key = itemIds.join(",");
+      const variant = buildVariants.get(key) ?? { items: itemIds, games: 0, wins: 0 };
+      variant.games += 1;
+      variant.wins += match.win ? 1 : 0;
+      buildVariants.set(key, variant);
+    }
+    for (let index = 0; index < itemIds.length; index += 1) {
+      for (let next = index + 1; next < itemIds.length; next += 1) {
+        const key = `${itemIds[index]}:${itemIds[next]}`;
+        itemPairs.set(key, (itemPairs.get(key) ?? 0) + 1);
+      }
+    }
+  }
+  const topBuildVariants = [...buildVariants.values()]
+    .sort((a, b) => b.games - a.games || b.wins - a.wins)
+    .slice(0, 5);
+  const topItemPairs = [...itemPairs.entries()]
+    .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+    .slice(0, 5);
 
   return (
     <div className="grid grid-cols-1 gap-5 xl:grid-cols-2">
       <InsightsPanel
         insights={[
           {
-            kind: "info",
-            text: "Placeholder — item build insights land in a follow-up phase.",
+            kind: items.length > 0 ? "good" : "info",
+            text: `${items.length.toLocaleString()} item aggregates available for this champion.`,
           },
         ]}
       />
+      <div className="grid grid-cols-2 gap-3 xl:col-span-2 xl:grid-cols-4">
+        <CombatTile label="Tracked games" value={detail?.games} subtitle="champion aggregate" />
+        <CombatTile label="Unique items" value={items.length} subtitle="item aggregates" />
+        <CombatTile
+          label="Most built"
+          value={items.reduce((max, item) => Math.max(max, item.picks), 0)}
+          subtitle="highest pick count"
+        />
+        <CombatTile
+          label="Recent builds"
+          value={recentMatches.length}
+          subtitle="match history rows"
+        />
+      </div>
       <RatePanel
         title="Top items"
         source="m"
@@ -1500,16 +1739,55 @@ function ItemsTab({
 
       <Panel>
         <SectionHeading title="Item categories" source="m" />
-        {/* Placeholder data; backend item-category split lands in a follow-up phase. */}
-        <DonutChart
-          segments={[
-            { label: "Damage", value: 38, color: "var(--theme-crimson)" },
-            { label: "Penetration", value: 12, color: "var(--theme-gold)" },
-            { label: "Utility", value: 14, color: "var(--theme-assist)" },
-            { label: "Defense", value: 24, color: "var(--theme-win)" },
-            { label: "Boots", value: 12, color: "var(--theme-violet)" },
-          ]}
-        />
+        <NoData text="Item category metadata is not stored in match aggregates." />
+      </Panel>
+
+      <Panel>
+        <SectionHeading title="Item pairs" source="d" aside="Recent games" />
+        {topItemPairs.length === 0 ? (
+          <NoData text="Not enough recent builds" />
+        ) : (
+          <div className="flex flex-col gap-2 text-xs">
+            {topItemPairs.map(([key, count]) => {
+              const [first, second] = key.split(":").map(Number);
+              return (
+                <div key={key} className="flex items-center gap-2">
+                  <ItemIcon itemId={first} size={26} patch={patch} />
+                  <ItemIcon itemId={second} size={26} patch={patch} />
+                  <span className="min-w-0 flex-1 truncate text-lol-text-bright">
+                    {getItemName(itemData, first)} + {getItemName(itemData, second)}
+                  </span>
+                  <span className="tabular-nums text-lol-text">{count}x</span>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </Panel>
+
+      <Panel className="xl:col-span-2">
+        <SectionHeading title="Build variants" source="d" aside="Recent games" />
+        {topBuildVariants.length === 0 ? (
+          <NoData text="Not enough recent builds" />
+        ) : (
+          <div className="flex flex-col gap-2">
+            {topBuildVariants.map((variant) => (
+              <div
+                key={variant.items.join(",")}
+                className="flex flex-wrap items-center gap-2 rounded-lg border border-lol-border/50 bg-black/10 px-3 py-2"
+              >
+                <div className="flex min-w-0 flex-1 flex-wrap gap-1">
+                  {variant.items.map((itemId) => (
+                    <ItemIcon key={itemId} itemId={itemId} size={28} patch={patch} />
+                  ))}
+                </div>
+                <span className="text-xs tabular-nums text-lol-text">
+                  {variant.games} games · {formatPercent(variant.wins, variant.games)}
+                </span>
+              </div>
+            ))}
+          </div>
+        )}
       </Panel>
 
       <Panel className="xl:col-span-2">
@@ -1601,7 +1879,7 @@ function RunesTab({
   detail: ChampionRuneStatsResult | null;
   detailLoading: boolean;
   runeData: ReturnType<typeof useRuneData>;
-  championId: number;
+  championId: number | null;
 }) {
   const [keystoneSort, setKeystoneSort] = useState<RateSort>("count");
   const keystones = detail?.keystones ?? [];
@@ -1612,10 +1890,34 @@ function RunesTab({
   if (detailLoading) return <SectionLoading />;
   if (!detail) return <NoData text="No rune data" />;
 
+  const totalPicks = keystones.reduce((sum, row) => sum + row.picks, 0);
+  const totalWins = keystones.reduce((sum, row) => sum + row.wins, 0);
+  const primaryTreeCount = detail.primaryTrees.length;
+  const secondaryTreeCount = detail.secondaryTrees.length;
+
   return (
     <div className="grid grid-cols-1 gap-5 xl:grid-cols-2">
+      <InsightsPanel
+        insights={[
+          {
+            kind: totalPicks > 0 ? "good" : "info",
+            text: `${totalPicks.toLocaleString()} keystone selections with ${formatPercent(totalWins, totalPicks)} win rate.`,
+          },
+        ]}
+      />
+      <div className="grid grid-cols-2 gap-3 xl:col-span-2 xl:grid-cols-4">
+        <CombatTile label="Keystone picks" value={totalPicks} subtitle="aggregate selections" />
+        <CombatTile
+          label="Keystone win rate"
+          value={totalPicks > 0 ? (totalWins / totalPicks) * 100 : null}
+          subtitle="all tracked pages"
+        />
+        <CombatTile label="Primary trees" value={primaryTreeCount} subtitle="seen in data" />
+        <CombatTile label="Secondary trees" value={secondaryTreeCount} subtitle="seen in data" />
+      </div>
       <RatePanel
         title="Keystones"
+        source="m"
         sort={keystoneSort}
         options={[
           ["count", "Most played"],
@@ -1641,17 +1943,19 @@ function RunesTab({
 
       <RuneTreePanel
         title="Primary trees"
+        source="m"
         trees={treeRows(detail.primaryTrees)}
         runeData={runeData}
       />
       <RuneTreePanel
         title="Secondary trees"
+        source="m"
         trees={treeRows(detail.secondaryTrees)}
         runeData={runeData}
       />
 
       <Panel className="xl:col-span-2">
-        <SectionHeading title="Rune pages" />
+        <SectionHeading title="Rune pages" source="m" />
         {detail.pages.length === 0 ? (
           <NoData />
         ) : (
@@ -1689,14 +1993,16 @@ function RuneTreePanel({
   title,
   trees,
   runeData,
+  source,
 }: {
   title: string;
   trees: Array<{ styleId: number; picks: number; wins: number }>;
   runeData: ReturnType<typeof useRuneData>;
+  source?: keyof typeof SOURCE_LABELS;
 }) {
   return (
     <Panel>
-      <SectionHeading title={title} />
+      <SectionHeading title={title} source={source} />
       {trees.length === 0 ? (
         <NoData />
       ) : (
@@ -1742,8 +2048,94 @@ function MatchupsTab({
     };
     return value(b) - value(a) || a.championId - b.championId;
   });
+  const tierDefinitions = [
+    { label: "S", color: "#C9A45C", min: 0.7 },
+    { label: "A", color: "#b8b8c4", min: 0.6 },
+    { label: "B", color: "#7FA6CC", min: 0.5 },
+    { label: "C", color: "#A58CC4", min: 0.4 },
+    { label: "D", color: "#E5483F", min: Number.NEGATIVE_INFINITY },
+  ];
+  const tierRows = tierDefinitions
+    .map((tier, index) => ({
+      ...tier,
+      entries: (matchups ?? [])
+        .filter((row) => row.games >= 2)
+        .filter((row) => {
+          const winRate = row.wins / row.games;
+          const nextMin = tierDefinitions[index - 1]?.min ?? Number.POSITIVE_INFINITY;
+          return winRate >= tier.min && winRate < nextMin;
+        })
+        .sort((a, b) => b.wins / b.games - a.wins / a.games),
+    }))
+    .filter((tier) => tier.entries.length > 0);
+  const qualifiedMatchups = (matchups ?? []).filter((row) => row.games >= 2);
+  const bestMatchup = qualifiedMatchups
+    .slice()
+    .sort((a, b) => b.wins / b.games - a.wins / a.games || b.games - a.games)[0];
+  const worstMatchup = qualifiedMatchups
+    .slice()
+    .sort((a, b) => a.wins / a.games - b.wins / b.games || b.games - a.games)[0];
+  const classStats = new Map<string, { games: number; wins: number }>();
+  for (const row of qualifiedMatchups) {
+    const enemyClass = champData[row.championId]?.class?.trim() || "Other";
+    const current = classStats.get(enemyClass) ?? { games: 0, wins: 0 };
+    current.games += row.games;
+    current.wins += row.wins;
+    classStats.set(enemyClass, current);
+  }
+  const classRows = [...classStats.entries()].sort((a, b) => b[1].games - a[1].games).slice(0, 6);
 
   return [
+    <InsightsPanel
+      key="matchup-insights"
+      insights={[
+        bestMatchup
+          ? {
+              kind: "good",
+              text: `Best matchup: ${getChampionName(champData, bestMatchup.championId)} at ${formatPercent(bestMatchup.wins, bestMatchup.games)}.`,
+            }
+          : { kind: "info", text: "Not enough matchup games for a best result." },
+        worstMatchup
+          ? {
+              kind: "warn",
+              text: `Hardest matchup: ${getChampionName(champData, worstMatchup.championId)} at ${formatPercent(worstMatchup.wins, worstMatchup.games)}.`,
+            }
+          : { kind: "info", text: "Not enough matchup games for a hardest result." },
+      ]}
+    />,
+    <Panel className="xl:col-span-2" key="matchup-tier-list">
+      <SectionHeading title="Matchup tier list" source="d" />
+      {tierRows.length === 0 ? (
+        <NoData text="Not enough games for a tier list" />
+      ) : (
+        <div className="flex flex-col gap-3">
+          {tierRows.map((tier) => (
+            <div key={tier.label} className="flex items-center gap-3">
+              <span
+                className="flex h-[30px] w-[30px] shrink-0 items-center justify-center rounded-md font-display text-sm font-bold"
+                style={{ backgroundColor: tier.color, color: "#150c33" }}
+              >
+                {tier.label}
+              </span>
+              <div className="flex flex-wrap gap-2">
+                {tier.entries.map((row) => {
+                  const winRate = row.wins / row.games;
+                  const name = getChampionName(champData, row.championId);
+                  return (
+                    <span
+                      key={row.championId}
+                      title={`${name} · ${row.games} games · ${(winRate * 100).toFixed(0)}% WR`}
+                    >
+                      <ChampionIcon championId={row.championId} size={28} className="rounded-md" />
+                    </span>
+                  );
+                })}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </Panel>,
     <Panel className="xl:col-span-2" key="matchups">
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
         <SectionHeading
@@ -1816,17 +2208,35 @@ function MatchupsTab({
     </Panel>,
     <Panel className="xl:col-span-2" key="enemy-class">
       <SectionHeading title="Performance by enemy class" source="d" />
-      {/* Placeholder data; backend enemy-class performance lands in a follow-up phase. */}
-      <RadarChart
-        axes={["Assassin", "Mage", "Fighter", "Tank", "Marksman", "Support"]}
-        series={[
-          {
-            values: [62, 71, 58, 55, 74, 68],
-            color: "var(--theme-crimson)",
-            label: "Your win rate by class",
-          },
-        ]}
-      />
+      {classRows.length === 0 ? (
+        <NoData text="Not enough matchup games for enemy classes" />
+      ) : (
+        <div className="flex flex-col gap-3">
+          <RadarChart
+            axes={classRows.map(([label]) => label)}
+            series={[
+              {
+                values: classRows.map(([, stats]) => (stats.wins / stats.games) * 100),
+                color: "var(--theme-crimson)",
+                label: "Your win rate by class",
+              },
+            ]}
+          />
+          <div className="grid grid-cols-1 gap-2 text-xs sm:grid-cols-2">
+            {classRows.map(([label, stats]) => (
+              <div key={label} className="flex items-center gap-3">
+                <span className="w-24 truncate text-lol-text">{label}</span>
+                <div className="min-w-0 flex-1">
+                  <WinRateBar wins={stats.wins} total={stats.games} showPercent={false} />
+                </div>
+                <span className="w-12 text-right tabular-nums text-lol-text-bright">
+                  {formatPercent(stats.wins, stats.games)}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </Panel>,
   ];
 }
@@ -2895,12 +3305,42 @@ function CombatTab({
 function EconomyTab({
   detail,
   detailLoading,
+  timeline,
+  timelineLoading,
+  queueStats,
+  queueStatsLoading,
 }: {
   detail: ChampionDetailStats | null;
   detailLoading: boolean;
+  timeline: TimelineBucket[] | null;
+  timelineLoading: boolean;
+  queueStats: Array<{ queueId: number; games: number; wins: number }> | null;
+  queueStatsLoading: boolean;
 }) {
   if (detailLoading) return <SectionLoading />;
   if (!detail || detail.games === 0) return <NoData text="No data" />;
+  if (timelineLoading) return <SectionLoading />;
+
+  const buckets = timeline ?? [];
+  const bucketAt = (minute: number) => buckets.find((bucket) => bucket.minute === minute);
+  const goldValues = buckets.flatMap((bucket) => (bucket.avgGold == null ? [] : [bucket.avgGold]));
+  const goldLabels = buckets
+    .filter((bucket) => bucket.avgGold != null)
+    .map((bucket) => `${bucket.minute}m`);
+  const goldLead = buckets.flatMap((bucket) =>
+    bucket.avgGoldDiffVsLaneOpponent == null ? [] : [bucket.avgGoldDiffVsLaneOpponent],
+  );
+  const xpLead = buckets.flatMap((bucket) =>
+    bucket.avgXpDiffVsLaneOpponent == null ? [] : [bucket.avgXpDiffVsLaneOpponent],
+  );
+  const timelineGames = buckets.reduce((sum, bucket) => sum + bucket.sampleGames, 0);
+  const damagePerGold =
+    detail.avgGoldSpent > 0
+      ? (detail.avgPhysicalDamageDealt + detail.avgMagicDamageDealt) / detail.avgGoldSpent
+      : null;
+  const value = (number: number | null | undefined, digits = 0) =>
+    number == null ? "—" : number.toLocaleString(undefined, { maximumFractionDigits: digits });
+  const queueRows = queueStats ?? [];
 
   return (
     <div className="grid grid-cols-1 gap-5 xl:grid-cols-2">
@@ -2908,14 +3348,53 @@ function EconomyTab({
         insights={[
           {
             kind: "good",
-            text: "Gold income peaks in the mid game — plan your item spikes around it.",
+            text: `Gold timeline averages are based on ${timelineGames} game-minute samples.`,
           },
           {
             kind: "info",
-            text: "Placeholder — real gold-lead insights land in a follow-up phase.",
+            text:
+              goldLead.length > 0
+                ? "Lane gold lead is shown at the nearest available timeline minute."
+                : "Lane gold lead is not available without a matching opponent timeline.",
           },
         ]}
       />
+      <Panel className="xl:col-span-2">
+        <SectionHeading title="Economy snapshot" source="d" />
+        <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
+          <Stat
+            label="Gold/min"
+            value={detail.goldPerMin.toFixed(0)}
+            sub="Average earned per minute"
+          />
+          <Stat label="Ahead @10" value="—" sub="Percentage unavailable" />
+          <Stat
+            label="Gold lead @15"
+            value={value(bucketAt(15)?.avgGoldDiffVsLaneOpponent)}
+            sub="Versus lane opponent"
+          />
+          <Stat
+            label="Gold efficiency"
+            value={value(damagePerGold, 2)}
+            sub="Damage per gold spent"
+          />
+          <Stat label="Items bought" value="—" sub="Not stored in aggregate stats" />
+          <Stat label="Comebacks" value="—" sub="Not available from current data" />
+        </div>
+      </Panel>
+      <Panel>
+        <SectionHeading title="Gold over time" source="d" />
+        {goldValues.length < 2 ? (
+          <NoData text="Not enough timeline data" />
+        ) : (
+          <LineChartExp
+            values={goldValues}
+            xLabels={goldLabels}
+            format={(item) => value(item)}
+            color="var(--theme-gold)"
+          />
+        )}
+      </Panel>
       <Panel>
         <SectionHeading title="Gold" source="m" />
         <CombatStatTable
@@ -2929,45 +3408,122 @@ function EconomyTab({
             ],
           ]}
         />
-        <div className="mt-3 flex items-center justify-between border-t border-lol-border/50 pt-3 text-xs">
-          <span className="text-lol-text">Gold per minute</span>
-          <b className="tabular-nums text-lol-text-bright">{detail.goldPerMin.toFixed(0)}</b>
-        </div>
-        <div className="mt-2 flex items-center justify-between text-xs">
-          <span className="text-lol-text">Max champion level reached</span>
-          <b className="tabular-nums text-lol-text-bright">{detail.maxChampLevel}</b>
-        </div>
       </Panel>
-
       <Panel>
-        <SectionHeading title="Gold sources" source="m" />
-        {/* Placeholder data; backend gold-source split lands in a follow-up phase. */}
-        <DonutChart
-          segments={[
-            { label: "Minions", value: 42, color: "var(--theme-gold)" },
-            { label: "Kills", value: 22, color: "var(--theme-crimson)" },
-            { label: "Assists", value: 10, color: "var(--theme-assist)" },
-            { label: "Objectives", value: 12, color: "var(--theme-win)" },
-            { label: "Passive", value: 14, color: "var(--theme-foreground-muted)" },
-          ]}
-          centerLabel="42%"
-          centerSub="from minions"
-        />
-      </Panel>
-
-      <Panel>
-        <SectionHeading title="Time" source="d" />
-        <CombatStatTable
-          rows={[
-            ["Avg game length", detail.avgGameLength, null, null, formatSeconds],
-            ["Total time played", null, null, detail.totalTimePlayed, formatSeconds],
-          ]}
-        />
-        <div className="mt-3 flex items-center justify-between border-t border-lol-border/50 pt-3 text-xs">
-          <span className="text-lol-text">Longest win streak</span>
-          <b className="tabular-nums text-lol-text-bright">{detail.longestWinStreak}</b>
+        <SectionHeading title="Lead vs lane opponent" source="d" />
+        <div className="flex flex-col gap-2 text-xs">
+          <div className="grid grid-cols-[1fr_auto] gap-3 border-b border-lol-border/50 pb-2 font-semibold text-lol-text">
+            <span>Stat</span>
+            <span>Avg</span>
+          </div>
+          {[
+            ["Gold diff @5", bucketAt(5)?.avgGoldDiffVsLaneOpponent],
+            ["Gold diff @10", bucketAt(10)?.avgGoldDiffVsLaneOpponent],
+            ["Gold diff @15", bucketAt(15)?.avgGoldDiffVsLaneOpponent],
+            ["Gold diff @20", bucketAt(20)?.avgGoldDiffVsLaneOpponent],
+            ["XP diff @10", bucketAt(10)?.avgXpDiffVsLaneOpponent],
+            ["XP diff @15", bucketAt(15)?.avgXpDiffVsLaneOpponent],
+          ].map(([label, stat]) => (
+            <div key={label} className="grid grid-cols-[1fr_auto] gap-3 text-lol-text-bright">
+              <span>{label}</span>
+              <span className="tabular-nums">{value(stat as number | null | undefined)}</span>
+            </div>
+          ))}
         </div>
       </Panel>
+      <Panel>
+        <SectionHeading title="Levels & XP" source="d" />
+        <div className="flex flex-col gap-2 text-xs">
+          {[
+            ["Final level", detail.maxChampLevel],
+            ["Level @5", bucketAt(5)?.avgLevel],
+            ["Level @10", bucketAt(10)?.avgLevel],
+            ["Level @15", bucketAt(15)?.avgLevel],
+            ["Level @20", bucketAt(20)?.avgLevel],
+          ].map(([label, stat]) => (
+            <div key={label} className="flex items-center justify-between text-lol-text-bright">
+              <span className="text-lol-text">{label}</span>
+              <span className="tabular-nums">{value(stat as number | null | undefined, 1)}</span>
+            </div>
+          ))}
+        </div>
+      </Panel>
+      <Panel>
+        <SectionHeading title="Gold lead curve" source="d" />
+        {goldLead.length < 2 ? (
+          <NoData text="Not enough lane timeline data" />
+        ) : (
+          <LineChartExp
+            values={goldLead}
+            format={(item) => value(item)}
+            color="var(--theme-gold)"
+          />
+        )}
+      </Panel>
+      <Panel>
+        <SectionHeading title="XP lead curve" source="d" />
+        {xpLead.length < 2 ? (
+          <NoData text="Not enough lane timeline data" />
+        ) : (
+          <LineChartExp
+            values={xpLead}
+            format={(item) => value(item)}
+            color="var(--theme-violet)"
+          />
+        )}
+      </Panel>
+      <Panel>
+        <SectionHeading title="Gold spending" source="m" />
+        <div className="flex flex-col gap-2 text-xs">
+          <div className="flex items-center justify-between">
+            <span className="text-lol-text">Gold spent average</span>
+            <span className="tabular-nums text-lol-text-bright">{value(detail.avgGoldSpent)}</span>
+          </div>
+        </div>
+      </Panel>
+      <Panel>
+        <SectionHeading title="Economy by queue" source="m" />
+        {queueStatsLoading ? (
+          <SectionLoading />
+        ) : queueRows.length === 0 ? (
+          <NoData text="No queue data" />
+        ) : (
+          <div className="flex flex-col gap-2 text-xs">
+            <div className="grid grid-cols-[1fr_auto_auto_auto_auto_auto] gap-2 border-b border-lol-border/50 pb-2 font-semibold text-lol-text">
+              <span>Queue</span>
+              <span>Games</span>
+              <span>Gold/min</span>
+              <span>Avg gold</span>
+              <span>CS/min</span>
+              <span>KDA</span>
+            </div>
+            {queueRows.map((row) => (
+              <div
+                key={row.queueId}
+                className="grid grid-cols-[1fr_auto_auto_auto_auto_auto] gap-2 text-lol-text-bright"
+              >
+                <span>{QUEUE_LABELS[row.queueId] ?? row.queueId}</span>
+                <span className="tabular-nums">{row.games}</span>
+                <span>—</span>
+                <span>—</span>
+                <span>—</span>
+                <span>—</span>
+              </div>
+            ))}
+          </div>
+        )}
+      </Panel>
+      {[
+        ["Gold sources", "Gold-source split not available"],
+        ["WR by gold lead @15", "Gold lead outcomes are not available"],
+        ["Gold lead distribution", "Per-game lead distribution is not available"],
+        ["Spending timeline", "Item purchase timeline is not available"],
+      ].map(([title, text]) => (
+        <Panel key={title}>
+          <SectionHeading title={title} source="d" />
+          <NoData text={text} />
+        </Panel>
+      ))}
     </div>
   );
 }
@@ -2975,12 +3531,31 @@ function EconomyTab({
 function FarmTab({
   detail,
   detailLoading,
+  timeline,
+  timelineLoading,
+  queueStats,
+  queueStatsLoading,
 }: {
   detail: ChampionDetailStats | null;
   detailLoading: boolean;
+  timeline: TimelineBucket[] | null;
+  timelineLoading: boolean;
+  queueStats: Array<{ queueId: number; games: number; wins: number }> | null;
+  queueStatsLoading: boolean;
 }) {
   if (detailLoading) return <SectionLoading />;
   if (!detail || detail.games === 0) return <NoData text="No data" />;
+  if (timelineLoading) return <SectionLoading />;
+
+  const buckets = timeline ?? [];
+  const bucketAt = (minute: number) => buckets.find((bucket) => bucket.minute === minute);
+  const csValues = buckets.flatMap((bucket) => (bucket.avgCs == null ? [] : [bucket.avgCs]));
+  const csLead = buckets.flatMap((bucket) =>
+    bucket.avgCsDiffVsLaneOpponent == null ? [] : [bucket.avgCsDiffVsLaneOpponent],
+  );
+  const timelineGames = buckets.reduce((sum, bucket) => sum + bucket.sampleGames, 0);
+  const value = (number: number | null | undefined, digits = 1) =>
+    number == null ? "—" : number.toLocaleString(undefined, { maximumFractionDigits: digits });
 
   return (
     <div className="grid grid-cols-1 gap-5 xl:grid-cols-2">
@@ -2988,14 +3563,40 @@ function FarmTab({
         insights={[
           {
             kind: "good",
-            text: "CS per minute is consistent across game lengths.",
+            text: `CS pace is based on ${timelineGames} game-minute samples with timeline data.`,
           },
           {
             kind: "info",
-            text: "Placeholder — real farming insights land in a follow-up phase.",
+            text:
+              csLead.length > 0
+                ? "The CS curve can be compared with the nearest available lane-opponent frame."
+                : "Lane CS lead is not available without a matching opponent timeline.",
           },
         ]}
       />
+      <Panel className="xl:col-span-2">
+        <SectionHeading title="Farm snapshot" source="d" />
+        <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
+          <Stat
+            label="CS/min"
+            value={
+              detail.avgGameLength > 0
+                ? (detail.avgTotalMinionsKilled / (detail.avgGameLength / 60)).toFixed(1)
+                : "—"
+            }
+            sub="Average minions per minute"
+          />
+          <Stat label="CS @10" value={value(bucketAt(10)?.avgCs)} sub="Timeline average" />
+          <Stat
+            label="CS diff @15"
+            value={value(bucketAt(15)?.avgCsDiffVsLaneOpponent)}
+            sub="Versus lane opponent"
+          />
+          <Stat label="8+ CS/min games" value="—" sub="Not available from current data" />
+          <Stat label="Jungle share" value="—" sub="Percentage unavailable" />
+          <Stat label="Possible CS @10" value="—" sub="Not available from current data" />
+        </div>
+      </Panel>
       <Panel>
         <SectionHeading title="Minion split" source="m" />
         <CombatStatTable
@@ -3027,22 +3628,97 @@ function FarmTab({
           ]}
         />
       </Panel>
-
       <Panel>
-        <SectionHeading title="Per minute" source="d" />
-        <div className="flex flex-col gap-3 text-xs">
+        <SectionHeading title="CS pace" source="d" />
+        <div className="flex flex-col gap-2 text-xs">
+          <div className="grid grid-cols-[1fr_auto] gap-3 border-b border-lol-border/50 pb-2 font-semibold text-lol-text">
+            <span>Stat</span>
+            <span>Avg</span>
+          </div>
+          {[5, 10, 15, 20, 25, 30].map((minute) => (
+            <div key={minute} className="grid grid-cols-[1fr_auto] gap-3 text-lol-text-bright">
+              <span>CS @{minute}</span>
+              <span className="tabular-nums">{value(bucketAt(minute)?.avgCs)}</span>
+            </div>
+          ))}
+        </div>
+      </Panel>
+      <Panel>
+        <SectionHeading title="CS curve" source="d" />
+        {csValues.length < 2 ? (
+          <NoData text="Not enough timeline data" />
+        ) : (
+          <LineChartExp
+            values={csValues}
+            format={(item) => value(item)}
+            color="var(--theme-violet)"
+          />
+        )}
+      </Panel>
+      <Panel>
+        <SectionHeading title="CS lead vs lane opponent" source="d" />
+        {csLead.length < 2 ? (
+          <NoData text="Not enough lane timeline data" />
+        ) : (
+          <LineChartExp values={csLead} format={(item) => value(item)} color="var(--theme-win)" />
+        )}
+      </Panel>
+      <Panel>
+        <SectionHeading title="Jungle share" source="m" />
+        <div className="flex flex-col gap-2 text-xs">
           <div className="flex items-center justify-between">
-            <span className="text-lol-text">Games played</span>
-            <b className="tabular-nums text-lol-text-bright">{detail.games}</b>
+            <span className="text-lol-text">Allied jungle</span>
+            <span className="tabular-nums text-lol-text-bright">
+              {value(detail.avgNeutralMinionsTeamJungle)}
+            </span>
           </div>
           <div className="flex items-center justify-between">
-            <span className="text-lol-text">Avg game length</span>
-            <b className="tabular-nums text-lol-text-bright">
-              {formatSeconds(detail.avgGameLength)}
-            </b>
+            <span className="text-lol-text">Enemy jungle</span>
+            <span className="tabular-nums text-lol-text-bright">
+              {value(detail.avgNeutralMinionsEnemyJungle)}
+            </span>
           </div>
         </div>
       </Panel>
+      <Panel>
+        <SectionHeading title="Farm by queue" source="m" />
+        {queueStatsLoading ? (
+          <SectionLoading />
+        ) : (queueStats ?? []).length === 0 ? (
+          <NoData text="No queue data" />
+        ) : (
+          <div className="flex flex-col gap-2 text-xs">
+            <div className="grid grid-cols-[1fr_auto_auto_auto] gap-2 border-b border-lol-border/50 pb-2 font-semibold text-lol-text">
+              <span>Queue</span>
+              <span>Games</span>
+              <span>CS/min</span>
+              <span>Avg CS</span>
+            </div>
+            {(queueStats ?? []).map((row) => (
+              <div
+                key={row.queueId}
+                className="grid grid-cols-[1fr_auto_auto_auto] gap-2 text-lol-text-bright"
+              >
+                <span>{QUEUE_LABELS[row.queueId] ?? row.queueId}</span>
+                <span className="tabular-nums">{row.games}</span>
+                <span>—</span>
+                <span>—</span>
+              </div>
+            ))}
+          </div>
+        )}
+      </Panel>
+      {[
+        ["CS per game histogram", "Per-game CS distribution is not available"],
+        ["WR by CS @10", "CS-at-10 outcomes are not available per game"],
+        ["CS by game phase", "Phase-specific CS aggregation is not available"],
+        ["Where CS comes from", "Lane/jungle source split is not available"],
+      ].map(([title, text]) => (
+        <Panel key={title}>
+          <SectionHeading title={title} source="d" />
+          <NoData text={text} />
+        </Panel>
+      ))}
     </div>
   );
 }
@@ -3057,16 +3733,45 @@ function ObjectivesTab({
   if (detailLoading) return <SectionLoading />;
   if (!detail || detail.games === 0) return <NoData text="No data" />;
 
+  const objectiveTotal =
+    detail.totalTurretKills +
+    detail.totalInhibitorKills +
+    detail.totalBaronKills +
+    detail.totalObjectivesStolen;
+  const objectiveDamagePerGame = detail.avgDamageToObjectives + detail.avgDamageToTurrets;
+
   return (
     <div className="grid grid-cols-1 gap-5 xl:grid-cols-2">
       <InsightsPanel
         insights={[
           {
-            kind: "info",
-            text: "Placeholder — objective control insights land in a follow-up phase.",
+            kind: objectiveTotal > detail.games ? "good" : "info",
+            text: `${objectiveTotal.toLocaleString()} objective events across ${detail.games.toLocaleString()} games.`,
           },
         ]}
       />
+      <div className="grid grid-cols-2 gap-3 xl:col-span-2 xl:grid-cols-4">
+        <CombatTile
+          label="Objective events / game"
+          value={objectiveTotal / detail.games}
+          subtitle="turrets, inhibitors, barons and steals"
+        />
+        <CombatTile
+          label="Objective damage / game"
+          value={objectiveDamagePerGame}
+          subtitle="combined objective and turret damage"
+        />
+        <CombatTile
+          label="First tower rate"
+          value={(detail.totalFirstTowerKill / detail.games) * 100}
+          subtitle={`${detail.totalFirstTowerKill.toLocaleString()} first towers`}
+        />
+        <CombatTile
+          label="First inhibitor rate"
+          value={(detail.totalFirstInhibitorKill / detail.games) * 100}
+          subtitle={`${detail.totalFirstInhibitorKill.toLocaleString()} first inhibitors`}
+        />
+      </div>
       <Panel>
         <SectionHeading title="Turrets & inhibitors" source="m" />
         <CombatStatTable
@@ -3153,6 +3858,10 @@ function ObjectivesTab({
             ],
           ]}
         />
+      </Panel>
+      <Panel>
+        <SectionHeading title="Unavailable objective detail" source="d" />
+        <NoData text="Objective timing, dragon types, and team control are not stored." />
       </Panel>
     </div>
   );

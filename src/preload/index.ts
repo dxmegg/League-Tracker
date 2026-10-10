@@ -5,6 +5,7 @@ import type {
   ChampionDetailStats,
   ChampionRoleStat,
   ChampionTimelineGame,
+  TimelineBucket,
   ChampionTrendsData,
   ElectronAPI,
   LcuStatus,
@@ -45,13 +46,21 @@ const api: ElectronAPI = {
   getTimeline: (gameId: number) => ipcRenderer.invoke("db:timeline-get", gameId),
 
   getChampionTimelineGames: (
-    championId: number,
+    championId: number | null,
     limit: number,
     patch?: string,
     queue?: number,
     account?: string,
   ): Promise<ChampionTimelineGame[]> =>
     ipcRenderer.invoke("db:champion-timeline-games", championId, limit, patch, queue, account),
+
+  getChampionTimelineAverages: (
+    championId: number | null,
+    patch?: string,
+    queue?: number,
+    account?: string,
+  ): Promise<TimelineBucket[]> =>
+    ipcRenderer.invoke("db:champion-timeline-averages", championId, patch, queue, account),
 
   fetchTimeline: (gameId: number, platform?: string): Promise<TimelineData | null> =>
     ipcRenderer.invoke("db:timeline-fetch", gameId, platform),
@@ -115,43 +124,55 @@ const api: ElectronAPI = {
     ipcRenderer.invoke("db:champion-stats", patch, queue, account),
 
   getChampionDetailStats: (
-    championId: number,
+    championId: number | null,
     patch?: string,
     queue?: number,
     account?: string,
   ): Promise<ChampionDetailStats> =>
     ipcRenderer.invoke("db:champion-detail-stats", championId, patch, queue, account),
 
-  getChampionQueueStats: (championId: number, account?: string) =>
+  getChampionQueueStats: (championId: number | null, account?: string) =>
     ipcRenderer.invoke("db:champion-queue-stats", championId, account),
 
   getChampionRoleStats: (
-    championId: number,
+    championId: number | null,
     patch?: string,
     queue?: number,
   ): Promise<ChampionRoleStat[]> =>
     ipcRenderer.invoke("db:champion-role-stats", championId, patch, queue),
 
-  getChampionKeystones: (championId: number, account?: string) =>
+  getChampionKeystones: (championId: number | null, account?: string) =>
     ipcRenderer.invoke("db:champion-keystones", championId, account),
 
-  getChampionRuneStats: (championId: number, patch?: string, queue?: number, account?: string) =>
-    ipcRenderer.invoke("db:champion-rune-stats", championId, patch, queue, account),
+  getChampionRuneStats: (
+    championId: number | null,
+    patch?: string,
+    queue?: number,
+    account?: string,
+  ) => ipcRenderer.invoke("db:champion-rune-stats", championId, patch, queue, account),
 
-  getChampionWeeklyWinRate: (championId: number, account?: string) =>
+  getChampionWeeklyWinRate: (championId: number | null, account?: string) =>
     ipcRenderer.invoke("db:champion-weekly-winrate", championId, account),
 
-  getChampionMatchups: (championId: number, account?: string) =>
+  getChampionMatchups: (championId: number | null, account?: string) =>
     ipcRenderer.invoke("db:champion-matchups", championId, account),
 
-  getChampionMatchupList: (championId: number, patch?: string, queue?: number, account?: string) =>
-    ipcRenderer.invoke("db:champion-matchup-list", championId, patch, queue, account),
+  getChampionMatchupList: (
+    championId: number | null,
+    patch?: string,
+    queue?: number,
+    account?: string,
+  ) => ipcRenderer.invoke("db:champion-matchup-list", championId, patch, queue, account),
 
-  getChampionAllyStats: (championId: number, patch?: string, queue?: number, account?: string) =>
-    ipcRenderer.invoke("db:champion-ally-stats", championId, patch, queue, account),
+  getChampionAllyStats: (
+    championId: number | null,
+    patch?: string,
+    queue?: number,
+    account?: string,
+  ) => ipcRenderer.invoke("db:champion-ally-stats", championId, patch, queue, account),
 
   getChampionTeammateStats: (
-    championId: number,
+    championId: number | null,
     patch?: string,
     queue?: number,
     account?: string,
@@ -230,8 +251,12 @@ const api: ElectronAPI = {
       account,
     ),
 
-  getChampionRecords: (championId: number, patch?: string, queue?: number, account?: string) =>
-    ipcRenderer.invoke("db:champion-records", championId, patch, queue, account),
+  getChampionRecords: (
+    championId: number | null,
+    patch?: string,
+    queue?: number,
+    account?: string,
+  ) => ipcRenderer.invoke("db:champion-records", championId, patch, queue, account),
 
   refreshGames: () => ipcRenderer.invoke("lcu:refresh"),
 
@@ -296,14 +321,18 @@ const api: ElectronAPI = {
 
   getSummonerSpellData: () => ipcRenderer.invoke("dragon:summoner-spells"),
 
-  getChampionItemStats: (championId: number, patch?: string, queue?: number, account?: string) =>
-    ipcRenderer.invoke("db:champion-item-stats", championId, patch, queue, account),
+  getChampionItemStats: (
+    championId: number | null,
+    patch?: string,
+    queue?: number,
+    account?: string,
+  ) => ipcRenderer.invoke("db:champion-item-stats", championId, patch, queue, account),
 
   getChampionSkillOrders: (championId: number, patch?: string, queue?: number, account?: string) =>
     ipcRenderer.invoke("db:champion-skill-orders", championId, patch, queue, account),
 
   getChampionTrendsData: (
-    championId: number,
+    championId: number | null,
     patch?: string,
     queue?: number,
     account?: string,
@@ -332,8 +361,12 @@ const api: ElectronAPI = {
   getRecords: (queue?: number, account?: string) =>
     ipcRenderer.invoke("db:records", queue, account),
 
-  getGlobalChampionDetail: (championId: number, patch?: string, queue?: number, account?: string) =>
-    ipcRenderer.invoke("db:global-champion-detail", championId, patch, queue, account),
+  getGlobalChampionDetail: (
+    championId: number | null,
+    patch?: string,
+    queue?: number,
+    account?: string,
+  ) => ipcRenderer.invoke("db:global-champion-detail", championId, patch, queue, account),
 
   getSummonerPuuid: () => ipcRenderer.invoke("db:summoner-puuid"),
 

@@ -927,6 +927,8 @@ export interface ChampionRecord {
   value: number;
   gameId: number | null;
   gameDuration?: number;
+  secondValue: number | null;
+  secondGameId: number | null;
 }
 
 export interface ChampionRecordsResult {
@@ -1239,56 +1241,68 @@ export interface ElectronAPI {
   toggleFavorite: (gameId: number) => Promise<boolean>;
   getChampionStats: (patch?: string, queue?: number, account?: string) => Promise<ChampionStats[]>;
   getChampionDetailStats: (
-    championId: number,
+    championId: number | null,
     patch?: string,
     queue?: number,
     account?: string,
   ) => Promise<ChampionDetailStats>;
-  getChampionQueueStats: (championId: number, account?: string) => Promise<ChampionQueueStat[]>;
+  getChampionQueueStats: (
+    championId: number | null,
+    account?: string,
+  ) => Promise<ChampionQueueStat[]>;
   getChampionRoleStats: (
-    championId: number,
+    championId: number | null,
     patch?: string,
     queue?: number,
   ) => Promise<ChampionRoleStat[]>;
-  getChampionKeystones: (championId: number, account?: string) => Promise<ChampionKeystoneStat[]>;
+  getChampionKeystones: (
+    championId: number | null,
+    account?: string,
+  ) => Promise<ChampionKeystoneStat[]>;
   getChampionRuneStats: (
-    championId: number,
+    championId: number | null,
     patch?: string,
     queue?: number,
     account?: string,
   ) => Promise<ChampionRuneStatsResult>;
   getChampionWeeklyWinRate: (
-    championId: number,
+    championId: number | null,
     account?: string,
   ) => Promise<ChampionWeeklyWinRate[]>;
   getChampionTrendsData: (
-    championId: number,
+    championId: number | null,
     patch?: string,
     queue?: number,
     account?: string,
   ) => Promise<ChampionTrendsData>;
   getChampionTimelineGames: (
-    championId: number,
+    championId: number | null,
     limit: number,
     patch?: string,
     queue?: number,
     account?: string,
   ) => Promise<ChampionTimelineGame[]>;
-  getChampionMatchups: (championId: number, account?: string) => Promise<ChampionMatchups>;
+  getChampionTimelineAverages: (
+    championId: number | null,
+    patch?: string,
+    queue?: number,
+    account?: string,
+  ) => Promise<TimelineBucket[]>;
+  getChampionMatchups: (championId: number | null, account?: string) => Promise<ChampionMatchups>;
   getChampionMatchupList: (
-    championId: number,
+    championId: number | null,
     patch?: string,
     queue?: number,
     account?: string,
   ) => Promise<ChampionMatchupRow[]>;
   getChampionAllyStats: (
-    championId: number,
+    championId: number | null,
     patch?: string,
     queue?: number,
     account?: string,
   ) => Promise<ChampionAllyRow[]>;
   getChampionTeammateStats: (
-    championId: number,
+    championId: number | null,
     patch?: string,
     queue?: number,
     account?: string,
@@ -1362,13 +1376,13 @@ export interface ElectronAPI {
     account?: string,
   ) => Promise<{ matches: MatchListItem[]; total: number }>;
   getChampionRecords: (
-    championId: number,
+    championId: number | null,
     patch?: string,
     queue?: number,
     account?: string,
   ) => Promise<ChampionRecordsResult>;
   getChampionItemStats: (
-    championId: number,
+    championId: number | null,
     patch?: string,
     queue?: number,
     account?: string,
@@ -1394,7 +1408,7 @@ export interface ElectronAPI {
   getTrends: (queue?: number, account?: string) => Promise<TrendsData>;
   getRecords: (queue?: number, account?: string) => Promise<RecordsData>;
   getGlobalChampionDetail: (
-    championId: number,
+    championId: number | null,
     patch?: string,
     queue?: number,
     account?: string,
@@ -1609,4 +1623,16 @@ export interface ChampionTimelineGame {
   deaths: number;
   assists: number;
   frameCount: number;
+}
+
+export interface TimelineBucket {
+  minute: number;
+  avgGold: number | null;
+  avgCs: number | null;
+  avgXp: number | null;
+  avgLevel: number | null;
+  avgGoldDiffVsLaneOpponent: number | null;
+  avgCsDiffVsLaneOpponent: number | null;
+  avgXpDiffVsLaneOpponent: number | null;
+  sampleGames: number;
 }
