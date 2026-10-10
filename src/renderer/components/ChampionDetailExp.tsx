@@ -25,7 +25,7 @@ import {
 import { useIpc } from "../hooks/useIpc";
 import { useViewState } from "../hooks/useViewState";
 import { ALL_ACCOUNTS_SENTINEL } from "../lib/accountsEvent";
-import { formatDuration, formatNumber, formatPlaytime } from "../lib/format";
+import { formatDuration, formatNumber, formatPlaytime, formatTimeAgo } from "../lib/format";
 import { useHistoryScopeQueue } from "../lib/historyScope";
 import AugmentIcon from "./AugmentIcon";
 import ChampionIcon from "./ChampionIcon";
@@ -45,9 +45,9 @@ const TAB_ITEMS: TabStripItem[] = [
   { key: "ec", label: "Economy" },
   { key: "fa", label: "Farm" },
   { key: "ob", label: "Objectives" },
-  { key: "vi", label: "Vision", disabled: true },
+  { key: "vi", label: "Vision" },
   { key: "ab", label: "Abilities", disabled: true },
-  { key: "it", label: "Items", disabled: true },
+  { key: "it", label: "Items" },
   { key: "ru", label: "Runes", disabled: true },
   { key: "mu", label: "Matchups", disabled: true },
   { key: "sy", label: "Synergies", disabled: true },
@@ -97,8 +97,16 @@ export function ChampionDetailExp() {
   const economyActive = activeTab === "ec";
   const farmActive = activeTab === "fa";
   const objectivesActive = activeTab === "ob";
+  const visionActive = activeTab === "vi";
+  const itemsActive = activeTab === "it";
   const detailActive =
-    overviewActive || combatActive || economyActive || farmActive || objectivesActive;
+    overviewActive ||
+    combatActive ||
+    economyActive ||
+    farmActive ||
+    objectivesActive ||
+    visionActive ||
+    itemsActive;
 
   const { data: allStats } = useIpc<ChampionStats[]>(
     () => window.api.getChampionStats(patch, scopedQueue, account),
@@ -117,14 +125,14 @@ export function ChampionDetailExp() {
       detailActive
         ? window.api.getChampionMatchHistory(
             id,
-            combatActive ? 20 : 8,
+            combatActive || itemsActive ? 20 : 8,
             0,
             patch,
             scopedQueue,
             account,
           )
         : Promise.resolve({ matches: [], total: 0 }),
-    [detailActive, combatActive, id, patch, scopedQueue, account],
+    [detailActive, combatActive, itemsActive, id, patch, scopedQueue, account],
   );
   const { data: globalDetail, loading: globalDetailLoading } = useIpc<GlobalChampionDetail | null>(
     () =>
@@ -470,6 +478,16 @@ export function ChampionDetailExp() {
         <FarmTab detail={detailStats} detailLoading={detailLoading} />
       ) : activeTab === "ob" ? (
         <ObjectivesTab detail={detailStats} detailLoading={detailLoading} />
+      ) : activeTab === "vi" ? (
+        <VisionTab detail={detailStats} detailLoading={detailLoading} matchHistory={matchHistory} />
+      ) : activeTab === "it" ? (
+        <ItemsTab
+          detail={globalDetail}
+          detailLoading={globalDetailLoading}
+          itemData={itemData}
+          matchHistory={matchHistory}
+          patch={patch}
+        />
       ) : (
         <Panel>
           <p className="py-8 text-center text-sm text-lol-text">This tab lands in a later phase.</p>
@@ -761,6 +779,297 @@ function OverviewTab({
             ))
           )}
         </div>
+      </Panel>
+    </div>
+  );
+}
+
+function VisionTab({
+  detail,
+  detailLoading,
+  matchHistory,
+}: {
+  detail: ChampionDetailStats | null;
+  detailLoading: boolean;
+  matchHistory: { matches: MatchListItem[]; total: number } | null;
+}) {
+  const champData = useChampionData();
+  if (detailLoading) return <SectionLoading />;
+  if (!detail || detail.games === 0) return <NoData text="No vision data" />;
+
+  const minutes = detail.avgGameLength > 0 ? detail.avgGameLength / 60 : 0;
+  const perMinute = (value: number) => (minutes > 0 ? (value / minutes).toFixed(2) : "—");
+  const wardKillRatio =
+    detail.avgWardsPlaced > 0
+      ? `${((detail.avgWardsKilled / detail.avgWardsPlaced) * 100).toFixed(1)}%`
+      : "—";
+  const wardShareTotal = detail.avgVisionWardsBought + detail.avgSightWardsBought;
+  const controlWardShare =
+    wardShareTotal > 0
+      ? `${((detail.avgVisionWardsBought / wardShareTotal) * 100).toFixed(1)}%`
+      : "—";
+  const recentMatches = (matchHistory?.matches ?? [])
+    .filter((match) => match.vision_score != null)
+    .slice()
+    .sort((a, b) => b.game_creation - a.game_creation)
+    .slice(0, 8);
+
+  return (
+    <div className="grid grid-cols-1 gap-5 xl:grid-cols-2">
+      <Panel className="xl:col-span-2">
+        <SectionHeading title="Vision score" />
+        <CombatStatTable
+          rows={[
+            [
+              "Vision score",
+              detail.avgVisionScore,
+              detail.maxVisionScore,
+              detail.totalVisionScore,
+              formatCombatNumber,
+            ],
+            [
+              "Wards placed",
+              detail.avgWardsPlaced,
+              detail.maxWardsPlaced,
+              detail.totalWardsPlaced,
+              formatCombatNumber,
+            ],
+            [
+              "Wards killed",
+              detail.avgWardsKilled,
+              detail.maxWardsKilled,
+              detail.totalWardsKilled,
+              formatCombatNumber,
+            ],
+            [
+              "Control wards bought",
+              detail.avgVisionWardsBought,
+              detail.maxVisionWardsBought,
+              detail.totalVisionWardsBought,
+              formatCombatNumber,
+            ],
+            [
+              "Sight wards bought",
+              detail.avgSightWardsBought,
+              detail.maxSightWardsBought,
+              detail.totalSightWardsBought,
+              formatCombatNumber,
+            ],
+          ]}
+        />
+      </Panel>
+
+      <Panel>
+        <SectionHeading title="Per minute" />
+        <div className="flex flex-col gap-3 text-xs">
+          {[
+            ["Vision score / min", perMinute(detail.avgVisionScore)],
+            ["Wards placed / min", perMinute(detail.avgWardsPlaced)],
+            ["Wards killed / min", perMinute(detail.avgWardsKilled)],
+          ].map(([label, value]) => (
+            <div key={label} className="flex items-center justify-between">
+              <span className="text-lol-text">{label}</span>
+              <b className="tabular-nums text-lol-text-bright">{value}</b>
+            </div>
+          ))}
+        </div>
+      </Panel>
+
+      <Panel>
+        <SectionHeading title="Ratio" />
+        <div className="flex flex-col gap-3 text-xs">
+          <div className="flex items-center justify-between">
+            <span className="text-lol-text">Ward kill ratio</span>
+            <b className="tabular-nums text-lol-text-bright">{wardKillRatio}</b>
+          </div>
+          <div className="flex items-center justify-between">
+            <span className="text-lol-text">Control ward share</span>
+            <b className="tabular-nums text-lol-text-bright">{controlWardShare}</b>
+          </div>
+        </div>
+      </Panel>
+
+      <Panel className="xl:col-span-2">
+        <SectionHeading title="Recent games" />
+        {recentMatches.length === 0 ? (
+          <NoData />
+        ) : (
+          <div className="flex flex-col gap-2 text-xs">
+            <div className="grid grid-cols-[minmax(8rem,1fr)_auto_auto_auto_auto] gap-3 border-b border-lol-border/50 pb-2 font-semibold text-lol-text">
+              <span>Champion</span>
+              <span>Vision</span>
+              <span>Placed</span>
+              <span>Killed</span>
+              <span>Duration</span>
+            </div>
+            {recentMatches.map((match) => (
+              <div
+                key={match.game_id}
+                className="grid grid-cols-[minmax(8rem,1fr)_auto_auto_auto_auto] items-center gap-3 text-lol-text-bright"
+              >
+                <span className="flex min-w-0 items-center gap-2">
+                  <ChampionIcon championId={match.champion_id} size={24} className="rounded-md" />
+                  <span className="truncate">{getChampionName(champData, match.champion_id)}</span>
+                </span>
+                <span className="tabular-nums">{formatCombatNumber(match.vision_score)}</span>
+                <span className="tabular-nums">{formatCombatNumber(match.wards_placed)}</span>
+                <span className="tabular-nums">{formatCombatNumber(match.wards_killed)}</span>
+                <span className="tabular-nums">{formatSeconds(match.game_duration)}</span>
+              </div>
+            ))}
+          </div>
+        )}
+      </Panel>
+    </div>
+  );
+}
+
+function ItemsTab({
+  detail,
+  detailLoading,
+  itemData,
+  matchHistory,
+  patch,
+}: {
+  detail: GlobalChampionDetail | null;
+  detailLoading: boolean;
+  itemData: ReturnType<typeof useItemData>;
+  matchHistory: { matches: MatchListItem[]; total: number } | null;
+  patch?: string;
+}) {
+  const [sort, setSort] = useState<RateSort>("count");
+  const items = detail?.items ?? [];
+  const sortedItems = items.slice().sort((a, b) => {
+    const aRate = a.picks > 0 ? a.wins / a.picks : 0;
+    const bRate = b.picks > 0 ? b.wins / b.picks : 0;
+    return sort === "winRate"
+      ? bRate - aRate || b.picks - a.picks
+      : b.picks - a.picks || bRate - aRate;
+  });
+  const recentMatches = (matchHistory?.matches ?? [])
+    .slice()
+    .sort((a, b) => b.game_creation - a.game_creation);
+  const slotCounts = Array.from({ length: 7 }, () => new Map<number, number>());
+  for (const match of recentMatches.slice(0, 20)) {
+    const slots = [
+      match.item0,
+      match.item1,
+      match.item2,
+      match.item3,
+      match.item4,
+      match.item5,
+      match.item6,
+    ];
+    slots.forEach((itemId, slot) => {
+      if (itemId == null || itemId <= 0) return;
+      const counts = slotCounts[slot];
+      counts.set(itemId, (counts.get(itemId) ?? 0) + 1);
+    });
+  }
+  const slotItems = slotCounts.map((counts) =>
+    [...counts.entries()].sort((a, b) => b[1] - a[1] || a[0] - b[0]).slice(0, 3),
+  );
+
+  return (
+    <div className="grid grid-cols-1 gap-5 xl:grid-cols-2">
+      <RatePanel
+        title="Top items"
+        sort={sort}
+        options={[
+          ["count", "Most built"],
+          ["winRate", "Best win rate"],
+        ]}
+        onSortChange={setSort}
+        loading={detailLoading}
+        empty={items.length === 0}
+      >
+        {sortedItems.map((item) => (
+          <RateRow
+            key={item.item_id}
+            icon={<ItemIcon itemId={item.item_id} size={24} patch={patch} />}
+            name={getItemName(itemData, item.item_id)}
+            wins={item.wins}
+            total={item.picks}
+            count={`${item.picks}x`}
+          />
+        ))}
+      </RatePanel>
+
+      <Panel className="xl:col-span-2">
+        <SectionHeading title="Build slots" aside="Last 20 games" />
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 xl:grid-cols-7">
+          {slotItems.map((slot, index) => (
+            <div
+              key={index}
+              className="min-w-0 rounded-lg border border-lol-border/50 bg-black/10 p-2.5"
+            >
+              <div className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-lol-text">
+                {index === 6 ? "Trinket" : `Slot ${index + 1}`}
+              </div>
+              {slot.length === 0 ? (
+                <span className="text-xs text-lol-text">—</span>
+              ) : (
+                <div className="flex flex-col gap-2">
+                  {slot.map(([itemId, count]) => (
+                    <div key={itemId} className="flex items-center justify-between gap-2">
+                      <ItemIcon itemId={itemId} size={28} patch={patch} />
+                      <span className="text-xs tabular-nums text-lol-text-bright">{count}x</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      </Panel>
+
+      <Panel className="xl:col-span-2">
+        <SectionHeading title="Recent builds" aside="Last 10 games" />
+        {recentMatches.length === 0 ? (
+          <NoData />
+        ) : (
+          <div className="flex flex-col gap-2">
+            {recentMatches.slice(0, 10).map((match) => {
+              const itemIds = [
+                match.item0,
+                match.item1,
+                match.item2,
+                match.item3,
+                match.item4,
+                match.item5,
+                match.item6,
+              ].filter((itemId): itemId is number => itemId != null && itemId > 0);
+              return (
+                <div
+                  key={match.game_id}
+                  className="flex flex-wrap items-center gap-3 rounded-lg border border-lol-border/50 bg-black/10 px-3 py-2"
+                >
+                  <ChampionIcon championId={match.champion_id} size={30} className="rounded-md" />
+                  <span
+                    className={`w-10 text-xs font-semibold ${match.win ? "text-lol-win" : "text-lol-loss"}`}
+                  >
+                    {match.win ? "Win" : "Loss"}
+                  </span>
+                  <div className="flex min-w-0 flex-1 flex-wrap gap-1">
+                    {itemIds.length === 0 ? (
+                      <span className="text-xs text-lol-text">No items</span>
+                    ) : (
+                      itemIds.map((itemId) => (
+                        <ItemIcon key={itemId} itemId={itemId} size={28} patch={patch} />
+                      ))
+                    )}
+                  </div>
+                  <span className="text-xs tabular-nums text-lol-text">
+                    {formatSeconds(match.game_duration)}
+                  </span>
+                  <span className="w-20 text-right text-xs text-lol-text">
+                    {formatTimeAgo(match.game_creation)}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+        )}
       </Panel>
     </div>
   );
