@@ -36,6 +36,23 @@ function formatDuration(milliseconds: number): string {
   return `${Math.floor(minutes / 60)}h ${minutes % 60}m`;
 }
 
+const EXPORT_PROGRESS_LABELS: Record<ExportProgress["phase"], string> = {
+  games: "games scanned",
+  "timeline-status": "timeline statuses written",
+  "timeline-frames": "timeline frames written",
+  "timeline-events": "timeline events written",
+  done: "done",
+};
+
+const IMPORT_PROGRESS_LABELS: Record<ImportProgress["phase"], string> = {
+  reading: "lines read",
+  games: "games imported",
+  "timeline-status": "timeline statuses imported",
+  "timeline-frames": "timeline frames imported",
+  "timeline-events": "timeline events imported",
+  done: "done",
+};
+
 type ButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & {
   variant?: "primary" | "secondary" | "subtle" | "neutral" | "destructive";
   children: ReactNode;
@@ -714,22 +731,24 @@ export function SettingsExp() {
                   }
                 />
               </div>
-              <p>
-                {exportProgress.label}
-                {exportProgress.total > 0 &&
-                  ` · ${exportProgress.current.toLocaleString()} of ${exportProgress.total.toLocaleString()}`}
-              </p>
-              {exportStartedAt &&
-                exportProgress.current > 0 &&
-                exportProgress.total > exportProgress.current && (
-                  <p>
-                    ETA:{" "}
-                    {formatDuration(
-                      ((Date.now() - exportStartedAt) / exportProgress.current) *
-                        (exportProgress.total - exportProgress.current),
-                    )}
-                  </p>
-                )}
+              <div className="flex items-center justify-between gap-3">
+                <p>
+                  {exportProgress.current.toLocaleString()}
+                  {exportProgress.total > 0 && `/${exportProgress.total.toLocaleString()}`}{" "}
+                  {EXPORT_PROGRESS_LABELS[exportProgress.phase]}
+                </p>
+                {exportStartedAt &&
+                  exportProgress.current > 0 &&
+                  exportProgress.total > exportProgress.current && (
+                    <p className="shrink-0">
+                      ETA:{" "}
+                      {formatDuration(
+                        ((Date.now() - exportStartedAt) / exportProgress.current) *
+                          (exportProgress.total - exportProgress.current),
+                      )}
+                    </p>
+                  )}
+              </div>
             </div>
           )}
 
@@ -763,7 +782,8 @@ export function SettingsExp() {
                 <i className="block h-full w-full animate-pulse rounded-full bg-lol-gold" />
               </div>
               <p>
-                {importProgress.label} · {importProgress.current.toLocaleString()} lines read
+                {importProgress.current.toLocaleString()}{" "}
+                {IMPORT_PROGRESS_LABELS[importProgress.phase]}
               </p>
             </div>
           )}
