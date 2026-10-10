@@ -5,6 +5,7 @@ import { queueLabel } from "../components/QueueSelect";
 import { FilterSelect } from "../components/FilterSelect";
 import { setRemembering } from "../lib/viewState";
 import type { BackupInfo } from "../lib/types";
+import type { ExportProgress, ImportProgress } from "../../shared/api";
 import { Panel } from "./Panel";
 
 const BACKUP_REASONS: Record<string, string> = {
@@ -146,6 +147,9 @@ export function SettingsExp() {
   );
   const [exporting, setExporting] = useState(false);
   const [importing, setImporting] = useState(false);
+  const [exportProgress, setExportProgress] = useState<ExportProgress | null>(null);
+  const [importProgress, setImportProgress] = useState<ImportProgress | null>(null);
+  const [exportStartedAt, setExportStartedAt] = useState<number | null>(null);
   // Restoring replaces the whole database, so the row asks a second time
   const [confirmRestore, setConfirmRestore] = useState<string | null>(null);
   const [savedSummoners, setSavedSummoners] = useState<
@@ -184,6 +188,20 @@ export function SettingsExp() {
       setRememberFilters(remember === "true");
       setLoading(false);
     });
+  }, []);
+
+  useEffect(() => {
+    const offExport = window.api.onExportProgress((progress) => {
+      setExportStartedAt((startedAt) => startedAt ?? Date.now());
+      setExportProgress(progress);
+    });
+    const offImport = window.api.onImportProgress((progress) => {
+      setImportProgress(progress);
+    });
+    return () => {
+      offExport();
+      offImport();
+    };
   }, []);
 
   const refreshSavedSummoners = useCallback(() => {
@@ -384,6 +402,8 @@ export function SettingsExp() {
   const handleExportData = useCallback(async () => {
     setExporting(true);
     setExportStatus(null);
+    setExportProgress(null);
+    setExportStartedAt(null);
     try {
       const result = await window.api.exportData();
       if (result.success) {
@@ -408,6 +428,7 @@ export function SettingsExp() {
   const handleImportData = useCallback(async () => {
     setImporting(true);
     setImportStatus(null);
+    setImportProgress(null);
     try {
       const result = await window.api.importData();
       if (result.success) {
@@ -674,6 +695,43 @@ export function SettingsExp() {
               {exportStatus.message}
             </p>
           )}
+          {exporting && exportProgress && (
+            <div className="space-y-2 text-[12.5px] text-lol-text">
+              <div className="h-[5px] overflow-hidden rounded-full bg-white/[0.05]">
+                <i
+                  className={`block h-full rounded-full bg-lol-gold ${
+                    exportProgress.total === 0 ? "w-full animate-pulse" : ""
+                  }`}
+                  style={
+                    exportProgress.total > 0
+                      ? {
+                          width: `${Math.min(
+                            100,
+                            (exportProgress.current / exportProgress.total) * 100,
+                          )}%`,
+                        }
+                      : undefined
+                  }
+                />
+              </div>
+              <p>
+                {exportProgress.label}
+                {exportProgress.total > 0 &&
+                  ` · ${exportProgress.current.toLocaleString()} of ${exportProgress.total.toLocaleString()}`}
+              </p>
+              {exportStartedAt &&
+                exportProgress.current > 0 &&
+                exportProgress.total > exportProgress.current && (
+                  <p>
+                    ETA:{" "}
+                    {formatDuration(
+                      ((Date.now() - exportStartedAt) / exportProgress.current) *
+                        (exportProgress.total - exportProgress.current),
+                    )}
+                  </p>
+                )}
+            </div>
+          )}
 
           <div className="border-t border-lol-border/40" />
 
@@ -698,6 +756,16 @@ export function SettingsExp() {
             <p className={`text-xs ${importStatus.error ? "text-red-300" : "text-green-300"}`}>
               {importStatus.message}
             </p>
+          )}
+          {importing && importProgress && (
+            <div className="space-y-2 text-[12.5px] text-lol-text">
+              <div className="h-[5px] overflow-hidden rounded-full bg-white/[0.05]">
+                <i className="block h-full w-full animate-pulse rounded-full bg-lol-gold" />
+              </div>
+              <p>
+                {importProgress.label} · {importProgress.current.toLocaleString()} lines read
+              </p>
+            </div>
           )}
         </div>
       </Section>

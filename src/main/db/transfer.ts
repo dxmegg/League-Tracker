@@ -7,6 +7,7 @@ import { upsertSummoner, restoreSummonerFull, getAllPuuids } from "./summoner";
 import { getSetting, setSetting } from "./settings";
 import { rebuildDerivedStats } from "./scoring";
 import { rebuildParticipantsFromPayloads } from "./schema";
+import type { ExportProgress, ImportProgress } from "../../shared/api";
 
 // ---- Export / Import ----
 
@@ -15,7 +16,10 @@ import { rebuildParticipantsFromPayloads } from "./schema";
 const EXPORT_PAGE_SIZE = 200;
 const TIMELINE_PAGE_SIZE = 5000;
 
-export async function writeExportTo(filePath: string): Promise<number> {
+export async function writeExportTo(
+  filePath: string,
+  onProgress?: (progress: ExportProgress) => void,
+): Promise<{ games: number }> {
   const out = fs.createWriteStream(filePath);
   const gz = zlib.createGzip();
   gz.pipe(out);
@@ -26,6 +30,20 @@ export async function writeExportTo(filePath: string): Promise<number> {
 
   let count = 0;
   try {
+    const totalGames = (
+      db.prepare("SELECT COUNT(*) AS count FROM games WHERE raw_gz IS NOT NULL").get() as {
+        count: number;
+      }
+    ).count;
+    const totalStatuses = (
+      db.prepare("SELECT COUNT(*) AS count FROM match_timeline_status").get() as { count: number }
+    ).count;
+    const totalFrames = (
+      db.prepare("SELECT COUNT(*) AS count FROM match_timeline_frames").get() as { count: number }
+    ).count;
+    const totalEvents = (
+      db.prepare("SELECT COUNT(*) AS count FROM match_timeline_events").get() as { count: number }
+    ).count;
     const summoners = db.prepare("SELECT * FROM summoner").all();
     const settings = db.prepare("SELECT key, value FROM settings").all();
     const ignoredGames = db.prepare("SELECT game_id FROM ignored_games").all();
@@ -77,6 +95,12 @@ export async function writeExportTo(filePath: string): Promise<number> {
         count++;
       }
       lastId = rows[rows.length - 1].game_id;
+      onProgress?.({
+        phase: "games",
+        current: count,
+        total: totalGames,
+        label: "Writing games",
+      });
     }
 
     const statusPage = db.prepare(`
@@ -87,6 +111,7 @@ export async function writeExportTo(filePath: string): Promise<number> {
       LIMIT ?
     `);
     let lastStatusId = 0;
+    let statusCount = 0;
     for (;;) {
       const rows = statusPage.all(lastStatusId, TIMELINE_PAGE_SIZE) as Array<{
         game_id: number;
@@ -105,8 +130,15 @@ export async function writeExportTo(filePath: string): Promise<number> {
             raw_gz: row.raw_gz?.toString("base64") ?? null,
           },
         });
+        statusCount++;
       }
       lastStatusId = rows[rows.length - 1].game_id;
+      onProgress?.({
+        phase: "timeline-status",
+        current: statusCount,
+        total: totalStatuses,
+        label: "Writing timeline status",
+      });
     }
 
     const framePage = db.prepare(`
@@ -119,6 +151,7 @@ export async function writeExportTo(filePath: string): Promise<number> {
       LIMIT ?
     `);
     let lastFrame = { game_id: 0, frame_index: -1, participant_id: -1 };
+    let frameCount = 0;
     for (;;) {
       const rows = framePage.all(
         lastFrame.game_id,
@@ -130,6 +163,13 @@ export async function writeExportTo(filePath: string): Promise<number> {
       >;
       if (rows.length === 0) break;
       for (const row of rows) await write({ type: "timelineFrame", data: row });
+      frameCount += rows.length;
+      onProgress?.({
+        phase: "timeline-frames",
+        current: frameCount,
+        total: totalFrames,
+        label: "Writing timeline frames",
+      });
       const last = rows[rows.length - 1];
       lastFrame = {
         game_id: last.game_id,
@@ -148,6 +188,7 @@ export async function writeExportTo(filePath: string): Promise<number> {
       LIMIT ?
     `);
     let lastEvent = { game_id: 0, event_index: -1 };
+    let eventCount = 0;
     for (;;) {
       const rows = eventPage.all(
         lastEvent.game_id,
@@ -156,9 +197,17 @@ export async function writeExportTo(filePath: string): Promise<number> {
       ) as Array<{ game_id: number; event_index: number } & Record<string, unknown>>;
       if (rows.length === 0) break;
       for (const row of rows) await write({ type: "timelineEvent", data: row });
+      eventCount += rows.length;
+      onProgress?.({
+        phase: "timeline-events",
+        current: eventCount,
+        total: totalEvents,
+        label: "Writing timeline events",
+      });
       const last = rows[rows.length - 1];
       lastEvent = { game_id: last.game_id, event_index: last.event_index };
     }
+    onProgress?.({ phase: "done", current: count, total: totalGames, label: "Export complete" });
   } finally {
     await new Promise<void>((resolve, reject) => {
       out.once("error", reject);
@@ -167,7 +216,7 @@ export async function writeExportTo(filePath: string): Promise<number> {
       gz.end();
     });
   }
-  return count;
+  return { games: count };
 }
 
 type ImportResult = { imported: number; total: number; skipped: number };
@@ -281,7 +330,10 @@ function importLegacyData(data: any): ImportResult {
 
 const MAX_IMPORT_LINE_BYTES = 50 * 1024 * 1024;
 
-export async function importData(filePath: string): Promise<ImportResult> {
+export async function importData(
+  filePath: string,
+  onProgress?: (progress: ImportProgress) => void,
+): Promise<ImportResult> {
   console.log("[db] importData called:", { filePath });
   const handle = await fs.promises.open(filePath, "r");
   const magic = Buffer.alloc(2);
@@ -292,12 +344,14 @@ export async function importData(filePath: string): Promise<ImportResult> {
   }
 
   if (magic[0] !== 0x1f || magic[1] !== 0x8b) {
+    onProgress?.({ phase: "reading", current: 0, total: 0, label: "Parsing legacy JSON" });
     const raw = await fs.promises.readFile(filePath, "utf8");
     const data = JSON.parse(raw);
     if (!data || typeof data !== "object" || !Array.isArray(data.games)) {
       throw new Error("That file isn't a Mayhem Tracker backup");
     }
     const result = importLegacyData(data);
+    onProgress?.({ phase: "done", current: 0, total: 0, label: "Import complete" });
     console.log("[db] importData done:", result);
     return result;
   }
@@ -456,6 +510,12 @@ export async function importData(filePath: string): Promise<ImportResult> {
   let pending = Buffer.alloc(0);
   let headerSeen = false;
   let lineNumber = 0;
+  let lastProgressPhase: ImportProgress["phase"] | null = null;
+  const reportProgress = (phase: ImportProgress["phase"], label: string, force = false): void => {
+    if (!force && phase === lastProgressPhase && lineNumber % 1000 !== 0) return;
+    lastProgressPhase = phase;
+    onProgress?.({ phase, current: lineNumber, total: 0, label });
+  };
   const processLine = (line: string) => {
     if (!line.trim()) return;
     lineNumber++;
@@ -472,8 +532,11 @@ export async function importData(filePath: string): Promise<ImportResult> {
         throw new Error("That file isn't a supported League Tracker v6 backup");
       }
       headerSeen = true;
+      reportProgress("reading", "Reading backup", true);
       return;
     }
+    let progressPhase: ImportProgress["phase"] = "reading";
+    let progressLabel = "Reading backup";
     switch (record.type) {
       case "summoner":
         restoreSummonerFull(record.data);
@@ -496,22 +559,31 @@ export async function importData(filePath: string): Promise<ImportResult> {
       case "game":
         games.push({ data: record.data });
         if (games.length >= 200) flushGames();
+        progressPhase = "games";
+        progressLabel = "Reading games";
         break;
       case "timelineStatus":
         statuses.push({ data: record.data });
         if (statuses.length >= 200) flushStatuses();
+        progressPhase = "timeline-status";
+        progressLabel = "Reading timeline status";
         break;
       case "timelineFrame":
         frames.push({ data: record.data });
         if (frames.length >= TIMELINE_PAGE_SIZE) flushFrames();
+        progressPhase = "timeline-frames";
+        progressLabel = "Reading timeline frames";
         break;
       case "timelineEvent":
         events.push({ data: record.data });
         if (events.length >= TIMELINE_PAGE_SIZE) flushEvents();
+        progressPhase = "timeline-events";
+        progressLabel = "Reading timeline events";
         break;
       default:
         throw new Error(`Unknown record type on backup line ${lineNumber}`);
     }
+    reportProgress(progressPhase, progressLabel);
   };
 
   for await (const chunk of input) {
@@ -537,6 +609,7 @@ export async function importData(filePath: string): Promise<ImportResult> {
   flushStatuses();
   flushFrames();
   flushEvents();
+  onProgress?.({ phase: "done", current: lineNumber, total: 0, label: "Import complete" });
   const result = { imported, total, skipped: total - imported };
   console.log("[db] importData done:", result);
   return result;

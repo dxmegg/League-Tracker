@@ -1304,6 +1304,7 @@ export interface ElectronAPI {
     games?: number;
     error?: string;
   }>;
+  onExportProgress: (callback: (progress: ExportProgress) => void) => () => void;
   getDbStats: () => Promise<{ games: number; sizeBytes: number }>;
   importData: () => Promise<{
     success: boolean;
@@ -1312,6 +1313,7 @@ export interface ElectronAPI {
     skipped?: number;
     error?: string;
   }>;
+  onImportProgress: (callback: (progress: ImportProgress) => void) => () => void;
   repairPuuids: () => Promise<{
     repairedGames: number;
     discoveredAccounts: number;
@@ -1343,6 +1345,20 @@ export interface TimelineBackfillProgress {
   failed: number;
   skipped: number;
   currentGameId: string | null;
+}
+
+export interface ExportProgress {
+  phase: "games" | "timeline-status" | "timeline-frames" | "timeline-events" | "done";
+  current: number;
+  total: number;
+  label: string;
+}
+
+export interface ImportProgress {
+  phase: "reading" | "games" | "timeline-status" | "timeline-frames" | "timeline-events" | "done";
+  current: number;
+  total: number;
+  label: string;
 }
 
 export interface TimelineBackfillResult extends TimelineBackfillProgress {

@@ -15,6 +15,8 @@ import type {
   HomeTimePeriod,
   TimelineData,
   TimelineBackfillProgress,
+  ExportProgress,
+  ImportProgress,
 } from "../shared/api";
 
 // Annotated rather than inferred, so the compiler checks this object against
@@ -71,6 +73,18 @@ const api: ElectronAPI = {
     const handler = (_event: unknown, progress: TimelineBackfillProgress) => callback(progress);
     ipcRenderer.on("db:timeline-backfill-progress", handler);
     return () => ipcRenderer.removeListener("db:timeline-backfill-progress", handler);
+  },
+
+  onExportProgress: (callback: (progress: ExportProgress) => void) => {
+    const handler = (_event: unknown, progress: ExportProgress) => callback(progress);
+    ipcRenderer.on("data:export-progress", handler);
+    return () => ipcRenderer.removeListener("data:export-progress", handler);
+  },
+
+  onImportProgress: (callback: (progress: ImportProgress) => void) => {
+    const handler = (_event: unknown, progress: ImportProgress) => callback(progress);
+    ipcRenderer.on("data:import-progress", handler);
+    return () => ipcRenderer.removeListener("data:import-progress", handler);
   },
 
   onTimelineBackfillDone: (

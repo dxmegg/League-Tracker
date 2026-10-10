@@ -1010,8 +1010,12 @@ export function registerIpcHandlers() {
       : await dialog.showSaveDialog(options);
     if (result.canceled || !result.filePath) return { success: false };
     try {
-      const games = await db.writeExportTo(result.filePath);
-      return { success: true, path: result.filePath, games };
+      const exportResult = await db.writeExportTo(result.filePath, (progress) => {
+        if (win && !win.isDestroyed()) {
+          win.webContents.send("data:export-progress", progress);
+        }
+      });
+      return { success: true, path: result.filePath, games: exportResult.games };
     } catch (err: any) {
       // A partial file would still look like a backup, so don't leave one
       try {
@@ -1043,7 +1047,11 @@ export function registerIpcHandlers() {
       // Snapshot first: an import writes into every table, and this is the last
       // moment the database is known to be in the state the user chose it from.
       await backup.backupQuietly("pre-import");
-      const result = await db.importData(dialogResult.filePaths[0]);
+      const result = await db.importData(dialogResult.filePaths[0], (progress) => {
+        if (win && !win.isDestroyed()) {
+          win.webContents.send("data:import-progress", progress);
+        }
+      });
       return {
         success: true,
         imported: result.imported,
