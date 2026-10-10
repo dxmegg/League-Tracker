@@ -4,6 +4,7 @@ export interface TabStripItem {
   key: string;
   label: string;
   disabled?: boolean;
+  accent?: string;
 }
 
 export function TabStrip({
@@ -62,13 +63,26 @@ export function TabStrip({
                 if (!item.disabled) onChange(item.key);
               }
             }}
-            className={`shrink-0 border-b-2 px-3 py-2 text-xs font-semibold transition-colors ${
+            className={`group inline-flex shrink-0 items-center gap-1.5 border-b-2 px-3 py-2 text-xs font-semibold transition-colors ${
               isActive
                 ? "border-lol-crimson bg-lol-crimson text-lol-text-bright"
                 : "border-transparent text-lol-text hover:text-lol-text-bright"
             } ${item.disabled ? "cursor-not-allowed opacity-40" : ""}`}
           >
-            {item.label}
+            {item.accent !== undefined ? (
+              <span
+                aria-hidden="true"
+                className={`h-1.5 w-1.5 shrink-0 rounded-full ${
+                  item.disabled
+                    ? "opacity-30"
+                    : isActive
+                      ? ""
+                      : "opacity-70 group-hover:opacity-100"
+                }`}
+                style={{ backgroundColor: item.accent }}
+              />
+            ) : null}
+            <span>{item.label}</span>
           </button>
         );
       })}
