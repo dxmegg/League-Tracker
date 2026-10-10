@@ -1958,7 +1958,7 @@ export function getChampionDetailStats(
   applyQueueFilter(where, params, queue, "g");
 
   if (account === "all") {
-    where.push("g.puuid IN (SELECT puuid FROM summoner)");
+    where.push("mp.puuid IN (SELECT puuid FROM summoner)");
   } else if (account) {
     where.push("mp.puuid = ?");
     params.push(account);
