@@ -1413,11 +1413,33 @@ function VisionTab({
       <InsightsPanel
         insights={[
           {
-            kind: "info",
-            text: "Placeholder — vision insights land in a follow-up phase.",
+            kind: detail.avgVisionScore >= 1 ? "good" : "info",
+            text: `${detail.avgVisionScore.toFixed(1)} average vision score over ${detail.games.toLocaleString()} games.`,
           },
         ]}
       />
+      <div className="grid grid-cols-2 gap-3 xl:col-span-2 xl:grid-cols-4">
+        <CombatTile
+          label="Vision score"
+          value={detail.avgVisionScore}
+          subtitle={`best ${formatCombatNumber(detail.maxVisionScore)}`}
+        />
+        <CombatTile
+          label="Wards placed"
+          value={detail.avgWardsPlaced}
+          subtitle={`best ${formatCombatNumber(detail.maxWardsPlaced)}`}
+        />
+        <CombatTile
+          label="Wards killed"
+          value={detail.avgWardsKilled}
+          subtitle={`best ${formatCombatNumber(detail.maxWardsKilled)}`}
+        />
+        <CombatTile
+          label="Control ward share"
+          value={wardShareTotal > 0 ? (detail.avgVisionWardsBought / wardShareTotal) * 100 : null}
+          subtitle="of purchased wards"
+        />
+      </div>
       <Panel className="xl:col-span-2">
         <SectionHeading title="Vision score" source="m" />
         <CombatStatTable
@@ -1571,17 +1593,57 @@ function ItemsTab({
   const slotItems = slotCounts.map((counts) =>
     [...counts.entries()].sort((a, b) => b[1] - a[1] || a[0] - b[0]).slice(0, 3),
   );
+  const buildVariants = new Map<string, { items: number[]; games: number; wins: number }>();
+  const itemPairs = new Map<string, number>();
+  for (const match of recentMatches) {
+    const itemIds = [match.item0, match.item1, match.item2, match.item3, match.item4, match.item5]
+      .filter((itemId): itemId is number => itemId != null && itemId > 0)
+      .sort((a, b) => a - b);
+    if (itemIds.length > 0) {
+      const key = itemIds.join(",");
+      const variant = buildVariants.get(key) ?? { items: itemIds, games: 0, wins: 0 };
+      variant.games += 1;
+      variant.wins += match.win ? 1 : 0;
+      buildVariants.set(key, variant);
+    }
+    for (let index = 0; index < itemIds.length; index += 1) {
+      for (let next = index + 1; next < itemIds.length; next += 1) {
+        const key = `${itemIds[index]}:${itemIds[next]}`;
+        itemPairs.set(key, (itemPairs.get(key) ?? 0) + 1);
+      }
+    }
+  }
+  const topBuildVariants = [...buildVariants.values()]
+    .sort((a, b) => b.games - a.games || b.wins - a.wins)
+    .slice(0, 5);
+  const topItemPairs = [...itemPairs.entries()]
+    .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+    .slice(0, 5);
 
   return (
     <div className="grid grid-cols-1 gap-5 xl:grid-cols-2">
       <InsightsPanel
         insights={[
           {
-            kind: "info",
-            text: "Placeholder — item build insights land in a follow-up phase.",
+            kind: items.length > 0 ? "good" : "info",
+            text: `${items.length.toLocaleString()} item aggregates available for this champion.`,
           },
         ]}
       />
+      <div className="grid grid-cols-2 gap-3 xl:col-span-2 xl:grid-cols-4">
+        <CombatTile label="Tracked games" value={detail?.games} subtitle="champion aggregate" />
+        <CombatTile label="Unique items" value={items.length} subtitle="item aggregates" />
+        <CombatTile
+          label="Most built"
+          value={items.reduce((max, item) => Math.max(max, item.picks), 0)}
+          subtitle="highest pick count"
+        />
+        <CombatTile
+          label="Recent builds"
+          value={recentMatches.length}
+          subtitle="match history rows"
+        />
+      </div>
       <RatePanel
         title="Top items"
         source="m"
@@ -1608,16 +1670,55 @@ function ItemsTab({
 
       <Panel>
         <SectionHeading title="Item categories" source="m" />
-        {/* Placeholder data; backend item-category split lands in a follow-up phase. */}
-        <DonutChart
-          segments={[
-            { label: "Damage", value: 38, color: "var(--theme-crimson)" },
-            { label: "Penetration", value: 12, color: "var(--theme-gold)" },
-            { label: "Utility", value: 14, color: "var(--theme-assist)" },
-            { label: "Defense", value: 24, color: "var(--theme-win)" },
-            { label: "Boots", value: 12, color: "var(--theme-violet)" },
-          ]}
-        />
+        <NoData text="Item category metadata is not stored in match aggregates." />
+      </Panel>
+
+      <Panel>
+        <SectionHeading title="Item pairs" source="d" aside="Recent games" />
+        {topItemPairs.length === 0 ? (
+          <NoData text="Not enough recent builds" />
+        ) : (
+          <div className="flex flex-col gap-2 text-xs">
+            {topItemPairs.map(([key, count]) => {
+              const [first, second] = key.split(":").map(Number);
+              return (
+                <div key={key} className="flex items-center gap-2">
+                  <ItemIcon itemId={first} size={26} patch={patch} />
+                  <ItemIcon itemId={second} size={26} patch={patch} />
+                  <span className="min-w-0 flex-1 truncate text-lol-text-bright">
+                    {getItemName(itemData, first)} + {getItemName(itemData, second)}
+                  </span>
+                  <span className="tabular-nums text-lol-text">{count}x</span>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </Panel>
+
+      <Panel className="xl:col-span-2">
+        <SectionHeading title="Build variants" source="d" aside="Recent games" />
+        {topBuildVariants.length === 0 ? (
+          <NoData text="Not enough recent builds" />
+        ) : (
+          <div className="flex flex-col gap-2">
+            {topBuildVariants.map((variant) => (
+              <div
+                key={variant.items.join(",")}
+                className="flex flex-wrap items-center gap-2 rounded-lg border border-lol-border/50 bg-black/10 px-3 py-2"
+              >
+                <div className="flex min-w-0 flex-1 flex-wrap gap-1">
+                  {variant.items.map((itemId) => (
+                    <ItemIcon key={itemId} itemId={itemId} size={28} patch={patch} />
+                  ))}
+                </div>
+                <span className="text-xs tabular-nums text-lol-text">
+                  {variant.games} games · {formatPercent(variant.wins, variant.games)}
+                </span>
+              </div>
+            ))}
+          </div>
+        )}
       </Panel>
 
       <Panel className="xl:col-span-2">
@@ -1720,10 +1821,34 @@ function RunesTab({
   if (detailLoading) return <SectionLoading />;
   if (!detail) return <NoData text="No rune data" />;
 
+  const totalPicks = keystones.reduce((sum, row) => sum + row.picks, 0);
+  const totalWins = keystones.reduce((sum, row) => sum + row.wins, 0);
+  const primaryTreeCount = detail.primaryTrees.length;
+  const secondaryTreeCount = detail.secondaryTrees.length;
+
   return (
     <div className="grid grid-cols-1 gap-5 xl:grid-cols-2">
+      <InsightsPanel
+        insights={[
+          {
+            kind: totalPicks > 0 ? "good" : "info",
+            text: `${totalPicks.toLocaleString()} keystone selections with ${formatPercent(totalWins, totalPicks)} win rate.`,
+          },
+        ]}
+      />
+      <div className="grid grid-cols-2 gap-3 xl:col-span-2 xl:grid-cols-4">
+        <CombatTile label="Keystone picks" value={totalPicks} subtitle="aggregate selections" />
+        <CombatTile
+          label="Keystone win rate"
+          value={totalPicks > 0 ? (totalWins / totalPicks) * 100 : null}
+          subtitle="all tracked pages"
+        />
+        <CombatTile label="Primary trees" value={primaryTreeCount} subtitle="seen in data" />
+        <CombatTile label="Secondary trees" value={secondaryTreeCount} subtitle="seen in data" />
+      </div>
       <RatePanel
         title="Keystones"
+        source="m"
         sort={keystoneSort}
         options={[
           ["count", "Most played"],
@@ -1749,17 +1874,19 @@ function RunesTab({
 
       <RuneTreePanel
         title="Primary trees"
+        source="m"
         trees={treeRows(detail.primaryTrees)}
         runeData={runeData}
       />
       <RuneTreePanel
         title="Secondary trees"
+        source="m"
         trees={treeRows(detail.secondaryTrees)}
         runeData={runeData}
       />
 
       <Panel className="xl:col-span-2">
-        <SectionHeading title="Rune pages" />
+        <SectionHeading title="Rune pages" source="m" />
         {detail.pages.length === 0 ? (
           <NoData />
         ) : (
@@ -1797,14 +1924,16 @@ function RuneTreePanel({
   title,
   trees,
   runeData,
+  source,
 }: {
   title: string;
   trees: Array<{ styleId: number; picks: number; wins: number }>;
   runeData: ReturnType<typeof useRuneData>;
+  source?: keyof typeof SOURCE_LABELS;
 }) {
   return (
     <Panel>
-      <SectionHeading title={title} />
+      <SectionHeading title={title} source={source} />
       {trees.length === 0 ? (
         <NoData />
       ) : (
@@ -1870,8 +1999,41 @@ function MatchupsTab({
         .sort((a, b) => b.wins / b.games - a.wins / a.games),
     }))
     .filter((tier) => tier.entries.length > 0);
+  const qualifiedMatchups = (matchups ?? []).filter((row) => row.games >= 2);
+  const bestMatchup = qualifiedMatchups
+    .slice()
+    .sort((a, b) => b.wins / b.games - a.wins / a.games || b.games - a.games)[0];
+  const worstMatchup = qualifiedMatchups
+    .slice()
+    .sort((a, b) => a.wins / a.games - b.wins / b.games || b.games - a.games)[0];
+  const classStats = new Map<string, { games: number; wins: number }>();
+  for (const row of qualifiedMatchups) {
+    const enemyClass = champData[row.championId]?.class?.trim() || "Other";
+    const current = classStats.get(enemyClass) ?? { games: 0, wins: 0 };
+    current.games += row.games;
+    current.wins += row.wins;
+    classStats.set(enemyClass, current);
+  }
+  const classRows = [...classStats.entries()].sort((a, b) => b[1].games - a[1].games).slice(0, 6);
 
   return [
+    <InsightsPanel
+      key="matchup-insights"
+      insights={[
+        bestMatchup
+          ? {
+              kind: "good",
+              text: `Best matchup: ${getChampionName(champData, bestMatchup.championId)} at ${formatPercent(bestMatchup.wins, bestMatchup.games)}.`,
+            }
+          : { kind: "info", text: "Not enough matchup games for a best result." },
+        worstMatchup
+          ? {
+              kind: "warn",
+              text: `Hardest matchup: ${getChampionName(champData, worstMatchup.championId)} at ${formatPercent(worstMatchup.wins, worstMatchup.games)}.`,
+            }
+          : { kind: "info", text: "Not enough matchup games for a hardest result." },
+      ]}
+    />,
     <Panel className="xl:col-span-2" key="matchup-tier-list">
       <SectionHeading title="Matchup tier list" source="d" />
       {tierRows.length === 0 ? (
@@ -1977,17 +2139,35 @@ function MatchupsTab({
     </Panel>,
     <Panel className="xl:col-span-2" key="enemy-class">
       <SectionHeading title="Performance by enemy class" source="d" />
-      {/* Placeholder data; backend enemy-class performance lands in a follow-up phase. */}
-      <RadarChart
-        axes={["Assassin", "Mage", "Fighter", "Tank", "Marksman", "Support"]}
-        series={[
-          {
-            values: [62, 71, 58, 55, 74, 68],
-            color: "var(--theme-crimson)",
-            label: "Your win rate by class",
-          },
-        ]}
-      />
+      {classRows.length === 0 ? (
+        <NoData text="Not enough matchup games for enemy classes" />
+      ) : (
+        <div className="flex flex-col gap-3">
+          <RadarChart
+            axes={classRows.map(([label]) => label)}
+            series={[
+              {
+                values: classRows.map(([, stats]) => (stats.wins / stats.games) * 100),
+                color: "var(--theme-crimson)",
+                label: "Your win rate by class",
+              },
+            ]}
+          />
+          <div className="grid grid-cols-1 gap-2 text-xs sm:grid-cols-2">
+            {classRows.map(([label, stats]) => (
+              <div key={label} className="flex items-center gap-3">
+                <span className="w-24 truncate text-lol-text">{label}</span>
+                <div className="min-w-0 flex-1">
+                  <WinRateBar wins={stats.wins} total={stats.games} showPercent={false} />
+                </div>
+                <span className="w-12 text-right tabular-nums text-lol-text-bright">
+                  {formatPercent(stats.wins, stats.games)}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </Panel>,
   ];
 }
@@ -3484,16 +3664,45 @@ function ObjectivesTab({
   if (detailLoading) return <SectionLoading />;
   if (!detail || detail.games === 0) return <NoData text="No data" />;
 
+  const objectiveTotal =
+    detail.totalTurretKills +
+    detail.totalInhibitorKills +
+    detail.totalBaronKills +
+    detail.totalObjectivesStolen;
+  const objectiveDamagePerGame = detail.avgDamageToObjectives + detail.avgDamageToTurrets;
+
   return (
     <div className="grid grid-cols-1 gap-5 xl:grid-cols-2">
       <InsightsPanel
         insights={[
           {
-            kind: "info",
-            text: "Placeholder — objective control insights land in a follow-up phase.",
+            kind: objectiveTotal > detail.games ? "good" : "info",
+            text: `${objectiveTotal.toLocaleString()} objective events across ${detail.games.toLocaleString()} games.`,
           },
         ]}
       />
+      <div className="grid grid-cols-2 gap-3 xl:col-span-2 xl:grid-cols-4">
+        <CombatTile
+          label="Objective events / game"
+          value={objectiveTotal / detail.games}
+          subtitle="turrets, inhibitors, barons and steals"
+        />
+        <CombatTile
+          label="Objective damage / game"
+          value={objectiveDamagePerGame}
+          subtitle="combined objective and turret damage"
+        />
+        <CombatTile
+          label="First tower rate"
+          value={(detail.totalFirstTowerKill / detail.games) * 100}
+          subtitle={`${detail.totalFirstTowerKill.toLocaleString()} first towers`}
+        />
+        <CombatTile
+          label="First inhibitor rate"
+          value={(detail.totalFirstInhibitorKill / detail.games) * 100}
+          subtitle={`${detail.totalFirstInhibitorKill.toLocaleString()} first inhibitors`}
+        />
+      </div>
       <Panel>
         <SectionHeading title="Turrets & inhibitors" source="m" />
         <CombatStatTable
@@ -3580,6 +3789,10 @@ function ObjectivesTab({
             ],
           ]}
         />
+      </Panel>
+      <Panel>
+        <SectionHeading title="Unavailable objective detail" source="d" />
+        <NoData text="Objective timing, dragon types, and team control are not stored." />
       </Panel>
     </div>
   );
