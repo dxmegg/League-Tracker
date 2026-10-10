@@ -106,6 +106,7 @@ export {
   getChampionDetailStats,
   getChampionSkillOrders,
   getChampionTrendsData,
+  getChampionRecords,
   getTrendsData,
   getRecords,
   getTeammateStats,
@@ -114,6 +115,7 @@ export {
   teammateName,
   teammateRows,
 } from "./stats";
+export type { ChampionRecord, ChampionRecordsResult } from "./stats";
 export {
   upsertSummoner,
   saveAccountSnapshot,

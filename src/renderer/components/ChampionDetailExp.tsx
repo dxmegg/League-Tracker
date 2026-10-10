@@ -14,9 +14,13 @@ import type {
   ChampionTimelineGame,
   ChampionTrendsData,
   ChampionWeeklyWinRate,
+  ChampionRecordsResult,
   GlobalChampionDetail,
   ItemStats,
+  MasteryChampion,
   MatchListItem,
+  ProfileExtras,
+  AccountSnapshot,
   TimelineData,
 } from "../../shared/api";
 import { QUEUE_LABELS } from "../../shared/queues";
@@ -31,6 +35,7 @@ import {
   useRuneData,
   useSummonerSpellData,
 } from "../hooks/useChampions";
+import type { ChampionData } from "../lib/types";
 import { useIpc } from "../hooks/useIpc";
 import { useViewState } from "../hooks/useViewState";
 import { ALL_ACCOUNTS_SENTINEL } from "../lib/accountsEvent";
@@ -64,9 +69,9 @@ const TAB_ITEMS: TabStripItem[] = [
   { key: "sy", label: "Synergies" },
   { key: "tl", label: "Timeline" },
   { key: "tr", label: "Trends" },
-  { key: "rc", label: "Records", disabled: true },
-  { key: "ma", label: "Matches", disabled: true },
-  { key: "ms", label: "Mastery", disabled: true },
+  { key: "rc", label: "Records" },
+  { key: "ma", label: "Matches" },
+  { key: "ms", label: "Mastery" },
 ];
 
 type RateSort = "count" | "winRate";
@@ -117,6 +122,9 @@ export function ChampionDetailExp() {
   const synergiesActive = activeTab === "sy";
   const trendsActive = activeTab === "tr";
   const timelineActive = activeTab === "tl";
+  const recordsActive = activeTab === "rc";
+  const matchesActive = activeTab === "ma";
+  const masteryActive = activeTab === "ms";
   const detailActive =
     overviewActive ||
     combatActive ||
@@ -219,6 +227,24 @@ export function ChampionDetailExp() {
         : Promise.resolve({ matches: [], total: 0 }),
     [detailActive, combatActive, itemsActive, id, patch, scopedQueue, account],
   );
+  const { data: records, loading: recordsLoading } = useIpc<ChampionRecordsResult | null>(
+    () =>
+      recordsActive
+        ? window.api.getChampionRecords(id, patch, scopedQueue, account)
+        : Promise.resolve(null),
+    [recordsActive, id, patch, scopedQueue, account],
+  );
+  const { data: masterySource, loading: masteryLoading } = useIpc<
+    ProfileExtras | AccountSnapshot | null
+  >(
+    () =>
+      masteryActive
+        ? account === "all"
+          ? window.api.getProfileExtras()
+          : window.api.getAccountSnapshot(account)
+        : Promise.resolve(null),
+    [masteryActive, account],
+  );
   const { data: globalDetail, loading: globalDetailLoading } = useIpc<GlobalChampionDetail | null>(
     () =>
       detailActive
@@ -279,6 +305,11 @@ export function ChampionDetailExp() {
   const itemData = useItemData(patch);
   const runeData = useRuneData();
   const name = getChampionName(champData, id);
+  const mastery = useMemo<MasteryChampion | null>(() => {
+    return masterySource?.topMasteryChampions.find((item) => item.championId === id) ?? null;
+  }, [id, masterySource]);
+  const masteryAccountName =
+    masterySource && "gameName" in masterySource ? masterySource.gameName : null;
   useEffect(() => {
     if (
       timelineActive &&
@@ -626,11 +657,272 @@ export function ChampionDetailExp() {
           timelineLoading={timelineLoading}
           champData={champData}
         />
+      ) : activeTab === "rc" ? (
+        <RecordsTab records={records} recordsLoading={recordsLoading} />
+      ) : matchesActive ? (
+        <MatchesTab
+          championId={id}
+          patch={patch}
+          queue={scopedQueue}
+          account={account}
+          championName={name}
+          champData={champData}
+        />
+      ) : activeTab === "ms" ? (
+        <MasteryTab
+          mastery={mastery}
+          masteryLoading={masteryLoading}
+          accountName={masteryAccountName}
+        />
       ) : (
         <Panel>
           <p className="py-8 text-center text-sm text-lol-text">This tab lands in a later phase.</p>
         </Panel>
       )}
+    </div>
+  );
+}
+
+const RECORD_GROUPS: Array<[string, string[]]> = [
+  [
+    "Combat",
+    [
+      "kills",
+      "deaths",
+      "assists",
+      "kda",
+      "damage",
+      "damageTaken",
+      "healing",
+      "longestAlive",
+      "firstBloodKills",
+    ],
+  ],
+  ["Multikills", ["doubleKills", "tripleKills", "quadraKills", "pentaKills"]],
+  ["Economy", ["gold"]],
+  ["Farm", ["cs"]],
+  ["Objectives", ["turretKills", "objectivesStolen"]],
+  ["Time", ["longestGame", "shortestWin"]],
+];
+
+export function RecordsTab({
+  records,
+  recordsLoading,
+}: {
+  records: ChampionRecordsResult | null;
+  recordsLoading: boolean;
+}) {
+  if (recordsLoading) return <SectionLoading />;
+  if (!records || records.records.length === 0) return <NoData />;
+
+  const byKey = new Map(records.records.map((record) => [record.key, record]));
+  return (
+    <div className="flex flex-col gap-5">
+      {RECORD_GROUPS.map(([group, keys]) => {
+        const groupRecords = keys
+          .map((key) => byKey.get(key))
+          .filter((record): record is ChampionRecordsResult["records"][number] => record != null);
+        if (groupRecords.length === 0) return null;
+        return (
+          <Panel key={group}>
+            <SectionHeading title={group} />
+            <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-4">
+              {groupRecords.map((record) => (
+                <div
+                  key={record.key}
+                  className="rounded-lg border border-lol-border bg-black/10 p-3"
+                >
+                  <span className="text-xs text-lol-text">{record.label}</span>
+                  <b className="mt-1 block font-display text-2xl text-lol-text-bright">
+                    {["longestGame", "shortestWin", "longestAlive"].includes(record.key)
+                      ? formatSeconds(record.value)
+                      : record.value.toLocaleString(undefined, { maximumFractionDigits: 2 })}
+                  </b>
+                  <span className="mt-1 block text-[11px] text-lol-text">
+                    Game {record.gameId ?? "—"}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </Panel>
+        );
+      })}
+      <p className="text-xs text-lol-text">Longest win streak: not implemented.</p>
+    </div>
+  );
+}
+
+export function MatchesTab({
+  championId,
+  patch,
+  queue,
+  account,
+  championName,
+  champData,
+}: {
+  championId: number;
+  patch?: string;
+  queue?: number;
+  account: string;
+  championName: string;
+  champData: ChampionData;
+}) {
+  const [page, setPage] = useState(0);
+  const [matches, setMatches] = useState<MatchListItem[]>([]);
+  const [total, setTotal] = useState(0);
+  const [loading, setLoading] = useState(true);
+  const [filter, setFilter] = useState<"all" | "wins" | "losses">("all");
+  const [sort, setSort] = useState<"newest" | "score">("newest");
+
+  useEffect(() => {
+    let cancelled = false;
+    setPage(0);
+    setMatches([]);
+    setTotal(0);
+    setLoading(true);
+    window.api
+      .getChampionMatchHistory(championId, 50, 0, patch, queue, account)
+      .then((result) => {
+        if (cancelled) return;
+        setMatches(result.matches);
+        setTotal(result.total);
+      })
+      .catch((error) => {
+        if (!cancelled) console.error("[champion-matches] load failed:", error);
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [championId, patch, queue, account]);
+
+  const visibleMatches = matches
+    .filter((match) => filter === "all" || (filter === "wins" ? match.win === 1 : match.win === 0))
+    .slice()
+    .sort((a, b) =>
+      sort === "score"
+        ? (b.score ?? Number.NEGATIVE_INFINITY) - (a.score ?? Number.NEGATIVE_INFINITY) ||
+          b.game_creation - a.game_creation
+        : b.game_creation - a.game_creation,
+    );
+
+  const loadMore = () => {
+    const nextPage = page + 1;
+    setLoading(true);
+    window.api
+      .getChampionMatchHistory(championId, 50, nextPage * 50, patch, queue, account)
+      .then((result) => {
+        setMatches((current) => [...current, ...result.matches]);
+        setTotal(result.total);
+        setPage(nextPage);
+      })
+      .catch((error) => console.error("[champion-matches] load more failed:", error))
+      .finally(() => setLoading(false));
+  };
+
+  return (
+    <Panel>
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+        <SectionHeading title="Matches" aside={`Loaded ${matches.length} of ${total}`} />
+        <div className="flex flex-wrap items-center gap-2">
+          <SortButtons
+            value={filter}
+            options={[
+              ["all", "All"],
+              ["wins", "Wins"],
+              ["losses", "Losses"],
+            ]}
+            onChange={setFilter}
+          />
+          <SortButtons
+            value={sort}
+            options={[
+              ["newest", "Newest"],
+              ["score", "Best score"],
+            ]}
+            onChange={setSort}
+          />
+        </div>
+      </div>
+      {loading && matches.length === 0 ? (
+        <SectionLoading />
+      ) : visibleMatches.length === 0 ? (
+        <NoData />
+      ) : (
+        <div
+          className="match-list-exp flex flex-col gap-2.5"
+          style={{ containerType: "inline-size" }}
+        >
+          {visibleMatches.map((match) => (
+            <MatchRowExperiment
+              key={match.game_id}
+              match={match}
+              championName={championName}
+              champData={champData}
+            />
+          ))}
+        </div>
+      )}
+      {matches.length < total && (
+        <button
+          type="button"
+          className="mt-5 w-full rounded-md border border-lol-border px-3 py-2 text-sm font-semibold text-lol-text-bright hover:border-lol-crimson disabled:opacity-50"
+          onClick={loadMore}
+          disabled={loading}
+        >
+          {loading ? "Loading…" : "Load more"}
+        </button>
+      )}
+    </Panel>
+  );
+}
+
+export function MasteryTab({
+  mastery,
+  masteryLoading,
+  accountName,
+}: {
+  mastery: MasteryChampion | null;
+  masteryLoading: boolean;
+  accountName: string | null;
+}) {
+  if (masteryLoading) return <SectionLoading />;
+  if (!mastery) {
+    return <NoData text="Mastery data unavailable — play this champion on the connected account" />;
+  }
+
+  return (
+    <div className="flex flex-col gap-5">
+      <Panel>
+        <SectionHeading title="Mastery" aside={accountName ?? undefined} />
+        <div className="grid grid-cols-2 gap-3">
+          <Stat label="Level" value={mastery.level.toLocaleString()} sub="Current champion level" />
+          <Stat
+            label="Points"
+            value={mastery.points.toLocaleString()}
+            sub="Current champion points"
+          />
+        </div>
+        <p className="mt-4 text-xs text-lol-text">Progress bar unavailable</p>
+      </Panel>
+      <Panel>
+        <SectionHeading title="Milestones" />
+        <div className="flex flex-col gap-2">
+          {[5, 7, 10].map((level) => (
+            <div
+              key={level}
+              className="flex items-center justify-between rounded-md border border-lol-border/60 px-3 py-2 text-sm"
+            >
+              <span className="text-lol-text-bright">Level {level}</span>
+              <span className={mastery.level >= level ? "text-lol-win" : "text-lol-text"}>
+                {mastery.level >= level ? "✓ Reached" : "Not reached"}
+              </span>
+            </div>
+          ))}
+        </div>
+      </Panel>
     </div>
   );
 }
