@@ -3,7 +3,13 @@ import { getAllPuuids } from "./summoner";
 import zlib from "zlib";
 import { NO_STATS_QUEUE_IDS } from "../../shared/queues";
 import { computeMatchScores } from "../../shared/opScore";
-import type { ItemStats } from "../../shared/api";
+import type {
+  ChampionAllyRow,
+  ChampionSkillOrder,
+  ChampionSkillOrdersResult,
+  ChampionTeammateRow,
+  ItemStats,
+} from "../../shared/api";
 import { getChampionClasses } from "../dragon";
 import {
   applyQueueFilter,
@@ -201,6 +207,92 @@ export function getChampionKeystones(
     .slice(0, 15);
 }
 
+export interface ChampionRuneStatsResult {
+  keystones: Array<{ runeId: number; picks: number; wins: number }>;
+  primaryTrees: Array<{ styleId: number; picks: number; wins: number }>;
+  secondaryTrees: Array<{ styleId: number; picks: number; wins: number }>;
+  pages: Array<{ runes: string; picks: number; wins: number }>;
+}
+
+export function getChampionRuneStats(
+  championId: number,
+  patch?: string,
+  queue?: number,
+  account?: string,
+): ChampionRuneStatsResult {
+  console.log("[db] getChampionRuneStats called:", { championId, patch, queue, account });
+
+  const source = statsSource(account);
+  const participant = participantFilter(patch, undefined, "mp");
+  const where = [source.accountFilter, participant.sql, "mp.champion_id = ?"];
+  const params: any[] = [];
+  if (account && account !== "all") params.push(account);
+  params.push(...participant.params, championId);
+  applyQueueFilter(where, params, queue, "g");
+
+  const championRows = `
+    champion_rows AS (
+      SELECT mp.rune0, mp.rune1, mp.rune2, mp.rune3, mp.rune4, mp.rune5,
+             mp.primary_style, mp.secondary_style, mp.win
+      FROM match_participants mp
+      JOIN games g ON g.game_id = mp.game_id
+      JOIN ${source.table} ps ON ps.game_id = mp.game_id AND ps.puuid = mp.puuid
+      WHERE ${where.join(" AND ")}
+    )`;
+  const query = (select: string) =>
+    db.prepare(`WITH ${championRows} ${select}`).all(...params) as Array<{
+      runeId?: number;
+      styleId?: number;
+      runes?: string;
+      picks: number;
+      wins: number;
+    }>;
+
+  const keystones = query(`
+    SELECT rune0 AS runeId, COUNT(*) AS picks, COALESCE(SUM(win), 0) AS wins
+    FROM champion_rows
+    WHERE rune0 IS NOT NULL AND rune0 > 0
+    GROUP BY rune0
+    ORDER BY picks DESC
+    LIMIT 15
+  `).map(({ runeId, picks, wins }) => ({ runeId: runeId!, picks, wins }));
+  const primaryTrees = query(`
+    SELECT primary_style AS styleId, COUNT(*) AS picks, COALESCE(SUM(win), 0) AS wins
+    FROM champion_rows
+    WHERE primary_style IS NOT NULL AND primary_style > 0
+    GROUP BY primary_style
+    ORDER BY picks DESC
+    LIMIT 15
+  `).map(({ styleId, picks, wins }) => ({ styleId: styleId!, picks, wins }));
+  const secondaryTrees = query(`
+    SELECT secondary_style AS styleId, COUNT(*) AS picks, COALESCE(SUM(win), 0) AS wins
+    FROM champion_rows
+    WHERE secondary_style IS NOT NULL AND secondary_style > 0
+    GROUP BY secondary_style
+    ORDER BY picks DESC
+    LIMIT 15
+  `).map(({ styleId, picks, wins }) => ({ styleId: styleId!, picks, wins }));
+  const pages = query(`
+    SELECT rune0 || ',' || rune1 || ',' || rune2 || ',' || rune3 || ',' || rune4 || ',' || rune5 AS runes,
+           COUNT(*) AS picks,
+           COALESCE(SUM(win), 0) AS wins
+    FROM champion_rows
+    WHERE rune0 IS NOT NULL AND rune0 > 0
+    GROUP BY runes
+    ORDER BY picks DESC
+    LIMIT 20
+  `).map(({ runes, picks, wins }) => ({ runes: runes!, picks, wins }));
+
+  const result = { keystones, primaryTrees, secondaryTrees, pages };
+  console.log("[db] getChampionRuneStats done:", {
+    keystones: keystones.length,
+    primaryTrees: primaryTrees.length,
+    secondaryTrees: secondaryTrees.length,
+    pages: pages.length,
+  });
+  return result;
+}
+
 export function getChampionWeeklyWinRate(
   championId: number,
   account?: string,
@@ -273,6 +365,273 @@ export function getChampionMatchups(
     best: best.map(({ championId, games, wins }) => ({ championId, games, wins })),
     worst: worst.map(({ championId, games, wins }) => ({ championId, games, wins })),
   };
+}
+
+export interface ChampionMatchupRow {
+  championId: number;
+  games: number;
+  wins: number;
+  kills: number;
+  deaths: number;
+  assists: number;
+  cs: number;
+  goldEarned: number;
+}
+
+export function getChampionMatchupList(
+  championId: number,
+  patch?: string,
+  queue?: number,
+  account?: string,
+): ChampionMatchupRow[] {
+  console.log("[db] getChampionMatchupList called:", { championId, patch, queue, account });
+
+  const source = statsSource(account);
+  const participant = participantFilter(patch, undefined, "owner");
+  const where = [source.accountFilter, participant.sql, "owner.champion_id = ?"];
+  const params: any[] = [];
+  if (account && account !== "all") params.push(account);
+  params.push(...participant.params, championId);
+  applyQueueFilter(where, params, queue, "g");
+
+  const rows = db
+    .prepare(`
+      WITH matchup_rows AS (
+        SELECT owner.game_id,
+               enemy.champion_id AS championId,
+               MAX(owner.win) AS wins,
+               MAX(owner.kills) AS kills,
+               MAX(owner.deaths) AS deaths,
+               MAX(owner.assists) AS assists,
+               MAX(owner.cs) AS cs,
+               MAX(owner.gold_earned) AS goldEarned
+        FROM match_participants owner
+        JOIN games g ON g.game_id = owner.game_id
+        JOIN ${source.table} ps ON ps.game_id = owner.game_id AND ps.puuid = owner.puuid
+        JOIN match_participants enemy
+          ON enemy.game_id = owner.game_id
+         AND enemy.team_id != owner.team_id
+        WHERE ${where.join(" AND ")}
+          AND enemy.champion_id > 0
+        GROUP BY owner.game_id, enemy.champion_id
+      )
+      SELECT championId,
+             COUNT(*) AS games,
+             COALESCE(SUM(wins), 0) AS wins,
+             COALESCE(SUM(kills), 0) AS kills,
+             COALESCE(SUM(deaths), 0) AS deaths,
+             COALESCE(SUM(assists), 0) AS assists,
+             COALESCE(SUM(cs), 0) AS cs,
+             COALESCE(SUM(goldEarned), 0) AS goldEarned
+      FROM matchup_rows
+      GROUP BY championId
+      HAVING games >= 1
+      ORDER BY games DESC, championId ASC
+    `)
+    .all(...params) as ChampionMatchupRow[];
+
+  console.log("[db] getChampionMatchupList done:", { count: rows.length });
+  return rows;
+}
+
+export function getChampionAllyStats(
+  championId: number,
+  patch?: string,
+  queue?: number,
+  account?: string,
+): ChampionAllyRow[] {
+  console.log("[db] getChampionAllyStats called:", { championId, patch, queue, account });
+
+  const source = statsSource(account);
+  const participant = participantFilter(patch, undefined, "me");
+  const where = [source.accountFilter, participant.sql, "me.champion_id = ?"];
+  const params: any[] = [];
+  if (account && account !== "all") params.push(account);
+  params.push(...participant.params, championId);
+  applyQueueFilter(where, params, queue, "g");
+
+  const rows = db
+    .prepare(`
+      WITH ally_rows AS (
+        SELECT me.game_id,
+               ally.champion_id AS championId,
+               MAX(me.win) AS wins,
+               MAX(ally.kills) AS kills,
+               MAX(ally.deaths) AS deaths,
+               MAX(ally.assists) AS assists
+        FROM match_participants me
+        JOIN games g ON g.game_id = me.game_id
+        JOIN ${source.table} ps ON ps.game_id = me.game_id AND ps.puuid = me.puuid
+        JOIN match_participants ally
+          ON ally.game_id = me.game_id
+         AND ally.team_id = me.team_id
+         AND ally.participant_id != me.participant_id
+        WHERE ${where.join(" AND ")}
+          AND ally.champion_id > 0
+        GROUP BY me.game_id, ally.champion_id
+      )
+      SELECT championId,
+             COUNT(*) AS games,
+             COALESCE(SUM(wins), 0) AS wins,
+             COALESCE(SUM(kills), 0) AS kills,
+             COALESCE(SUM(deaths), 0) AS deaths,
+             COALESCE(SUM(assists), 0) AS assists
+      FROM ally_rows
+      GROUP BY championId
+      HAVING games >= 1
+      ORDER BY games DESC, championId ASC
+    `)
+    .all(...params) as ChampionAllyRow[];
+
+  console.log("[db] getChampionAllyStats done:", { count: rows.length });
+  return rows;
+}
+
+export function getChampionTeammateStats(
+  championId: number,
+  patch?: string,
+  queue?: number,
+  account?: string,
+): ChampionTeammateRow[] {
+  console.log("[db] getChampionTeammateStats called:", { championId, patch, queue, account });
+
+  const source = statsSource(account);
+  const participant = participantFilter(patch, undefined, "me");
+  const where = [
+    source.accountFilter,
+    participant.sql,
+    "me.champion_id = ?",
+    "ally.puuid IS NOT NULL",
+    "ally.puuid != ''",
+    "(ally.puuid NOT IN (SELECT puuid FROM summoner))",
+  ];
+  const params: any[] = [];
+  if (account && account !== "all") params.push(account);
+  params.push(...participant.params, championId);
+  applyQueueFilter(where, params, queue, "g");
+
+  interface TeammateAggregate {
+    name: string;
+    profileIcon: number | null;
+    games: number;
+    wins: number;
+    kills: number;
+    deaths: number;
+    assists: number;
+    lastPlayed: number;
+    gameIds: Set<number>;
+    championGames: Map<number, Set<number>>;
+  }
+
+  const sourceRows = db
+    .prepare(`
+      WITH teammate_rows AS (
+        SELECT me.game_id,
+               g.game_creation,
+               ally.puuid AS puuid,
+               ally.game_name AS game_name,
+               ally.tag_line AS tag_line,
+               ally.profile_icon AS profile_icon,
+               ally.champion_id AS champion_id,
+               MAX(me.win) AS wins,
+               MAX(ally.kills) AS kills,
+               MAX(ally.deaths) AS deaths,
+               MAX(ally.assists) AS assists
+        FROM match_participants me
+        JOIN games g ON g.game_id = me.game_id
+        JOIN ${source.table} ps ON ps.game_id = me.game_id AND ps.puuid = me.puuid
+        JOIN match_participants ally
+          ON ally.game_id = me.game_id
+         AND ally.team_id = me.team_id
+         AND ally.participant_id != me.participant_id
+        WHERE ${where.join(" AND ")}
+          AND ally.champion_id > 0
+        GROUP BY me.game_id, ally.puuid, ally.champion_id
+      )
+      SELECT game_id, game_creation, puuid, game_name, tag_line, profile_icon,
+             champion_id, wins, kills, deaths, assists
+      FROM teammate_rows
+      ORDER BY game_creation DESC
+    `)
+    .all(...params) as Array<{
+    game_id: number;
+    game_creation: number;
+    puuid: string;
+    game_name: string | null;
+    tag_line: string | null;
+    profile_icon: number | null;
+    champion_id: number;
+    wins: number;
+    kills: number;
+    deaths: number;
+    assists: number;
+  }>;
+
+  const aggregates = new Map<string, TeammateAggregate>();
+  for (const row of sourceRows) {
+    let aggregate = aggregates.get(row.puuid);
+    if (!aggregate) {
+      aggregate = {
+        name: displayName(row.game_name, row.tag_line) ?? "Unknown teammate",
+        profileIcon: row.profile_icon,
+        games: 0,
+        wins: 0,
+        kills: 0,
+        deaths: 0,
+        assists: 0,
+        lastPlayed: row.game_creation,
+        gameIds: new Set(),
+        championGames: new Map(),
+      };
+      aggregates.set(row.puuid, aggregate);
+    }
+
+    if (row.game_creation >= aggregate.lastPlayed) {
+      aggregate.name = displayName(row.game_name, row.tag_line) ?? "Unknown teammate";
+      if (row.profile_icon != null) aggregate.profileIcon = row.profile_icon;
+      aggregate.lastPlayed = row.game_creation;
+    }
+
+    if (!aggregate.gameIds.has(row.game_id)) {
+      aggregate.gameIds.add(row.game_id);
+      aggregate.games++;
+      if (row.wins) aggregate.wins++;
+    }
+
+    aggregate.kills += row.kills;
+    aggregate.deaths += row.deaths;
+    aggregate.assists += row.assists;
+
+    let gamesForChampion = aggregate.championGames.get(row.champion_id);
+    if (!gamesForChampion) {
+      gamesForChampion = new Set();
+      aggregate.championGames.set(row.champion_id, gamesForChampion);
+    }
+    gamesForChampion.add(row.game_id);
+  }
+
+  const rows = Array.from(aggregates.entries())
+    .map(([puuid, aggregate]) => {
+      const topChampionId =
+        Array.from(aggregate.championGames.entries()).sort(
+          (a, b) => b[1].size - a[1].size || a[0] - b[0],
+        )[0]?.[0] ?? null;
+      return {
+        puuid,
+        name: aggregate.name,
+        profileIcon: aggregate.profileIcon,
+        games: aggregate.games,
+        wins: aggregate.wins,
+        kills: aggregate.kills,
+        deaths: aggregate.deaths,
+        assists: aggregate.assists,
+        topChampionId,
+      };
+    })
+    .sort((a, b) => b.games - a.games || a.name.localeCompare(b.name));
+
+  console.log("[db] getChampionTeammateStats done:", { count: rows.length });
+  return rows;
 }
 
 export function getAugmentStatsAll(
@@ -1518,6 +1877,21 @@ export function getChampionDetailStats(
   avgGameLength: number;
   totalTimePlayed: number;
   longestWinStreak: number;
+  avgVisionScore: number;
+  maxVisionScore: number;
+  totalVisionScore: number;
+  avgWardsPlaced: number;
+  maxWardsPlaced: number;
+  totalWardsPlaced: number;
+  avgWardsKilled: number;
+  maxWardsKilled: number;
+  totalWardsKilled: number;
+  avgVisionWardsBought: number;
+  maxVisionWardsBought: number;
+  totalVisionWardsBought: number;
+  avgSightWardsBought: number;
+  maxSightWardsBought: number;
+  totalSightWardsBought: number;
 } {
   const where: string[] = ["g.is_remake = 0", "g.source != 'search-import'"];
   const statsPlaceholders = NO_STATS_QUEUE_IDS.map(() => "?").join(",");
@@ -1557,6 +1931,8 @@ export function getChampionDetailStats(
                mp.turret_plates_taken, mp.baron_kills, mp.objectives_stolen,
                mp.objectives_stolen_assists, mp.first_tower_kill, mp.first_tower_assist,
                mp.first_inhibitor_kill, mp.first_inhibitor_assist,
+               mp.vision_score, mp.wards_placed, mp.wards_killed,
+               mp.vision_wards_bought, mp.sight_wards_bought,
                mp.gold_earned, g.game_duration, g.game_creation
         FROM match_participants mp
         JOIN games g ON mp.game_id = g.game_id
@@ -1666,6 +2042,21 @@ export function getChampionDetailStats(
         AVG(cr.objectives_stolen_assists) AS avgObjectivesStolenAssists,
         MAX(cr.objectives_stolen_assists) AS maxObjectivesStolenAssists,
         SUM(cr.objectives_stolen_assists) AS totalObjectivesStolenAssists,
+        AVG(cr.vision_score) AS avgVisionScore,
+        MAX(cr.vision_score) AS maxVisionScore,
+        SUM(cr.vision_score) AS totalVisionScore,
+        AVG(cr.wards_placed) AS avgWardsPlaced,
+        MAX(cr.wards_placed) AS maxWardsPlaced,
+        SUM(cr.wards_placed) AS totalWardsPlaced,
+        AVG(cr.wards_killed) AS avgWardsKilled,
+        MAX(cr.wards_killed) AS maxWardsKilled,
+        SUM(cr.wards_killed) AS totalWardsKilled,
+        AVG(cr.vision_wards_bought) AS avgVisionWardsBought,
+        MAX(cr.vision_wards_bought) AS maxVisionWardsBought,
+        SUM(cr.vision_wards_bought) AS totalVisionWardsBought,
+        AVG(cr.sight_wards_bought) AS avgSightWardsBought,
+        MAX(cr.sight_wards_bought) AS maxSightWardsBought,
+        SUM(cr.sight_wards_bought) AS totalSightWardsBought,
         SUM(cr.first_tower_kill) AS totalFirstTowerKill,
         SUM(cr.first_tower_assist) AS totalFirstTowerAssist,
         SUM(cr.first_inhibitor_kill) AS totalFirstInhibitorKill,
@@ -1766,6 +2157,21 @@ export function getChampionDetailStats(
     totalFirstTowerAssist: number | null;
     totalFirstInhibitorKill: number | null;
     totalFirstInhibitorAssist: number | null;
+    avgVisionScore: number | null;
+    maxVisionScore: number | null;
+    totalVisionScore: number | null;
+    avgWardsPlaced: number | null;
+    maxWardsPlaced: number | null;
+    totalWardsPlaced: number | null;
+    avgWardsKilled: number | null;
+    maxWardsKilled: number | null;
+    totalWardsKilled: number | null;
+    avgVisionWardsBought: number | null;
+    maxVisionWardsBought: number | null;
+    totalVisionWardsBought: number | null;
+    avgSightWardsBought: number | null;
+    maxSightWardsBought: number | null;
+    totalSightWardsBought: number | null;
     avgCcPerMin: number | null;
     goldPerMin: number | null;
     avgGameLength: number | null;
@@ -1859,12 +2265,161 @@ export function getChampionDetailStats(
     totalFirstTowerAssist: result?.totalFirstTowerAssist ?? 0,
     totalFirstInhibitorKill: result?.totalFirstInhibitorKill ?? 0,
     totalFirstInhibitorAssist: result?.totalFirstInhibitorAssist ?? 0,
+    avgVisionScore: result?.avgVisionScore ?? 0,
+    maxVisionScore: result?.maxVisionScore ?? 0,
+    totalVisionScore: result?.totalVisionScore ?? 0,
+    avgWardsPlaced: result?.avgWardsPlaced ?? 0,
+    maxWardsPlaced: result?.maxWardsPlaced ?? 0,
+    totalWardsPlaced: result?.totalWardsPlaced ?? 0,
+    avgWardsKilled: result?.avgWardsKilled ?? 0,
+    maxWardsKilled: result?.maxWardsKilled ?? 0,
+    totalWardsKilled: result?.totalWardsKilled ?? 0,
+    avgVisionWardsBought: result?.avgVisionWardsBought ?? 0,
+    maxVisionWardsBought: result?.maxVisionWardsBought ?? 0,
+    totalVisionWardsBought: result?.totalVisionWardsBought ?? 0,
+    avgSightWardsBought: result?.avgSightWardsBought ?? 0,
+    maxSightWardsBought: result?.maxSightWardsBought ?? 0,
+    totalSightWardsBought: result?.totalSightWardsBought ?? 0,
     avgCcPerMin: result?.avgCcPerMin ?? 0,
     goldPerMin: result?.goldPerMin ?? 0,
     avgGameLength: result?.avgGameLength ?? 0,
     totalTimePlayed: result?.totalTimePlayed ?? 0,
     longestWinStreak: result?.longestWinStreak ?? 0,
   };
+}
+
+export type { ChampionSkillOrder, ChampionSkillOrdersResult } from "../../shared/api";
+
+export function getChampionSkillOrders(
+  championId: number,
+  patch?: string,
+  queue?: number,
+  account?: string,
+): ChampionSkillOrdersResult {
+  console.log("[db] getChampionSkillOrders called:", { championId, patch, queue, account });
+
+  const source = statsSource(account);
+  const playerPuuidSql = account ? "ps.puuid" : "g.puuid";
+  const participant = participantFilter(patch, undefined, "mp");
+  const where = ["ps.champion_id = ?", source.accountFilter, participant.sql];
+  const params: any[] = [championId];
+  if (account && account !== "all") params.push(account);
+  params.push(...participant.params);
+  applyQueueFilter(where, params, queue, "g");
+
+  const championGamesCte = `
+    champion_games AS (
+      SELECT g.game_id, mp.participant_id, ps.spell1, ps.spell2, ps.win
+      FROM games g
+      JOIN ${source.table} ps ON g.game_id = ps.game_id
+      JOIN match_participants mp
+        ON mp.game_id = g.game_id AND mp.puuid = ${playerPuuidSql}
+      WHERE ${where.join(" AND ")}
+    )`;
+
+  const skillEventsCte = `
+    skill_events AS (
+      SELECT cg.game_id, e.event_index, e.timestamp_ms, e.skill_slot
+      FROM champion_games cg
+      JOIN match_timeline_events e
+        ON e.game_id = cg.game_id
+       AND e.participant_id = cg.participant_id
+       AND e.event_type = 'SKILL_LEVEL_UP'
+       AND e.skill_slot IS NOT NULL
+    )`;
+
+  const topOrders = db
+    .prepare(`
+      WITH ${championGamesCte},
+      ${skillEventsCte},
+      game_orders AS (
+        SELECT game_id, GROUP_CONCAT(skill_slot, ',') AS skill_order, COUNT(*) AS skill_count
+        FROM (
+          SELECT game_id, event_index, timestamp_ms, skill_slot
+          FROM skill_events
+          ORDER BY game_id, timestamp_ms, event_index
+        )
+        GROUP BY game_id
+      )
+      SELECT skill_order AS "order", COUNT(*) AS picks
+      FROM game_orders
+      WHERE skill_count >= 15
+      GROUP BY skill_order
+      ORDER BY picks DESC, "order" ASC
+      LIMIT 20
+    `)
+    .all(...params) as ChampionSkillOrder[];
+
+  const timing = db
+    .prepare(`
+      WITH ${championGamesCte},
+      ${skillEventsCte},
+      r_events AS (
+        SELECT game_id, timestamp_ms,
+               ROW_NUMBER() OVER (PARTITION BY game_id ORDER BY timestamp_ms, event_index) AS rn
+        FROM skill_events
+        WHERE skill_slot = 4
+      )
+      SELECT
+        (SELECT AVG(timestamp_ms / 60000.0) FROM r_events WHERE rn = 1) AS avgR1Min,
+        (SELECT AVG(timestamp_ms / 60000.0) FROM r_events WHERE rn = 2) AS avgR2Min,
+        (SELECT AVG(timestamp_ms / 60000.0) FROM r_events WHERE rn = 3) AS avgR3Min,
+        COUNT(DISTINCT game_id) AS sampleSize
+      FROM skill_events
+    `)
+    .get(...params) as {
+    avgR1Min: number | null;
+    avgR2Min: number | null;
+    avgR3Min: number | null;
+    sampleSize: number;
+  };
+
+  const summonerSpells = db
+    .prepare(`
+      WITH ${championGamesCte}
+      SELECT
+        CAST(spell1 AS TEXT) || ',' || CAST(spell2 AS TEXT) AS pair,
+        COUNT(*) AS picks,
+        COALESCE(SUM(win), 0) AS wins
+      FROM champion_games
+      GROUP BY spell1, spell2
+      ORDER BY picks DESC, pair ASC
+      LIMIT 10
+    `)
+    .all(...params) as Array<{ pair: string; picks: number; wins: number }>;
+
+  const coverage = db
+    .prepare(`
+      WITH ${championGamesCte},
+      ${skillEventsCte}
+      SELECT
+        COUNT(DISTINCT skill_events.game_id) AS gamesWithTimeline,
+        (SELECT COUNT(*) FROM champion_games) AS totalGames
+      FROM skill_events
+    `)
+    .get(...params) as { gamesWithTimeline: number; totalGames: number };
+
+  const result: ChampionSkillOrdersResult = {
+    topOrders,
+    rTiming: {
+      avgR1Min: timing?.avgR1Min ?? null,
+      avgR2Min: timing?.avgR2Min ?? null,
+      avgR3Min: timing?.avgR3Min ?? null,
+      sampleSize: timing?.sampleSize ?? 0,
+    },
+    summonerSpells,
+    timelineCoverage: {
+      gamesWithTimeline: coverage?.gamesWithTimeline ?? 0,
+      totalGames: coverage?.totalGames ?? 0,
+    },
+  };
+  console.log("[db] getChampionSkillOrders done:", {
+    topOrders: result.topOrders.length,
+    summonerSpells: result.summonerSpells.length,
+    gamesWithTimeline: result.timelineCoverage.gamesWithTimeline,
+    totalGames: result.timelineCoverage.totalGames,
+  });
+  return result;
 }
 
 // Everything the Trends page draws, in one round trip. Days are the finest

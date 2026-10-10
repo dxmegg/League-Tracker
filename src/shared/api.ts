@@ -89,6 +89,11 @@ export interface MatchListItem {
   total_damage_taken: number;
   total_heal: number;
   gold_earned: number;
+  vision_score: number | null;
+  wards_placed: number | null;
+  wards_killed: number | null;
+  vision_wards_bought: number | null;
+  sight_wards_bought: number | null;
   item0: number | null;
   item1: number | null;
   item2: number | null;
@@ -312,6 +317,21 @@ export interface ChampionDetailStats {
   avgObjectivesStolenAssists: number;
   maxObjectivesStolenAssists: number;
   totalObjectivesStolenAssists: number;
+  avgVisionScore: number;
+  maxVisionScore: number;
+  totalVisionScore: number;
+  avgWardsPlaced: number;
+  maxWardsPlaced: number;
+  totalWardsPlaced: number;
+  avgWardsKilled: number;
+  maxWardsKilled: number;
+  totalWardsKilled: number;
+  avgVisionWardsBought: number;
+  maxVisionWardsBought: number;
+  totalVisionWardsBought: number;
+  avgSightWardsBought: number;
+  maxSightWardsBought: number;
+  totalSightWardsBought: number;
   totalFirstTowerKill: number;
   totalFirstTowerAssist: number;
   totalFirstInhibitorKill: number;
@@ -320,6 +340,26 @@ export interface ChampionDetailStats {
   avgGameLength: number; // seconds
   totalTimePlayed: number; // seconds
   longestWinStreak: number; // best consecutive wins ever on this champion
+}
+
+export interface ChampionSkillOrder {
+  order: string;
+  picks: number;
+}
+
+export interface ChampionSkillOrdersResult {
+  topOrders: ChampionSkillOrder[];
+  rTiming: {
+    avgR1Min: number | null;
+    avgR2Min: number | null;
+    avgR3Min: number | null;
+    sampleSize: number;
+  };
+  summonerSpells: Array<{ pair: string; picks: number; wins: number }>;
+  timelineCoverage: {
+    gamesWithTimeline: number;
+    totalGames: number;
+  };
 }
 
 export interface ChampionQueueStat {
@@ -340,6 +380,13 @@ export interface ChampionKeystoneStat {
   wins: number;
 }
 
+export interface ChampionRuneStatsResult {
+  keystones: Array<{ runeId: number; picks: number; wins: number }>;
+  primaryTrees: Array<{ styleId: number; picks: number; wins: number }>;
+  secondaryTrees: Array<{ styleId: number; picks: number; wins: number }>;
+  pages: Array<{ runes: string; picks: number; wins: number }>;
+}
+
 export interface ChampionWeeklyWinRate {
   weekStart: number;
   games: number;
@@ -350,6 +397,38 @@ export interface ChampionMatchup {
   championId: number;
   games: number;
   wins: number;
+}
+
+export interface ChampionMatchupRow {
+  championId: number;
+  games: number;
+  wins: number;
+  kills: number;
+  deaths: number;
+  assists: number;
+  cs: number;
+  goldEarned: number;
+}
+
+export interface ChampionAllyRow {
+  championId: number;
+  games: number;
+  wins: number;
+  kills: number;
+  deaths: number;
+  assists: number;
+}
+
+export interface ChampionTeammateRow {
+  puuid: string;
+  name: string;
+  profileIcon: number | null;
+  games: number;
+  wins: number;
+  kills: number;
+  deaths: number;
+  assists: number;
+  topChampionId: number | null;
 }
 
 export interface ChampionMatchups {
@@ -1120,11 +1199,35 @@ export interface ElectronAPI {
     queue?: number,
   ) => Promise<ChampionRoleStat[]>;
   getChampionKeystones: (championId: number, account?: string) => Promise<ChampionKeystoneStat[]>;
+  getChampionRuneStats: (
+    championId: number,
+    patch?: string,
+    queue?: number,
+    account?: string,
+  ) => Promise<ChampionRuneStatsResult>;
   getChampionWeeklyWinRate: (
     championId: number,
     account?: string,
   ) => Promise<ChampionWeeklyWinRate[]>;
   getChampionMatchups: (championId: number, account?: string) => Promise<ChampionMatchups>;
+  getChampionMatchupList: (
+    championId: number,
+    patch?: string,
+    queue?: number,
+    account?: string,
+  ) => Promise<ChampionMatchupRow[]>;
+  getChampionAllyStats: (
+    championId: number,
+    patch?: string,
+    queue?: number,
+    account?: string,
+  ) => Promise<ChampionAllyRow[]>;
+  getChampionTeammateStats: (
+    championId: number,
+    patch?: string,
+    queue?: number,
+    account?: string,
+  ) => Promise<ChampionTeammateRow[]>;
   getAugmentStats: (
     championId?: number,
     patch?: string,
@@ -1199,6 +1302,12 @@ export interface ElectronAPI {
     queue?: number,
     account?: string,
   ) => Promise<ItemStats[]>;
+  getChampionSkillOrders: (
+    championId: number,
+    patch?: string,
+    queue?: number,
+    account?: string,
+  ) => Promise<ChampionSkillOrdersResult>;
   getTeammateStats: (queue?: number, relation?: "friends" | "enemies") => Promise<TeammateStats[]>;
   getTeammateDetail: (
     key: string,

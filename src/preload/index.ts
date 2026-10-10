@@ -124,11 +124,27 @@ const api: ElectronAPI = {
   getChampionKeystones: (championId: number, account?: string) =>
     ipcRenderer.invoke("db:champion-keystones", championId, account),
 
+  getChampionRuneStats: (championId: number, patch?: string, queue?: number, account?: string) =>
+    ipcRenderer.invoke("db:champion-rune-stats", championId, patch, queue, account),
+
   getChampionWeeklyWinRate: (championId: number, account?: string) =>
     ipcRenderer.invoke("db:champion-weekly-winrate", championId, account),
 
   getChampionMatchups: (championId: number, account?: string) =>
     ipcRenderer.invoke("db:champion-matchups", championId, account),
+
+  getChampionMatchupList: (championId: number, patch?: string, queue?: number, account?: string) =>
+    ipcRenderer.invoke("db:champion-matchup-list", championId, patch, queue, account),
+
+  getChampionAllyStats: (championId: number, patch?: string, queue?: number, account?: string) =>
+    ipcRenderer.invoke("db:champion-ally-stats", championId, patch, queue, account),
+
+  getChampionTeammateStats: (
+    championId: number,
+    patch?: string,
+    queue?: number,
+    account?: string,
+  ) => ipcRenderer.invoke("db:champion-teammate-stats", championId, patch, queue, account),
 
   getAugmentStats: (championId?: number, patch?: string, queue?: number, account?: string) =>
     ipcRenderer.invoke("db:augment-stats", championId, patch, queue, account),
@@ -268,6 +284,9 @@ const api: ElectronAPI = {
 
   getChampionItemStats: (championId: number, patch?: string, queue?: number, account?: string) =>
     ipcRenderer.invoke("db:champion-item-stats", championId, patch, queue, account),
+
+  getChampionSkillOrders: (championId: number, patch?: string, queue?: number, account?: string) =>
+    ipcRenderer.invoke("db:champion-skill-orders", championId, patch, queue, account),
 
   getTeammateStats: (queue?: number, relation?: "friends" | "enemies") =>
     ipcRenderer.invoke("db:teammate-stats", queue, relation),
