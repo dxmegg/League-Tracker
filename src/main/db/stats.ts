@@ -2587,9 +2587,9 @@ export function getChampionRecords(
         ${fromSql}
         ${whereSql}${extra}
         ORDER BY ${expression} ${order}, g.game_id ASC
-        LIMIT 1
+        LIMIT 2
       `)
-      .get(...params) as { value: number; game_id: number; game_duration: number } | undefined;
+      .all(...params) as { value: number; game_id: number; game_duration: number }[];
 
   const definitions: Array<{
     key: string;
@@ -2643,8 +2643,10 @@ export function getChampionRecords(
 
   const records = db.transaction(() =>
     definitions.flatMap(({ key, label, expression, order, extra }) => {
-      const row = query(expression, order, extra);
+      const rows = query(expression, order, extra);
+      const row = rows[0];
       if (!row || row.value == null) return [];
+      const second = rows[1];
       return [
         {
           key,
@@ -2652,6 +2654,8 @@ export function getChampionRecords(
           value: row.value,
           gameId: row.game_id,
           gameDuration: row.game_duration,
+          secondValue: second?.value ?? null,
+          secondGameId: second?.game_id ?? null,
         },
       ];
     }),

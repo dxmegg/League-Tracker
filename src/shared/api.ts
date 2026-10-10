@@ -927,6 +927,8 @@ export interface ChampionRecord {
   value: number;
   gameId: number | null;
   gameDuration?: number;
+  secondValue: number | null;
+  secondGameId: number | null;
 }
 
 export interface ChampionRecordsResult {

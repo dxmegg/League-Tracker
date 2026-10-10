@@ -729,6 +729,18 @@ export function RecordsTab({
     )
     .slice(0, 3);
   const byKey = new Map(records.records.map((record) => [record.key, record]));
+  const almostRecords = records.records
+    .filter((record) => record.secondValue != null && record.value > 0)
+    .map((record) => {
+      const gap = record.value - record.secondValue!;
+      return { record, gap, gapPct: gap / record.value };
+    })
+    .sort((a, b) => a.gapPct - b.gapPct)
+    .slice(0, 5);
+  const formatRecordValue = (record: ChampionRecordsResult["records"][number], value: number) =>
+    ["longestGame", "shortestWin", "longestAlive"].includes(record.key)
+      ? formatSeconds(value)
+      : value.toLocaleString(undefined, { maximumFractionDigits: 2 });
   return (
     <div className="flex flex-col gap-5">
       <InsightsPanel
@@ -774,6 +786,34 @@ export function RecordsTab({
           </div>
         )}
       </Panel>
+      <Panel>
+        <SectionHeading title="Almost records" source="d" />
+        {almostRecords.length === 0 ? (
+          <NoData text="Not enough games to compare records" />
+        ) : (
+          <div className="flex flex-col gap-3">
+            {almostRecords.map(({ record, gapPct }) => (
+              <div key={record.key} className="flex flex-col gap-1.5">
+                <div className="flex items-center gap-2 text-xs">
+                  <span className="min-w-0 flex-1 truncate text-lol-text">{record.label}</span>
+                  <span className="shrink-0 font-display tabular-nums text-lol-gold">
+                    {formatRecordValue(record, record.value)}
+                  </span>
+                  <span className="shrink-0 tabular-nums text-lol-text">
+                    2nd: {formatRecordValue(record, record.secondValue!)}
+                  </span>
+                </div>
+                <div className="h-1.5 overflow-hidden rounded-full bg-lol-border/50">
+                  <div
+                    className="h-full rounded-full bg-lol-gold"
+                    style={{ width: `${(1 - gapPct) * 100}%` }}
+                  />
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </Panel>
       {RECORD_GROUPS.map(([group, keys]) => {
         const groupRecords = keys
           .map((key) => byKey.get(key))
@@ -790,9 +830,7 @@ export function RecordsTab({
                 >
                   <span className="text-xs text-lol-text">{record.label}</span>
                   <b className="mt-1 block font-display text-2xl text-lol-text-bright">
-                    {["longestGame", "shortestWin", "longestAlive"].includes(record.key)
-                      ? formatSeconds(record.value)
-                      : record.value.toLocaleString(undefined, { maximumFractionDigits: 2 })}
+                    {formatRecordValue(record, record.value)}
                   </b>
                   <span className="mt-1 block text-[11px] text-lol-text">
                     Game {record.gameId ?? "—"}
@@ -946,7 +984,7 @@ export function MasteryTab({
 }) {
   if (masteryLoading) return <SectionLoading />;
   if (!mastery) {
-    return <NoData text="Mastery data unavailable — play this champion on the connected account" />;
+    return <NoData text="No mastery data" />;
   }
 
   return (
@@ -978,6 +1016,54 @@ export function MasteryTab({
             </div>
           ))}
         </div>
+      </Panel>
+      <Panel>
+        <SectionHeading title="Level thresholds" source="l" />
+        <table className="w-full text-xs">
+          <thead className="border-b border-lol-border/50 text-left text-lol-text">
+            <tr>
+              <th className="pb-2 font-semibold">Level</th>
+              <th className="pb-2 text-right font-semibold">Points needed</th>
+              <th className="pb-2 text-right font-semibold">Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            {[
+              [5, 10_000],
+              [6, 13_000],
+              [7, 21_600],
+              [8, 33_000],
+              [9, 47_000],
+              [10, 63_000],
+              [11, 80_000],
+              [12, 101_600],
+            ].map(([level, points], index, thresholds) => {
+              const reached = mastery.points >= points;
+              const next =
+                !reached &&
+                thresholds.slice(0, index).every(([, threshold]) => mastery.points >= threshold);
+              return (
+                <tr key={level} className="border-b border-lol-border/50 last:border-0">
+                  <td className="py-2 text-lol-text-bright">Level {level}</td>
+                  <td className="py-2 text-right tabular-nums text-lol-text-bright">
+                    {points.toLocaleString()}
+                  </td>
+                  <td
+                    className={`py-2 text-right tabular-nums ${
+                      reached ? "text-lol-win" : next ? "text-lol-text" : "text-lol-text"
+                    }`}
+                  >
+                    {reached
+                      ? "Reached"
+                      : next
+                        ? `${(points - mastery.points).toLocaleString()} to go`
+                        : "—"}
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
       </Panel>
     </div>
   );
@@ -1742,8 +1828,61 @@ function MatchupsTab({
     };
     return value(b) - value(a) || a.championId - b.championId;
   });
+  const tierDefinitions = [
+    { label: "S", color: "#C9A45C", min: 0.7 },
+    { label: "A", color: "#b8b8c4", min: 0.6 },
+    { label: "B", color: "#7FA6CC", min: 0.5 },
+    { label: "C", color: "#A58CC4", min: 0.4 },
+    { label: "D", color: "#E5483F", min: Number.NEGATIVE_INFINITY },
+  ];
+  const tierRows = tierDefinitions
+    .map((tier, index) => ({
+      ...tier,
+      entries: (matchups ?? [])
+        .filter((row) => row.games >= 2)
+        .filter((row) => {
+          const winRate = row.wins / row.games;
+          const nextMin = tierDefinitions[index - 1]?.min ?? Number.POSITIVE_INFINITY;
+          return winRate >= tier.min && winRate < nextMin;
+        })
+        .sort((a, b) => b.wins / b.games - a.wins / a.games),
+    }))
+    .filter((tier) => tier.entries.length > 0);
 
   return [
+    <Panel className="xl:col-span-2" key="matchup-tier-list">
+      <SectionHeading title="Matchup tier list" source="d" />
+      {tierRows.length === 0 ? (
+        <NoData text="Not enough games for a tier list" />
+      ) : (
+        <div className="flex flex-col gap-3">
+          {tierRows.map((tier) => (
+            <div key={tier.label} className="flex items-center gap-3">
+              <span
+                className="flex h-[30px] w-[30px] shrink-0 items-center justify-center rounded-md font-display text-sm font-bold"
+                style={{ backgroundColor: tier.color, color: "#150c33" }}
+              >
+                {tier.label}
+              </span>
+              <div className="flex flex-wrap gap-2">
+                {tier.entries.map((row) => {
+                  const winRate = row.wins / row.games;
+                  const name = getChampionName(champData, row.championId);
+                  return (
+                    <span
+                      key={row.championId}
+                      title={`${name} · ${row.games} games · ${(winRate * 100).toFixed(0)}% WR`}
+                    >
+                      <ChampionIcon championId={row.championId} size={28} className="rounded-md" />
+                    </span>
+                  );
+                })}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </Panel>,
     <Panel className="xl:col-span-2" key="matchups">
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
         <SectionHeading
