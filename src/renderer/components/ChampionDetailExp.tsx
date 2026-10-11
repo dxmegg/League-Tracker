@@ -543,6 +543,46 @@ export function ChampionDetailExp() {
     };
   }, [weeklyWinRate, wrTab]);
 
+  const overviewInsights = useMemo<Insight[]>(() => {
+    const items: Insight[] = [];
+    const baseline =
+      globalDetail && globalDetail.games > 0
+        ? (globalDetail.wins / globalDetail.games) * 100
+        : null;
+    if (baseline != null && stats.games > 0) {
+      const delta = wr - baseline;
+      if (Math.abs(delta) >= 0.1) {
+        items.push({
+          kind: delta > 0 ? "good" : "warn",
+          text: `Current win rate is ${Math.abs(delta).toFixed(1)} points ${delta > 0 ? "above" : "below"} the overall baseline.`,
+        });
+      }
+    }
+
+    const mostPlayedRole = roleStats?.slice().sort((a, b) => b.games - a.games)[0];
+    if (mostPlayedRole && mostPlayedRole.games > 0) {
+      items.push({
+        kind: "info",
+        text: `Most played role is ${mostPlayedRole.role} at ${formatPercent(mostPlayedRole.wins, mostPlayedRole.games)} win rate.`,
+      });
+    }
+
+    const bestAugment = (augmentStats ?? [])
+      .filter((augment) => augment.picks > 0)
+      .slice()
+      .sort((a, b) => b.wins / b.picks - a.wins / a.picks)[0];
+    if (bestAugment && baseline != null) {
+      const delta = (bestAugment.wins / bestAugment.picks) * 100 - baseline;
+      if (Math.abs(delta) >= 5) {
+        items.push({
+          kind: delta > 0 ? "good" : "warn",
+          text: `Best augment win rate is ${Math.abs(delta).toFixed(1)} points ${delta > 0 ? "above" : "below"} baseline.`,
+        });
+      }
+    }
+    return items;
+  }, [augmentStats, globalDetail, roleStats, stats, wr]);
+
   if ((!isSummary && !championStats) || games === 0) {
     return (
       <div className="mx-auto flex min-h-full w-full max-w-[1320px] flex-col gap-5">
@@ -612,6 +652,14 @@ export function ChampionDetailExp() {
         <PatchSelect value={patch} onChange={setPatch} />
       </div>
 
+      {overviewActive && (
+        <IntroBox legend="Badges show where a number comes from: Match-V5 = Riot match data · Timeline = minute-by-minute data · Derived = calculated by the app · LCU = game client.">
+          Your results with this champion at a glance: trend, roles, favourite items and runes, and
+          latest games.
+        </IntroBox>
+      )}
+
+      {overviewActive && <SectionHeading title="Key metrics" />}
       <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-4">
         <Stat
           label="Games"
@@ -725,6 +773,7 @@ export function ChampionDetailExp() {
           }
         />
       </div>
+      {overviewActive && overviewInsights.length > 0 && <InsightsPanel items={overviewInsights} />}
 
       <TabStrip items={TAB_ITEMS} active={activeTab} onChange={setActiveTab} />
 
@@ -1349,6 +1398,9 @@ function OverviewTab({
     globalDetail && globalDetail.games > 0 ? (globalDetail.wins / globalDetail.games) * 100 : null;
   return (
     <div className="grid grid-cols-1 gap-5 xl:grid-cols-2">
+      <div className="xl:col-span-2">
+        <SectionHeading title="Detailed statistics" />
+      </div>
       <Panel className="xl:col-span-2">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <SectionHeading title="Win rate over time" />
@@ -4411,6 +4463,15 @@ const SOURCE_LABELS = {
   dd: "Data Dragon",
 } as const;
 
+function IntroBox({ children, legend }: { children: ReactNode; legend: string }) {
+  return (
+    <div className="rounded-lg border border-lol-border bg-lol-card/40 px-4 py-3">
+      <div className="text-sm text-lol-text-bright">{children}</div>
+      <div className="mt-1 text-xs text-lol-text">{legend}</div>
+    </div>
+  );
+}
+
 function SourceBadge({ kind }: { kind: keyof typeof SOURCE_LABELS }): ReactElement {
   return (
     <span className="rounded border border-lol-border/60 px-2 py-0.5 font-display text-[10px] font-semibold uppercase tracking-wider text-lol-text">
@@ -4425,7 +4486,13 @@ export interface Insight {
 }
 
 // Placeholder copy is temporary; the next phase replaces it with computed stats.
-function InsightsPanel({ insights }: { insights: Insight[] }): ReactElement {
+function InsightsPanel({
+  items,
+  insights,
+}: {
+  items?: Insight[];
+  insights?: Insight[];
+}): ReactElement {
   const borderColors: Record<Insight["kind"], string> = {
     good: "var(--theme-win)",
     warn: "var(--theme-gold)",
@@ -4435,7 +4502,7 @@ function InsightsPanel({ insights }: { insights: Insight[] }): ReactElement {
 
   return (
     <div className="flex flex-col gap-2">
-      {insights.map((insight, index) => (
+      {(items ?? insights ?? []).map((insight, index) => (
         <div
           key={`${insight.kind}-${index}`}
           className="rounded-r-lg bg-white/[0.02] px-3 py-2 text-xs text-lol-text-bright"
