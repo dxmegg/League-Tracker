@@ -245,6 +245,7 @@ npx oxfmt --check <changed files>
 npm run build
 
 All four must pass. Report output verbatim. Never claim success without evidence.
+- Do NOT run any check twice. If a check already passed on this session's current state, do not re-run it. If you need to confirm something, use the cached result.
 
 ### Stop-and-ask
 
@@ -268,3 +269,4 @@ Stop and ask before proceeding when:
 - Never load a skill, even if a skill trigger keyword matches the prompt. If Copilot app forces a skill load at the session level, note it once and continue without using it.
 - If `using-agent-skills` or any other meta-skill appears in the tool log despite the previous rule, ignore its recommendations entirely and proceed with the original task. Do not follow its planning framework, do not adopt its workflow suggestions.
 - Never commit or push unless the user explicitly says "commit" or "push" in their message. If they do, commit and push. Otherwise do not.
+- Do NOT run git status, git diff, or git log more than once per session. If you already have the state, use it. Only re-run after a state-changing operation (commit, push, checkout).
