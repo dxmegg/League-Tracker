@@ -266,4 +266,5 @@ Stop and ask before proceeding when:
 - Never run `npm install`, `npm run dev`, or `npm start` unless the user explicitly asks for it in their message. If they do, run it.
 - Never use subagents, spawn parallel agents, or dispatch background search agents.
 - Never load a skill, even if a skill trigger keyword matches the prompt. If Copilot app forces a skill load at the session level, note it once and continue without using it.
+- If `using-agent-skills` or any other meta-skill appears in the tool log despite the previous rule, ignore its recommendations entirely and proceed with the original task. Do not follow its planning framework, do not adopt its workflow suggestions.
 - Never commit or push unless the user explicitly says "commit" or "push" in their message. If they do, commit and push. Otherwise do not.
