@@ -2751,6 +2751,8 @@ function TimelineTab({
   killDeathPositions: ChampionKillDeathPosition[] | null;
   killDeathPositionsLoading: boolean;
 }) {
+  const [timelinePhase, setTimelinePhase] = useState<"all" | "early" | "mid" | "late">("all");
+  const [mapMode, setMapMode] = useState<"dots" | "heatmap">("dots");
   const itemData = useItemData();
   const selectedGame = games?.find((game) => game.gameId === selectedGameId) ?? null;
   const ownerFrames =
@@ -2770,6 +2772,16 @@ function TimelineTab({
         ].includes(event.event_type),
       )
       .slice(0, 60) ?? [];
+  const filteredKillDeathPositions = useMemo(() => {
+    if (!killDeathPositions || timelinePhase === "all") return killDeathPositions;
+    return killDeathPositions.filter((position) => {
+      if (timelinePhase === "early") return position.timestampMs < 900_000;
+      if (timelinePhase === "mid") {
+        return position.timestampMs >= 900_000 && position.timestampMs <= 1_800_000;
+      }
+      return position.timestampMs > 1_800_000;
+    });
+  }, [killDeathPositions, timelinePhase]);
 
   if (gamesLoading) return <SectionLoading />;
   if (games == null || games.length === 0)
@@ -2816,7 +2828,60 @@ function TimelineTab({
           {killDeathPositionsLoading ? (
             <SectionLoading />
           ) : killDeathPositions && killDeathPositions.length > 0 ? (
-            <RiftMapScatter positions={killDeathPositions} />
+            <>
+              <div className="mb-3 flex flex-wrap items-center gap-2">
+                {(
+                  [
+                    ["all", "All"],
+                    ["early", "Early (0-15)"],
+                    ["mid", "Mid (15-30)"],
+                    ["late", "Late (30+)"],
+                  ] as const
+                ).map(([value, label]) => (
+                  <button
+                    key={value}
+                    type="button"
+                    aria-pressed={timelinePhase === value}
+                    className={`rounded-md border px-2.5 py-1 text-xs transition-colors ${
+                      timelinePhase === value
+                        ? "border-lol-crimson bg-lol-crimson/15 text-lol-text-bright"
+                        : "border-lol-border bg-black/10 text-lol-text hover:border-lol-crimson/60"
+                    }`}
+                    onClick={() => setTimelinePhase(value)}
+                  >
+                    {label}
+                  </button>
+                ))}
+                <span className="mx-1 h-4 border-l border-lol-border" aria-hidden="true" />
+                <div className="flex items-center gap-1" aria-label="Map render mode">
+                  {(
+                    [
+                      ["dots", "Dots"],
+                      ["heatmap", "Heatmap"],
+                    ] as const
+                  ).map(([value, label]) => (
+                    <button
+                      key={value}
+                      type="button"
+                      aria-pressed={mapMode === value}
+                      className={`rounded-md border px-2.5 py-1 text-xs transition-colors ${
+                        mapMode === value
+                          ? "border-lol-crimson bg-lol-crimson/15 text-lol-text-bright"
+                          : "border-lol-border bg-black/10 text-lol-text hover:border-lol-crimson/60"
+                      }`}
+                      onClick={() => setMapMode(value)}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              {filteredKillDeathPositions && filteredKillDeathPositions.length > 0 ? (
+                <RiftMapScatter positions={filteredKillDeathPositions} mode={mapMode} />
+              ) : (
+                <NoData text="No kill positions recorded in this phase." />
+              )}
+            </>
           ) : (
             <NoData text="No kill positions recorded for this champion yet." />
           )}

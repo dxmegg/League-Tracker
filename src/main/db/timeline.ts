@@ -457,7 +457,8 @@ export function getChampionKillDeathPositions(
             ORDER BY f.timestamp_ms DESC
             LIMIT 1
           ) AS y,
-          'kill' AS kind
+          'kill' AS kind,
+          ev.timestamp_ms AS timestampMs
         FROM match_timeline_events ev
         JOIN tracked_participants tp
           ON tp.game_id = ev.game_id
@@ -485,14 +486,15 @@ export function getChampionKillDeathPositions(
             ORDER BY f.timestamp_ms DESC
             LIMIT 1
           ) AS y,
-          'death' AS kind
+          'death' AS kind,
+          ev.timestamp_ms AS timestampMs
         FROM match_timeline_events ev
         JOIN tracked_participants tp
           ON tp.game_id = ev.game_id
          AND tp.participant_id = ev.victim_id
         WHERE ev.event_type = 'CHAMPION_KILL'
       )
-      SELECT x, y, kind
+      SELECT x, y, kind, timestampMs
       FROM positions
       WHERE x IS NOT NULL AND y IS NOT NULL
       LIMIT ?
