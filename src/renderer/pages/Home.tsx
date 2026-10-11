@@ -25,7 +25,7 @@ import { RecordTile } from "../components/RecordTile";
 import SummonerIcon from "../components/SummonerIcon";
 import { useActiveAccount } from "../hooks/useActiveAccount";
 import { useActiveTheme } from "../hooks/useActiveTheme";
-import { getChampionName, useChampionData } from "../hooks/useChampions";
+import { getAccountsWithData, getChampionName, useChampionData } from "../hooks/useChampions";
 import { useLiveGame } from "../hooks/useLiveGame";
 import { useViewState } from "../hooks/useViewState";
 import { ALL_ACCOUNTS_SENTINEL } from "../lib/accountsEvent";
@@ -579,8 +579,7 @@ export default function Home() {
   const champData = useChampionData();
 
   useEffect(() => {
-    window.api
-      .listAccountsWithData()
+    getAccountsWithData()
       .then(setSavedAccounts)
       .catch(() => setSavedAccounts([]));
   }, []);

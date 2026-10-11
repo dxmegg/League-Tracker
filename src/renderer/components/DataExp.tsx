@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import type { AccountListItem } from "../../shared/api";
+import { getAccountsWithData } from "../hooks/useChampions";
 import { formatNumber, formatTimeAgo } from "../lib/format";
 import { Panel } from "./Panel";
 import { SortableTable, type SortableColumn } from "./SortableTable";
@@ -12,8 +13,7 @@ export function DataExp() {
 
   useEffect(() => {
     let cancelled = false;
-    window.api
-      .listAccountsWithData()
+    getAccountsWithData()
       .then((data) => {
         if (!cancelled) setAccounts(data);
       })
