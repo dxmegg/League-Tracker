@@ -16,6 +16,7 @@ import type {
   ChampionTimelineGame,
   ChampionTrendsData,
   ChampionWeeklyWinRate,
+  ChampionWeeklyMetrics,
   ChampionRecordsResult,
   TimelineBucket,
   GlobalChampionDetail,
@@ -55,6 +56,7 @@ import { RadarChart } from "./RadarChart";
 import RiftMapScatter from "./RiftMapScatter";
 import RuneIcon from "./RuneIcon";
 import { SegmentedControl } from "./SegmentedControl";
+import Sparkline from "./Sparkline";
 import SummonerIcon from "./SummonerIcon";
 import SummonerSpellIcon from "./SummonerSpellIcon";
 import { TabStrip, type TabStripItem } from "./TabStrip";
@@ -311,6 +313,18 @@ export function ChampionDetailExp() {
         ? window.api.getChampionWeeklyWinRate(id, account)
         : Promise.resolve([] as ChampionWeeklyWinRate[]),
     [overviewActive, id, account],
+  );
+  const { data: weeklyMetrics } = useIpc<ChampionWeeklyMetrics[]>(
+    () =>
+      id != null
+        ? window.api.getChampionWeeklyMetrics(
+            id,
+            patch,
+            scopedQueue == null ? undefined : String(scopedQueue),
+            account,
+          )
+        : Promise.resolve([] as ChampionWeeklyMetrics[]),
+    [id, patch, scopedQueue, account],
   );
 
   const championStats = useMemo<ChampionStats | null>(
@@ -603,12 +617,14 @@ export function ChampionDetailExp() {
           label="Games"
           value={formatNumber(games)}
           sub={`${formatNumber(wins)}W · ${formatNumber(losses)}L`}
+          sparkValues={weeklyMetrics?.map((entry) => entry.metrics.games ?? null)}
         />
         <Stat
           label="Win rate"
           value={`${wr.toFixed(1)}%`}
           sub=""
           valueClass={wr >= 50 ? "text-lol-win" : "text-lol-loss"}
+          sparkValues={weeklyMetrics?.map((entry) => entry.metrics.winRate ?? null)}
         />
         <Stat
           label="KDA"
@@ -621,17 +637,20 @@ export function ChampionDetailExp() {
                 ? "text-lol-win"
                 : ""
           }
+          sparkValues={weeklyMetrics?.map((entry) => entry.metrics.kda ?? null)}
         />
         <Stat
           label="CS / min"
           value={stats.avg_cs_per_min != null ? stats.avg_cs_per_min.toFixed(1) : "—"}
           sub=""
+          sparkValues={weeklyMetrics?.map((entry) => entry.metrics.csPerMin ?? null)}
         />
         <Stat
           label="Score"
           value={stats.avg_score != null ? stats.avg_score.toFixed(1) : "—"}
           sub=""
           valueClass="text-lol-gold"
+          sparkValues={weeklyMetrics?.map((entry) => entry.metrics.score ?? null)}
         />
         <Stat
           label="MVP / ACE"
@@ -642,8 +661,18 @@ export function ChampionDetailExp() {
           }
           sub=""
         />
-        <Stat label="Avg damage" value={formatNumber(stats.avg_damage)} sub="" />
-        <Stat label="Avg gold" value={formatNumber(stats.avg_gold)} sub="" />
+        <Stat
+          label="Avg damage"
+          value={formatNumber(stats.avg_damage)}
+          sub=""
+          sparkValues={weeklyMetrics?.map((entry) => entry.metrics.avgDamage ?? null)}
+        />
+        <Stat
+          label="Avg gold"
+          value={formatNumber(stats.avg_gold)}
+          sub=""
+          sparkValues={weeklyMetrics?.map((entry) => entry.metrics.avgGold ?? null)}
+        />
         <Stat
           label="Kill participation"
           value={detailStats ? `${(detailStats.killParticipation * 100).toFixed(1)}%` : "—"}
@@ -658,21 +687,25 @@ export function ChampionDetailExp() {
           label="Avg damage taken"
           value={detailStats ? formatNumber(Math.round(detailStats.avgDamageTaken)) : "—"}
           sub=""
+          sparkValues={weeklyMetrics?.map((entry) => entry.metrics.avgDamageTaken ?? null)}
         />
         <Stat
           label="Avg heal"
           value={detailStats ? formatNumber(Math.round(detailStats.avgHeal)) : "—"}
           sub=""
+          sparkValues={weeklyMetrics?.map((entry) => entry.metrics.avgHeal ?? null)}
         />
         <Stat
           label="Gold / min"
           value={detailStats ? Math.round(detailStats.goldPerMin).toString() : "—"}
           sub=""
+          sparkValues={weeklyMetrics?.map((entry) => entry.metrics.goldPerMin ?? null)}
         />
         <Stat
           label="Avg game length"
           value={detailStats ? formatDuration(Math.round(detailStats.avgGameLength)) : "—"}
           sub=""
+          sparkValues={weeklyMetrics?.map((entry) => entry.metrics.avgGameLength ?? null)}
         />
         <Stat
           label="Total time played"
@@ -4342,14 +4375,21 @@ function Stat({
   value,
   sub,
   valueClass = "",
+  sparkValues,
 }: {
   label: string;
   value: string;
   sub: string;
   valueClass?: string;
+  sparkValues?: Array<number | null>;
 }) {
   return (
-    <div className="rounded-xl border border-lol-border bg-black/10 px-3.5 py-3">
+    <div className="relative rounded-xl border border-lol-border bg-black/10 px-3.5 py-3">
+      {sparkValues && (
+        <div className="pointer-events-none absolute right-2.5 top-2.5">
+          <Sparkline values={sparkValues} />
+        </div>
+      )}
       <span className="text-[12.5px] uppercase tracking-wider text-lol-text">{label}</span>
       <b
         className={`my-0.5 block font-display text-[24px] font-bold leading-tight text-lol-text-bright ${valueClass}`}

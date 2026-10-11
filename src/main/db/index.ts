@@ -93,6 +93,7 @@ export {
   getChampionAllyStats,
   getChampionTeammateStats,
   getChampionWeeklyWinRate,
+  getChampionWeeklyMetrics,
   getChampionMatchups,
   getChampionMatchupList,
   getAugmentStatsAll,

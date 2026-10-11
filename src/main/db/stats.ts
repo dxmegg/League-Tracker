@@ -468,6 +468,62 @@ export function getChampionWeeklyWinRate(
     .all(...params) as Array<{ weekStart: number; games: number; wins: number }>;
 }
 
+export function getChampionWeeklyMetrics(
+  championId: number,
+  patch?: string,
+  queue?: string,
+  account?: string,
+): Array<{ weekStart: number; metrics: Record<string, number | null> }> {
+  console.log("[db] getChampionWeeklyMetrics called:", { championId, patch, queue, account });
+  const source = statsSource(account);
+  const where = ["g.is_remake = 0", source.accountFilter, `${source.alias}.champion_id = ?`];
+  const params: any[] = account && account !== "all" ? [account, championId] : [championId];
+  if (patch) {
+    where.push("g.game_version = ?");
+    params.push(patch);
+  }
+  where.push(`g.queue_id NOT IN (${EXCLUDED_STATS_SQL})`);
+  if (queue) {
+    const queueId = Number(queue);
+    if (Number.isFinite(queueId)) applyQueueFilter(where, params, queueId);
+  }
+
+  try {
+    const rows = db
+      .prepare(`
+        SELECT
+          CAST(strftime('%s', date(g.game_creation / 1000, 'unixepoch', 'weekday 0', '-6 days')) AS INTEGER) * 1000 as weekStart,
+          COUNT(*) as games,
+          AVG(${source.alias}.win) * 100.0 as winRate,
+          (AVG(${source.alias}.kills) + AVG(${source.alias}.assists)) / NULLIF(AVG(${source.alias}.deaths), 0) as kda,
+          AVG(CASE WHEN g.game_duration >= 60 THEN ${source.alias}.cs * 60.0 / g.game_duration END) as csPerMin,
+          AVG(${source.alias}.score) as score,
+          AVG(${source.alias}.total_damage_dealt) as avgDamage,
+          AVG(${source.alias}.gold_earned) as avgGold,
+          AVG(${source.alias}.total_damage_taken) as avgDamageTaken,
+          AVG(${source.alias}.total_heal) as avgHeal,
+          AVG(CASE WHEN g.game_duration >= 60 THEN ${source.alias}.gold_earned * 60.0 / g.game_duration END) as goldPerMin,
+          AVG(g.game_duration) as avgGameLength
+        FROM ${source.table} ${source.alias}
+        JOIN games g ON ${source.alias}.game_id = g.game_id
+        WHERE ${where.join(" AND ")}
+        GROUP BY weekStart
+        ORDER BY weekStart ASC
+        LIMIT 24
+      `)
+      .all(...params) as Array<Record<string, number | null>>;
+    const result = rows.map(({ weekStart, games, ...metrics }) => ({
+      weekStart: weekStart as number,
+      metrics: { games, ...metrics },
+    }));
+    console.log("[db] getChampionWeeklyMetrics done:", { count: result.length });
+    return result;
+  } catch (error) {
+    console.error("[db] getChampionWeeklyMetrics failed:", error);
+    throw error;
+  }
+}
+
 export function getChampionMatchups(
   championId: number | null,
   account?: string,

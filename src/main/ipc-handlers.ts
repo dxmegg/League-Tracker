@@ -355,6 +355,16 @@ export function registerIpcHandlers() {
     },
   );
 
+  ipcMain.handle(
+    "db:champion-weekly-metrics",
+    async (_event, championId: number, patch?: string, queue?: string, account?: string) => {
+      console.log("[db] champion-weekly-metrics called:", { championId, patch, queue, account });
+      const result = db.getChampionWeeklyMetrics(championId, patch, queue, account);
+      console.log("[db] champion-weekly-metrics done:", { count: result.length });
+      return result;
+    },
+  );
+
   ipcMain.handle("db:champion-matchups", (_event, championId: number | null, account?: string) => {
     return db.getChampionMatchups(championId, account);
   });

@@ -407,6 +407,11 @@ export interface ChampionWeeklyWinRate {
   wins: number;
 }
 
+export interface ChampionWeeklyMetrics {
+  weekStart: number;
+  metrics: Record<string, number | null>;
+}
+
 export interface ChampionMatchup {
   championId: number;
   games: number;
@@ -1294,6 +1299,12 @@ export interface ElectronAPI {
     championId: number | null,
     account?: string,
   ) => Promise<ChampionWeeklyWinRate[]>;
+  getChampionWeeklyMetrics: (
+    championId: number,
+    patch?: string,
+    queue?: string,
+    account?: string,
+  ) => Promise<ChampionWeeklyMetrics[]>;
   getChampionTrendsData: (
     championId: number | null,
     patch?: string,

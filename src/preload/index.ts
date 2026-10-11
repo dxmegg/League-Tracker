@@ -8,6 +8,7 @@ import type {
   ChampionTimelineGame,
   TimelineBucket,
   ChampionTrendsData,
+  ChampionWeeklyMetrics,
   ElectronAPI,
   LcuStatus,
   MatchFilters,
@@ -165,6 +166,14 @@ const api: ElectronAPI = {
 
   getChampionWeeklyWinRate: (championId: number | null, account?: string) =>
     ipcRenderer.invoke("db:champion-weekly-winrate", championId, account),
+
+  getChampionWeeklyMetrics: (
+    championId: number,
+    patch?: string,
+    queue?: string,
+    account?: string,
+  ): Promise<ChampionWeeklyMetrics[]> =>
+    ipcRenderer.invoke("db:champion-weekly-metrics", championId, patch, queue, account),
 
   getChampionMatchups: (championId: number | null, account?: string) =>
     ipcRenderer.invoke("db:champion-matchups", championId, account),
