@@ -263,7 +263,7 @@ Stop and ask before proceeding when:
 ## 13. Hard limits
 
 - Maximum 3 edit tasks per prompt. If a prompt requests more, do the first 3, then stop and report the rest as deferred.
-- Never run `npm install`, `npm run dev`, `npm start`.
+- Never run `npm install`, `npm run dev`, or `npm start` unless the user explicitly asks for it in their message. If they do, run it.
 - Never use subagents, spawn parallel agents, or dispatch background search agents.
 - Never load a skill, even if a skill trigger keyword matches the prompt. If Copilot app forces a skill load at the session level, note it once and continue without using it.
 - Never commit or push unless the user explicitly says "commit" or "push" in their message. If they do, commit and push. Otherwise do not.
