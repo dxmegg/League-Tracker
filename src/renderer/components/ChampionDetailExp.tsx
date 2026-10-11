@@ -3474,9 +3474,70 @@ function CombatTab({
   const dealtTrueBest = dealtTrueValues.length > 0 ? Math.max(...dealtTrueValues) : null;
   const dealtTrueTotal =
     dealtTrueValues.length > 0 ? dealtTrueValues.reduce((sum, value) => sum + value, 0) : null;
+  const combatInsights: Insight[] = [];
+  if (globalDetail && matches.length > 0) {
+    const recentDamage =
+      matches.reduce((sum, match) => sum + match.total_damage_dealt, 0) / matches.length;
+    const damageDelta = recentDamage - globalDetail.avgDamage;
+    if (Math.abs(damageDelta) >= 1) {
+      combatInsights.push({
+        kind: damageDelta > 0 ? "good" : "warn",
+        text: `Recent damage dealt is ${Math.abs(damageDelta).toFixed(0)} ${damageDelta > 0 ? "above" : "below"} the champion baseline.`,
+      });
+    }
+  }
+  const multikills = [
+    ["Double kills", globalDetail?.doubleKills ?? 0],
+    ["Triple kills", globalDetail?.tripleKills ?? 0],
+    ["Quadra kills", globalDetail?.quadraKills ?? 0],
+    ["Penta kills", globalDetail?.pentaKills ?? 0],
+  ] as const;
+  const mostCommonMultikill = multikills.slice().sort((a, b) => b[1] - a[1])[0];
+  if (mostCommonMultikill && mostCommonMultikill[1] > 0) {
+    combatInsights.push({
+      kind: "info",
+      text: `Most common multikill: ${mostCommonMultikill[0]} (${mostCommonMultikill[1]}).`,
+    });
+  }
 
   return (
     <div className="grid grid-cols-1 gap-5 xl:grid-cols-2">
+      <div className="xl:col-span-2">
+        <IntroBox legend="Badges show where a number comes from: Match-V5 = Riot match data · Timeline = minute-by-minute data · Derived = calculated by the app · LCU = game client.">
+          Damage dealt and taken, kills and deaths, crowd control, healing and fighting habits.
+        </IntroBox>
+      </div>
+      <div className="xl:col-span-2">
+        <SectionHeading title="Key metrics" />
+        <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+          <CombatTile
+            label="Damage dealt"
+            value={
+              globalDetail?.avgDamage ?? detail.avgPhysicalDamageDealt + detail.avgMagicDamageDealt
+            }
+            subtitle="Average per game"
+          />
+          <CombatTile
+            label="Damage taken"
+            value={detail.avgDamageTaken}
+            subtitle="Average per game"
+          />
+          <CombatTile
+            label="CC / min"
+            value={detail.avgCcPerMin}
+            subtitle="Average crowd control"
+          />
+          <CombatTile label="Healing" value={globalDetail?.avgHeal} subtitle="Average per game" />
+        </div>
+      </div>
+      {combatInsights.length > 0 && (
+        <div className="xl:col-span-2">
+          <InsightsPanel items={combatInsights} />
+        </div>
+      )}
+      <div className="xl:col-span-2">
+        <SectionHeading title="Detailed statistics" />
+      </div>
       <Panel className="xl:col-span-2">
         <SectionHeading title="K/D/A over the last 20 games" />
         {chartMatches.length === 0 ? (
@@ -4283,23 +4344,28 @@ type CombatStatTableRow = [
 function CombatStatTable({ rows }: { rows: CombatStatTableRow[] }) {
   return (
     <div className="flex flex-col gap-2 text-xs">
-      <div className="grid grid-cols-[1fr_auto_auto_auto] gap-3 border-b border-lol-border/50 pb-2 font-semibold text-lol-text">
+      <div className="grid grid-cols-[minmax(0,1fr)_auto_auto_auto_auto_auto] gap-3 border-b border-lol-border/50 pb-2 font-semibold text-lol-text">
         <span>Stat</span>
-        <span>Avg</span>
-        <span>Best</span>
-        <span>Total</span>
+        <span>Avg / game</span>
+        <span>Best game</span>
+        <span>In wins</span>
+        <span>In losses</span>
+        <span>vs your other champions</span>
       </div>
-      {rows.map(([label, avg, best, total, formatter]) => {
+      {rows.map(([label, avg, best, _total, formatter]) => {
         const format = formatter ?? formatCombatNumber;
         return (
           <div
             key={label}
-            className="grid grid-cols-[1fr_auto_auto_auto] gap-3 text-lol-text-bright"
+            className="grid grid-cols-[minmax(0,1fr)_auto_auto_auto_auto_auto] gap-3 text-lol-text-bright"
           >
             <span>{label}</span>
             <span className="tabular-nums">{format(avg)}</span>
             <span className="tabular-nums">{format(best)}</span>
-            <span className="tabular-nums">{format(total)}</span>
+            {/* TODO: requires per-result breakdown in ChampionCombatStats */}
+            <span className="tabular-nums text-lol-text">—</span>
+            <span className="tabular-nums text-lol-text">—</span>
+            <span className="tabular-nums text-lol-text">—</span>
           </div>
         );
       })}
