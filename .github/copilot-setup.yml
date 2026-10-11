@@ -1,0 +1,9 @@
+setup:
+  shell: powershell
+  script: |
+    Set-Location -LiteralPath $env:COPILOT_WORKSPACE_PATH
+    if (-not (Test-Path node_modules)) {
+      npm ci
+    } else {
+      Write-Host "node_modules present, skipping npm ci"
+    }
