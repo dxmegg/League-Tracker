@@ -1659,6 +1659,7 @@ export interface ChampionKillDeathPosition {
   x: number;
   y: number;
   kind: "kill" | "death";
+  timestampMs: number;
 }
 
 export interface TimelineBucket {
