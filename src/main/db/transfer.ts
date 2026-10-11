@@ -5,7 +5,7 @@ import { unpackRaw } from "./payloads";
 import { insertGameFull, insertTrackedStatsOnly } from "./ingest";
 import { upsertSummoner, restoreSummonerFull, getAllPuuids } from "./summoner";
 import { getSetting, setSetting } from "./settings";
-import { rebuildDerivedStats } from "./scoring";
+import { rebuildDerivedStats, repairDerivedScores } from "./scoring";
 import { rebuildParticipantsFromPayloads } from "./schema";
 import type { ExportProgress, ImportProgress } from "../../shared/api";
 
@@ -219,7 +219,12 @@ export async function writeExportTo(
   return { games: count };
 }
 
-type ImportResult = { imported: number; total: number; skipped: number };
+type ImportResult = {
+  imported: number;
+  total: number;
+  skipped: number;
+};
+type ImportDataResult = ImportResult & { repairedScores: number };
 
 function importLegacyData(data: any): ImportResult {
   if (data.version >= 4) {
@@ -333,7 +338,7 @@ const MAX_IMPORT_LINE_BYTES = 50 * 1024 * 1024;
 export async function importData(
   filePath: string,
   onProgress?: (progress: ImportProgress) => void,
-): Promise<ImportResult> {
+): Promise<ImportDataResult> {
   console.log("[db] importData called:", { filePath });
   const handle = await fs.promises.open(filePath, "r");
   const magic = Buffer.alloc(2);
@@ -351,9 +356,12 @@ export async function importData(
       throw new Error("That file isn't a Mayhem Tracker backup");
     }
     const result = importLegacyData(data);
+    const repairedScores = repairDerivedScores().repaired;
+    console.log(`[db] post-import repaired ${repairedScores} derived scores`);
     onProgress?.({ phase: "done", current: 0, total: 0, label: "Import complete" });
-    console.log("[db] importData done:", result);
-    return result;
+    const importResult = { ...result, repairedScores };
+    console.log("[db] importData done:", importResult);
+    return importResult;
   }
 
   const input = fs.createReadStream(filePath).pipe(zlib.createGunzip());
@@ -609,8 +617,10 @@ export async function importData(
   flushStatuses();
   flushFrames();
   flushEvents();
+  const repairedScores = repairDerivedScores().repaired;
+  console.log(`[db] post-import repaired ${repairedScores} derived scores`);
   onProgress?.({ phase: "done", current: lineNumber, total: 0, label: "Import complete" });
-  const result = { imported, total, skipped: total - imported };
+  const result = { imported, total, skipped: total - imported, repairedScores };
   console.log("[db] importData done:", result);
   return result;
 }
