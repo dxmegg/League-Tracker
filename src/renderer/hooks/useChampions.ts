@@ -9,6 +9,7 @@ import type {
 import type { RuneTreeLayout } from "../../shared/api";
 
 let champCache: ChampionData | null = null;
+let championDataVersionPromise: Promise<string> | null = null;
 let spellCache: SummonerSpellData | null = null;
 let runeCache: RuneData | null = null;
 let runeTreeCache: RuneTreeLayout | null = null;
@@ -19,6 +20,11 @@ const itemPromises = new Map<string, Promise<ItemData>>();
 
 function hasData<T extends object>(obj: T | null): obj is T {
   return obj !== null && Object.keys(obj).length > 0;
+}
+
+export function getChampionDataVersion(): Promise<string> {
+  championDataVersionPromise ??= window.api.getChampionDataVersion();
+  return championDataVersionPromise;
 }
 
 export function useChampionData() {

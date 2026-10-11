@@ -2,7 +2,7 @@ import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } fro
 import type { MatchDetail, MatchListItem, ProfileData, ProfileRankedEntry } from "../lib/types";
 import { GameRow } from "./MatchHistory";
 import { useActiveAccount } from "../hooks/useActiveAccount";
-import { getChampionName, useChampionData } from "../hooks/useChampions";
+import { getChampionDataVersion, getChampionName, useChampionData } from "../hooks/useChampions";
 import type {
   AccountListItem,
   AccountSnapshot,
@@ -775,7 +775,7 @@ export default function Profile() {
 
             const profileExtras = await window.api.getProfileExtras();
             if (requestId !== loadRequestIdRef.current) return;
-            const dataDragonVersion = await window.api.getChampionDataVersion();
+            const dataDragonVersion = await getChampionDataVersion();
             if (requestId !== loadRequestIdRef.current) return;
             profileData = {
               puuid,
@@ -807,7 +807,7 @@ export default function Profile() {
               );
               return;
             }
-            const dataDragonVersion = await window.api.getChampionDataVersion();
+            const dataDragonVersion = await getChampionDataVersion();
             if (requestId !== loadRequestIdRef.current) return;
             profileData = profileDataFromSnapshot(snapshot, dataDragonVersion);
           }

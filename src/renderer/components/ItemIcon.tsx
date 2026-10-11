@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
-import { useItemData } from "../hooks/useChampions";
+import { getChampionDataVersion, useItemData } from "../hooks/useChampions";
 import { CDRAGON_ASSET_URL } from "../lib/constants";
 import HoverCard from "./HoverCard";
 import RiotText from "./RiotText";
@@ -56,7 +56,7 @@ export default function ItemIcon({ itemId, size = 24, patch }: ItemIconProps) {
       const isAbsolute =
         item?.iconPath?.startsWith("http://") || item?.iconPath?.startsWith("https://");
       if (!isAbsolute) {
-        const version = await window.api.getChampionDataVersion();
+        const version = await getChampionDataVersion();
         if (!cancelled && version && version !== "none") {
           candidates.push(
             `https://ddragon.leagueoflegends.com/cdn/${version}/img/item/${itemId}.png`,
