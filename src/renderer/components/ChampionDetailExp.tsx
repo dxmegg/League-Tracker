@@ -47,7 +47,6 @@ import { useHistoryScopeQueue } from "../lib/historyScope";
 import AugmentIcon from "./AugmentIcon";
 import ChampionIcon from "./ChampionIcon";
 import { DonutChart } from "./DonutChart";
-import { FilterSelect } from "./FilterSelect";
 import { LineChartExp } from "./LineChartExp";
 import { MatchRowExperiment } from "./MatchRowExperiment";
 import { Panel } from "./Panel";
@@ -55,6 +54,7 @@ import PatchSelect from "./PatchSelect";
 import { RadarChart } from "./RadarChart";
 import RiftMapScatter from "./RiftMapScatter";
 import RuneIcon from "./RuneIcon";
+import { SegmentedControl } from "./SegmentedControl";
 import SummonerIcon from "./SummonerIcon";
 import SummonerSpellIcon from "./SummonerSpellIcon";
 import { TabStrip, type TabStripItem } from "./TabStrip";
@@ -560,7 +560,7 @@ export function ChampionDetailExp() {
         ← All champions
       </button>
 
-      <div className="flex flex-wrap items-center justify-between gap-4 rounded-[14px] border border-lol-border bg-[linear-gradient(180deg,var(--theme-card-hover),var(--theme-card))] p-5">
+      <div className="rounded-[14px] border border-lol-border bg-[linear-gradient(180deg,var(--theme-card-hover),var(--theme-card))] p-5">
         <div className="flex min-w-0 items-center gap-4">
           {isSummary ? (
             <div className="flex h-[76px] w-[76px] items-center justify-center rounded-2xl border border-lol-gold/40 bg-lol-gold/10 text-center font-display text-xs font-bold text-lol-gold">
@@ -580,23 +580,22 @@ export function ChampionDetailExp() {
             </p>
           </div>
         </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <FilterSelect
-            value={queue != null ? String(queue) : undefined}
-            onChange={(value) => setQueue(value === undefined ? undefined : Number(value))}
-            placeholder="All queues"
-            allowClear
-            title="Queue"
-            options={[
-              { value: "420", label: "Ranked Solo" },
-              { value: "440", label: "Ranked Flex" },
-              { value: "450", label: "ARAM" },
-              { value: "400", label: "Normal" },
-              { value: "1700", label: "Arena" },
-            ]}
-          />
-          <PatchSelect value={patch} onChange={setPatch} />
-        </div>
+      </div>
+      <div className="flex flex-wrap items-center gap-2">
+        <SegmentedControl
+          value={queue}
+          onChange={setQueue}
+          label="Queue"
+          options={[
+            { value: undefined, label: "All queues" },
+            { value: 420, label: "Ranked Solo" },
+            { value: 440, label: "Ranked Flex" },
+            { value: 450, label: "ARAM" },
+            { value: 400, label: "Normal" },
+            { value: 1700, label: "Arena" },
+          ]}
+        />
+        <PatchSelect value={patch} onChange={setPatch} />
       </div>
 
       <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-4">
@@ -4557,7 +4556,17 @@ function RateRow({
       <span
         className={`w-[76px] shrink-0 text-right text-[11px] tabular-nums ${baseline == null ? (rate >= 50 ? "text-lol-win" : "text-lol-loss") : deltaClass}`}
       >
-        {rate.toFixed(1)}%{delta != null && ` ${delta >= 0 ? "+" : ""}${delta.toFixed(1)}`}
+        {rate.toFixed(1)}%
+        {delta != null && (
+          <span
+            className={`ml-1 rounded px-1 py-0.5 text-xs font-semibold ${
+              delta >= 0 ? "bg-emerald-500/10 text-lol-win" : "bg-rose-500/10 text-lol-loss"
+            }`}
+          >
+            {delta >= 0 ? "+" : ""}
+            {delta.toFixed(1)}
+          </span>
+        )}
       </span>
     </div>
   );
