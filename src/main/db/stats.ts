@@ -135,7 +135,16 @@ export function getChampionStatsAll(
 export function getChampionQueueStats(
   championId: number | null,
   account?: string,
-): Array<{ queueId: number; games: number; wins: number }> {
+): Array<{
+  queueId: number;
+  games: number;
+  wins: number;
+  kills: number;
+  deaths: number;
+  assists: number;
+  avgScore: number | null;
+  avgGameLength: number | null;
+}> {
   const source = statsSource(account);
   const where = ["g.is_remake = 0"];
   where.push(source.accountFilter);
@@ -147,35 +156,68 @@ export function getChampionQueueStats(
     .prepare(`
         SELECT g.queue_id as queueId,
                COUNT(*) as games,
-               SUM(${source.alias}.win) as wins
+               SUM(${source.alias}.win) as wins,
+               AVG(${source.alias}.kills) as kills,
+               AVG(${source.alias}.deaths) as deaths,
+               AVG(${source.alias}.assists) as assists,
+               AVG(${source.alias}.score) as avgScore,
+               AVG(g.game_duration) as avgGameLength
         FROM ${source.table} ${source.alias}
         JOIN games g ON ${source.alias}.game_id = g.game_id
         WHERE ${where.join(" AND ")}
         GROUP BY g.queue_id
         ORDER BY games DESC
       `)
-    .all(...params) as Array<{ queueId: number; games: number; wins: number }>;
+    .all(...params) as Array<{
+    queueId: number;
+    games: number;
+    wins: number;
+    kills: number;
+    deaths: number;
+    assists: number;
+    avgScore: number | null;
+    avgGameLength: number | null;
+  }>;
 }
 
 export function getChampionRoleStats(
   championId: number | null,
   patch?: string,
   queue?: number,
+  account?: string,
 ): ChampionRoleStat[] {
-  console.log("[db] getChampionRoleStats called:", { championId, patch, queue });
+  console.log("[db] getChampionRoleStats called:", { championId, patch, queue, account });
   const filter = participantFilter(patch, queue);
+  const ownerFilter =
+    account === "all"
+      ? "mp.puuid IN (SELECT puuid FROM summoner)"
+      : account
+        ? "mp.puuid = ?"
+        : "mp.puuid IN (SELECT puuid FROM summoner)";
+  const ownerParams: string[] = account && account !== "all" ? [account] : [];
   const rows = db
     .prepare(`
       SELECT
         COALESCE(NULLIF(mp.team_position, ''), 'UNKNOWN') as role,
         COUNT(*) as games,
-        SUM(mp.win) as wins
+        SUM(mp.win) as wins,
+        AVG(mp.kills) as kills,
+        AVG(mp.deaths) as deaths,
+        AVG(mp.assists) as assists,
+        AVG(mp.score) as avgScore,
+        AVG(CASE WHEN g.game_duration >= 60 THEN mp.cs * 60.0 / g.game_duration END) as avgCsPerMin
       FROM match_participants mp
+      JOIN games g ON g.game_id = mp.game_id
       WHERE ${filter.sql}${championId !== null ? " AND mp.champion_id = ?" : ""}
+        AND ${ownerFilter}
       GROUP BY COALESCE(NULLIF(mp.team_position, ''), 'UNKNOWN')
       ORDER BY games DESC
     `)
-    .all(...filter.params, ...(championId !== null ? [championId] : [])) as ChampionRoleStat[];
+    .all(
+      ...filter.params,
+      ...(championId !== null ? [championId] : []),
+      ...ownerParams,
+    ) as ChampionRoleStat[];
   console.log("[db] getChampionRoleStats done:", { count: rows.length });
   return rows;
 }
@@ -183,7 +225,15 @@ export function getChampionRoleStats(
 export function getChampionKeystones(
   championId: number | null,
   account?: string,
-): Array<{ runeId: number; picks: number; wins: number }> {
+): Array<{
+  runeId: number;
+  picks: number;
+  wins: number;
+  kills: number;
+  deaths: number;
+  assists: number;
+  avgScore: number | null;
+}> {
   const source = statsSource(account);
   const ownerPuuidSql = account ? "ps.puuid" : "g.puuid";
   const where = ["g.is_remake = 0", "g.raw_gz IS NOT NULL"];
@@ -201,7 +251,8 @@ export function getChampionKeystones(
                ${source.alias}.champion_id as champion_id,
                ${source.alias}.kills as kills,
                ${source.alias}.deaths as deaths,
-               ${source.alias}.assists as assists
+               ${source.alias}.assists as assists,
+               ${source.alias}.score as score
         FROM games g
         JOIN ${source.table} ${source.alias} ON ${source.alias}.game_id = g.game_id
         WHERE ${where.join(" AND ")}
@@ -214,9 +265,21 @@ export function getChampionKeystones(
     kills: number;
     deaths: number;
     assists: number;
+    score: number | null;
   }>;
 
-  const totals = new Map<number, { picks: number; wins: number }>();
+  const totals = new Map<
+    number,
+    {
+      picks: number;
+      wins: number;
+      kills: number;
+      deaths: number;
+      assists: number;
+      scoreTotal: number;
+      scoreCount: number;
+    }
+  >();
 
   for (const row of rows) {
     let raw: any;
@@ -250,14 +313,37 @@ export function getChampionKeystones(
 
     if (!owner || !owner.rune0) continue;
 
-    const current = totals.get(owner.rune0) ?? { picks: 0, wins: 0 };
+    const current = totals.get(owner.rune0) ?? {
+      picks: 0,
+      wins: 0,
+      kills: 0,
+      deaths: 0,
+      assists: 0,
+      scoreTotal: 0,
+      scoreCount: 0,
+    };
     current.picks++;
     current.wins += row.win;
+    current.kills += row.kills;
+    current.deaths += row.deaths;
+    current.assists += row.assists;
+    if (row.score != null) {
+      current.scoreTotal += row.score;
+      current.scoreCount++;
+    }
     totals.set(owner.rune0, current);
   }
 
   return [...totals.entries()]
-    .map(([runeId, v]) => ({ runeId, picks: v.picks, wins: v.wins }))
+    .map(([runeId, v]) => ({
+      runeId,
+      picks: v.picks,
+      wins: v.wins,
+      kills: v.kills / v.picks,
+      deaths: v.deaths / v.picks,
+      assists: v.assists / v.picks,
+      avgScore: v.scoreCount > 0 ? v.scoreTotal / v.scoreCount : null,
+    }))
     .sort((a, b) => b.picks - a.picks)
     .slice(0, 15);
 }
@@ -748,7 +834,13 @@ export function getAugmentStatsAll(
        JOIN games g ON ga.game_id = g.game_id`;
   return db
     .prepare(`
-    SELECT ${augmentId} as augment_id, COUNT(*) as picks, SUM(ps.win) as wins
+    SELECT ${augmentId} as augment_id,
+           COUNT(*) as picks,
+           SUM(ps.win) as wins,
+           AVG(ps.kills) as kills,
+           AVG(ps.deaths) as deaths,
+           AVG(ps.assists) as assists,
+           AVG(ps.score) as avgScore
     ${augmentSource}
     WHERE ${where.join(" AND ")}
     GROUP BY ${augmentId}
@@ -1038,7 +1130,13 @@ export function getChampionItemStats(
   patch?: string,
   queue?: number,
   account?: string,
-): { item_id: number; picks: number; wins: number }[] {
+): Array<{
+  item_id: number;
+  picks: number;
+  wins: number;
+  avgBuyTime: number | null;
+  commonPurchaseSlot: number | null;
+}> {
   const source = statsSource(account);
   const extraWhere: string[] = [];
   extraWhere.push("g.is_remake = 0");
@@ -1050,25 +1148,72 @@ export function getChampionItemStats(
     extraParams.push(patch);
   }
   applyQueueFilter(extraWhere, extraParams, queue);
-  const extraSql = extraWhere.length > 0 ? ` AND ${extraWhere.join(" AND ")}` : "";
+  const extraSql = extraWhere.join(" AND ");
   const itemCols = ["item0", "item1", "item2", "item3", "item4", "item5", "item6"];
   const excludedList = EXCLUDED_ITEM_IDS.join(", ");
+  const ownerPuuid = account ? "ps.puuid" : "g.puuid";
   const subquery = (col: string) =>
-    `SELECT ${source.alias}.${col} as item_id, ${source.alias}.win FROM ${source.table} ${source.alias} JOIN games g ON ${source.alias}.game_id = g.game_id WHERE ${championId !== null ? `${source.alias}.champion_id = ? AND ` : ""}${source.alias}.${col} IS NOT NULL AND ${source.alias}.${col} > 0 AND ${source.alias}.${col} NOT IN (${excludedList})${extraSql}`;
+    `SELECT ${source.alias}.${col} as item_id, ${source.alias}.game_id, mp.participant_id, ${source.alias}.win
+     FROM ${source.table} ${source.alias}
+     JOIN games g ON ${source.alias}.game_id = g.game_id
+     JOIN match_participants mp ON mp.game_id = g.game_id AND mp.puuid = ${ownerPuuid}
+     WHERE ${championId !== null ? `${source.alias}.champion_id = ? AND ` : ""}${source.alias}.${col} IS NOT NULL AND ${source.alias}.${col} > 0 AND ${source.alias}.${col} NOT IN (${excludedList}) AND ${extraSql}`;
   const params = itemCols.flatMap(() => [
     ...(championId !== null ? [championId] : []),
     ...extraParams,
   ]);
   return db
     .prepare(`
-    SELECT item_id, COUNT(*) as picks, SUM(win) as wins
-    FROM (
+    WITH item_occurrences AS (
       ${itemCols.map(subquery).join("\n      UNION ALL\n      ")}
+    ),
+    final_items AS (
+      SELECT DISTINCT game_id, participant_id, item_id
+      FROM item_occurrences
+    ),
+    purchase_orders AS (
+      SELECT fi.item_id, e.game_id, e.participant_id,
+             ROW_NUMBER() OVER (
+               PARTITION BY e.game_id, e.participant_id
+               ORDER BY e.timestamp_ms, e.event_index
+             ) AS purchase_order
+      FROM final_items fi
+      JOIN match_timeline_events e
+        ON e.game_id = fi.game_id
+       AND e.participant_id = fi.participant_id
+       AND e.item_id = fi.item_id
+       AND e.event_type = 'ITEM_PURCHASED'
     )
-    GROUP BY item_id
+    SELECT io.item_id,
+           COUNT(*) as picks,
+           SUM(io.win) as wins,
+           AVG((
+             SELECT MIN(e.timestamp_ms) / 1000.0
+             FROM match_timeline_events e
+             WHERE e.game_id = io.game_id
+               AND e.participant_id = io.participant_id
+               AND e.item_id = io.item_id
+               AND e.event_type = 'ITEM_PURCHASED'
+           )) as avgBuyTime,
+           (
+             SELECT po.purchase_order
+             FROM purchase_orders po
+             WHERE po.item_id = io.item_id
+             GROUP BY po.purchase_order
+             ORDER BY COUNT(*) DESC, po.purchase_order ASC
+             LIMIT 1
+           ) as commonPurchaseSlot
+    FROM item_occurrences io
+    GROUP BY io.item_id
     ORDER BY picks DESC
   `)
-    .all(...params) as any[];
+    .all(...params) as Array<{
+    item_id: number;
+    picks: number;
+    wins: number;
+    avgBuyTime: number | null;
+    commonPurchaseSlot: number | null;
+  }>;
 }
 
 // The id the Friends list keys a teammate on — puuid when we know it, so name
@@ -1715,10 +1860,8 @@ export function getOwnedRuneStats(queue?: number, patch?: string, account?: stri
   };
 }
 
-// Everything we know about one champion across every stored game, counting all
-// ten players in each game (not just our own). Items and augments come from the
-// participant tables for the same reason — the player_stats/game_augments
-// tables only hold our own picks.
+// Everything we know about one champion across the stored games owned by the
+// tracked accounts. Each matching game still includes every participant.
 export function getGlobalChampionDetail(
   championId: number | null,
   patch?: string,
@@ -1731,6 +1874,9 @@ export function getGlobalChampionDetail(
   kills: number;
   deaths: number;
   assists: number;
+  totalKills: number;
+  totalDeaths: number;
+  totalAssists: number;
   avgDamage: number;
   avgDamageTaken: number;
   avgGold: number;
@@ -1749,8 +1895,12 @@ export function getGlobalChampionDetail(
   const mpa = participantFilter(patch, queue, "mpa");
   const accountSql = (alias: string) =>
     account && account !== "all"
-      ? ` AND EXISTS (SELECT 1 FROM match_participants owner WHERE owner.game_id = ${alias}.game_id AND owner.puuid = ?)`
-      : "";
+      ? alias === "mp"
+        ? ` AND ${alias}.puuid = ?`
+        : ` AND EXISTS (SELECT 1 FROM match_participants owner WHERE owner.game_id = ${alias}.game_id AND owner.puuid = ?)`
+      : alias === "mp"
+        ? ` AND ${alias}.puuid IN (SELECT puuid FROM summoner)`
+        : ` AND EXISTS (SELECT 1 FROM match_participants owner WHERE owner.game_id = ${alias}.game_id AND owner.puuid IN (SELECT puuid FROM summoner))`;
   const mpSql = `${mp.sql}${accountSql("mp")}`;
   const mpaSql = `${mpa.sql}${accountSql("mpa")}`;
   const mpParams = account && account !== "all" ? [...mp.params, account] : mp.params;
@@ -1851,6 +2001,9 @@ export function getGlobalChampionDetail(
     kills: totals?.kills ?? 0,
     deaths: totals?.deaths ?? 0,
     assists: totals?.assists ?? 0,
+    totalKills: totals?.kills ?? 0,
+    totalDeaths: totals?.deaths ?? 0,
+    totalAssists: totals?.assists ?? 0,
     avgDamage: avg(totals?.damage),
     avgDamageTaken: avg(totals?.damageTaken),
     avgGold: avg(totals?.gold),

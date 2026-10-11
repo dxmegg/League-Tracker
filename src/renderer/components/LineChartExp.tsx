@@ -12,6 +12,8 @@ export function LineChartExp({
   yTicks,
   paddingLeft,
   height = 150,
+  secondaryValues,
+  hollowIndices = [],
 }: {
   values: number[];
   format: (v: number) => string;
@@ -26,6 +28,8 @@ export function LineChartExp({
   yTicks?: number[];
   paddingLeft?: number;
   height?: number;
+  secondaryValues?: number[];
+  hollowIndices?: number[];
 }) {
   const chartValues = series ? series.flatMap((item) => item.values) : values;
   const pointCount = series?.[0]?.values.length ?? values.length;
@@ -52,6 +56,7 @@ export function LineChartExp({
 
   const x = (i: number) => plotLeft + (i * (plotRight - plotLeft)) / (pointCount - 1 || 1);
   const y = (v: number) => plotTop + (1 - (v - lo) / range) * plotHeight;
+  const maxSecondary = Math.max(...(secondaryValues ?? [0]), 1);
 
   const xLabelIndices = (() => {
     if (!xLabels?.length) return [];
@@ -111,6 +116,22 @@ export function LineChartExp({
             strokeWidth="1"
           />
         )}
+        {secondaryValues?.map((value, index) => {
+          const barWidth = Math.max(4, (plotRight - plotLeft) / (pointCount * 2.5));
+          const barHeight = ((H - P - plotTop) * value) / maxSecondary;
+          return (
+            <rect
+              key={`secondary-${index}`}
+              x={x(index) - barWidth / 2}
+              y={H - P - barHeight}
+              width={barWidth}
+              height={barHeight}
+              fill="var(--theme-text)"
+              opacity="0.1"
+              rx="2"
+            />
+          );
+        })}
         {series ? (
           series.map((item) => (
             <polyline
@@ -132,7 +153,16 @@ export function LineChartExp({
               strokeLinejoin="round"
             />
             {values.map((v, i) => (
-              <circle key={i} cx={x(i)} cy={y(v).toFixed(1)} r="4" fill={color}>
+              <circle
+                key={i}
+                cx={x(i)}
+                cy={y(v).toFixed(1)}
+                r="4"
+                fill={hollowIndices.includes(i) ? "var(--theme-card)" : color}
+                stroke={color}
+                strokeWidth={hollowIndices.includes(i) ? "1.5" : "0"}
+                opacity={hollowIndices.includes(i) ? "0.65" : "1"}
+              >
                 <title>{tooltips ? tooltips[i] : format(v)}</title>
               </circle>
             ))}

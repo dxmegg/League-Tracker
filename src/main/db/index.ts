@@ -167,6 +167,7 @@ export {
   getTimeline,
   getChampionTimelineGames,
   getChampionTimelineAverages,
+  getChampionKillDeathPositions,
   insertTimeline,
   markTimelineFetchError,
   reparsedTimelines,

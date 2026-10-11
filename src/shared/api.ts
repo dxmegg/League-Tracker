@@ -366,18 +366,32 @@ export interface ChampionQueueStat {
   queueId: number;
   games: number;
   wins: number;
+  kills?: number;
+  deaths?: number;
+  assists?: number;
+  avgScore?: number | null;
+  avgGameLength?: number | null;
 }
 
 export interface ChampionRoleStat {
   role: string;
   games: number;
   wins: number;
+  kills?: number;
+  deaths?: number;
+  assists?: number;
+  avgCsPerMin?: number | null;
+  avgScore?: number | null;
 }
 
 export interface ChampionKeystoneStat {
   runeId: number;
   picks: number;
   wins: number;
+  kills?: number;
+  deaths?: number;
+  assists?: number;
+  avgScore?: number | null;
 }
 
 export interface ChampionRuneStatsResult {
@@ -440,12 +454,18 @@ export interface AugmentStats {
   augment_id: number;
   picks: number;
   wins: number;
+  kills?: number;
+  deaths?: number;
+  assists?: number;
+  avgScore?: number | null;
 }
 
 export interface ItemStats {
   item_id: number;
   picks: number;
   wins: number;
+  avgBuyTime?: number | null;
+  commonPurchaseSlot?: number | null;
 }
 export interface RuneStats {
   rune_id: number;
@@ -951,6 +971,9 @@ export interface GlobalChampionDetail {
   kills: number;
   deaths: number;
   assists: number;
+  totalKills: number;
+  totalDeaths: number;
+  totalAssists: number;
   avgDamage: number;
   avgDamageTaken: number;
   avgGold: number;
@@ -1254,6 +1277,7 @@ export interface ElectronAPI {
     championId: number | null,
     patch?: string,
     queue?: number,
+    account?: string,
   ) => Promise<ChampionRoleStat[]>;
   getChampionKeystones: (
     championId: number | null,
@@ -1288,6 +1312,11 @@ export interface ElectronAPI {
     queue?: number,
     account?: string,
   ) => Promise<TimelineBucket[]>;
+  getChampionKillDeathPositions: (
+    championId: number,
+    limit?: number,
+    account?: string,
+  ) => Promise<ChampionKillDeathPosition[]>;
   getChampionMatchups: (championId: number | null, account?: string) => Promise<ChampionMatchups>;
   getChampionMatchupList: (
     championId: number | null,
@@ -1623,6 +1652,12 @@ export interface ChampionTimelineGame {
   deaths: number;
   assists: number;
   frameCount: number;
+}
+
+export interface ChampionKillDeathPosition {
+  x: number;
+  y: number;
+  kind: "kill" | "death";
 }
 
 export interface TimelineBucket {

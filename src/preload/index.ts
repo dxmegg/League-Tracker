@@ -3,6 +3,7 @@ import type {
   BackfillProgress,
   BackfillResult,
   ChampionDetailStats,
+  ChampionKillDeathPosition,
   ChampionRoleStat,
   ChampionTimelineGame,
   TimelineBucket,
@@ -61,6 +62,13 @@ const api: ElectronAPI = {
     account?: string,
   ): Promise<TimelineBucket[]> =>
     ipcRenderer.invoke("db:champion-timeline-averages", championId, patch, queue, account),
+
+  getChampionKillDeathPositions: (
+    championId: number,
+    limit?: number,
+    account?: string,
+  ): Promise<ChampionKillDeathPosition[]> =>
+    ipcRenderer.invoke("db:champion-kill-death-positions", championId, limit, account),
 
   fetchTimeline: (gameId: number, platform?: string): Promise<TimelineData | null> =>
     ipcRenderer.invoke("db:timeline-fetch", gameId, platform),
@@ -138,8 +146,9 @@ const api: ElectronAPI = {
     championId: number | null,
     patch?: string,
     queue?: number,
+    account?: string,
   ): Promise<ChampionRoleStat[]> =>
-    ipcRenderer.invoke("db:champion-role-stats", championId, patch, queue),
+    ipcRenderer.invoke("db:champion-role-stats", championId, patch, queue, account),
 
   getChampionKeystones: (championId: number | null, account?: string) =>
     ipcRenderer.invoke("db:champion-keystones", championId, account),
