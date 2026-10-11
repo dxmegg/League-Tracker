@@ -4007,21 +4007,14 @@ function FarmTab({
 
   return (
     <div className="grid grid-cols-1 gap-5 xl:grid-cols-2">
-      <InsightsPanel
-        insights={[
-          {
-            kind: "good",
-            text: `CS pace is based on ${timelineGames} game-minute samples with timeline data.`,
-          },
-          {
-            kind: "info",
-            text:
-              csLead.length > 0
-                ? "The CS curve can be compared with the nearest available lane-opponent frame."
-                : "Lane CS lead is not available without a matching opponent timeline.",
-          },
-        ]}
-      />
+      <div className="xl:col-span-2">
+        <IntroBox legend="Badges show where a number comes from: Match-V5 = Riot match data · Timeline = minute-by-minute data · Derived = calculated by the app · LCU = game client.">
+          How well you farm: CS per minute, lead over your opponent, and where your CS comes from.
+        </IntroBox>
+      </div>
+      <div className="xl:col-span-2">
+        <SectionHeading title="Key metrics" />
+      </div>
       <Panel className="xl:col-span-2">
         <SectionHeading title="Farm snapshot" source="d" />
         <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
@@ -4045,6 +4038,26 @@ function FarmTab({
           <Stat label="Possible CS @10" value="—" sub="Not available from current data" />
         </div>
       </Panel>
+      <div className="xl:col-span-2">
+        <InsightsPanel
+          insights={[
+            {
+              kind: "good",
+              text: `CS pace is based on ${timelineGames} game-minute samples with timeline data.`,
+            },
+            {
+              kind: "info",
+              text:
+                csLead.length > 0
+                  ? "The CS curve can be compared with the nearest available lane-opponent frame."
+                  : "Lane CS lead is not available without a matching opponent timeline.",
+            },
+          ]}
+        />
+      </div>
+      <div className="xl:col-span-2">
+        <SectionHeading title="Detailed statistics" />
+      </div>
       <Panel>
         <SectionHeading title="Minion split" source="m" />
         <CombatStatTable
