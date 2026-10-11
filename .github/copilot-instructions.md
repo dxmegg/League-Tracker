@@ -254,3 +254,8 @@ Stop and ask before proceeding when:
 - The task touches `raw_gz`, `SCORE_FORMULA_VERSION`, or the schema without a migration.
 - The task needs four or more tasks.
 - The user's request conflicts with any rule in this file.
+
+## 12. Git operations
+
+- Never run git commands that rename branches, stash, reset, checkout, rebase, or cherry-pick.
+- Commit and push are allowed ONLY when the user explicitly says "commit" or "push" in their message. If the user says "commit all" or "commit and push", do it. Otherwise, do not commit or push.
