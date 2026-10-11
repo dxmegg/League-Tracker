@@ -3779,21 +3779,14 @@ function EconomyTab({
 
   return (
     <div className="grid grid-cols-1 gap-5 xl:grid-cols-2">
-      <InsightsPanel
-        insights={[
-          {
-            kind: "good",
-            text: `Gold timeline averages are based on ${timelineGames} game-minute samples.`,
-          },
-          {
-            kind: "info",
-            text:
-              goldLead.length > 0
-                ? "Lane gold lead is shown at the nearest available timeline minute."
-                : "Lane gold lead is not available without a matching opponent timeline.",
-          },
-        ]}
-      />
+      <div className="xl:col-span-2">
+        <IntroBox legend="Badges show where a number comes from: Match-V5 = Riot match data · Timeline = minute-by-minute data · Derived = calculated by the app · LCU = game client.">
+          How much gold and experience you earn, how you spend it, and how it changes your games.
+        </IntroBox>
+      </div>
+      <div className="xl:col-span-2">
+        <SectionHeading title="Key metrics" />
+      </div>
       <Panel className="xl:col-span-2">
         <SectionHeading title="Economy snapshot" source="d" />
         <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
@@ -3817,6 +3810,26 @@ function EconomyTab({
           <Stat label="Comebacks" value="—" sub="Not available from current data" />
         </div>
       </Panel>
+      <div className="xl:col-span-2">
+        <InsightsPanel
+          insights={[
+            {
+              kind: "good",
+              text: `Gold timeline averages are based on ${timelineGames} game-minute samples.`,
+            },
+            {
+              kind: "info",
+              text:
+                goldLead.length > 0
+                  ? "Lane gold lead is shown at the nearest available timeline minute."
+                  : "Lane gold lead is not available without a matching opponent timeline.",
+            },
+          ]}
+        />
+      </div>
+      <div className="xl:col-span-2">
+        <SectionHeading title="Detailed statistics" />
+      </div>
       <Panel>
         <SectionHeading title="Gold over time" source="d" />
         {goldValues.length < 2 ? (
