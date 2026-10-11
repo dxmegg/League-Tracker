@@ -646,6 +646,28 @@ html[data-theme="test"] #root {
   background: #3a4457;
 }
 
+.scroll-themed {
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in srgb, var(--color-lol-border) 40%, transparent) transparent;
+}
+
+.scroll-themed::-webkit-scrollbar {
+  width: 6px;
+}
+
+.scroll-themed::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.scroll-themed::-webkit-scrollbar-thumb {
+  background: color-mix(in srgb, var(--color-lol-border) 40%, transparent);
+  border-radius: 3px;
+}
+
+.scroll-themed::-webkit-scrollbar-thumb:hover {
+  background: color-mix(in srgb, var(--color-lol-border) 65%, transparent);
+}
+
 /* Scroll containers flush against the window edge: the frameless window keeps a
    ~5px resize border there, which swallows a thin scrollbar. Widen the track and
    inset the thumb with a transparent border so it stays grabbable. */

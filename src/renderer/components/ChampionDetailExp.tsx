@@ -4320,7 +4320,9 @@ function RatePanel({
       ) : empty ? (
         <NoData />
       ) : (
-        <div className="flex max-h-[340px] flex-col gap-2 overflow-y-auto">{children}</div>
+        <div className="scroll-themed flex max-h-[340px] flex-col gap-2 overflow-y-auto">
+          {children}
+        </div>
       )}
     </Panel>
   );
