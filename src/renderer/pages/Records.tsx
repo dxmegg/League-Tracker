@@ -2,7 +2,7 @@ import { useEffect, useState, type ReactNode } from "react";
 import { useSearchParams } from "react-router-dom";
 import { useIpc } from "../hooks/useIpc";
 import { useHistoryScopeQueue } from "../lib/historyScope";
-import { useChampionData, getChampionName } from "../hooks/useChampions";
+import { getAccountsWithData, getChampionName, useChampionData } from "../hooks/useChampions";
 import type {
   ChampionData,
   MatchDetail,
@@ -411,8 +411,7 @@ export default function Records() {
   }, []);
 
   useEffect(() => {
-    window.api
-      .listAccountsWithData()
+    getAccountsWithData()
       .then(setAccounts)
       .catch((error: unknown) => {
         console.warn("Could not load accounts for records:", error);

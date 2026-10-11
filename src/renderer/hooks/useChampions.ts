@@ -6,10 +6,11 @@ import type {
   SummonerSpellData,
   RuneData,
 } from "../lib/types";
-import type { RuneTreeLayout } from "../../shared/api";
+import type { AccountListItem, RuneTreeLayout } from "../../shared/api";
 
 let champCache: ChampionData | null = null;
 let championDataVersionPromise: Promise<string> | null = null;
+let accountsWithDataPromise: Promise<AccountListItem[]> | null = null;
 let spellCache: SummonerSpellData | null = null;
 let runeCache: RuneData | null = null;
 let runeTreeCache: RuneTreeLayout | null = null;
@@ -25,6 +26,11 @@ function hasData<T extends object>(obj: T | null): obj is T {
 export function getChampionDataVersion(): Promise<string> {
   championDataVersionPromise ??= window.api.getChampionDataVersion();
   return championDataVersionPromise;
+}
+
+export function getAccountsWithData(): Promise<AccountListItem[]> {
+  accountsWithDataPromise ??= window.api.listAccountsWithData();
+  return accountsWithDataPromise;
 }
 
 export function useChampionData() {

@@ -2,7 +2,12 @@ import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } fro
 import type { MatchDetail, MatchListItem, ProfileData, ProfileRankedEntry } from "../lib/types";
 import { GameRow } from "./MatchHistory";
 import { useActiveAccount } from "../hooks/useActiveAccount";
-import { getChampionDataVersion, getChampionName, useChampionData } from "../hooks/useChampions";
+import {
+  getAccountsWithData,
+  getChampionDataVersion,
+  getChampionName,
+  useChampionData,
+} from "../hooks/useChampions";
 import type {
   AccountListItem,
   AccountSnapshot,
@@ -689,7 +694,7 @@ export default function Profile() {
       }
     };
 
-    void Promise.allSettled([refreshLivePuuid(), window.api.listAccountsWithData()]).then(
+    void Promise.allSettled([refreshLivePuuid(), getAccountsWithData()]).then(
       ([_liveResult, accountsResult]) => {
         if (!mounted) return;
 

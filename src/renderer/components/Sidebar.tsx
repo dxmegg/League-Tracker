@@ -3,6 +3,7 @@ import { NavLink, useLocation } from "react-router-dom";
 import type { AccountListItem } from "../../shared/api";
 import { useBackfill } from "../hooks/useBackfill";
 import { useActiveAccount } from "../hooks/useActiveAccount";
+import { getAccountsWithData } from "../hooks/useChampions";
 import { useLcuStatus } from "../hooks/useLcuStatus";
 import { ALL_ACCOUNTS_SENTINEL } from "../lib/accountsEvent";
 import type { LcuStatus } from "../lib/types";
@@ -54,8 +55,7 @@ export function Sidebar() {
     let cancelled = false;
 
     const load = () => {
-      window.api
-        .listAccountsWithData()
+      getAccountsWithData()
         .then((next) => {
           if (!cancelled) setSavedAccounts(next);
         })
@@ -65,7 +65,16 @@ export function Sidebar() {
     };
 
     load();
-    const unsubscribe = window.api.onGamesUpdated(load);
+    const unsubscribe = window.api.onGamesUpdated(() => {
+      void window.api
+        .listAccountsWithData()
+        .then((next) => {
+          if (!cancelled) setSavedAccounts(next);
+        })
+        .catch(() => {
+          if (!cancelled) setSavedAccounts([]);
+        });
+    });
 
     return () => {
       cancelled = true;
