@@ -1312,6 +1312,11 @@ export interface ElectronAPI {
     queue?: number,
     account?: string,
   ) => Promise<TimelineBucket[]>;
+  getChampionKillDeathPositions: (
+    championId: number,
+    limit?: number,
+    account?: string,
+  ) => Promise<ChampionKillDeathPosition[]>;
   getChampionMatchups: (championId: number | null, account?: string) => Promise<ChampionMatchups>;
   getChampionMatchupList: (
     championId: number | null,
@@ -1647,6 +1652,12 @@ export interface ChampionTimelineGame {
   deaths: number;
   assists: number;
   frameCount: number;
+}
+
+export interface ChampionKillDeathPosition {
+  x: number;
+  y: number;
+  kind: "kill" | "death";
 }
 
 export interface TimelineBucket {

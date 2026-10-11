@@ -1,5 +1,11 @@
 import zlib from "zlib";
-import type { TimelineData, TimelineEvent, TimelineFrame, TimelineStatus } from "../../shared/api";
+import type {
+  ChampionKillDeathPosition,
+  TimelineData,
+  TimelineEvent,
+  TimelineFrame,
+  TimelineStatus,
+} from "../../shared/api";
 import { MAYHEM_QUEUE_IDS, QUEUE_ID_CUSTOM, TUTORIAL_QUEUE_IDS } from "../../shared/queues";
 import { parseTimeline, type ParsedTimeline } from "../timeline";
 import { acquireRequestSlot, fetchMatchTimeline, RiotApiError } from "../riot-api";
@@ -411,6 +417,96 @@ export function getChampionTimelineAverages(
     games: games.length,
   });
   return result;
+}
+
+export function getChampionKillDeathPositions(
+  championId: number,
+  limit = 500,
+  account?: string,
+): ChampionKillDeathPosition[] {
+  console.log("[db] getChampionKillDeathPositions called:", { championId, limit, account });
+  const cappedLimit = Math.min(Math.max(Math.trunc(limit), 1), 5000);
+  const ownerScope =
+    account === "all"
+      ? "mp.puuid IN (SELECT puuid FROM summoner)"
+      : account
+        ? "mp.puuid = ?"
+        : "mp.puuid IN (SELECT puuid FROM summoner)";
+  const params: Array<number | string> = [championId];
+  if (account && account !== "all") params.push(account);
+
+  const rows = db
+    .prepare(`
+      WITH tracked_participants AS (
+        SELECT mp.game_id, mp.participant_id
+        FROM match_participants mp
+        WHERE mp.champion_id = ?
+          AND ${ownerScope}
+      ),
+      positions AS (
+        SELECT
+          (
+            SELECT f.position_x
+            FROM match_timeline_frames f
+            WHERE f.game_id = ev.game_id
+              AND f.participant_id = ev.killer_id
+              AND f.timestamp_ms <= ev.timestamp_ms
+            ORDER BY f.timestamp_ms DESC
+            LIMIT 1
+          ) AS x,
+          (
+            SELECT f.position_y
+            FROM match_timeline_frames f
+            WHERE f.game_id = ev.game_id
+              AND f.participant_id = ev.killer_id
+              AND f.timestamp_ms <= ev.timestamp_ms
+            ORDER BY f.timestamp_ms DESC
+            LIMIT 1
+          ) AS y,
+          'kill' AS kind
+        FROM match_timeline_events ev
+        JOIN tracked_participants tp
+          ON tp.game_id = ev.game_id
+         AND tp.participant_id = ev.killer_id
+        WHERE ev.event_type = 'CHAMPION_KILL'
+
+        UNION ALL
+
+        SELECT
+          (
+            SELECT f.position_x
+            FROM match_timeline_frames f
+            WHERE f.game_id = ev.game_id
+              AND f.participant_id = ev.victim_id
+              AND f.timestamp_ms <= ev.timestamp_ms
+            ORDER BY f.timestamp_ms DESC
+            LIMIT 1
+          ) AS x,
+          (
+            SELECT f.position_y
+            FROM match_timeline_frames f
+            WHERE f.game_id = ev.game_id
+              AND f.participant_id = ev.victim_id
+              AND f.timestamp_ms <= ev.timestamp_ms
+            ORDER BY f.timestamp_ms DESC
+            LIMIT 1
+          ) AS y,
+          'death' AS kind
+        FROM match_timeline_events ev
+        JOIN tracked_participants tp
+          ON tp.game_id = ev.game_id
+         AND tp.participant_id = ev.victim_id
+        WHERE ev.event_type = 'CHAMPION_KILL'
+      )
+      SELECT x, y, kind
+      FROM positions
+      WHERE x IS NOT NULL AND y IS NOT NULL
+      LIMIT ?
+    `)
+    .all(...params, cappedLimit) as ChampionKillDeathPosition[];
+
+  console.log("[db] getChampionKillDeathPositions done:", { count: rows.length });
+  return rows;
 }
 
 export function insertTimeline(gameId: number, parsed: ParsedTimeline, rawPayload: any): void {

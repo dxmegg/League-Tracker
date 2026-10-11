@@ -4,6 +4,7 @@ import type {
   AugmentStats,
   ChampionAllyRow,
   ChampionDetailStats,
+  ChampionKillDeathPosition,
   ChampionKeystoneStat,
   ChampionMatchupRow,
   ChampionRuneStatsResult,
@@ -52,6 +53,7 @@ import { MatchRowExperiment } from "./MatchRowExperiment";
 import { Panel } from "./Panel";
 import PatchSelect from "./PatchSelect";
 import { RadarChart } from "./RadarChart";
+import RiftMapScatter from "./RiftMapScatter";
 import RuneIcon from "./RuneIcon";
 import SummonerIcon from "./SummonerIcon";
 import SummonerSpellIcon from "./SummonerSpellIcon";
@@ -224,6 +226,15 @@ export function ChampionDetailExp() {
         ? window.api.getTimeline(selectedTimelineGameId)
         : Promise.resolve(null),
     [timelineActive, selectedTimelineGameId],
+  );
+  const { data: killDeathPositions, loading: killDeathPositionsLoading } = useIpc<
+    ChampionKillDeathPosition[]
+  >(
+    () =>
+      timelineActive && !isSummary && id != null
+        ? window.api.getChampionKillDeathPositions(id, 500, account)
+        : Promise.resolve([]),
+    [timelineActive, isSummary, id, account],
   );
   const { data: matchHistory } = useIpc<{ matches: MatchListItem[]; total: number }>(
     () =>
@@ -802,6 +813,9 @@ export function ChampionDetailExp() {
           timeline={timelineData}
           timelineLoading={timelineLoading}
           champData={champData}
+          isSummary={isSummary}
+          killDeathPositions={killDeathPositions}
+          killDeathPositionsLoading={killDeathPositionsLoading}
         />
       ) : activeTab === "rc" ? (
         <RecordsTab records={records} recordsLoading={recordsLoading} matchHistory={matchHistory} />
@@ -2720,6 +2734,9 @@ function TimelineTab({
   timeline,
   timelineLoading,
   champData,
+  isSummary,
+  killDeathPositions,
+  killDeathPositionsLoading,
 }: {
   games: ChampionTimelineGame[] | null;
   gamesLoading: boolean;
@@ -2728,6 +2745,9 @@ function TimelineTab({
   timeline: TimelineData | null;
   timelineLoading: boolean;
   champData: ReturnType<typeof useChampionData>;
+  isSummary: boolean;
+  killDeathPositions: ChampionKillDeathPosition[] | null;
+  killDeathPositionsLoading: boolean;
 }) {
   const itemData = useItemData();
   const selectedGame = games?.find((game) => game.gameId === selectedGameId) ?? null;
@@ -2788,6 +2808,18 @@ function TimelineTab({
           ))}
         </div>
       </Panel>
+      {!isSummary && (
+        <Panel>
+          <SectionHeading title="Kill and death map" source="t" />
+          {killDeathPositionsLoading ? (
+            <SectionLoading />
+          ) : killDeathPositions && killDeathPositions.length > 0 ? (
+            <RiftMapScatter positions={killDeathPositions} />
+          ) : (
+            <NoData text="No kill positions recorded for this champion yet." />
+          )}
+        </Panel>
+      )}
       {timelineLoading ? (
         <Panel>
           <SectionLoading />
