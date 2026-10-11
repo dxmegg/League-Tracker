@@ -1,16 +1,16 @@
 scripts:
   - name: Install dependencies
-    command: Set-Location -LiteralPath $env:COPILOT_WORKSPACE_PATH; npm ci
+    command: cd /d "%COPILOT_WORKSPACE_PATH%" && npm ci
     triggers:
       - session.create
   - name: Typecheck
-    command: Set-Location -LiteralPath $env:COPILOT_WORKSPACE_PATH; npm run typecheck
+    command: cd /d "%COPILOT_WORKSPACE_PATH%" && npm run typecheck
   - name: Lint
-    command: Set-Location -LiteralPath $env:COPILOT_WORKSPACE_PATH; npm run lint
+    command: cd /d "%COPILOT_WORKSPACE_PATH%" && npm run lint
   - name: Build
-    command: Set-Location -LiteralPath $env:COPILOT_WORKSPACE_PATH; npm run build
+    command: cd /d "%COPILOT_WORKSPACE_PATH%" && npm run build
   - name: Start development app
-    command: Set-Location -LiteralPath $env:COPILOT_WORKSPACE_PATH; npm run dev
+    command: cd /d "%COPILOT_WORKSPACE_PATH%" && npm run dev
 instructions: |-
   # Mayhem Tracker – GitHub Copilot Instructions
 
