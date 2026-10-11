@@ -856,10 +856,8 @@ export function registerIpcHandlers() {
   });
 
   ipcMain.handle("dragon:version", async () => {
-    console.log("[dragon] championDataVersion called:", {});
     await dragon.waitForChampionData();
     const version = dragon.getChampionDataVersion();
-    console.log("[dragon] championDataVersion done:", { version });
     return version;
   });
 
