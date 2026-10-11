@@ -61,7 +61,6 @@ export function isTimelineSkippedQueue(queueId: number): boolean {
 }
 
 export async function fetchAndStoreTimeline(gameId: number, platform?: string): Promise<void> {
-  console.log("[db] fetchAndStoreTimeline called:", { gameId, platform });
   try {
     await acquireRequestSlot();
     const resolvedPlatform = platform?.trim() || resolveGamePlatform(gameId);
@@ -69,11 +68,6 @@ export async function fetchAndStoreTimeline(gameId: number, platform?: string): 
     const raw = await fetchMatchTimeline(gameId, resolvedPlatform);
     const parsed = parseTimeline(raw);
     insertTimeline(gameId, parsed, raw);
-    console.log("[db] fetchAndStoreTimeline done:", {
-      gameId,
-      frameCount: parsed.frames.length,
-      eventCount: parsed.events.length,
-    });
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     markTimelineFetchError(gameId, message);
