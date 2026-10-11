@@ -1239,6 +1239,7 @@ export interface ElectronAPI {
     filters?: Pick<MatchFilters, "championId" | "patch" | "queue" | "account">,
   ) => Promise<MatchFilterOptions>;
   getStoredQueues: () => Promise<number[]>;
+  repairDerivedScores: () => Promise<{ repaired: number }>;
   getMatchDetail: (gameId: number) => Promise<MatchDetail>;
   getTimeline: (gameId: number) => Promise<TimelineData | null>;
   fetchTimeline: (gameId: number, platform?: string) => Promise<TimelineData | null>;

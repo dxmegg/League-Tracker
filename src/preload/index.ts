@@ -42,6 +42,9 @@ const api: ElectronAPI = {
 
   getStoredQueues: () => ipcRenderer.invoke("db:stored-queues"),
 
+  repairDerivedScores: (): Promise<{ repaired: number }> =>
+    ipcRenderer.invoke("db:repair-derived-scores"),
+
   getMatchDetail: (gameId: number) => ipcRenderer.invoke("db:match-detail", gameId),
 
   getTimeline: (gameId: number) => ipcRenderer.invoke("db:timeline-get", gameId),

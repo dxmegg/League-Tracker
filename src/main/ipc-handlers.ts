@@ -115,6 +115,13 @@ export function registerIpcHandlers() {
     return db.getStoredQueues();
   });
 
+  ipcMain.handle("db:repair-derived-scores", () => {
+    console.log("[db] repair-derived-scores handler called:", {});
+    const result = db.repairDerivedScores();
+    console.log("[db] repair-derived-scores handler done:", result);
+    return result;
+  });
+
   ipcMain.handle("db:match-detail", (_event, gameId: number) => {
     return db.getMatchDetail(gameId);
   });

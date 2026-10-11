@@ -4,6 +4,7 @@ import {
   closeDatabase,
   getSetting,
   checkScoreBackfill,
+  repairDerivedScores,
   backfillMissingTrackedRows,
   runScoreBackfillIfNeeded,
   reconcileOwnerPuuids,
@@ -225,6 +226,13 @@ app.whenReady().then(async () => {
     console.error("Database initialization failed:", err);
     app.quit();
     return;
+  }
+
+  try {
+    const result = repairDerivedScores();
+    console.log(`[db] repaired ${result.repaired} stale derived scores`);
+  } catch (err: unknown) {
+    console.error("[db] Failed to repair stale derived scores:", err);
   }
 
   try {
