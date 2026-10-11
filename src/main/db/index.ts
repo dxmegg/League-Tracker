@@ -18,6 +18,7 @@ export {
   checkScoreBackfill,
   getMissingScoreCount,
   backfillParticipantScores,
+  repairDerivedScores,
   runScoreBackfillIfNeeded,
   parsePatch,
   detectRemake,

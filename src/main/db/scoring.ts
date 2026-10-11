@@ -264,6 +264,82 @@ export function backfillScores() {
   tx();
 }
 
+export function repairDerivedScores(): { repaired: number } {
+  console.log("[db] repairDerivedScores called:", {});
+  const tx = db.transaction(() => {
+    const stalePlayerRows = db
+      .prepare(
+        `SELECT ps.game_id, g.puuid, g.is_remake,
+                ps.champion_id, ps.kills, ps.deaths, ps.assists
+         FROM player_stats ps
+         JOIN games g ON g.game_id = ps.game_id
+         WHERE ps.score IS NULL`,
+      )
+      .all() as {
+      game_id: number;
+      puuid: string;
+      is_remake: number;
+      champion_id: number;
+      kills: number;
+      deaths: number;
+      assists: number;
+    }[];
+    const staleTrackedRows = db
+      .prepare(
+        `SELECT game_id, puuid
+         FROM tracked_game_stats
+         WHERE score IS NULL`,
+      )
+      .all() as { game_id: number; puuid: string }[];
+    const participants = groupByGame(
+      db
+        .prepare(
+          `SELECT game_id, ${SCORE_ROW_COLUMNS}
+           FROM match_participants
+           WHERE game_id IN (
+             SELECT game_id FROM player_stats WHERE score IS NULL
+             UNION
+             SELECT game_id FROM tracked_game_stats WHERE score IS NULL
+           )`,
+        )
+        .all() as (ScoreRow & { game_id: number })[],
+    );
+    const updatePlayer = db.prepare(
+      "UPDATE player_stats SET score = ?, score_raw = ?, score_badge = ? WHERE game_id = ? AND score IS NULL",
+    );
+    const updateTracked = db.prepare(
+      "UPDATE tracked_game_stats SET score = ?, score_raw = ?, score_badge = ? WHERE game_id = ? AND puuid = ? AND score IS NULL",
+    );
+    let repaired = 0;
+    for (const row of stalePlayerRows) {
+      const result =
+        row.is_remake === 1
+          ? null
+          : computeOwnerScore(participants.get(row.game_id) ?? [], row.puuid || null, row);
+      repaired += updatePlayer.run(
+        result?.score ?? null,
+        result?.raw ?? null,
+        result?.badge ?? null,
+        row.game_id,
+      ).changes;
+    }
+    for (const row of staleTrackedRows) {
+      const result = computeOwnerScore(participants.get(row.game_id) ?? [], row.puuid, undefined);
+      repaired += updateTracked.run(
+        result?.score ?? null,
+        result?.raw ?? null,
+        result?.badge ?? null,
+        row.game_id,
+        row.puuid,
+      ).changes;
+    }
+    return repaired;
+  });
+  const repaired = tx();
+  console.log("[db] repairDerivedScores done:", { repaired });
+  return { repaired };
+}
+
 export function parsePatch(version: unknown): string | null {
   if (typeof version !== "string") return null;
   const m = version.match(/^(\d+)\.(\d+)/);

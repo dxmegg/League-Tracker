@@ -1452,6 +1452,7 @@ function OverviewTab({
                 kills={role.kills}
                 deaths={role.deaths}
                 assists={role.assists}
+                avgScore={role.avgScore}
               />
             ))}
           </div>
@@ -1469,6 +1470,7 @@ function OverviewTab({
                   kills={role.kills}
                   deaths={role.deaths}
                   assists={role.assists}
+                  avgScore={role.avgScore}
                   baseline={
                     globalDetail && globalDetail.games > 0
                       ? (globalDetail.wins / globalDetail.games) * 100
@@ -1504,7 +1506,7 @@ function OverviewTab({
             sampleSize={augment.picks}
             secondary={
               !isSummary
-                ? `KDA ${formatOptionalKda(augment.kills, augment.deaths, augment.assists)} · score — · ${globalDetail?.games ? ((augment.picks / globalDetail.games) * 100).toFixed(1) : "—"}% pick`
+                ? `KDA ${formatOptionalKda(augment.kills, augment.deaths, augment.assists)} · score ${formatSmallMetric(augment.avgScore)} · ${globalDetail?.games ? ((augment.picks / globalDetail.games) * 100).toFixed(1) : "—"}% pick`
                 : undefined
             }
           />
@@ -1569,7 +1571,7 @@ function OverviewTab({
               sampleSize={keystone.picks}
               secondary={
                 !isSummary
-                  ? `KDA ${formatOptionalKda(keystone.kills, keystone.deaths, keystone.assists)} · score —`
+                  ? `KDA ${formatOptionalKda(keystone.kills, keystone.deaths, keystone.assists)} · score ${formatSmallMetric(keystone.avgScore)}`
                   : undefined
               }
             />
