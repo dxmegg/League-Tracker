@@ -4203,35 +4203,53 @@ function ObjectivesTab({
 
   return (
     <div className="grid grid-cols-1 gap-5 xl:grid-cols-2">
-      <InsightsPanel
-        insights={[
-          {
-            kind: objectiveTotal > detail.games ? "good" : "info",
-            text: `${objectiveTotal.toLocaleString()} objective events across ${detail.games.toLocaleString()} games.`,
-          },
-        ]}
-      />
-      <div className="grid grid-cols-2 gap-3 xl:col-span-2 xl:grid-cols-4">
-        <CombatTile
-          label="Objective events / game"
-          value={objectiveTotal / detail.games}
-          subtitle="turrets, inhibitors, barons and steals"
+      <div className="xl:col-span-2">
+        <IntroBox legend="Badges show where a number comes from: Match-V5 = Riot match data · Timeline = minute-by-minute data · Derived = calculated by the app · LCU = game client.">
+          How much you contribute to dragons, barons, heralds and turrets, and what it does for your
+          win rate.
+        </IntroBox>
+      </div>
+      <div className="xl:col-span-2">
+        <SectionHeading title="Key metrics" />
+        <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+          <CombatTile
+            label="Objective events / game"
+            value={objectiveTotal / detail.games}
+            subtitle="turrets, inhibitors, barons and steals"
+          />
+          <CombatTile
+            label="Objective damage / game"
+            value={objectiveDamagePerGame}
+            subtitle="combined objective and turret damage"
+          />
+          <CombatTile
+            label="First tower rate"
+            value={(detail.totalFirstTowerKill / detail.games) * 100}
+            subtitle={`${detail.totalFirstTowerKill.toLocaleString()} first towers`}
+          />
+          <CombatTile
+            label="First inhibitor rate"
+            value={(detail.totalFirstInhibitorKill / detail.games) * 100}
+            subtitle={`${detail.totalFirstInhibitorKill.toLocaleString()} first inhibitors`}
+          />
+        </div>
+      </div>
+      <div className="xl:col-span-2">
+        <InsightsPanel
+          insights={[
+            {
+              kind: objectiveTotal > detail.games ? "good" : "info",
+              text: `${objectiveTotal.toLocaleString()} objective events across ${detail.games.toLocaleString()} games.`,
+            },
+            {
+              kind: "info",
+              text: `First tower rate is ${(detail.totalFirstTowerKill / detail.games) * 100}% across ${detail.totalFirstTowerKill.toLocaleString()} games.`,
+            },
+          ]}
         />
-        <CombatTile
-          label="Objective damage / game"
-          value={objectiveDamagePerGame}
-          subtitle="combined objective and turret damage"
-        />
-        <CombatTile
-          label="First tower rate"
-          value={(detail.totalFirstTowerKill / detail.games) * 100}
-          subtitle={`${detail.totalFirstTowerKill.toLocaleString()} first towers`}
-        />
-        <CombatTile
-          label="First inhibitor rate"
-          value={(detail.totalFirstInhibitorKill / detail.games) * 100}
-          subtitle={`${detail.totalFirstInhibitorKill.toLocaleString()} first inhibitors`}
-        />
+      </div>
+      <div className="xl:col-span-2">
+        <SectionHeading title="Detailed statistics" />
       </div>
       <Panel>
         <SectionHeading title="Turrets & inhibitors" source="m" />
