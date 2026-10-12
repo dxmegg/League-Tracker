@@ -1,0 +1,270 @@
+HANDOFF — League Tracker / po summary mode
+Data: 2026-10-11
+
+1. Kim jesteś
+Piszesz prompty dla GitHub Copilota (web, github.com — NIE VS Code). User wkleja → Copilot wykonuje → wkleja Ci raport → iterujesz.
+
+Reguły twarde:
+- Prompty po angielsku, rozmowa z userem po polsku
+- Bez small talku, streszczaj się
+- Max 3 taski na prompt
+- Prompt kończy się: After the change, show me: ... + **Changes:**
+- W środku: Do tasks in order. Don't start the next task until the previous one is finished.
+- Zawsze dopisuj:
+  Source-level only — no browser, no Playwright, no screenshots.
+  Do NOT run any skill verification. Do NOT check the electron security config.
+  Do NOT run `npm install`. Do NOT run `npm run dev`.
+  Do NOT run git commands that rename branches, stash, reset, or checkout.
+- Sekcja po promptcie: Co zrobić + Moje sugestie (max 3)
+
+Efficiency requirements (dopisywać do KAŻDEGO promptu):
+- After EACH task: run only `npm run typecheck` and `npx oxfmt <touched files>`.
+- After the LAST task only: run `npm run lint && npm run build`.
+- When pasting source, paste ONLY the specific function bodies you edit, with 5 lines of context.
+- Do NOT re-read files already read in this session. Do NOT paste full files. Do NOT paste logs.
+
+Workflow:
+- 1 sesja Copilota = 1 faza = 1 commit na końcu
+- 2-3 prompty per sesja
+- Po każdym tasku 4 checki; STOP na fail
+- Format commita: <obszar> <faza> — <opis po angielsku>
+
+Czego NIE robić:
+- User nie chce manualnych checków po swojej stronie — Copilot ma raportować wszystko
+- User commituje sam na końcu (nie Copilot)
+- Żadnych pytań „czy chcesz kontynuować" — dawaj prompt, oni wiedzą co robić
+
+2. Stack
+Electron 40 + electron-vite 5
+React 19 + React Router 7 (HashRouter)
+Tailwind 4 (CSS vars + @theme)
+better-sqlite3, DB: data/matches.db (dev), %APPDATA%\league-tracker\data\matches.db (prod)
+Cloudflare Worker proxy: https://league-tracker-proxy.dxmegg.workers.dev
+league-connect dla LCU
+SCHEMA_VERSION = 24
+
+3. Stan obecny
+Branch: main (zmergowane PR #46-#55)
+Root checkout: C:\Users\Dxmeg\scoop\buckets\League-Tracker — ma node_modules i data/matches.db, używamy jako główne środowisko pracy
+
+Ostatnie zmergowane fazy:
+- Overview panels: volume layer, baseline delta, n<3 guard, W/L mini-bar, KDA/score/slot per-row (PR #50)
+- Timeline kill/death map: backend query (CTE + nearest-prior frame join), SVG scatter, TimelineTab panel (PR #51)
+- Score repair + renderer wiring: repairDerivedScores() at startup, avgScore w Role split / Keystones / Top augments (PR #52)
+- Log noise: championDataVersion + fetchAndStoreTimeline wyciszone (PR #53)
+- Accounts memoization: getAccountsWithData() accessor, 5 mount call sites przez jeden Promise (PR #54)
+- Import score fix: importData woła repairDerivedScores() po commicie, bez restartu (PR #55)
+
+Co zrobione w ostatnich sesjach:
+- 16-tab champion detail redesign — wszystkie taby aktywne
+- Cross-champion summary mode — route /champions/summary, przycisk "Check summary"
+- Owner-scope fix — mp.puuid IN (SELECT puuid FROM summoner)
+- Chart pack — DonutChart + RadarChart
+- Tier list, mastery thresholds, almost records
+- Source badges + insights panels
+- Category accent dots w TabStrip
+- Timeline kill/death map (SVG scatter na Summoner's Rift, per-champion)
+- Score pipeline: repair + import hook + renderer wiring
+- Accounts memoization w rendererze
+
+Faza — champion tab pattern (2026-10-12):
+- All 16 champion detail tabs now share: IntroBox + legend, SectionHeading "Key metrics", InsightsPanel (data-driven, 2-3 items), SectionHeading "Detailed statistics", 5-column stat tables via shared CombatStatTable
+- Tabs: Overview, Combat, Economy, Farm, Objectives, Vision, Abilities, Items, Runes, Matchups, Synergies, Timeline, Trends, Records, Matches, Mastery
+- Commits: 07e7230a (Overview), ac221c84 (Combat), 9105c6ef (Economy), 151b0afe/d379292b (Farm), 4e1612f4 (Vision), 5e45d574 (Abilities), then Objectives, Items, Runes, Matchups, Synergies, Timeline, Trends, Records, Matches, Mastery on 2026-10-12
+- Note: 5-column tables render "—" placeholders for In wins / In losses / vs your other champions columns on Combat/CombatStatTable-driven panels — backfill of per-result breakdown is deferred
+
+Ostatnie zamknięte fazy (2026-10-11):
+- A (log noise dragon:*): DONE (already silent before this session)
+- D (summary tiles): DONE (source + runtime verified — SCORE 6.3, MVP/ACE 562/249, CS/MIN 2.3 in /champions/summary)
+- B (lazy repair): REJECTED (repair is ms-level, idempotent, lazy would worsen UX)
+- C (timeline heatmap + phase filter): DONE (commit 7dfc7050, PR merged)
+- Segmented filter pills + delta chip readability: DONE (commit 72dc46d2)
+- Copilot guardrails: .github/copilot-instructions.md + fixed .github/github-app.yml (commit 9de656f9)
+
+Co NIE zostało z conceptu:
+- Brak otwartych pozycji z konceptu po timeline map.
+
+4. Architektura — kluczowe reguły
+Nowy kanał IPC wymaga zmian w 4 miejscach: ipc-handlers.ts → preload/index.ts → shared/api.ts → caller w rendererze
+
+Namespace'y IPC: db:, riot:, lcu:, dragon:, settings:, window:, app:, data:, backup:, autostart:, update:
+
+SQL literals przez prepared statements
+
+Renderer nie używa fs, path, process, require — tylko window.api
+
+Hooki nigdy w .map() ani poniżej early return (Copilot kilka razy to zepsuł)
+
+Migracje tylko additive w runMigrations() w src/main/db/schema.ts
+
+Nowe kolumny w match_participants — snake_case, INTEGER NOT NULL DEFAULT 0
+
+CSP w electron.vite.config.ts:17 (BASE_CSP) — nowy custom protocol wymaga dopisania schematu do img-src
+
+Owner-scoping — krytyczne:
+- player_stats NIE MA kolumny puuid — join ps.puuid = mp.puuid crashuje. Używaj mp.puuid = g.puuid (default), mp.puuid = ? (specific), mp.puuid IN (SELECT puuid FROM summoner) (all).
+- getChampionMatchupList, getChampionAllyStats, getChampionTeammateStats celowo cross-participant (przeciwnicy/sojusznicy) — nie scope-ować.
+
+Timeline tables (SCHEMA_VERSION 22):
+- match_timeline_frames: game_id, frame_index, timestamp_ms, participant_id, puuid, position_x, position_y, ...
+- match_timeline_events: game_id, event_index, timestamp_ms, event_type, participant_id, killer_id, victim_id, team_id, item_id, skill_slot, raw_json
+- Pozycje są TYLKO w frames. CHAMPION_KILL events nie mają pozycji — join po (game_id, participant_id, timestamp_ms <= event.timestamp_ms ORDER BY DESC LIMIT 1)
+
+5. Znane pułapki Copilota
+Ładuje skille mimo „no skill verification" (system-level trigger > user-level instruction). User częściowo wyłączył.
+
+Wybieranie losowego worktree zamiast wskazanego — zdarza się regularnie. Zawsze sprawdzaj w raporcie jaką ścieżkę otworzył. Fix: sprawdzić `git log` i `git status` w raporcie przed zaakceptowaniem zmian.
+
+Renaming brancha bez pytania (np. dxmegg-jubilant-garbanzo → dxmegg-memoize-accounts-fetch).
+
+Odpalanie `npm install` mimo zakazu.
+
+Kompaktuje kontekst po ~60-70k tokenów → halucynuje, gubi taski. Sygnał: "Compacted conversation. Removed N messages".
+
+Robi over-eager self-audit loops (dodatkowe search/read bez potrzeby).
+
+Zdarza się że pisze JSX jako komentarze-placeholdery zamiast prawdziwego markupu.
+
+Czasem myli MatchupsTab return z innym JSX.
+
+Cherry-pickuje commity między worktree'ami — nie używać subsessji.
+
+6. Co dalej
+- A — Per-result breakdown backfill (In wins / In losses / vs other champions) to replace "—" placeholders
+- B — Hint text under panel headers (mockup has one-line description above each panel)
+- C — Per-tab accent color for InsightsPanel (currently all tabs share the same styling)
+- D — CDragon 522 intermittent failures (mitigated by cache)
+- E — New feature (ask user)
+
+7. Komendy
+npm run dev          # apka (wymaga LCU jako admin)
+npm run typecheck
+npm run lint
+npm run format:check
+npm run build
+
+8. Pliki referencyjne
+league-tracker-redesign (7).html — concept (target UI)
+Ten handoff
+
+9. Start nowej sesji
+User napisze „kontynuujemy" i wklei ten handoff. Ty pytasz:
+Od czego zaczynamy — A, B, C, D, czy E?
+Potem piszesz prompt.
+
+10. Aktualny workflow — ważne
+User NIE chce:
+- Manualnych checków (git status, PowerShell queries) po swojej stronie
+- Commitów po drodze — tylko jeden na końcu fazy
+- Długich wyjaśnień — streszczaj się
+- Pre-paste od usera (już próbowaliśmy, wrócił do "paste from disk")
+
+User CHCE:
+- Kopiuj-wklej z Copilotem: prompt → raport → następny prompt
+- Wszystko co trzeba sprawdzić, sprawdza Copilot sam i raportuje
+- Możesz mu powiedzieć co ma "oglądnąć" ale bez szczegółów
+
+Sesja Copilota kończy się gdy:
+- 3 prompty zjedzone ALBO
+- Copilot skompaktuje kontekst
+Wtedy user commituje i otwiera nowy czat z tobą.
+
+11. Export / Import — format v6
+Eksport: gzipped NDJSON (.json.gz), każda linia osobny JSON z type discriminator. Wersja 6.
+
+Import: wykrywa gzip po magic bytes 1f 8b, streamuje linie, batch writes co 5000. Po commicie woła repairDerivedScores() i zwraca repairedScores w wyniku.
+
+Legacy: stare JSON (v2/v3/v4/v5) nadal importowalne (bez gzip).
+
+Konwersja starego 1.5 GB eksportu: scripts/convert-legacy-export.mjs — streamuje do v6 gzip.
+
+Placeholder bug w restoreFrame/restoreEvent: naprawione (były 21 vs 20 i 17 vs 16).
+
+Format ma jednorazowy bug: eksport przy starcie apki może generować duplikaty _ownerPuuid — nie ruszaj bez potrzeby.
+
+12. Timeline / LCU / Dragon — stan
+Timeline backfill: backfillTimeline(limit) w db/timeline.ts. Skip-loop fix zaaplikowany: skip branch wywołuje markTimelineFetchError(gameId, "skipped: unsupported queue X").
+
+Auto-hook po grze: autoFetchTimelineQuiet(gameId, queueId) w lcu.ts, wołane z captureEogGame + poll. Skip jeśli isTimelineSkippedQueue(queueId).
+
+Kill/death map: getChampionKillDeathPositions(championId, limit=500, account?) — CTE + correlated subquery do match_timeline_frames, owner-scope mp.puuid IN (SELECT puuid FROM summoner).
+
+Dragon cache: dragon-asset:// custom protocol + disk cache w getDataDir()/dragon-images/. CSP ma dragon-asset: w img-src (electron.vite.config.ts:17).
+
+CDragon 522: intermittentne, mitygacja przez cache. Nie ruszaj bez powodu.
+
+13. Testowanie — kontekst danych
+User ma ~2100 gier na 13 kontach (dodanych przez LCU sync + import).
+
+Dev DB: data/matches.db w root checkout. Po imporcie z backupy liczba gier = ~2100, po auto-sync rośnie.
+
+Katarina to główny test champion (158+ gier, najwięcej).
+Gangplank drugi.
+
+Active theme: experiment (nie legacy) — ChampionExp.tsx (liczba pojedyncza), SettingsExp.tsx, TrendsExp.tsx.
+
+14. Branches — aktualny stan
+main — wszystkie fazy zmergowane do PR #55.
+
+Root checkout (C:\Users\Dxmeg\scoop\buckets\League-Tracker) — główne środowisko pracy, ma node_modules i data/matches.db.
+
+Worktree poboczne (dxmegg-jubilant-garbanzo, dxmegg-miniature-giggle, dxmegg-timeline-map, itd.) — historyczne, można je usunąć przez `git worktree remove`.
+
+User robi PR do main po zakończeniu fazy (nie pushuje bezpośrednio).
+
+15. Znane otwarte długi (nie blokują pracy)
+- Timeline kill/death map: DONE
+- Summary mode hero: SCORE / MVP-ACE / CS-MIN nadal "—" dla aggregate summary
+- CDragon 522 intermittentne (mitygacja cache)
+- Hot reload w dev: Ctrl+R ×3-4 powoduje duplikację logów handler startowych (nie bug w kodzie)
+- getChampionTimelineAverages używa mp.puuid = g.puuid — działa ale nietestowane na "all"
+- repairDerivedScores eagerly na starcie — kandydat na lazy (opcja B sekcji 6)
+- Log noise pozostałych dragon:* handlerów (dragon:championDataVersion wyciszony)
+
+16. Kontekst Copilota — oszczędzanie tokenów
+Problem: kontekst rośnie lawinowo, bo każda tura wysyła całość od nowa. Po 2-3 promptach z wklejonym concept HTML + pełnym handoffem sesja zjada ~300K+ tokenów i plan się kończy.
+
+Zasady:
+- Concept HTML NIE trafia do Copilota. Zamiast tego — screenshot panelu referencyjnego (1 obraz ~1-2K tokenów vs ~60K za HTML).
+- Handoff do Copilota = TYLKO sekcje istotne dla bieżącej fazy. Nie wklejać całości jeśli faza dotyczy jednego obszaru.
+- Poprzednie raporty Copilota nie wracają do kontekstu — user streszcza lub pomija.
+- 1 sesja = 1 faza = max 3 prompty. Po 3 promptach nowy czat, nawet jeśli plan niewyczerpany.
+- Po compactcie Copilota (widać po halucynacjach / gubieniu tasków) — natychmiast nowy czat, nie ciągnąć.
+- Nie wklejać tego samego pliku źródłowego 2× w jednej sesji. "Do NOT re-read files already read in this session" w promptcie — trzymać konsekwentnie.
+
+Do nowej sesji wklejać:
+1. Fragment handoffu dla fazy (sekcje 1-5 + właściwa sekcja tematyczna)
+2. Prompt
+3. Screenshoty referencyjne jeśli trzeba
+
+Nie wklejać:
+- concept HTML
+- pełnego handoffu
+- starych raportów
+- dopisku (sekcje 10-15) jeśli faza go nie dotyczy
+
+17. Tryb pracy — gdzie pracujemy
+Root checkout C:\Users\Dxmeg\scoop\buckets\League-Tracker:
+- ma node_modules i data/matches.db
+- przełączamy w nim branche (git fetch origin; git checkout -b <branch> origin/main)
+- to jest domyślne miejsce pracy od tej sesji
+
+Worktree Copilota:
+- Copilot app często sam tworzy nowy worktree przy nowym czacie (losowa nazwa dxmegg-xxx)
+- Nie chcemy tego — tracimy node_modules i DB
+- Rozwiązanie: otwierać nowy czat na root checkout, nie tworzyć worktree
+
+Gdy Copilot mimo wszystko utworzy worktree:
+- sprawdzić `git log` i `git status` w raporcie
+- jeśli base = świeży main a zmiany w worktree — przenieść pliki ręcznie (Copy-Item) do root
+- jeśli zmiany w root — pracować tam
+
+18. Historia sesji — co skończone ostatnio
+Sesja 2026-10-11 (A-B-C):
+- A: memoize accounts fetch (PR #54) — getAccountsWithData() accessor, 5 mount call sites
+- B: import score fix (PR #55) — importData woła repairDerivedScores() po commicie
+- C: ten handoff zaktualizowany
+
+Otwarte do następnej sesji: sekcja 6 A/B/C/D/E.
+
+To wszystko. Handoff kompletny.
