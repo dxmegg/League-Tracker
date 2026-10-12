@@ -11,6 +11,7 @@ import {
 import { BrowserWindow } from "electron";
 import https from "https";
 import * as db from "./db";
+import { invalidateDashboardCache } from "./db/dashboard-cache";
 import type { CurrentSummoner, LcuStatus, ProfileExtras, RankEntry } from "../shared/api";
 import { accountByRiotId, regionalRoute } from "./riot-api";
 
@@ -407,6 +408,7 @@ let autoBackfillPausedUntil = 0;
 
 function notifyGamesUpdated(win?: BrowserWindow | null) {
   if (win && !win.isDestroyed()) {
+    invalidateDashboardCache();
     win.webContents.send("lcu:games-updated");
   }
 }
@@ -887,6 +889,7 @@ export async function fetchNewGames(
   }
 
   if (newGamesCount > 0 && win && !win.isDestroyed()) {
+    invalidateDashboardCache();
     win.webContents.send("lcu:games-updated");
     db.runScoreBackfillIfNeeded((done, total) => {
       if (win && !win.isDestroyed()) {
