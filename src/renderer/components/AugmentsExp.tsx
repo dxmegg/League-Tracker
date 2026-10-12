@@ -48,7 +48,7 @@ export function AugmentsExp() {
   return (
     <div className="mx-auto flex min-h-full w-full max-w-[1320px] flex-col gap-5">
       <div>
-        <h1 className="font-display text-[30px] font-bold leading-tight tracking-[0.2px] text-lol-text-bright">
+        <h1 className="relative pl-4 font-display text-[30px] font-bold leading-tight tracking-[0.2px] text-lol-text-bright before:absolute before:left-1 before:top-1/2 before:h-2 before:w-2 before:-translate-y-1/2 before:rotate-45 before:bg-lol-crimson after:absolute after:bottom-[-8px] after:left-4 after:h-px after:w-28 after:bg-gradient-to-r after:from-lol-crimson/70 after:to-transparent">
           Augments
         </h1>
         <p className="mt-1.5 text-lol-text">Pick rate and win rate in ARAM Mayhem and Arena</p>
@@ -71,7 +71,7 @@ export function AugmentsExp() {
         ))}
       </div>
 
-      <div className="min-w-0 rounded-[14px] border border-lol-border bg-[linear-gradient(180deg,var(--theme-card-hover),var(--theme-card))] p-5">
+      <div className="min-w-0 rounded-[14px] border border-lol-border bg-[radial-gradient(circle_at_100%_0,rgba(201,164,92,0.08),transparent_42%),linear-gradient(180deg,var(--theme-card-hover),var(--theme-card))] p-5">
         {loading || !data ? (
           <div className="py-8 text-center text-sm text-lol-text">Loading…</div>
         ) : sorted.length === 0 ? (

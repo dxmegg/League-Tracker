@@ -532,19 +532,58 @@ html[data-theme="test"] #root {
   }
 
   .tile {
+    --tile-accent: #e5483f;
+    position: relative;
+    overflow: hidden;
     border: 1px solid var(--theme-border);
+    border-top: 3px solid var(--tile-accent);
     border-radius: 12px;
     padding: 14px;
-    background: rgba(0, 0, 0, 0.12);
+    background:
+      radial-gradient(
+        circle at 100% 0,
+        color-mix(in srgb, var(--tile-accent) 8%, transparent),
+        transparent 58%
+      ),
+      rgba(0, 0, 0, 0.12);
     display: flex;
     flex-direction: column;
     gap: 6px;
+  }
+
+  .tile:hover {
+    background:
+      radial-gradient(
+        circle at 100% 0,
+        color-mix(in srgb, var(--tile-accent) 10%, transparent),
+        transparent 58%
+      ),
+      rgba(255, 255, 255, 0.02);
+    box-shadow: 0 0 12px color-mix(in srgb, var(--tile-accent) 10%, transparent);
+  }
+
+  .tile-icon {
+    display: inline-flex;
+    align-self: flex-start;
+    border: 1px solid color-mix(in srgb, var(--tile-accent) 42%, transparent);
+    border-radius: 8px;
+    padding: 3px;
+    box-shadow: 0 0 10px color-mix(in srgb, var(--tile-accent) 16%, transparent);
   }
 
   .tile b {
     font-family: var(--theme-font-display, inherit);
     font-size: 14.5px;
     font-weight: 600;
+  }
+
+  .tile-dot {
+    display: inline-block;
+    width: 5px;
+    height: 5px;
+    margin: 0 7px 2px 0;
+    transform: rotate(45deg);
+    background: var(--tile-accent);
   }
 
   .tile small {

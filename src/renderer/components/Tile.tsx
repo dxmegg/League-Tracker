@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import type { CSSProperties, ReactNode } from "react";
 
 export function Tile({
   icon,
@@ -7,6 +7,7 @@ export function Tile({
   tier,
   trackValue,
   onClick,
+  accent,
 }: {
   icon: ReactNode;
   title: string;
@@ -14,7 +15,11 @@ export function Tile({
   tier?: "S" | "G" | "P";
   trackValue?: number;
   onClick?: () => void;
+  accent?: string;
 }) {
+  const tileAccent =
+    accent ??
+    (tier === "S" ? "#B8B8C4" : tier === "G" ? "#C9A45C" : tier === "P" ? "#A855F7" : "#E5483F");
   const content = (
     <>
       {tier && (
@@ -22,8 +27,11 @@ export function Tile({
           {tier === "S" ? "SILVER" : tier === "G" ? "GOLD" : "PRISMATIC"}
         </span>
       )}
-      {icon}
-      <b>{title}</b>
+      <span className="tile-icon">{icon}</span>
+      <b>
+        <span className="tile-dot" aria-hidden="true" />
+        {title}
+      </b>
       <small>{subtitle}</small>
       {trackValue != null && (
         <div className="h-[5px] overflow-hidden rounded-full bg-white/[0.05]">
@@ -40,11 +48,19 @@ export function Tile({
       <button
         type="button"
         onClick={onClick}
-        className="tile cursor-pointer text-left transition-colors hover:border-lol-crimson/40"
+        className="tile cursor-pointer text-left transition-[background-color,border-color,box-shadow] duration-120 hover:border-lol-crimson/40"
+        style={{ "--tile-accent": tileAccent } as CSSProperties}
       >
         {content}
       </button>
     );
   }
-  return <div className="tile">{content}</div>;
+  return (
+    <div
+      className="tile transition-[background-color,border-color,box-shadow] duration-120 hover:border-lol-crimson/40"
+      style={{ "--tile-accent": tileAccent } as CSSProperties}
+    >
+      {content}
+    </div>
+  );
 }

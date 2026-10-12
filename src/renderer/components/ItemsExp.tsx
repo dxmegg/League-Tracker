@@ -16,6 +16,7 @@ import { isAugmentQueue } from "../../shared/queues";
 import { formatNumber } from "../lib/format";
 
 type SortMode = "most-built" | "best-wr";
+const TILE_ACCENTS = ["#E5483F", "#C9A45C", "#22C55E", "#3B82F6", "#A855F7", "#64748B"];
 
 export function ItemsExp() {
   const navigate = useNavigate();
@@ -54,7 +55,7 @@ export function ItemsExp() {
     <div className="mx-auto flex min-h-full w-full max-w-[1320px] flex-col gap-5">
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <h1 className="font-display text-[30px] font-bold leading-tight tracking-[0.2px] text-lol-text-bright">
+          <h1 className="relative pl-4 font-display text-[30px] font-bold leading-tight tracking-[0.2px] text-lol-text-bright before:absolute before:left-1 before:top-1/2 before:h-2 before:w-2 before:-translate-y-1/2 before:rotate-45 before:bg-lol-crimson after:absolute after:bottom-[-8px] after:left-4 after:h-px after:w-28 after:bg-gradient-to-r after:from-lol-crimson/70 after:to-transparent">
             Items
           </h1>
           <p className="mt-1.5 text-lol-text">What you build and how it performs</p>
@@ -89,14 +90,14 @@ export function ItemsExp() {
         </div>
       </div>
 
-      <div className="min-w-0 rounded-[14px] border border-lol-border bg-[linear-gradient(180deg,var(--theme-card-hover),var(--theme-card))] p-5">
+      <div className="min-w-0 rounded-[14px] border border-lol-border bg-[radial-gradient(circle_at_100%_0,rgba(229,72,63,0.08),transparent_42%),linear-gradient(180deg,var(--theme-card-hover),var(--theme-card))] p-5">
         {loading || !stats ? (
           <div className="py-8 text-center text-sm text-lol-text">Loading…</div>
         ) : sorted.length === 0 ? (
           <div className="py-8 text-center text-sm text-lol-text">No items played yet.</div>
         ) : (
           <TileGrid>
-            {sorted.map((row) => {
+            {sorted.map((row, index) => {
               const wr = row.picks > 0 ? (row.wins / row.picks) * 100 : 0;
               return (
                 <Tile
@@ -105,6 +106,7 @@ export function ItemsExp() {
                   title={getItemName(itemData, row.item_id)}
                   subtitle={`${formatNumber(row.picks)} games · ${wr.toFixed(1)}% win`}
                   trackValue={wr}
+                  accent={TILE_ACCENTS[index % TILE_ACCENTS.length]}
                   onClick={() => navigate(`/history/${scope ?? "full"}/items/${row.item_id}`)}
                 />
               );
