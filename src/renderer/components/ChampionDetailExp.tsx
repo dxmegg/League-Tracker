@@ -2214,23 +2214,36 @@ function RunesTab({
 
   return (
     <div className="grid grid-cols-1 gap-5 xl:grid-cols-2">
-      <InsightsPanel
-        insights={[
-          {
-            kind: totalPicks > 0 ? "good" : "info",
-            text: `${totalPicks.toLocaleString()} keystone selections with ${formatPercent(totalWins, totalPicks)} win rate.`,
-          },
-        ]}
-      />
-      <div className="grid grid-cols-2 gap-3 xl:col-span-2 xl:grid-cols-4">
-        <CombatTile label="Keystone picks" value={totalPicks} subtitle="aggregate selections" />
-        <CombatTile
-          label="Keystone win rate"
-          value={totalPicks > 0 ? (totalWins / totalPicks) * 100 : null}
-          subtitle="all tracked pages"
+      <div className="xl:col-span-2">
+        <IntroBox legend="Badges show where a number comes from: Match-V5 = Riot match data · Timeline = minute-by-minute data · Derived = calculated by the app · LCU = game client.">
+          Your rune pages, trees and keystones, and how each one performs.
+        </IntroBox>
+      </div>
+      <div className="xl:col-span-2">
+        <SectionHeading title="Key metrics" />
+        <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
+          <CombatTile label="Keystone picks" value={totalPicks} subtitle="aggregate selections" />
+          <CombatTile
+            label="Keystone win rate"
+            value={totalPicks > 0 ? (totalWins / totalPicks) * 100 : null}
+            subtitle="all tracked pages"
+          />
+          <CombatTile label="Primary trees" value={primaryTreeCount} subtitle="seen in data" />
+          <CombatTile label="Secondary trees" value={secondaryTreeCount} subtitle="seen in data" />
+        </div>
+      </div>
+      <div className="xl:col-span-2">
+        <InsightsPanel
+          insights={[
+            {
+              kind: totalPicks > 0 ? "good" : "info",
+              text: `${totalPicks.toLocaleString()} keystone selections with ${formatPercent(totalWins, totalPicks)} win rate.`,
+            },
+          ]}
         />
-        <CombatTile label="Primary trees" value={primaryTreeCount} subtitle="seen in data" />
-        <CombatTile label="Secondary trees" value={secondaryTreeCount} subtitle="seen in data" />
+      </div>
+      <div className="xl:col-span-2">
+        <SectionHeading title="Detailed statistics" />
       </div>
       <RatePanel
         title="Keystones"
