@@ -12,6 +12,8 @@ import { TileGrid } from "./TileGrid";
 import { SortableTable, type SortableColumn } from "./SortableTable";
 import { formatNumber } from "../lib/format";
 
+const RUNE_TILE_ACCENTS = ["#E5483F", "#C9A45C", "#22C55E", "#3B82F6", "#A855F7", "#64748B"];
+
 type RuneChampionRow = {
   champion_id: number;
   rune_id: number;
@@ -103,7 +105,7 @@ export function RunesExp() {
   return (
     <div className="mx-auto flex min-h-full w-full max-w-[1320px] flex-col gap-5">
       <div>
-        <h1 className="font-display text-[30px] font-bold leading-tight tracking-[0.2px] text-lol-text-bright">
+        <h1 className="relative pl-4 font-display text-[30px] font-bold leading-tight tracking-[0.2px] text-lol-text-bright before:absolute before:left-1 before:top-1/2 before:h-2 before:w-2 before:-translate-y-1/2 before:rotate-45 before:bg-lol-crimson after:absolute after:bottom-[-8px] after:left-4 after:h-px after:w-28 after:bg-gradient-to-r after:from-lol-crimson/70 after:to-transparent">
           Runes
         </h1>
         <p className="mt-1.5 text-lol-text">Keystones and rune pages you actually play</p>
@@ -115,11 +117,13 @@ export function RunesExp() {
         <>
           <section>
             <div className="mb-3 flex items-baseline justify-between">
-              <h2 className="font-display text-xl font-semibold text-lol-text-bright">Keystones</h2>
+              <h2 className="relative pl-3 font-display text-xl font-semibold text-lol-text-bright before:absolute before:left-0 before:top-1/2 before:h-1.5 before:w-1.5 before:-translate-y-1/2 before:rotate-45 before:bg-lol-crimson after:absolute after:bottom-[-6px] after:left-3 after:h-px after:w-20 after:bg-gradient-to-r after:from-lol-crimson/60 after:to-transparent">
+                Keystones
+              </h2>
               <span className="text-xs uppercase tracking-wider text-lol-text">All accounts</span>
             </div>
             <TileGrid>
-              {keystones.map((rune) => {
+              {keystones.map((rune, index) => {
                 const winRate = rune.picks > 0 ? (rune.wins / rune.picks) * 100 : 0;
                 return (
                   <Tile
@@ -134,6 +138,7 @@ export function RunesExp() {
                     title={runeData[rune.rune_id]?.name ?? `Rune ${rune.rune_id}`}
                     subtitle={`${formatNumber(rune.picks)} games · ${winRate.toFixed(1)}% win`}
                     trackValue={winRate}
+                    accent={RUNE_TILE_ACCENTS[index % RUNE_TILE_ACCENTS.length]}
                   />
                 );
               })}
@@ -142,7 +147,7 @@ export function RunesExp() {
 
           <section>
             <div className="mb-3">
-              <h2 className="font-display text-xl font-semibold text-lol-text-bright">
+              <h2 className="relative pl-3 font-display text-xl font-semibold text-lol-text-bright before:absolute before:left-0 before:top-1/2 before:h-1.5 before:w-1.5 before:-translate-y-1/2 before:rotate-45 before:bg-lol-crimson after:absolute after:bottom-[-6px] after:left-3 after:h-px after:w-20 after:bg-gradient-to-r after:from-lol-crimson/60 after:to-transparent">
                 Keystone by champion
               </h2>
             </div>
