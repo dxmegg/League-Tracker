@@ -2546,9 +2546,9 @@ function MatchupsTab({
   });
   const tierDefinitions = [
     { label: "S", color: "#C9A45C", min: 0.7 },
-    { label: "A", color: "#b8b8c4", min: 0.6 },
-    { label: "B", color: "#7FA6CC", min: 0.5 },
-    { label: "C", color: "#A58CC4", min: 0.4 },
+    { label: "A", color: "#94A3B8", min: 0.6 },
+    { label: "B", color: "#3B82F6", min: 0.5 },
+    { label: "C", color: "#A855F7", min: 0.4 },
     { label: "D", color: "#E5483F", min: Number.NEGATIVE_INFINITY },
   ];
   const tierRows = tierDefinitions
@@ -2616,7 +2616,11 @@ function MatchupsTab({
       ) : (
         <div className="flex flex-col gap-3">
           {tierRows.map((tier) => (
-            <div key={tier.label} className="flex items-center gap-3">
+            <div
+              key={tier.label}
+              className="flex items-center gap-3 rounded-md border-l-[3px] px-2 py-1 transition-colors duration-[120ms] hover:bg-white/[0.03]"
+              style={{ borderLeftColor: tier.color }}
+            >
               <span
                 className="flex h-[30px] w-[30px] shrink-0 items-center justify-center rounded-md font-display text-sm font-bold"
                 style={{ backgroundColor: tier.color, color: "#150c33" }}
@@ -2688,7 +2692,13 @@ function MatchupsTab({
             return (
               <div
                 key={row.championId}
-                className="grid min-w-[760px] grid-cols-[minmax(10rem,1fr)_auto_auto_minmax(7rem,auto)_minmax(8rem,auto)_auto_auto_auto] items-center gap-3 text-lol-text-bright"
+                className={`grid min-w-[760px] grid-cols-[minmax(10rem,1fr)_auto_auto_minmax(7rem,auto)_minmax(8rem,auto)_auto_auto_auto] items-center gap-3 border-b border-white/[0.04] py-2 text-lol-text-bright transition-colors duration-[120ms] hover:bg-white/[0.03] ${
+                  row.championId === bestMatchup?.championId
+                    ? "bg-[rgba(34,197,94,0.06)]"
+                    : row.championId === worstMatchup?.championId
+                      ? "bg-[rgba(229,72,63,0.06)]"
+                      : ""
+                }`}
               >
                 <span className="flex min-w-0 items-center gap-2">
                   <ChampionIcon championId={row.championId} size={24} className="rounded-md" />
@@ -3197,11 +3207,12 @@ function TimelineTab({
             <button
               key={game.gameId}
               type="button"
-              className={`flex shrink-0 items-center gap-2 rounded-lg border px-3 py-2 text-left ${
+              className={`flex shrink-0 items-center gap-2 rounded-lg border border-l-[3px] px-3 py-2 text-left transition-colors duration-[120ms] hover:bg-white/[0.03] ${
                 game.gameId === selectedGameId
                   ? "border-lol-crimson bg-lol-crimson/15"
                   : "border-lol-border bg-black/10"
               }`}
+              style={{ borderLeftColor: game.win ? "#22C55E" : "#E5483F" }}
               onClick={() => onSelectGame(game.gameId)}
             >
               <ChampionIcon championId={game.championId} size={24} className="rounded-md" />
@@ -3217,7 +3228,7 @@ function TimelineTab({
       </Panel>
       <SectionHeading title="Detailed statistics" />
       {!isSummary && (
-        <Panel>
+        <Panel className="rounded-[14px] border-white/[0.06]">
           <SectionHeading title="Kill and death map" source="t" />
           {killDeathPositionsLoading ? (
             <SectionLoading />
@@ -3292,7 +3303,7 @@ function TimelineTab({
         </Panel>
       ) : (
         <>
-          <Panel className="xl:col-span-2">
+          <Panel className={`xl:col-span-2 ${BREAKDOWN_PANEL_CLASS}`}>
             <SectionHeading title="Gold and CS curves" source="t" />
             <LineChartExp
               values={ownerFrames.map((frame) => frame.gold ?? 0)}
@@ -3314,7 +3325,7 @@ function TimelineTab({
               height={200}
             />
           </Panel>
-          <Panel className="xl:col-span-2">
+          <Panel className={`xl:col-span-2 ${BREAKDOWN_PANEL_CLASS}`}>
             <SectionHeading title="Level and XP" source="t" />
             <LineChartExp
               values={ownerFrames.map((frame) => (frame.level ?? 0) * 100)}
@@ -3345,7 +3356,7 @@ function TimelineTab({
                 events.map((event) => (
                   <div
                     key={event.event_index}
-                    className="flex gap-3 border-b border-lol-border/40 pb-2"
+                    className="flex gap-3 border-b border-white/[0.04] py-2 transition-colors duration-[120ms] hover:bg-white/[0.03]"
                   >
                     <span className="w-12 shrink-0 tabular-nums text-lol-text">
                       {formatSeconds(event.timestamp_ms / 1000)}
@@ -3480,16 +3491,31 @@ function SynergiesTab({
         ) : (
           <>
             <div className="flex max-h-[520px] flex-col gap-2 overflow-y-auto text-xs">
-              {sortedAllies.slice(0, 30).map((row) => {
+              {sortedAllies.slice(0, 30).map((row, index) => {
                 const games = Math.max(1, row.games);
                 const kda = (row.kills + row.assists) / Math.max(1, row.deaths);
+                const winRate = (row.wins / games) * 100;
                 return (
                   <div
                     key={row.championId}
-                    className="grid min-w-[540px] grid-cols-[minmax(10rem,1fr)_auto_minmax(8rem,auto)_minmax(9rem,auto)] items-center gap-3 text-lol-text-bright"
+                    className="grid min-w-[540px] grid-cols-[minmax(10rem,1fr)_auto_minmax(8rem,auto)_minmax(9rem,auto)] items-center gap-3 border-b border-white/[0.04] py-2 text-lol-text-bright transition-colors duration-[120ms] hover:bg-white/[0.03]"
                   >
                     <span className="flex min-w-0 items-center gap-2">
-                      <ChampionIcon championId={row.championId} size={24} className="rounded-md" />
+                      <span
+                        className="flex shrink-0 items-center justify-center overflow-hidden rounded-md border"
+                        style={{
+                          width: 24,
+                          height: 24,
+                          borderColor: `${CHART_PALETTE[index % CHART_PALETTE.length]}59`,
+                          boxShadow: `0 0 8px 0 ${CHART_PALETTE[index % CHART_PALETTE.length]}33`,
+                        }}
+                      >
+                        <ChampionIcon
+                          championId={row.championId}
+                          size={24}
+                          className="rounded-md"
+                        />
+                      </span>
                       <span className="truncate">{getChampionName(champData, row.championId)}</span>
                     </span>
                     <span className="shrink-0 whitespace-nowrap text-lol-text">
@@ -3504,7 +3530,19 @@ function SynergiesTab({
                         <WinRateBar wins={row.wins} total={row.games} showPercent={false} />
                       </span>
                       <span className="w-11 text-right tabular-nums">
-                        {formatPercent(row.wins, row.games)}
+                        {winRate > 55 || winRate < 45 ? (
+                          <span
+                            className={
+                              winRate > 55
+                                ? "inline-flex rounded bg-[rgba(34,197,94,0.12)] px-1 py-0.5 text-[#22C55E]"
+                                : "inline-flex rounded bg-[rgba(229,72,63,0.12)] px-1 py-0.5 text-[#E5483F]"
+                            }
+                          >
+                            {formatPercent(row.wins, row.games)}
+                          </span>
+                        ) : (
+                          formatPercent(row.wins, row.games)
+                        )}
                       </span>
                       <span className="w-28 text-right tabular-nums text-lol-text">
                         {(row.kills / games).toFixed(1)} / {(row.deaths / games).toFixed(1)} /{" "}
@@ -3546,23 +3584,34 @@ function SynergiesTab({
         ) : (
           <>
             <div className="flex max-h-[520px] flex-col gap-2 overflow-y-auto text-xs">
-              {sortedTeammates.slice(0, 30).map((row) => {
+              {sortedTeammates.slice(0, 30).map((row, index) => {
                 const games = Math.max(1, row.games);
                 const kda = (row.kills + row.assists) / Math.max(1, row.deaths);
                 const initials = row.name.slice(0, 2).toUpperCase();
+                const winRate = (row.wins / games) * 100;
                 return (
                   <div
                     key={row.puuid}
-                    className="grid min-w-[540px] grid-cols-[minmax(10rem,1fr)_auto_minmax(8rem,auto)_minmax(9rem,auto)] items-center gap-3 text-lol-text-bright"
+                    className="grid min-w-[540px] grid-cols-[minmax(10rem,1fr)_auto_minmax(8rem,auto)_minmax(9rem,auto)] items-center gap-3 border-b border-white/[0.04] py-2 text-lol-text-bright transition-colors duration-[120ms] hover:bg-white/[0.03]"
                   >
                     <span className="flex min-w-0 items-center gap-2">
-                      {row.profileIcon != null ? (
-                        <SummonerIcon iconId={row.profileIcon} size={24} />
-                      ) : (
-                        <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-lol-border/60 text-[9px] font-semibold text-lol-text-bright">
-                          {initials}
-                        </span>
-                      )}
+                      <span
+                        className="flex shrink-0 items-center justify-center overflow-hidden rounded-md border"
+                        style={{
+                          width: 24,
+                          height: 24,
+                          borderColor: `${CHART_PALETTE[index % CHART_PALETTE.length]}59`,
+                          boxShadow: `0 0 8px 0 ${CHART_PALETTE[index % CHART_PALETTE.length]}33`,
+                        }}
+                      >
+                        {row.profileIcon != null ? (
+                          <SummonerIcon iconId={row.profileIcon} size={24} />
+                        ) : (
+                          <span className="flex h-6 w-6 items-center justify-center rounded-full bg-lol-border/60 text-[9px] font-semibold text-lol-text-bright">
+                            {initials}
+                          </span>
+                        )}
+                      </span>
                       <span className="min-w-0 truncate">
                         <span className="block truncate">{row.name}</span>
                         {row.topChampionId != null && (
@@ -3584,7 +3633,19 @@ function SynergiesTab({
                         <WinRateBar wins={row.wins} total={row.games} showPercent={false} />
                       </span>
                       <span className="w-11 text-right tabular-nums">
-                        {formatPercent(row.wins, row.games)}
+                        {winRate > 55 || winRate < 45 ? (
+                          <span
+                            className={
+                              winRate > 55
+                                ? "inline-flex rounded bg-[rgba(34,197,94,0.12)] px-1 py-0.5 text-[#22C55E]"
+                                : "inline-flex rounded bg-[rgba(229,72,63,0.12)] px-1 py-0.5 text-[#E5483F]"
+                            }
+                          >
+                            {formatPercent(row.wins, row.games)}
+                          </span>
+                        ) : (
+                          formatPercent(row.wins, row.games)
+                        )}
                       </span>
                       <span className="w-28 text-right tabular-nums text-lol-text">
                         {(row.kills / games).toFixed(1)} / {(row.deaths / games).toFixed(1)} /{" "}
