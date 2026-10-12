@@ -3834,6 +3834,10 @@ function SynergiesTab({
   const qualifiedTeammates = teammateRows.filter((row) => row.games >= 2);
   const duoGames = qualifiedTeammates.reduce((total, row) => total + row.games, 0);
   const duoWins = qualifiedTeammates.reduce((total, row) => total + row.wins, 0);
+  const allyGames = (allies ?? []).reduce((total, row) => total + row.games, 0);
+  const allyWins = (allies ?? []).reduce((total, row) => total + row.wins, 0);
+  const allyWinRate = allyGames > 0 ? (allyWins / allyGames) * 100 : null;
+  const duoWinRate = duoGames > 0 ? (duoWins / duoGames) * 100 : null;
   const synergyInsights: Insight[] = [];
   if (bestAlly) {
     synergyInsights.push({
@@ -3866,6 +3870,106 @@ function SynergiesTab({
       </div>
       <div className="xl:col-span-2">
         <SectionHeading title="Key metrics" />
+        <div className="mt-3 grid grid-cols-2 gap-3 md:grid-cols-4">
+          <Stat
+            label="Ally win rate"
+            value={allyWinRate == null ? "—" : `${allyWinRate.toFixed(1)}%`}
+            sub={allyGames > 0 ? `${allyGames} ally games` : "No ally data"}
+            accent={CHART_PALETTE[0]}
+            miniViz={
+              allyWinRate == null ? undefined : (
+                <svg aria-hidden="true" className="h-11 w-11 -rotate-90" viewBox="0 0 44 44">
+                  <circle
+                    cx="22"
+                    cy="22"
+                    r="17"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="3"
+                    className="text-lol-border/60"
+                  />
+                  <circle
+                    cx="22"
+                    cy="22"
+                    r="17"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="3"
+                    strokeLinecap="round"
+                    strokeDasharray={`${allyWinRate.toFixed(1)} 100`}
+                    pathLength="100"
+                    className="text-lol-win"
+                  />
+                </svg>
+              )
+            }
+          />
+          <Stat
+            label="Ally games"
+            value={formatPlain(allyGames, 0)}
+            sub="Across observed allies"
+            accent={CHART_PALETTE[1]}
+            miniViz={
+              allyGames > 0 ? (
+                <span
+                  aria-hidden="true"
+                  className="mt-1 block h-2 w-[72px] overflow-hidden rounded-full bg-lol-border/60"
+                >
+                  <span className="block h-full w-full rounded-full bg-lol-gold" />
+                </span>
+              ) : undefined
+            }
+          />
+          <Stat
+            label="Duo win rate"
+            value={duoWinRate == null ? "—" : `${duoWinRate.toFixed(1)}%`}
+            sub={duoGames > 0 ? `${duoGames} qualified games` : "No duo data"}
+            accent={CHART_PALETTE[2]}
+            miniViz={
+              duoWinRate == null ? undefined : (
+                <svg aria-hidden="true" className="h-11 w-11 -rotate-90" viewBox="0 0 44 44">
+                  <circle
+                    cx="22"
+                    cy="22"
+                    r="17"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="3"
+                    className="text-lol-border/60"
+                  />
+                  <circle
+                    cx="22"
+                    cy="22"
+                    r="17"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="3"
+                    strokeLinecap="round"
+                    strokeDasharray={`${duoWinRate.toFixed(1)} 100`}
+                    pathLength="100"
+                    className="text-lol-win"
+                  />
+                </svg>
+              )
+            }
+          />
+          <Stat
+            label="Duo partners"
+            value={formatPlain(teammateRows.length, 0)}
+            sub="Observed summoners"
+            accent={CHART_PALETTE[3]}
+            miniViz={
+              teammateRows.length > 0 ? (
+                <span
+                  aria-hidden="true"
+                  className="mt-1 block h-2 w-[72px] overflow-hidden rounded-full bg-lol-border/60"
+                >
+                  <span className="block h-full w-full rounded-full bg-[#3B82F6]" />
+                </span>
+              ) : undefined
+            }
+          />
+        </div>
       </div>
       <Panel className={TAB_PANEL_CLASSES.emerald}>
         <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
@@ -3889,7 +3993,15 @@ function SynergiesTab({
           <NoData text="No ally data yet" />
         ) : (
           <>
-            <div className="flex max-h-[520px] flex-col gap-2 overflow-y-auto text-xs">
+            <div className="flex max-h-[520px] flex-col overflow-x-auto overflow-y-auto text-xs">
+              <div className="grid min-w-[680px] grid-cols-[minmax(12rem,1.6fr)_72px_72px_72px_72px_96px] gap-3 border-b border-lol-border/50 pb-2 font-semibold text-lol-text">
+                <span>Stat</span>
+                <span className="text-right whitespace-nowrap">Avg / game</span>
+                <span className="text-right whitespace-nowrap">Best</span>
+                <span className="text-right whitespace-nowrap">Wins</span>
+                <span className="text-right whitespace-nowrap">Losses</span>
+                <span className="text-right whitespace-nowrap">vs others</span>
+              </div>
               {sortedAllies.slice(0, 30).map((row, index) => {
                 const games = Math.max(1, row.games);
                 const kda = (row.kills + row.assists) / Math.max(1, row.deaths);
@@ -3897,7 +4009,7 @@ function SynergiesTab({
                 return (
                   <div
                     key={row.championId}
-                    className="grid min-w-[540px] grid-cols-[minmax(10rem,1fr)_auto_minmax(8rem,auto)_minmax(9rem,auto)] items-center gap-3 border-b border-white/[0.04] py-2 text-lol-text-bright transition-colors duration-[120ms] hover:bg-white/[0.03]"
+                    className="grid min-w-[680px] grid-cols-[minmax(12rem,1.6fr)_72px_72px_72px_72px_96px] items-center gap-3 border-b border-white/[0.04] py-2.5 text-lol-text-bright transition-colors duration-[120ms] hover:bg-white/[0.025] last:border-b-0"
                   >
                     <span className="flex min-w-0 items-center gap-2">
                       <span
@@ -3915,38 +4027,25 @@ function SynergiesTab({
                           className="rounded-md"
                         />
                       </span>
-                      <span className="truncate">{getChampionName(champData, row.championId)}</span>
-                    </span>
-                    <span className="shrink-0 whitespace-nowrap text-lol-text">
-                      {row.games} games
-                    </span>
-                    <span className="shrink-0 whitespace-nowrap">
-                      <span className="text-lol-win">{row.wins}W</span>-
-                      <span className="text-lol-loss">{row.games - row.wins}L</span>
-                    </span>
-                    <span className="flex items-center justify-end gap-2 whitespace-nowrap">
-                      <span className="w-16">
-                        <WinRateBar wins={row.wins} total={row.games} showPercent={false} />
+                      <span className="min-w-0 truncate">
+                        <span className="block truncate">
+                          {getChampionName(champData, row.championId)}
+                        </span>
+                        <span className="block text-[10px] text-lol-text">
+                          KDA {kda.toFixed(2)} · {winRate.toFixed(1)}%
+                        </span>
                       </span>
-                      <span className="w-11 text-right tabular-nums">
-                        {winRate > 55 || winRate < 45 ? (
-                          <span
-                            className={
-                              winRate > 55
-                                ? "inline-flex rounded bg-[rgba(34,197,94,0.12)] px-1 py-0.5 text-[#22C55E]"
-                                : "inline-flex rounded bg-[rgba(229,72,63,0.12)] px-1 py-0.5 text-[#E5483F]"
-                            }
-                          >
-                            {formatPercent(row.wins, row.games)}
-                          </span>
-                        ) : (
-                          formatPercent(row.wins, row.games)
-                        )}
-                      </span>
-                      <span className="w-28 text-right tabular-nums text-lol-text">
-                        {(row.kills / games).toFixed(1)} / {(row.deaths / games).toFixed(1)} /{" "}
-                        {(row.assists / games).toFixed(1)} · {kda.toFixed(2)}
-                      </span>
+                    </span>
+                    <span className="text-right tabular-nums text-lol-text">{row.games}</span>
+                    <span className="text-right tabular-nums text-lol-text" title="Not tracked yet">
+                      —
+                    </span>
+                    <span className="text-right tabular-nums text-lol-win">{row.wins}</span>
+                    <span className="text-right tabular-nums text-lol-loss">
+                      {row.games - row.wins}
+                    </span>
+                    <span className="text-right tabular-nums text-lol-text" title="Not tracked yet">
+                      —
                     </span>
                   </div>
                 );
@@ -3985,7 +4084,15 @@ function SynergiesTab({
           <NoData text="No duo data yet" />
         ) : (
           <>
-            <div className="flex max-h-[520px] flex-col gap-2 overflow-y-auto text-xs">
+            <div className="flex max-h-[520px] flex-col overflow-x-auto overflow-y-auto text-xs">
+              <div className="grid min-w-[680px] grid-cols-[minmax(12rem,1.6fr)_72px_72px_72px_72px_96px] gap-3 border-b border-lol-border/50 pb-2 font-semibold text-lol-text">
+                <span>Stat</span>
+                <span className="text-right whitespace-nowrap">Avg / game</span>
+                <span className="text-right whitespace-nowrap">Best</span>
+                <span className="text-right whitespace-nowrap">Wins</span>
+                <span className="text-right whitespace-nowrap">Losses</span>
+                <span className="text-right whitespace-nowrap">vs others</span>
+              </div>
               {sortedTeammates.slice(0, 30).map((row, index) => {
                 const games = Math.max(1, row.games);
                 const kda = (row.kills + row.assists) / Math.max(1, row.deaths);
@@ -3994,7 +4101,7 @@ function SynergiesTab({
                 return (
                   <div
                     key={row.puuid}
-                    className="grid min-w-[540px] grid-cols-[minmax(10rem,1fr)_auto_minmax(8rem,auto)_minmax(9rem,auto)] items-center gap-3 border-b border-white/[0.04] py-2 text-lol-text-bright transition-colors duration-[120ms] hover:bg-white/[0.03]"
+                    className="grid min-w-[680px] grid-cols-[minmax(12rem,1.6fr)_72px_72px_72px_72px_96px] items-center gap-3 border-b border-white/[0.04] py-2.5 text-lol-text-bright transition-colors duration-[120ms] hover:bg-white/[0.025] last:border-b-0"
                   >
                     <span className="flex min-w-0 items-center gap-2">
                       <span
@@ -4021,38 +4128,21 @@ function SynergiesTab({
                             Most played with: {getChampionName(champData, row.topChampionId)}
                           </span>
                         )}
+                        <span className="block text-[10px] text-lol-text">
+                          KDA {kda.toFixed(2)} · {winRate.toFixed(1)}%
+                        </span>
                       </span>
                     </span>
-                    <span className="shrink-0 whitespace-nowrap text-lol-text">
-                      {row.games} games
+                    <span className="text-right tabular-nums text-lol-text">{row.games}</span>
+                    <span className="text-right tabular-nums text-lol-text" title="Not tracked yet">
+                      —
                     </span>
-                    <span className="shrink-0 whitespace-nowrap">
-                      <span className="text-lol-win">{row.wins}W</span>-
-                      <span className="text-lol-loss">{row.games - row.wins}L</span>
+                    <span className="text-right tabular-nums text-lol-win">{row.wins}</span>
+                    <span className="text-right tabular-nums text-lol-loss">
+                      {row.games - row.wins}
                     </span>
-                    <span className="flex items-center justify-end gap-2 whitespace-nowrap">
-                      <span className="w-16">
-                        <WinRateBar wins={row.wins} total={row.games} showPercent={false} />
-                      </span>
-                      <span className="w-11 text-right tabular-nums">
-                        {winRate > 55 || winRate < 45 ? (
-                          <span
-                            className={
-                              winRate > 55
-                                ? "inline-flex rounded bg-[rgba(34,197,94,0.12)] px-1 py-0.5 text-[#22C55E]"
-                                : "inline-flex rounded bg-[rgba(229,72,63,0.12)] px-1 py-0.5 text-[#E5483F]"
-                            }
-                          >
-                            {formatPercent(row.wins, row.games)}
-                          </span>
-                        ) : (
-                          formatPercent(row.wins, row.games)
-                        )}
-                      </span>
-                      <span className="w-28 text-right tabular-nums text-lol-text">
-                        {(row.kills / games).toFixed(1)} / {(row.deaths / games).toFixed(1)} /{" "}
-                        {(row.assists / games).toFixed(1)} · {kda.toFixed(2)}
-                      </span>
+                    <span className="text-right tabular-nums text-lol-text" title="Not tracked yet">
+                      —
                     </span>
                   </div>
                 );
@@ -4122,6 +4212,10 @@ function AbilitiesTab({
         .map((id) => spells[Number(id)]?.name ?? `Spell ${id}`)
         .join(" + ")
     : "—";
+  const commonOrderShare =
+    commonOrder && sampleSize > 0 ? (commonOrder.picks / sampleSize) * 100 : null;
+  const commonSpellShare =
+    commonSpellPair && detail.games > 0 ? (commonSpellPair.picks / detail.games) * 100 : null;
 
   return (
     <div className="grid grid-cols-1 gap-5 xl:grid-cols-2">
@@ -4139,6 +4233,19 @@ function AbilitiesTab({
             sub={commonOrder ? `${commonOrder.picks} picks` : "No timeline data"}
             accent={CHART_PALETTE[0]}
             glow
+            miniViz={
+              commonOrderShare == null ? undefined : (
+                <span
+                  aria-hidden="true"
+                  className="mt-1 block h-2 w-[72px] overflow-hidden rounded-full bg-lol-border/60"
+                >
+                  <span
+                    className="block h-full rounded-full bg-[#3B82F6]"
+                    style={{ width: `${Math.min(100, commonOrderShare)}%` }}
+                  />
+                </span>
+              )
+            }
           />
           <Stat
             label="Spell pair"
@@ -4146,6 +4253,19 @@ function AbilitiesTab({
             sub={commonSpellPair ? `${commonSpellPair.picks} picks` : "No spell data"}
             accent={CHART_PALETTE[1]}
             glow
+            miniViz={
+              commonSpellShare == null ? undefined : (
+                <span
+                  aria-hidden="true"
+                  className="mt-1 block h-2 w-[72px] overflow-hidden rounded-full bg-lol-border/60"
+                >
+                  <span
+                    className="block h-full rounded-full bg-lol-gold"
+                    style={{ width: `${Math.min(100, commonSpellShare)}%` }}
+                  />
+                </span>
+              )
+            }
           />
           <Stat
             label="Average R rank 1"
@@ -4202,7 +4322,7 @@ function AbilitiesTab({
               with timeline data
             </p>
             <div className="flex flex-col gap-2 text-xs">
-              <div className="grid grid-cols-[2rem_minmax(0,1fr)_auto_auto] gap-3 border-b border-lol-border/50 pb-2 font-semibold text-lol-text">
+              <div className="grid grid-cols-[2rem_minmax(0,1fr)_72px_72px] gap-3 border-b border-lol-border/50 pb-2 font-semibold text-lol-text">
                 <span>#</span>
                 <span>Order</span>
                 <span className="text-right whitespace-nowrap">Picks</span>
@@ -4211,7 +4331,7 @@ function AbilitiesTab({
               {orders.map((entry, index) => (
                 <div
                   key={entry.order}
-                  className="grid grid-cols-[2rem_minmax(0,1fr)_auto_auto] items-center gap-3 border-b border-white/[0.04] py-2 text-lol-text-bright transition-colors duration-[120ms] hover:bg-white/[0.025] last:border-b-0"
+                  className="grid grid-cols-[2rem_minmax(0,1fr)_72px_72px] items-center gap-3 border-b border-white/[0.04] py-2.5 text-lol-text-bright transition-colors duration-[120ms] hover:bg-white/[0.025] last:border-b-0"
                 >
                   <span className="tabular-nums text-lol-text">{index + 1}</span>
                   <div className="flex flex-wrap gap-1">
@@ -4274,7 +4394,7 @@ function AbilitiesTab({
               className="flex items-center justify-between border-b border-white/[0.04] py-2 transition-colors duration-[120ms] hover:bg-white/[0.025] last:border-b-0"
             >
               <span className="text-lol-text">{label}</span>
-              <b className="tabular-nums text-lol-text-bright">{value}</b>
+              <b className="text-right tabular-nums text-lol-text-bright">{value}</b>
             </div>
           ))}
         </div>
@@ -4288,14 +4408,19 @@ function AbilitiesTab({
         {(skillOrders?.summonerSpells ?? []).length === 0 ? (
           <NoData />
         ) : (
-          <div className="flex flex-col gap-3 text-xs">
+          <div className="flex flex-col text-xs">
+            <div className="grid grid-cols-[minmax(8rem,1fr)_72px_112px] gap-3 border-b border-lol-border/50 pb-2 font-semibold text-lol-text">
+              <span>Spell pair</span>
+              <span className="text-right whitespace-nowrap">Picks</span>
+              <span className="text-right whitespace-nowrap">Win rate</span>
+            </div>
             {(skillOrders?.summonerSpells ?? []).map((spellPair) => {
               const ids = spellPair.pair.split(",").map(Number);
               const names = ids.map((id) => spells[id]?.name ?? `Spell ${id}`);
               return (
                 <div
                   key={spellPair.pair}
-                  className="grid grid-cols-[minmax(8rem,1fr)_auto_minmax(5rem,1fr)] items-center gap-3 border-b border-white/[0.04] py-2 transition-colors duration-[120ms] hover:bg-white/[0.025] last:border-b-0"
+                  className="grid grid-cols-[minmax(8rem,1fr)_72px_112px] items-center gap-3 border-b border-white/[0.04] py-2.5 text-lol-text-bright transition-colors duration-[120ms] hover:bg-white/[0.025] last:border-b-0"
                 >
                   <span
                     className="flex items-center gap-2 text-lol-text-bright"
@@ -4306,7 +4431,14 @@ function AbilitiesTab({
                     <span className="truncate">{names.join(" + ")}</span>
                   </span>
                   <span className="text-right tabular-nums text-lol-text">{spellPair.picks}</span>
-                  <WinRateBar wins={spellPair.wins} total={spellPair.picks} />
+                  <span className="flex items-center justify-end gap-2">
+                    <span className="w-14">
+                      <WinRateBar wins={spellPair.wins} total={spellPair.picks} />
+                    </span>
+                    <span className="w-11 text-right tabular-nums text-lol-text">
+                      {formatPercent(spellPair.wins, spellPair.picks)}
+                    </span>
+                  </span>
                 </div>
               );
             })}
