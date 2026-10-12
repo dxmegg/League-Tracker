@@ -13,6 +13,12 @@ import { getBackupDir } from "./paths";
 import { openExternalUrl } from "./security";
 import { applyAutoStart, isAutoStartSupported } from "./autostart";
 import { dbg } from "../shared/debug";
+import {
+  getCachedDashboard,
+  invalidateDashboardCache,
+  invalidateDashboardCacheForAccount,
+  setCachedDashboard,
+} from "./db/dashboard-cache";
 import type { BackfillProgress } from "./db/timeline";
 import type {
   DashboardData,
@@ -454,6 +460,9 @@ export function registerIpcHandlers() {
       timePeriod: HomeTimePeriod,
       queue: number | number[] | undefined,
     ): HomeDashboardPayload => {
+      const cacheKey = `${account ?? "all"}|${timePeriod}|${queue ?? "all"}`;
+      const cached = getCachedDashboard(cacheKey);
+      if (cached) return cached;
       if (account !== undefined && typeof account !== "string") {
         throw new TypeError("account must be a string or undefined");
       }
@@ -559,6 +568,7 @@ export function registerIpcHandlers() {
         })),
       };
 
+      setCachedDashboard(cacheKey, result);
       return result;
     },
   );
@@ -644,6 +654,7 @@ export function registerIpcHandlers() {
     const win = senderWindow(event);
     try {
       await lcu.pollTick(win!);
+      invalidateDashboardCache();
       win?.webContents.send("lcu:games-updated");
       return { newGames: 0, totalGames: 0 };
     } catch (err) {
@@ -654,6 +665,7 @@ export function registerIpcHandlers() {
   ipcMain.handle("riot:sync", async (event) => {
     try {
       const result = await riot.syncRiotHistory();
+      invalidateDashboardCache();
       senderWindow(event)?.webContents.send("lcu:games-updated");
       return result;
     } catch (err) {
@@ -766,8 +778,18 @@ export function registerIpcHandlers() {
     },
   );
   ipcMain.handle("riot:accounts", () => riot.getRiotAccounts());
-  ipcMain.handle("riot:save-account", (_event, account) => riot.saveRiotAccount(account));
-  ipcMain.handle("riot:remove-account", (_event, id: string) => riot.removeRiotAccount(id));
+  ipcMain.handle("riot:save-account", (_event, account) => {
+    const result = riot.saveRiotAccount(account);
+    invalidateDashboardCacheForAccount(account.id);
+    invalidateDashboardCache();
+    return result;
+  });
+  ipcMain.handle("riot:remove-account", (_event, id: string) => {
+    const result = riot.removeRiotAccount(id);
+    invalidateDashboardCacheForAccount(id);
+    invalidateDashboardCache();
+    return result;
+  });
 
   ipcMain.handle("lcu:backfill", async (event, forceFull = false) => {
     try {
@@ -1060,6 +1082,7 @@ export function registerIpcHandlers() {
   ipcMain.handle("db:delete-summoner", async (event, puuid: string) => {
     await backup.backupQuietly("pre-import");
     const result = db.deleteSavedSummoner(puuid);
+    invalidateDashboardCacheForAccount(puuid);
     senderWindow(event)?.webContents.send("lcu:games-updated");
     return result;
   });
@@ -1067,6 +1090,7 @@ export function registerIpcHandlers() {
   ipcMain.handle("db:delete-searched-summoners", async (event) => {
     await backup.backupQuietly("pre-import");
     const result = db.deleteSearchedSummoners();
+    invalidateDashboardCache();
     senderWindow(event)?.webContents.send("lcu:games-updated");
     return result;
   });
@@ -1098,6 +1122,7 @@ export function registerIpcHandlers() {
     // The one setting with a home outside the database: the login item has to be
     // rewritten to match, and only this handler knows the answer just changed.
     if (key === "auto_start") applyAutoStart(value === "true");
+    if (key === "active_account") invalidateDashboardCache();
   });
   ipcMain.handle("dbg:get", () => {
     const enabled = db.getSetting("debug_enabled") === "true";
@@ -1211,6 +1236,7 @@ export function registerIpcHandlers() {
           win.webContents.send("data:import-progress", progress);
         }
       });
+      invalidateDashboardCache();
       return {
         success: true,
         imported: result.imported,
@@ -1254,6 +1280,7 @@ export function registerIpcHandlers() {
     try {
       const result = await backup.restoreBackup(file);
       // Everything on screen was read from the database that just got replaced
+      invalidateDashboardCache();
       senderWindow(event)?.webContents.send("lcu:games-updated");
       return { success: true, games: result.games };
     } catch (err: any) {

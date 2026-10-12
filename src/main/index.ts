@@ -31,6 +31,7 @@ import { ensureStartMenuShortcut } from "./shortcut";
 import { syncAutoStart, HIDDEN_FLAG } from "./autostart";
 import { PROXY_BASE_URL } from "../shared/proxy";
 import { registerDragonAssetProtocol, registerDragonAssetScheme } from "./dragon-assets";
+import { invalidateDashboardCache } from "./db/dashboard-cache";
 
 let mainWindow: BrowserWindow | null = null;
 let tray: Tray | null = null;
@@ -261,6 +262,7 @@ app.whenReady().then(async () => {
       });
     });
     if (checkScoreBackfill()) {
+      invalidateDashboardCache();
       mainWindow?.webContents.send("lcu:games-updated");
     }
   });
