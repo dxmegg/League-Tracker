@@ -45,6 +45,15 @@ const COLUMNS: Array<{ key: ColumnKey | null; label: string }> = [
   { key: "mk", label: "Multikills" },
 ];
 
+const CHAMPION_ICON_ACCENTS = [
+  "border-lol-crimson/70 shadow-[0_0_10px_rgba(229,72,63,0.22)]",
+  "border-lol-gold/70 shadow-[0_0_10px_rgba(201,164,92,0.22)]",
+  "border-lol-win/70 shadow-[0_0_10px_rgba(74,222,128,0.20)]",
+  "border-lol-assist/70 shadow-[0_0_10px_rgba(77,184,255,0.20)]",
+  "border-lol-violet/70 shadow-[0_0_10px_rgba(169,139,255,0.20)]",
+  "border-lol-text/40 shadow-[0_0_10px_rgba(148,163,184,0.16)]",
+];
+
 export function ChampionExp() {
   const champData = useChampionData();
   const navigate = useNavigate();
@@ -138,8 +147,11 @@ export function ChampionExp() {
     <div className="mx-auto flex min-h-full w-full max-w-[1320px] flex-col gap-5">
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <h1 className="font-display text-[30px] font-bold leading-tight tracking-[0.2px] text-lol-text-bright">
-            Champions
+          <h1 className="flex items-center font-display text-[30px] font-bold leading-tight tracking-[0.2px] text-lol-text-bright">
+            <span className="mr-2 h-2.5 w-2.5 rotate-45 bg-lol-crimson shadow-[0_0_8px_rgba(229,72,63,0.45)]" />
+            <span className="relative pb-2 after:absolute after:bottom-0 after:left-0 after:h-px after:w-full after:bg-gradient-to-r after:from-lol-crimson after:to-transparent">
+              Champions
+            </span>
           </h1>
           <p className="mt-1.5 text-lol-text">Your performance on every champion, all accounts</p>
         </div>
@@ -147,7 +159,7 @@ export function ChampionExp() {
           <button
             type="button"
             onClick={() => navigate("/champions/summary")}
-            className="h-9 rounded-md border border-lol-border/60 bg-lol-card/40 px-3 text-xs text-lol-text-bright transition-colors hover:border-lol-gold/60 focus-visible:outline-none focus-visible:border-lol-gold/60 focus-visible:ring-1 focus-visible:ring-lol-gold/40"
+            className="h-9 rounded-md border border-lol-border/60 bg-lol-card/40 px-3 text-xs text-lol-text-bright transition-colors duration-[120ms] hover:border-lol-crimson/70 focus-visible:outline-none focus-visible:border-lol-crimson/70 focus-visible:ring-1 focus-visible:ring-lol-crimson/40"
           >
             Check summary
           </button>
@@ -228,7 +240,7 @@ export function ChampionExp() {
                           <ChampionIcon
                             championId={r.champion_id}
                             size={30}
-                            className="rounded-lg"
+                            className={`rounded-lg border ${CHAMPION_ICON_ACCENTS[i % CHAMPION_ICON_ACCENTS.length]}`}
                           />
                           <span>{getChampionName(champData, r.champion_id)}</span>
                         </div>
@@ -241,7 +253,15 @@ export function ChampionExp() {
                         <span className="text-lol-loss">{formatNumber(r.games - r.wins)}</span>
                       </td>
                       <td>
-                        <span className={wr >= 50 ? "text-lol-win" : "text-lol-loss"}>
+                        <span
+                          className={`rounded-md px-1.5 py-0.5 ${
+                            wr >= 55
+                              ? "bg-lol-win/15 text-lol-win"
+                              : wr <= 45
+                                ? "bg-lol-crimson/15 text-lol-crimson"
+                                : "bg-white/[0.04] text-lol-text"
+                          }`}
+                        >
                           {wr.toFixed(1)}%
                         </span>
                         <span

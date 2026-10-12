@@ -91,16 +91,22 @@ export function DataExp() {
   return (
     <div className="mx-auto flex min-h-full w-full max-w-[1320px] flex-col gap-5">
       <div>
-        <h1 className="font-display text-[30px] font-bold leading-tight tracking-[0.2px] text-lol-text-bright">
-          Data
+        <h1 className="flex items-center font-display text-[30px] font-bold leading-tight tracking-[0.2px] text-lol-text-bright">
+          <span className="mr-2 h-2.5 w-2.5 rotate-45 bg-lol-crimson shadow-[0_0_8px_rgba(229,72,63,0.45)]" />
+          <span className="relative pb-2 after:absolute after:bottom-0 after:left-0 after:h-px after:w-full after:bg-gradient-to-r after:from-lol-crimson after:to-transparent">
+            Data
+          </span>
         </h1>
         <p className="mt-1.5 text-lol-text">What is stored locally and when it was last synced</p>
       </div>
 
       <div className="grid grid-cols-12 gap-5">
         <Panel className="col-span-12 xl:col-span-8">
-          <h2 className="mb-4 font-display text-[16px] font-semibold text-lol-text-bright">
-            Accounts
+          <h2 className="mb-4 flex items-center font-display text-[16px] font-semibold text-lol-text-bright">
+            <span className="mr-2 h-1.5 w-1.5 rotate-45 bg-lol-crimson" />
+            <span className="relative pb-1 after:absolute after:bottom-0 after:left-0 after:h-px after:w-full after:bg-gradient-to-r after:from-lol-crimson after:to-transparent">
+              Accounts
+            </span>
           </h2>
           {accounts == null ? (
             <div className="py-6 text-center text-sm text-lol-text">Loading…</div>
@@ -111,45 +117,56 @@ export function DataExp() {
               columns={columns}
               rows={accounts}
               defaultSortKey="lastSeen"
+              className="data-table"
             />
           )}
         </Panel>
 
-        <Panel className="col-span-12 xl:col-span-4">
-          <h2 className="mb-4 font-display text-[16px] font-semibold text-lol-text-bright">
-            Storage
+        <Panel className="col-span-12 border-t-[3px] border-t-lol-gold bg-[radial-gradient(circle_at_top_right,rgba(201,164,92,0.08),transparent_42%)] xl:col-span-4">
+          <h2 className="mb-4 flex items-center font-display text-[16px] font-semibold text-lol-text-bright">
+            <span className="mr-2 h-1.5 w-1.5 rotate-45 bg-lol-gold" />
+            <span className="relative pb-1 after:absolute after:bottom-0 after:left-0 after:h-px after:w-full after:bg-gradient-to-r after:from-lol-gold after:to-transparent">
+              Storage
+            </span>
           </h2>
           <div className="flex flex-col gap-3">
-            <div className="rounded-xl border border-lol-border bg-black/10 px-3.5 py-3">
-              <span className="text-[12.5px] uppercase tracking-wider text-lol-text">
+            <div className="rounded-xl border border-lol-border border-t-[3px] border-t-lol-crimson bg-[radial-gradient(circle_at_top_right,rgba(229,72,63,0.08),transparent_55%)] px-3.5 py-3 transition-colors duration-[120ms] hover:bg-white/[0.02]">
+              <span className="flex items-center gap-2 text-[12.5px] uppercase tracking-wider text-lol-text">
+                <span className="h-1.5 w-1.5 rounded-full bg-lol-crimson" />
                 Matches stored
               </span>
               <b className="my-0.5 block font-display text-[28px] font-bold leading-tight text-lol-text-bright">
                 {dbStats ? formatNumber(dbStats.games) : "—"}
               </b>
             </div>
-            <div className="rounded-xl border border-lol-border bg-black/10 px-3.5 py-3">
-              <span className="text-[12.5px] uppercase tracking-wider text-lol-text">
+            <div className="rounded-xl border border-lol-border border-t-[3px] border-t-lol-win bg-[radial-gradient(circle_at_top_right,rgba(74,222,128,0.08),transparent_55%)] px-3.5 py-3 transition-colors duration-[120ms] hover:bg-white/[0.02]">
+              <span className="flex items-center gap-2 text-[12.5px] uppercase tracking-wider text-lol-text">
+                <span className="h-1.5 w-1.5 rounded-full bg-lol-win" />
                 Local database
               </span>
               <b className="my-0.5 block font-display text-[28px] font-bold leading-tight text-lol-text-bright">
                 {sizeMb} MB
               </b>
             </div>
-            <div className="rounded-xl border border-lol-border bg-black/10 px-3.5 py-3">
-              <span className="text-[12.5px] uppercase tracking-wider text-lol-text">Accounts</span>
+            <div className="rounded-xl border border-lol-border border-t-[3px] border-t-lol-assist bg-[radial-gradient(circle_at_top_right,rgba(77,184,255,0.08),transparent_55%)] px-3.5 py-3 transition-colors duration-[120ms] hover:bg-white/[0.02]">
+              <span className="flex items-center gap-2 text-[12.5px] uppercase tracking-wider text-lol-text">
+                <span className="h-1.5 w-1.5 rounded-full bg-lol-assist" />
+                Accounts
+              </span>
               <b className="my-0.5 block font-display text-[28px] font-bold leading-tight text-lol-text-bright">
                 {accounts ? formatNumber(accounts.length) : "—"}
               </b>
             </div>
           </div>
-          <button
-            type="button"
-            onClick={handleExport}
-            className="mt-4 w-full rounded-lg border border-lol-border bg-lol-card px-4 py-2 text-sm font-medium text-lol-text-bright transition-colors hover:border-lol-crimson"
-          >
-            Export JSON
-          </button>
+          <div className="mt-4 rounded-xl border border-lol-border border-t-[2px] border-t-lol-crimson/70 bg-black/10 p-2">
+            <button
+              type="button"
+              onClick={handleExport}
+              className="w-full rounded-lg border border-lol-border bg-lol-card px-4 py-2 text-sm font-medium text-lol-text-bright transition-colors duration-[120ms] hover:border-lol-crimson"
+            >
+              Export JSON
+            </button>
+          </div>
           {exportStatus && <p className="mt-2 text-[12.5px] text-lol-text">{exportStatus}</p>}
         </Panel>
       </div>
