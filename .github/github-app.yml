@@ -1,6 +1,6 @@
 scripts:
   - name: Install dependencies
-    command: npm ci
+    command: powershell -NoProfile -Command "if (-not (Test-Path 'node_modules/.bin/tsc.cmd')) { npm install } else { Write-Host 'node_modules present, skipping install' }"
     triggers:
       - session.create
   - name: Typecheck

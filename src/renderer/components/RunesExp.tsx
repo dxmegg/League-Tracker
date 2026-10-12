@@ -12,7 +12,21 @@ import { TileGrid } from "./TileGrid";
 import { SortableTable, type SortableColumn } from "./SortableTable";
 import { formatNumber } from "../lib/format";
 
-const RUNE_TILE_ACCENTS = ["#E5483F", "#C9A45C", "#22C55E", "#3B82F6", "#A855F7", "#64748B"];
+const RUNE_TREE_COLORS: Record<string, string> = {
+  Precision: "#D6A84F",
+  Domination: "#E04F5F",
+  Sorcery: "#4AA3F5",
+  Resolve: "#52A675",
+  Inspiration: "#A783E8",
+};
+
+function getRuneTreeName(
+  runeId: number,
+  runeData: ReturnType<typeof useRuneData>,
+): string | undefined {
+  const iconPath = runeData[runeId]?.icon;
+  return iconPath?.match(/(?:^|\/)Styles\/([^/]+)/i)?.[1];
+}
 
 type RuneChampionRow = {
   champion_id: number;
@@ -123,8 +137,9 @@ export function RunesExp() {
               <span className="text-xs uppercase tracking-wider text-lol-text">All accounts</span>
             </div>
             <TileGrid>
-              {keystones.map((rune, index) => {
+              {keystones.map((rune) => {
                 const winRate = rune.picks > 0 ? (rune.wins / rune.picks) * 100 : 0;
+                const treeName = getRuneTreeName(rune.rune_id, runeData);
                 return (
                   <Tile
                     key={rune.rune_id}
@@ -138,7 +153,7 @@ export function RunesExp() {
                     title={runeData[rune.rune_id]?.name ?? `Rune ${rune.rune_id}`}
                     subtitle={`${formatNumber(rune.picks)} games · ${winRate.toFixed(1)}% win`}
                     trackValue={winRate}
-                    accent={RUNE_TILE_ACCENTS[index % RUNE_TILE_ACCENTS.length]}
+                    accent={RUNE_TREE_COLORS[treeName ?? ""] ?? "#94A3B8"}
                   />
                 );
               })}
