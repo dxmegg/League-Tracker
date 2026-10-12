@@ -1172,6 +1172,29 @@ export function MatchesTab({
           b.game_creation - a.game_creation
         : b.game_creation - a.game_creation,
     );
+  const scoredMatches = visibleMatches.filter((match) => match.score != null);
+  const averageScore =
+    scoredMatches.length > 0
+      ? scoredMatches.reduce((sum, match) => sum + match.score!, 0) / scoredMatches.length
+      : null;
+  const matchInsights: Insight[] = [
+    {
+      kind: "info",
+      text: `Loaded ${matches.length.toLocaleString()} of ${total.toLocaleString()} matches.`,
+    },
+    {
+      kind: "info",
+      text: `Showing ${filter === "all" ? "all" : filter} matches, sorted by ${sort === "newest" ? "newest" : "best score"}.`,
+    },
+    ...(averageScore != null
+      ? [
+          {
+            kind: "info" as const,
+            text: `Visible matches average ${averageScore.toFixed(1)} score across ${scoredMatches.length.toLocaleString()} scored games.`,
+          },
+        ]
+      : []),
+  ];
 
   const loadMore = () => {
     const nextPage = page + 1;
@@ -1188,59 +1211,69 @@ export function MatchesTab({
   };
 
   return (
-    <Panel>
-      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-        <SectionHeading title="Matches" aside={`Loaded ${matches.length} of ${total}`} />
-        <div className="flex flex-wrap items-center gap-2">
-          <SortButtons
-            value={filter}
-            options={[
-              ["all", "All"],
-              ["wins", "Wins"],
-              ["losses", "Losses"],
-            ]}
-            onChange={setFilter}
-          />
-          <SortButtons
-            value={sort}
-            options={[
-              ["newest", "Newest"],
-              ["score", "Best score"],
-            ]}
-            onChange={setSort}
-          />
-        </div>
-      </div>
-      {loading && matches.length === 0 ? (
-        <SectionLoading />
-      ) : visibleMatches.length === 0 ? (
-        <NoData />
-      ) : (
-        <div
-          className="match-list-exp flex flex-col gap-2.5"
-          style={{ containerType: "inline-size" }}
-        >
-          {visibleMatches.map((match) => (
-            <MatchRowExperiment
-              key={match.game_id}
-              match={match}
-              championName={championName}
-              champData={champData}
+    <div className="flex flex-col gap-5">
+      <IntroBox legend="Badges show where a number comes from: Match-V5 = Riot match data · Timeline = minute-by-minute data · Derived = calculated by the app · LCU = game client.">
+        Every match with this champion; filter by result and sort by score, damage or KDA.
+      </IntroBox>
+      <SectionHeading title="Key metrics" />
+      <Panel>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <SectionHeading title="Matches" aside={`Loaded ${matches.length} of ${total}`} />
+          <div className="flex flex-wrap items-center gap-2">
+            <SortButtons
+              value={filter}
+              options={[
+                ["all", "All"],
+                ["wins", "Wins"],
+                ["losses", "Losses"],
+              ]}
+              onChange={setFilter}
             />
-          ))}
+            <SortButtons
+              value={sort}
+              options={[
+                ["newest", "Newest"],
+                ["score", "Best score"],
+              ]}
+              onChange={setSort}
+            />
+          </div>
         </div>
-      )}
-      {matches.length < total && (
-        <button
-          type="button"
-          className="mt-5 w-full rounded-md border border-lol-border px-3 py-2 text-sm font-semibold text-lol-text-bright hover:border-lol-crimson disabled:opacity-50"
-          onClick={loadMore}
-          disabled={loading}
-        >
-          {loading ? "Loading…" : "Load more"}
-        </button>
-      )}
-    </Panel>
+      </Panel>
+      <InsightsPanel items={matchInsights} />
+      <SectionHeading title="Detailed statistics" />
+      <Panel>
+        {loading && matches.length === 0 ? (
+          <SectionLoading />
+        ) : visibleMatches.length === 0 ? (
+          <NoData />
+        ) : (
+          <div
+            className="match-list-exp flex flex-col gap-2.5"
+            style={{ containerType: "inline-size" }}
+          >
+            {visibleMatches.map((match) => (
+              <MatchRowExperiment
+                key={match.game_id}
+                match={match}
+                championName={championName}
+                champData={champData}
+              />
+            ))}
+          </div>
+        )}
+        {matches.length < total && (
+          <button
+            type="button"
+            className="mt-5 w-full rounded-md border border-lol-border px-3 py-2 text-sm font-semibold text-lol-text-bright hover:border-lol-crimson disabled:opacity-50"
+            onClick={loadMore}
+            disabled={loading}
+          >
+            {loading ? "Loading…" : "Load more"}
+          </button>
+        )}
+      </Panel>
+    </div>
   );
 }
 
