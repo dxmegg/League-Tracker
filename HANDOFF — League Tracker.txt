@@ -105,6 +105,20 @@ Faza — CDragon hardening + visual polish final (2026-10-12):
 - Setup script fix: conditional npm install, prevents EBUSY during dev.
 - Activity heatmap on History with weekly/daily/monthly highlights.
 
+Faza — visual polish zamknięte (2026-10-12):
+- Visual polish complete on all experiment-theme surfaces:
+  - 16 champion detail tabs (ChampionDetailExp)
+  - Home (HomeHero, LiveGameTile, ChampCard, RecordTile)
+  - History (MatchHistory, MatchRowExperiment, ActivityHeatmap with weekly/daily/monthly highlights)
+  - Local Account (Profile, ProfileHeroExp, ChampionMasteryExp, LastPlayedExp, MostPlayedQueuesExp)
+  - Champions list (ChampionExp)
+  - Items, Augments, Runes (Exp variants) — rune accents derived from rune tree
+  - Friends (FriendsExp), Trends (TrendsExp), Records (RecordsExp)
+  - Data (DataExp)
+  - FriendDetail, ItemDetail
+  - Settings (SettingsExp)
+- Legacy-theme surfaces NOT polished (intentionally out of scope): GlobalChampionDetail, MatchScoreboard, legacy wrappers. User uses experiment theme exclusively.
+
 Ostatnie zamknięte fazy (2026-10-11):
 - A (log noise dragon:*): DONE (already silent before this session)
 - D (summary tiles): DONE (source + runtime verified — SCORE 6.3, MVP/ACE 562/249, CS/MIN 2.3 in /champions/summary)
@@ -162,9 +176,9 @@ Czasem myli MatchupsTab return z innym JSX.
 Cherry-pickuje commity między worktree'ami — nie używać subsessji.
 
 6. Co dalej
-- A — Full visual polish across all top-level pages and champion detail is complete. Further polish can be ad-hoc if user requests.
-- B — Possible next features: match detail modal polish, Settings page polish, champion list filter/sort improvements, new chart types.
-- C — Ask user for direction.
+- A — New features (ask user for direction)
+- B — Performance / caching improvements (CDragon done, other areas TBD)
+- C — Bug reports / maintenance
 
 7. Komendy
 npm run dev          # apka (wymaga LCU jako admin)
