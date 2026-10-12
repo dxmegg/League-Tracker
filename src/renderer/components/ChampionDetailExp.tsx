@@ -2405,6 +2405,25 @@ function MatchupsTab({
   const worstMatchup = qualifiedMatchups
     .slice()
     .sort((a, b) => a.wins / a.games - b.wins / b.games || b.games - a.games)[0];
+  const matchupInsights: Insight[] = [];
+  if (bestMatchup) {
+    matchupInsights.push({
+      kind: "good",
+      text: `Best matchup: ${getChampionName(champData, bestMatchup.championId)} at ${formatPercent(bestMatchup.wins, bestMatchup.games)}.`,
+    });
+  }
+  if (worstMatchup) {
+    matchupInsights.push({
+      kind: "warn",
+      text: `Hardest matchup: ${getChampionName(champData, worstMatchup.championId)} at ${formatPercent(worstMatchup.wins, worstMatchup.games)}.`,
+    });
+  }
+  if (qualifiedMatchups.length > 0) {
+    matchupInsights.push({
+      kind: "info",
+      text: `Faced ${qualifiedMatchups.length} opponents across ${qualifiedMatchups.reduce((total, row) => total + row.games, 0)} matchup games.`,
+    });
+  }
   const classStats = new Map<string, { games: number; wins: number }>();
   for (const row of qualifiedMatchups) {
     const enemyClass = champData[row.championId]?.class?.trim() || "Other";
@@ -2416,23 +2435,14 @@ function MatchupsTab({
   const classRows = [...classStats.entries()].sort((a, b) => b[1].games - a[1].games).slice(0, 6);
 
   return [
-    <InsightsPanel
-      key="matchup-insights"
-      insights={[
-        bestMatchup
-          ? {
-              kind: "good",
-              text: `Best matchup: ${getChampionName(champData, bestMatchup.championId)} at ${formatPercent(bestMatchup.wins, bestMatchup.games)}.`,
-            }
-          : { kind: "info", text: "Not enough matchup games for a best result." },
-        worstMatchup
-          ? {
-              kind: "warn",
-              text: `Hardest matchup: ${getChampionName(champData, worstMatchup.championId)} at ${formatPercent(worstMatchup.wins, worstMatchup.games)}.`,
-            }
-          : { kind: "info", text: "Not enough matchup games for a hardest result." },
-      ]}
-    />,
+    <div className="xl:col-span-2" key="matchup-intro">
+      <IntroBox legend="Badges show where a number comes from: Match-V5 = Riot match data · Timeline = minute-by-minute data · Derived = calculated by the app · LCU = game client.">
+        How you do against every opponent, by lane, with your best and worst matchups highlighted.
+      </IntroBox>
+    </div>,
+    <div className="xl:col-span-2" key="matchup-key-metrics">
+      <SectionHeading title="Key metrics" />
+    </div>,
     <Panel className="xl:col-span-2" key="matchup-tier-list">
       <SectionHeading title="Matchup tier list" source="d" />
       {tierRows.length === 0 ? (
@@ -2466,6 +2476,12 @@ function MatchupsTab({
         </div>
       )}
     </Panel>,
+    ...(matchupInsights.length > 0
+      ? [<InsightsPanel key="matchup-insights" insights={matchupInsights} />]
+      : []),
+    <div className="xl:col-span-2" key="matchup-detailed-statistics">
+      <SectionHeading title="Detailed statistics" />
+    </div>,
     <Panel className="xl:col-span-2" key="matchups">
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
         <SectionHeading
