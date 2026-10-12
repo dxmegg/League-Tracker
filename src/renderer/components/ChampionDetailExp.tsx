@@ -2720,16 +2720,58 @@ function TrendsTab({
   if (trendsLoading) return <SectionLoading />;
   if (trends == null) return <NoData text="No trends data yet" />;
 
+  const overallGames = trends.daily.reduce((sum, day) => sum + day.games, 0);
+  const overallWins = trends.daily.reduce((sum, day) => sum + day.wins, 0);
+  const overallWinRate = overallGames > 0 ? (overallWins / overallGames) * 100 : null;
+  const overallScoreGames = trends.daily.reduce((sum, day) => sum + day.scored_games, 0);
+  const overallScoreTotal = trends.daily.reduce((sum, day) => sum + (day.score_sum ?? 0), 0);
+  const overallScore = overallScoreGames > 0 ? overallScoreTotal / overallScoreGames : null;
+  const latestBucket = buckets.at(-1);
+  const trendInsights: Insight[] = [
+    ...(latestBucket && overallWinRate != null
+      ? [
+          {
+            kind:
+              winRates.at(-1)! > overallWinRate
+                ? ("good" as const)
+                : winRates.at(-1)! < overallWinRate
+                  ? ("warn" as const)
+                  : ("info" as const),
+            text: `Latest ${period} win rate is ${winRates.at(-1)!.toFixed(1)}%, ${winRates.at(-1)! > overallWinRate ? "above" : winRates.at(-1)! < overallWinRate ? "below" : "at"} the ${overallWinRate.toFixed(1)}% overall rate.`,
+          },
+        ]
+      : []),
+    ...(latestBucket && overallScore != null && latestBucket.scoredGames > 0
+      ? [
+          {
+            kind:
+              scores.at(-1)! > overallScore
+                ? ("good" as const)
+                : scores.at(-1)! < overallScore
+                  ? ("warn" as const)
+                  : ("info" as const),
+            text: `Latest ${period} score is ${scores.at(-1)!.toFixed(1)}, ${scores.at(-1)! > overallScore ? "above" : scores.at(-1)! < overallScore ? "below" : "at"} the ${overallScore.toFixed(1)} overall score.`,
+          },
+        ]
+      : []),
+    ...(buckets.length > 0 || patches.length > 0
+      ? [
+          {
+            kind: "info" as const,
+            text: `${buckets.length.toLocaleString()} ${period} performance bucket${buckets.length === 1 ? "" : "s"} and ${patches.length.toLocaleString()} patch${patches.length === 1 ? "" : "es"} observed.`,
+          },
+        ]
+      : []),
+  ];
+
   return (
     <div className="grid grid-cols-1 gap-5 xl:grid-cols-2">
-      <InsightsPanel
-        insights={[
-          {
-            kind: "info",
-            text: "Placeholder — trend insights land in a follow-up phase.",
-          },
-        ]}
-      />
+      <IntroBox legend="Badges show where a number comes from: Match-V5 = Riot match data · Timeline = minute-by-minute data · Derived = calculated by the app · LCU = game client.">
+        How your performance changes over time, per patch and over your last games.
+      </IntroBox>
+      <div className="xl:col-span-2">
+        <SectionHeading title="Key metrics" />
+      </div>
       <Panel className="xl:col-span-2">
         <div className="mb-4 flex items-center justify-between gap-3">
           <SectionHeading title="Win rate over time" source="m" />
@@ -2785,6 +2827,12 @@ function TrendsTab({
         color="var(--theme-violet)"
         format={(value) => value.toFixed(1)}
       />
+      <div className="xl:col-span-2">
+        <InsightsPanel items={trendInsights} />
+      </div>
+      <div className="xl:col-span-2">
+        <SectionHeading title="Detailed statistics" />
+      </div>
       <Panel className="xl:col-span-2">
         <SectionHeading title="Win rate by patch" source="m" />
         <div className="flex flex-col gap-2 text-xs">
