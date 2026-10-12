@@ -1291,8 +1291,23 @@ export function MasteryTab({
     return <NoData text="No mastery data" />;
   }
 
+  const masteryInsights: Insight[] = [
+    {
+      kind: "info",
+      text: `Level ${mastery.level.toLocaleString()} with ${mastery.points.toLocaleString()} points.`,
+    },
+    {
+      kind: "info",
+      text: `${mastery.points.toLocaleString()} mastery points recorded for ${accountName ?? "this account"}.`,
+    },
+  ];
+
   return (
     <div className="flex flex-col gap-5">
+      <IntroBox legend="Badges show where a number comes from: Match-V5 = Riot match data · Timeline = minute-by-minute data · Derived = calculated by the app · LCU = game client.">
+        Champion mastery progress, level thresholds, Eternals and owned skins.
+      </IntroBox>
+      <SectionHeading title="Key metrics" />
       <Panel>
         <SectionHeading title="Mastery" aside={accountName ?? undefined} />
         <div className="grid grid-cols-2 gap-3">
@@ -1305,6 +1320,8 @@ export function MasteryTab({
         </div>
         <p className="mt-4 text-xs text-lol-text">Progress bar unavailable</p>
       </Panel>
+      <InsightsPanel items={masteryInsights} />
+      <SectionHeading title="Detailed statistics" />
       <Panel>
         <SectionHeading title="Milestones" />
         <div className="flex flex-col gap-2">
