@@ -919,6 +919,7 @@ export function ChampionDetailExp() {
           baseline={statBaseline}
           detailLoading={detailLoading}
           matchHistory={matchHistory}
+          weeklyMetrics={weeklyMetrics}
         />
       ) : activeTab === "it" ? (
         <ItemsTab
@@ -2071,11 +2072,13 @@ function VisionTab({
   baseline,
   detailLoading,
   matchHistory,
+  weeklyMetrics,
 }: {
   detail: ChampionDetailStats | null;
   baseline: ChampionStatBaseline | null;
   detailLoading: boolean;
   matchHistory: { matches: MatchListItem[]; total: number } | null;
+  weeklyMetrics: ChampionWeeklyMetrics[] | null;
 }) {
   const champData = useChampionData();
   if (detailLoading) return <SectionLoading />;
@@ -2084,7 +2087,7 @@ function VisionTab({
     value == null || baseline?.[key] == null ? null : value - baseline[key]!;
 
   const minutes = detail.avgGameLength > 0 ? detail.avgGameLength / 60 : 0;
-  const perMinute = (value: number) => (minutes > 0 ? (value / minutes).toFixed(2) : "—");
+  const perMinute = (value: number) => (minutes > 0 ? value / minutes : null);
   const wardKillRatio =
     detail.avgWardsPlaced > 0
       ? `${((detail.avgWardsKilled / detail.avgWardsPlaced) * 100).toFixed(1)}%`
@@ -2094,6 +2097,75 @@ function VisionTab({
     wardShareTotal > 0
       ? `${((detail.avgVisionWardsBought / wardShareTotal) * 100).toFixed(1)}%`
       : "—";
+  const controlWardShareValue =
+    wardShareTotal > 0 ? (detail.avgVisionWardsBought / wardShareTotal) * 100 : null;
+  const weeklyVisionScoreKey = [
+    ...new Set(weeklyMetrics?.flatMap((entry) => Object.keys(entry.metrics)) ?? []),
+  ].find((key) => /vision.*score/i.test(key));
+  const weeklyVisionScoreSeries = weeklyVisionScoreKey
+    ? weeklyMetrics?.map((entry) => entry.metrics[weeklyVisionScoreKey] ?? null)
+    : undefined;
+  const visionRows: CombatStatTableRow[] = [];
+  if (Number.isFinite(detail.avgVisionScore)) {
+    visionRows.push([
+      "Vision score",
+      detail.avgVisionScore,
+      detail.maxVisionScore,
+      detail.totalVisionScore,
+      formatCombatNumber,
+      detail.avgVisionScoreInWins,
+      detail.avgVisionScoreInLosses,
+      vsOther(detail.avgVisionScore, "avgVisionScoreOther"),
+    ]);
+  }
+  if (Number.isFinite(detail.avgWardsPlaced)) {
+    visionRows.push([
+      "Wards placed",
+      detail.avgWardsPlaced,
+      detail.maxWardsPlaced,
+      detail.totalWardsPlaced,
+      formatCombatNumber,
+      detail.avgWardsPlacedInWins,
+      detail.avgWardsPlacedInLosses,
+      vsOther(detail.avgWardsPlaced, "avgWardsPlacedOther"),
+    ]);
+  }
+  if (Number.isFinite(detail.avgWardsKilled)) {
+    visionRows.push([
+      "Wards killed",
+      detail.avgWardsKilled,
+      detail.maxWardsKilled,
+      detail.totalWardsKilled,
+      formatCombatNumber,
+      detail.avgWardsKilledInWins,
+      detail.avgWardsKilledInLosses,
+      vsOther(detail.avgWardsKilled, "avgWardsKilledOther"),
+    ]);
+  }
+  if (Number.isFinite(detail.avgVisionWardsBought)) {
+    visionRows.push([
+      "Control wards bought",
+      detail.avgVisionWardsBought,
+      detail.maxVisionWardsBought,
+      detail.totalVisionWardsBought,
+      formatCombatNumber,
+      detail.avgVisionWardsBoughtInWins,
+      detail.avgVisionWardsBoughtInLosses,
+      vsOther(detail.avgVisionWardsBought, "avgVisionWardsBoughtOther"),
+    ]);
+  }
+  if (Number.isFinite(detail.avgSightWardsBought)) {
+    visionRows.push([
+      "Sight wards bought",
+      detail.avgSightWardsBought,
+      detail.maxSightWardsBought,
+      detail.totalSightWardsBought,
+      formatCombatNumber,
+      detail.avgSightWardsBoughtInWins,
+      detail.avgSightWardsBoughtInLosses,
+      vsOther(detail.avgSightWardsBought, "avgSightWardsBoughtOther"),
+    ]);
+  }
   const recentMatches = (matchHistory?.matches ?? [])
     .filter((match) => match.vision_score != null)
     .slice()
@@ -2110,29 +2182,87 @@ function VisionTab({
       <div className="xl:col-span-2">
         <SectionHeading title="Key metrics" />
         <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
-          <CombatTile
+          <Stat
             label="Vision score"
-            value={detail.avgVisionScore}
-            subtitle={`best ${formatCombatNumber(detail.maxVisionScore)}`}
+            value={formatCombatNumber(detail.avgVisionScore)}
+            sub={`best ${formatCombatNumber(detail.maxVisionScore)}`}
             accent={CHART_PALETTE[0]}
+            sparkValues={weeklyVisionScoreSeries}
           />
-          <CombatTile
+          <Stat
             label="Wards placed"
-            value={detail.avgWardsPlaced}
-            subtitle={`best ${formatCombatNumber(detail.maxWardsPlaced)}`}
+            value={formatCombatNumber(detail.avgWardsPlaced)}
+            sub={`best ${formatCombatNumber(detail.maxWardsPlaced)}`}
             accent={CHART_PALETTE[1]}
+            miniViz={
+              detail.maxWardsPlaced > 0 ? (
+                <span
+                  aria-hidden="true"
+                  className="mt-1 block h-2 w-[72px] overflow-hidden rounded-full bg-lol-border/60"
+                >
+                  <span
+                    className="block h-full rounded-full bg-lol-win"
+                    style={{
+                      width: `${Math.min(100, (detail.avgWardsPlaced / detail.maxWardsPlaced) * 100)}%`,
+                    }}
+                  />
+                </span>
+              ) : undefined
+            }
           />
-          <CombatTile
+          <Stat
             label="Wards killed"
-            value={detail.avgWardsKilled}
-            subtitle={`best ${formatCombatNumber(detail.maxWardsKilled)}`}
+            value={formatCombatNumber(detail.avgWardsKilled)}
+            sub={`best ${formatCombatNumber(detail.maxWardsKilled)}`}
             accent={CHART_PALETTE[2]}
+            miniViz={
+              detail.maxWardsKilled > 0 ? (
+                <span
+                  aria-hidden="true"
+                  className="mt-1 block h-2 w-[72px] overflow-hidden rounded-full bg-lol-border/60"
+                >
+                  <span
+                    className="block h-full rounded-full bg-lol-gold"
+                    style={{
+                      width: `${Math.min(100, (detail.avgWardsKilled / detail.maxWardsKilled) * 100)}%`,
+                    }}
+                  />
+                </span>
+              ) : undefined
+            }
           />
-          <CombatTile
+          <Stat
             label="Control ward share"
-            value={wardShareTotal > 0 ? (detail.avgVisionWardsBought / wardShareTotal) * 100 : null}
-            subtitle="of purchased wards"
+            value={controlWardShareValue == null ? "—" : `${controlWardShareValue.toFixed(1)}%`}
+            sub="of purchased wards"
             accent={CHART_PALETTE[3]}
+            miniViz={
+              controlWardShareValue == null ? undefined : (
+                <svg aria-hidden="true" className="h-11 w-11 -rotate-90" viewBox="0 0 44 44">
+                  <circle
+                    cx="22"
+                    cy="22"
+                    r="17"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="3"
+                    className="text-lol-border/60"
+                  />
+                  <circle
+                    cx="22"
+                    cy="22"
+                    r="17"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="3"
+                    strokeLinecap="round"
+                    strokeDasharray={`${Math.max(0, Math.min(100, controlWardShareValue)).toFixed(1)} 100`}
+                    pathLength="100"
+                    className="text-lol-gold"
+                  />
+                </svg>
+              )
+            }
           />
         </div>
       </div>
@@ -2154,60 +2284,7 @@ function VisionTab({
         <p className="mb-3 text-[11px] text-lol-text/70">
           Vision score, wards placed, wards cleared, and purchased ward totals.
         </p>
-        <CombatStatTable
-          rows={[
-            [
-              "Vision score",
-              detail.avgVisionScore,
-              detail.maxVisionScore,
-              detail.totalVisionScore,
-              formatCombatNumber,
-              detail.avgVisionScoreInWins,
-              detail.avgVisionScoreInLosses,
-              vsOther(detail.avgVisionScore, "avgVisionScoreOther"),
-            ],
-            [
-              "Wards placed",
-              detail.avgWardsPlaced,
-              detail.maxWardsPlaced,
-              detail.totalWardsPlaced,
-              formatCombatNumber,
-              detail.avgWardsPlacedInWins,
-              detail.avgWardsPlacedInLosses,
-              vsOther(detail.avgWardsPlaced, "avgWardsPlacedOther"),
-            ],
-            [
-              "Wards killed",
-              detail.avgWardsKilled,
-              detail.maxWardsKilled,
-              detail.totalWardsKilled,
-              formatCombatNumber,
-              detail.avgWardsKilledInWins,
-              detail.avgWardsKilledInLosses,
-              vsOther(detail.avgWardsKilled, "avgWardsKilledOther"),
-            ],
-            [
-              "Control wards bought",
-              detail.avgVisionWardsBought,
-              detail.maxVisionWardsBought,
-              detail.totalVisionWardsBought,
-              formatCombatNumber,
-              detail.avgVisionWardsBoughtInWins,
-              detail.avgVisionWardsBoughtInLosses,
-              vsOther(detail.avgVisionWardsBought, "avgVisionWardsBoughtOther"),
-            ],
-            [
-              "Sight wards bought",
-              detail.avgSightWardsBought,
-              detail.maxSightWardsBought,
-              detail.totalSightWardsBought,
-              formatCombatNumber,
-              detail.avgSightWardsBoughtInWins,
-              detail.avgSightWardsBoughtInLosses,
-              vsOther(detail.avgSightWardsBought, "avgSightWardsBoughtOther"),
-            ],
-          ]}
-        />
+        <CombatStatTable rows={visionRows} deltaIndicators />
       </Panel>
 
       <Panel className={TAB_PANEL_CLASSES.violet}>
@@ -2215,21 +2292,13 @@ function VisionTab({
         <p className="mb-3 text-[11px] text-lol-text/70">
           Vision activity normalized by the average length of your games.
         </p>
-        <div className="flex flex-col divide-y divide-white/[0.04] text-xs">
-          {[
-            ["Vision score / min", perMinute(detail.avgVisionScore)],
-            ["Wards placed / min", perMinute(detail.avgWardsPlaced)],
-            ["Wards killed / min", perMinute(detail.avgWardsKilled)],
-          ].map(([label, value]) => (
-            <div
-              key={label}
-              className="flex items-center justify-between py-2 transition-colors duration-[120ms] hover:bg-white/[0.025]"
-            >
-              <span className="text-lol-text">{label}</span>
-              <b className="text-right tabular-nums text-lol-text-bright">{value}</b>
-            </div>
-          ))}
-        </div>
+        <CombatStatTable
+          rows={[
+            ["Vision score / min", perMinute(detail.avgVisionScore), null, null],
+            ["Wards placed / min", perMinute(detail.avgWardsPlaced), null, null],
+            ["Wards killed / min", perMinute(detail.avgWardsKilled), null, null],
+          ]}
+        />
       </Panel>
 
       <Panel className={TAB_PANEL_CLASSES.violet}>
@@ -2237,16 +2306,24 @@ function VisionTab({
         <p className="mb-3 text-[11px] text-lol-text/70">
           Ward clearing efficiency and the share of control wards purchased.
         </p>
-        <div className="flex flex-col divide-y divide-white/[0.04] text-xs">
-          <div className="flex items-center justify-between py-2 transition-colors duration-[120ms] hover:bg-white/[0.025]">
-            <span className="text-lol-text">Ward kill ratio</span>
-            <b className="text-right tabular-nums text-lol-text-bright">{wardKillRatio}</b>
-          </div>
-          <div className="flex items-center justify-between py-2 transition-colors duration-[120ms] hover:bg-white/[0.025]">
-            <span className="text-lol-text">Control ward share</span>
-            <b className="text-right tabular-nums text-lol-text-bright">{controlWardShare}</b>
-          </div>
-        </div>
+        <CombatStatTable
+          rows={[
+            [
+              "Ward kill ratio",
+              wardKillRatio === "—" ? null : Number.parseFloat(wardKillRatio),
+              null,
+              null,
+              (value) => (value == null ? "—" : `${value.toFixed(1)}%`),
+            ],
+            [
+              "Control ward share",
+              controlWardShare === "—" ? null : Number.parseFloat(controlWardShare),
+              null,
+              null,
+              (value) => (value == null ? "—" : `${value.toFixed(1)}%`),
+            ],
+          ]}
+        />
       </Panel>
 
       <Panel className={`${TAB_PANEL_CLASSES.violet} `}>
@@ -5950,7 +6027,13 @@ function EconomyStatTable({ rows }: { rows: EconomyStatTableRow[] }) {
   );
 }
 
-function CombatStatTable({ rows }: { rows: CombatStatTableRow[] }) {
+function CombatStatTable({
+  rows,
+  deltaIndicators = false,
+}: {
+  rows: CombatStatTableRow[];
+  deltaIndicators?: boolean;
+}) {
   return (
     <div className="flex flex-col gap-2 text-xs">
       <div className="grid grid-cols-[minmax(0,1.4fr)_96px_96px_96px_96px_96px] gap-3 border-b border-lol-border/50 pb-2 font-semibold text-lol-text">
@@ -6023,7 +6106,21 @@ function CombatStatTable({ rows }: { rows: CombatStatTableRow[] }) {
               className="text-right tabular-nums text-lol-text"
               style={damageColor ? { color: damageColor, opacity: 0.9 } : undefined}
             >
-              {renderBreakdown(vsOther)}
+              {deltaIndicators && vsOther != null ? (
+                <span
+                  className={`inline-flex items-center gap-0.5 rounded px-1.5 py-0.5 text-xs font-semibold ${
+                    vsOther >= 0
+                      ? "bg-[rgba(34,197,94,0.12)] text-[#22C55E]"
+                      : "bg-[rgba(229,72,63,0.12)] text-[#E5483F]"
+                  }`}
+                >
+                  <DeltaIndicator positive={vsOther >= 0} />
+                  {vsOther >= 0 ? "+" : ""}
+                  {vsOther.toFixed(1)}
+                </span>
+              ) : (
+                renderBreakdown(vsOther)
+              )}
             </span>
           </div>
         );
