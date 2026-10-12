@@ -43,7 +43,13 @@ import type { ChampionData } from "../lib/types";
 import { useIpc } from "../hooks/useIpc";
 import { useViewState } from "../hooks/useViewState";
 import { ALL_ACCOUNTS_SENTINEL } from "../lib/accountsEvent";
-import { formatDuration, formatNumber, formatPlaytime, formatTimeAgo } from "../lib/format";
+import {
+  formatDuration,
+  formatNumber,
+  formatPlain,
+  formatPlaytime,
+  formatTimeAgo,
+} from "../lib/format";
 import { useHistoryScopeQueue } from "../lib/historyScope";
 import AugmentIcon from "./AugmentIcon";
 import ChampionIcon from "./ChampionIcon";
@@ -783,7 +789,7 @@ export function ChampionDetailExp() {
         />
         <Stat
           label="Gold / min"
-          value={detailStats ? Math.round(detailStats.goldPerMin).toString() : "—"}
+          value={detailStats ? formatPlain(detailStats.goldPerMin, 1) : "—"}
           sub=""
           sparkValues={weeklyMetrics?.map((entry) => entry.metrics.goldPerMin ?? null)}
         />
@@ -1029,7 +1035,7 @@ export function RecordsTab({
   const formatRecordValue = (record: ChampionRecordsResult["records"][number], value: number) =>
     ["longestGame", "shortestWin", "longestAlive"].includes(record.key)
       ? formatSeconds(value)
-      : value.toLocaleString(undefined, { maximumFractionDigits: 2 });
+      : formatPlain(value, 2);
   const recordsInsights: Insight[] = [
     ...(podium[0]?.score != null
       ? [
@@ -1041,13 +1047,13 @@ export function RecordsTab({
       : []),
     {
       kind: "info",
-      text: `${records.records.length.toLocaleString()} personal records are in scope across the tracked categories.`,
+      text: `${formatPlain(records.records.length, 0)} personal records are in scope across the tracked categories.`,
     },
     ...(almostRecords.length > 0
       ? [
           {
             kind: "info" as const,
-            text: `${almostRecords.length.toLocaleString()} near-miss record${almostRecords.length === 1 ? "" : "s"} are within the comparison window.`,
+            text: `${formatPlain(almostRecords.length, 0)} near-miss record${almostRecords.length === 1 ? "" : "s"} are within the comparison window.`,
           },
         ]
       : []),
@@ -1231,7 +1237,7 @@ export function MatchesTab({
   const matchInsights: Insight[] = [
     {
       kind: "info",
-      text: `Loaded ${matches.length.toLocaleString()} of ${total.toLocaleString()} matches.`,
+      text: `Loaded ${formatPlain(matches.length, 0)} of ${formatPlain(total, 0)} matches.`,
     },
     {
       kind: "info",
@@ -1241,7 +1247,7 @@ export function MatchesTab({
       ? [
           {
             kind: "info" as const,
-            text: `Visible matches average ${averageScore.toFixed(1)} score across ${scoredMatches.length.toLocaleString()} scored games.`,
+            text: `Visible matches average ${averageScore.toFixed(1)} score across ${formatPlain(scoredMatches.length, 0)} scored games.`,
           },
         ]
       : []),
@@ -1346,11 +1352,11 @@ export function MasteryTab({
   const masteryInsights: Insight[] = [
     {
       kind: "info",
-      text: `Level ${mastery.level.toLocaleString()} with ${mastery.points.toLocaleString()} points.`,
+      text: `Level ${formatPlain(mastery.level, 0)} with ${formatPlain(mastery.points, 0)} points.`,
     },
     {
       kind: "info",
-      text: `${mastery.points.toLocaleString()} mastery points recorded for ${accountName ?? "this account"}.`,
+      text: `${formatPlain(mastery.points, 0)} mastery points recorded for ${accountName ?? "this account"}.`,
     },
   ];
 
@@ -1365,7 +1371,7 @@ export function MasteryTab({
         <div className="grid grid-cols-2 gap-3">
           <Stat
             label="Level"
-            value={mastery.level.toLocaleString()}
+            value={formatPlain(mastery.level, 0)}
             sub="Current champion level"
             accent={CHART_PALETTE[1]}
             glow
@@ -1373,7 +1379,7 @@ export function MasteryTab({
           />
           <Stat
             label="Points"
-            value={mastery.points.toLocaleString()}
+            value={formatPlain(mastery.points, 0)}
             sub="Current champion points"
           />
         </div>
@@ -1433,7 +1439,7 @@ export function MasteryTab({
                 >
                   <td className="py-2 text-lol-text-bright">Level {level}</td>
                   <td className="py-2 text-right tabular-nums text-lol-text-bright">
-                    {points.toLocaleString()}
+                    {formatPlain(points, 0)}
                   </td>
                   <td
                     className={`py-2 text-right tabular-nums ${
@@ -1443,7 +1449,7 @@ export function MasteryTab({
                     {reached
                       ? "Reached"
                       : next
-                        ? `${(points - mastery.points).toLocaleString()} to go`
+                        ? `${formatPlain(points - mastery.points, 0)} to go`
                         : "—"}
                   </td>
                 </tr>
@@ -1995,7 +2001,7 @@ function VisionTab({
           insights={[
             {
               kind: detail.avgVisionScore >= 1 ? "good" : "info",
-              text: `${detail.avgVisionScore.toFixed(1)} average vision score over ${detail.games.toLocaleString()} games.`,
+              text: `${detail.avgVisionScore.toFixed(1)} average vision score over ${formatPlain(detail.games, 0)} games.`,
             },
           ]}
         />
@@ -2212,7 +2218,7 @@ function ItemsTab({
           insights={[
             {
               kind: items.length > 0 ? "good" : "info",
-              text: `${items.length.toLocaleString()} item aggregates available for this champion.`,
+              text: `${formatPlain(items.length, 0)} item aggregates available for this champion.`,
             },
           ]}
         />
@@ -2427,7 +2433,7 @@ function RunesTab({
           insights={[
             {
               kind: totalPicks > 0 ? "good" : "info",
-              text: `${totalPicks.toLocaleString()} keystone selections with ${formatPercent(totalWins, totalPicks)} win rate.`,
+              text: `${formatPlain(totalPicks, 0)} keystone selections with ${formatPercent(totalWins, totalPicks)} win rate.`,
             },
           ]}
         />
@@ -2753,7 +2759,7 @@ function MatchupsTab({
                 </span>
                 <span className="tabular-nums">{kda.toFixed(2)}</span>
                 <span className="tabular-nums">{(row.cs / games).toFixed(0)}</span>
-                <span className="tabular-nums">{(row.goldEarned / games).toLocaleString()}</span>
+                <span className="tabular-nums">{formatPlain(row.goldEarned / games, 2)}</span>
               </div>
             );
           })}
@@ -2968,7 +2974,7 @@ function TrendsTab({
       ? [
           {
             kind: "info" as const,
-            text: `${buckets.length.toLocaleString()} ${period} performance bucket${buckets.length === 1 ? "" : "s"} and ${patches.length.toLocaleString()} patch${patches.length === 1 ? "" : "es"} observed.`,
+            text: `${formatPlain(buckets.length, 0)} ${period} performance bucket${buckets.length === 1 ? "" : "s"} and ${formatPlain(patches.length, 0)} patch${patches.length === 1 ? "" : "es"} observed.`,
           },
         ]
       : []),
@@ -3199,7 +3205,7 @@ function TimelineTab({
   const timelineInsights: Insight[] = [
     {
       kind: "info",
-      text: `${games.length.toLocaleString()} timeline game${games.length === 1 ? "" : "s"} available for this champion.`,
+      text: `${formatPlain(games.length, 0)} timeline game${games.length === 1 ? "" : "s"} available for this champion.`,
     },
     ...(selectedGame
       ? (() => {
@@ -3231,7 +3237,7 @@ function TimelineTab({
       ? [
           {
             kind: "info" as const,
-            text: `${timeline.events.filter((event) => event.event_type === "CHAMPION_KILL").length.toLocaleString()} champion kill events recorded in the selected match.`,
+            text: `${formatPlain(timeline.events.filter((event) => event.event_type === "CHAMPION_KILL").length, 0)} champion kill events recorded in the selected match.`,
           },
         ]
       : []),
@@ -3362,7 +3368,7 @@ function TimelineTab({
                   label: "CS (×10)",
                 },
               ]}
-              format={(value) => value.toLocaleString()}
+              format={(value) => formatPlain(value, 2)}
               xLabels={labels}
               min={0}
               height={200}
@@ -3797,7 +3803,7 @@ function AbilitiesTab({
           />
           <Stat
             label="Skill orders"
-            value={String(skillOrders?.topOrders.length ?? 0)}
+            value={formatPlain(skillOrders?.topOrders.length ?? 0, 0)}
             sub="Orders in available payload"
             accent={CHART_PALETTE[3]}
             glow
@@ -3979,10 +3985,10 @@ function CombatTab({
       <p className="mb-1 text-xs font-semibold uppercase tracking-wider text-lol-text">{title}</p>
       <LineChartExp
         values={values}
-        format={(value) => value.toLocaleString()}
+        format={(value) => formatPlain(value, 2)}
         color={color}
         xLabels={labels}
-        yFormat={(value) => value.toLocaleString()}
+        yFormat={(value) => formatPlain(value, 2)}
         yTicks={[0, Math.max(...values, 1)]}
       />
     </div>
@@ -4325,8 +4331,7 @@ function EconomyTab({
     detail.avgGoldSpent > 0
       ? (detail.avgPhysicalDamageDealt + detail.avgMagicDamageDealt) / detail.avgGoldSpent
       : null;
-  const value = (number: number | null | undefined, digits = 0) =>
-    number == null ? "—" : number.toLocaleString(undefined, { maximumFractionDigits: digits });
+  const value = (number: number | null | undefined, digits = 0) => formatPlain(number, digits);
   const queueRows = queueStats ?? [];
 
   return (
@@ -4560,8 +4565,7 @@ function FarmTab({
     bucket.avgCsDiffVsLaneOpponent == null ? [] : [bucket.avgCsDiffVsLaneOpponent],
   );
   const timelineGames = buckets.reduce((sum, bucket) => sum + bucket.sampleGames, 0);
-  const value = (number: number | null | undefined, digits = 1) =>
-    number == null ? "—" : number.toLocaleString(undefined, { maximumFractionDigits: digits });
+  const value = (number: number | null | undefined, digits = 1) => formatPlain(number, digits);
 
   return (
     <div className="grid grid-cols-1 gap-5 xl:grid-cols-2">
@@ -4794,13 +4798,13 @@ function ObjectivesTab({
           <CombatTile
             label="First tower rate"
             value={(detail.totalFirstTowerKill / detail.games) * 100}
-            subtitle={`${detail.totalFirstTowerKill.toLocaleString()} first towers`}
+            subtitle={`${formatPlain(detail.totalFirstTowerKill, 0)} first towers`}
             accent={CHART_PALETTE[2]}
           />
           <CombatTile
             label="First inhibitor rate"
             value={(detail.totalFirstInhibitorKill / detail.games) * 100}
-            subtitle={`${detail.totalFirstInhibitorKill.toLocaleString()} first inhibitors`}
+            subtitle={`${formatPlain(detail.totalFirstInhibitorKill, 0)} first inhibitors`}
             accent={CHART_PALETTE[3]}
           />
         </div>
@@ -4810,11 +4814,11 @@ function ObjectivesTab({
           insights={[
             {
               kind: objectiveTotal > detail.games ? "good" : "info",
-              text: `${objectiveTotal.toLocaleString()} objective events across ${detail.games.toLocaleString()} games.`,
+              text: `${formatPlain(objectiveTotal, 0)} objective events across ${formatPlain(detail.games, 0)} games.`,
             },
             {
               kind: "info",
-              text: `First tower rate is ${(detail.totalFirstTowerKill / detail.games) * 100}% across ${detail.totalFirstTowerKill.toLocaleString()} games.`,
+              text: `First tower rate is ${(detail.totalFirstTowerKill / detail.games) * 100}% across ${formatPlain(detail.totalFirstTowerKill, 0)} games.`,
             },
           ]}
         />
@@ -5039,7 +5043,7 @@ function CombatTile({
 }
 
 function formatCombatNumber(value: number | null | undefined) {
-  return value == null || !Number.isFinite(value) ? "—" : value.toLocaleString();
+  return formatPlain(value, 2);
 }
 
 function formatSeconds(value: number | null | undefined) {

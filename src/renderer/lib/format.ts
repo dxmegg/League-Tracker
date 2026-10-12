@@ -26,7 +26,7 @@ export function formatPlaytime(seconds: number): string {
   const hours = Math.floor(seconds / 3600);
   const mins = Math.floor((seconds % 3600) / 60);
   if (hours === 0) return `${mins}m`;
-  if (hours >= 100) return `${hours.toLocaleString()}h`;
+  if (hours >= 100) return `${formatPlain(hours, 0)}h`;
   return `${hours}h ${mins}m`;
 }
 
@@ -64,7 +64,16 @@ export function winRateColor(winRate: number): string {
   return "text-lol-loss";
 }
 
-// Space-separated thousands for numbers in the UI (EU convention).
 export function formatNumber(n: number): string {
-  return Math.round(n).toLocaleString("en-US").replace(/,/g, " ");
+  return formatPlain(n, 0);
+}
+
+export function formatPlain(value: number | null | undefined, maxDecimals = 2): string {
+  if (value == null || !Number.isFinite(value)) return "—";
+  const rounded = maxDecimals > 0 ? Number(value.toFixed(maxDecimals)) : Math.round(value);
+  const [intPart, decPart] = String(rounded).split(".");
+  const sign = intPart.startsWith("-") ? "-" : "";
+  const digits = sign ? intPart.slice(1) : intPart;
+  const withSpaces = digits.replace(/\B(?=(\d{3})+(?!\d))/g, " ");
+  return decPart ? `${sign}${withSpaces}.${decPart}` : `${sign}${withSpaces}`;
 }
