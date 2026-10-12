@@ -1067,7 +1067,13 @@ export function RecordsTab({
             {podium.map((match, index) => (
               <div
                 key={match.game_id}
-                className="flex items-center gap-3 rounded-lg border border-lol-border/40 bg-black/10 px-3 py-2"
+                className={`flex items-center gap-3 rounded-lg border border-lol-border/40 px-3 py-2 ${
+                  index === 0
+                    ? "bg-[linear-gradient(to_right,rgba(201,164,92,0.08),transparent_40%)]"
+                    : index === 1
+                      ? "bg-[linear-gradient(to_right,rgba(148,163,184,0.05),transparent_40%)]"
+                      : "bg-[linear-gradient(to_right,rgba(180,116,58,0.05),transparent_40%)]"
+                }`}
               >
                 <span aria-label={`Place ${index + 1}`} className="text-base">
                   {["🥇", "🥈", "🥉"][index]}
@@ -1102,7 +1108,10 @@ export function RecordsTab({
         ) : (
           <div className="flex flex-col gap-3">
             {almostRecords.map(({ record, gapPct }) => (
-              <div key={record.key} className="flex flex-col gap-1.5">
+              <div
+                key={record.key}
+                className="flex flex-col gap-1.5 border-l-[3px] border-l-[#C9A45C] bg-[rgba(201,164,92,0.05)] px-3 py-2"
+              >
                 <div className="flex items-center gap-2 text-xs">
                   <span className="min-w-0 flex-1 truncate text-lol-text">{record.label}</span>
                   <span className="shrink-0 font-display tabular-nums text-lol-gold">
@@ -1123,7 +1132,7 @@ export function RecordsTab({
           </div>
         )}
       </Panel>
-      {RECORD_GROUPS.map(([group, keys]) => {
+      {RECORD_GROUPS.map(([group, keys], groupIndex) => {
         const groupRecords = keys
           .map((key) => byKey.get(key))
           .filter((record): record is ChampionRecordsResult["records"][number] => record != null);
@@ -1135,7 +1144,11 @@ export function RecordsTab({
               {groupRecords.map((record) => (
                 <div
                   key={record.key}
-                  className="rounded-lg border border-lol-border bg-black/10 p-3"
+                  className="rounded-lg border border-lol-border border-t-[3px] bg-black/10 p-3 transition-colors duration-[120ms] hover:bg-white/[0.02]"
+                  style={{
+                    borderTopColor: CHART_PALETTE[groupIndex % CHART_PALETTE.length],
+                    backgroundImage: `radial-gradient(circle at top right, ${CHART_PALETTE[groupIndex % CHART_PALETTE.length]}0f, transparent 65%)`,
+                  }}
                 >
                   <span className="text-xs text-lol-text">{record.label}</span>
                   <b className="mt-1 block font-display text-2xl text-lol-text-bright">
@@ -1296,6 +1309,7 @@ export function MatchesTab({
                 match={match}
                 championName={championName}
                 champData={champData}
+                polishRows
               />
             ))}
           </div>
@@ -1303,7 +1317,7 @@ export function MatchesTab({
         {matches.length < total && (
           <button
             type="button"
-            className="mt-5 w-full rounded-md border border-lol-border px-3 py-2 text-sm font-semibold text-lol-text-bright hover:border-lol-crimson disabled:opacity-50"
+            className="mt-5 w-full rounded-md border border-lol-border px-3 py-2 text-sm font-semibold text-lol-text-bright transition-colors duration-[120ms] hover:border-lol-crimson hover:bg-white/[0.04] disabled:opacity-50"
             onClick={loadMore}
             disabled={loading}
           >
@@ -1349,7 +1363,14 @@ export function MasteryTab({
       <Panel>
         <SectionHeading title="Mastery" aside={accountName ?? undefined} />
         <div className="grid grid-cols-2 gap-3">
-          <Stat label="Level" value={mastery.level.toLocaleString()} sub="Current champion level" />
+          <Stat
+            label="Level"
+            value={mastery.level.toLocaleString()}
+            sub="Current champion level"
+            accent={CHART_PALETTE[1]}
+            glow
+            valueClass="drop-shadow-[0_0_12px_rgba(201,164,92,0.25)]"
+          />
           <Stat
             label="Points"
             value={mastery.points.toLocaleString()}
@@ -1366,7 +1387,9 @@ export function MasteryTab({
           {[5, 7, 10].map((level) => (
             <div
               key={level}
-              className="flex items-center justify-between rounded-md border border-lol-border/60 px-3 py-2 text-sm"
+              className={`flex items-center justify-between rounded-md border border-lol-border/60 border-l-[3px] px-3 py-2 text-sm transition-colors duration-[120ms] hover:bg-white/[0.03] ${
+                mastery.level >= level ? "border-l-[#C9A45C]" : "border-l-white/[0.15]"
+              }`}
             >
               <span className="text-lol-text-bright">Level {level}</span>
               <span className={mastery.level >= level ? "text-lol-win" : "text-lol-text"}>
@@ -1376,7 +1399,7 @@ export function MasteryTab({
           ))}
         </div>
       </Panel>
-      <Panel>
+      <Panel className="bg-[radial-gradient(circle_at_top_left,rgba(201,164,92,0.06),transparent_50%),linear-gradient(180deg,var(--theme-card-hover),var(--theme-card))]">
         <SectionHeading title="Level thresholds" source="l" />
         <table className="w-full text-xs">
           <thead className="border-b border-lol-border/50 text-left text-lol-text">
@@ -1402,7 +1425,12 @@ export function MasteryTab({
                 !reached &&
                 thresholds.slice(0, index).every(([, threshold]) => mastery.points >= threshold);
               return (
-                <tr key={level} className="border-b border-lol-border/50 last:border-0">
+                <tr
+                  key={level}
+                  className={`border-b border-white/[0.04] transition-colors duration-[120ms] hover:bg-white/[0.03] ${
+                    mastery.level === level ? "bg-[rgba(201,164,92,0.06)]" : ""
+                  }`}
+                >
                   <td className="py-2 text-lol-text-bright">Level {level}</td>
                   <td className="py-2 text-right tabular-nums text-lol-text-bright">
                     {points.toLocaleString()}

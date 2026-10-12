@@ -44,6 +44,19 @@ const STYLE = `
   box-shadow: inset 3px 0 0 var(--edge);
   background: rgba(255,255,255,0.02);
 }
+.match-row[data-polish="matches"] {
+  padding-top: 2px;
+  padding-bottom: 2px;
+  border-bottom: 1px solid rgba(255,255,255,0.04);
+  transition: background-color 120ms ease, box-shadow 120ms ease;
+}
+.match-row[data-polish="matches"] .m-res {
+  border-left: 3px solid var(--edge);
+  padding-left: 8px;
+}
+.match-row[data-polish="matches"]:hover {
+  background: rgba(255,255,255,0.03);
+}
 .match-row[data-remake="true"] {
   --edge: rgba(255,255,255,0.08);
   background: var(--theme-card);
@@ -125,6 +138,7 @@ export function MatchRowExperiment({
   puuids = null,
   onToggle,
   onPlayerClick,
+  polishRows = false,
 }: {
   match: MatchListItem;
   championName: string;
@@ -139,6 +153,7 @@ export function MatchRowExperiment({
     gameName: string | null;
     tagLine: string | null;
   }) => void;
+  polishRows?: boolean;
 }) {
   const isWin = !!match.win;
   const isRemake = match.is_remake === 1;
@@ -158,6 +173,7 @@ export function MatchRowExperiment({
         className={`match-row${onToggle ? " cursor-pointer" : ""}`}
         data-win={isWin}
         data-remake={isRemake}
+        data-polish={polishRows ? "matches" : undefined}
         {...(onToggle ? { onClick: onToggle } : {})}
       >
         <div className="m-res">
@@ -201,7 +217,17 @@ export function MatchRowExperiment({
         <div className="m-score">
           {match.score != null ? (
             <>
-              <b>{match.score.toFixed(1)}</b>
+              <b
+                className={
+                  match.score >= 8
+                    ? "rounded bg-[rgba(201,164,92,0.12)] px-1.5 py-0.5"
+                    : match.score >= 5
+                      ? "rounded bg-white/[0.06] px-1.5 py-0.5 text-lol-text-bright"
+                      : "rounded bg-[rgba(229,72,63,0.12)] px-1.5 py-0.5 text-lol-loss"
+                }
+              >
+                {match.score.toFixed(1)}
+              </b>
               {match.score_badge === "MVP" && <span className="badge mvp">MVP</span>}
               {match.score_badge === "ACE" && <span className="badge ace">ACE</span>}
             </>
