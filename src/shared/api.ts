@@ -377,6 +377,15 @@ export interface ChampionDetailStats {
   avgCcPerMin: number;
   avgCcPerMinInWins?: number | null;
   avgCcPerMinInLosses?: number | null;
+  avgGoldEarned?: number | null;
+  maxGoldEarned?: number | null;
+  totalGoldEarned?: number | null;
+  avgGoldEarnedInWins?: number | null;
+  avgGoldEarnedInLosses?: number | null;
+  maxGoldEarnedInWins?: number | null;
+  maxGoldEarnedInLosses?: number | null;
+  totalGoldEarnedInWins?: number | null;
+  totalGoldEarnedInLosses?: number | null;
   avgGoldSpent: number;
   avgGoldSpentInWins?: number | null;
   avgGoldSpentInLosses?: number | null;
@@ -577,6 +586,9 @@ export interface ChampionQueueStat {
   kills?: number;
   deaths?: number;
   assists?: number;
+  avgGold?: number | null;
+  goldPerMin?: number | null;
+  csPerMin?: number | null;
   avgScore?: number | null;
   avgGameLength?: number | null;
 }
@@ -1543,7 +1555,7 @@ export interface ElectronAPI {
     patch?: string,
     queue?: number,
     account?: string,
-  ) => Promise<TimelineBucket[]>;
+  ) => Promise<ChampionTimelineAverages>;
   getChampionKillDeathPositions: (
     championId: number,
     limit?: number,
@@ -1903,4 +1915,24 @@ export interface TimelineBucket {
   avgCsDiffVsLaneOpponent: number | null;
   avgXpDiffVsLaneOpponent: number | null;
   sampleGames: number;
+}
+
+export interface ChampionTimelineAverages {
+  buckets: TimelineBucket[];
+  ahead10: number | null;
+  itemsBought: number | null;
+  comebacks: number | null;
+  winrateByGoldLead15: {
+    behind1000plus: number | null;
+    behind0to1000: number | null;
+    ahead0to1000: number | null;
+    ahead1000plus: number | null;
+  } | null;
+  goldLeadDistribution15: {
+    behind1000plus: number;
+    behind0to1000: number;
+    ahead0to1000: number;
+    ahead1000plus: number;
+  } | null;
+  spendingTimeline: Array<{ minute: number; averageItems: number | null }> | null;
 }

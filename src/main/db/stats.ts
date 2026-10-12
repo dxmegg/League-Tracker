@@ -200,6 +200,11 @@ export function getChampionQueueStats(
                AVG(${source.alias}.kills) as kills,
                AVG(${source.alias}.deaths) as deaths,
                AVG(${source.alias}.assists) as assists,
+               AVG(${source.alias}.gold_earned) as avgGold,
+               AVG(CASE WHEN g.game_duration >= 60
+                        THEN ${source.alias}.gold_earned * 60.0 / g.game_duration END) as goldPerMin,
+               AVG(CASE WHEN g.game_duration >= 60
+                        THEN ${source.alias}.cs * 60.0 / g.game_duration END) as csPerMin,
                AVG(${source.alias}.score) as avgScore,
                AVG(g.game_duration) as avgGameLength
         FROM ${source.table} ${source.alias}
@@ -215,6 +220,9 @@ export function getChampionQueueStats(
     kills: number;
     deaths: number;
     assists: number;
+    avgGold: number | null;
+    goldPerMin: number | null;
+    csPerMin: number | null;
     avgScore: number | null;
     avgGameLength: number | null;
   }>;
@@ -2174,6 +2182,15 @@ export function getChampionDetailStats(
   maxFirstBloodAssist: number;
   totalFirstBloodAssist: number;
   avgCcPerMin: number;
+  avgGoldEarned?: number | null;
+  maxGoldEarned?: number | null;
+  totalGoldEarned?: number | null;
+  avgGoldEarnedInWins?: number | null;
+  avgGoldEarnedInLosses?: number | null;
+  maxGoldEarnedInWins?: number | null;
+  maxGoldEarnedInLosses?: number | null;
+  totalGoldEarnedInWins?: number | null;
+  totalGoldEarnedInLosses?: number | null;
   avgGoldSpent: number;
   maxGoldSpent: number;
   totalGoldSpent: number;
@@ -2439,6 +2456,15 @@ export function getChampionDetailStats(
         SUM(cr.first_blood_assist) AS totalFirstBloodAssist,
         SUM(CASE WHEN cr.win = 1 THEN cr.first_blood_assist END) AS totalFirstBloodAssistInWins,
         SUM(CASE WHEN cr.win = 0 THEN cr.first_blood_assist END) AS totalFirstBloodAssistInLosses,
+        AVG(cr.gold_earned) AS avgGoldEarned,
+        MAX(cr.gold_earned) AS maxGoldEarned,
+        SUM(cr.gold_earned) AS totalGoldEarned,
+        AVG(CASE WHEN cr.win = 1 THEN cr.gold_earned END) AS avgGoldEarnedInWins,
+        AVG(CASE WHEN cr.win = 0 THEN cr.gold_earned END) AS avgGoldEarnedInLosses,
+        MAX(CASE WHEN cr.win = 1 THEN cr.gold_earned END) AS maxGoldEarnedInWins,
+        MAX(CASE WHEN cr.win = 0 THEN cr.gold_earned END) AS maxGoldEarnedInLosses,
+        SUM(CASE WHEN cr.win = 1 THEN cr.gold_earned END) AS totalGoldEarnedInWins,
+        SUM(CASE WHEN cr.win = 0 THEN cr.gold_earned END) AS totalGoldEarnedInLosses,
         AVG(cr.gold_spent) AS avgGoldSpent,
         AVG(CASE WHEN cr.win = 1 THEN cr.gold_spent END) AS avgGoldSpentInWins,
         AVG(CASE WHEN cr.win = 0 THEN cr.gold_spent END) AS avgGoldSpentInLosses,
@@ -2726,6 +2752,15 @@ export function getChampionDetailStats(
     maxSightWardsBought: number | null;
     totalSightWardsBought: number | null;
     avgCcPerMin: number | null;
+    avgGoldEarned: number | null;
+    maxGoldEarned: number | null;
+    totalGoldEarned: number | null;
+    avgGoldEarnedInWins: number | null;
+    avgGoldEarnedInLosses: number | null;
+    maxGoldEarnedInWins: number | null;
+    maxGoldEarnedInLosses: number | null;
+    totalGoldEarnedInWins: number | null;
+    totalGoldEarnedInLosses: number | null;
     goldPerMin: number | null;
     avgGameLength: number | null;
     totalTimePlayed: number | null;

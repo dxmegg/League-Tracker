@@ -19,6 +19,7 @@ import type {
   ChampionWeeklyWinRate,
   ChampionWeeklyMetrics,
   ChampionRecordsResult,
+  ChampionTimelineAverages,
   TimelineBucket,
   GlobalChampionDetail,
   ItemStats,
@@ -222,13 +223,22 @@ export function ChampionDetailExp() {
         : Promise.resolve({}),
     [combatActive, farmActive, objectivesActive, visionActive, id, patch, scopedQueue, account],
   );
-  const { data: timelineAverages, loading: timelineAveragesLoading } = useIpc<TimelineBucket[]>(
-    () =>
-      economyActive || farmActive
-        ? window.api.getChampionTimelineAverages(id, patch, scopedQueue, account)
-        : Promise.resolve([]),
-    [economyActive, farmActive, id, patch, scopedQueue, account],
-  );
+  const { data: timelineAverages, loading: timelineAveragesLoading } =
+    useIpc<ChampionTimelineAverages>(
+      () =>
+        economyActive || farmActive
+          ? window.api.getChampionTimelineAverages(id, patch, scopedQueue, account)
+          : Promise.resolve({
+              buckets: [],
+              ahead10: null,
+              itemsBought: null,
+              comebacks: null,
+              winrateByGoldLead15: null,
+              goldLeadDistribution15: null,
+              spendingTimeline: null,
+            }),
+      [economyActive, farmActive, id, patch, scopedQueue, account],
+    );
   const { data: skillOrders, loading: skillOrdersLoading } = useIpc<ChampionSkillOrdersResult>(
     () =>
       abilitiesActive && !isSummary
@@ -897,7 +907,7 @@ export function ChampionDetailExp() {
           detail={detailStats}
           baseline={statBaseline}
           detailLoading={detailLoading}
-          timeline={timelineAverages}
+          timeline={timelineAverages?.buckets ?? null}
           timelineLoading={timelineAveragesLoading}
           queueStats={queueStats}
           queueStatsLoading={queueStatsLoading}
@@ -4658,16 +4668,16 @@ function EconomyTab({
 }: {
   detail: ChampionDetailStats | null;
   detailLoading: boolean;
-  timeline: TimelineBucket[] | null;
+  timeline: ChampionTimelineAverages | null;
   timelineLoading: boolean;
-  queueStats: Array<{ queueId: number; games: number; wins: number }> | null;
+  queueStats: ChampionQueueStat[] | null;
   queueStatsLoading: boolean;
 }) {
   if (detailLoading) return <SectionLoading />;
   if (!detail || detail.games === 0) return <NoData text="No data" />;
   if (timelineLoading) return <SectionLoading />;
 
-  const buckets = timeline ?? [];
+  const buckets = timeline?.buckets ?? [];
   const bucketAt = (minute: number) => buckets.find((bucket) => bucket.minute === minute);
   const goldValues = buckets.flatMap((bucket) => (bucket.avgGold == null ? [] : [bucket.avgGold]));
   const goldLabels = buckets
@@ -4686,6 +4696,11 @@ function EconomyTab({
       : null;
   const value = (number: number | null | undefined, digits = 0) => formatPlain(number, digits);
   const queueRows = queueStats ?? [];
+  const formatQueueKda = (row: ChampionQueueStat) => {
+    if (row.kills == null && row.deaths == null && row.assists == null) return "—";
+    if (row.deaths == null || row.deaths === 0) return "∞";
+    return (((row.kills ?? 0) + (row.assists ?? 0)) / row.deaths).toFixed(2);
+  };
 
   return (
     <div className="grid grid-cols-1 gap-5 xl:grid-cols-2">
@@ -4711,9 +4726,9 @@ function EconomyTab({
           />
           <Stat
             label="Ahead @10"
-            value="—"
-            sub="Percentage unavailable"
-            emptySub
+            value={timeline?.ahead10 == null ? "—" : `${(timeline.ahead10 * 100).toFixed(1)}%`}
+            sub={timeline?.ahead10 == null ? "Percentage unavailable" : "of your games"}
+            emptySub={timeline?.ahead10 == null}
             valueClass="text-right tabular-nums"
           />
           <Stat
@@ -4730,16 +4745,16 @@ function EconomyTab({
           />
           <Stat
             label="Items bought"
-            value="—"
-            sub="Not stored in aggregate stats"
-            emptySub
+            value={value(timeline?.itemsBought, 1)}
+            sub={timeline?.itemsBought == null ? "Not available" : "items per game"}
+            emptySub={timeline?.itemsBought == null}
             valueClass="text-right tabular-nums"
           />
           <Stat
             label="Comebacks"
-            value="—"
-            sub="Not available from current data"
-            emptySub
+            value={timeline?.comebacks == null ? "—" : String(timeline.comebacks)}
+            sub={timeline?.comebacks == null ? "Not available" : "wins from behind"}
+            emptySub={timeline?.comebacks == null}
             valueClass="text-right tabular-nums"
           />
         </div>
@@ -4772,12 +4787,14 @@ function EconomyTab({
         {goldValues.length < 2 ? (
           <NoData text="Not enough timeline data" />
         ) : (
-          <LineChartExp
-            values={goldValues}
-            xLabels={goldLabels}
-            format={(item) => value(item)}
-            color="var(--theme-gold)"
-          />
+          <div className="[&_polyline]:[filter:drop-shadow(0_0_4px_currentColor)]">
+            <LineChartExp
+              values={goldValues}
+              xLabels={goldLabels}
+              format={(item) => value(item)}
+              color="var(--theme-gold)"
+            />
+          </div>
         )}
       </Panel>
       <Panel className={TAB_PANEL_CLASSES.gold}>
@@ -4788,11 +4805,24 @@ function EconomyTab({
         <CombatStatTable
           rows={[
             [
+              "Gold earned",
+              detail.avgGoldEarned,
+              detail.maxGoldEarned,
+              detail.totalGoldEarned,
+              formatCombatNumber,
+              detail.avgGoldEarnedInWins,
+              detail.avgGoldEarnedInLosses,
+              undefined,
+            ],
+            [
               "Gold spent",
               detail.avgGoldSpent,
               detail.maxGoldSpent,
               detail.totalGoldSpent,
               formatCombatNumber,
+              detail.avgGoldSpentInWins,
+              detail.avgGoldSpentInLosses,
+              undefined,
             ],
           ]}
         />
@@ -4860,11 +4890,13 @@ function EconomyTab({
         {goldLead.length < 2 ? (
           <NoData text="Not enough lane timeline data" />
         ) : (
-          <LineChartExp
-            values={goldLead}
-            format={(item) => value(item)}
-            color="var(--theme-gold)"
-          />
+          <div className="[&_polyline]:[filter:drop-shadow(0_0_4px_currentColor)]">
+            <LineChartExp
+              values={goldLead}
+              format={(item) => value(item)}
+              color="var(--theme-gold)"
+            />
+          </div>
         )}
       </Panel>
       <Panel className={TAB_PANEL_CLASSES.gold}>
@@ -4875,11 +4907,13 @@ function EconomyTab({
         {xpLead.length < 2 ? (
           <NoData text="Not enough lane timeline data" />
         ) : (
-          <LineChartExp
-            values={xpLead}
-            format={(item) => value(item)}
-            color="var(--theme-violet)"
-          />
+          <div className="[&_polyline]:[filter:drop-shadow(0_0_4px_currentColor)]">
+            <LineChartExp
+              values={xpLead}
+              format={(item) => value(item)}
+              color="var(--theme-violet)"
+            />
+          </div>
         )}
       </Panel>
       <Panel className={TAB_PANEL_CLASSES.gold}>
@@ -4887,14 +4921,31 @@ function EconomyTab({
         <p className="mb-3 text-[11px] text-lol-text/70">
           Average gold spent per game from the available match aggregates.
         </p>
-        <div className="flex flex-col gap-2 text-xs">
-          <div className="flex items-center justify-between border-b border-white/[0.04] py-2 transition-colors duration-[120ms] hover:bg-white/[0.025] last:border-b-0">
-            <span className="text-lol-text">Gold spent average</span>
-            <span className="text-right tabular-nums text-lol-text-bright">
-              {value(detail.avgGoldSpent)}
-            </span>
-          </div>
-        </div>
+        <CombatStatTable
+          rows={[
+            [
+              "Gold spent",
+              detail.avgGoldSpent,
+              detail.maxGoldSpent,
+              detail.totalGoldSpent,
+              formatCombatNumber,
+            ],
+            [
+              "Gold spent in wins",
+              detail.avgGoldSpentInWins,
+              detail.maxGoldSpentInWins,
+              detail.totalGoldSpentInWins,
+              formatCombatNumber,
+            ],
+            [
+              "Gold spent in losses",
+              detail.avgGoldSpentInLosses,
+              detail.maxGoldSpentInLosses,
+              detail.totalGoldSpentInLosses,
+              formatCombatNumber,
+            ],
+          ]}
+        />
       </Panel>
       <Panel className={TAB_PANEL_CLASSES.gold}>
         <SectionHeading title="Economy by queue" source="m" />
@@ -4922,29 +4973,120 @@ function EconomyTab({
               >
                 <span>{QUEUE_LABELS[row.queueId] ?? row.queueId}</span>
                 <span className="text-right tabular-nums">{row.games}</span>
-                <span className="text-right tabular-nums">—</span>
-                <span className="text-right tabular-nums">—</span>
-                <span className="text-right tabular-nums">—</span>
-                <span className="text-right tabular-nums">—</span>
+                <span className="text-right tabular-nums">{formatSmallMetric(row.goldPerMin)}</span>
+                <span className="text-right tabular-nums">{formatSmallMetric(row.avgGold)}</span>
+                <span className="text-right tabular-nums">{formatSmallMetric(row.csPerMin)}</span>
+                <span className="text-right tabular-nums">{formatQueueKda(row)}</span>
               </div>
             ))}
           </div>
         )}
       </Panel>
-      {[
-        ["Gold sources", "Gold-source split not available"],
-        ["WR by gold lead @15", "Gold lead outcomes are not available"],
-        ["Gold lead distribution", "Per-game lead distribution is not available"],
-        ["Spending timeline", "Item purchase timeline is not available"],
-      ].map(([title, text]) => (
-        <Panel className={TAB_PANEL_CLASSES.gold} key={title}>
-          <SectionHeading title={title} source="d" />
-          <p className="mb-3 text-[11px] text-lol-text/70">
-            Additional economy breakdown unavailable from the stored data.
-          </p>
-          <EmptyState text={text} />
-        </Panel>
-      ))}
+      <Panel className={TAB_PANEL_CLASSES.gold}>
+        <SectionHeading title="WR by gold lead @15" source="d" />
+        <p className="mb-3 text-[11px] text-lol-text/70">
+          Win rate by your gold lead at 15 minutes.
+        </p>
+        {timeline?.winrateByGoldLead15 == null ? (
+          <EmptyState text="Gold lead outcomes are not available" />
+        ) : (
+          <div className="flex flex-col gap-2 text-xs">
+            {[
+              ["Behind 1000+", timeline.winrateByGoldLead15.behind1000plus],
+              ["Behind 0–1000", timeline.winrateByGoldLead15.behind0to1000],
+              ["Ahead 0–1000", timeline.winrateByGoldLead15.ahead0to1000],
+              ["Ahead 1000+", timeline.winrateByGoldLead15.ahead1000plus],
+            ].map(([label, rate]) => (
+              <div key={label} className="grid grid-cols-[7rem_1fr_auto] items-center gap-2">
+                <span className="text-lol-text">{label}</span>
+                {rate == null ? (
+                  <EmptyState text="No games" />
+                ) : (
+                  <>
+                    <div className="h-2 overflow-hidden rounded-full bg-black/20">
+                      <div
+                        className="h-full rounded-full bg-lol-gold"
+                        style={{ width: `${rate as number}%` }}
+                      />
+                    </div>
+                    <span className="tabular-nums">{(rate as number).toFixed(1)}%</span>
+                  </>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+      </Panel>
+      <Panel className={TAB_PANEL_CLASSES.gold}>
+        <SectionHeading title="Gold lead distribution" source="d" />
+        <p className="mb-3 text-[11px] text-lol-text/70">
+          Games in each 15-minute gold-lead bucket.
+        </p>
+        {timeline?.goldLeadDistribution15 == null ? (
+          <EmptyState text="Per-game lead distribution is not available" />
+        ) : (
+          <div className="flex flex-col gap-2 text-xs">
+            {[
+              ["Behind 1000+", timeline.goldLeadDistribution15.behind1000plus],
+              ["Behind 0–1000", timeline.goldLeadDistribution15.behind0to1000],
+              ["Ahead 0–1000", timeline.goldLeadDistribution15.ahead0to1000],
+              ["Ahead 1000+", timeline.goldLeadDistribution15.ahead1000plus],
+            ].map(([label, count]) => (
+              <div
+                key={label}
+                className="flex items-center justify-between border-b border-white/[0.04] py-2"
+              >
+                <span className="text-lol-text">{label}</span>
+                <span className="tabular-nums text-lol-text-bright">{count}</span>
+              </div>
+            ))}
+          </div>
+        )}
+      </Panel>
+      <Panel className={TAB_PANEL_CLASSES.gold}>
+        <SectionHeading title="Spending timeline" source="d" />
+        <p className="mb-3 text-[11px] text-lol-text/70">
+          Average item purchases per game by minute.
+        </p>
+        {timeline?.spendingTimeline == null ? (
+          <EmptyState text="Item purchase timeline is not available" />
+        ) : (
+          <div className="flex h-32 items-end gap-2">
+            {timeline.spendingTimeline.map((bucket) => {
+              const max = Math.max(
+                ...timeline.spendingTimeline!.map((entry) => entry.averageItems ?? 0),
+              );
+              const height =
+                max > 0 && bucket.averageItems != null ? (bucket.averageItems / max) * 100 : 0;
+              return (
+                <div
+                  key={bucket.minute}
+                  className="flex h-full flex-1 flex-col items-center justify-end gap-1"
+                >
+                  <span className="text-[10px] tabular-nums text-lol-text">
+                    {bucket.averageItems == null ? "—" : bucket.averageItems.toFixed(1)}
+                  </span>
+                  <div className="flex h-20 w-full items-end rounded bg-black/20">
+                    {bucket.averageItems != null && max > 0 ? (
+                      <div
+                        className="w-full rounded-t"
+                        style={{
+                          height: `${height}%`,
+                          background:
+                            "linear-gradient(to right, rgb(201 164 92 / 40%), rgb(201 164 92 / 95%))",
+                        }}
+                      />
+                    ) : null}
+                  </div>
+                  <span className="text-[10px] text-lol-text/70">
+                    {bucket.minute}–{bucket.minute + 5}m
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </Panel>
     </div>
   );
 }

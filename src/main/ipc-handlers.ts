@@ -331,7 +331,9 @@ export function registerIpcHandlers() {
         account,
       });
       const result = db.getChampionTimelineAverages(championId, patch, queue, account);
-      console.log("[db] champion-timeline-averages handler done:", { count: result.length });
+      console.log("[db] champion-timeline-averages handler done:", {
+        count: result.buckets.length,
+      });
       return result;
     },
   );
