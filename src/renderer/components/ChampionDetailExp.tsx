@@ -4268,6 +4268,7 @@ function CombatTab({
     ["Quadra kills", globalDetail?.quadraKills ?? 0],
     ["Penta kills", globalDetail?.pentaKills ?? 0],
   ] as const;
+  const maxMultikill = multikills[0]?.[1] ?? 0;
   const mostCommonMultikill = multikills.slice().sort((a, b) => b[1] - a[1])[0];
   if (mostCommonMultikill && mostCommonMultikill[1] > 0) {
     combatInsights.push({
@@ -4322,7 +4323,7 @@ function CombatTab({
       <div className="xl:col-span-2">
         <SectionHeading title="Detailed statistics" />
       </div>
-      <Panel className="xl:col-span-2">
+      <Panel className="xl:col-span-2 border-t-[3px] border-t-[#E5483F] bg-[radial-gradient(circle_at_top_right,rgba(229,72,63,0.06),transparent_65%),linear-gradient(180deg,var(--theme-card-hover),var(--theme-card))]">
         <SectionHeading title="K/D/A over the last 20 games" />
         <p className="mb-3 text-[11px] text-lol-text/70">
           Kills, deaths, and assists across your twenty most recent games.
@@ -4352,6 +4353,7 @@ function CombatTab({
 
       <CombatDamagePanel
         title="Damage dealt"
+        accentClass="border-t-[3px] border-t-[#C9A45C] bg-[radial-gradient(circle_at_top_right,rgba(201,164,92,0.06),transparent_65%),linear-gradient(180deg,var(--theme-card-hover),var(--theme-card))]"
         segments={[
           ["Physical", detail.avgPhysicalDamageDealt, "var(--theme-win)"],
           ["Magic", detail.avgMagicDamageDealt, "var(--theme-gold)"],
@@ -4392,6 +4394,7 @@ function CombatTab({
 
       <CombatDamagePanel
         title="Damage taken"
+        accentClass="border-t-[3px] border-t-[#22C55E] bg-[radial-gradient(circle_at_top_right,rgba(34,197,94,0.06),transparent_65%),linear-gradient(180deg,var(--theme-card-hover),var(--theme-card))]"
         segments={[
           ["Physical", detail.avgPhysicalDamageTaken, "var(--theme-win)"],
           ["Magic", detail.avgMagicDamageTaken, "var(--theme-gold)"],
@@ -4431,7 +4434,7 @@ function CombatTab({
         ]}
       />
 
-      <Panel>
+      <Panel className="border-t-[3px] border-t-[#3B82F6] bg-[radial-gradient(circle_at_top_right,rgba(59,130,246,0.06),transparent_65%),linear-gradient(180deg,var(--theme-card-hover),var(--theme-card))]">
         <SectionHeading title="Crowd control" />
         <p className="mb-3 text-[11px] text-lol-text/70">
           Crowd control time and totals, compared across wins and losses.
@@ -4468,7 +4471,7 @@ function CombatTab({
         </div>
       </Panel>
 
-      <Panel>
+      <Panel className="border-t-[3px] border-t-[#A855F7] bg-[radial-gradient(circle_at_top_right,rgba(168,85,247,0.06),transparent_65%),linear-gradient(180deg,var(--theme-card-hover),var(--theme-card))]">
         <SectionHeading title="Objectives & turrets" />
         <p className="mb-3 text-[11px] text-lol-text/70">
           Damage dealt to objectives and turrets throughout your games.
@@ -4499,7 +4502,7 @@ function CombatTab({
         />
       </Panel>
 
-      <Panel>
+      <Panel className="border-t-[3px] border-t-[#94A3B8] bg-[radial-gradient(circle_at_top_right,rgba(148,163,184,0.06),transparent_65%),linear-gradient(180deg,var(--theme-card-hover),var(--theme-card))]">
         <SectionHeading title="Longevity & sprees" />
         <p className="mb-3 text-[11px] text-lol-text/70">
           Survival time, killing sprees, and damage mitigation performance.
@@ -4540,7 +4543,7 @@ function CombatTab({
         />
       </Panel>
 
-      <Panel>
+      <Panel className="border-t-[3px] border-t-[#E5483F] bg-[radial-gradient(circle_at_top_right,rgba(229,72,63,0.06),transparent_65%),linear-gradient(180deg,var(--theme-card-hover),var(--theme-card))]">
         <SectionHeading title="First blood" />
         <p className="mb-3 text-[11px] text-lol-text/70">
           First blood kills and assists, including their rate across games.
@@ -4559,31 +4562,50 @@ function CombatTab({
         </div>
       </Panel>
 
-      <Panel>
+      <Panel className="border-t-[3px] border-t-[#C9A45C] bg-[radial-gradient(circle_at_top_right,rgba(201,164,92,0.06),transparent_65%),linear-gradient(180deg,var(--theme-card-hover),var(--theme-card))]">
         <SectionHeading title="Multikills" />
         <p className="mb-3 text-[11px] text-lol-text/70">
           Total and per-game counts for every recorded multikill type.
         </p>
-        <div className="flex flex-col gap-2 text-xs">
-          <div className="grid grid-cols-[1fr_auto_auto] gap-3 border-b border-lol-border/50 pb-2 font-semibold text-lol-text">
-            <span>Multikill type</span>
-            <span>Total</span>
-            <span>Per game</span>
-          </div>
+        <div className="flex flex-col gap-3">
           {[
-            { label: "Double kills", value: globalDetail?.doubleKills },
-            { label: "Triple kills", value: globalDetail?.tripleKills },
-            { label: "Quadra kills", value: globalDetail?.quadraKills },
-            { label: "Penta kills", value: globalDetail?.pentaKills },
-          ].map(({ label, value }) => (
-            <div key={label} className="grid grid-cols-[1fr_auto_auto] gap-3 text-lol-text-bright">
-              <span>{label}</span>
-              <span className="tabular-nums">{formatCombatNumber(value)}</span>
-              <span className="tabular-nums">
-                {detail.games > 0 && value != null ? (value / detail.games).toFixed(2) : "—"}
-              </span>
-            </div>
-          ))}
+            { label: "Double", value: globalDetail?.doubleKills, color: "#3B82F6" },
+            { label: "Triple", value: globalDetail?.tripleKills, color: "#C9A45C" },
+            { label: "Quadra", value: globalDetail?.quadraKills, color: "#A855F7" },
+            { label: "Penta", value: globalDetail?.pentaKills, color: "#E5483F" },
+          ].map(({ label, value, color }) => {
+            const ratio = detail.games > 0 && value != null ? value / detail.games : null;
+            const width = maxMultikill
+              ? `${Math.min(100, ((value ?? 0) / maxMultikill) * 100)}%`
+              : "0%";
+            return (
+              <div
+                key={label}
+                className="grid grid-cols-[72px_auto_minmax(0,1fr)] items-center gap-3 border-b border-white/[0.04] pb-3 transition-colors duration-[120ms] hover:bg-white/[0.025]"
+              >
+                <span
+                  className="w-fit rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider"
+                  style={{ backgroundColor: `${color}26`, color }}
+                >
+                  {label}
+                </span>
+                <div className="min-w-[100px]">
+                  <div className="font-display text-[20px] leading-none text-lol-text-bright tabular-nums">
+                    {formatCombatNumber(value)}
+                  </div>
+                  <div className="mt-1 text-[11px] text-lol-text tabular-nums">
+                    {ratio != null ? `${ratio.toFixed(2)} / game` : "—"}
+                  </div>
+                </div>
+                <div className="h-1.5 overflow-hidden rounded-full bg-black/20">
+                  <div
+                    className="h-full rounded-full"
+                    style={{ width, backgroundColor: color, opacity: 0.4 }}
+                  />
+                </div>
+              </div>
+            );
+          })}
         </div>
       </Panel>
     </div>
@@ -5357,16 +5379,18 @@ function ObjectivesTab({
 
 function CombatDamagePanel({
   title,
+  accentClass,
   segments,
   rows,
 }: {
   title: string;
+  accentClass: string;
   segments: [string, number, string][];
   rows: CombatStatTableRow[];
 }) {
   const total = segments.reduce((sum, [, value]) => sum + Math.max(value, 0), 0);
   return (
-    <Panel>
+    <Panel className={accentClass}>
       <SectionHeading title={title} />
       <p className="mb-3 text-[11px] text-lol-text/70">
         Damage dealt or taken, split by physical, magic, and true damage.
@@ -5403,16 +5427,24 @@ type CombatStatTableRow = [
 function CombatStatTable({ rows }: { rows: CombatStatTableRow[] }) {
   return (
     <div className="flex flex-col gap-2 text-xs">
-      <div className="grid grid-cols-[minmax(0,1fr)_auto_auto_auto_auto_auto] gap-3 border-b border-lol-border/50 pb-2 font-semibold text-lol-text">
+      <div className="grid grid-cols-[minmax(0,1.4fr)_96px_96px_96px_96px_96px] gap-3 border-b border-lol-border/50 pb-2 font-semibold text-lol-text">
         <span>Stat</span>
-        <span>Avg / game</span>
-        <span>Best game</span>
-        <span>In wins</span>
-        <span>In losses</span>
-        <span>vs your other champions</span>
+        <span className="text-right">Avg / game</span>
+        <span className="text-right">Best game</span>
+        <span className="text-right">In wins</span>
+        <span className="text-right">In losses</span>
+        <span className="text-right">vs your other champions</span>
       </div>
       {rows.map(([label, avg, best, _total, formatter, inWins, inLosses, vsOther]) => {
         const format = formatter ?? formatCombatNumber;
+        const damageColor =
+          label === "Physical"
+            ? "#FF8C00"
+            : label === "Magic"
+              ? "#00D9FF"
+              : label === "True"
+                ? "#FFFFFF"
+                : null;
         const renderBreakdown = (value: number | null | undefined) =>
           value == null ? (
             <span className="text-lol-text/40" title="Not tracked yet">
@@ -5424,14 +5456,47 @@ function CombatStatTable({ rows }: { rows: CombatStatTableRow[] }) {
         return (
           <div
             key={label}
-            className="grid grid-cols-[minmax(0,1fr)_auto_auto_auto_auto_auto] gap-3 border-b border-white/[0.04] py-[3px] text-lol-text-bright transition-colors duration-[120ms] hover:bg-white/[0.03]"
+            className="grid grid-cols-[minmax(0,1.4fr)_96px_96px_96px_96px_96px] items-center gap-3 border-b border-white/[0.04] py-2.5 text-lol-text-bright transition-colors duration-[120ms] hover:bg-white/[0.025]"
           >
-            <span>{label}</span>
-            <span className="tabular-nums">{format(avg)}</span>
-            <span className="tabular-nums">{format(best)}</span>
-            <span className="tabular-nums text-lol-text">{renderBreakdown(inWins)}</span>
-            <span className="tabular-nums text-lol-text">{renderBreakdown(inLosses)}</span>
-            <span className="tabular-nums text-lol-text">{renderBreakdown(vsOther)}</span>
+            <span className="flex min-w-0 items-center gap-2">
+              {damageColor && (
+                <span
+                  className="h-1.5 w-1.5 shrink-0 rounded-full"
+                  style={{ backgroundColor: damageColor }}
+                />
+              )}
+              <span>{label}</span>
+            </span>
+            <span
+              className="text-right tabular-nums"
+              style={damageColor ? { color: damageColor, opacity: 0.9 } : undefined}
+            >
+              {format(avg)}
+            </span>
+            <span
+              className="text-right tabular-nums"
+              style={damageColor ? { color: damageColor, opacity: 0.9 } : undefined}
+            >
+              {format(best)}
+            </span>
+            <span
+              className="text-right tabular-nums text-lol-text"
+              style={damageColor ? { color: damageColor, opacity: 0.9 } : undefined}
+            >
+              {renderBreakdown(inWins)}
+            </span>
+            <span
+              className="text-right tabular-nums text-lol-text"
+              style={damageColor ? { color: damageColor, opacity: 0.9 } : undefined}
+            >
+              {renderBreakdown(inLosses)}
+            </span>
+            <span
+              className="text-right tabular-nums text-lol-text"
+              style={damageColor ? { color: damageColor, opacity: 0.9 } : undefined}
+            >
+              {renderBreakdown(vsOther)}
+            </span>
           </div>
         );
       })}
