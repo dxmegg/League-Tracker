@@ -243,6 +243,31 @@ export function registerIpcHandlers() {
   );
 
   ipcMain.handle(
+    "db:champion-stat-baseline",
+    (_event, championId: number, patch?: string, queue?: number, account?: string) => {
+      if (!Number.isInteger(championId) || championId <= 0) {
+        throw new TypeError("championId must be a positive integer");
+      }
+      console.log("[db] champion-stat-baseline handler called:", {
+        championId,
+        patch,
+        queue,
+        account,
+      });
+      const result = db.getChampionStatBaseline(
+        championId,
+        patch,
+        queue == null ? undefined : String(queue),
+        account,
+      );
+      console.log("[db] champion-stat-baseline handler done:", {
+        count: Object.keys(result).length,
+      });
+      return result;
+    },
+  );
+
+  ipcMain.handle(
     "db:champion-skill-orders",
     (_event, championId: number, patch?: string, queue?: number, account?: string) => {
       return db.getChampionSkillOrders(championId, patch, queue, account);

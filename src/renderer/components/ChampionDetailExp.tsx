@@ -11,6 +11,7 @@ import type {
   ChampionRoleStat,
   ChampionQueueStat,
   ChampionStats,
+  ChampionStatBaseline,
   ChampionSkillOrdersResult,
   ChampionTeammateRow,
   ChampionTimelineGame,
@@ -199,6 +200,13 @@ export function ChampionDetailExp() {
     error: detailStatsError,
   } = useIpc<ChampionDetailStats>(
     () => window.api.getChampionDetailStats(id, patch, scopedQueue, account),
+    [id, patch, scopedQueue, account],
+  );
+  const { data: statBaseline } = useIpc<ChampionStatBaseline>(
+    () =>
+      id === null
+        ? Promise.resolve({})
+        : window.api.getChampionStatBaseline(id, patch, scopedQueue, account),
     [id, patch, scopedQueue, account],
   );
   const { data: timelineAverages, loading: timelineAveragesLoading } = useIpc<TimelineBucket[]>(
@@ -857,6 +865,7 @@ export function ChampionDetailExp() {
       ) : activeTab === "cb" ? (
         <CombatTab
           detail={detailStats}
+          baseline={statBaseline}
           detailLoading={detailLoading}
           matchHistory={matchHistory}
           globalDetail={globalDetail}
@@ -873,6 +882,7 @@ export function ChampionDetailExp() {
       ) : activeTab === "fa" ? (
         <FarmTab
           detail={detailStats}
+          baseline={statBaseline}
           detailLoading={detailLoading}
           timeline={timelineAverages}
           timelineLoading={timelineAveragesLoading}
@@ -880,9 +890,14 @@ export function ChampionDetailExp() {
           queueStatsLoading={queueStatsLoading}
         />
       ) : activeTab === "ob" ? (
-        <ObjectivesTab detail={detailStats} detailLoading={detailLoading} />
+        <ObjectivesTab detail={detailStats} baseline={statBaseline} detailLoading={detailLoading} />
       ) : activeTab === "vi" ? (
-        <VisionTab detail={detailStats} detailLoading={detailLoading} matchHistory={matchHistory} />
+        <VisionTab
+          detail={detailStats}
+          baseline={statBaseline}
+          detailLoading={detailLoading}
+          matchHistory={matchHistory}
+        />
       ) : activeTab === "it" ? (
         <ItemsTab
           detail={globalDetail}
@@ -1538,6 +1553,43 @@ function OverviewTab({
 }) {
   const baseline =
     globalDetail && globalDetail.games > 0 ? (globalDetail.wins / globalDetail.games) * 100 : null;
+  const arenaRows = (queueStats ?? []).filter((row) =>
+    (QUEUE_LABELS[row.queueId] ?? `Queue ${row.queueId}`).startsWith("Arena"),
+  );
+  const weightedArenaValue = (
+    key: "kills" | "deaths" | "assists" | "avgScore" | "avgGameLength",
+  ) => {
+    const rowsWithValue = arenaRows.filter((row) => row[key] != null);
+    const games = rowsWithValue.reduce((sum, row) => sum + row.games, 0);
+    return games > 0
+      ? rowsWithValue.reduce((sum, row) => sum + row[key]! * row.games, 0) / games
+      : undefined;
+  };
+  const mergedQueueStats = [
+    ...(queueStats ?? [])
+      .filter((row) => !arenaRows.includes(row))
+      .map((stat) => ({
+        stat,
+        label: QUEUE_LABELS[stat.queueId] ?? `Queue ${stat.queueId}`,
+      })),
+    ...(arenaRows.length > 0
+      ? [
+          {
+            stat: {
+              ...arenaRows[0],
+              games: arenaRows.reduce((sum, row) => sum + row.games, 0),
+              wins: arenaRows.reduce((sum, row) => sum + row.wins, 0),
+              kills: weightedArenaValue("kills"),
+              deaths: weightedArenaValue("deaths"),
+              assists: weightedArenaValue("assists"),
+              avgScore: weightedArenaValue("avgScore") ?? null,
+              avgGameLength: weightedArenaValue("avgGameLength") ?? null,
+            },
+            label: "Arena",
+          },
+        ]
+      : []),
+  ].sort((a, b) => b.stat.games - a.stat.games);
   return (
     <div className="grid grid-cols-1 gap-5 xl:grid-cols-2">
       <div className="xl:col-span-2">
@@ -1843,58 +1895,51 @@ function OverviewTab({
           <NoData />
         ) : (
           <div className="flex flex-col gap-1.5">
-            {queueStats
-              .slice()
-              .sort((a, b) => b.games - a.games)
-              .map((queueStat) => (
-                <div
-                  key={queueStat.queueId}
-                  className="grid grid-cols-[minmax(0,1fr)_auto_auto_auto_minmax(92px,1fr)_auto] items-center gap-3 rounded-lg border-t border-transparent px-3 py-3.5 text-[12px] transition-colors duration-[120ms] hover:border-white/[0.06] hover:bg-white/[0.03]"
-                >
-                  <div className="flex min-w-0 items-center gap-2">
-                    <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-md bg-lol-card text-[9px] font-bold text-lol-text-bright">
-                      {(QUEUE_LABELS[queueStat.queueId] ?? `Queue ${queueStat.queueId}`)
-                        .slice(0, 2)
-                        .toUpperCase()}
-                    </span>
-                    <span className="min-w-0 truncate text-lol-text-bright">
-                      {QUEUE_LABELS[queueStat.queueId] ?? `Queue ${queueStat.queueId}`}
-                    </span>
-                  </div>
-                  <span className="text-lol-text">{queueStat.games} games</span>
-                  <span className="text-right text-sm tabular-nums text-lol-text">
-                    {formatRowKda(queueStat)}
+            {mergedQueueStats.map(({ stat: queueStat, label }) => (
+              <div
+                key={queueStat.queueId}
+                className="grid grid-cols-[minmax(0,1fr)_auto_auto_auto_minmax(92px,1fr)_auto] items-center gap-3 rounded-lg border-t border-transparent px-3 py-3.5 text-[12px] transition-colors duration-[120ms] hover:border-white/[0.06] hover:bg-white/[0.03]"
+              >
+                <div className="flex min-w-0 items-center gap-2">
+                  <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-md bg-lol-card text-[9px] font-bold text-lol-text-bright">
+                    {label.slice(0, 2).toUpperCase()}
                   </span>
-                  <span className="ml-2 text-right text-sm tabular-nums text-lol-gold">
-                    {formatSmallMetric(queueStat.avgScore)}
-                  </span>
-                  <div className="flex h-2.5 w-20 min-w-0 overflow-hidden rounded-full bg-lol-loss/20">
-                    <span
-                      className="rounded-l-[1px] bg-[linear-gradient(to_right,#22C55E,#10B981)]"
-                      style={{
-                        width: `${queueStat.games > 0 ? (queueStat.wins / queueStat.games) * 100 : 0}%`,
-                      }}
-                    />
-                    <span
-                      className="rounded-r-[1px] bg-[linear-gradient(to_right,#E5483F,#B91C1C)]"
-                      style={{
-                        width: `${queueStat.games > 0 ? ((queueStat.games - queueStat.wins) / queueStat.games) * 100 : 0}%`,
-                      }}
-                    />
-                  </div>
-                  <span
-                    className={`text-right text-sm font-semibold tabular-nums ${
-                      queueStat.games > 0 && queueStat.wins / queueStat.games >= 0.5
-                        ? "text-lol-win"
-                        : "text-lol-loss"
-                    }`}
-                  >
-                    {queueStat.games > 0
-                      ? `${((queueStat.wins / queueStat.games) * 100).toFixed(1)}%`
-                      : "—"}
-                  </span>
+                  <span className="min-w-0 truncate text-lol-text-bright">{label}</span>
                 </div>
-              ))}
+                <span className="text-lol-text">{queueStat.games} games</span>
+                <span className="text-right text-sm tabular-nums text-lol-text">
+                  {formatRowKda(queueStat)}
+                </span>
+                <span className="ml-2 text-right text-sm tabular-nums text-lol-gold">
+                  {formatSmallMetric(queueStat.avgScore)}
+                </span>
+                <div className="flex h-2.5 w-20 min-w-0 overflow-hidden rounded-full bg-lol-loss/20">
+                  <span
+                    className="rounded-l-[1px] bg-[linear-gradient(to_right,#22C55E,#10B981)]"
+                    style={{
+                      width: `${queueStat.games > 0 ? (queueStat.wins / queueStat.games) * 100 : 0}%`,
+                    }}
+                  />
+                  <span
+                    className="rounded-r-[1px] bg-[linear-gradient(to_right,#E5483F,#B91C1C)]"
+                    style={{
+                      width: `${queueStat.games > 0 ? ((queueStat.games - queueStat.wins) / queueStat.games) * 100 : 0}%`,
+                    }}
+                  />
+                </div>
+                <span
+                  className={`text-right text-sm font-semibold tabular-nums ${
+                    queueStat.games > 0 && queueStat.wins / queueStat.games >= 0.5
+                      ? "text-lol-win"
+                      : "text-lol-loss"
+                  }`}
+                >
+                  {queueStat.games > 0
+                    ? `${((queueStat.wins / queueStat.games) * 100).toFixed(1)}%`
+                    : "—"}
+                </span>
+              </div>
+            ))}
           </div>
         )}
       </Panel>
@@ -1932,16 +1977,20 @@ function OverviewTab({
 
 function VisionTab({
   detail,
+  baseline,
   detailLoading,
   matchHistory,
 }: {
   detail: ChampionDetailStats | null;
+  baseline: ChampionStatBaseline | null;
   detailLoading: boolean;
   matchHistory: { matches: MatchListItem[]; total: number } | null;
 }) {
   const champData = useChampionData();
   if (detailLoading) return <SectionLoading />;
   if (!detail || detail.games === 0) return <NoData text="No vision data" />;
+  const vsOther = (value: number | null | undefined, key: string) =>
+    value == null || baseline?.[key] == null ? null : value - baseline[key]!;
 
   const minutes = detail.avgGameLength > 0 ? detail.avgGameLength / 60 : 0;
   const perMinute = (value: number) => (minutes > 0 ? (value / minutes).toFixed(2) : "—");
@@ -2019,6 +2068,9 @@ function VisionTab({
               detail.maxVisionScore,
               detail.totalVisionScore,
               formatCombatNumber,
+              detail.avgVisionScoreInWins,
+              detail.avgVisionScoreInLosses,
+              vsOther(detail.avgVisionScore, "avgVisionScoreOther"),
             ],
             [
               "Wards placed",
@@ -2026,6 +2078,9 @@ function VisionTab({
               detail.maxWardsPlaced,
               detail.totalWardsPlaced,
               formatCombatNumber,
+              detail.avgWardsPlacedInWins,
+              detail.avgWardsPlacedInLosses,
+              vsOther(detail.avgWardsPlaced, "avgWardsPlacedOther"),
             ],
             [
               "Wards killed",
@@ -2033,6 +2088,9 @@ function VisionTab({
               detail.maxWardsKilled,
               detail.totalWardsKilled,
               formatCombatNumber,
+              detail.avgWardsKilledInWins,
+              detail.avgWardsKilledInLosses,
+              vsOther(detail.avgWardsKilled, "avgWardsKilledOther"),
             ],
             [
               "Control wards bought",
@@ -2040,6 +2098,9 @@ function VisionTab({
               detail.maxVisionWardsBought,
               detail.totalVisionWardsBought,
               formatCombatNumber,
+              detail.avgVisionWardsBoughtInWins,
+              detail.avgVisionWardsBoughtInLosses,
+              vsOther(detail.avgVisionWardsBought, "avgVisionWardsBoughtOther"),
             ],
             [
               "Sight wards bought",
@@ -2047,6 +2108,9 @@ function VisionTab({
               detail.maxSightWardsBought,
               detail.totalSightWardsBought,
               formatCombatNumber,
+              detail.avgSightWardsBoughtInWins,
+              detail.avgSightWardsBoughtInLosses,
+              vsOther(detail.avgSightWardsBought, "avgSightWardsBoughtOther"),
             ],
           ]}
         />
@@ -3957,17 +4021,21 @@ function AbilitiesTab({
 
 function CombatTab({
   detail,
+  baseline,
   detailLoading,
   matchHistory,
   globalDetail,
 }: {
   detail: ChampionDetailStats | null;
+  baseline: ChampionStatBaseline | null;
   detailLoading: boolean;
   matchHistory: { matches: MatchListItem[]; total: number } | null;
   globalDetail: GlobalChampionDetail | null;
 }) {
   if (detailLoading) return <SectionLoading />;
   if (!detail || detail.games === 0) return <NoData text="No combat data" />;
+  const vsOther = (value: number | null | undefined, key: string) =>
+    value == null || baseline?.[key] == null ? null : value - baseline[key]!;
 
   const matches = (matchHistory?.matches as CombatMatch[] | undefined) ?? [];
   const chartMatches = matches
@@ -4121,6 +4189,7 @@ function CombatTab({
             formatCombatNumber,
             detail.avgPhysicalDamageDealtInWins,
             detail.avgPhysicalDamageDealtInLosses,
+            vsOther(detail.avgPhysicalDamageDealt, "avgPhysicalDamageDealtOther"),
           ],
           [
             "Magic",
@@ -4130,6 +4199,7 @@ function CombatTab({
             formatCombatNumber,
             detail.avgMagicDamageDealtInWins,
             detail.avgMagicDamageDealtInLosses,
+            vsOther(detail.avgMagicDamageDealt, "avgMagicDamageDealtOther"),
           ],
           [
             "True",
@@ -4156,18 +4226,30 @@ function CombatTab({
             detail.avgPhysicalDamageTaken,
             detail.maxPhysicalDamageTaken,
             detail.totalPhysicalDamageTaken,
+            formatCombatNumber,
+            detail.avgPhysicalDamageTakenInWins,
+            detail.avgPhysicalDamageTakenInLosses,
+            vsOther(detail.avgPhysicalDamageTaken, "avgPhysicalDamageTakenOther"),
           ],
           [
             "Magic",
             detail.avgMagicDamageTaken,
             detail.maxMagicDamageTaken,
             detail.totalMagicDamageTaken,
+            formatCombatNumber,
+            detail.avgMagicDamageTakenInWins,
+            detail.avgMagicDamageTakenInLosses,
+            vsOther(detail.avgMagicDamageTaken, "avgMagicDamageTakenOther"),
           ],
           [
             "True",
             detail.avgTrueDamageTaken,
             detail.maxTrueDamageTaken,
             detail.totalTrueDamageTaken,
+            formatCombatNumber,
+            detail.avgTrueDamageTakenInWins,
+            detail.avgTrueDamageTakenInLosses,
+            vsOther(detail.avgTrueDamageTaken, "avgTrueDamageTakenOther"),
           ],
         ]}
       />
@@ -4182,6 +4264,9 @@ function CombatTab({
               detail.maxTimeCcOthers,
               detail.totalTimeCcOthers,
               formatSeconds,
+              detail.avgTimeCcOthersInWins,
+              detail.avgTimeCcOthersInLosses,
+              vsOther(detail.avgTimeCcOthers, "avgTimeCcOthersOther"),
             ],
             [
               "Total CC dealt (sec)",
@@ -4189,6 +4274,9 @@ function CombatTab({
               detail.maxTotalCcDealt,
               detail.totalTotalCcDealt,
               formatSeconds,
+              detail.avgTotalCcDealtInWins,
+              detail.avgTotalCcDealtInLosses,
+              vsOther(detail.avgTotalCcDealt, "avgTotalCcDealtOther"),
             ],
           ]}
         />
@@ -4210,6 +4298,9 @@ function CombatTab({
               detail.maxDamageToObjectives,
               detail.totalDamageToObjectives,
               formatCombatNumber,
+              detail.avgDamageToObjectivesInWins,
+              detail.avgDamageToObjectivesInLosses,
+              vsOther(detail.avgDamageToObjectives, "avgDamageToObjectivesOther"),
             ],
             [
               "Damage to turrets",
@@ -4217,6 +4308,9 @@ function CombatTab({
               detail.maxDamageToTurrets,
               detail.totalDamageToTurrets,
               formatCombatNumber,
+              detail.avgDamageToTurretsInWins,
+              detail.avgDamageToTurretsInLosses,
+              vsOther(detail.avgDamageToTurrets, "avgDamageToTurretsOther"),
             ],
           ]}
         />
@@ -4232,6 +4326,9 @@ function CombatTab({
               detail.maxLongestAlive,
               detail.totalLongestAlive,
               formatSeconds,
+              detail.avgLongestAliveInWins,
+              detail.avgLongestAliveInLosses,
+              vsOther(detail.avgLongestAlive, "avgLongestAliveOther"),
             ],
             [
               "Killing sprees",
@@ -4239,6 +4336,9 @@ function CombatTab({
               detail.maxKillingSprees,
               detail.totalKillingSprees,
               formatCombatNumber,
+              detail.avgKillingSpreesInWins,
+              detail.avgKillingSpreesInLosses,
+              vsOther(detail.avgKillingSprees, "avgKillingSpreesOther"),
             ],
             [
               "Damage self-mitigated",
@@ -4246,6 +4346,9 @@ function CombatTab({
               detail.maxDamageSelfMitigated,
               detail.totalDamageSelfMitigated,
               formatCombatNumber,
+              detail.avgDamageSelfMitigatedInWins,
+              detail.avgDamageSelfMitigatedInLosses,
+              vsOther(detail.avgDamageSelfMitigated, "avgDamageSelfMitigatedOther"),
             ],
           ]}
         />
@@ -4541,6 +4644,7 @@ function EconomyTab({
 
 function FarmTab({
   detail,
+  baseline,
   detailLoading,
   timeline,
   timelineLoading,
@@ -4548,6 +4652,7 @@ function FarmTab({
   queueStatsLoading,
 }: {
   detail: ChampionDetailStats | null;
+  baseline: ChampionStatBaseline | null;
   detailLoading: boolean;
   timeline: TimelineBucket[] | null;
   timelineLoading: boolean;
@@ -4557,6 +4662,8 @@ function FarmTab({
   if (detailLoading) return <SectionLoading />;
   if (!detail || detail.games === 0) return <NoData text="No data" />;
   if (timelineLoading) return <SectionLoading />;
+  const vsOther = (value: number | null | undefined, key: string) =>
+    value == null || baseline?.[key] == null ? null : value - baseline[key]!;
 
   const buckets = timeline ?? [];
   const bucketAt = (minute: number) => buckets.find((bucket) => bucket.minute === minute);
@@ -4629,24 +4736,40 @@ function FarmTab({
               detail.avgTotalMinionsKilled,
               detail.maxTotalMinionsKilled,
               detail.totalTotalMinionsKilled,
+              undefined,
+              detail.avgTotalMinionsKilledInWins,
+              detail.avgTotalMinionsKilledInLosses,
+              vsOther(detail.avgTotalMinionsKilled, "avgTotalMinionsKilledOther"),
             ],
             [
               "Jungle minions (all)",
               detail.avgNeutralMinionsKilled,
               detail.maxNeutralMinionsKilled,
               detail.totalNeutralMinionsKilled,
+              undefined,
+              detail.avgNeutralMinionsKilledInWins,
+              detail.avgNeutralMinionsKilledInLosses,
+              vsOther(detail.avgNeutralMinionsKilled, "avgNeutralMinionsKilledOther"),
             ],
             [
               "Jungle minions (enemy)",
               detail.avgNeutralMinionsEnemyJungle,
               detail.maxNeutralMinionsEnemyJungle,
               detail.totalNeutralMinionsEnemyJungle,
+              undefined,
+              detail.avgNeutralMinionsEnemyJungleInWins,
+              detail.avgNeutralMinionsEnemyJungleInLosses,
+              vsOther(detail.avgNeutralMinionsEnemyJungle, "avgNeutralMinionsEnemyJungleOther"),
             ],
             [
               "Jungle minions (team)",
               detail.avgNeutralMinionsTeamJungle,
               detail.maxNeutralMinionsTeamJungle,
               detail.totalNeutralMinionsTeamJungle,
+              undefined,
+              detail.avgNeutralMinionsTeamJungleInWins,
+              detail.avgNeutralMinionsTeamJungleInLosses,
+              vsOther(detail.avgNeutralMinionsTeamJungle, "avgNeutralMinionsTeamJungleOther"),
             ],
           ]}
         />
@@ -4757,13 +4880,17 @@ function FarmTab({
 
 function ObjectivesTab({
   detail,
+  baseline,
   detailLoading,
 }: {
   detail: ChampionDetailStats | null;
+  baseline: ChampionStatBaseline | null;
   detailLoading: boolean;
 }) {
   if (detailLoading) return <SectionLoading />;
   if (!detail || detail.games === 0) return <NoData text="No data" />;
+  const vsOther = (value: number | null | undefined, key: string) =>
+    value == null || baseline?.[key] == null ? null : value - baseline[key]!;
 
   const objectiveTotal =
     detail.totalTurretKills +
@@ -4830,20 +4957,46 @@ function ObjectivesTab({
         <SectionHeading title="Turrets & inhibitors" source="m" />
         <CombatStatTable
           rows={[
-            ["Turret kills", detail.avgTurretKills, detail.maxTurretKills, detail.totalTurretKills],
+            [
+              "Turret kills",
+              detail.avgTurretKills,
+              detail.maxTurretKills,
+              detail.totalTurretKills,
+              undefined,
+              detail.avgTurretKillsInWins,
+              detail.avgTurretKillsInLosses,
+              vsOther(detail.avgTurretKills, "avgTurretKillsOther"),
+            ],
             [
               "Inhibitor kills",
               detail.avgInhibitorKills,
               detail.maxInhibitorKills,
               detail.totalInhibitorKills,
+              undefined,
+              detail.avgInhibitorKillsInWins,
+              detail.avgInhibitorKillsInLosses,
+              vsOther(detail.avgInhibitorKills, "avgInhibitorKillsOther"),
             ],
             [
               "Turret plates taken",
               detail.avgTurretPlatesTaken,
               detail.maxTurretPlatesTaken,
               detail.totalTurretPlatesTaken,
+              undefined,
+              detail.avgTurretPlatesTakenInWins,
+              detail.avgTurretPlatesTakenInLosses,
+              vsOther(detail.avgTurretPlatesTaken, "avgTurretPlatesTakenOther"),
             ],
-            ["Baron kills", detail.avgBaronKills, detail.maxBaronKills, detail.totalBaronKills],
+            [
+              "Baron kills",
+              detail.avgBaronKills,
+              detail.maxBaronKills,
+              detail.totalBaronKills,
+              undefined,
+              detail.avgBaronKillsInWins,
+              detail.avgBaronKillsInLosses,
+              vsOther(detail.avgBaronKills, "avgBaronKillsOther"),
+            ],
           ]}
         />
       </Panel>
@@ -4857,12 +5010,20 @@ function ObjectivesTab({
               detail.avgDamageToObjectives,
               detail.maxDamageToObjectives,
               detail.totalDamageToObjectives,
+              undefined,
+              detail.avgDamageToObjectivesInWins,
+              detail.avgDamageToObjectivesInLosses,
+              vsOther(detail.avgDamageToObjectives, "avgDamageToObjectivesOther"),
             ],
             [
               "Damage to turrets",
               detail.avgDamageToTurrets,
               detail.maxDamageToTurrets,
               detail.totalDamageToTurrets,
+              undefined,
+              detail.avgDamageToTurretsInWins,
+              detail.avgDamageToTurretsInLosses,
+              vsOther(detail.avgDamageToTurrets, "avgDamageToTurretsOther"),
             ],
           ]}
         />
@@ -4907,12 +5068,20 @@ function ObjectivesTab({
               detail.avgObjectivesStolen,
               detail.maxObjectivesStolen,
               detail.totalObjectivesStolen,
+              undefined,
+              detail.avgObjectivesStolenInWins,
+              detail.avgObjectivesStolenInLosses,
+              vsOther(detail.avgObjectivesStolen, "avgObjectivesStolenOther"),
             ],
             [
               "Objectives stolen assists",
               detail.avgObjectivesStolenAssists,
               detail.maxObjectivesStolenAssists,
               detail.totalObjectivesStolenAssists,
+              undefined,
+              detail.avgObjectivesStolenAssistsInWins,
+              detail.avgObjectivesStolenAssistsInLosses,
+              vsOther(detail.avgObjectivesStolenAssists, "avgObjectivesStolenAssistsOther"),
             ],
           ]}
         />
@@ -4964,6 +5133,7 @@ type CombatStatTableRow = [
   ((value: number | null | undefined) => string)?,
   inWins?: number | null,
   inLosses?: number | null,
+  vsOther?: number | null,
 ];
 
 function CombatStatTable({ rows }: { rows: CombatStatTableRow[] }) {
@@ -4977,7 +5147,7 @@ function CombatStatTable({ rows }: { rows: CombatStatTableRow[] }) {
         <span>In losses</span>
         <span>vs your other champions</span>
       </div>
-      {rows.map(([label, avg, best, _total, formatter, inWins, inLosses]) => {
+      {rows.map(([label, avg, best, _total, formatter, inWins, inLosses, vsOther]) => {
         const format = formatter ?? formatCombatNumber;
         const renderBreakdown = (value: number | null | undefined) =>
           value == null ? (
@@ -4997,11 +5167,7 @@ function CombatStatTable({ rows }: { rows: CombatStatTableRow[] }) {
             <span className="tabular-nums">{format(best)}</span>
             <span className="tabular-nums text-lol-text">{renderBreakdown(inWins)}</span>
             <span className="tabular-nums text-lol-text">{renderBreakdown(inLosses)}</span>
-            <span className="tabular-nums text-lol-text">
-              <span className="text-lol-text/40" title="Not tracked yet">
-                —
-              </span>
-            </span>
+            <span className="tabular-nums text-lol-text">{renderBreakdown(vsOther)}</span>
           </div>
         );
       })}

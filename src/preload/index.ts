@@ -3,6 +3,7 @@ import type {
   BackfillProgress,
   BackfillResult,
   ChampionDetailStats,
+  ChampionStatBaseline,
   ChampionKillDeathPosition,
   ChampionRoleStat,
   ChampionTimelineGame,
@@ -142,6 +143,14 @@ const api: ElectronAPI = {
     account?: string,
   ): Promise<ChampionDetailStats> =>
     ipcRenderer.invoke("db:champion-detail-stats", championId, patch, queue, account),
+
+  getChampionStatBaseline: (
+    championId: number,
+    patch?: string,
+    queue?: number,
+    account?: string,
+  ): Promise<ChampionStatBaseline> =>
+    ipcRenderer.invoke("db:champion-stat-baseline", championId, patch, queue, account),
 
   getChampionQueueStats: (championId: number | null, account?: string) =>
     ipcRenderer.invoke("db:champion-queue-stats", championId, account),

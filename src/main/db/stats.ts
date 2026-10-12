@@ -2681,6 +2681,7 @@ export function getChampionDetailStats(
   };
 
   return {
+    ...result,
     games: result?.games ?? 0,
     killParticipation: result?.killParticipation ?? 0,
     damageShare: result?.damageShare ?? 0,
@@ -2790,6 +2791,78 @@ export function getChampionDetailStats(
 }
 
 export type { ChampionSkillOrder, ChampionSkillOrdersResult } from "../../shared/api";
+
+export function getChampionStatBaseline(
+  championId: number,
+  patch?: string,
+  queue?: string,
+  account?: string,
+): Record<string, number | null> {
+  console.log("[db] getChampionStatBaseline called:", { championId, patch, queue, account });
+  const statsPlaceholders = NO_STATS_QUEUE_IDS.map(() => "?").join(",");
+  const where = [
+    "g.is_remake = 0",
+    "g.source != 'search-import'",
+    `g.queue_id NOT IN (${statsPlaceholders})`,
+    "mp.champion_id <> ?",
+  ];
+  const params: any[] = [...NO_STATS_QUEUE_IDS, championId];
+
+  if (patch) {
+    where.push("g.game_version = ?");
+    params.push(patch);
+  }
+  const queueId = queue == null ? undefined : Number(queue);
+  if (queueId == null || Number.isFinite(queueId)) {
+    applyQueueFilter(where, params, queueId, "g");
+  }
+
+  if (account === "all") {
+    where.push("mp.puuid IN (SELECT puuid FROM summoner)");
+  } else if (account) {
+    where.push("mp.puuid = ?");
+    params.push(account);
+  } else {
+    where.push("mp.puuid = g.puuid");
+  }
+  const result = db
+    .prepare(`
+      SELECT
+        AVG(mp.physical_damage_dealt) AS avgPhysicalDamageDealtOther,
+        AVG(mp.magic_damage_dealt) AS avgMagicDamageDealtOther,
+        AVG(mp.physical_damage_taken) AS avgPhysicalDamageTakenOther,
+        AVG(mp.magic_damage_taken) AS avgMagicDamageTakenOther,
+        AVG(mp.true_damage_taken) AS avgTrueDamageTakenOther,
+        AVG(mp.time_cc_others) AS avgTimeCcOthersOther,
+        AVG(mp.total_cc_dealt) AS avgTotalCcDealtOther,
+        AVG(mp.damage_to_objectives) AS avgDamageToObjectivesOther,
+        AVG(mp.damage_to_turrets) AS avgDamageToTurretsOther,
+        AVG(mp.longest_alive) AS avgLongestAliveOther,
+        AVG(mp.killing_sprees) AS avgKillingSpreesOther,
+        AVG(mp.damage_self_mitigated) AS avgDamageSelfMitigatedOther,
+        AVG(mp.vision_score) AS avgVisionScoreOther,
+        AVG(mp.wards_placed) AS avgWardsPlacedOther,
+        AVG(mp.wards_killed) AS avgWardsKilledOther,
+        AVG(mp.vision_wards_bought) AS avgVisionWardsBoughtOther,
+        AVG(mp.sight_wards_bought) AS avgSightWardsBoughtOther,
+        AVG(mp.total_minions_killed) AS avgTotalMinionsKilledOther,
+        AVG(mp.neutral_minions_killed) AS avgNeutralMinionsKilledOther,
+        AVG(mp.neutral_minions_enemy_jungle) AS avgNeutralMinionsEnemyJungleOther,
+        AVG(mp.neutral_minions_team_jungle) AS avgNeutralMinionsTeamJungleOther,
+        AVG(mp.turret_kills) AS avgTurretKillsOther,
+        AVG(mp.inhibitor_kills) AS avgInhibitorKillsOther,
+        AVG(mp.turret_plates_taken) AS avgTurretPlatesTakenOther,
+        AVG(mp.baron_kills) AS avgBaronKillsOther,
+        AVG(mp.objectives_stolen) AS avgObjectivesStolenOther,
+        AVG(mp.objectives_stolen_assists) AS avgObjectivesStolenAssistsOther
+      FROM match_participants mp
+      JOIN games g ON mp.game_id = g.game_id
+      WHERE ${where.join(" AND ")}
+    `)
+    .get(...params) as Record<string, number | null>;
+  console.log("[db] getChampionStatBaseline done:", { count: Object.keys(result ?? {}).length });
+  return result;
+}
 
 export function getChampionSkillOrders(
   championId: number,

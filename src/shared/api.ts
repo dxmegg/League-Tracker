@@ -544,6 +544,8 @@ export interface ChampionDetailStats {
   longestWinStreak: number; // best consecutive wins ever on this champion
 }
 
+export type ChampionStatBaseline = Record<string, number | null>;
+
 export interface ChampionSkillOrder {
   order: string;
   picks: number;
@@ -1477,6 +1479,12 @@ export interface ElectronAPI {
     queue?: number,
     account?: string,
   ) => Promise<ChampionDetailStats>;
+  getChampionStatBaseline: (
+    championId: number,
+    patch?: string,
+    queue?: number,
+    account?: string,
+  ) => Promise<ChampionStatBaseline>;
   getChampionQueueStats: (
     championId: number | null,
     account?: string,
