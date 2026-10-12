@@ -4689,6 +4689,24 @@ function EconomyTab({
   const xpLead = buckets.flatMap((bucket) =>
     bucket.avgXpDiffVsLaneOpponent == null ? [] : [bucket.avgXpDiffVsLaneOpponent],
   );
+  const leadPoints = [5, 10, 15, 20].map((minute) => ({
+    minute,
+    value: bucketAt(minute)?.avgGoldDiffVsLaneOpponent ?? null,
+  }));
+  const leadScale = Math.max(1, ...leadPoints.map((point) => Math.abs(point.value ?? 0)));
+  const levelPoints = [5, 10, 15, 20].map((minute) => ({
+    minute,
+    value: bucketAt(minute)?.avgLevel ?? null,
+  }));
+  const goldLeadBuckets: Array<[string, number, string]> = timeline?.goldLeadDistribution15
+    ? [
+        ["Behind 1000+", timeline.goldLeadDistribution15.behind1000plus, "#E5483F"],
+        ["Behind 0–1000", timeline.goldLeadDistribution15.behind0to1000, "#C9A45C"],
+        ["Ahead 0–1000", timeline.goldLeadDistribution15.ahead0to1000, "#22C55E"],
+        ["Ahead 1000+", timeline.goldLeadDistribution15.ahead1000plus, "#3B82F6"],
+      ]
+    : [];
+  const goldLeadMax = Math.max(1, ...goldLeadBuckets.map(([, count]) => count));
   const timelineGames = buckets.reduce((sum, bucket) => sum + bucket.sampleGames, 0);
   const damagePerGold =
     detail.avgGoldSpent > 0
@@ -4832,29 +4850,78 @@ function EconomyTab({
         <p className="mb-3 text-[11px] text-lol-text/70">
           Gold and experience differences against your lane opponent.
         </p>
-        <div className="flex flex-col gap-2 text-xs">
-          <div className="grid grid-cols-[1fr_auto] gap-3 border-b border-lol-border/50 pb-2 font-semibold text-lol-text">
-            <span>Stat</span>
-            <span>Avg</span>
-          </div>
-          {[
-            ["Gold diff @5", bucketAt(5)?.avgGoldDiffVsLaneOpponent],
-            ["Gold diff @10", bucketAt(10)?.avgGoldDiffVsLaneOpponent],
-            ["Gold diff @15", bucketAt(15)?.avgGoldDiffVsLaneOpponent],
-            ["Gold diff @20", bucketAt(20)?.avgGoldDiffVsLaneOpponent],
-            ["XP diff @10", bucketAt(10)?.avgXpDiffVsLaneOpponent],
-            ["XP diff @15", bucketAt(15)?.avgXpDiffVsLaneOpponent],
-          ].map(([label, stat]) => (
-            <div
-              key={label}
-              className="grid grid-cols-[1fr_auto] gap-3 border-b border-white/[0.04] py-2 text-lol-text-bright transition-colors duration-[120ms] hover:bg-white/[0.025] last:border-b-0"
-            >
-              <span>{label}</span>
-              <span className="text-right tabular-nums">
-                {value(stat as number | null | undefined)}
-              </span>
+        <div className="grid min-h-40 gap-4 text-xs md:grid-cols-2">
+          <div className="flex flex-col gap-2">
+            <div className="grid grid-cols-[1fr_auto] gap-3 border-b border-lol-border/50 pb-2 font-semibold text-lol-text">
+              <span>Stat</span>
+              <span>Avg</span>
             </div>
-          ))}
+            {[
+              ["Gold diff @5", bucketAt(5)?.avgGoldDiffVsLaneOpponent],
+              ["Gold diff @10", bucketAt(10)?.avgGoldDiffVsLaneOpponent],
+              ["Gold diff @15", bucketAt(15)?.avgGoldDiffVsLaneOpponent],
+              ["Gold diff @20", bucketAt(20)?.avgGoldDiffVsLaneOpponent],
+              ["XP diff @10", bucketAt(10)?.avgXpDiffVsLaneOpponent],
+              ["XP diff @15", bucketAt(15)?.avgXpDiffVsLaneOpponent],
+            ].map(([label, stat]) => (
+              <div
+                key={label}
+                className="grid grid-cols-[1fr_auto] gap-3 border-b border-white/[0.04] py-2 text-lol-text-bright transition-colors duration-[120ms] hover:bg-white/[0.025] last:border-b-0"
+              >
+                <span>{label}</span>
+                <span className="text-right tabular-nums">
+                  {value(stat as number | null | undefined)}
+                </span>
+              </div>
+            ))}
+          </div>
+          <div className="flex flex-col gap-2">
+            <div className="border-b border-lol-border/50 pb-2 font-semibold text-lol-text">
+              Gold diff by minute
+            </div>
+            <svg
+              aria-label="Gold difference at five, ten, fifteen, and twenty minutes"
+              className="h-full min-h-32 w-full"
+              role="img"
+              viewBox="0 0 160 120"
+              preserveAspectRatio="none"
+            >
+              <line x1="80" x2="80" y1="8" y2="112" stroke="currentColor" strokeOpacity="0.25" />
+              {leadPoints.map((point, index) => {
+                const valueAtPoint = point.value;
+                const width = valueAtPoint == null ? 0 : (Math.abs(valueAtPoint) / leadScale) * 68;
+                const y = 14 + index * 26;
+                return (
+                  <g key={point.minute}>
+                    <text x="2" y={y + 4} fill="currentColor" fillOpacity="0.7" fontSize="9">
+                      {point.minute}m
+                    </text>
+                    {valueAtPoint != null && (
+                      <rect
+                        x={valueAtPoint >= 0 ? 80 : 80 - width}
+                        y={y - 5}
+                        width={width}
+                        height="10"
+                        rx="3"
+                        fill={valueAtPoint >= 0 ? "#22C55E" : "#E5483F"}
+                        fillOpacity="0.8"
+                      />
+                    )}
+                    <text
+                      x="158"
+                      y={y + 4}
+                      fill="currentColor"
+                      fillOpacity="0.7"
+                      fontSize="9"
+                      textAnchor="end"
+                    >
+                      {value(valueAtPoint)}
+                    </text>
+                  </g>
+                );
+              })}
+            </svg>
+          </div>
         </div>
       </Panel>
       <Panel className={TAB_PANEL_CLASSES.gold}>
@@ -4862,24 +4929,72 @@ function EconomyTab({
         <p className="mb-3 text-[11px] text-lol-text/70">
           Final level and average level progression through the game.
         </p>
-        <div className="flex flex-col gap-2 text-xs">
-          {[
-            ["Final level", detail.maxChampLevel],
-            ["Level @5", bucketAt(5)?.avgLevel],
-            ["Level @10", bucketAt(10)?.avgLevel],
-            ["Level @15", bucketAt(15)?.avgLevel],
-            ["Level @20", bucketAt(20)?.avgLevel],
-          ].map(([label, stat]) => (
-            <div
-              key={label}
-              className="flex items-center justify-between border-b border-white/[0.04] py-2 text-lol-text-bright transition-colors duration-[120ms] hover:bg-white/[0.025] last:border-b-0"
-            >
-              <span className="text-lol-text">{label}</span>
-              <span className="text-right tabular-nums">
-                {value(stat as number | null | undefined, 1)}
-              </span>
+        <div className="grid min-h-40 gap-4 text-xs md:grid-cols-2">
+          <div className="flex flex-col gap-2">
+            {[
+              ["Final level", detail.maxChampLevel],
+              ["Level @5", bucketAt(5)?.avgLevel],
+              ["Level @10", bucketAt(10)?.avgLevel],
+              ["Level @15", bucketAt(15)?.avgLevel],
+              ["Level @20", bucketAt(20)?.avgLevel],
+            ].map(([label, stat]) => (
+              <div
+                key={label}
+                className="flex items-center justify-between border-b border-white/[0.04] py-2 text-lol-text-bright transition-colors duration-[120ms] hover:bg-white/[0.025] last:border-b-0"
+              >
+                <span className="text-lol-text">{label}</span>
+                <span className="text-right tabular-nums">
+                  {value(stat as number | null | undefined, 1)}
+                </span>
+              </div>
+            ))}
+          </div>
+          <div className="flex flex-col gap-2">
+            <div className="border-b border-lol-border/50 pb-2 font-semibold text-lol-text">
+              Level progression
             </div>
-          ))}
+            <svg
+              aria-label="Average level progression from five to twenty minutes"
+              className="h-full min-h-32 w-full"
+              role="img"
+              viewBox="0 0 160 80"
+              preserveAspectRatio="none"
+            >
+              <line x1="14" x2="146" y1="42" y2="42" stroke="currentColor" strokeOpacity="0.25" />
+              {levelPoints.map((point, index) => {
+                const x = 14 + index * 44;
+                const y = point.value == null ? 42 : 66 - (point.value / 18) * 48;
+                return (
+                  <g key={point.minute}>
+                    {index > 0 && levelPoints[index - 1].value != null && point.value != null && (
+                      <line
+                        x1={x - 44}
+                        x2={x}
+                        y1={66 - (levelPoints[index - 1].value! / 18) * 48}
+                        y2={y}
+                        stroke="#C9A45C"
+                        strokeOpacity="0.65"
+                        strokeWidth="2"
+                      />
+                    )}
+                    {point.value != null && (
+                      <circle cx={x} cy={y} r="5" fill="#C9A45C" fillOpacity="0.9" />
+                    )}
+                    <text
+                      x={x}
+                      y="76"
+                      fill="currentColor"
+                      fillOpacity="0.7"
+                      fontSize="9"
+                      textAnchor="middle"
+                    >
+                      {point.minute}m
+                    </text>
+                  </g>
+                );
+              })}
+            </svg>
+          </div>
         </div>
       </Panel>
       <Panel className={TAB_PANEL_CLASSES.gold}>
@@ -4921,31 +5036,47 @@ function EconomyTab({
         <p className="mb-3 text-[11px] text-lol-text/70">
           Average gold spent per game from the available match aggregates.
         </p>
-        <CombatStatTable
-          rows={[
-            [
-              "Gold spent",
-              detail.avgGoldSpent,
-              detail.maxGoldSpent,
-              detail.totalGoldSpent,
-              formatCombatNumber,
-            ],
-            [
-              "Gold spent in wins",
-              detail.avgGoldSpentInWins,
-              detail.maxGoldSpentInWins,
-              detail.totalGoldSpentInWins,
-              formatCombatNumber,
-            ],
-            [
-              "Gold spent in losses",
-              detail.avgGoldSpentInLosses,
-              detail.maxGoldSpentInLosses,
-              detail.totalGoldSpentInLosses,
-              formatCombatNumber,
-            ],
-          ]}
-        />
+        <div className="grid min-h-40 gap-4 md:grid-cols-2">
+          <CombatStatTable
+            rows={[
+              [
+                "Gold spent",
+                detail.avgGoldSpent,
+                detail.maxGoldSpent,
+                detail.totalGoldSpent,
+                formatCombatNumber,
+              ],
+              [
+                "Gold spent in wins",
+                detail.avgGoldSpentInWins,
+                detail.maxGoldSpentInWins,
+                detail.totalGoldSpentInWins,
+                formatCombatNumber,
+              ],
+              [
+                "Gold spent in losses",
+                detail.avgGoldSpentInLosses,
+                detail.maxGoldSpentInLosses,
+                detail.totalGoldSpentInLosses,
+                formatCombatNumber,
+              ],
+            ]}
+          />
+          <div className="grid grid-cols-2 gap-3 self-start">
+            <div className="rounded-md border border-lol-border/50 bg-black/10 p-3">
+              <div className="text-[11px] text-lol-text/70">Gold per minute</div>
+              <div className="mt-2 text-right text-lg font-semibold tabular-nums text-lol-text-bright">
+                {detail.goldPerMin.toFixed(0)}
+              </div>
+            </div>
+            <div className="rounded-md border border-lol-border/50 bg-black/10 p-3">
+              <div className="text-[11px] text-lol-text/70">Items per game</div>
+              <div className="mt-2 text-right text-lg font-semibold tabular-nums text-lol-text-bright">
+                {value(timeline?.itemsBought, 1)}
+              </div>
+            </div>
+          </div>
+        </div>
       </Panel>
       <Panel className={TAB_PANEL_CLASSES.gold}>
         <SectionHeading title="Economy by queue" source="m" />
@@ -5003,11 +5134,23 @@ function EconomyTab({
                   <EmptyState text="No games" />
                 ) : (
                   <>
-                    <div className="h-2 overflow-hidden rounded-full bg-black/20">
-                      <div
-                        className="h-full rounded-full bg-lol-gold"
-                        style={{ width: `${rate as number}%` }}
-                      />
+                    <div className="relative h-7">
+                      <div className="absolute inset-x-0 top-2 h-2 rounded-full bg-black/20" />
+                      <div className="absolute bottom-0 left-1/2 top-0 border-l border-lol-text/40" />
+                      {(rate as number) !== 50 && (
+                        <div
+                          className={`absolute top-2 h-2 rounded-full ${
+                            (rate as number) > 50 ? "bg-[#22C55E]" : "bg-[#E5483F]"
+                          }`}
+                          style={{
+                            left: (rate as number) > 50 ? "50%" : `${rate as number}%`,
+                            width: `${Math.abs((rate as number) - 50)}%`,
+                          }}
+                        />
+                      )}
+                      <span className="absolute left-1/2 top-5 -translate-x-1/2 text-[9px] text-lol-text/60">
+                        50%
+                      </span>
                     </div>
                     <span className="tabular-nums">{(rate as number).toFixed(1)}%</span>
                   </>
@@ -5026,17 +5169,18 @@ function EconomyTab({
           <EmptyState text="Per-game lead distribution is not available" />
         ) : (
           <div className="flex flex-col gap-2 text-xs">
-            {[
-              ["Behind 1000+", timeline.goldLeadDistribution15.behind1000plus],
-              ["Behind 0–1000", timeline.goldLeadDistribution15.behind0to1000],
-              ["Ahead 0–1000", timeline.goldLeadDistribution15.ahead0to1000],
-              ["Ahead 1000+", timeline.goldLeadDistribution15.ahead1000plus],
-            ].map(([label, count]) => (
+            {goldLeadBuckets.map(([label, count, color]) => (
               <div
                 key={label}
-                className="flex items-center justify-between border-b border-white/[0.04] py-2"
+                className="grid grid-cols-[7rem_1fr_auto] items-center gap-2 border-b border-white/[0.04] py-2"
               >
                 <span className="text-lol-text">{label}</span>
+                <div className="h-2 overflow-hidden rounded-full bg-black/20">
+                  <div
+                    className="h-full rounded-full"
+                    style={{ width: `${(count / goldLeadMax) * 100}%`, backgroundColor: color }}
+                  />
+                </div>
                 <span className="tabular-nums text-lol-text-bright">{count}</span>
               </div>
             ))}
