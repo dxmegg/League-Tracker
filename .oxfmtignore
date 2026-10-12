@@ -2,3 +2,6 @@ README.md
 .github/copilot-instructions.md
 .github/skills/**/*.md
 .mcp.json
+.github/skills-disabled/**/*.md
+.github/copilot-setup.yml
+.github/github-app.yml
