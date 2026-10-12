@@ -154,10 +154,9 @@ Czasem myli MatchupsTab return z innym JSX.
 Cherry-pickuje commity między worktree'ami — nie używać subsessji.
 
 6. Co dalej
-- A — Home page hero polish (ribbon, live tile, top champions grid)
-- B — History match row polish + weekly heatmap color scale
-- C — CDragon 522 intermittent failures (mitigated by cache)
-- D — New feature (ask user)
+- A — History match row polish + weekly heatmap color scale
+- B — CDragon 522 intermittent failures (mitigated by cache)
+- C — New feature (ask user)
 
 7. Komendy
 npm run dev          # apka (wymaga LCU jako admin)
