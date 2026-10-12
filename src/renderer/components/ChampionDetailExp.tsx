@@ -204,10 +204,12 @@ export function ChampionDetailExp() {
   );
   const { data: statBaseline } = useIpc<ChampionStatBaseline>(
     () =>
-      id === null
-        ? Promise.resolve({})
-        : window.api.getChampionStatBaseline(id, patch, scopedQueue, account),
-    [id, patch, scopedQueue, account],
+      combatActive || farmActive || objectivesActive || visionActive
+        ? id === null
+          ? Promise.resolve({})
+          : window.api.getChampionStatBaseline(id, patch, scopedQueue, account)
+        : Promise.resolve({}),
+    [combatActive, farmActive, objectivesActive, visionActive, id, patch, scopedQueue, account],
   );
   const { data: timelineAverages, loading: timelineAveragesLoading } = useIpc<TimelineBucket[]>(
     () =>
@@ -334,7 +336,7 @@ export function ChampionDetailExp() {
       overviewActive
         ? window.api.getAugmentStats(id ?? undefined, patch, scopedQueue, account)
         : Promise.resolve([] as AugmentStats[]),
-    [overviewActive, id, patch, scopedQueue, account],
+    [overviewActive, id, patch, scopedQueue],
   );
   const { data: keystones, loading: keystonesLoading } = useIpc<ChampionKeystoneStat[]>(
     () =>
@@ -357,7 +359,7 @@ export function ChampionDetailExp() {
       overviewActive
         ? window.api.getChampionRoleStats(id, patch, scopedQueue, account)
         : Promise.resolve([] as ChampionRoleStat[]),
-    [overviewActive, id, patch, scopedQueue],
+    [overviewActive, id, patch, scopedQueue, account],
   );
   const { data: weeklyWinRate, loading: weeklyWinRateLoading } = useIpc<ChampionWeeklyWinRate[]>(
     () =>
