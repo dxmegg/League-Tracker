@@ -13,6 +13,8 @@ import { protocol } from "electron";
 import { getDataDir } from "./paths";
 
 const REQUEST_TIMEOUT_MS = 10_000;
+const MAX_FETCH_ATTEMPTS = 3;
+const RETRYABLE_STATUSES = new Set([429, 500, 502, 503, 504, 522, 524]);
 const DRAGON_ASSET_SCHEME = "dragon-asset";
 const DRAGON_IMAGE_DIR = "dragon-images";
 const ALLOWED_REMOTE_HOSTS = new Set(["raw.communitydragon.org", "ddragon.leagueoflegends.com"]);
@@ -112,18 +114,50 @@ export async function cacheDragonAsset(remoteUrl: string): Promise<string | null
   }
 
   try {
-    const response = await fetch(remoteUrl, {
-      headers: { "User-Agent": "RiftRecords/1.0.6" },
-      signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
-    });
-    if (!response.ok) {
+    let bytes: Buffer | null = null;
+    for (let attempt = 0; attempt < MAX_FETCH_ATTEMPTS; attempt++) {
+      try {
+        const response = await fetch(remoteUrl, {
+          headers: { "User-Agent": "RiftRecords/1.0.6" },
+          signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+        });
+        if (!response.ok) {
+          if (!RETRYABLE_STATUSES.has(response.status) || attempt === MAX_FETCH_ATTEMPTS - 1) {
+            console.error(
+              `[dragon-assets] failed after ${attempt + 1} attempts ${hash.slice(0, 8)}`,
+            );
+            sessionFailures.add(remoteUrl);
+            return null;
+          }
+          console.warn(`[dragon-assets] retrying ${hash.slice(0, 8)} after ${response.status}`);
+          await new Promise((resolve) => setTimeout(resolve, 400 * 2 ** attempt));
+          continue;
+        }
+
+        bytes = Buffer.from(await response.arrayBuffer());
+        break;
+      } catch (error) {
+        if (attempt === MAX_FETCH_ATTEMPTS - 1) {
+          console.error(`[dragon-assets] failed after ${attempt + 1} attempts ${hash.slice(0, 8)}`);
+          sessionFailures.add(remoteUrl);
+          return null;
+        }
+        const reason = error instanceof Error ? error.message : String(error);
+        console.warn(`[dragon-assets] retrying ${hash.slice(0, 8)} after ${reason}`);
+        await new Promise((resolve) => setTimeout(resolve, 400 * 2 ** attempt));
+      }
+    }
+
+    if (!bytes) {
+      console.error(
+        `[dragon-assets] failed after ${MAX_FETCH_ATTEMPTS} attempts ${hash.slice(0, 8)}`,
+      );
       sessionFailures.add(remoteUrl);
       return null;
     }
-
-    const bytes = Buffer.from(await response.arrayBuffer());
     await fs.promises.mkdir(path.dirname(localPath), { recursive: true });
     await fs.promises.writeFile(localPath, bytes);
+    sessionFailures.delete(remoteUrl);
     return `${DRAGON_ASSET_SCHEME}://${hash}`;
   } catch (error) {
     sessionFailures.add(remoteUrl);
