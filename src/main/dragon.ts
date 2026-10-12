@@ -18,15 +18,56 @@ let championReady: Promise<void> | null = null;
 
 // fetch follows redirects itself, with its own cap — the hand-rolled version
 // this replaces recursed on Location with no limit and no timeout.
-async function fetchJson(url: string): Promise<any> {
-  const res = await fetch(url, {
-    headers: { "User-Agent": "RiftRecords/1.0.6" },
-    signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
-  });
-  if (!res.ok) {
-    throw new Error(`Request failed: ${res.status} ${url}`);
+interface FetchJsonOptions {
+  retries?: number;
+  baseDelayMs?: number;
+}
+
+async function fetchJson(url: string, options: FetchJsonOptions = {}): Promise<any> {
+  const retries = Math.max(0, Math.floor(options.retries ?? 2));
+  const baseDelayMs = Math.max(0, options.baseDelayMs ?? 400);
+  const maxAttempts = retries + 1;
+  const retryableStatuses = new Set([429, 500, 502, 503, 504, 522, 524]);
+
+  for (let attempt = 0; attempt < maxAttempts; attempt++) {
+    let res: Response;
+    try {
+      res = await fetch(url, {
+        headers: { "User-Agent": "RiftRecords/1.0.6" },
+        signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+      });
+    } catch (error) {
+      const reason = error instanceof Error ? error.message : String(error);
+      if (attempt < retries) {
+        const delayMs = baseDelayMs * 2 ** attempt;
+        console.warn(
+          `[dragon] retrying ${url} after ${reason} (attempt ${attempt + 2}/${maxAttempts})`,
+        );
+        await new Promise((resolve) => setTimeout(resolve, delayMs));
+        continue;
+      }
+      console.error(`[dragon] fetchJson failed after ${attempt + 1} attempts: ${url} ${reason}`);
+      throw error;
+    }
+
+    if (!res.ok) {
+      const reason = `HTTP ${res.status}`;
+      if (retryableStatuses.has(res.status) && attempt < retries) {
+        const delayMs = baseDelayMs * 2 ** attempt;
+        console.warn(
+          `[dragon] retrying ${url} after ${res.status} (attempt ${attempt + 2}/${maxAttempts})`,
+        );
+        await new Promise((resolve) => setTimeout(resolve, delayMs));
+        continue;
+      }
+      console.error(`[dragon] fetchJson failed after ${attempt + 1} attempts: ${url} ${reason}`);
+      throw new Error(`Request failed: ${res.status} ${url}`);
+    }
+
+    return res.json();
   }
-  return res.json();
+
+  throw new Error(`Request failed without an attempt: ${url}`);
 }
 
 const championCacheFile = () => path.join(getDataDir(), "champion-cache.json");
