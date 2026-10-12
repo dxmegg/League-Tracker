@@ -223,22 +223,25 @@ export function ChampionDetailExp() {
         : Promise.resolve({}),
     [combatActive, farmActive, objectivesActive, visionActive, id, patch, scopedQueue, account],
   );
-  const { data: timelineAverages, loading: timelineAveragesLoading } =
-    useIpc<ChampionTimelineAverages>(
-      () =>
-        economyActive || farmActive
-          ? window.api.getChampionTimelineAverages(id, patch, scopedQueue, account)
-          : Promise.resolve({
-              buckets: [],
-              ahead10: null,
-              itemsBought: null,
-              comebacks: null,
-              winrateByGoldLead15: null,
-              goldLeadDistribution15: null,
-              spendingTimeline: null,
-            }),
-      [economyActive, farmActive, id, patch, scopedQueue, account],
-    );
+  const {
+    data: timelineAverages,
+    loading: timelineAveragesLoading,
+    error: timelineAveragesError,
+  } = useIpc<ChampionTimelineAverages>(
+    () =>
+      economyActive || farmActive || timelineActive
+        ? window.api.getChampionTimelineAverages(id, patch, scopedQueue, account)
+        : Promise.resolve({
+            buckets: [],
+            ahead10: null,
+            itemsBought: null,
+            comebacks: null,
+            winrateByGoldLead15: null,
+            goldLeadDistribution15: null,
+            spendingTimeline: null,
+          }),
+    [economyActive, farmActive, timelineActive, id, patch, scopedQueue, account],
+  );
   const { data: skillOrders, loading: skillOrdersLoading } = useIpc<ChampionSkillOrdersResult>(
     () =>
       abilitiesActive && !isSummary
@@ -975,6 +978,9 @@ export function ChampionDetailExp() {
           onSelectGame={setSelectedTimelineGameId}
           timeline={timelineData}
           timelineLoading={timelineLoading}
+          timelineAverages={timelineAverages}
+          timelineAveragesLoading={timelineAveragesLoading}
+          timelineAveragesError={timelineAveragesError}
           champData={champData}
           isSummary={isSummary}
           killDeathPositions={killDeathPositions}
@@ -3626,6 +3632,9 @@ function TimelineTab({
   onSelectGame,
   timeline,
   timelineLoading,
+  timelineAverages,
+  timelineAveragesLoading,
+  timelineAveragesError,
   champData,
   isSummary,
   killDeathPositions,
@@ -3637,6 +3646,9 @@ function TimelineTab({
   onSelectGame: (gameId: number) => void;
   timeline: TimelineData | null;
   timelineLoading: boolean;
+  timelineAverages: ChampionTimelineAverages | null;
+  timelineAveragesLoading: boolean;
+  timelineAveragesError: string | null;
   champData: ReturnType<typeof useChampionData>;
   isSummary: boolean;
   killDeathPositions: ChampionKillDeathPosition[] | null;
@@ -3663,6 +3675,48 @@ function TimelineTab({
         ].includes(event.event_type),
       )
       .slice(0, 60) ?? [];
+  const timelineEvents = timeline?.events ?? [];
+  const championKillEvents = timelineEvents.filter((event) => event.event_type === "CHAMPION_KILL");
+  const timelineGameKills = games?.reduce((sum, game) => sum + game.kills, 0) ?? 0;
+  const timelineGameDeaths = games?.reduce((sum, game) => sum + game.deaths, 0) ?? 0;
+  const averageKda =
+    timelineGameDeaths > 0
+      ? timelineGameKills / timelineGameDeaths
+      : timelineGameKills > 0
+        ? Number.POSITIVE_INFINITY
+        : null;
+  const goldDiffBuckets =
+    timelineAverages?.buckets.filter((bucket) => bucket.avgGoldDiffVsLaneOpponent != null) ?? [];
+  const eventSummary = [
+    {
+      label: "Dragons",
+      count: timelineEvents.filter(
+        (event) =>
+          event.event_type === "ELITE_MONSTER_KILL" &&
+          event.monster_type?.toUpperCase().includes("DRAGON"),
+      ).length,
+    },
+    {
+      label: "Barons",
+      count: timelineEvents.filter(
+        (event) =>
+          event.event_type === "ELITE_MONSTER_KILL" &&
+          event.monster_type?.toUpperCase().includes("BARON"),
+      ).length,
+    },
+    {
+      label: "Towers",
+      count: timelineEvents.filter(
+        (event) =>
+          event.event_type === "BUILDING_KILL" &&
+          event.building_type?.toUpperCase().includes("TURRET"),
+      ).length,
+    },
+    {
+      label: "Turret plates",
+      count: timelineEvents.filter((event) => event.event_type === "TURRET_PLATE_DESTROYED").length,
+    },
+  ];
   const filteredKillDeathPositions = useMemo(() => {
     if (!killDeathPositions || timelinePhase === "all") return killDeathPositions;
     return killDeathPositions.filter((position) => {
@@ -3725,6 +3779,41 @@ function TimelineTab({
         One match, minute by minute: events, fights, power spikes and stat growth.
       </IntroBox>
       <SectionHeading title="Key metrics" />
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+        <Stat
+          label="Timeline games"
+          value={formatPlain(games.length, 0)}
+          sub="Loaded timeline matches"
+          accent={CHART_PALETTE[0]}
+          large
+        />
+        <Stat
+          label="Selected match K/D"
+          value={selectedGame ? `${selectedGame.kills} / ${selectedGame.deaths}` : "—"}
+          sub={selectedGame ? "Kills / deaths" : "No selected match"}
+          accent={CHART_PALETTE[1]}
+          large
+        />
+        <Stat
+          label="Champion kills"
+          value={formatPlain(championKillEvents.length, 0)}
+          sub={timeline ? "Selected match" : "No selected match"}
+          accent={CHART_PALETTE[2]}
+          large
+        />
+        <Stat
+          label="Avg K/D"
+          value={
+            averageKda == null ? "—" : Number.isFinite(averageKda) ? averageKda.toFixed(2) : "∞"
+          }
+          sub="Across loaded games"
+          accent={CHART_PALETTE[3]}
+          large
+          sparkValues={games.map((game) =>
+            game.deaths > 0 ? game.kills / game.deaths : game.kills > 0 ? game.kills : 0,
+          )}
+        />
+      </div>
       <Panel className={TAB_PANEL_CLASSES.sapphire}>
         <SectionHeading title="Game picker" source="t" />
         <p className="mb-3 text-[11px] text-lol-text/70">
@@ -3859,6 +3948,7 @@ function TimelineTab({
               xLabels={labels}
               min={0}
               height={200}
+              showStats
             />
           </Panel>
           <Panel className={`xl:col-span-2 ${TAB_PANEL_CLASSES.sapphire}`}>
@@ -3884,13 +3974,42 @@ function TimelineTab({
               xLabels={labels}
               min={0}
               height={200}
+              showStats
             />
+          </Panel>
+          <Panel className={`xl:col-span-2 ${TAB_PANEL_CLASSES.sapphire}`}>
+            <SectionHeading title="Gold diff vs lane opponent" source="t" />
+            <p className="mb-3 text-[11px] text-lol-text/70">
+              Average owner gold difference against the lane opponent at each timeline minute.
+            </p>
+            {timelineAveragesLoading ? (
+              <SectionLoading />
+            ) : timelineAveragesError || goldDiffBuckets.length === 0 ? (
+              <NoData text="No lane-opponent timeline data" />
+            ) : (
+              <LineChartExp
+                values={goldDiffBuckets.map((bucket) => bucket.avgGoldDiffVsLaneOpponent ?? 0)}
+                format={(value) => formatPlain(value, 0)}
+                xLabels={goldDiffBuckets.map((bucket) => `${bucket.minute}m`)}
+                color="var(--theme-gold)"
+                baseline={0}
+                showStats
+              />
+            )}
           </Panel>
           <Panel className={TAB_PANEL_CLASSES.sapphire}>
             <SectionHeading title="Events" source="t" />
             <p className="mb-3 text-[11px] text-lol-text/70">
               Major kills, objectives, purchases, and structures from the match.
             </p>
+            <div className="mb-3 grid grid-cols-4 gap-2 border-y border-white/[0.04] py-2 text-xs">
+              {eventSummary.map((item) => (
+                <div key={item.label} className="flex items-center justify-between gap-2">
+                  <span className="truncate text-lol-text">{item.label}</span>
+                  <span className="tabular-nums text-lol-text-bright">{item.count}</span>
+                </div>
+              ))}
+            </div>
             <div className="flex max-h-[420px] flex-col gap-2 overflow-y-auto text-xs">
               {events.length === 0 ? (
                 <NoData text="No timeline events" />
