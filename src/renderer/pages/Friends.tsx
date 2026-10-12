@@ -263,24 +263,34 @@ export default function Friends({
                         : `/friends/${encodeURIComponent(t.key)}`,
                     )
                   }
-                  className="cv-row group border-b border-lol-border/20 transition-colors hover:bg-white/[0.03] cursor-pointer"
+                  className="cv-row group border-b border-white/[0.04] transition-colors duration-[120ms] hover:bg-white/[0.03] cursor-pointer"
                 >
-                  <td className="px-3 py-2 text-right text-xs text-lol-text tabular-nums">
+                  <td className="px-3 py-0.5 text-right text-xs text-lol-text tabular-nums">
                     {i + 1}
                   </td>
-                  <td className="px-3 py-2">
+                  <td className="px-3 py-0.5">
                     <span className="flex items-center gap-3 text-sm font-bold text-lol-text-bright">
                       <SummonerIcon iconId={t.profileIcon} size={28} />
                       {t.name}
                     </span>
                   </td>
-                  <td className="px-3 py-2 text-right text-xs text-lol-text tabular-nums">
+                  <td className="px-3 py-0.5 text-right text-xs text-lol-text tabular-nums">
                     {t.games}
                   </td>
-                  <td className="min-w-0 px-3 py-2">
-                    <WinRateBar wins={t.wins} total={t.games} />
+                  <td
+                    className={`min-w-0 px-3 py-0.5 ${
+                      t.wins / t.games >= 0.55
+                        ? "bg-lol-win/[0.08]"
+                        : t.wins / t.games <= 0.45
+                          ? "bg-lol-loss/[0.08]"
+                          : "bg-white/[0.03]"
+                    }`}
+                  >
+                    <div className="rounded px-1.5 py-0.5">
+                      <WinRateBar wins={t.wins} total={t.games} />
+                    </div>
                   </td>
-                  <td className="px-3 py-2 text-right text-xs text-lol-text tabular-nums">
+                  <td className="px-3 py-0.5 text-right text-xs text-lol-text tabular-nums">
                     <div className="flex flex-col">
                       <span className={`text-sm ${kdaColor(ratio)}`}>{ratioStr}</span>
                       <span className="text-[10px] text-lol-text">
@@ -288,11 +298,21 @@ export default function Friends({
                       </span>
                     </div>
                   </td>
-                  <td className="px-3 py-2">
+                  <td className="px-3 py-0.5">
                     <div className="flex items-center gap-1">
-                      {t.champions.slice(0, 3).map((c) => (
+                      {t.champions.slice(0, 3).map((c, championIndex) => (
                         <div key={c.champion_id} className="relative group">
-                          <LazyChampionIcon championId={c.champion_id} size={24} />
+                          <div
+                            className={`rounded-full border ${
+                              championIndex % 3 === 0
+                                ? "border-lol-gold/50 shadow-[0_0_8px_rgba(201,164,92,0.22)]"
+                                : championIndex % 3 === 1
+                                  ? "border-lol-win/50 shadow-[0_0_8px_rgba(74,222,128,0.18)]"
+                                  : "border-lol-crimson/50 shadow-[0_0_8px_rgba(165,15,21,0.22)]"
+                            }`}
+                          >
+                            <LazyChampionIcon championId={c.champion_id} size={24} />
+                          </div>
                           <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1 hidden group-hover:block bg-lol-dark border border-lol-border rounded px-2 py-1 text-[10px] text-lol-text-bright whitespace-nowrap z-10">
                             {getChampionName(champData, c.champion_id)} ({c.games})
                           </div>
@@ -300,7 +320,7 @@ export default function Friends({
                       ))}
                     </div>
                   </td>
-                  <td className="px-3 py-2 text-right text-xs text-lol-text tabular-nums">
+                  <td className="px-3 py-0.5 text-right text-xs text-lol-text tabular-nums">
                     {formatTimeAgo(t.lastPlayed)}
                   </td>
                 </tr>

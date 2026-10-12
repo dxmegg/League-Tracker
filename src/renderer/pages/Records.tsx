@@ -63,6 +63,7 @@ function RecordCard({
   match,
   champData,
   onOpen,
+  tileIndex,
 }: {
   label: string;
   icon: ReactNode;
@@ -72,14 +73,35 @@ function RecordCard({
   match: RecordMatchRef;
   champData: ChampionData;
   onOpen: (match: RecordMatchRef) => void;
+  tileIndex: number;
 }) {
+  const tileTreatment =
+    tileIndex % 3 === 0
+      ? {
+          border: "border-t-lol-gold",
+          glow: "bg-[radial-gradient(circle_at_top_right,rgba(201,164,92,0.08),transparent_42%),linear-gradient(145deg,#0c0e11_0%,#090b0d_48%,#060809_100%)]",
+          dot: "bg-lol-gold shadow-[0_0_7px_rgba(201,164,92,0.55)]",
+        }
+      : tileIndex % 3 === 1
+        ? {
+            border: "border-t-lol-win",
+            glow: "bg-[radial-gradient(circle_at_top_right,rgba(74,222,128,0.08),transparent_42%),linear-gradient(145deg,#0c0e11_0%,#090b0d_48%,#060809_100%)]",
+            dot: "bg-lol-win shadow-[0_0_7px_rgba(74,222,128,0.45)]",
+          }
+        : {
+            border: "border-t-lol-crimson",
+            glow: "bg-[radial-gradient(circle_at_top_right,rgba(165,15,21,0.08),transparent_42%),linear-gradient(145deg,#0c0e11_0%,#090b0d_48%,#060809_100%)]",
+            dot: "bg-lol-crimson shadow-[0_0_7px_rgba(165,15,21,0.55)]",
+          };
+
   return (
     <button
       onClick={() => onOpen(match)}
       title="View match"
-      className="group flex flex-col items-center text-center gap-3 rounded-lg border border-lol-crimson/40 bg-[linear-gradient(145deg,#0c0e11_0%,#090b0d_48%,#060809_100%)] shadow-[0_0_3px_rgba(150,30,30,0.55),0_0_10px_rgba(90,15,15,0.35),0_0_20px_rgba(60,10,10,0.20)] ring-1 ring-inset ring-white/[0.03] p-5 transition-colors hover:border-lol-gold/50 hover:shadow-[0_0_3px_rgba(201,162,77,0.45),0_0_10px_rgba(165,15,21,0.35),0_0_20px_rgba(60,10,10,0.20)] cursor-pointer"
+      className={`group flex flex-col items-center gap-3 rounded-lg border border-lol-crimson/40 border-t-[3px] ${tileTreatment.border} ${tileTreatment.glow} p-5 text-center shadow-[0_0_3px_rgba(150,30,30,0.55),0_0_10px_rgba(90,15,15,0.35),0_0_20px_rgba(60,10,10,0.20)] ring-1 ring-inset ring-white/[0.03] transition-colors duration-[120ms] hover:bg-white/[0.02] hover:border-lol-gold/50 hover:shadow-[0_0_3px_rgba(201,162,77,0.45),0_0_10px_rgba(165,15,21,0.35),0_0_20px_rgba(60,10,10,0.20)] cursor-pointer`}
     >
       <div className="relative flex items-center justify-center gap-2 mb-0">
+        <span className={`h-1.5 w-1.5 rounded-full ${tileTreatment.dot}`} />
         <span className="text-xs font-bold uppercase tracking-wider text-lol-text">{label}</span>
       </div>
       <div className="relative text-4xl font-bold text-lol-text-bright leading-none">{value}</div>
@@ -496,8 +518,14 @@ export default function Records() {
       </div>
 
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 items-stretch">
-        {cards.map(({ key, ...card }) => (
-          <RecordCard key={key} {...card} champData={champData} onOpen={setOpenMatch} />
+        {cards.map(({ key, ...card }, tileIndex) => (
+          <RecordCard
+            key={key}
+            {...card}
+            tileIndex={tileIndex}
+            champData={champData}
+            onOpen={setOpenMatch}
+          />
         ))}
       </div>
 
