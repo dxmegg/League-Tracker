@@ -79,6 +79,16 @@ Faza — visual polish (2026-10-12):
 - C: champion banner aura (crimson left bar, radial top-right, vertical gradient) + tab category colors (crimson/sapphire/gold/emerald dots) + right-edge scroll fade
 - D: sidebar active accent + glow, icon glow on items/augments/keystones, sparkline drop-shadow, match row hover with 2→3px edge
 
+Faza — pełny visual polish 16 tabów (2026-10-12):
+- Overview: sesje A-E (chart gradients, tinted insights, metric card accents, banner aura, tab colors, sidebar, icon glow, panel hints, bar gradients, delta arrows)
+- Combat, Items, Runes: KPI accents, stat table depth, tree accents, panel glows
+- Matchups, Synergies, Timeline: tier accents, ally/duo row depth, result-colored picker, chart panel glows
+- Objectives, Vision, Abilities: palette accents, skill-order glow, row hover
+- Economy, Farm, Trends: chart panel glows, queue table rows, weekday/hour palette
+- Records, Matches, Mastery: podium gradients, result edges, score chips, gold level glow, threshold tint
+- Fix-pass: tab strip border, Multikills ratio, EmptyState dashed, dash placeholder title attributes
+- All 16 tabs share: IntroBox + legend, SectionHeading with crimson diamond, Key metrics, InsightsPanel tinted by kind, Detailed statistics, panel depth (top border, inner glow, hover)
+
 Ostatnie zamknięte fazy (2026-10-11):
 - A (log noise dragon:*): DONE (already silent before this session)
 - D (summary tiles): DONE (source + runtime verified — SCORE 6.3, MVP/ACE 562/249, CS/MIN 2.3 in /champions/summary)
@@ -136,10 +146,10 @@ Czasem myli MatchupsTab return z innym JSX.
 Cherry-pickuje commity między worktree'ami — nie używać subsessji.
 
 6. Co dalej
-- A — Per-result breakdown backfill (In wins / In losses / vs other champions) to replace "—" placeholders
-- B — Hint text under panel headers (mockup has one-line description above each panel)
-- C — CDragon 522 intermittent failures (mitigated by cache)
-- D — Additional visual polish: animations on tab change, hover effects on champion list rows, weekly activity heatmap color scale
+- A — Per-result breakdown backfill (In wins / In losses / vs other champions) to replace "—" placeholders — requires SQL in stats.ts + type extension
+- B — Home page hero polish (ribbon, live tile, top champions grid)
+- C — History match row polish + weekly heatmap color scale
+- D — CDragon 522 intermittent failures (mitigated by cache)
 - E — New feature (ask user)
 
 7. Komendy
