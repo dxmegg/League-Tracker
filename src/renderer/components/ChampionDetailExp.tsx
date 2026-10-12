@@ -3303,17 +3303,79 @@ function AbilitiesTab({
   const sampleSize = timelineCoverage.gamesWithTimeline;
   const formatRankTiming = (value: number | null) =>
     value == null ? "—" : `${value.toFixed(1)} min`;
+  const formatSkillOrder = (order: string | undefined) =>
+    order
+      ? order
+          .split(",")
+          .map((slot) => SKILL_LABELS[Number(slot)]?.label ?? slot)
+          .join(" > ")
+      : "—";
+  const commonOrder = skillOrders?.topOrders[0];
+  const commonSpellPair = skillOrders?.summonerSpells[0];
+  const commonSpellNames = commonSpellPair
+    ? commonSpellPair.pair
+        .split(",")
+        .map((id) => spells[Number(id)]?.name ?? `Spell ${id}`)
+        .join(" + ")
+    : "—";
 
   return (
     <div className="grid grid-cols-1 gap-5 xl:grid-cols-2">
-      <InsightsPanel
-        insights={[
-          {
-            kind: "info",
-            text: "Per-ability damage is not exposed by any Riot API. Skill orders are shown from timeline data when available.",
-          },
-        ]}
-      />
+      <div className="xl:col-span-2">
+        <IntroBox legend="Badges show where a number comes from: Match-V5 = Riot match data · Timeline = minute-by-minute data · Derived = calculated by the app · LCU = game client.">
+          How you use your abilities and summoner spells, and how you level them.
+        </IntroBox>
+      </div>
+      <div className="xl:col-span-2">
+        <SectionHeading title="Key metrics" />
+        <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+          <Stat
+            label="Common max order"
+            value={formatSkillOrder(commonOrder?.order)}
+            sub={commonOrder ? `${commonOrder.picks} picks` : "No timeline data"}
+          />
+          <Stat
+            label="Spell pair"
+            value={commonSpellNames}
+            sub={commonSpellPair ? `${commonSpellPair.picks} picks` : "No spell data"}
+          />
+          <Stat
+            label="Average R rank 1"
+            value={formatRankTiming(rTiming.avgR1Min)}
+            sub={`Based on ${rTiming.sampleSize} games`}
+          />
+          <Stat
+            label="Skill orders"
+            value={String(skillOrders?.topOrders.length ?? 0)}
+            sub="Orders in available payload"
+          />
+        </div>
+      </div>
+      <div className="xl:col-span-2">
+        <InsightsPanel
+          insights={[
+            ...(commonOrder
+              ? [
+                  {
+                    kind: "info" as const,
+                    text: `Most common max order is ${formatSkillOrder(commonOrder.order)}.`,
+                  },
+                ]
+              : []),
+            ...(commonSpellPair
+              ? [
+                  {
+                    kind: "info" as const,
+                    text: `Top summoner spell pair is ${commonSpellNames} (${commonSpellPair.picks} games).`,
+                  },
+                ]
+              : []),
+          ]}
+        />
+      </div>
+      <div className="xl:col-span-2">
+        <SectionHeading title="Detailed statistics" />
+      </div>
       <Panel className="xl:col-span-2">
         <SectionHeading title="Skill order" source="t" />
         {orders.length === 0 ? (
