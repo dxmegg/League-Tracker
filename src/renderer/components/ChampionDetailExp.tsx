@@ -126,8 +126,19 @@ const STAT_LABEL_ORDER = [
   "Streak",
 ] as const;
 
-const BREAKDOWN_PANEL_CLASS =
-  "border-t border-white/[0.06] bg-[linear-gradient(to_bottom,rgba(255,255,255,0.02),transparent_40%),linear-gradient(180deg,var(--theme-card-hover),var(--theme-card))]";
+const TAB_PANEL_CLASSES = {
+  crimson:
+    "border-t-[3px] border-t-[#E5483F] bg-[radial-gradient(circle_at_top_right,#E5483F14,transparent_55%),linear-gradient(180deg,var(--theme-card-hover),var(--theme-card))]",
+  gold: "border-t-[3px] border-t-[#C9A45C] bg-[radial-gradient(circle_at_top_right,#C9A45C14,transparent_55%),linear-gradient(180deg,var(--theme-card-hover),var(--theme-card))]",
+  emerald:
+    "border-t-[3px] border-t-[#22C55E] bg-[radial-gradient(circle_at_top_right,#22C55E14,transparent_55%),linear-gradient(180deg,var(--theme-card-hover),var(--theme-card))]",
+  sapphire:
+    "border-t-[3px] border-t-[#3B82F6] bg-[radial-gradient(circle_at_top_right,#3B82F614,transparent_55%),linear-gradient(180deg,var(--theme-card-hover),var(--theme-card))]",
+  violet:
+    "border-t-[3px] border-t-[#A855F7] bg-[radial-gradient(circle_at_top_right,#A855F714,transparent_55%),linear-gradient(180deg,var(--theme-card-hover),var(--theme-card))]",
+  steel:
+    "border-t-[3px] border-t-[#94A3B8] bg-[radial-gradient(circle_at_top_right,#94A3B814,transparent_55%),linear-gradient(180deg,var(--theme-card-hover),var(--theme-card))]",
+} as const;
 
 type CombatMatch = MatchListItem & {
   physical_damage_dealt: number | null;
@@ -1081,7 +1092,7 @@ export function RecordsTab({
         Your personal bests with this champion, plus near-misses and rare achievements.
       </IntroBox>
       <SectionHeading title="Key metrics" />
-      <Panel>
+      <Panel className={TAB_PANEL_CLASSES.violet}>
         <SectionHeading title="Podium — best games" />
         <p className="mb-3 text-[11px] text-lol-text/70">
           Your highest-scoring games with this champion, ranked by performance.
@@ -1127,7 +1138,7 @@ export function RecordsTab({
       </Panel>
       <InsightsPanel items={recordsInsights} />
       <SectionHeading title="Detailed statistics" />
-      <Panel>
+      <Panel className={TAB_PANEL_CLASSES.violet}>
         <SectionHeading title="Almost records" source="d" />
         <p className="mb-3 text-[11px] text-lol-text/70">
           Personal bests you nearly matched, with the gap to each record.
@@ -1167,7 +1178,7 @@ export function RecordsTab({
           .filter((record): record is ChampionRecordsResult["records"][number] => record != null);
         if (groupRecords.length === 0) return null;
         return (
-          <Panel key={group}>
+          <Panel className={TAB_PANEL_CLASSES.violet} key={group}>
             <SectionHeading title={group} />
             <p className="mb-3 text-[11px] text-lol-text/70">
               Personal bests recorded for this champion in the {group.toLowerCase()} category.
@@ -1299,7 +1310,7 @@ export function MatchesTab({
         Every match with this champion; filter by result and sort by score, damage or KDA.
       </IntroBox>
       <SectionHeading title="Key metrics" />
-      <Panel>
+      <Panel className={TAB_PANEL_CLASSES.steel}>
         <div className="flex flex-wrap items-center justify-between gap-3">
           <SectionHeading title="Matches" aside={`Loaded ${matches.length} of ${total}`} />
           <div className="flex flex-wrap items-center gap-2">
@@ -1328,7 +1339,7 @@ export function MatchesTab({
       </Panel>
       <InsightsPanel items={matchInsights} />
       <SectionHeading title="Detailed statistics" />
-      <Panel>
+      <Panel className={TAB_PANEL_CLASSES.steel}>
         {loading && matches.length === 0 ? (
           <SectionLoading />
         ) : visibleMatches.length === 0 ? (
@@ -1395,7 +1406,7 @@ export function MasteryTab({
         Champion mastery progress, level thresholds, Eternals and owned skins.
       </IntroBox>
       <SectionHeading title="Key metrics" />
-      <Panel>
+      <Panel className={TAB_PANEL_CLASSES.gold}>
         <SectionHeading title="Mastery" aside={accountName ?? undefined} />
         <p className="mb-3 text-[11px] text-lol-text/70">
           Current mastery level and points earned on this champion.
@@ -1419,7 +1430,7 @@ export function MasteryTab({
       </Panel>
       <InsightsPanel items={masteryInsights} />
       <SectionHeading title="Detailed statistics" />
-      <Panel>
+      <Panel className={TAB_PANEL_CLASSES.gold}>
         <SectionHeading title="Milestones" />
         <p className="mb-3 text-[11px] text-lol-text/70">
           Milestone levels reached and the next champion mastery goals.
@@ -1440,7 +1451,7 @@ export function MasteryTab({
           ))}
         </div>
       </Panel>
-      <Panel className="bg-[radial-gradient(circle_at_top_left,rgba(201,164,92,0.06),transparent_50%),linear-gradient(180deg,var(--theme-card-hover),var(--theme-card))]">
+      <Panel className={TAB_PANEL_CLASSES.gold}>
         <SectionHeading title="Level thresholds" source="l" />
         <p className="mb-3 text-[11px] text-lol-text/70">
           Points required for each mastery level and your current progress.
@@ -1618,7 +1629,7 @@ function OverviewTab({
       <div className="xl:col-span-2">
         <SectionHeading title="Detailed statistics" />
       </div>
-      <Panel className="xl:col-span-2">
+      <Panel className={`xl:col-span-2 ${TAB_PANEL_CLASSES.crimson}`}>
         <div className="flex flex-wrap items-center justify-between gap-3">
           <SectionHeading title="Win rate over time" />
           <SortButtons
@@ -1736,7 +1747,7 @@ function OverviewTab({
         )}
       </Panel>
 
-      <Panel className={BREAKDOWN_PANEL_CLASS}>
+      <Panel className={TAB_PANEL_CLASSES.crimson}>
         <SectionHeading title="Role split" aside="Games and win rate" />
         <p className="mb-3 text-[11px] text-lol-text/70">
           Which positions you played this champion in, with KDA and win rate per role.
@@ -1797,7 +1808,7 @@ function OverviewTab({
 
       <RatePanel
         title="Top augments"
-        className={BREAKDOWN_PANEL_CLASS}
+        className={TAB_PANEL_CLASSES.crimson}
         hint="Augments you pick most often, with average KDA and pick rate per augment."
         sort={augmentSort}
         options={[
@@ -1840,7 +1851,7 @@ function OverviewTab({
       >
         <RatePanel
           title="Top items"
-          className={BREAKDOWN_PANEL_CLASS}
+          className={TAB_PANEL_CLASSES.crimson}
           hint="Items you build most often, with the most common build position."
           sort={itemSort}
           options={[
@@ -1877,7 +1888,7 @@ function OverviewTab({
 
         <RatePanel
           title="Keystones"
-          className={BREAKDOWN_PANEL_CLASS}
+          className={TAB_PANEL_CLASSES.crimson}
           hint="Keystone runes you play, with average KDA and win rate."
           sort={keystoneSort}
           options={[
@@ -1923,7 +1934,7 @@ function OverviewTab({
         </RatePanel>
       </div>
 
-      <Panel className={BREAKDOWN_PANEL_CLASS}>
+      <Panel className={TAB_PANEL_CLASSES.crimson}>
         <SectionHeading title="Games by queue" />
         <p className="mb-3 text-[11px] text-lol-text/70">
           Games and win rate in each queue, with average KDA per queue.
@@ -2015,7 +2026,7 @@ function OverviewTab({
         )}
       </Panel>
 
-      <Panel className="xl:col-span-2">
+      <Panel className={`xl:col-span-2 ${TAB_PANEL_CLASSES.crimson}`}>
         <div className="mb-4 flex items-baseline justify-between gap-3">
           <h2 className="font-display text-[16px] font-semibold text-lol-text-bright">
             Recent games
@@ -2129,7 +2140,7 @@ function VisionTab({
       <div className="xl:col-span-2">
         <SectionHeading title="Detailed statistics" />
       </div>
-      <Panel className="xl:col-span-2">
+      <Panel className={`${TAB_PANEL_CLASSES.violet} `}>
         <SectionHeading title="Vision score" source="m" />
         <p className="mb-3 text-[11px] text-lol-text/70">
           Vision score, wards placed, wards cleared, and purchased ward totals.
@@ -2190,7 +2201,7 @@ function VisionTab({
         />
       </Panel>
 
-      <Panel>
+      <Panel className={TAB_PANEL_CLASSES.violet}>
         <SectionHeading title="Per minute" source="d" />
         <p className="mb-3 text-[11px] text-lol-text/70">
           Vision activity normalized by the average length of your games.
@@ -2209,7 +2220,7 @@ function VisionTab({
         </div>
       </Panel>
 
-      <Panel>
+      <Panel className={TAB_PANEL_CLASSES.violet}>
         <SectionHeading title="Ratio" source="d" />
         <p className="mb-3 text-[11px] text-lol-text/70">
           Ward clearing efficiency and the share of control wards purchased.
@@ -2226,7 +2237,7 @@ function VisionTab({
         </div>
       </Panel>
 
-      <Panel className="xl:col-span-2">
+      <Panel className={`${TAB_PANEL_CLASSES.violet} `}>
         <SectionHeading title="Recent games" source="m" />
         <p className="mb-3 text-[11px] text-lol-text/70">
           Recent matches showing your vision score and ward activity.
@@ -2375,6 +2386,7 @@ function ItemsTab({
       </div>
       <RatePanel
         title="Top items"
+        className={TAB_PANEL_CLASSES.violet}
         source="m"
         hint="Items you build most often, with pick counts and win rates."
         sort={sort}
@@ -2398,7 +2410,7 @@ function ItemsTab({
         ))}
       </RatePanel>
 
-      <Panel>
+      <Panel className={TAB_PANEL_CLASSES.gold}>
         <SectionHeading title="Item categories" source="m" />
         <p className="mb-3 text-[11px] text-lol-text/70">
           Item category metadata is not available in the stored aggregates.
@@ -2406,7 +2418,7 @@ function ItemsTab({
         <NoData text="Item category metadata is not stored in match aggregates." />
       </Panel>
 
-      <Panel>
+      <Panel className={TAB_PANEL_CLASSES.gold}>
         <SectionHeading title="Item pairs" source="d" aside="Recent games" />
         <p className="mb-3 text-[11px] text-lol-text/70">
           Item combinations that appear most often in recent completed builds.
@@ -2432,7 +2444,7 @@ function ItemsTab({
         )}
       </Panel>
 
-      <Panel className="xl:col-span-2">
+      <Panel className={`${TAB_PANEL_CLASSES.gold} `}>
         <SectionHeading title="Build variants" source="d" aside="Recent games" />
         <p className="mb-3 text-[11px] text-lol-text/70">
           Complete item builds and their results across recent matches.
@@ -2460,7 +2472,7 @@ function ItemsTab({
         )}
       </Panel>
 
-      <Panel className="xl:col-span-2">
+      <Panel className={`${TAB_PANEL_CLASSES.gold} `}>
         <SectionHeading title="Build slots" source="m" aside="Last 20 games" />
         <p className="mb-3 text-[11px] text-lol-text/70">
           Most common items in each inventory slot over recent games.
@@ -2491,7 +2503,7 @@ function ItemsTab({
         </div>
       </Panel>
 
-      <Panel className="xl:col-span-2">
+      <Panel className={`${TAB_PANEL_CLASSES.gold} `}>
         <SectionHeading title="Recent builds" source="m" aside="Last 10 games" />
         <p className="mb-3 text-[11px] text-lol-text/70">
           Items purchased in your ten most recent games on this champion.
@@ -2606,6 +2618,7 @@ function RunesTab({
       </div>
       <RatePanel
         title="Keystones"
+        className={TAB_PANEL_CLASSES.violet}
         source="m"
         hint="Keystone runes you play most often, with pick counts and win rates."
         sort={keystoneSort}
@@ -2644,7 +2657,7 @@ function RunesTab({
         runeData={runeData}
       />
 
-      <Panel className="xl:col-span-2 bg-[radial-gradient(circle_at_top_left,rgba(168,85,247,0.08),transparent_50%),linear-gradient(180deg,var(--theme-card-hover),var(--theme-card))]">
+      <Panel className={`${TAB_PANEL_CLASSES.violet} `}>
         <SectionHeading title="Rune pages" source="m" />
         <p className="mb-3 text-[11px] text-lol-text/70">
           Full rune pages, selection counts, and win rates from your games.
@@ -2694,7 +2707,7 @@ function RuneTreePanel({
   source?: keyof typeof SOURCE_LABELS;
 }) {
   return (
-    <Panel>
+    <Panel className={TAB_PANEL_CLASSES.violet}>
       <SectionHeading title={title} source={source} />
       <p className="mb-3 text-[11px] text-lol-text/70">
         Rune tree selections, pick counts, and win rates across matches.
@@ -2817,7 +2830,7 @@ function MatchupsTab({
     <div className="xl:col-span-2" key="matchup-key-metrics">
       <SectionHeading title="Key metrics" />
     </div>,
-    <Panel className="xl:col-span-2" key="matchup-tier-list">
+    <Panel className={`xl:col-span-2 ${TAB_PANEL_CLASSES.crimson}`} key="matchup-tier-list">
       <SectionHeading title="Matchup tier list" source="d" />
       <p className="mb-3 text-[11px] text-lol-text/70">
         Opponents grouped into tiers by your observed win rate.
@@ -2863,7 +2876,7 @@ function MatchupsTab({
     <div className="xl:col-span-2" key="matchup-detailed-statistics">
       <SectionHeading title="Detailed statistics" />
     </div>,
-    <Panel className="xl:col-span-2" key="matchups">
+    <Panel className={`xl:col-span-2 ${TAB_PANEL_CLASSES.crimson}`} key="matchups">
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
         <SectionHeading
           title="Matchups"
@@ -2942,7 +2955,7 @@ function MatchupsTab({
         </div>
       )}
     </Panel>,
-    <Panel className="xl:col-span-2" key="enemy-class">
+    <Panel className={`xl:col-span-2 ${TAB_PANEL_CLASSES.crimson}`} key="enemy-class">
       <SectionHeading title="Performance by enemy class" source="d" />
       <p className="mb-3 text-[11px] text-lol-text/70">
         Win rate grouped by the broad class of your lane opponents.
@@ -3172,7 +3185,7 @@ function TrendsTab({
       <div className="xl:col-span-2">
         <SectionHeading title="Key metrics" />
       </div>
-      <Panel className="xl:col-span-2 bg-[radial-gradient(circle_at_top_right,rgba(229,72,63,0.06),transparent_50%),linear-gradient(180deg,var(--theme-card-hover),var(--theme-card))]">
+      <Panel className={`${TAB_PANEL_CLASSES.gold} `}>
         <div className="mb-4 flex items-center justify-between gap-3">
           <SectionHeading title="Win rate over time" source="m" />
           <div className="flex gap-1 rounded border border-lol-border p-0.5 text-xs">
@@ -3202,7 +3215,7 @@ function TrendsTab({
           height={200}
         />
       </Panel>
-      <Panel className="xl:col-span-2 bg-[radial-gradient(circle_at_top_right,rgba(201,164,92,0.06),transparent_50%),linear-gradient(180deg,var(--theme-card-hover),var(--theme-card))]">
+      <Panel className={`${TAB_PANEL_CLASSES.gold} `}>
         <SectionHeading title="Average KDA over time" source="m" />
         <p className="mb-3 text-[11px] text-lol-text/70">
           Average kills, deaths, and assists across each performance period.
@@ -3241,7 +3254,7 @@ function TrendsTab({
       <div className="xl:col-span-2">
         <SectionHeading title="Detailed statistics" />
       </div>
-      <Panel className="xl:col-span-2">
+      <Panel className={`${TAB_PANEL_CLASSES.gold} `}>
         <SectionHeading title="Win rate by patch" source="m" />
         <p className="mb-3 text-[11px] text-lol-text/70">
           Win rate and game count for each League patch in your history.
@@ -3268,7 +3281,7 @@ function TrendsTab({
           ))}
         </div>
       </Panel>
-      <Panel>
+      <Panel className={TAB_PANEL_CLASSES.gold}>
         <SectionHeading title="By day of week" source="m" />
         <p className="mb-3 text-[11px] text-lol-text/70">
           Games played and win rate grouped by day of the week.
@@ -3282,14 +3295,14 @@ function TrendsTab({
           }))}
         />
       </Panel>
-      <Panel>
+      <Panel className={TAB_PANEL_CLASSES.gold}>
         <SectionHeading title="By hour of day" source="m" />
         <p className="mb-3 text-[11px] text-lol-text/70">
           Games played and win rate grouped into three-hour time windows.
         </p>
         <TrendBars rows={hours} color={CHART_PALETTE[1]} />
       </Panel>
-      <Panel className="xl:col-span-2 bg-[radial-gradient(circle_at_top_left,rgba(59,130,246,0.06),transparent_50%),linear-gradient(180deg,var(--theme-card-hover),var(--theme-card))]">
+      <Panel className={`${TAB_PANEL_CLASSES.gold} `}>
         <SectionHeading title="Skill profile" source="d" />
         <p className="mb-3 text-[11px] text-lol-text/70">
           A broad profile of combat, farming, objectives, vision, and teamwork.
@@ -3451,7 +3464,7 @@ function TimelineTab({
         One match, minute by minute: events, fights, power spikes and stat growth.
       </IntroBox>
       <SectionHeading title="Key metrics" />
-      <Panel>
+      <Panel className={TAB_PANEL_CLASSES.sapphire}>
         <SectionHeading title="Game picker" source="t" />
         <p className="mb-3 text-[11px] text-lol-text/70">
           Choose a tracked match to inspect its timeline details.
@@ -3482,7 +3495,7 @@ function TimelineTab({
       </Panel>
       <SectionHeading title="Detailed statistics" />
       {!isSummary && (
-        <Panel className="rounded-[14px] border-white/[0.06]">
+        <Panel className={`${TAB_PANEL_CLASSES.sapphire} `}>
           <SectionHeading title="Kill and death map" source="t" />
           <p className="mb-3 text-[11px] text-lol-text/70">
             Kill and death locations across the selected match timeline.
@@ -3551,16 +3564,16 @@ function TimelineTab({
       )}
       <InsightsPanel items={timelineInsights} />
       {timelineLoading ? (
-        <Panel>
+        <Panel className={TAB_PANEL_CLASSES.sapphire}>
           <SectionLoading />
         </Panel>
       ) : timeline == null || ownerFrames.length === 0 ? (
-        <Panel>
+        <Panel className={TAB_PANEL_CLASSES.sapphire}>
           <NoData text="No timeline selected" />
         </Panel>
       ) : (
         <>
-          <Panel className={`xl:col-span-2 ${BREAKDOWN_PANEL_CLASS}`}>
+          <Panel className={`xl:col-span-2 ${TAB_PANEL_CLASSES.sapphire}`}>
             <SectionHeading title="Gold and CS curves" source="t" />
             <p className="mb-3 text-[11px] text-lol-text/70">
               Gold and minion progress minute by minute through the selected game.
@@ -3585,7 +3598,7 @@ function TimelineTab({
               height={200}
             />
           </Panel>
-          <Panel className={`xl:col-span-2 ${BREAKDOWN_PANEL_CLASS}`}>
+          <Panel className={`xl:col-span-2 ${TAB_PANEL_CLASSES.sapphire}`}>
             <SectionHeading title="Level and XP" source="t" />
             <p className="mb-3 text-[11px] text-lol-text/70">
               Champion level and experience growth across the selected game.
@@ -3610,7 +3623,7 @@ function TimelineTab({
               height={200}
             />
           </Panel>
-          <Panel>
+          <Panel className={TAB_PANEL_CLASSES.sapphire}>
             <SectionHeading title="Events" source="t" />
             <p className="mb-3 text-[11px] text-lol-text/70">
               Major kills, objectives, purchases, and structures from the match.
@@ -3737,7 +3750,7 @@ function SynergiesTab({
       <div className="xl:col-span-2">
         <SectionHeading title="Key metrics" />
       </div>
-      <Panel>
+      <Panel className={TAB_PANEL_CLASSES.emerald}>
         <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
           <SectionHeading title="Best allies" />
           <SortButtons
@@ -3833,7 +3846,7 @@ function SynergiesTab({
       <div className="xl:col-span-2">
         <SectionHeading title="Detailed statistics" />
       </div>
-      <Panel>
+      <Panel className={TAB_PANEL_CLASSES.emerald}>
         <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
           <SectionHeading title="Best duo partners" />
           <SortButtons
@@ -4058,7 +4071,7 @@ function AbilitiesTab({
       <div className="xl:col-span-2">
         <SectionHeading title="Detailed statistics" />
       </div>
-      <Panel className="xl:col-span-2 bg-[radial-gradient(circle_at_top_left,rgba(59,130,246,0.08),transparent_50%),linear-gradient(180deg,var(--theme-card-hover),var(--theme-card))]">
+      <Panel className={`${TAB_PANEL_CLASSES.sapphire} `}>
         <SectionHeading title="Skill order" source="t" />
         <p className="mb-3 text-[11px] text-lol-text/70">
           Most common ability leveling sequences from games with timeline data.
@@ -4106,7 +4119,7 @@ function AbilitiesTab({
         )}
       </Panel>
 
-      <Panel>
+      <Panel className={TAB_PANEL_CLASSES.sapphire}>
         <SectionHeading title="Cast distribution" source="t" />
         <p className="mb-3 text-[11px] text-lol-text/70">
           Relative ability cast frequency across the available timeline sample.
@@ -4122,7 +4135,7 @@ function AbilitiesTab({
         />
       </Panel>
 
-      <Panel>
+      <Panel className={TAB_PANEL_CLASSES.sapphire}>
         <SectionHeading
           title="R rank timing"
           source="t"
@@ -4148,7 +4161,7 @@ function AbilitiesTab({
         </div>
       </Panel>
 
-      <Panel>
+      <Panel className={TAB_PANEL_CLASSES.sapphire}>
         <SectionHeading title="Summoner spells" source="m" />
         <p className="mb-3 text-[11px] text-lol-text/70">
           Summoner spell pairs, pick counts, and win rates across your games.
@@ -4182,7 +4195,7 @@ function AbilitiesTab({
         )}
       </Panel>
 
-      <Panel className="xl:col-span-2">
+      <Panel className={`${TAB_PANEL_CLASSES.sapphire} `}>
         <SectionHeading title="Per-ability damage" source="d" />
         <p className="mb-3 text-[11px] text-lol-text/70">
           Ability-specific damage details are unavailable from the stored match data.
@@ -4661,7 +4674,7 @@ function EconomyTab({
       <div className="xl:col-span-2">
         <SectionHeading title="Key metrics" />
       </div>
-      <Panel className="xl:col-span-2">
+      <Panel className={`${TAB_PANEL_CLASSES.gold} `}>
         <SectionHeading title="Economy snapshot" source="d" />
         <p className="mb-3 text-[11px] text-lol-text/70">
           Gold earned, spent, and efficiency measures for this champion.
@@ -4707,7 +4720,7 @@ function EconomyTab({
       <div className="xl:col-span-2">
         <SectionHeading title="Detailed statistics" />
       </div>
-      <Panel className="bg-[radial-gradient(circle_at_top_right,rgba(229,72,63,0.06),transparent_50%),linear-gradient(180deg,var(--theme-card-hover),var(--theme-card))]">
+      <Panel className={TAB_PANEL_CLASSES.gold}>
         <SectionHeading title="Gold over time" source="d" />
         <p className="mb-3 text-[11px] text-lol-text/70">
           Average gold progression at each available minute of the game.
@@ -4723,7 +4736,7 @@ function EconomyTab({
           />
         )}
       </Panel>
-      <Panel>
+      <Panel className={TAB_PANEL_CLASSES.gold}>
         <SectionHeading title="Gold" source="m" />
         <p className="mb-3 text-[11px] text-lol-text/70">
           Gold spent totals and per-game averages from match data.
@@ -4740,7 +4753,7 @@ function EconomyTab({
           ]}
         />
       </Panel>
-      <Panel className="bg-[radial-gradient(circle_at_top_right,rgba(201,164,92,0.06),transparent_50%),linear-gradient(180deg,var(--theme-card-hover),var(--theme-card))]">
+      <Panel className={TAB_PANEL_CLASSES.gold}>
         <SectionHeading title="Lead vs lane opponent" source="d" />
         <p className="mb-3 text-[11px] text-lol-text/70">
           Gold and experience differences against your lane opponent.
@@ -4768,7 +4781,7 @@ function EconomyTab({
           ))}
         </div>
       </Panel>
-      <Panel>
+      <Panel className={TAB_PANEL_CLASSES.gold}>
         <SectionHeading title="Levels & XP" source="d" />
         <p className="mb-3 text-[11px] text-lol-text/70">
           Final level and average level progression through the game.
@@ -4791,7 +4804,7 @@ function EconomyTab({
           ))}
         </div>
       </Panel>
-      <Panel className="bg-[radial-gradient(circle_at_top_right,rgba(34,197,94,0.06),transparent_50%),linear-gradient(180deg,var(--theme-card-hover),var(--theme-card))]">
+      <Panel className={TAB_PANEL_CLASSES.gold}>
         <SectionHeading title="Gold lead curve" source="d" />
         <p className="mb-3 text-[11px] text-lol-text/70">
           Gold lead progression compared with your lane opponent over time.
@@ -4806,7 +4819,7 @@ function EconomyTab({
           />
         )}
       </Panel>
-      <Panel className="bg-[radial-gradient(circle_at_top_right,rgba(59,130,246,0.06),transparent_50%),linear-gradient(180deg,var(--theme-card-hover),var(--theme-card))]">
+      <Panel className={TAB_PANEL_CLASSES.gold}>
         <SectionHeading title="XP lead curve" source="d" />
         <p className="mb-3 text-[11px] text-lol-text/70">
           Experience lead progression compared with your lane opponent over time.
@@ -4821,7 +4834,7 @@ function EconomyTab({
           />
         )}
       </Panel>
-      <Panel>
+      <Panel className={TAB_PANEL_CLASSES.gold}>
         <SectionHeading title="Gold spending" source="m" />
         <p className="mb-3 text-[11px] text-lol-text/70">
           Average gold spent per game from the available match aggregates.
@@ -4833,7 +4846,7 @@ function EconomyTab({
           </div>
         </div>
       </Panel>
-      <Panel>
+      <Panel className={TAB_PANEL_CLASSES.gold}>
         <SectionHeading title="Economy by queue" source="m" />
         <p className="mb-3 text-[11px] text-lol-text/70">
           Economy-related match counts grouped by queue.
@@ -4874,7 +4887,7 @@ function EconomyTab({
         ["Gold lead distribution", "Per-game lead distribution is not available"],
         ["Spending timeline", "Item purchase timeline is not available"],
       ].map(([title, text]) => (
-        <Panel key={title}>
+        <Panel className={TAB_PANEL_CLASSES.gold} key={title}>
           <SectionHeading title={title} source="d" />
           <p className="mb-3 text-[11px] text-lol-text/70">
             Additional economy breakdown unavailable from the stored data.
@@ -4928,7 +4941,7 @@ function FarmTab({
       <div className="xl:col-span-2">
         <SectionHeading title="Key metrics" />
       </div>
-      <Panel className="xl:col-span-2">
+      <Panel className={`${TAB_PANEL_CLASSES.emerald} `}>
         <SectionHeading title="Farm snapshot" source="d" />
         <p className="mb-3 text-[11px] text-lol-text/70">
           CS pace, lane advantage, and farming coverage for this champion.
@@ -4974,7 +4987,7 @@ function FarmTab({
       <div className="xl:col-span-2">
         <SectionHeading title="Detailed statistics" />
       </div>
-      <Panel>
+      <Panel className={TAB_PANEL_CLASSES.emerald}>
         <SectionHeading title="Minion split" source="m" />
         <p className="mb-3 text-[11px] text-lol-text/70">
           Lane, allied jungle, and enemy jungle minion totals.
@@ -5024,7 +5037,7 @@ function FarmTab({
           ]}
         />
       </Panel>
-      <Panel>
+      <Panel className={TAB_PANEL_CLASSES.emerald}>
         <SectionHeading title="CS pace" source="d" />
         <p className="mb-3 text-[11px] text-lol-text/70">
           Average minion counts at key minutes throughout the game.
@@ -5042,7 +5055,7 @@ function FarmTab({
           ))}
         </div>
       </Panel>
-      <Panel className="bg-[radial-gradient(circle_at_top_right,rgba(34,197,94,0.06),transparent_50%),linear-gradient(180deg,var(--theme-card-hover),var(--theme-card))]">
+      <Panel className={TAB_PANEL_CLASSES.emerald}>
         <SectionHeading title="CS curve" source="d" />
         <p className="mb-3 text-[11px] text-lol-text/70">
           Average creep score progression at each available game minute.
@@ -5057,7 +5070,7 @@ function FarmTab({
           />
         )}
       </Panel>
-      <Panel className="bg-[radial-gradient(circle_at_top_right,rgba(34,197,94,0.06),transparent_50%),linear-gradient(180deg,var(--theme-card-hover),var(--theme-card))]">
+      <Panel className={TAB_PANEL_CLASSES.emerald}>
         <SectionHeading title="CS lead vs lane opponent" source="d" />
         <p className="mb-3 text-[11px] text-lol-text/70">
           Creep score advantage compared with your lane opponent over time.
@@ -5068,7 +5081,7 @@ function FarmTab({
           <LineChartExp values={csLead} format={(item) => value(item)} color="var(--theme-win)" />
         )}
       </Panel>
-      <Panel>
+      <Panel className={TAB_PANEL_CLASSES.emerald}>
         <SectionHeading title="Jungle share" source="m" />
         <p className="mb-3 text-[11px] text-lol-text/70">
           Allied and enemy jungle minions included in your farm totals.
@@ -5088,7 +5101,7 @@ function FarmTab({
           </div>
         </div>
       </Panel>
-      <Panel>
+      <Panel className={TAB_PANEL_CLASSES.emerald}>
         <SectionHeading title="Farm by queue" source="m" />
         <p className="mb-3 text-[11px] text-lol-text/70">
           Farming-related match counts grouped by queue.
@@ -5127,13 +5140,13 @@ function FarmTab({
       ].map(([title, text]) => (
         <Panel
           key={title}
-          className={
+          className={`${TAB_PANEL_CLASSES.emerald} ${
             title === "CS per game histogram" ||
             title === "CS by game phase" ||
             title === "Where CS comes from"
               ? "bg-[radial-gradient(circle_at_top_right,rgba(168,85,247,0.06),transparent_50%),linear-gradient(180deg,var(--theme-card-hover),var(--theme-card))]"
               : ""
-          }
+          }`}
         >
           <SectionHeading title={title} source="d" />
           <p className="mb-3 text-[11px] text-lol-text/70">
@@ -5221,7 +5234,7 @@ function ObjectivesTab({
       <div className="xl:col-span-2">
         <SectionHeading title="Detailed statistics" />
       </div>
-      <Panel>
+      <Panel className={TAB_PANEL_CLASSES.sapphire}>
         <SectionHeading title="Turrets & inhibitors" source="m" />
         <p className="mb-3 text-[11px] text-lol-text/70">
           Turret, inhibitor, plate, and Baron participation across your games.
@@ -5272,7 +5285,7 @@ function ObjectivesTab({
         />
       </Panel>
 
-      <Panel>
+      <Panel className={TAB_PANEL_CLASSES.sapphire}>
         <SectionHeading title="Damage to objectives" source="m" />
         <p className="mb-3 text-[11px] text-lol-text/70">
           Damage dealt to major objectives and enemy structures each game.
@@ -5303,7 +5316,7 @@ function ObjectivesTab({
         />
       </Panel>
 
-      <Panel className="xl:col-span-2">
+      <Panel className={`${TAB_PANEL_CLASSES.sapphire} `}>
         <SectionHeading title="First blood objectives" source="m" />
         <p className="mb-3 text-[11px] text-lol-text/70">
           First tower and inhibitor kills or assists, with rates across games.
@@ -5336,7 +5349,7 @@ function ObjectivesTab({
         </div>
       </Panel>
 
-      <Panel>
+      <Panel className={TAB_PANEL_CLASSES.sapphire}>
         <SectionHeading title="Stolen objectives" source="m" />
         <p className="mb-3 text-[11px] text-lol-text/70">
           Objectives stolen and assisted steals recorded across your matches.
@@ -5366,7 +5379,7 @@ function ObjectivesTab({
           ]}
         />
       </Panel>
-      <Panel>
+      <Panel className={TAB_PANEL_CLASSES.sapphire}>
         <SectionHeading title="Unavailable objective detail" source="d" />
         <p className="mb-3 text-[11px] text-lol-text/70">
           Detailed objective timing and team-control metrics are not stored.
