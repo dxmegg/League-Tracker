@@ -2133,6 +2133,10 @@ export function getChampionDetailStats(
   avgMagicDamageDealt: number;
   maxMagicDamageDealt: number;
   totalMagicDamageDealt: number;
+  avgTrueDamageDealt: number | null;
+  avgTrueDamageDealtInWins: number | null;
+  avgTrueDamageDealtInLosses: number | null;
+  maxTrueDamageDealt: number | null;
   avgPhysicalDamageTaken: number;
   maxPhysicalDamageTaken: number;
   totalPhysicalDamageTaken: number;
@@ -2256,7 +2260,7 @@ export function getChampionDetailStats(
                mp.total_damage_dealt, mp.total_damage_taken, mp.total_heal,
                mp.physical_damage_dealt, mp.magic_damage_dealt,
                mp.physical_damage_taken, mp.magic_damage_taken,
-               mp.true_damage_taken, mp.damage_self_mitigated,
+               mp.true_damage_taken, mp.true_damage_dealt, mp.damage_self_mitigated,
                mp.damage_to_objectives, mp.damage_to_turrets,
                mp.time_cc_others, mp.total_cc_dealt, mp.longest_alive,
                mp.killing_sprees, mp.first_blood_kill, mp.first_blood_assist,
@@ -2323,6 +2327,10 @@ export function getChampionDetailStats(
         SUM(cr.magic_damage_dealt) AS totalMagicDamageDealt,
         SUM(CASE WHEN cr.win = 1 THEN cr.magic_damage_dealt END) AS totalMagicDamageDealtInWins,
         SUM(CASE WHEN cr.win = 0 THEN cr.magic_damage_dealt END) AS totalMagicDamageDealtInLosses,
+        AVG(cr.true_damage_dealt) AS avgTrueDamageDealt,
+        AVG(CASE WHEN cr.win = 1 THEN cr.true_damage_dealt END) AS avgTrueDamageDealtInWins,
+        AVG(CASE WHEN cr.win = 0 THEN cr.true_damage_dealt END) AS avgTrueDamageDealtInLosses,
+        MAX(cr.true_damage_dealt) AS maxTrueDamageDealt,
         AVG(cr.physical_damage_taken) AS avgPhysicalDamageTaken,
         AVG(CASE WHEN cr.win = 1 THEN cr.physical_damage_taken END) AS avgPhysicalDamageTakenInWins,
         AVG(CASE WHEN cr.win = 0 THEN cr.physical_damage_taken END) AS avgPhysicalDamageTakenInLosses,
@@ -2624,6 +2632,10 @@ export function getChampionDetailStats(
     avgMagicDamageDealt: number | null;
     maxMagicDamageDealt: number | null;
     totalMagicDamageDealt: number | null;
+    avgTrueDamageDealt: number | null;
+    avgTrueDamageDealtInWins: number | null;
+    avgTrueDamageDealtInLosses: number | null;
+    maxTrueDamageDealt: number | null;
     avgPhysicalDamageTaken: number | null;
     maxPhysicalDamageTaken: number | null;
     totalPhysicalDamageTaken: number | null;
@@ -2733,6 +2745,10 @@ export function getChampionDetailStats(
     avgMagicDamageDealt: result?.avgMagicDamageDealt ?? 0,
     maxMagicDamageDealt: result?.maxMagicDamageDealt ?? 0,
     totalMagicDamageDealt: result?.totalMagicDamageDealt ?? 0,
+    avgTrueDamageDealt: result?.avgTrueDamageDealt ?? null,
+    avgTrueDamageDealtInWins: result?.avgTrueDamageDealtInWins ?? null,
+    avgTrueDamageDealtInLosses: result?.avgTrueDamageDealtInLosses ?? null,
+    maxTrueDamageDealt: result?.maxTrueDamageDealt ?? null,
     avgPhysicalDamageTaken: result?.avgPhysicalDamageTaken ?? 0,
     maxPhysicalDamageTaken: result?.maxPhysicalDamageTaken ?? 0,
     totalPhysicalDamageTaken: result?.totalPhysicalDamageTaken ?? 0,
@@ -2870,6 +2886,7 @@ export function getChampionStatBaseline(
       SELECT
         AVG(mp.physical_damage_dealt) AS avgPhysicalDamageDealtOther,
         AVG(mp.magic_damage_dealt) AS avgMagicDamageDealtOther,
+        AVG(mp.true_damage_dealt) AS avgTrueDamageDealtOther,
         AVG(mp.physical_damage_taken) AS avgPhysicalDamageTakenOther,
         AVG(mp.magic_damage_taken) AS avgMagicDamageTakenOther,
         AVG(mp.true_damage_taken) AS avgTrueDamageTakenOther,

@@ -256,6 +256,10 @@ export interface ChampionDetailStats {
   avgMagicDamageDealt: number;
   avgMagicDamageDealtInWins?: number | null;
   avgMagicDamageDealtInLosses?: number | null;
+  avgTrueDamageDealt?: number | null;
+  avgTrueDamageDealtInWins?: number | null;
+  avgTrueDamageDealtInLosses?: number | null;
+  maxTrueDamageDealt?: number | null;
   maxMagicDamageDealt: number;
   maxMagicDamageDealtInWins?: number | null;
   maxMagicDamageDealtInLosses?: number | null;

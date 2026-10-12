@@ -126,8 +126,19 @@ const STAT_LABEL_ORDER = [
   "Streak",
 ] as const;
 
-const BREAKDOWN_PANEL_CLASS =
-  "border-t border-white/[0.06] bg-[linear-gradient(to_bottom,rgba(255,255,255,0.02),transparent_40%),linear-gradient(180deg,var(--theme-card-hover),var(--theme-card))]";
+const TAB_PANEL_CLASSES = {
+  crimson:
+    "border-t-[3px] border-t-[#E5483F] bg-[radial-gradient(circle_at_top_right,#E5483F14,transparent_55%),linear-gradient(180deg,var(--theme-card-hover),var(--theme-card))]",
+  gold: "border-t-[3px] border-t-[#C9A45C] bg-[radial-gradient(circle_at_top_right,#C9A45C14,transparent_55%),linear-gradient(180deg,var(--theme-card-hover),var(--theme-card))]",
+  emerald:
+    "border-t-[3px] border-t-[#22C55E] bg-[radial-gradient(circle_at_top_right,#22C55E14,transparent_55%),linear-gradient(180deg,var(--theme-card-hover),var(--theme-card))]",
+  sapphire:
+    "border-t-[3px] border-t-[#3B82F6] bg-[radial-gradient(circle_at_top_right,#3B82F614,transparent_55%),linear-gradient(180deg,var(--theme-card-hover),var(--theme-card))]",
+  violet:
+    "border-t-[3px] border-t-[#A855F7] bg-[radial-gradient(circle_at_top_right,#A855F714,transparent_55%),linear-gradient(180deg,var(--theme-card-hover),var(--theme-card))]",
+  steel:
+    "border-t-[3px] border-t-[#94A3B8] bg-[radial-gradient(circle_at_top_right,#94A3B814,transparent_55%),linear-gradient(180deg,var(--theme-card-hover),var(--theme-card))]",
+} as const;
 
 type CombatMatch = MatchListItem & {
   physical_damage_dealt: number | null;
@@ -1081,7 +1092,7 @@ export function RecordsTab({
         Your personal bests with this champion, plus near-misses and rare achievements.
       </IntroBox>
       <SectionHeading title="Key metrics" />
-      <Panel>
+      <Panel className={TAB_PANEL_CLASSES.violet}>
         <SectionHeading title="Podium — best games" />
         <p className="mb-3 text-[11px] text-lol-text/70">
           Your highest-scoring games with this champion, ranked by performance.
@@ -1093,7 +1104,7 @@ export function RecordsTab({
             {podium.map((match, index) => (
               <div
                 key={match.game_id}
-                className={`flex items-center gap-3 rounded-lg border border-lol-border/40 px-3 py-2 ${
+                className={`flex items-center gap-3 rounded-lg border border-lol-border/40 px-3 py-2 text-right transition-colors duration-[120ms] hover:bg-white/[0.025] last:border-b-0 ${
                   index === 0
                     ? "bg-[linear-gradient(to_right,rgba(201,164,92,0.08),transparent_40%)]"
                     : index === 1
@@ -1127,7 +1138,7 @@ export function RecordsTab({
       </Panel>
       <InsightsPanel items={recordsInsights} />
       <SectionHeading title="Detailed statistics" />
-      <Panel>
+      <Panel className={TAB_PANEL_CLASSES.violet}>
         <SectionHeading title="Almost records" source="d" />
         <p className="mb-3 text-[11px] text-lol-text/70">
           Personal bests you nearly matched, with the gap to each record.
@@ -1139,7 +1150,7 @@ export function RecordsTab({
             {almostRecords.map(({ record, gapPct }) => (
               <div
                 key={record.key}
-                className="flex flex-col gap-1.5 border-l-[3px] border-l-[#C9A45C] bg-[rgba(201,164,92,0.05)] px-3 py-2"
+                className="flex flex-col gap-1.5 border-b border-l-[3px] border-b-white/[0.04] border-l-[#C9A45C] bg-[rgba(201,164,92,0.05)] px-3 py-2 transition-colors duration-[120ms] hover:bg-white/[0.025] last:border-b-0"
               >
                 <div className="flex items-center gap-2 text-xs">
                   <span className="min-w-0 flex-1 truncate text-lol-text">{record.label}</span>
@@ -1167,7 +1178,7 @@ export function RecordsTab({
           .filter((record): record is ChampionRecordsResult["records"][number] => record != null);
         if (groupRecords.length === 0) return null;
         return (
-          <Panel key={group}>
+          <Panel className={TAB_PANEL_CLASSES.violet} key={group}>
             <SectionHeading title={group} />
             <p className="mb-3 text-[11px] text-lol-text/70">
               Personal bests recorded for this champion in the {group.toLowerCase()} category.
@@ -1183,10 +1194,10 @@ export function RecordsTab({
                   }}
                 >
                   <span className="text-xs text-lol-text">{record.label}</span>
-                  <b className="mt-1 block font-display text-2xl text-lol-text-bright">
+                  <b className="mt-1 block font-display text-2xl tabular-nums text-lol-text-bright">
                     {formatRecordValue(record, record.value)}
                   </b>
-                  <span className="mt-1 block text-[11px] text-lol-text">
+                  <span className="mt-1 block text-[11px] tabular-nums text-lol-text">
                     Game {record.gameId ?? "—"}
                   </span>
                 </div>
@@ -1299,7 +1310,7 @@ export function MatchesTab({
         Every match with this champion; filter by result and sort by score, damage or KDA.
       </IntroBox>
       <SectionHeading title="Key metrics" />
-      <Panel>
+      <Panel className={TAB_PANEL_CLASSES.steel}>
         <div className="flex flex-wrap items-center justify-between gap-3">
           <SectionHeading title="Matches" aside={`Loaded ${matches.length} of ${total}`} />
           <div className="flex flex-wrap items-center gap-2">
@@ -1328,14 +1339,14 @@ export function MatchesTab({
       </Panel>
       <InsightsPanel items={matchInsights} />
       <SectionHeading title="Detailed statistics" />
-      <Panel>
+      <Panel className={TAB_PANEL_CLASSES.steel}>
         {loading && matches.length === 0 ? (
           <SectionLoading />
         ) : visibleMatches.length === 0 ? (
           <NoData />
         ) : (
           <div
-            className="match-list-exp flex flex-col gap-2.5"
+            className="match-list-exp flex flex-col gap-2.5 [&_.m-cs]:tabular-nums [&_.m-kda]:tabular-nums [&_.m-score]:tabular-nums [&_.m-time]:tabular-nums last:[&>article]:border-b-0"
             style={{ containerType: "inline-size" }}
           >
             {visibleMatches.map((match) => (
@@ -1395,7 +1406,7 @@ export function MasteryTab({
         Champion mastery progress, level thresholds, Eternals and owned skins.
       </IntroBox>
       <SectionHeading title="Key metrics" />
-      <Panel>
+      <Panel className={TAB_PANEL_CLASSES.gold}>
         <SectionHeading title="Mastery" aside={accountName ?? undefined} />
         <p className="mb-3 text-[11px] text-lol-text/70">
           Current mastery level and points earned on this champion.
@@ -1419,16 +1430,16 @@ export function MasteryTab({
       </Panel>
       <InsightsPanel items={masteryInsights} />
       <SectionHeading title="Detailed statistics" />
-      <Panel>
+      <Panel className={TAB_PANEL_CLASSES.gold}>
         <SectionHeading title="Milestones" />
         <p className="mb-3 text-[11px] text-lol-text/70">
           Milestone levels reached and the next champion mastery goals.
         </p>
-        <div className="flex flex-col gap-2">
+        <div className="flex flex-col divide-y divide-white/[0.04]">
           {[5, 7, 10].map((level) => (
             <div
               key={level}
-              className={`flex items-center justify-between rounded-md border border-lol-border/60 border-l-[3px] px-3 py-2 text-sm transition-colors duration-[120ms] hover:bg-white/[0.03] ${
+              className={`flex items-center justify-between rounded-md border border-lol-border/60 border-l-[3px] px-3 py-2 text-sm transition-colors duration-[120ms] hover:bg-white/[0.025] ${
                 mastery.level >= level ? "border-l-[#C9A45C]" : "border-l-white/[0.15]"
               }`}
             >
@@ -1440,7 +1451,7 @@ export function MasteryTab({
           ))}
         </div>
       </Panel>
-      <Panel className="bg-[radial-gradient(circle_at_top_left,rgba(201,164,92,0.06),transparent_50%),linear-gradient(180deg,var(--theme-card-hover),var(--theme-card))]">
+      <Panel className={TAB_PANEL_CLASSES.gold}>
         <SectionHeading title="Level thresholds" source="l" />
         <p className="mb-3 text-[11px] text-lol-text/70">
           Points required for each mastery level and your current progress.
@@ -1448,9 +1459,9 @@ export function MasteryTab({
         <table className="w-full text-xs">
           <thead className="border-b border-lol-border/50 text-left text-lol-text">
             <tr>
-              <th className="pb-2 font-semibold">Level</th>
-              <th className="pb-2 text-right font-semibold">Points needed</th>
-              <th className="pb-2 text-right font-semibold">Status</th>
+              <th className="whitespace-nowrap pb-2 font-semibold">Level</th>
+              <th className="whitespace-nowrap pb-2 text-right font-semibold">Points needed</th>
+              <th className="whitespace-nowrap pb-2 text-right font-semibold">Status</th>
             </tr>
           </thead>
           <tbody>
@@ -1471,7 +1482,7 @@ export function MasteryTab({
               return (
                 <tr
                   key={level}
-                  className={`border-b border-white/[0.04] transition-colors duration-[120ms] hover:bg-white/[0.03] ${
+                  className={`border-b border-white/[0.04] transition-colors duration-[120ms] hover:bg-white/[0.025] last:border-b-0 ${
                     mastery.level === level ? "bg-[rgba(201,164,92,0.06)]" : ""
                   }`}
                 >
@@ -1618,7 +1629,7 @@ function OverviewTab({
       <div className="xl:col-span-2">
         <SectionHeading title="Detailed statistics" />
       </div>
-      <Panel className="xl:col-span-2">
+      <Panel className={`xl:col-span-2 ${TAB_PANEL_CLASSES.crimson}`}>
         <div className="flex flex-wrap items-center justify-between gap-3">
           <SectionHeading title="Win rate over time" />
           <SortButtons
@@ -1736,17 +1747,20 @@ function OverviewTab({
         )}
       </Panel>
 
-      <Panel className={BREAKDOWN_PANEL_CLASS}>
+      <Panel className={TAB_PANEL_CLASSES.crimson}>
         <SectionHeading title="Role split" aside="Games and win rate" />
         <p className="mb-3 text-[11px] text-lol-text/70">
           Which positions you played this champion in, with KDA and win rate per role.
+        </p>
+        <p className="mb-3 text-[10px] uppercase tracking-wider text-lol-text/50">
+          Games · KDA · Win rate · vs baseline
         </p>
         {roleStatsLoading || !roleStats ? (
           <SectionLoading />
         ) : roleStats.length === 0 ? (
           <NoData text="No role data" />
         ) : isSummary ? (
-          <div className="flex flex-col gap-2.5">
+          <div className="flex flex-col divide-y divide-white/[0.04]">
             {roleStats.map((role) => (
               <RoleRow
                 key={role.role}
@@ -1761,7 +1775,7 @@ function OverviewTab({
             ))}
           </div>
         ) : (
-          <div className="flex flex-col gap-2">
+          <div className="flex flex-col divide-y divide-white/[0.04]">
             {roleStats
               .slice()
               .sort((a, b) => Number(a.role === "UNKNOWN") - Number(b.role === "UNKNOWN"))
@@ -1785,11 +1799,16 @@ function OverviewTab({
               ))}
           </div>
         )}
+        {roleStats && roleStats.length > 0 && (
+          <p className="mt-2 text-[11px] text-lol-text/60">
+            — = not tracked in the current data scope
+          </p>
+        )}
       </Panel>
 
       <RatePanel
         title="Top augments"
-        className={BREAKDOWN_PANEL_CLASS}
+        className={TAB_PANEL_CLASSES.crimson}
         hint="Augments you pick most often, with average KDA and pick rate per augment."
         sort={augmentSort}
         options={[
@@ -1799,6 +1818,9 @@ function OverviewTab({
         onSortChange={setAugmentSort}
         loading={globalDetailLoading || augmentsLoading}
         empty={augments.length === 0}
+        legend="Picks · KDA · Pick % · Win rate · vs baseline"
+        placeholderNote
+        unifiedRows
       >
         {sortRates(augments, augmentSort).map((augment, index) => (
           <RateRow
@@ -1829,7 +1851,7 @@ function OverviewTab({
       >
         <RatePanel
           title="Top items"
-          className={BREAKDOWN_PANEL_CLASS}
+          className={TAB_PANEL_CLASSES.crimson}
           hint="Items you build most often, with the most common build position."
           sort={itemSort}
           options={[
@@ -1839,6 +1861,9 @@ function OverviewTab({
           onSortChange={setItemSort}
           loading={globalDetailLoading}
           empty={items.length === 0}
+          legend="Builds · Avg buy · Win rate · vs baseline"
+          placeholderNote
+          unifiedRows
         >
           {sortRates(items, itemSort).map((item, index) => (
             <RateRow
@@ -1852,7 +1877,6 @@ function OverviewTab({
               count={`${item.picks}x`}
               baseline={isSummary ? undefined : baseline}
               sampleSize={item.picks}
-              rowClassName="border-b border-white/[0.04] py-[15px]"
               secondary={
                 !isSummary && item.avgBuyTime != null
                   ? `avg buy ${formatBuyTime(item.avgBuyTime)}`
@@ -1864,7 +1888,7 @@ function OverviewTab({
 
         <RatePanel
           title="Keystones"
-          className={BREAKDOWN_PANEL_CLASS}
+          className={TAB_PANEL_CLASSES.crimson}
           hint="Keystone runes you play, with average KDA and win rate."
           sort={keystoneSort}
           options={[
@@ -1874,6 +1898,9 @@ function OverviewTab({
           onSortChange={setKeystoneSort}
           loading={keystonesLoading}
           empty={!keystones || keystones.length === 0}
+          legend="Picks · KDA · Win rate · vs baseline"
+          placeholderNote
+          unifiedRows
         >
           {sortRates(keystones ?? [], keystoneSort).map((keystone, index) => (
             <RateRow
@@ -1907,34 +1934,54 @@ function OverviewTab({
         </RatePanel>
       </div>
 
-      <Panel className={BREAKDOWN_PANEL_CLASS}>
+      <Panel className={TAB_PANEL_CLASSES.crimson}>
         <SectionHeading title="Games by queue" />
         <p className="mb-3 text-[11px] text-lol-text/70">
           Games and win rate in each queue, with average KDA per queue.
+        </p>
+        <p className="mb-3 text-[10px] uppercase tracking-wider text-lol-text/50">
+          Games · KDA · Score · Win rate
         </p>
         {queueStatsLoading || !queueStats ? (
           <SectionLoading />
         ) : queueStats.length === 0 ? (
           <NoData />
         ) : (
-          <div className="flex flex-col gap-1.5">
+          <div className="flex flex-col divide-y divide-white/[0.04]">
             {mergedQueueStats.map(({ stat: queueStat, label }) => (
               <div
                 key={queueStat.queueId}
-                className="grid grid-cols-[28px_minmax(140px,1fr)_60px_120px_48px_80px_60px] items-center gap-3 rounded-lg border-t border-transparent px-3 py-3.5 text-[12px] transition-colors duration-[120ms] hover:border-white/[0.06] hover:bg-white/[0.03]"
+                className="grid grid-cols-[28px_minmax(180px,1fr)_180px_100px_72px] items-center gap-2 rounded-lg px-3 py-2.5 text-[12px] transition-colors duration-[120ms] hover:bg-white/[0.025]"
               >
                 <span className="flex h-5 w-5 items-center justify-center rounded-md bg-lol-card text-[9px] font-bold text-lol-text-bright">
                   {label.slice(0, 2).toUpperCase()}
                 </span>
                 <span className="min-w-0 truncate text-lol-text-bright">{label}</span>
-                <span className="text-right tabular-nums text-lol-text">{queueStat.games}</span>
-                <span className="text-right text-sm tabular-nums text-lol-text">
-                  {formatRowKda(queueStat)}
-                </span>
-                <span className="text-right text-sm tabular-nums text-lol-gold">
-                  {formatSmallMetric(queueStat.avgScore)}
-                </span>
-                <div className="flex h-2.5 w-20 min-w-0 overflow-hidden rounded-full bg-lol-loss/20">
+                <div className="flex w-[180px] flex-col items-end text-right tabular-nums text-lol-text">
+                  <div className="flex items-center justify-end gap-2 whitespace-nowrap">
+                    <span>{queueStat.games}</span>
+                    <span
+                      className="text-sm"
+                      title={
+                        queueStat.games < 3 ||
+                        queueStat.kills == null ||
+                        queueStat.deaths == null ||
+                        queueStat.assists == null
+                          ? "Not tracked yet"
+                          : undefined
+                      }
+                    >
+                      {formatRowKda(queueStat)}
+                    </span>
+                  </div>
+                  <span
+                    className="text-[11px] text-lol-text"
+                    title={queueStat.avgScore == null ? "Not tracked yet" : undefined}
+                  >
+                    score {formatSmallMetric(queueStat.avgScore)}
+                  </span>
+                </div>
+                <div className="flex h-2.5 w-[100px] min-w-0 overflow-hidden rounded-full bg-lol-loss/20">
                   <span
                     className="rounded-l-[1px] bg-[linear-gradient(to_right,#22C55E,#10B981)]"
                     style={{
@@ -1948,24 +1995,38 @@ function OverviewTab({
                     }}
                   />
                 </div>
-                <span
-                  className={`text-right text-sm font-semibold tabular-nums ${
-                    queueStat.games > 0 && queueStat.wins / queueStat.games >= 0.5
-                      ? "text-lol-win"
-                      : "text-lol-loss"
-                  }`}
-                >
-                  {queueStat.games > 0
-                    ? `${((queueStat.wins / queueStat.games) * 100).toFixed(1)}%`
-                    : "—"}
-                </span>
+                <div className="flex w-[72px] flex-col items-end justify-center gap-0.5">
+                  <span
+                    className={`text-right text-sm font-semibold tabular-nums ${
+                      queueStat.games > 0 && queueStat.wins / queueStat.games >= 0.5
+                        ? "text-lol-win"
+                        : "text-lol-loss"
+                    }`}
+                    title={queueStat.games === 0 ? "Not tracked yet" : undefined}
+                  >
+                    {queueStat.games > 0
+                      ? `${((queueStat.wins / queueStat.games) * 100).toFixed(1)}%`
+                      : "—"}
+                  </span>
+                  <span
+                    className="text-right text-xs font-semibold text-lol-text"
+                    title="Not tracked yet"
+                  >
+                    —
+                  </span>
+                </div>
               </div>
             ))}
           </div>
         )}
+        {queueStats && queueStats.length > 0 && (
+          <p className="mt-2 text-[11px] text-lol-text/60">
+            — = not tracked in the current data scope
+          </p>
+        )}
       </Panel>
 
-      <Panel className="xl:col-span-2">
+      <Panel className={`xl:col-span-2 ${TAB_PANEL_CLASSES.crimson}`}>
         <div className="mb-4 flex items-baseline justify-between gap-3">
           <h2 className="font-display text-[16px] font-semibold text-lol-text-bright">
             Recent games
@@ -2079,7 +2140,7 @@ function VisionTab({
       <div className="xl:col-span-2">
         <SectionHeading title="Detailed statistics" />
       </div>
-      <Panel className="xl:col-span-2">
+      <Panel className={`${TAB_PANEL_CLASSES.violet} `}>
         <SectionHeading title="Vision score" source="m" />
         <p className="mb-3 text-[11px] text-lol-text/70">
           Vision score, wards placed, wards cleared, and purchased ward totals.
@@ -2140,43 +2201,46 @@ function VisionTab({
         />
       </Panel>
 
-      <Panel>
+      <Panel className={TAB_PANEL_CLASSES.violet}>
         <SectionHeading title="Per minute" source="d" />
         <p className="mb-3 text-[11px] text-lol-text/70">
           Vision activity normalized by the average length of your games.
         </p>
-        <div className="flex flex-col gap-3 text-xs">
+        <div className="flex flex-col divide-y divide-white/[0.04] text-xs">
           {[
             ["Vision score / min", perMinute(detail.avgVisionScore)],
             ["Wards placed / min", perMinute(detail.avgWardsPlaced)],
             ["Wards killed / min", perMinute(detail.avgWardsKilled)],
           ].map(([label, value]) => (
-            <div key={label} className="flex items-center justify-between">
+            <div
+              key={label}
+              className="flex items-center justify-between py-2 transition-colors duration-[120ms] hover:bg-white/[0.025]"
+            >
               <span className="text-lol-text">{label}</span>
-              <b className="tabular-nums text-lol-text-bright">{value}</b>
+              <b className="text-right tabular-nums text-lol-text-bright">{value}</b>
             </div>
           ))}
         </div>
       </Panel>
 
-      <Panel>
+      <Panel className={TAB_PANEL_CLASSES.violet}>
         <SectionHeading title="Ratio" source="d" />
         <p className="mb-3 text-[11px] text-lol-text/70">
           Ward clearing efficiency and the share of control wards purchased.
         </p>
-        <div className="flex flex-col gap-3 text-xs">
-          <div className="flex items-center justify-between">
+        <div className="flex flex-col divide-y divide-white/[0.04] text-xs">
+          <div className="flex items-center justify-between py-2 transition-colors duration-[120ms] hover:bg-white/[0.025]">
             <span className="text-lol-text">Ward kill ratio</span>
-            <b className="tabular-nums text-lol-text-bright">{wardKillRatio}</b>
+            <b className="text-right tabular-nums text-lol-text-bright">{wardKillRatio}</b>
           </div>
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between py-2 transition-colors duration-[120ms] hover:bg-white/[0.025]">
             <span className="text-lol-text">Control ward share</span>
-            <b className="tabular-nums text-lol-text-bright">{controlWardShare}</b>
+            <b className="text-right tabular-nums text-lol-text-bright">{controlWardShare}</b>
           </div>
         </div>
       </Panel>
 
-      <Panel className="xl:col-span-2">
+      <Panel className={`${TAB_PANEL_CLASSES.violet} `}>
         <SectionHeading title="Recent games" source="m" />
         <p className="mb-3 text-[11px] text-lol-text/70">
           Recent matches showing your vision score and ward activity.
@@ -2187,24 +2251,34 @@ function VisionTab({
           <div className="flex flex-col gap-2 text-xs">
             <div className="grid grid-cols-[minmax(8rem,1fr)_auto_auto_auto_auto] gap-3 border-b border-lol-border/50 pb-2 font-semibold text-lol-text">
               <span>Champion</span>
-              <span>Vision</span>
-              <span>Placed</span>
-              <span>Killed</span>
-              <span>Duration</span>
+              <span className="text-right">Vision</span>
+              <span className="text-right">Placed</span>
+              <span className="text-right">Killed</span>
+              <span className="text-right">Duration</span>
             </div>
             {recentMatches.map((match) => (
               <div
                 key={match.game_id}
-                className="grid grid-cols-[minmax(8rem,1fr)_auto_auto_auto_auto] items-center gap-3 border-b border-white/[0.04] py-2 text-lol-text-bright transition-colors duration-[120ms] hover:bg-white/[0.03]"
+                className={`grid grid-cols-[minmax(8rem,1fr)_auto_auto_auto_auto] items-center gap-3 border-b border-white/[0.04] border-l-2 py-2 text-lol-text-bright transition-colors duration-[120ms] hover:bg-white/[0.025] hover:border-l-[3px] last:border-b-0 ${
+                  match.win ? "border-l-lol-win" : "border-l-lol-loss"
+                }`}
               >
                 <span className="flex min-w-0 items-center gap-2">
                   <ChampionIcon championId={match.champion_id} size={24} className="rounded-md" />
                   <span className="truncate">{getChampionName(champData, match.champion_id)}</span>
                 </span>
-                <span className="tabular-nums">{formatCombatNumber(match.vision_score)}</span>
-                <span className="tabular-nums">{formatCombatNumber(match.wards_placed)}</span>
-                <span className="tabular-nums">{formatCombatNumber(match.wards_killed)}</span>
-                <span className="tabular-nums">{formatSeconds(match.game_duration)}</span>
+                <span className="text-right tabular-nums">
+                  {formatCombatNumber(match.vision_score)}
+                </span>
+                <span className="text-right tabular-nums">
+                  {formatCombatNumber(match.wards_placed)}
+                </span>
+                <span className="text-right tabular-nums">
+                  {formatCombatNumber(match.wards_killed)}
+                </span>
+                <span className="text-right tabular-nums">
+                  {formatSeconds(match.game_duration)}
+                </span>
               </div>
             ))}
           </div>
@@ -2325,6 +2399,7 @@ function ItemsTab({
       </div>
       <RatePanel
         title="Top items"
+        className={TAB_PANEL_CLASSES.violet}
         source="m"
         hint="Items you build most often, with pick counts and win rates."
         sort={sort}
@@ -2348,7 +2423,7 @@ function ItemsTab({
         ))}
       </RatePanel>
 
-      <Panel>
+      <Panel className={TAB_PANEL_CLASSES.gold}>
         <SectionHeading title="Item categories" source="m" />
         <p className="mb-3 text-[11px] text-lol-text/70">
           Item category metadata is not available in the stored aggregates.
@@ -2356,7 +2431,7 @@ function ItemsTab({
         <NoData text="Item category metadata is not stored in match aggregates." />
       </Panel>
 
-      <Panel>
+      <Panel className={TAB_PANEL_CLASSES.gold}>
         <SectionHeading title="Item pairs" source="d" aside="Recent games" />
         <p className="mb-3 text-[11px] text-lol-text/70">
           Item combinations that appear most often in recent completed builds.
@@ -2382,7 +2457,7 @@ function ItemsTab({
         )}
       </Panel>
 
-      <Panel className="xl:col-span-2">
+      <Panel className={`${TAB_PANEL_CLASSES.gold} `}>
         <SectionHeading title="Build variants" source="d" aside="Recent games" />
         <p className="mb-3 text-[11px] text-lol-text/70">
           Complete item builds and their results across recent matches.
@@ -2410,7 +2485,7 @@ function ItemsTab({
         )}
       </Panel>
 
-      <Panel className="xl:col-span-2">
+      <Panel className={`${TAB_PANEL_CLASSES.gold} `}>
         <SectionHeading title="Build slots" source="m" aside="Last 20 games" />
         <p className="mb-3 text-[11px] text-lol-text/70">
           Most common items in each inventory slot over recent games.
@@ -2441,7 +2516,7 @@ function ItemsTab({
         </div>
       </Panel>
 
-      <Panel className="xl:col-span-2">
+      <Panel className={`${TAB_PANEL_CLASSES.gold} `}>
         <SectionHeading title="Recent builds" source="m" aside="Last 10 games" />
         <p className="mb-3 text-[11px] text-lol-text/70">
           Items purchased in your ten most recent games on this champion.
@@ -2556,6 +2631,7 @@ function RunesTab({
       </div>
       <RatePanel
         title="Keystones"
+        className={TAB_PANEL_CLASSES.violet}
         source="m"
         hint="Keystone runes you play most often, with pick counts and win rates."
         sort={keystoneSort}
@@ -2566,6 +2642,7 @@ function RunesTab({
         onSortChange={setKeystoneSort}
         loading={detailLoading}
         empty={keystones.length === 0}
+        unifiedRows
       >
         {sortedKeystones.map((keystone) => (
           <RateRow
@@ -2594,7 +2671,7 @@ function RunesTab({
         runeData={runeData}
       />
 
-      <Panel className="xl:col-span-2 bg-[radial-gradient(circle_at_top_left,rgba(168,85,247,0.08),transparent_50%),linear-gradient(180deg,var(--theme-card-hover),var(--theme-card))]">
+      <Panel className={`${TAB_PANEL_CLASSES.violet} `}>
         <SectionHeading title="Rune pages" source="m" />
         <p className="mb-3 text-[11px] text-lol-text/70">
           Full rune pages, selection counts, and win rates from your games.
@@ -2644,7 +2721,7 @@ function RuneTreePanel({
   source?: keyof typeof SOURCE_LABELS;
 }) {
   return (
-    <Panel>
+    <Panel className={TAB_PANEL_CLASSES.violet}>
       <SectionHeading title={title} source={source} />
       <p className="mb-3 text-[11px] text-lol-text/70">
         Rune tree selections, pick counts, and win rates across matches.
@@ -2659,14 +2736,16 @@ function RuneTreePanel({
             return (
               <div
                 key={tree.styleId}
-                className="flex items-center gap-2 border-l-[3px] pl-2"
+                className="flex items-center gap-2 border-b border-white/[0.04] border-l-[3px] py-2 pl-2 transition-colors duration-[120ms] hover:bg-white/[0.025] last:border-b-0"
                 style={{ borderLeftColor: accent }}
               >
                 <RuneIcon runeId={tree.styleId} path={runeData[tree.styleId]?.icon} size={22} />
                 <span className="min-w-0 flex-1 truncate text-[12.5px] text-lol-text-bright">
                   {treeName}
                 </span>
-                <span className="shrink-0 text-[11px] text-lol-text">{tree.picks}x</span>
+                <span className="shrink-0 text-right text-[11px] tabular-nums text-lol-text">
+                  {tree.picks}x
+                </span>
                 <div className="w-20 shrink-0">
                   <WinRateBar wins={tree.wins} total={tree.picks} showPercent={false} />
                 </div>
@@ -2767,7 +2846,7 @@ function MatchupsTab({
     <div className="xl:col-span-2" key="matchup-key-metrics">
       <SectionHeading title="Key metrics" />
     </div>,
-    <Panel className="xl:col-span-2" key="matchup-tier-list">
+    <Panel className={`xl:col-span-2 ${TAB_PANEL_CLASSES.crimson}`} key="matchup-tier-list">
       <SectionHeading title="Matchup tier list" source="d" />
       <p className="mb-3 text-[11px] text-lol-text/70">
         Opponents grouped into tiers by your observed win rate.
@@ -2775,11 +2854,11 @@ function MatchupsTab({
       {tierRows.length === 0 ? (
         <NoData text="Not enough games for a tier list" />
       ) : (
-        <div className="flex flex-col gap-3">
+        <div className="flex flex-col divide-y divide-white/[0.04]">
           {tierRows.map((tier) => (
             <div
               key={tier.label}
-              className="flex items-center gap-3 rounded-md border-l-[3px] px-2 py-1 transition-colors duration-[120ms] hover:bg-white/[0.03]"
+              className="flex items-center gap-3 border-l-[3px] px-2 py-2 transition-colors duration-[120ms] hover:bg-white/[0.025]"
               style={{ borderLeftColor: tier.color }}
             >
               <span
@@ -2813,7 +2892,7 @@ function MatchupsTab({
     <div className="xl:col-span-2" key="matchup-detailed-statistics">
       <SectionHeading title="Detailed statistics" />
     </div>,
-    <Panel className="xl:col-span-2" key="matchups">
+    <Panel className={`xl:col-span-2 ${TAB_PANEL_CLASSES.crimson}`} key="matchups">
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
         <SectionHeading
           title="Matchups"
@@ -2839,16 +2918,16 @@ function MatchupsTab({
       ) : sortedMatchups.length === 0 ? (
         <NoData />
       ) : (
-        <div className="flex flex-col gap-2 overflow-x-auto text-xs">
+        <div className="flex flex-col overflow-x-auto text-xs">
           <div className="grid min-w-[760px] grid-cols-[minmax(10rem,1fr)_auto_auto_minmax(7rem,auto)_minmax(8rem,auto)_auto_auto_auto] gap-3 border-b border-lol-border/50 pb-2 font-semibold text-lol-text">
             <span>Opponent</span>
-            <span>Games</span>
-            <span>W-L</span>
-            <span>Win rate</span>
-            <span>K/D/A</span>
-            <span>KDA</span>
-            <span>Avg CS</span>
-            <span>Avg gold</span>
+            <span className="text-right">Games</span>
+            <span className="text-right">W-L</span>
+            <span className="text-right">Win rate</span>
+            <span className="text-right">K/D/A</span>
+            <span className="text-right">KDA</span>
+            <span className="text-right">Avg CS</span>
+            <span className="text-right">Avg gold</span>
           </div>
           {sortedMatchups.map((row) => {
             const games = Math.max(1, row.games);
@@ -2856,7 +2935,7 @@ function MatchupsTab({
             return (
               <div
                 key={row.championId}
-                className={`grid min-w-[760px] grid-cols-[minmax(10rem,1fr)_auto_auto_minmax(7rem,auto)_minmax(8rem,auto)_auto_auto_auto] items-center gap-3 border-b border-white/[0.04] py-2 text-lol-text-bright transition-colors duration-[120ms] hover:bg-white/[0.03] ${
+                className={`grid min-w-[760px] grid-cols-[minmax(10rem,1fr)_auto_auto_minmax(7rem,auto)_minmax(8rem,auto)_auto_auto_auto] items-center gap-3 border-b border-white/[0.04] py-2 text-lol-text-bright transition-colors duration-[120ms] hover:bg-white/[0.025] last:border-b-0 ${
                   row.championId === bestMatchup?.championId
                     ? "bg-[rgba(34,197,94,0.06)]"
                     : row.championId === worstMatchup?.championId
@@ -2868,31 +2947,33 @@ function MatchupsTab({
                   <ChampionIcon championId={row.championId} size={24} className="rounded-md" />
                   <span className="truncate">{getChampionName(champData, row.championId)}</span>
                 </span>
-                <span className="tabular-nums">{row.games}</span>
-                <span className="tabular-nums">
+                <span className="text-right tabular-nums">{row.games}</span>
+                <span className="text-right tabular-nums">
                   <span className="text-lol-win">{row.wins}W</span>-
                   <span className="text-lol-loss">{row.games - row.wins}L</span>
                 </span>
-                <span className="flex min-w-[7rem] items-center gap-2">
+                <span className="flex min-w-[7rem] items-center justify-end gap-2">
                   <WinRateBar wins={row.wins} total={row.games} showPercent={false} />
                   <span className="w-10 text-right tabular-nums">
                     {formatPercent(row.wins, row.games)}
                   </span>
                 </span>
-                <span className="whitespace-nowrap tabular-nums">
+                <span className="whitespace-nowrap text-right tabular-nums">
                   {(row.kills / games).toFixed(1)} / {(row.deaths / games).toFixed(1)} /{" "}
                   {(row.assists / games).toFixed(1)}
                 </span>
-                <span className="tabular-nums">{kda.toFixed(2)}</span>
-                <span className="tabular-nums">{(row.cs / games).toFixed(0)}</span>
-                <span className="tabular-nums">{formatPlain(row.goldEarned / games, 2)}</span>
+                <span className="text-right tabular-nums">{kda.toFixed(2)}</span>
+                <span className="text-right tabular-nums">{(row.cs / games).toFixed(0)}</span>
+                <span className="text-right tabular-nums">
+                  {formatPlain(row.goldEarned / games, 2)}
+                </span>
               </div>
             );
           })}
         </div>
       )}
     </Panel>,
-    <Panel className="xl:col-span-2" key="enemy-class">
+    <Panel className={`xl:col-span-2 ${TAB_PANEL_CLASSES.crimson}`} key="enemy-class">
       <SectionHeading title="Performance by enemy class" source="d" />
       <p className="mb-3 text-[11px] text-lol-text/70">
         Win rate grouped by the broad class of your lane opponents.
@@ -2913,7 +2994,10 @@ function MatchupsTab({
           />
           <div className="grid grid-cols-1 gap-2 text-xs sm:grid-cols-2">
             {classRows.map(([label, stats]) => (
-              <div key={label} className="flex items-center gap-3">
+              <div
+                key={label}
+                className="flex items-center gap-3 border-b border-white/[0.04] py-2 transition-colors duration-[120ms] hover:bg-white/[0.025] last:border-b-0"
+              >
                 <span className="w-24 truncate text-lol-text">{label}</span>
                 <div className="min-w-0 flex-1">
                   <WinRateBar wins={stats.wins} total={stats.games} showPercent={false} />
@@ -3122,7 +3206,7 @@ function TrendsTab({
       <div className="xl:col-span-2">
         <SectionHeading title="Key metrics" />
       </div>
-      <Panel className="xl:col-span-2 bg-[radial-gradient(circle_at_top_right,rgba(229,72,63,0.06),transparent_50%),linear-gradient(180deg,var(--theme-card-hover),var(--theme-card))]">
+      <Panel className={`${TAB_PANEL_CLASSES.gold} `}>
         <div className="mb-4 flex items-center justify-between gap-3">
           <SectionHeading title="Win rate over time" source="m" />
           <div className="flex gap-1 rounded border border-lol-border p-0.5 text-xs">
@@ -3152,7 +3236,7 @@ function TrendsTab({
           height={200}
         />
       </Panel>
-      <Panel className="xl:col-span-2 bg-[radial-gradient(circle_at_top_right,rgba(201,164,92,0.06),transparent_50%),linear-gradient(180deg,var(--theme-card-hover),var(--theme-card))]">
+      <Panel className={`${TAB_PANEL_CLASSES.gold} `}>
         <SectionHeading title="Average KDA over time" source="m" />
         <p className="mb-3 text-[11px] text-lol-text/70">
           Average kills, deaths, and assists across each performance period.
@@ -3191,7 +3275,7 @@ function TrendsTab({
       <div className="xl:col-span-2">
         <SectionHeading title="Detailed statistics" />
       </div>
-      <Panel className="xl:col-span-2">
+      <Panel className={`${TAB_PANEL_CLASSES.gold} `}>
         <SectionHeading title="Win rate by patch" source="m" />
         <p className="mb-3 text-[11px] text-lol-text/70">
           Win rate and game count for each League patch in your history.
@@ -3200,11 +3284,11 @@ function TrendsTab({
           {patches.map((row) => (
             <div
               key={row.patch}
-              className="grid grid-cols-[1fr_auto_auto_minmax(8rem,1fr)] items-center gap-3 border-b border-white/[0.04] py-2 transition-colors duration-[120ms] hover:bg-white/[0.03]"
+              className="grid grid-cols-[1fr_auto_auto_minmax(8rem,1fr)] items-center gap-3 border-b border-white/[0.04] py-2 transition-colors duration-[120ms] hover:bg-white/[0.025] last:border-b-0"
             >
               <span className="font-semibold text-lol-text-bright">{row.patch}</span>
-              <span className="tabular-nums">{row.games}</span>
-              <span className="tabular-nums">
+              <span className="text-right tabular-nums">{row.games}</span>
+              <span className="text-right tabular-nums">
                 <span className="text-lol-win">{row.wins}W</span>-
                 <span className="text-lol-loss">{row.games - row.wins}L</span>
               </span>
@@ -3218,7 +3302,7 @@ function TrendsTab({
           ))}
         </div>
       </Panel>
-      <Panel>
+      <Panel className={TAB_PANEL_CLASSES.gold}>
         <SectionHeading title="By day of week" source="m" />
         <p className="mb-3 text-[11px] text-lol-text/70">
           Games played and win rate grouped by day of the week.
@@ -3232,14 +3316,14 @@ function TrendsTab({
           }))}
         />
       </Panel>
-      <Panel>
+      <Panel className={TAB_PANEL_CLASSES.gold}>
         <SectionHeading title="By hour of day" source="m" />
         <p className="mb-3 text-[11px] text-lol-text/70">
           Games played and win rate grouped into three-hour time windows.
         </p>
         <TrendBars rows={hours} color={CHART_PALETTE[1]} />
       </Panel>
-      <Panel className="xl:col-span-2 bg-[radial-gradient(circle_at_top_left,rgba(59,130,246,0.06),transparent_50%),linear-gradient(180deg,var(--theme-card-hover),var(--theme-card))]">
+      <Panel className={`${TAB_PANEL_CLASSES.gold} `}>
         <SectionHeading title="Skill profile" source="d" />
         <p className="mb-3 text-[11px] text-lol-text/70">
           A broad profile of combat, farming, objectives, vision, and teamwork.
@@ -3278,7 +3362,7 @@ function TrendBars({
         const rate = row.games > 0 ? (row.wins / row.games) * 100 : 0;
         return (
           <div key={row.label} className="flex min-w-0 flex-1 flex-col items-center gap-1">
-            <span className="text-[10px] tabular-nums text-lol-text">
+            <span className="text-right text-[10px] tabular-nums text-lol-text">
               {row.games ? `${rate.toFixed(0)}%` : "—"}
             </span>
             <div className="flex h-24 w-full items-end rounded-sm bg-lol-border/30">
@@ -3401,7 +3485,7 @@ function TimelineTab({
         One match, minute by minute: events, fights, power spikes and stat growth.
       </IntroBox>
       <SectionHeading title="Key metrics" />
-      <Panel>
+      <Panel className={TAB_PANEL_CLASSES.sapphire}>
         <SectionHeading title="Game picker" source="t" />
         <p className="mb-3 text-[11px] text-lol-text/70">
           Choose a tracked match to inspect its timeline details.
@@ -3411,7 +3495,7 @@ function TimelineTab({
             <button
               key={game.gameId}
               type="button"
-              className={`flex shrink-0 items-center gap-2 rounded-lg border border-l-[3px] px-3 py-2 text-left transition-colors duration-[120ms] hover:bg-white/[0.03] ${
+              className={`flex shrink-0 items-center gap-2 rounded-lg border border-b-white/[0.04] border-l-[3px] px-3 py-2 text-left transition-colors duration-[120ms] hover:bg-white/[0.025] last:border-b-0 ${
                 game.gameId === selectedGameId
                   ? "border-lol-crimson bg-lol-crimson/15"
                   : "border-lol-border bg-black/10"
@@ -3421,7 +3505,9 @@ function TimelineTab({
             >
               <ChampionIcon championId={game.championId} size={24} className="rounded-md" />
               <span className="flex flex-col text-xs">
-                <span className={game.win ? "text-lol-win" : "text-lol-loss"}>
+                <span
+                  className={`text-right tabular-nums ${game.win ? "text-lol-win" : "text-lol-loss"}`}
+                >
                   {game.win ? "W" : "L"} · {game.kills}/{game.deaths}/{game.assists}
                 </span>
                 <span className="text-lol-text">{formatTimeAgo(game.gameCreation)}</span>
@@ -3432,7 +3518,7 @@ function TimelineTab({
       </Panel>
       <SectionHeading title="Detailed statistics" />
       {!isSummary && (
-        <Panel className="rounded-[14px] border-white/[0.06]">
+        <Panel className={`${TAB_PANEL_CLASSES.sapphire} `}>
           <SectionHeading title="Kill and death map" source="t" />
           <p className="mb-3 text-[11px] text-lol-text/70">
             Kill and death locations across the selected match timeline.
@@ -3501,16 +3587,16 @@ function TimelineTab({
       )}
       <InsightsPanel items={timelineInsights} />
       {timelineLoading ? (
-        <Panel>
+        <Panel className={TAB_PANEL_CLASSES.sapphire}>
           <SectionLoading />
         </Panel>
       ) : timeline == null || ownerFrames.length === 0 ? (
-        <Panel>
+        <Panel className={TAB_PANEL_CLASSES.sapphire}>
           <NoData text="No timeline selected" />
         </Panel>
       ) : (
         <>
-          <Panel className={`xl:col-span-2 ${BREAKDOWN_PANEL_CLASS}`}>
+          <Panel className={`xl:col-span-2 ${TAB_PANEL_CLASSES.sapphire}`}>
             <SectionHeading title="Gold and CS curves" source="t" />
             <p className="mb-3 text-[11px] text-lol-text/70">
               Gold and minion progress minute by minute through the selected game.
@@ -3535,7 +3621,7 @@ function TimelineTab({
               height={200}
             />
           </Panel>
-          <Panel className={`xl:col-span-2 ${BREAKDOWN_PANEL_CLASS}`}>
+          <Panel className={`xl:col-span-2 ${TAB_PANEL_CLASSES.sapphire}`}>
             <SectionHeading title="Level and XP" source="t" />
             <p className="mb-3 text-[11px] text-lol-text/70">
               Champion level and experience growth across the selected game.
@@ -3560,7 +3646,7 @@ function TimelineTab({
               height={200}
             />
           </Panel>
-          <Panel>
+          <Panel className={TAB_PANEL_CLASSES.sapphire}>
             <SectionHeading title="Events" source="t" />
             <p className="mb-3 text-[11px] text-lol-text/70">
               Major kills, objectives, purchases, and structures from the match.
@@ -3572,9 +3658,9 @@ function TimelineTab({
                 events.map((event) => (
                   <div
                     key={event.event_index}
-                    className="flex gap-3 border-b border-white/[0.04] py-2 transition-colors duration-[120ms] hover:bg-white/[0.03]"
+                    className="flex gap-3 border-b border-white/[0.04] py-2 transition-colors duration-[120ms] hover:bg-white/[0.025] last:border-b-0"
                   >
-                    <span className="w-12 shrink-0 tabular-nums text-lol-text">
+                    <span className="w-12 shrink-0 text-right tabular-nums text-lol-text">
                       {formatSeconds(event.timestamp_ms / 1000)}
                     </span>
                     <span className="text-lol-text-bright">
@@ -3687,7 +3773,7 @@ function SynergiesTab({
       <div className="xl:col-span-2">
         <SectionHeading title="Key metrics" />
       </div>
-      <Panel>
+      <Panel className={TAB_PANEL_CLASSES.emerald}>
         <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
           <SectionHeading title="Best allies" />
           <SortButtons
@@ -3783,7 +3869,7 @@ function SynergiesTab({
       <div className="xl:col-span-2">
         <SectionHeading title="Detailed statistics" />
       </div>
-      <Panel>
+      <Panel className={TAB_PANEL_CLASSES.emerald}>
         <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
           <SectionHeading title="Best duo partners" />
           <SortButtons
@@ -4008,7 +4094,7 @@ function AbilitiesTab({
       <div className="xl:col-span-2">
         <SectionHeading title="Detailed statistics" />
       </div>
-      <Panel className="xl:col-span-2 bg-[radial-gradient(circle_at_top_left,rgba(59,130,246,0.08),transparent_50%),linear-gradient(180deg,var(--theme-card-hover),var(--theme-card))]">
+      <Panel className={`${TAB_PANEL_CLASSES.sapphire} `}>
         <SectionHeading title="Skill order" source="t" />
         <p className="mb-3 text-[11px] text-lol-text/70">
           Most common ability leveling sequences from games with timeline data.
@@ -4025,13 +4111,13 @@ function AbilitiesTab({
               <div className="grid grid-cols-[2rem_minmax(0,1fr)_auto_auto] gap-3 border-b border-lol-border/50 pb-2 font-semibold text-lol-text">
                 <span>#</span>
                 <span>Order</span>
-                <span>Picks</span>
-                <span>Sample</span>
+                <span className="text-right whitespace-nowrap">Picks</span>
+                <span className="text-right whitespace-nowrap">Sample</span>
               </div>
               {orders.map((entry, index) => (
                 <div
                   key={entry.order}
-                  className="grid grid-cols-[2rem_minmax(0,1fr)_auto_auto] items-center gap-3 text-lol-text-bright"
+                  className="grid grid-cols-[2rem_minmax(0,1fr)_auto_auto] items-center gap-3 border-b border-white/[0.04] py-2 text-lol-text-bright transition-colors duration-[120ms] hover:bg-white/[0.025] last:border-b-0"
                 >
                   <span className="tabular-nums text-lol-text">{index + 1}</span>
                   <div className="flex flex-wrap gap-1">
@@ -4047,8 +4133,10 @@ function AbilitiesTab({
                       ) : null;
                     })}
                   </div>
-                  <span className="tabular-nums">{entry.picks}</span>
-                  <span className="tabular-nums">{formatPercent(entry.picks, sampleSize)}</span>
+                  <span className="text-right tabular-nums">{entry.picks}</span>
+                  <span className="text-right tabular-nums">
+                    {formatPercent(entry.picks, sampleSize)}
+                  </span>
                 </div>
               ))}
             </div>
@@ -4056,7 +4144,7 @@ function AbilitiesTab({
         )}
       </Panel>
 
-      <Panel>
+      <Panel className={TAB_PANEL_CLASSES.sapphire}>
         <SectionHeading title="Cast distribution" source="t" />
         <p className="mb-3 text-[11px] text-lol-text/70">
           Relative ability cast frequency across the available timeline sample.
@@ -4072,7 +4160,7 @@ function AbilitiesTab({
         />
       </Panel>
 
-      <Panel>
+      <Panel className={TAB_PANEL_CLASSES.sapphire}>
         <SectionHeading
           title="R rank timing"
           source="t"
@@ -4089,7 +4177,7 @@ function AbilitiesTab({
           ].map(([label, value]) => (
             <div
               key={label}
-              className="flex items-center justify-between border-b border-white/[0.04] py-2 transition-colors duration-[120ms] hover:bg-white/[0.03]"
+              className="flex items-center justify-between border-b border-white/[0.04] py-2 transition-colors duration-[120ms] hover:bg-white/[0.025] last:border-b-0"
             >
               <span className="text-lol-text">{label}</span>
               <b className="tabular-nums text-lol-text-bright">{value}</b>
@@ -4098,7 +4186,7 @@ function AbilitiesTab({
         </div>
       </Panel>
 
-      <Panel>
+      <Panel className={TAB_PANEL_CLASSES.sapphire}>
         <SectionHeading title="Summoner spells" source="m" />
         <p className="mb-3 text-[11px] text-lol-text/70">
           Summoner spell pairs, pick counts, and win rates across your games.
@@ -4113,7 +4201,7 @@ function AbilitiesTab({
               return (
                 <div
                   key={spellPair.pair}
-                  className="grid grid-cols-[minmax(8rem,1fr)_auto_minmax(5rem,1fr)] items-center gap-3 border-b border-white/[0.04] py-2 transition-colors duration-[120ms] hover:bg-white/[0.03]"
+                  className="grid grid-cols-[minmax(8rem,1fr)_auto_minmax(5rem,1fr)] items-center gap-3 border-b border-white/[0.04] py-2 transition-colors duration-[120ms] hover:bg-white/[0.025] last:border-b-0"
                 >
                   <span
                     className="flex items-center gap-2 text-lol-text-bright"
@@ -4123,7 +4211,7 @@ function AbilitiesTab({
                     <SummonerSpellIcon spellId={ids[1] ?? null} size={24} />
                     <span className="truncate">{names.join(" + ")}</span>
                   </span>
-                  <span className="tabular-nums text-lol-text">{spellPair.picks}</span>
+                  <span className="text-right tabular-nums text-lol-text">{spellPair.picks}</span>
                   <WinRateBar wins={spellPair.wins} total={spellPair.picks} />
                 </div>
               );
@@ -4132,7 +4220,7 @@ function AbilitiesTab({
         )}
       </Panel>
 
-      <Panel className="xl:col-span-2">
+      <Panel className={`${TAB_PANEL_CLASSES.sapphire} `}>
         <SectionHeading title="Per-ability damage" source="d" />
         <p className="mb-3 text-[11px] text-lol-text/70">
           Ability-specific damage details are unavailable from the stored match data.
@@ -4189,17 +4277,6 @@ function CombatTab({
     0,
     (globalDetail?.avgDamage ?? 0) - detail.avgPhysicalDamageDealt - detail.avgMagicDamageDealt,
   );
-  const dealtTrueValues = matches.map((match) =>
-    Math.max(
-      0,
-      match.total_damage_dealt -
-        (match.physical_damage_dealt ?? 0) -
-        (match.magic_damage_dealt ?? 0),
-    ),
-  );
-  const dealtTrueBest = dealtTrueValues.length > 0 ? Math.max(...dealtTrueValues) : null;
-  const dealtTrueTotal =
-    dealtTrueValues.length > 0 ? dealtTrueValues.reduce((sum, value) => sum + value, 0) : null;
   const combatInsights: Insight[] = [];
   if (globalDetail && matches.length > 0) {
     const recentDamage =
@@ -4218,6 +4295,7 @@ function CombatTab({
     ["Quadra kills", globalDetail?.quadraKills ?? 0],
     ["Penta kills", globalDetail?.pentaKills ?? 0],
   ] as const;
+  const maxMultikill = multikills[0]?.[1] ?? 0;
   const mostCommonMultikill = multikills.slice().sort((a, b) => b[1] - a[1])[0];
   if (mostCommonMultikill && mostCommonMultikill[1] > 0) {
     combatInsights.push({
@@ -4272,7 +4350,7 @@ function CombatTab({
       <div className="xl:col-span-2">
         <SectionHeading title="Detailed statistics" />
       </div>
-      <Panel className="xl:col-span-2">
+      <Panel className={`xl:col-span-2 ${TAB_PANEL_CLASSES.crimson}`}>
         <SectionHeading title="K/D/A over the last 20 games" />
         <p className="mb-3 text-[11px] text-lol-text/70">
           Kills, deaths, and assists across your twenty most recent games.
@@ -4302,10 +4380,11 @@ function CombatTab({
 
       <CombatDamagePanel
         title="Damage dealt"
+        accentClass={TAB_PANEL_CLASSES.gold}
         segments={[
-          ["Physical", detail.avgPhysicalDamageDealt, "var(--theme-win)"],
-          ["Magic", detail.avgMagicDamageDealt, "var(--theme-gold)"],
-          ["True", dealtTrueAvg, "var(--theme-loss)"],
+          ["Physical", detail.avgPhysicalDamageDealt, "#FF8C00"],
+          ["Magic", detail.avgMagicDamageDealt, "#00D9FF"],
+          ["True", dealtTrueAvg, "#FFFFFF"],
         ]}
         rows={[
           [
@@ -4330,22 +4409,24 @@ function CombatTab({
           ],
           [
             "True",
-            dealtTrueAvg,
-            dealtTrueBest,
-            dealtTrueTotal,
+            detail.avgTrueDamageDealt,
+            detail.maxTrueDamageDealt,
+            undefined,
             formatCombatNumber,
-            undefined,
-            undefined,
+            detail.avgTrueDamageDealtInWins,
+            detail.avgTrueDamageDealtInLosses,
+            vsOther(detail.avgTrueDamageDealt, "avgTrueDamageDealtOther"),
           ],
         ]}
       />
 
       <CombatDamagePanel
         title="Damage taken"
+        accentClass={TAB_PANEL_CLASSES.emerald}
         segments={[
-          ["Physical", detail.avgPhysicalDamageTaken, "var(--theme-win)"],
-          ["Magic", detail.avgMagicDamageTaken, "var(--theme-gold)"],
-          ["True", detail.avgTrueDamageTaken, "var(--theme-loss)"],
+          ["Physical", detail.avgPhysicalDamageTaken, "#FF8C00"],
+          ["Magic", detail.avgMagicDamageTaken, "#00D9FF"],
+          ["True", detail.avgTrueDamageTaken, "#FFFFFF"],
         ]}
         rows={[
           [
@@ -4381,7 +4462,7 @@ function CombatTab({
         ]}
       />
 
-      <Panel>
+      <Panel className={TAB_PANEL_CLASSES.sapphire}>
         <SectionHeading title="Crowd control" />
         <p className="mb-3 text-[11px] text-lol-text/70">
           Crowd control time and totals, compared across wins and losses.
@@ -4418,7 +4499,7 @@ function CombatTab({
         </div>
       </Panel>
 
-      <Panel>
+      <Panel className={TAB_PANEL_CLASSES.violet}>
         <SectionHeading title="Objectives & turrets" />
         <p className="mb-3 text-[11px] text-lol-text/70">
           Damage dealt to objectives and turrets throughout your games.
@@ -4449,7 +4530,7 @@ function CombatTab({
         />
       </Panel>
 
-      <Panel>
+      <Panel className={TAB_PANEL_CLASSES.steel}>
         <SectionHeading title="Longevity & sprees" />
         <p className="mb-3 text-[11px] text-lol-text/70">
           Survival time, killing sprees, and damage mitigation performance.
@@ -4490,7 +4571,7 @@ function CombatTab({
         />
       </Panel>
 
-      <Panel>
+      <Panel className={TAB_PANEL_CLASSES.crimson}>
         <SectionHeading title="First blood" />
         <p className="mb-3 text-[11px] text-lol-text/70">
           First blood kills and assists, including their rate across games.
@@ -4509,31 +4590,50 @@ function CombatTab({
         </div>
       </Panel>
 
-      <Panel>
+      <Panel className={TAB_PANEL_CLASSES.gold}>
         <SectionHeading title="Multikills" />
         <p className="mb-3 text-[11px] text-lol-text/70">
           Total and per-game counts for every recorded multikill type.
         </p>
-        <div className="flex flex-col gap-2 text-xs">
-          <div className="grid grid-cols-[1fr_auto_auto] gap-3 border-b border-lol-border/50 pb-2 font-semibold text-lol-text">
-            <span>Multikill type</span>
-            <span>Total</span>
-            <span>Per game</span>
-          </div>
+        <div className="flex flex-col gap-3">
           {[
-            { label: "Double kills", value: globalDetail?.doubleKills },
-            { label: "Triple kills", value: globalDetail?.tripleKills },
-            { label: "Quadra kills", value: globalDetail?.quadraKills },
-            { label: "Penta kills", value: globalDetail?.pentaKills },
-          ].map(({ label, value }) => (
-            <div key={label} className="grid grid-cols-[1fr_auto_auto] gap-3 text-lol-text-bright">
-              <span>{label}</span>
-              <span className="tabular-nums">{formatCombatNumber(value)}</span>
-              <span className="tabular-nums">
-                {detail.games > 0 && value != null ? (value / detail.games).toFixed(2) : "—"}
-              </span>
-            </div>
-          ))}
+            { label: "Double", value: globalDetail?.doubleKills, color: "#3B82F6" },
+            { label: "Triple", value: globalDetail?.tripleKills, color: "#C9A45C" },
+            { label: "Quadra", value: globalDetail?.quadraKills, color: "#A855F7" },
+            { label: "Penta", value: globalDetail?.pentaKills, color: "#E5483F" },
+          ].map(({ label, value, color }) => {
+            const ratio = detail.games > 0 && value != null ? value / detail.games : null;
+            const width = maxMultikill
+              ? `${Math.min(100, ((value ?? 0) / maxMultikill) * 100)}%`
+              : "0%";
+            return (
+              <div
+                key={label}
+                className="grid grid-cols-[72px_auto_minmax(0,1fr)] items-center gap-3 border-b border-white/[0.04] pb-3 transition-colors duration-[120ms] hover:bg-white/[0.025]"
+              >
+                <span
+                  className="w-fit rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider"
+                  style={{ backgroundColor: `${color}26`, color }}
+                >
+                  {label}
+                </span>
+                <div className="min-w-[100px]">
+                  <div className="font-display text-[20px] leading-none text-lol-text-bright tabular-nums">
+                    {formatCombatNumber(value)}
+                  </div>
+                  <div className="mt-1 text-[11px] text-lol-text tabular-nums">
+                    {ratio != null ? `${ratio.toFixed(2)} / game` : "—"}
+                  </div>
+                </div>
+                <div className="h-1.5 overflow-hidden rounded-full bg-black/20">
+                  <div
+                    className="h-full rounded-full"
+                    style={{ width, backgroundColor: color, opacity: 0.4 }}
+                  />
+                </div>
+              </div>
+            );
+          })}
         </div>
       </Panel>
     </div>
@@ -4589,7 +4689,7 @@ function EconomyTab({
       <div className="xl:col-span-2">
         <SectionHeading title="Key metrics" />
       </div>
-      <Panel className="xl:col-span-2">
+      <Panel className={`${TAB_PANEL_CLASSES.gold} `}>
         <SectionHeading title="Economy snapshot" source="d" />
         <p className="mb-3 text-[11px] text-lol-text/70">
           Gold earned, spent, and efficiency measures for this champion.
@@ -4635,7 +4735,7 @@ function EconomyTab({
       <div className="xl:col-span-2">
         <SectionHeading title="Detailed statistics" />
       </div>
-      <Panel className="bg-[radial-gradient(circle_at_top_right,rgba(229,72,63,0.06),transparent_50%),linear-gradient(180deg,var(--theme-card-hover),var(--theme-card))]">
+      <Panel className={TAB_PANEL_CLASSES.gold}>
         <SectionHeading title="Gold over time" source="d" />
         <p className="mb-3 text-[11px] text-lol-text/70">
           Average gold progression at each available minute of the game.
@@ -4651,7 +4751,7 @@ function EconomyTab({
           />
         )}
       </Panel>
-      <Panel>
+      <Panel className={TAB_PANEL_CLASSES.gold}>
         <SectionHeading title="Gold" source="m" />
         <p className="mb-3 text-[11px] text-lol-text/70">
           Gold spent totals and per-game averages from match data.
@@ -4668,7 +4768,7 @@ function EconomyTab({
           ]}
         />
       </Panel>
-      <Panel className="bg-[radial-gradient(circle_at_top_right,rgba(201,164,92,0.06),transparent_50%),linear-gradient(180deg,var(--theme-card-hover),var(--theme-card))]">
+      <Panel className={TAB_PANEL_CLASSES.gold}>
         <SectionHeading title="Lead vs lane opponent" source="d" />
         <p className="mb-3 text-[11px] text-lol-text/70">
           Gold and experience differences against your lane opponent.
@@ -4696,7 +4796,7 @@ function EconomyTab({
           ))}
         </div>
       </Panel>
-      <Panel>
+      <Panel className={TAB_PANEL_CLASSES.gold}>
         <SectionHeading title="Levels & XP" source="d" />
         <p className="mb-3 text-[11px] text-lol-text/70">
           Final level and average level progression through the game.
@@ -4719,7 +4819,7 @@ function EconomyTab({
           ))}
         </div>
       </Panel>
-      <Panel className="bg-[radial-gradient(circle_at_top_right,rgba(34,197,94,0.06),transparent_50%),linear-gradient(180deg,var(--theme-card-hover),var(--theme-card))]">
+      <Panel className={TAB_PANEL_CLASSES.gold}>
         <SectionHeading title="Gold lead curve" source="d" />
         <p className="mb-3 text-[11px] text-lol-text/70">
           Gold lead progression compared with your lane opponent over time.
@@ -4734,7 +4834,7 @@ function EconomyTab({
           />
         )}
       </Panel>
-      <Panel className="bg-[radial-gradient(circle_at_top_right,rgba(59,130,246,0.06),transparent_50%),linear-gradient(180deg,var(--theme-card-hover),var(--theme-card))]">
+      <Panel className={TAB_PANEL_CLASSES.gold}>
         <SectionHeading title="XP lead curve" source="d" />
         <p className="mb-3 text-[11px] text-lol-text/70">
           Experience lead progression compared with your lane opponent over time.
@@ -4749,7 +4849,7 @@ function EconomyTab({
           />
         )}
       </Panel>
-      <Panel>
+      <Panel className={TAB_PANEL_CLASSES.gold}>
         <SectionHeading title="Gold spending" source="m" />
         <p className="mb-3 text-[11px] text-lol-text/70">
           Average gold spent per game from the available match aggregates.
@@ -4761,7 +4861,7 @@ function EconomyTab({
           </div>
         </div>
       </Panel>
-      <Panel>
+      <Panel className={TAB_PANEL_CLASSES.gold}>
         <SectionHeading title="Economy by queue" source="m" />
         <p className="mb-3 text-[11px] text-lol-text/70">
           Economy-related match counts grouped by queue.
@@ -4802,7 +4902,7 @@ function EconomyTab({
         ["Gold lead distribution", "Per-game lead distribution is not available"],
         ["Spending timeline", "Item purchase timeline is not available"],
       ].map(([title, text]) => (
-        <Panel key={title}>
+        <Panel className={TAB_PANEL_CLASSES.gold} key={title}>
           <SectionHeading title={title} source="d" />
           <p className="mb-3 text-[11px] text-lol-text/70">
             Additional economy breakdown unavailable from the stored data.
@@ -4856,7 +4956,7 @@ function FarmTab({
       <div className="xl:col-span-2">
         <SectionHeading title="Key metrics" />
       </div>
-      <Panel className="xl:col-span-2">
+      <Panel className={`${TAB_PANEL_CLASSES.emerald} `}>
         <SectionHeading title="Farm snapshot" source="d" />
         <p className="mb-3 text-[11px] text-lol-text/70">
           CS pace, lane advantage, and farming coverage for this champion.
@@ -4902,7 +5002,7 @@ function FarmTab({
       <div className="xl:col-span-2">
         <SectionHeading title="Detailed statistics" />
       </div>
-      <Panel>
+      <Panel className={TAB_PANEL_CLASSES.emerald}>
         <SectionHeading title="Minion split" source="m" />
         <p className="mb-3 text-[11px] text-lol-text/70">
           Lane, allied jungle, and enemy jungle minion totals.
@@ -4952,7 +5052,7 @@ function FarmTab({
           ]}
         />
       </Panel>
-      <Panel>
+      <Panel className={TAB_PANEL_CLASSES.emerald}>
         <SectionHeading title="CS pace" source="d" />
         <p className="mb-3 text-[11px] text-lol-text/70">
           Average minion counts at key minutes throughout the game.
@@ -4970,7 +5070,7 @@ function FarmTab({
           ))}
         </div>
       </Panel>
-      <Panel className="bg-[radial-gradient(circle_at_top_right,rgba(34,197,94,0.06),transparent_50%),linear-gradient(180deg,var(--theme-card-hover),var(--theme-card))]">
+      <Panel className={TAB_PANEL_CLASSES.emerald}>
         <SectionHeading title="CS curve" source="d" />
         <p className="mb-3 text-[11px] text-lol-text/70">
           Average creep score progression at each available game minute.
@@ -4985,7 +5085,7 @@ function FarmTab({
           />
         )}
       </Panel>
-      <Panel className="bg-[radial-gradient(circle_at_top_right,rgba(34,197,94,0.06),transparent_50%),linear-gradient(180deg,var(--theme-card-hover),var(--theme-card))]">
+      <Panel className={TAB_PANEL_CLASSES.emerald}>
         <SectionHeading title="CS lead vs lane opponent" source="d" />
         <p className="mb-3 text-[11px] text-lol-text/70">
           Creep score advantage compared with your lane opponent over time.
@@ -4996,7 +5096,7 @@ function FarmTab({
           <LineChartExp values={csLead} format={(item) => value(item)} color="var(--theme-win)" />
         )}
       </Panel>
-      <Panel>
+      <Panel className={TAB_PANEL_CLASSES.emerald}>
         <SectionHeading title="Jungle share" source="m" />
         <p className="mb-3 text-[11px] text-lol-text/70">
           Allied and enemy jungle minions included in your farm totals.
@@ -5016,7 +5116,7 @@ function FarmTab({
           </div>
         </div>
       </Panel>
-      <Panel>
+      <Panel className={TAB_PANEL_CLASSES.emerald}>
         <SectionHeading title="Farm by queue" source="m" />
         <p className="mb-3 text-[11px] text-lol-text/70">
           Farming-related match counts grouped by queue.
@@ -5055,13 +5155,13 @@ function FarmTab({
       ].map(([title, text]) => (
         <Panel
           key={title}
-          className={
+          className={`${TAB_PANEL_CLASSES.emerald} ${
             title === "CS per game histogram" ||
             title === "CS by game phase" ||
             title === "Where CS comes from"
               ? "bg-[radial-gradient(circle_at_top_right,rgba(168,85,247,0.06),transparent_50%),linear-gradient(180deg,var(--theme-card-hover),var(--theme-card))]"
               : ""
-          }
+          }`}
         >
           <SectionHeading title={title} source="d" />
           <p className="mb-3 text-[11px] text-lol-text/70">
@@ -5149,7 +5249,7 @@ function ObjectivesTab({
       <div className="xl:col-span-2">
         <SectionHeading title="Detailed statistics" />
       </div>
-      <Panel>
+      <Panel className={TAB_PANEL_CLASSES.sapphire}>
         <SectionHeading title="Turrets & inhibitors" source="m" />
         <p className="mb-3 text-[11px] text-lol-text/70">
           Turret, inhibitor, plate, and Baron participation across your games.
@@ -5200,7 +5300,7 @@ function ObjectivesTab({
         />
       </Panel>
 
-      <Panel>
+      <Panel className={TAB_PANEL_CLASSES.sapphire}>
         <SectionHeading title="Damage to objectives" source="m" />
         <p className="mb-3 text-[11px] text-lol-text/70">
           Damage dealt to major objectives and enemy structures each game.
@@ -5231,7 +5331,7 @@ function ObjectivesTab({
         />
       </Panel>
 
-      <Panel className="xl:col-span-2">
+      <Panel className={`${TAB_PANEL_CLASSES.sapphire} `}>
         <SectionHeading title="First blood objectives" source="m" />
         <p className="mb-3 text-[11px] text-lol-text/70">
           First tower and inhibitor kills or assists, with rates across games.
@@ -5264,7 +5364,7 @@ function ObjectivesTab({
         </div>
       </Panel>
 
-      <Panel>
+      <Panel className={TAB_PANEL_CLASSES.sapphire}>
         <SectionHeading title="Stolen objectives" source="m" />
         <p className="mb-3 text-[11px] text-lol-text/70">
           Objectives stolen and assisted steals recorded across your matches.
@@ -5294,7 +5394,7 @@ function ObjectivesTab({
           ]}
         />
       </Panel>
-      <Panel>
+      <Panel className={TAB_PANEL_CLASSES.sapphire}>
         <SectionHeading title="Unavailable objective detail" source="d" />
         <p className="mb-3 text-[11px] text-lol-text/70">
           Detailed objective timing and team-control metrics are not stored.
@@ -5307,16 +5407,18 @@ function ObjectivesTab({
 
 function CombatDamagePanel({
   title,
+  accentClass,
   segments,
   rows,
 }: {
   title: string;
+  accentClass: string;
   segments: [string, number, string][];
   rows: CombatStatTableRow[];
 }) {
   const total = segments.reduce((sum, [, value]) => sum + Math.max(value, 0), 0);
   return (
-    <Panel>
+    <Panel className={accentClass}>
       <SectionHeading title={title} />
       <p className="mb-3 text-[11px] text-lol-text/70">
         Damage dealt or taken, split by physical, magic, and true damage.
@@ -5353,16 +5455,24 @@ type CombatStatTableRow = [
 function CombatStatTable({ rows }: { rows: CombatStatTableRow[] }) {
   return (
     <div className="flex flex-col gap-2 text-xs">
-      <div className="grid grid-cols-[minmax(0,1fr)_auto_auto_auto_auto_auto] gap-3 border-b border-lol-border/50 pb-2 font-semibold text-lol-text">
+      <div className="grid grid-cols-[minmax(0,1.4fr)_96px_96px_96px_96px_96px] gap-3 border-b border-lol-border/50 pb-2 font-semibold text-lol-text">
         <span>Stat</span>
-        <span>Avg / game</span>
-        <span>Best game</span>
-        <span>In wins</span>
-        <span>In losses</span>
-        <span>vs your other champions</span>
+        <span className="text-right whitespace-nowrap">Avg / game</span>
+        <span className="text-right whitespace-nowrap">Best game</span>
+        <span className="text-right whitespace-nowrap">In wins</span>
+        <span className="text-right whitespace-nowrap">In losses</span>
+        <span className="text-right whitespace-nowrap">vs other</span>
       </div>
-      {rows.map(([label, avg, best, _total, formatter, inWins, inLosses, vsOther]) => {
+      {rows.map(([label, avg, best, _total, formatter, inWins, inLosses, vsOther], index) => {
         const format = formatter ?? formatCombatNumber;
+        const damageColor =
+          label === "Physical"
+            ? "#FF8C00"
+            : label === "Magic"
+              ? "#00D9FF"
+              : label === "True"
+                ? "#FFFFFF"
+                : null;
         const renderBreakdown = (value: number | null | undefined) =>
           value == null ? (
             <span className="text-lol-text/40" title="Not tracked yet">
@@ -5374,14 +5484,49 @@ function CombatStatTable({ rows }: { rows: CombatStatTableRow[] }) {
         return (
           <div
             key={label}
-            className="grid grid-cols-[minmax(0,1fr)_auto_auto_auto_auto_auto] gap-3 border-b border-white/[0.04] py-[3px] text-lol-text-bright transition-colors duration-[120ms] hover:bg-white/[0.03]"
+            className={`grid grid-cols-[minmax(0,1.4fr)_96px_96px_96px_96px_96px] items-center gap-3 py-2.5 text-lol-text-bright transition-colors duration-[120ms] hover:bg-white/[0.025] ${
+              index < rows.length - 1 ? "border-b border-white/[0.04]" : ""
+            }`}
           >
-            <span>{label}</span>
-            <span className="tabular-nums">{format(avg)}</span>
-            <span className="tabular-nums">{format(best)}</span>
-            <span className="tabular-nums text-lol-text">{renderBreakdown(inWins)}</span>
-            <span className="tabular-nums text-lol-text">{renderBreakdown(inLosses)}</span>
-            <span className="tabular-nums text-lol-text">{renderBreakdown(vsOther)}</span>
+            <span className="flex min-w-0 items-center gap-2">
+              {damageColor && (
+                <span
+                  className="h-1.5 w-1.5 shrink-0 rounded-full"
+                  style={{ backgroundColor: damageColor }}
+                />
+              )}
+              <span>{label}</span>
+            </span>
+            <span
+              className="text-right tabular-nums"
+              style={damageColor ? { color: damageColor, opacity: 0.9 } : undefined}
+            >
+              {format(avg)}
+            </span>
+            <span
+              className="text-right tabular-nums"
+              style={damageColor ? { color: damageColor, opacity: 0.9 } : undefined}
+            >
+              {format(best)}
+            </span>
+            <span
+              className="text-right tabular-nums text-lol-text"
+              style={damageColor ? { color: damageColor, opacity: 0.9 } : undefined}
+            >
+              {renderBreakdown(inWins)}
+            </span>
+            <span
+              className="text-right tabular-nums text-lol-text"
+              style={damageColor ? { color: damageColor, opacity: 0.9 } : undefined}
+            >
+              {renderBreakdown(inLosses)}
+            </span>
+            <span
+              className="text-right tabular-nums text-lol-text"
+              style={damageColor ? { color: damageColor, opacity: 0.9 } : undefined}
+            >
+              {renderBreakdown(vsOther)}
+            </span>
           </div>
         );
       })}
@@ -5442,22 +5587,28 @@ function RatePanel({
   source,
   className,
   hint,
+  legend,
   sort,
   options,
   onSortChange,
   loading,
   empty,
+  placeholderNote = false,
+  unifiedRows = false,
   children,
 }: {
   title: string;
   source?: keyof typeof SOURCE_LABELS;
   className?: string;
   hint?: string;
+  legend?: string;
   sort: RateSort;
   options: [RateSort, string][];
   onSortChange: (sort: RateSort) => void;
   loading: boolean;
   empty: boolean;
+  placeholderNote?: boolean;
+  unifiedRows?: boolean;
   children: ReactNode;
 }) {
   return (
@@ -5467,14 +5618,28 @@ function RatePanel({
         <SortButtons value={sort} options={options} onChange={onSortChange} />
       </div>
       {hint && <p className="mb-3 text-[11px] text-lol-text/70">{hint}</p>}
+      {legend && (
+        <p className="mb-3 text-[10px] uppercase tracking-wider text-lol-text/50">{legend}</p>
+      )}
       {loading ? (
         <SectionLoading />
       ) : empty ? (
         <NoData />
       ) : (
-        <div className="scroll-themed flex max-h-[340px] flex-col gap-2 overflow-y-auto">
-          {children}
-        </div>
+        <>
+          <div
+            className={`scroll-themed flex max-h-[340px] flex-col overflow-y-auto ${
+              unifiedRows ? "divide-y divide-white/[0.04]" : "gap-2"
+            }`}
+          >
+            {children}
+          </div>
+          {placeholderNote && (
+            <p className="mt-2 text-[11px] text-lol-text/60">
+              — = not tracked in the current data scope
+            </p>
+          )}
+        </>
       )}
     </Panel>
   );
@@ -5711,20 +5876,25 @@ function RoleRow({
   const unknown = role === "UNKNOWN";
   return (
     <div
-      className={`grid grid-cols-[auto_minmax(0,1fr)_auto_auto_minmax(92px,1fr)_auto_minmax(76px,auto)] items-center gap-2 rounded-lg border-t border-transparent px-3 py-3.5 transition-colors duration-[120ms] hover:border-white/[0.06] hover:bg-white/[0.03] ${unknown ? "text-lol-text/50" : ""}`}
+      className={`grid grid-cols-[28px_minmax(180px,1fr)_64px_100px_72px] items-center gap-2 rounded-lg px-3 py-2.5 transition-colors duration-[120ms] hover:bg-white/[0.025] ${unknown ? "text-lol-text/50" : ""}`}
     >
       <RoleIcon role={role} />
-      <span
-        className={`min-w-0 truncate whitespace-nowrap text-xs font-semibold ${unknown ? "text-lol-text/50" : "text-lol-text-bright"}`}
-      >
-        {unknown ? "role not recorded (older games)" : role}
-      </span>
-      <span className="text-right text-xs tabular-nums text-lol-text">{games}</span>
-      <span className="whitespace-nowrap text-right text-sm tabular-nums text-lol-text">
-        {formatOptionalKda(kills, deaths, assists)}
-      </span>
       <div className="min-w-0">
-        <div className={games < 3 ? "opacity-40 grayscale" : ""}>
+        <span
+          className={`block truncate whitespace-nowrap text-xs font-semibold ${unknown ? "text-lol-text/50" : "text-lol-text-bright"}`}
+        >
+          {unknown ? "role not recorded (older games)" : role}
+        </span>
+        <span
+          className="block truncate text-xs tabular-nums text-lol-text"
+          title={kills == null || deaths == null || assists == null ? "Not tracked yet" : undefined}
+        >
+          {formatOptionalKda(kills, deaths, assists)}
+        </span>
+      </div>
+      <span className="text-right text-xs tabular-nums text-lol-text">{games}</span>
+      <div className="flex h-2.5 w-[100px] min-w-0 overflow-hidden">
+        <div className={`w-full ${games < 3 ? "opacity-40 grayscale" : ""}`}>
           <WinRateBar wins={wins} total={games} showPercent={false} />
         </div>
       </div>
@@ -5740,6 +5910,7 @@ function RoleRow({
                 ? "bg-[rgba(34,197,94,0.12)] text-[#22C55E]"
                 : "bg-[rgba(229,72,63,0.12)] text-[#E5483F]"
           }`}
+          title={delta == null ? "Not tracked yet" : undefined}
         >
           {delta == null ? (
             "—"
@@ -5817,7 +5988,6 @@ function RateRow({
   baseline,
   sampleSize,
   secondary,
-  rowClassName,
 }: {
   icon: ReactNode;
   iconAccent?: string;
@@ -5829,7 +5999,6 @@ function RateRow({
   baseline?: number | null;
   sampleSize?: number;
   secondary?: string;
-  rowClassName?: string;
 }) {
   const rate = total > 0 ? (wins / total) * 100 : 0;
   const delta = baseline == null ? null : rate - baseline;
@@ -5841,38 +6010,45 @@ function RateRow({
         : "text-lol-text";
   const sparse = sampleSize != null && sampleSize < 3;
   return (
-    <div
-      className={`flex min-w-0 items-center gap-2 rounded-lg border-t border-transparent px-3 py-3.5 transition-colors duration-[120ms] hover:border-white/[0.06] hover:bg-white/[0.03] ${rowClassName ?? ""}`}
-    >
-      {iconAccent ? (
-        <span
-          className="flex shrink-0 items-center justify-center overflow-hidden rounded-md border"
-          style={{
-            width: iconSize,
-            height: iconSize,
-            borderColor: `${iconAccent}59`,
-            boxShadow: `0 0 8px 0 ${iconAccent}33`,
-          }}
-        >
-          {icon}
-        </span>
-      ) : (
-        icon
-      )}
+    <div className="grid grid-cols-[28px_minmax(180px,1fr)_64px_100px_72px] items-center gap-2 rounded-lg px-3 py-2.5 transition-colors duration-[120ms] hover:bg-white/[0.025]">
+      <div className="flex h-7 w-7 shrink-0 items-center justify-center">
+        {iconAccent ? (
+          <span
+            className="flex shrink-0 items-center justify-center overflow-hidden rounded-md border"
+            style={{
+              width: iconSize,
+              height: iconSize,
+              borderColor: `${iconAccent}59`,
+              boxShadow: `0 0 8px 0 ${iconAccent}33`,
+            }}
+          >
+            {icon}
+          </span>
+        ) : (
+          icon
+        )}
+      </div>
       <div className="min-w-0 flex-1">
         <span className="block truncate text-[12.5px] text-lol-text-bright">{name}</span>
-        {secondary && <span className="block truncate text-xs text-lol-text">{secondary}</span>}
-      </div>
-      <span className="shrink-0 text-[11px] text-lol-text">{count}</span>
-      {sparse && (
-        <span className="shrink-0 rounded border border-lol-border/60 px-1 py-0.5 text-[9px] text-lol-text">
-          n&lt;3
+        <span
+          className="block min-h-4 truncate text-xs text-lol-text"
+          title={secondary?.includes("—") ? "Not tracked yet" : undefined}
+        >
+          {secondary ?? "\u00a0"}
         </span>
-      )}
-      <div className={`w-20 shrink-0 ${sparse ? "opacity-40 grayscale" : ""}`}>
+      </div>
+      <div className="flex w-16 flex-col items-end justify-center">
+        <span className="text-right text-[11px] tabular-nums text-lol-text">{count}</span>
+        {sparse && (
+          <span className="rounded border border-lol-border/60 px-1 py-0.5 text-[9px] text-lol-text">
+            n&lt;3
+          </span>
+        )}
+      </div>
+      <div className={`w-[100px] ${sparse ? "opacity-40 grayscale" : ""}`}>
         <WinRateBar wins={wins} total={total} showPercent={false} />
       </div>
-      <div className="flex w-[76px] shrink-0 flex-col items-end justify-center gap-0.5">
+      <div className="flex w-[72px] flex-col items-end justify-center gap-0.5">
         <span
           className={`text-right text-sm font-semibold tabular-nums ${baseline == null ? (rate >= 50 ? "text-lol-win" : "text-lol-loss") : deltaClass}`}
         >
@@ -5886,6 +6062,7 @@ function RateRow({
                 ? "bg-[rgba(34,197,94,0.12)] text-[#22C55E]"
                 : "bg-[rgba(229,72,63,0.12)] text-[#E5483F]"
           }`}
+          title={delta == null ? "Not tracked yet" : undefined}
         >
           {delta == null ? (
             "—"
