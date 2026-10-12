@@ -89,6 +89,14 @@ Faza — pełny visual polish 16 tabów (2026-10-12):
 - Fix-pass: tab strip border, Multikills ratio, EmptyState dashed, dash placeholder title attributes
 - All 16 tabs share: IntroBox + legend, SectionHeading with crimson diamond, Key metrics, InsightsPanel tinted by kind, Detailed statistics, panel depth (top border, inner glow, hover)
 
+Faza — per-result breakdown (2026-10-12):
+- In wins / In losses columns populated across Combat, Objectives, Vision, Farm stat tables (28 rows). SQL adds AVG(CASE WHEN cr.win = 1/0 THEN ...) paired aliases for 101 metrics in getChampionDetailStats.
+- "vs your other champions" column populated via separate IPC channel db:champion-stat-baseline and function getChampionStatBaseline — same-scope AVG over other champions. 29 rows wired.
+- Arena queue variants (Arena 3x6, Arena Bravery, Arena) merged into a single Arena row in Games by queue.
+- True damage dealt remains "—" (derived, no standalone aggregate). Economy/Gold remains "—" (out of scope).
+- Number formatting switched to space thousands separator, dot decimal, 2-decimal precision.
+- Commit: 9effefa3831d3fb8d9e19d73e8d4cdc69f725dd1
+
 Ostatnie zamknięte fazy (2026-10-11):
 - A (log noise dragon:*): DONE (already silent before this session)
 - D (summary tiles): DONE (source + runtime verified — SCORE 6.3, MVP/ACE 562/249, CS/MIN 2.3 in /champions/summary)
@@ -146,7 +154,7 @@ Czasem myli MatchupsTab return z innym JSX.
 Cherry-pickuje commity między worktree'ami — nie używać subsessji.
 
 6. Co dalej
-- A — Per-result breakdown backfill (In wins / In losses / vs other champions) to replace "—" placeholders — requires SQL in stats.ts + type extension
+- A — Hint text under panel headers (one-line description above each panel; mockup has them on some tabs but not all)
 - B — Home page hero polish (ribbon, live tile, top champions grid)
 - C — History match row polish + weekly heatmap color scale
 - D — CDragon 522 intermittent failures (mitigated by cache)
