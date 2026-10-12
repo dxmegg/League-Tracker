@@ -1684,14 +1684,20 @@ function OverviewTab({
           {sortRates(items, itemSort).map((item, index) => (
             <RateRow
               key={item.item_id}
-              icon={<ItemIcon itemId={item.item_id} size={24} patch={patch} />}
+              icon={<ItemIcon itemId={item.item_id} size={28} patch={patch} />}
               name={getItemName(itemData, item.item_id)}
               wins={item.wins}
               total={item.picks}
               count={`${item.picks}x`}
               baseline={isSummary ? undefined : baseline}
               sampleSize={item.picks}
-              secondary={!isSummary ? `avg buy — · slot ${index + 1}` : undefined}
+              secondary={
+                !isSummary
+                  ? item.avgBuyTime != null
+                    ? `avg buy ${formatBuyTime(item.avgBuyTime)} · slot ${item.commonPurchaseSlot ?? index + 1}`
+                    : `slot ${item.commonPurchaseSlot ?? index + 1}`
+                  : undefined
+              }
             />
           ))}
         </RatePanel>
@@ -1714,7 +1720,7 @@ function OverviewTab({
                 <RuneIcon
                   runeId={keystone.runeId}
                   path={runeData[keystone.runeId]?.icon}
-                  size={22}
+                  size={24}
                 />
               }
               name={runeData[keystone.runeId]?.name ?? `Rune ${keystone.runeId}`}
@@ -1747,13 +1753,26 @@ function OverviewTab({
               .map((queueStat) => (
                 <div
                   key={queueStat.queueId}
-                  className="grid grid-cols-[minmax(0,1fr)_auto_auto_auto_auto] items-center gap-3 rounded-lg bg-black/10 px-3 py-2 text-[12px]"
+                  className="grid grid-cols-[minmax(0,1fr)_auto_auto_auto_minmax(92px,1fr)_auto] items-center gap-3 rounded-lg border-t border-transparent px-3 py-2.5 text-[12px] transition-colors hover:border-lol-border/60 hover:bg-lol-card-hover"
                 >
-                  <span className="min-w-0 flex-1 truncate text-lol-text-bright">
-                    {QUEUE_LABELS[queueStat.queueId] ?? `Queue ${queueStat.queueId}`}
-                  </span>
+                  <div className="flex min-w-0 items-center gap-2">
+                    <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-md bg-lol-card text-[9px] font-bold text-lol-text-bright">
+                      {(QUEUE_LABELS[queueStat.queueId] ?? `Queue ${queueStat.queueId}`)
+                        .slice(0, 2)
+                        .toUpperCase()}
+                    </span>
+                    <span className="min-w-0 truncate text-lol-text-bright">
+                      {QUEUE_LABELS[queueStat.queueId] ?? `Queue ${queueStat.queueId}`}
+                    </span>
+                  </div>
                   <span className="text-lol-text">{queueStat.games} games</span>
-                  <div className="flex h-2 w-20 overflow-hidden rounded-full bg-lol-loss/20">
+                  <span className="text-right text-sm tabular-nums text-lol-text">
+                    {formatRowKda(queueStat)}
+                  </span>
+                  <span className="ml-2 text-right text-sm tabular-nums text-lol-gold">
+                    {formatSmallMetric(queueStat.avgScore)}
+                  </span>
+                  <div className="flex h-2.5 w-20 min-w-0 overflow-hidden rounded-full bg-lol-loss/20">
                     <span
                       className="bg-lol-win"
                       style={{
@@ -1767,9 +1786,16 @@ function OverviewTab({
                       }}
                     />
                   </div>
-                  <span className="text-sm text-lol-text">{formatRowKda(queueStat)}</span>
-                  <span className="text-right text-sm text-lol-text">
-                    {formatSmallMetric(queueStat.avgScore)}
+                  <span
+                    className={`text-right text-sm font-semibold tabular-nums ${
+                      queueStat.games > 0 && queueStat.wins / queueStat.games >= 0.5
+                        ? "text-lol-win"
+                        : "text-lol-loss"
+                    }`}
+                  >
+                    {queueStat.games > 0
+                      ? `${((queueStat.wins / queueStat.games) * 100).toFixed(1)}%`
+                      : "—"}
                   </span>
                 </div>
               ))}
@@ -4977,10 +5003,7 @@ function RoleRow({
   kills,
   deaths,
   assists,
-  avgCsPerMin,
-  avgScore,
   baseline,
-  detailed = false,
 }: ChampionRoleStat & { baseline?: number | null; detailed?: boolean }) {
   const rate = games > 0 ? (wins / games) * 100 : 0;
   const delta = baseline == null ? null : rate - baseline;
@@ -4993,41 +5016,57 @@ function RoleRow({
   const unknown = role === "UNKNOWN";
   return (
     <div
-      className={`grid items-center gap-2 ${detailed ? "grid-cols-[minmax(0,1fr)_auto_auto_minmax(92px,1fr)_auto_auto_auto]" : "grid-cols-[minmax(0,1fr)_auto_minmax(92px,1fr)]"} ${unknown ? "text-lol-text/50" : ""}`}
+      className={`grid grid-cols-[auto_minmax(0,1fr)_auto_auto_minmax(92px,1fr)_auto_auto] items-center gap-2 rounded-lg border-t border-transparent px-3 py-2.5 transition-colors hover:border-lol-border/60 hover:bg-lol-card-hover ${unknown ? "text-lol-text/50" : ""}`}
     >
+      <RoleIcon role={role} />
       <span
-        className={`min-w-0 truncate text-xs font-semibold ${unknown ? "text-lol-text/50" : "text-lol-text-bright"}`}
+        className={`min-w-0 truncate whitespace-nowrap text-xs font-semibold ${unknown ? "text-lol-text/50" : "text-lol-text-bright"}`}
       >
         {unknown ? "role not recorded (older games)" : role}
       </span>
       <span className="text-right text-xs tabular-nums text-lol-text">{games}</span>
-      {detailed ? (
-        <>
-          <span className="text-right text-xs tabular-nums text-lol-text">
-            {wins}–{games - wins}
-          </span>
-          <div className="min-w-0">
-            <div className={games < 3 ? "opacity-40 grayscale" : ""}>
-              <WinRateBar wins={wins} total={games} showPercent={false} />
-            </div>
-          </div>
-          <span className={`text-right text-xs tabular-nums ${rateColor}`}>{rate.toFixed(1)}%</span>
-          <span className="text-right text-sm tabular-nums text-lol-text">
-            {formatOptionalKda(kills, deaths, assists)}
-          </span>
-          <span className="text-right text-sm tabular-nums text-lol-text">
-            {formatSmallMetric(avgCsPerMin)}
-          </span>
-          <span className="text-right text-sm tabular-nums text-lol-text">
-            {formatSmallMetric(avgScore)}
-          </span>
-        </>
-      ) : (
-        <div className="min-w-0">
-          <WinRateBar wins={wins} total={games} />
+      <span className="whitespace-nowrap text-right text-sm tabular-nums text-lol-text">
+        {formatOptionalKda(kills, deaths, assists)}
+      </span>
+      <div className="min-w-0">
+        <div className={games < 3 ? "opacity-40 grayscale" : ""}>
+          <WinRateBar wins={wins} total={games} showPercent={false} />
         </div>
-      )}
+      </div>
+      <span className={`text-right text-sm font-semibold tabular-nums ${rateColor}`}>
+        {rate.toFixed(1)}%
+      </span>
+      <span
+        className={`whitespace-nowrap rounded px-1.5 py-0.5 text-right text-xs font-semibold ${
+          delta == null
+            ? "bg-lol-card/60 text-lol-text"
+            : delta >= 0
+              ? "bg-emerald-500/10 text-lol-win"
+              : "bg-rose-500/10 text-lol-loss"
+        }`}
+      >
+        {delta == null ? "—" : `${delta >= 0 ? "+" : ""}${delta.toFixed(1)}`}
+      </span>
     </div>
+  );
+}
+
+function RoleIcon({ role }: { role: string }) {
+  const label = role === "UNKNOWN" ? "?" : role.slice(0, 1);
+  return (
+    <svg aria-hidden="true" className="h-6 w-6 shrink-0" viewBox="0 0 24 24" role="img">
+      <rect x="1" y="1" width="22" height="22" rx="5" fill="var(--theme-card)" />
+      <text
+        x="12"
+        y="16"
+        fill="var(--theme-text-bright)"
+        fontSize="11"
+        fontWeight="700"
+        textAnchor="middle"
+      >
+        {label}
+      </text>
+    </svg>
   );
 }
 
@@ -5043,6 +5082,12 @@ function formatRowKda(row: { kills?: number; deaths?: number; assists?: number; 
 
 function formatSmallMetric(value?: number | null) {
   return value == null ? "—" : value.toFixed(1);
+}
+
+function formatBuyTime(seconds: number) {
+  const totalSeconds = Math.max(0, Math.round(seconds));
+  const minutes = Math.floor(totalSeconds / 60);
+  return `${String(minutes).padStart(2, "0")}:${String(totalSeconds % 60).padStart(2, "0")}`;
 }
 
 function RateRow({
@@ -5074,7 +5119,7 @@ function RateRow({
         : "text-lol-text";
   const sparse = sampleSize != null && sampleSize < 3;
   return (
-    <div className="flex min-w-0 items-center gap-2">
+    <div className="flex min-w-0 items-center gap-2 rounded-lg border-t border-transparent px-3 py-2.5 transition-colors hover:border-lol-border/60 hover:bg-lol-card-hover">
       {icon}
       <div className="min-w-0 flex-1">
         <span className="block truncate text-[12.5px] text-lol-text-bright">{name}</span>
@@ -5090,7 +5135,7 @@ function RateRow({
         <WinRateBar wins={wins} total={total} showPercent={false} />
       </div>
       <span
-        className={`w-[76px] shrink-0 text-right text-[11px] tabular-nums ${baseline == null ? (rate >= 50 ? "text-lol-win" : "text-lol-loss") : deltaClass}`}
+        className={`w-[76px] shrink-0 text-right text-sm font-semibold tabular-nums ${baseline == null ? (rate >= 50 ? "text-lol-win" : "text-lol-loss") : deltaClass}`}
       >
         {rate.toFixed(1)}%
         {delta != null && (
