@@ -185,10 +185,10 @@ Czasem myli MatchupsTab return z innym JSX.
 Cherry-pickuje commity między worktree'ami — nie używać subsessji.
 
 6. Co dalej
-- A — Ad-hoc polish on remaining surfaces (modals, hover states) as user requests
-- B — New feature (ask user for direction)
-- C — Bug fixes / maintenance
-- C — Bug reports / maintenance
+- A — Polish top-level pages: Friends & foes, Trends, Records, Data (nietknięte)
+- B — Timeline backend: teamfights / power spikes / kill-map champion metadata (wymaga SQL)
+- C — Matchups: best/worst highlight wymaga payload markera (SQL)
+- D — Economy Gold Sources donut wymaga backendu
 
 7. Komendy
 npm run dev          # apka (wymaga LCU jako admin)
