@@ -1940,21 +1940,25 @@ function VisionTab({
             label="Vision score"
             value={detail.avgVisionScore}
             subtitle={`best ${formatCombatNumber(detail.maxVisionScore)}`}
+            accent={CHART_PALETTE[0]}
           />
           <CombatTile
             label="Wards placed"
             value={detail.avgWardsPlaced}
             subtitle={`best ${formatCombatNumber(detail.maxWardsPlaced)}`}
+            accent={CHART_PALETTE[1]}
           />
           <CombatTile
             label="Wards killed"
             value={detail.avgWardsKilled}
             subtitle={`best ${formatCombatNumber(detail.maxWardsKilled)}`}
+            accent={CHART_PALETTE[2]}
           />
           <CombatTile
             label="Control ward share"
             value={wardShareTotal > 0 ? (detail.avgVisionWardsBought / wardShareTotal) * 100 : null}
             subtitle="of purchased wards"
+            accent={CHART_PALETTE[3]}
           />
         </div>
       </div>
@@ -2060,7 +2064,7 @@ function VisionTab({
             {recentMatches.map((match) => (
               <div
                 key={match.game_id}
-                className="grid grid-cols-[minmax(8rem,1fr)_auto_auto_auto_auto] items-center gap-3 text-lol-text-bright"
+                className="grid grid-cols-[minmax(8rem,1fr)_auto_auto_auto_auto] items-center gap-3 border-b border-white/[0.04] py-2 text-lol-text-bright transition-colors duration-[120ms] hover:bg-white/[0.03]"
               >
                 <span className="flex min-w-0 items-center gap-2">
                   <ChampionIcon championId={match.champion_id} size={24} className="rounded-md" />
@@ -3735,21 +3739,29 @@ function AbilitiesTab({
             label="Common max order"
             value={formatSkillOrder(commonOrder?.order)}
             sub={commonOrder ? `${commonOrder.picks} picks` : "No timeline data"}
+            accent={CHART_PALETTE[0]}
+            glow
           />
           <Stat
             label="Spell pair"
             value={commonSpellNames}
             sub={commonSpellPair ? `${commonSpellPair.picks} picks` : "No spell data"}
+            accent={CHART_PALETTE[1]}
+            glow
           />
           <Stat
             label="Average R rank 1"
             value={formatRankTiming(rTiming.avgR1Min)}
             sub={`Based on ${rTiming.sampleSize} games`}
+            accent={CHART_PALETTE[2]}
+            glow
           />
           <Stat
             label="Skill orders"
             value={String(skillOrders?.topOrders.length ?? 0)}
             sub="Orders in available payload"
+            accent={CHART_PALETTE[3]}
+            glow
           />
         </div>
       </div>
@@ -3778,7 +3790,7 @@ function AbilitiesTab({
       <div className="xl:col-span-2">
         <SectionHeading title="Detailed statistics" />
       </div>
-      <Panel className="xl:col-span-2">
+      <Panel className="xl:col-span-2 bg-[radial-gradient(circle_at_top_left,rgba(59,130,246,0.08),transparent_50%),linear-gradient(180deg,var(--theme-card-hover),var(--theme-card))]">
         <SectionHeading title="Skill order" source="t" />
         {orders.length === 0 ? (
           <NoData text="No skill data yet (requires timeline)" />
@@ -3848,7 +3860,10 @@ function AbilitiesTab({
             ["R rank 2", formatRankTiming(rTiming.avgR2Min)],
             ["R rank 3", formatRankTiming(rTiming.avgR3Min)],
           ].map(([label, value]) => (
-            <div key={label} className="flex items-center justify-between">
+            <div
+              key={label}
+              className="flex items-center justify-between border-b border-white/[0.04] py-2 transition-colors duration-[120ms] hover:bg-white/[0.03]"
+            >
               <span className="text-lol-text">{label}</span>
               <b className="tabular-nums text-lol-text-bright">{value}</b>
             </div>
@@ -3868,7 +3883,7 @@ function AbilitiesTab({
               return (
                 <div
                   key={spellPair.pair}
-                  className="grid grid-cols-[minmax(8rem,1fr)_auto_minmax(5rem,1fr)] items-center gap-3"
+                  className="grid grid-cols-[minmax(8rem,1fr)_auto_minmax(5rem,1fr)] items-center gap-3 border-b border-white/[0.04] py-2 transition-colors duration-[120ms] hover:bg-white/[0.03]"
                 >
                   <span
                     className="flex items-center gap-2 text-lol-text-bright"
@@ -3889,10 +3904,7 @@ function AbilitiesTab({
 
       <Panel className="xl:col-span-2">
         <SectionHeading title="Per-ability damage" source="d" />
-        <div className="rounded-lg border border-dashed border-amber-400/40 bg-amber-400/5 p-4 text-sm text-lol-text">
-          Per-ability damage (Q/W/E/R breakdown) is not available in any public Riot API. This
-          section is intentionally empty.
-        </div>
+        <EmptyState text="Per-ability damage (Q/W/E/R breakdown) is not available in any public Riot API. This section is intentionally empty." />
       </Panel>
     </div>
   );
@@ -4703,21 +4715,25 @@ function ObjectivesTab({
             label="Objective events / game"
             value={objectiveTotal / detail.games}
             subtitle="turrets, inhibitors, barons and steals"
+            accent={CHART_PALETTE[0]}
           />
           <CombatTile
             label="Objective damage / game"
             value={objectiveDamagePerGame}
             subtitle="combined objective and turret damage"
+            accent={CHART_PALETTE[1]}
           />
           <CombatTile
             label="First tower rate"
             value={(detail.totalFirstTowerKill / detail.games) * 100}
             subtitle={`${detail.totalFirstTowerKill.toLocaleString()} first towers`}
+            accent={CHART_PALETTE[2]}
           />
           <CombatTile
             label="First inhibitor rate"
             value={(detail.totalFirstInhibitorKill / detail.games) * 100}
             subtitle={`${detail.totalFirstInhibitorKill.toLocaleString()} first inhibitors`}
+            accent={CHART_PALETTE[3]}
           />
         </div>
       </div>
@@ -4787,21 +4803,25 @@ function ObjectivesTab({
             label="First tower kills"
             value={detail.totalFirstTowerKill}
             subtitle={`across ${formatCombatNumber(detail.games)} games (${formatPercent(detail.totalFirstTowerKill, detail.games)})`}
+            accent={CHART_PALETTE[0]}
           />
           <CombatTile
             label="First tower assists"
             value={detail.totalFirstTowerAssist}
             subtitle={`across ${formatCombatNumber(detail.games)} games (${formatPercent(detail.totalFirstTowerAssist, detail.games)})`}
+            accent={CHART_PALETTE[1]}
           />
           <CombatTile
             label="First inhibitor kills"
             value={detail.totalFirstInhibitorKill}
             subtitle={`across ${formatCombatNumber(detail.games)} games (${formatPercent(detail.totalFirstInhibitorKill, detail.games)})`}
+            accent={CHART_PALETTE[2]}
           />
           <CombatTile
             label="First inhibitor assists"
             value={detail.totalFirstInhibitorAssist}
             subtitle={`across ${formatCombatNumber(detail.games)} games (${formatPercent(detail.totalFirstInhibitorAssist, detail.games)})`}
+            accent={CHART_PALETTE[3]}
           />
         </div>
       </Panel>
@@ -4827,7 +4847,7 @@ function ObjectivesTab({
       </Panel>
       <Panel>
         <SectionHeading title="Unavailable objective detail" source="d" />
-        <NoData text="Objective timing, dragon types, and team control are not stored." />
+        <EmptyState text="Objective timing, dragon types, and team control are not stored." />
       </Panel>
     </div>
   );
@@ -5058,6 +5078,8 @@ function Stat({
   emptySub = false,
   valueClass = "",
   sparkValues,
+  accent: accentOverride,
+  glow = false,
 }: {
   label: string;
   value: string;
@@ -5065,18 +5087,21 @@ function Stat({
   emptySub?: boolean;
   valueClass?: string;
   sparkValues?: Array<number | null>;
+  accent?: string;
+  glow?: boolean;
 }) {
   const statIndex = Math.max(
     0,
     STAT_LABEL_ORDER.findIndex((entry) => entry === label),
   );
-  const accent = CHART_PALETTE[statIndex % CHART_PALETTE.length];
+  const accent = accentOverride ?? CHART_PALETTE[statIndex % CHART_PALETTE.length];
   return (
     <div
       className="relative rounded-xl border border-lol-border border-t-[3px] bg-black/10 px-3.5 py-3"
       style={{
         borderTopColor: accent,
         backgroundImage: `radial-gradient(circle at top right, ${accent}1a, transparent 65%)`,
+        boxShadow: glow ? `0 0 8px 0 ${accent}26` : undefined,
       }}
     >
       {sparkValues && (
