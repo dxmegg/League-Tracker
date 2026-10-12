@@ -1621,6 +1621,9 @@ function OverviewTab({
 
       <Panel className={BREAKDOWN_PANEL_CLASS}>
         <SectionHeading title="Role split" aside="Games and win rate" />
+        <p className="mb-3 text-[11px] text-lol-text/70">
+          Which positions you played this champion in, with KDA and win rate per role.
+        </p>
         {roleStatsLoading || !roleStats ? (
           <SectionLoading />
         ) : roleStats.length === 0 ? (
@@ -1670,6 +1673,7 @@ function OverviewTab({
       <RatePanel
         title="Top augments"
         className={BREAKDOWN_PANEL_CLASS}
+        hint="Augments you pick most often, with average KDA and pick rate per augment."
         sort={augmentSort}
         options={[
           ["count", "Most picked"],
@@ -1709,6 +1713,7 @@ function OverviewTab({
         <RatePanel
           title="Top items"
           className={BREAKDOWN_PANEL_CLASS}
+          hint="Items you build most often, with the most common build slot."
           sort={itemSort}
           options={[
             ["count", "Most built"],
@@ -1744,6 +1749,7 @@ function OverviewTab({
         <RatePanel
           title="Keystones"
           className={BREAKDOWN_PANEL_CLASS}
+          hint="Keystone runes you play, with average KDA and win rate."
           sort={keystoneSort}
           options={[
             ["count", "Most played"],
@@ -1763,7 +1769,11 @@ function OverviewTab({
                   size={24}
                 />
               }
-              iconAccent={CHART_PALETTE[index % CHART_PALETTE.length]}
+              iconAccent={
+                runeData[keystone.runeId]?.name === "First Strike"
+                  ? "#C9A45C"
+                  : CHART_PALETTE[index % CHART_PALETTE.length]
+              }
               iconSize={24}
               name={runeData[keystone.runeId]?.name ?? `Rune ${keystone.runeId}`}
               wins={keystone.wins}
@@ -1783,6 +1793,9 @@ function OverviewTab({
 
       <Panel className={BREAKDOWN_PANEL_CLASS}>
         <SectionHeading title="Games by queue" />
+        <p className="mb-3 text-[11px] text-lol-text/70">
+          Games and win rate in each queue, with average KDA per queue.
+        </p>
         {queueStatsLoading || !queueStats ? (
           <SectionLoading />
         ) : queueStats.length === 0 ? (
@@ -1816,13 +1829,13 @@ function OverviewTab({
                   </span>
                   <div className="flex h-2.5 w-20 min-w-0 overflow-hidden rounded-full bg-lol-loss/20">
                     <span
-                      className="bg-lol-win"
+                      className="rounded-l-[1px] bg-[linear-gradient(to_right,#22C55E,#10B981)]"
                       style={{
                         width: `${queueStat.games > 0 ? (queueStat.wins / queueStat.games) * 100 : 0}%`,
                       }}
                     />
                     <span
-                      className="bg-lol-loss"
+                      className="rounded-r-[1px] bg-[linear-gradient(to_right,#E5483F,#B91C1C)]"
                       style={{
                         width: `${queueStat.games > 0 ? ((queueStat.games - queueStat.wins) / queueStat.games) * 100 : 0}%`,
                       }}
@@ -4844,6 +4857,7 @@ function RatePanel({
   title,
   source,
   className,
+  hint,
   sort,
   options,
   onSortChange,
@@ -4854,6 +4868,7 @@ function RatePanel({
   title: string;
   source?: keyof typeof SOURCE_LABELS;
   className?: string;
+  hint?: string;
   sort: RateSort;
   options: [RateSort, string][];
   onSortChange: (sort: RateSort) => void;
@@ -4867,6 +4882,7 @@ function RatePanel({
         <SectionHeading title={title} source={source} />
         <SortButtons value={sort} options={options} onChange={onSortChange} />
       </div>
+      {hint && <p className="mb-3 text-[11px] text-lol-text/70">{hint}</p>}
       {loading ? (
         <SectionLoading />
       ) : empty ? (
@@ -5044,7 +5060,10 @@ function SectionHeading({
   return (
     <div className="relative mb-4 flex items-baseline justify-between gap-3">
       <h2 className="flex items-center gap-2 font-display text-[16px] font-semibold text-lol-text-bright">
-        <span className="h-1.5 w-1.5 shrink-0 rotate-45 bg-[#E5483F]" aria-hidden="true" />
+        <span
+          className="h-2 w-2 shrink-0 rotate-45 bg-[#E5483F] shadow-[0_0_6px_0_rgba(229,72,63,0.45)]"
+          aria-hidden="true"
+        />
         <span>{title}</span>
         {source && <SourceBadge kind={source} />}
       </h2>
@@ -5114,7 +5133,7 @@ function RoleRow({
               : "bg-[rgba(229,72,63,0.12)] text-[#E5483F]"
         }`}
       >
-        {delta == null ? "—" : `${delta >= 0 ? "+" : ""}${delta.toFixed(1)}`}
+        {delta == null ? "—" : `${delta >= 0 ? "▲ +" : "▼ "}${delta.toFixed(1)}`}
       </span>
     </div>
   );
@@ -5236,7 +5255,7 @@ function RateRow({
                 : "bg-[rgba(229,72,63,0.12)] text-[#E5483F]"
             }`}
           >
-            {delta >= 0 ? "+" : ""}
+            {delta >= 0 ? "▲ +" : "▼ "}
             {delta.toFixed(1)}
           </span>
         )}
