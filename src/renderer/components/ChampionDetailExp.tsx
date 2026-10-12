@@ -2926,16 +2926,53 @@ function TimelineTab({
   if (games == null || games.length === 0)
     return <NoData text="No timeline data for this champion" />;
 
+  const timelineInsights: Insight[] = [
+    {
+      kind: "info",
+      text: `${games.length.toLocaleString()} timeline game${games.length === 1 ? "" : "s"} available for this champion.`,
+    },
+    ...(selectedGame
+      ? (() => {
+          const selectedRatio =
+            selectedGame.deaths > 0
+              ? selectedGame.kills / selectedGame.deaths
+              : selectedGame.kills > 0
+                ? Number.POSITIVE_INFINITY
+                : 0;
+          const totalKills = games.reduce((sum, game) => sum + game.kills, 0);
+          const totalDeaths = games.reduce((sum, game) => sum + game.deaths, 0);
+          const baselineRatio =
+            totalDeaths > 0
+              ? totalKills / totalDeaths
+              : totalKills > 0
+                ? Number.POSITIVE_INFINITY
+                : 0;
+          const selectedAboveBaseline = selectedRatio > baselineRatio;
+          const selectedBelowBaseline = selectedRatio < baselineRatio;
+          return [
+            {
+              kind: selectedAboveBaseline ? "good" : selectedBelowBaseline ? "warn" : "info",
+              text: `Selected game K/D is ${selectedAboveBaseline ? "above" : selectedBelowBaseline ? "below" : "at"} the loaded champion baseline.`,
+            } satisfies Insight,
+          ];
+        })()
+      : []),
+    ...(timeline
+      ? [
+          {
+            kind: "info" as const,
+            text: `${timeline.events.filter((event) => event.event_type === "CHAMPION_KILL").length.toLocaleString()} champion kill events recorded in the selected match.`,
+          },
+        ]
+      : []),
+  ];
+
   return (
     <div className="grid grid-cols-1 gap-5">
-      <InsightsPanel
-        insights={[
-          {
-            kind: "info",
-            text: "Timeline data is available for a subset of games (those fetched while logged in).",
-          },
-        ]}
-      />
+      <IntroBox legend="Badges show where a number comes from: Match-V5 = Riot match data · Timeline = minute-by-minute data · Derived = calculated by the app · LCU = game client.">
+        One match, minute by minute: events, fights, power spikes and stat growth.
+      </IntroBox>
+      <SectionHeading title="Key metrics" />
       <Panel>
         <SectionHeading title="Game picker" source="t" />
         <div className="flex gap-2 overflow-x-auto pb-1">
@@ -2961,6 +2998,7 @@ function TimelineTab({
           ))}
         </div>
       </Panel>
+      <SectionHeading title="Detailed statistics" />
       {!isSummary && (
         <Panel>
           <SectionHeading title="Kill and death map" source="t" />
@@ -3026,6 +3064,7 @@ function TimelineTab({
           )}
         </Panel>
       )}
+      <InsightsPanel items={timelineInsights} />
       {timelineLoading ? (
         <Panel>
           <SectionLoading />
