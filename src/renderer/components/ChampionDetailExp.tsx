@@ -2642,6 +2642,7 @@ function RunesTab({
         onSortChange={setKeystoneSort}
         loading={detailLoading}
         empty={keystones.length === 0}
+        unifiedRows
       >
         {sortedKeystones.map((keystone) => (
           <RateRow
@@ -2735,14 +2736,16 @@ function RuneTreePanel({
             return (
               <div
                 key={tree.styleId}
-                className="flex items-center gap-2 border-l-[3px] pl-2"
+                className="flex items-center gap-2 border-b border-white/[0.04] border-l-[3px] py-2 pl-2 transition-colors duration-[120ms] hover:bg-white/[0.025] last:border-b-0"
                 style={{ borderLeftColor: accent }}
               >
                 <RuneIcon runeId={tree.styleId} path={runeData[tree.styleId]?.icon} size={22} />
                 <span className="min-w-0 flex-1 truncate text-[12.5px] text-lol-text-bright">
                   {treeName}
                 </span>
-                <span className="shrink-0 text-[11px] text-lol-text">{tree.picks}x</span>
+                <span className="shrink-0 text-right text-[11px] tabular-nums text-lol-text">
+                  {tree.picks}x
+                </span>
                 <div className="w-20 shrink-0">
                   <WinRateBar wins={tree.wins} total={tree.picks} showPercent={false} />
                 </div>
@@ -3281,11 +3284,11 @@ function TrendsTab({
           {patches.map((row) => (
             <div
               key={row.patch}
-              className="grid grid-cols-[1fr_auto_auto_minmax(8rem,1fr)] items-center gap-3 border-b border-white/[0.04] py-2 transition-colors duration-[120ms] hover:bg-white/[0.03]"
+              className="grid grid-cols-[1fr_auto_auto_minmax(8rem,1fr)] items-center gap-3 border-b border-white/[0.04] py-2 transition-colors duration-[120ms] hover:bg-white/[0.025] last:border-b-0"
             >
               <span className="font-semibold text-lol-text-bright">{row.patch}</span>
-              <span className="tabular-nums">{row.games}</span>
-              <span className="tabular-nums">
+              <span className="text-right tabular-nums">{row.games}</span>
+              <span className="text-right tabular-nums">
                 <span className="text-lol-win">{row.wins}W</span>-
                 <span className="text-lol-loss">{row.games - row.wins}L</span>
               </span>
@@ -3359,7 +3362,7 @@ function TrendBars({
         const rate = row.games > 0 ? (row.wins / row.games) * 100 : 0;
         return (
           <div key={row.label} className="flex min-w-0 flex-1 flex-col items-center gap-1">
-            <span className="text-[10px] tabular-nums text-lol-text">
+            <span className="text-right text-[10px] tabular-nums text-lol-text">
               {row.games ? `${rate.toFixed(0)}%` : "—"}
             </span>
             <div className="flex h-24 w-full items-end rounded-sm bg-lol-border/30">
@@ -3492,7 +3495,7 @@ function TimelineTab({
             <button
               key={game.gameId}
               type="button"
-              className={`flex shrink-0 items-center gap-2 rounded-lg border border-l-[3px] px-3 py-2 text-left transition-colors duration-[120ms] hover:bg-white/[0.03] ${
+              className={`flex shrink-0 items-center gap-2 rounded-lg border border-b-white/[0.04] border-l-[3px] px-3 py-2 text-left transition-colors duration-[120ms] hover:bg-white/[0.025] last:border-b-0 ${
                 game.gameId === selectedGameId
                   ? "border-lol-crimson bg-lol-crimson/15"
                   : "border-lol-border bg-black/10"
@@ -3502,7 +3505,9 @@ function TimelineTab({
             >
               <ChampionIcon championId={game.championId} size={24} className="rounded-md" />
               <span className="flex flex-col text-xs">
-                <span className={game.win ? "text-lol-win" : "text-lol-loss"}>
+                <span
+                  className={`text-right tabular-nums ${game.win ? "text-lol-win" : "text-lol-loss"}`}
+                >
                   {game.win ? "W" : "L"} · {game.kills}/{game.deaths}/{game.assists}
                 </span>
                 <span className="text-lol-text">{formatTimeAgo(game.gameCreation)}</span>
@@ -3653,9 +3658,9 @@ function TimelineTab({
                 events.map((event) => (
                   <div
                     key={event.event_index}
-                    className="flex gap-3 border-b border-white/[0.04] py-2 transition-colors duration-[120ms] hover:bg-white/[0.03]"
+                    className="flex gap-3 border-b border-white/[0.04] py-2 transition-colors duration-[120ms] hover:bg-white/[0.025] last:border-b-0"
                   >
-                    <span className="w-12 shrink-0 tabular-nums text-lol-text">
+                    <span className="w-12 shrink-0 text-right tabular-nums text-lol-text">
                       {formatSeconds(event.timestamp_ms / 1000)}
                     </span>
                     <span className="text-lol-text-bright">
@@ -4106,13 +4111,13 @@ function AbilitiesTab({
               <div className="grid grid-cols-[2rem_minmax(0,1fr)_auto_auto] gap-3 border-b border-lol-border/50 pb-2 font-semibold text-lol-text">
                 <span>#</span>
                 <span>Order</span>
-                <span>Picks</span>
-                <span>Sample</span>
+                <span className="text-right whitespace-nowrap">Picks</span>
+                <span className="text-right whitespace-nowrap">Sample</span>
               </div>
               {orders.map((entry, index) => (
                 <div
                   key={entry.order}
-                  className="grid grid-cols-[2rem_minmax(0,1fr)_auto_auto] items-center gap-3 text-lol-text-bright"
+                  className="grid grid-cols-[2rem_minmax(0,1fr)_auto_auto] items-center gap-3 border-b border-white/[0.04] py-2 text-lol-text-bright transition-colors duration-[120ms] hover:bg-white/[0.025] last:border-b-0"
                 >
                   <span className="tabular-nums text-lol-text">{index + 1}</span>
                   <div className="flex flex-wrap gap-1">
@@ -4128,8 +4133,10 @@ function AbilitiesTab({
                       ) : null;
                     })}
                   </div>
-                  <span className="tabular-nums">{entry.picks}</span>
-                  <span className="tabular-nums">{formatPercent(entry.picks, sampleSize)}</span>
+                  <span className="text-right tabular-nums">{entry.picks}</span>
+                  <span className="text-right tabular-nums">
+                    {formatPercent(entry.picks, sampleSize)}
+                  </span>
                 </div>
               ))}
             </div>
@@ -4170,7 +4177,7 @@ function AbilitiesTab({
           ].map(([label, value]) => (
             <div
               key={label}
-              className="flex items-center justify-between border-b border-white/[0.04] py-2 transition-colors duration-[120ms] hover:bg-white/[0.03]"
+              className="flex items-center justify-between border-b border-white/[0.04] py-2 transition-colors duration-[120ms] hover:bg-white/[0.025] last:border-b-0"
             >
               <span className="text-lol-text">{label}</span>
               <b className="tabular-nums text-lol-text-bright">{value}</b>
@@ -4194,7 +4201,7 @@ function AbilitiesTab({
               return (
                 <div
                   key={spellPair.pair}
-                  className="grid grid-cols-[minmax(8rem,1fr)_auto_minmax(5rem,1fr)] items-center gap-3 border-b border-white/[0.04] py-2 transition-colors duration-[120ms] hover:bg-white/[0.03]"
+                  className="grid grid-cols-[minmax(8rem,1fr)_auto_minmax(5rem,1fr)] items-center gap-3 border-b border-white/[0.04] py-2 transition-colors duration-[120ms] hover:bg-white/[0.025] last:border-b-0"
                 >
                   <span
                     className="flex items-center gap-2 text-lol-text-bright"
@@ -4204,7 +4211,7 @@ function AbilitiesTab({
                     <SummonerSpellIcon spellId={ids[1] ?? null} size={24} />
                     <span className="truncate">{names.join(" + ")}</span>
                   </span>
-                  <span className="tabular-nums text-lol-text">{spellPair.picks}</span>
+                  <span className="text-right tabular-nums text-lol-text">{spellPair.picks}</span>
                   <WinRateBar wins={spellPair.wins} total={spellPair.picks} />
                 </div>
               );
@@ -5450,10 +5457,10 @@ function CombatStatTable({ rows }: { rows: CombatStatTableRow[] }) {
     <div className="flex flex-col gap-2 text-xs">
       <div className="grid grid-cols-[minmax(0,1.4fr)_96px_96px_96px_96px_96px] gap-3 border-b border-lol-border/50 pb-2 font-semibold text-lol-text">
         <span>Stat</span>
-        <span className="text-right">Avg / game</span>
-        <span className="text-right">Best game</span>
-        <span className="text-right">In wins</span>
-        <span className="text-right">In losses</span>
+        <span className="text-right whitespace-nowrap">Avg / game</span>
+        <span className="text-right whitespace-nowrap">Best game</span>
+        <span className="text-right whitespace-nowrap">In wins</span>
+        <span className="text-right whitespace-nowrap">In losses</span>
         <span className="text-right whitespace-nowrap">vs other</span>
       </div>
       {rows.map(([label, avg, best, _total, formatter, inWins, inLosses, vsOther], index) => {
