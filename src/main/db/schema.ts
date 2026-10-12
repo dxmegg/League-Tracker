@@ -307,6 +307,12 @@ export function createIndexes() {
     CREATE INDEX IF NOT EXISTS idx_mp_puuid ON match_participants(puuid);
     -- The teammate self-join matches a game's two teams against each other.
     CREATE INDEX IF NOT EXISTS idx_mp_game_team ON match_participants(game_id, team_id);
+    CREATE INDEX IF NOT EXISTS idx_match_participants_game_puuid
+      ON match_participants(game_id, puuid);
+    CREATE INDEX IF NOT EXISTS idx_match_participants_puuid_champion
+      ON match_participants(puuid, champion_id);
+    CREATE INDEX IF NOT EXISTS idx_games_game_creation_queue
+      ON games(game_creation DESC, queue_id);
     CREATE INDEX IF NOT EXISTS idx_mpa_augment
       ON match_participant_augments(augment_id, is_remake, win, champion_id);
   `);
@@ -334,7 +340,7 @@ export function createIndexes() {
 // versioning, so it could be missing any subset of the columns v1 adds — which
 // is why each step checks for its column rather than assuming. A database that
 // createTables just built is also version 0, and lands on the same no-op path.
-export const SCHEMA_VERSION = 24;
+export const SCHEMA_VERSION = 25;
 
 export function tableColumns(table: string): Set<string> {
   const rows = db.pragma(`table_info(${table})`) as { name: string }[];
@@ -1076,6 +1082,19 @@ export async function migrateToV24() {
   console.log("[db] v24 added participant economy, farm, objective, and vision columns");
 }
 
+export function migrateToV25(): void {
+  console.log("[db] migrateToV25 called");
+  db.exec(`
+    CREATE INDEX IF NOT EXISTS idx_match_participants_game_puuid
+      ON match_participants(game_id, puuid);
+    CREATE INDEX IF NOT EXISTS idx_match_participants_puuid_champion
+      ON match_participants(puuid, champion_id);
+    CREATE INDEX IF NOT EXISTS idx_games_game_creation_queue
+      ON games(game_creation DESC, queue_id);
+  `);
+  console.log("[db] migrateToV25 done");
+}
+
 export function migrateToV21(): void {
   // The rune columns on match_participants have always been in the schema
   // but were never written by the ingestion path. This migration re-derives
@@ -1286,6 +1305,7 @@ export async function runMigrations() {
   if (current < 20) await migrateToV20();
   if (current < 23) await migrateToV23();
   if (current < 24) await migrateToV24();
+  if (current < 25) migrateToV25();
   if (current < 21) migrateToV21();
   if (current < 22) migrateToV22();
 
