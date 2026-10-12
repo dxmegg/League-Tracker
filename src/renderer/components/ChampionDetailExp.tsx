@@ -4112,14 +4112,28 @@ function CombatTab({
             detail.avgPhysicalDamageDealt,
             detail.maxPhysicalDamageDealt,
             detail.totalPhysicalDamageDealt,
+            formatCombatNumber,
+            detail.avgPhysicalDamageDealtInWins,
+            detail.avgPhysicalDamageDealtInLosses,
           ],
           [
             "Magic",
             detail.avgMagicDamageDealt,
             detail.maxMagicDamageDealt,
             detail.totalMagicDamageDealt,
+            formatCombatNumber,
+            detail.avgMagicDamageDealtInWins,
+            detail.avgMagicDamageDealtInLosses,
           ],
-          ["True", dealtTrueAvg, dealtTrueBest, dealtTrueTotal],
+          [
+            "True",
+            dealtTrueAvg,
+            dealtTrueBest,
+            dealtTrueTotal,
+            formatCombatNumber,
+            undefined,
+            undefined,
+          ],
         ]}
       />
 
@@ -4944,6 +4958,8 @@ type CombatStatTableRow = [
   number | null | undefined,
   number | null | undefined,
   ((value: number | null | undefined) => string)?,
+  inWins?: number | null,
+  inLosses?: number | null,
 ];
 
 function CombatStatTable({ rows }: { rows: CombatStatTableRow[] }) {
@@ -4957,8 +4973,16 @@ function CombatStatTable({ rows }: { rows: CombatStatTableRow[] }) {
         <span>In losses</span>
         <span>vs your other champions</span>
       </div>
-      {rows.map(([label, avg, best, _total, formatter]) => {
+      {rows.map(([label, avg, best, _total, formatter, inWins, inLosses]) => {
         const format = formatter ?? formatCombatNumber;
+        const renderBreakdown = (value: number | null | undefined) =>
+          value == null ? (
+            <span className="text-lol-text/40" title="Not tracked yet">
+              —
+            </span>
+          ) : (
+            format(value)
+          );
         return (
           <div
             key={label}
@@ -4967,17 +4991,8 @@ function CombatStatTable({ rows }: { rows: CombatStatTableRow[] }) {
             <span>{label}</span>
             <span className="tabular-nums">{format(avg)}</span>
             <span className="tabular-nums">{format(best)}</span>
-            {/* TODO: requires per-result breakdown in ChampionCombatStats */}
-            <span className="tabular-nums text-lol-text">
-              <span className="text-lol-text/40" title="Not tracked yet">
-                —
-              </span>
-            </span>
-            <span className="tabular-nums text-lol-text">
-              <span className="text-lol-text/40" title="Not tracked yet">
-                —
-              </span>
-            </span>
+            <span className="tabular-nums text-lol-text">{renderBreakdown(inWins)}</span>
+            <span className="tabular-nums text-lol-text">{renderBreakdown(inLosses)}</span>
             <span className="tabular-nums text-lol-text">
               <span className="text-lol-text/40" title="Not tracked yet">
                 —
