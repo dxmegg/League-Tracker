@@ -33,13 +33,16 @@ export default function ItemDetail() {
       </Link>
       <div className="grid grid-cols-[12rem_1fr_18rem] gap-4">
         <div>
-          <div className="rounded-lg border-4 border-lol-border/80 p-1">
+          <div className="relative overflow-hidden rounded-lg border border-lol-border/60 border-l-[3px] border-l-[#C9A45C] bg-[radial-gradient(circle_at_top_right,rgba(201,164,92,0.10),transparent_55%),linear-gradient(180deg,rgba(255,255,255,0.03),transparent_45%)] p-1">
             <ItemIcon itemId={id} size={176} />
           </div>
           {item?.from && item.from.length > 0 && (
             <div className="mt-2 flex flex-wrap items-center gap-1">
               {item.from.map((component, index) => (
-                <span key={component} className="flex items-center gap-1">
+                <span
+                  key={component}
+                  className="flex items-center gap-1 rounded-md border-b border-white/[0.04] bg-white/[0.02] p-1 transition-colors duration-[120ms] hover:bg-white/[0.03]"
+                >
                   {index > 0 && <span className="text-xs font-bold text-lol-gold">+</span>}
                   <ItemIcon itemId={component} size={28} />
                 </span>
@@ -47,7 +50,7 @@ export default function ItemDetail() {
             </div>
           )}
         </div>
-        <HomeCard className="p-5">
+        <HomeCard className="border-l-[3px] border-l-[#C9A45C] bg-[radial-gradient(circle_at_top_right,rgba(201,164,92,0.10),transparent_55%),linear-gradient(180deg,rgba(255,255,255,0.03),transparent_45%)] p-5">
           <h1 className="text-2xl font-bold text-lol-text-bright">{getItemName(items, id)}</h1>
           <p className="mt-3 text-sm text-lol-text">
             Built in {data.picks} games across saved history.
@@ -57,12 +60,16 @@ export default function ItemDetail() {
           </p>
         </HomeCard>
         <div className="space-y-3">
-          <HomeCard className="p-4">
-            <span className="text-xs text-lol-text">PRICE</span>
+          <HomeCard className="relative border-t-[3px] border-t-[#C9A45C] bg-[radial-gradient(circle_at_top_right,rgba(201,164,92,0.08),transparent_70%)] p-4 transition-colors duration-[120ms] hover:bg-white/[0.02]">
+            <span className="text-xs text-lol-text before:mr-2 before:inline-block before:h-1.5 before:w-1.5 before:rounded-full before:bg-[#C9A45C]">
+              PRICE
+            </span>
             <div className="text-2xl font-bold text-lol-gold">{item?.price ?? "—"}</div>
           </HomeCard>
-          <HomeCard className="p-4">
-            <span className="text-xs text-lol-text">WIN RATE</span>
+          <HomeCard className="relative border-t-[3px] border-t-[#22C55E] bg-[radial-gradient(circle_at_top_right,rgba(34,197,94,0.08),transparent_70%)] p-4 transition-colors duration-[120ms] hover:bg-white/[0.02]">
+            <span className="text-xs text-lol-text before:mr-2 before:inline-block before:h-1.5 before:w-1.5 before:rounded-full before:bg-[#22C55E]">
+              WIN RATE
+            </span>
             <div className="text-2xl font-bold text-lol-text-bright">{winRate.toFixed(1)}%</div>
             <div className="text-sm">
               <span className="text-lol-win">{data.wins}W</span>{" "}
@@ -70,8 +77,10 @@ export default function ItemDetail() {
             </div>
             <WinRateBar wins={data.wins} total={data.picks} />
           </HomeCard>
-          <HomeCard className="p-4">
-            <span className="text-xs text-lol-text">BUILD RATE</span>
+          <HomeCard className="relative border-t-[3px] border-t-[#3B82F6] bg-[radial-gradient(circle_at_top_right,rgba(59,130,246,0.08),transparent_70%)] p-4 transition-colors duration-[120ms] hover:bg-white/[0.02]">
+            <span className="text-xs text-lol-text before:mr-2 before:inline-block before:h-1.5 before:w-1.5 before:rounded-full before:bg-[#3B82F6]">
+              BUILD RATE
+            </span>
             <div className="text-2xl font-bold text-lol-text-bright">{buildRate.toFixed(1)}%</div>
             <div className="text-sm text-lol-text">
               {data.picks} of {data.totalGames} games
@@ -79,7 +88,9 @@ export default function ItemDetail() {
           </HomeCard>
         </div>
       </div>
-      <h2 className="text-sm font-semibold uppercase text-lol-text-bright">Champions</h2>
+      <h2 className="relative flex items-center gap-3 pb-2 text-sm font-semibold uppercase text-lol-text-bright after:absolute after:bottom-0 after:left-0 after:h-px after:w-2/5 after:bg-gradient-to-r after:from-[#E5483F]/50 after:to-transparent before:h-2 before:w-2 before:rotate-45 before:bg-[#E5483F]">
+        Champions
+      </h2>
       <HomeCard>
         {data.champions.map((row) => (
           <div key={row.champion_id}>
@@ -90,9 +101,13 @@ export default function ItemDetail() {
                   current === row.champion_id ? null : row.champion_id,
                 )
               }
-              className="flex min-h-12 w-full items-center gap-3 border-b border-lol-border/40 px-4 py-2 text-left transition-colors hover:bg-white/[0.03]"
+              className="group flex min-h-12 w-full items-center gap-3 border-b border-white/[0.04] px-4 py-2 text-left transition-colors duration-[120ms] hover:bg-white/[0.03]"
             >
-              <ChampionIcon championId={row.champion_id} size={30} />
+              <ChampionIcon
+                championId={row.champion_id}
+                size={30}
+                className="rounded-md border-l-2 border-l-[#A855F7] shadow-[0_0_10px_rgba(168,85,247,0.12)]"
+              />
               <span className="min-w-0 flex-1 text-sm text-lol-text-bright">
                 {getChampionName(champions, row.champion_id)}
               </span>
@@ -104,12 +119,12 @@ export default function ItemDetail() {
               </div>
             </button>
             {expandedChampion === row.champion_id && (
-              <div className="border-b border-lol-border/40 bg-lol-dark/30 px-6 py-2">
+              <div className="border-b border-white/[0.04] bg-lol-dark/30 px-6 py-2">
                 {(row.matches ?? []).length > 0 ? (
                   row.matches.map((match) => (
                     <div
                       key={match.game_id}
-                      className="flex items-center gap-3 border-b border-lol-border/30 py-2 text-xs text-lol-text last:border-0"
+                      className="flex items-center gap-3 border-b border-white/[0.04] py-2 text-xs text-lol-text transition-colors duration-[120ms] hover:bg-white/[0.02] last:border-0"
                     >
                       <span className={match.win ? "text-lol-win" : "text-lol-loss"}>
                         {match.win ? "WIN" : "LOSS"}
