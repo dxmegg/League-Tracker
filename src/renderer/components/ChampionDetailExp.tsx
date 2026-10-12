@@ -1713,7 +1713,7 @@ function OverviewTab({
         <RatePanel
           title="Top items"
           className={BREAKDOWN_PANEL_CLASS}
-          hint="Items you build most often, with the most common build slot."
+          hint="Items you build most often, with the most common build position."
           sort={itemSort}
           options={[
             ["count", "Most built"],
@@ -1735,11 +1735,10 @@ function OverviewTab({
               count={`${item.picks}x`}
               baseline={isSummary ? undefined : baseline}
               sampleSize={item.picks}
+              rowClassName="border-b border-white/[0.04] py-[15px]"
               secondary={
-                !isSummary
-                  ? item.avgBuyTime != null
-                    ? `avg buy ${formatBuyTime(item.avgBuyTime)} · slot ${item.commonPurchaseSlot ?? index + 1}`
-                    : `slot ${item.commonPurchaseSlot ?? index + 1}`
+                !isSummary && item.avgBuyTime != null
+                  ? `avg buy ${formatBuyTime(item.avgBuyTime)}`
                   : undefined
               }
             />
@@ -5125,7 +5124,7 @@ function RoleRow({
         {rate.toFixed(1)}%
       </span>
       <span
-        className={`whitespace-nowrap rounded px-1.5 py-0.5 text-right text-xs font-semibold ${
+        className={`inline-flex items-center gap-0.5 whitespace-nowrap rounded px-1.5 py-0.5 text-right text-xs font-semibold ${
           delta == null
             ? "bg-lol-card/60 text-lol-text"
             : delta >= 0
@@ -5133,7 +5132,15 @@ function RoleRow({
               : "bg-[rgba(229,72,63,0.12)] text-[#E5483F]"
         }`}
       >
-        {delta == null ? "—" : `${delta >= 0 ? "▲ +" : "▼ "}${delta.toFixed(1)}`}
+        {delta == null ? (
+          "—"
+        ) : (
+          <>
+            <DeltaIndicator positive={delta >= 0} />
+            {delta >= 0 ? "+" : ""}
+            {delta.toFixed(1)}
+          </>
+        )}
       </span>
     </div>
   );
@@ -5181,6 +5188,14 @@ function formatBuyTime(seconds: number) {
   return `${String(minutes).padStart(2, "0")}:${String(totalSeconds % 60).padStart(2, "0")}`;
 }
 
+function DeltaIndicator({ positive }: { positive: boolean }) {
+  return (
+    <svg aria-hidden="true" className="h-2 w-2 shrink-0" viewBox="0 0 8 8" fill="currentColor">
+      <polygon points={positive ? "0,8 4,0 8,8" : "0,0 4,8 8,0"} />
+    </svg>
+  );
+}
+
 function RateRow({
   icon,
   iconAccent,
@@ -5192,6 +5207,7 @@ function RateRow({
   baseline,
   sampleSize,
   secondary,
+  rowClassName,
 }: {
   icon: ReactNode;
   iconAccent?: string;
@@ -5203,6 +5219,7 @@ function RateRow({
   baseline?: number | null;
   sampleSize?: number;
   secondary?: string;
+  rowClassName?: string;
 }) {
   const rate = total > 0 ? (wins / total) * 100 : 0;
   const delta = baseline == null ? null : rate - baseline;
@@ -5214,7 +5231,9 @@ function RateRow({
         : "text-lol-text";
   const sparse = sampleSize != null && sampleSize < 3;
   return (
-    <div className="flex min-w-0 items-center gap-2 rounded-lg border-t border-transparent px-3 py-3.5 transition-colors duration-[120ms] hover:border-white/[0.06] hover:bg-white/[0.03]">
+    <div
+      className={`flex min-w-0 items-center gap-2 rounded-lg border-t border-transparent px-3 py-3.5 transition-colors duration-[120ms] hover:border-white/[0.06] hover:bg-white/[0.03] ${rowClassName ?? ""}`}
+    >
       {iconAccent ? (
         <span
           className="flex shrink-0 items-center justify-center overflow-hidden rounded-md border"
@@ -5249,13 +5268,14 @@ function RateRow({
         {rate.toFixed(1)}%
         {delta != null && (
           <span
-            className={`ml-1 rounded px-1 py-0.5 text-xs font-semibold ${
+            className={`ml-1 inline-flex items-center gap-0.5 rounded px-1 py-0.5 text-xs font-semibold ${
               delta >= 0
                 ? "bg-[rgba(34,197,94,0.12)] text-[#22C55E]"
                 : "bg-[rgba(229,72,63,0.12)] text-[#E5483F]"
             }`}
           >
-            {delta >= 0 ? "▲ +" : "▼ "}
+            <DeltaIndicator positive={delta >= 0} />
+            {delta >= 0 ? "+" : ""}
             {delta.toFixed(1)}
           </span>
         )}
