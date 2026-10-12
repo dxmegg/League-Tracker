@@ -1770,35 +1770,48 @@ function VisionTab({
 
   return (
     <div className="grid grid-cols-1 gap-5 xl:grid-cols-2">
-      <InsightsPanel
-        insights={[
-          {
-            kind: detail.avgVisionScore >= 1 ? "good" : "info",
-            text: `${detail.avgVisionScore.toFixed(1)} average vision score over ${detail.games.toLocaleString()} games.`,
-          },
-        ]}
-      />
-      <div className="grid grid-cols-2 gap-3 xl:col-span-2 xl:grid-cols-4">
-        <CombatTile
-          label="Vision score"
-          value={detail.avgVisionScore}
-          subtitle={`best ${formatCombatNumber(detail.maxVisionScore)}`}
+      <div className="xl:col-span-2">
+        <IntroBox legend="Badges show where a number comes from: Match-V5 = Riot match data · Timeline = minute-by-minute data · Derived = calculated by the app · LCU = game client.">
+          Wards, vision score and pings: how you scout, deny vision and communicate.
+        </IntroBox>
+      </div>
+      <div className="xl:col-span-2">
+        <SectionHeading title="Key metrics" />
+        <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
+          <CombatTile
+            label="Vision score"
+            value={detail.avgVisionScore}
+            subtitle={`best ${formatCombatNumber(detail.maxVisionScore)}`}
+          />
+          <CombatTile
+            label="Wards placed"
+            value={detail.avgWardsPlaced}
+            subtitle={`best ${formatCombatNumber(detail.maxWardsPlaced)}`}
+          />
+          <CombatTile
+            label="Wards killed"
+            value={detail.avgWardsKilled}
+            subtitle={`best ${formatCombatNumber(detail.maxWardsKilled)}`}
+          />
+          <CombatTile
+            label="Control ward share"
+            value={wardShareTotal > 0 ? (detail.avgVisionWardsBought / wardShareTotal) * 100 : null}
+            subtitle="of purchased wards"
+          />
+        </div>
+      </div>
+      <div className="xl:col-span-2">
+        <InsightsPanel
+          insights={[
+            {
+              kind: detail.avgVisionScore >= 1 ? "good" : "info",
+              text: `${detail.avgVisionScore.toFixed(1)} average vision score over ${detail.games.toLocaleString()} games.`,
+            },
+          ]}
         />
-        <CombatTile
-          label="Wards placed"
-          value={detail.avgWardsPlaced}
-          subtitle={`best ${formatCombatNumber(detail.maxWardsPlaced)}`}
-        />
-        <CombatTile
-          label="Wards killed"
-          value={detail.avgWardsKilled}
-          subtitle={`best ${formatCombatNumber(detail.maxWardsKilled)}`}
-        />
-        <CombatTile
-          label="Control ward share"
-          value={wardShareTotal > 0 ? (detail.avgVisionWardsBought / wardShareTotal) * 100 : null}
-          subtitle="of purchased wards"
-        />
+      </div>
+      <div className="xl:col-span-2">
+        <SectionHeading title="Detailed statistics" />
       </div>
       <Panel className="xl:col-span-2">
         <SectionHeading title="Vision score" source="m" />
