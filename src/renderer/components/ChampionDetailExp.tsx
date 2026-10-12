@@ -3162,9 +3162,48 @@ function SynergiesTab({
 
   const sortedAllies = sortRows(allies ?? [], allySort);
   const sortedTeammates = sortRows(teammates ?? [], teammateSort);
+  const qualifiedAllies = (allies ?? []).filter((row) => row.games >= 2);
+  const bestAlly = qualifiedAllies
+    .slice()
+    .sort((a, b) => b.wins / b.games - a.wins / a.games || b.games - a.games)[0];
+  const teammateRows = teammates ?? [];
+  const totalTeammateGames = teammateRows.reduce((total, row) => total + row.games, 0);
+  const qualifiedTeammates = teammateRows.filter((row) => row.games >= 2);
+  const duoGames = qualifiedTeammates.reduce((total, row) => total + row.games, 0);
+  const duoWins = qualifiedTeammates.reduce((total, row) => total + row.wins, 0);
+  const synergyInsights: Insight[] = [];
+  if (bestAlly) {
+    synergyInsights.push({
+      kind: "good",
+      text: `Best ally: ${getChampionName(champData, bestAlly.championId)} at ${formatPercent(bestAlly.wins, bestAlly.games)}.`,
+    });
+  }
+  if (teammateRows.length > 0 && totalTeammateGames > 0) {
+    synergyInsights.push({
+      kind: "info",
+      text: `Observed ${teammateRows.length} duo partners across ${totalTeammateGames} games.`,
+    });
+  }
+  if (duoGames > 0) {
+    const duoWinRate = duoWins / duoGames;
+    if (duoWinRate >= 0.55 || duoWinRate <= 0.45) {
+      synergyInsights.push({
+        kind: duoWinRate >= 0.55 ? "good" : "warn",
+        text: `Duo pattern is ${duoWinRate >= 0.55 ? "favorable" : "unfavorable"} at ${formatPercent(duoWins, duoGames)} across ${duoGames} games.`,
+      });
+    }
+  }
 
   return (
     <div className="grid grid-cols-1 gap-5 xl:grid-cols-2">
+      <div className="xl:col-span-2">
+        <IntroBox legend="Badges show where a number comes from: Match-V5 = Riot match data · Timeline = minute-by-minute data · Derived = calculated by the app · LCU = game client.">
+          Which teammates and team types work best with this champion.
+        </IntroBox>
+      </div>
+      <div className="xl:col-span-2">
+        <SectionHeading title="Key metrics" />
+      </div>
       <Panel>
         <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
           <SectionHeading title="Best allies" />
@@ -3227,6 +3266,10 @@ function SynergiesTab({
         )}
       </Panel>
 
+      {synergyInsights.length > 0 && <InsightsPanel insights={synergyInsights} />}
+      <div className="xl:col-span-2">
+        <SectionHeading title="Detailed statistics" />
+      </div>
       <Panel>
         <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
           <SectionHeading title="Best duo partners" />
