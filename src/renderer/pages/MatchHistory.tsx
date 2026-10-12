@@ -762,8 +762,9 @@ export default function MatchHistory({
         ))}
 
       <div className="flex flex-wrap items-center justify-between">
-        <h1 className="flex items-center gap-2 text-xl font-bold text-lol-text-bright">
+        <h1 className="relative flex items-center gap-2 text-xl font-bold text-lol-text-bright after:absolute after:-bottom-2 after:left-0 after:h-px after:w-32 after:bg-gradient-to-r after:from-lol-crimson/60 after:to-transparent after:content-['']">
           <NoxianHerald className="shrink-0 text-lol-gold" />
+          <span className="inline-block h-1.5 w-1.5 rotate-45 bg-lol-crimson" aria-hidden="true" />
           <span>
             {scope === "mayhem"
               ? "ARAM MAYHEM MATCHES"
@@ -1354,10 +1355,10 @@ export function GameRow({
       <button
         onClick={expandable ? onToggle : undefined}
         onContextMenu={expandable ? onContextMenu : undefined}
-        className={`group relative grid min-w-0 w-full items-center gap-2 overflow-hidden px-5 py-4 rounded-2xl text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-lol-gold/60 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--theme-bg-deep)] ${
+        className={`group relative grid min-w-0 w-full items-center gap-2 overflow-hidden border-b border-white/[0.04] px-5 py-4 rounded-2xl text-left transition-colors duration-[120ms] hover:bg-white/[0.02] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-lol-gold/60 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--theme-bg-deep)] ${
           isWin
-            ? "border border-lol-win/35 hover:border-lol-win/60"
-            : "border border-lol-loss/32 hover:border-lol-loss/60"
+            ? "border-l-[3px] border-l-lol-win hover:border-l-lol-win/80"
+            : "border-l-[3px] border-l-lol-loss hover:border-l-lol-loss/80"
         }`}
         style={{
           background: rowBackground,
@@ -1447,7 +1448,19 @@ export function GameRow({
         </div>
         {match.score != null ? (
           <div className="flex flex-col items-center gap-0.5 text-center">
-            <span className="text-sm font-semibold text-amber-400">{match.score.toFixed(1)}</span>
+            <span
+              className={`rounded px-1.5 py-0.5 text-sm font-semibold ${
+                match.score >= 8
+                  ? "bg-lol-win/15 text-lol-win"
+                  : match.score >= 7
+                    ? "bg-lol-gold/15 text-lol-gold"
+                    : match.score >= 5
+                      ? "bg-white/[0.06] text-lol-text-bright"
+                      : "bg-lol-loss/15 text-lol-loss"
+              }`}
+            >
+              {match.score.toFixed(1)}
+            </span>
             {match.score_badge === "MVP" && (
               <span className="rounded bg-amber-400/20 px-1 text-[9px] font-bold leading-[15px] text-amber-300">
                 MVP
@@ -1521,7 +1534,13 @@ export function GameRow({
             )}
           </div>
           <span className="text-lol-text/40 text-xs select-none">+</span>
-          <div className="grid shrink-0 grid-cols-3 gap-0.5">
+          <div
+            className={`grid shrink-0 grid-cols-3 gap-0.5 rounded-md border p-1 shadow-[0_0_10px_rgba(63,214,122,0.10)] ${
+              isWin
+                ? "border-lol-win/35"
+                : "border-lol-loss/35 shadow-[0_0_10px_rgba(239,106,106,0.10)]"
+            }`}
+          >
             {[match.item0, match.item1, match.item2, match.item3, match.item4, match.item5].map(
               (itemId, i) => (
                 <ItemIcon key={i} itemId={itemId ?? 0} size={22} patch={match.game_version} />

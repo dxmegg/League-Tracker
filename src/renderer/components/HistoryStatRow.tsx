@@ -56,7 +56,7 @@ export function HistoryStatRow(props: HistoryStatRowProps) {
 
   return (
     <div className="mb-6 grid grid-cols-1 gap-5 lg:grid-cols-2 2xl:grid-cols-[1.15fr_0.9fr_1.35fr_1.2fr]">
-      <div className="flex flex-col rounded-2xl border border-lol-border bg-[linear-gradient(180deg,var(--theme-card-hover),var(--theme-card))] p-5">
+      <div className="flex flex-col rounded-2xl border border-lol-border border-t-[3px] border-t-lol-crimson bg-[radial-gradient(circle_at_top_right,rgba(229,72,63,0.08),transparent_55%)] p-5 transition-colors duration-[120ms] hover:bg-white/[0.02]">
         <div className="flex items-center gap-3.5">
           <SummonerIcon
             iconId={props.profileIconId}
@@ -98,8 +98,11 @@ export function HistoryStatRow(props: HistoryStatRowProps) {
         </div>
       </div>
 
-      <div className="flex flex-col rounded-2xl border border-lol-border bg-[linear-gradient(180deg,var(--theme-card-hover),var(--theme-card))] p-5">
-        <h2 className="mb-4 font-display text-[16px] font-semibold text-lol-text-bright">Score</h2>
+      <div className="flex flex-col rounded-2xl border border-lol-border border-t-[3px] border-t-lol-gold bg-[radial-gradient(circle_at_top_right,rgba(201,164,92,0.08),transparent_55%)] p-5 transition-colors duration-[120ms] hover:bg-white/[0.02]">
+        <h2 className="mb-4 font-display text-[16px] font-semibold text-lol-text-bright">
+          <i className="mr-2 inline-block h-1.5 w-1.5 rounded-full bg-lol-gold" />
+          Score
+        </h2>
         <div className="flex flex-wrap items-baseline gap-5">
           <div>
             <span className="block text-[13px] text-lol-text">Average</span>
@@ -138,8 +141,9 @@ export function HistoryStatRow(props: HistoryStatRowProps) {
         </div>
       </div>
 
-      <div className="flex flex-col rounded-2xl border border-lol-border bg-[linear-gradient(180deg,var(--theme-card-hover),var(--theme-card))] p-5">
+      <div className="flex flex-col rounded-2xl border border-lol-border border-t-[3px] border-t-lol-violet bg-[radial-gradient(circle_at_top_right,rgba(169,139,255,0.08),transparent_55%)] p-5 transition-colors duration-[120ms] hover:bg-white/[0.02]">
         <h2 className="mb-4 font-display text-[16px] font-semibold text-lol-text-bright">
+          <i className="mr-2 inline-block h-1.5 w-1.5 rounded-full bg-lol-violet" />
           Average K/D/A
         </h2>
         <div className="font-display text-[36px] font-bold leading-none">
@@ -216,9 +220,10 @@ export function HistoryStatRow(props: HistoryStatRowProps) {
         </div>
       </div>
 
-      <div className="flex flex-col rounded-2xl border border-lol-border bg-[linear-gradient(180deg,var(--theme-card-hover),var(--theme-card))] p-5">
+      <div className="flex flex-col rounded-2xl border border-lol-border border-t-[3px] border-t-lol-assist bg-[radial-gradient(circle_at_top_right,rgba(77,184,255,0.08),transparent_55%)] p-5 transition-colors duration-[120ms] hover:bg-white/[0.02]">
         <div className="mb-4 flex items-baseline justify-between gap-3">
           <h2 className="font-display text-[16px] font-semibold text-lol-text-bright">
+            <i className="mr-2 inline-block h-1.5 w-1.5 rounded-full bg-lol-assist" />
             Multikills
           </h2>
           <b className="font-display text-[24px] font-bold text-lol-gold">

@@ -26,7 +26,8 @@ const STYLE = `
   border: 1px solid var(--theme-border);
   border-radius: 12px;
   box-shadow: inset 2px 0 0 var(--edge);
-  transition: background-color 60ms ease, box-shadow 60ms ease;
+  border-bottom: 1px solid rgba(255,255,255,0.04);
+  transition: background-color 120ms ease, box-shadow 120ms ease;
   --edge: var(--theme-win);
   container-type: inline-size;
   grid-template-columns: 76px minmax(170px, 1.1fr) 106px 58px 62px 172px 138px minmax(0, 1fr) 68px;
@@ -93,10 +94,10 @@ const STYLE = `
 .match-row .m-items .itg { display: grid; grid-template-columns: repeat(3, 22px); gap: 3px; }
 .match-row .m-multi { grid-area: multi; display: flex; flex-wrap: wrap; gap: 5px; min-width: 0; padding-left: 12px; }
 .match-row .pill { font-family: var(--theme-font-display); font-size: 11.5px; line-height: 1; font-weight: 600; padding: 5px 10px; border-radius: 9999px; border: 1px solid; }
-.match-row .pill.d { color: var(--theme-assist); border-color: rgba(77,184,255,0.5); background: rgba(77,184,255,0.10); }
-.match-row .pill.t { color: var(--theme-gold); border-color: rgba(230,188,99,0.55); background: rgba(230,188,99,0.10); }
-.match-row .pill.q { color: var(--theme-violet); border-color: rgba(169,139,255,0.55); background: rgba(169,139,255,0.10); }
-.match-row .pill.p { color: var(--theme-loss); border-color: rgba(240,86,110,0.6); background: rgba(240,86,110,0.12); }
+.match-row .pill.d { color: var(--theme-assist); border-color: rgba(77,184,255,0.5); background: rgba(77,184,255,0.10); box-shadow: 0 0 10px rgba(77,184,255,0.12); }
+.match-row .pill.t { color: var(--theme-gold); border-color: rgba(230,188,99,0.55); background: rgba(230,188,99,0.10); box-shadow: 0 0 10px rgba(230,188,99,0.12); }
+.match-row .pill.q { color: var(--theme-violet); border-color: rgba(169,139,255,0.55); background: rgba(169,139,255,0.10); box-shadow: 0 0 10px rgba(169,139,255,0.12); }
+.match-row .pill.p { color: var(--theme-loss); border-color: rgba(240,86,110,0.6); background: rgba(240,86,110,0.12); box-shadow: 0 0 10px rgba(240,86,110,0.14); }
 .match-row .m-time { grid-area: time; text-align: right; }
 .match-row .m-time b { display: block; font-family: var(--theme-font-display); font-size: 14px; font-weight: 600; }
 .match-row .m-time span { color: var(--theme-foreground-muted); font-size: 12.5px; }
@@ -220,10 +221,12 @@ export function MatchRowExperiment({
               <b
                 className={
                   match.score >= 8
-                    ? "rounded bg-[rgba(201,164,92,0.12)] px-1.5 py-0.5"
-                    : match.score >= 5
-                      ? "rounded bg-white/[0.06] px-1.5 py-0.5 text-lol-text-bright"
-                      : "rounded bg-[rgba(229,72,63,0.12)] px-1.5 py-0.5 text-lol-loss"
+                    ? "rounded bg-lol-win/15 px-1.5 py-0.5 text-lol-win"
+                    : match.score >= 7
+                      ? "rounded bg-lol-gold/15 px-1.5 py-0.5 text-lol-gold"
+                      : match.score >= 5
+                        ? "rounded bg-white/[0.06] px-1.5 py-0.5 text-lol-text-bright"
+                        : "rounded bg-lol-loss/15 px-1.5 py-0.5 text-lol-loss"
                 }
               >
                 {match.score.toFixed(1)}
@@ -288,7 +291,13 @@ export function MatchRowExperiment({
             )}
           </div>
           <span className="text-lol-text/40 text-xs select-none">+</span>
-          <div className="itg">
+          <div
+            className={`itg rounded-md border p-1 shadow-[0_0_10px_rgba(63,214,122,0.10)] ${
+              isWin
+                ? "border-lol-win/35"
+                : "border-lol-loss/35 shadow-[0_0_10px_rgba(239,106,106,0.10)]"
+            }`}
+          >
             {[match.item0, match.item1, match.item2, match.item3, match.item4, match.item5].map(
               (id, i) => (
                 <ItemIcon key={i} itemId={id ?? 0} size={22} patch={match.game_version} />
