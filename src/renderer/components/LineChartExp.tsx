@@ -1,3 +1,5 @@
+import { useId } from "react";
+
 export function LineChartExp({
   values,
   format,
@@ -31,6 +33,7 @@ export function LineChartExp({
   secondaryValues?: number[];
   hollowIndices?: number[];
 }) {
+  const gradientIdPrefix = useId().replace(/:/g, "-");
   const chartValues = series ? series.flatMap((item) => item.values) : values;
   const pointCount = series?.[0]?.values.length ?? values.length;
 
@@ -83,6 +86,34 @@ export function LineChartExp({
   return (
     <div>
       <svg className="svgc" viewBox={`0 0 ${W} ${H}`} role="img">
+        <defs>
+          {series ? (
+            series.map((item, index) => (
+              <linearGradient
+                key={item.label}
+                id={`${gradientIdPrefix}-line-gradient-${index}`}
+                x1="0"
+                y1="0"
+                x2="0"
+                y2="1"
+              >
+                <stop offset="0%" stopColor={item.color} stopOpacity="0.35" />
+                <stop offset="100%" stopColor={item.color} stopOpacity="0" />
+              </linearGradient>
+            ))
+          ) : (
+            <linearGradient
+              id={`${gradientIdPrefix}-line-gradient-primary`}
+              x1="0"
+              y1="0"
+              x2="0"
+              y2="1"
+            >
+              <stop offset="0%" stopColor={color} stopOpacity="0.35" />
+              <stop offset="100%" stopColor={color} stopOpacity="0" />
+            </linearGradient>
+          )}
+        </defs>
         <line x1={plotLeft} x2={plotRight} y1={H - P} y2={H - P} stroke="var(--theme-border)" />
         {yTicks?.map((tick) => (
           <g key={tick}>
@@ -133,18 +164,28 @@ export function LineChartExp({
           );
         })}
         {series ? (
-          series.map((item) => (
-            <polyline
-              key={item.label}
-              points={item.values.map((v, i) => `${x(i)},${y(v).toFixed(1)}`).join(" ")}
-              fill="none"
-              stroke={item.color}
-              strokeWidth="2.5"
-              strokeLinejoin="round"
-            />
-          ))
+          series.map((item, index) => {
+            const points = item.values.map((v, i) => `${x(i)},${y(v).toFixed(1)}`).join(" ");
+            const areaPath = `${points} L ${x(item.values.length - 1)},${H - P} L ${x(0)},${H - P} Z`;
+            return (
+              <g key={item.label}>
+                <path d={areaPath} fill={`url(#${gradientIdPrefix}-line-gradient-${index})`} />
+                <polyline
+                  points={points}
+                  fill="none"
+                  stroke={item.color}
+                  strokeWidth="2.5"
+                  strokeLinejoin="round"
+                />
+              </g>
+            );
+          })
         ) : (
           <>
+            <path
+              d={`${values.map((v, i) => `${x(i)},${y(v).toFixed(1)}`).join(" ")} L ${x(values.length - 1)},${H - P} L ${x(0)},${H - P} Z`}
+              fill={`url(#${gradientIdPrefix}-line-gradient-primary)`}
+            />
             <polyline
               points={values.map((v, i) => `${x(i)},${y(v).toFixed(1)}`).join(" ")}
               fill="none"

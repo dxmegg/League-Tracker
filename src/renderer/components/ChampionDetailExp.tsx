@@ -84,6 +84,8 @@ const TAB_ITEMS: TabStripItem[] = [
 
 type RateSort = "count" | "winRate";
 
+const CHART_PALETTE = ["#E5483F", "#C9A45C", "#22C55E", "#3B82F6", "#A855F7", "#94A3B8"] as const;
+
 type CombatMatch = MatchListItem & {
   physical_damage_dealt: number | null;
   magic_damage_dealt: number | null;
@@ -2659,7 +2661,7 @@ function MatchupsTab({
             series={[
               {
                 values: classRows.map(([, stats]) => (stats.wins / stats.games) * 100),
-                color: "var(--theme-crimson)",
+                color: CHART_PALETTE[0],
                 label: "Your win rate by class",
               },
             ]}
@@ -2975,12 +2977,12 @@ function TrendsTab({
           series={[
             {
               values: [72, 68, 55, 41, 63, 58],
-              color: "var(--theme-foreground-muted)",
+              color: CHART_PALETTE[5],
               label: "All time",
             },
             {
               values: [75, 66, 60, 48, 61, 62],
-              color: "var(--theme-crimson)",
+              color: CHART_PALETTE[0],
               label: "Last 30 days",
             },
           ]}
@@ -3001,7 +3003,10 @@ function TrendBars({ rows }: { rows: Array<{ label: string; games: number; wins:
               {row.games ? `${rate.toFixed(0)}%` : "—"}
             </span>
             <div className="flex h-24 w-full items-end rounded-sm bg-lol-border/30">
-              <div className="w-full rounded-sm bg-lol-win" style={{ height: `${rate}%` }} />
+              <div
+                className="w-full rounded-sm"
+                style={{ height: `${rate}%`, backgroundColor: CHART_PALETTE[2] }}
+              />
             </div>
             <span className="truncate text-[10px] text-lol-text">{row.label}</span>
           </div>
@@ -3694,10 +3699,10 @@ function AbilitiesTab({
         {/* Placeholder data; backend ability-cast distribution lands in a follow-up phase. */}
         <DonutChart
           segments={[
-            { label: "Q", value: 32, color: "var(--theme-assist)" },
-            { label: "W", value: 22, color: "var(--theme-win)" },
-            { label: "E", value: 38, color: "var(--theme-gold)" },
-            { label: "R", value: 8, color: "var(--theme-crimson)" },
+            { label: "Q", value: 32, color: CHART_PALETTE[3] },
+            { label: "W", value: 22, color: CHART_PALETTE[2] },
+            { label: "E", value: 38, color: CHART_PALETTE[1] },
+            { label: "R", value: 8, color: CHART_PALETTE[0] },
           ]}
         />
       </Panel>
@@ -4946,11 +4951,11 @@ function InsightsPanel({
   items?: Insight[];
   insights?: Insight[];
 }): ReactElement {
-  const borderColors: Record<Insight["kind"], string> = {
-    good: "var(--theme-win)",
-    warn: "var(--theme-gold)",
-    info: "var(--theme-assist)",
-    bad: "var(--theme-loss)",
+  const insightStyles: Record<Insight["kind"], { background: string; border: string }> = {
+    good: { background: "rgba(34,197,94,0.08)", border: "#22C55E" },
+    warn: { background: "rgba(201,164,92,0.08)", border: "#C9A45C" },
+    info: { background: "rgba(148,163,184,0.06)", border: "#94A3B8" },
+    bad: { background: "rgba(229,72,63,0.08)", border: "#E5483F" },
   };
 
   return (
@@ -4958,8 +4963,11 @@ function InsightsPanel({
       {(items ?? insights ?? []).map((insight, index) => (
         <div
           key={`${insight.kind}-${index}`}
-          className="rounded-r-lg bg-white/[0.02] px-3 py-2 text-xs text-lol-text-bright"
-          style={{ borderLeft: `3px solid ${borderColors[insight.kind]}` }}
+          className="rounded-r-lg px-3 py-2 text-xs text-lol-text-bright"
+          style={{
+            backgroundColor: insightStyles[insight.kind].background,
+            borderLeft: `3px solid ${insightStyles[insight.kind].border}`,
+          }}
         >
           {insight.text}
         </div>
