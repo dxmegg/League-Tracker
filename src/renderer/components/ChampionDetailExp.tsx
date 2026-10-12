@@ -2930,6 +2930,15 @@ function MatchupsTab({
     classStats.set(enemyClass, current);
   }
   const classRows = [...classStats.entries()].sort((a, b) => b[1].games - a[1].games).slice(0, 6);
+  const mostFaced = qualifiedMatchups
+    .slice()
+    .sort((a, b) => b.games - a.games || b.wins - a.wins)[0];
+  const totalMatchupGames = qualifiedMatchups.reduce((total, row) => total + row.games, 0);
+  const untracked = (
+    <span className="text-lol-text/40" title="Not tracked yet">
+      —
+    </span>
+  );
 
   return [
     <div className="xl:col-span-2" key="matchup-intro">
@@ -2939,6 +2948,113 @@ function MatchupsTab({
     </div>,
     <div className="xl:col-span-2" key="matchup-key-metrics">
       <SectionHeading title="Key metrics" />
+      <div className="mt-3 grid grid-cols-2 gap-3 md:grid-cols-4">
+        <Stat
+          label="Best matchup"
+          value={bestMatchup ? getChampionName(champData, bestMatchup.championId) : "—"}
+          sub={
+            bestMatchup ? formatPercent(bestMatchup.wins, bestMatchup.games) : "No matchup marker"
+          }
+          accent="#22C55E"
+          large
+          miniViz={
+            bestMatchup ? (
+              <span
+                aria-hidden="true"
+                className="mt-1 block h-2 w-[72px] overflow-hidden rounded-full bg-lol-border/60"
+              >
+                <span
+                  className="block h-full rounded-full bg-lol-win"
+                  style={{
+                    width: `${Math.min(100, (bestMatchup.wins / bestMatchup.games) * 100)}%`,
+                  }}
+                />
+              </span>
+            ) : undefined
+          }
+        />
+        <Stat
+          label="Worst matchup"
+          value={worstMatchup ? getChampionName(champData, worstMatchup.championId) : "—"}
+          sub={
+            worstMatchup
+              ? formatPercent(worstMatchup.wins, worstMatchup.games)
+              : "No matchup marker"
+          }
+          accent="#E5483F"
+          large
+          miniViz={
+            worstMatchup ? (
+              <span
+                aria-hidden="true"
+                className="mt-1 block h-2 w-[72px] overflow-hidden rounded-full bg-lol-border/60"
+              >
+                <span
+                  className="block h-full rounded-full bg-lol-loss"
+                  style={{
+                    width: `${Math.min(100, (worstMatchup.wins / worstMatchup.games) * 100)}%`,
+                  }}
+                />
+              </span>
+            ) : undefined
+          }
+        />
+        <Stat
+          label="Most faced"
+          value={mostFaced ? getChampionName(champData, mostFaced.championId) : "—"}
+          sub={mostFaced ? `${mostFaced.games} games` : "No matchup data"}
+          accent="#C9A45C"
+          large
+          miniViz={
+            mostFaced && totalMatchupGames > 0 ? (
+              <span
+                aria-hidden="true"
+                className="mt-1 block h-2 w-[72px] overflow-hidden rounded-full bg-lol-border/60"
+              >
+                <span
+                  className="block h-full rounded-full bg-lol-gold"
+                  style={{
+                    width: `${Math.min(100, (mostFaced.games / totalMatchupGames) * 100)}%`,
+                  }}
+                />
+              </span>
+            ) : undefined
+          }
+        />
+        <Stat
+          label="Opponents"
+          value={formatPlain(qualifiedMatchups.length, 0)}
+          sub="Qualified opponents"
+          accent="#3B82F6"
+          large
+          miniViz={
+            qualifiedMatchups.length > 0 ? (
+              <svg aria-hidden="true" className="h-11 w-11 -rotate-90" viewBox="0 0 44 44">
+                <circle
+                  cx="22"
+                  cy="22"
+                  r="17"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="4"
+                  className="text-lol-border/60"
+                />
+                <circle
+                  cx="22"
+                  cy="22"
+                  r="17"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="4"
+                  strokeDasharray="106.8"
+                  strokeDashoffset="0"
+                  className="text-[#3B82F6]"
+                />
+              </svg>
+            ) : undefined
+          }
+        />
+      </div>
     </div>,
     <Panel className={`xl:col-span-2 ${TAB_PANEL_CLASSES.crimson}`} key="matchup-tier-list">
       <SectionHeading title="Matchup tier list" source="d" />
@@ -2948,11 +3064,11 @@ function MatchupsTab({
       {tierRows.length === 0 ? (
         <NoData text="Not enough games for a tier list" />
       ) : (
-        <div className="flex flex-col divide-y divide-white/[0.04]">
+        <div className="flex flex-col">
           {tierRows.map((tier) => (
             <div
               key={tier.label}
-              className="flex items-center gap-3 border-l-[3px] px-2 py-2 transition-colors duration-[120ms] hover:bg-white/[0.025]"
+              className="flex items-center gap-3 border-b border-white/[0.04] border-l-[3px] px-2 py-2 transition-colors duration-[120ms] hover:bg-white/[0.025] last:border-b-0"
               style={{ borderLeftColor: tier.color }}
             >
               <span
@@ -2961,7 +3077,7 @@ function MatchupsTab({
               >
                 {tier.label}
               </span>
-              <div className="flex flex-wrap gap-2">
+              <div className="flex min-w-0 flex-1 flex-wrap gap-2">
                 {tier.entries.map((row) => {
                   const winRate = row.wins / row.games;
                   const name = getChampionName(champData, row.championId);
@@ -2969,12 +3085,20 @@ function MatchupsTab({
                     <span
                       key={row.championId}
                       title={`${name} · ${row.games} games · ${(winRate * 100).toFixed(0)}% WR`}
+                      className="rounded-md border border-transparent transition-shadow duration-[120ms]"
+                      style={{
+                        borderColor: `${tier.color}66`,
+                        boxShadow: `0 0 8px ${tier.color}33`,
+                      }}
                     >
                       <ChampionIcon championId={row.championId} size={28} className="rounded-md" />
                     </span>
                   );
                 })}
               </div>
+              <span className="ml-auto shrink-0 text-right tabular-nums text-xs text-lol-text/70">
+                {tier.entries.length}
+              </span>
             </div>
           ))}
         </div>
@@ -3013,29 +3137,22 @@ function MatchupsTab({
         <NoData />
       ) : (
         <div className="flex flex-col overflow-x-auto text-xs">
-          <div className="grid min-w-[760px] grid-cols-[minmax(10rem,1fr)_auto_auto_minmax(7rem,auto)_minmax(8rem,auto)_auto_auto_auto] gap-3 border-b border-lol-border/50 pb-2 font-semibold text-lol-text">
+          <div className="grid min-w-[900px] grid-cols-[minmax(10rem,1fr)_auto_auto_minmax(7rem,auto)_minmax(8rem,auto)_auto_auto] gap-3 border-b border-lol-border/50 pb-2 font-semibold text-lol-text">
             <span>Opponent</span>
             <span className="text-right">Games</span>
-            <span className="text-right">W-L</span>
+            <span className="text-right">W / L</span>
             <span className="text-right">Win rate</span>
-            <span className="text-right">K/D/A</span>
             <span className="text-right">KDA</span>
-            <span className="text-right">Avg CS</span>
-            <span className="text-right">Avg gold</span>
+            <span className="text-right">CS diff @15</span>
+            <span className="text-right">Gold diff @15</span>
           </div>
           {sortedMatchups.map((row) => {
-            const games = Math.max(1, row.games);
             const kda = (row.kills + row.assists) / Math.max(1, row.deaths);
+            const winLossDelta = row.wins - (row.games - row.wins);
             return (
               <div
                 key={row.championId}
-                className={`grid min-w-[760px] grid-cols-[minmax(10rem,1fr)_auto_auto_minmax(7rem,auto)_minmax(8rem,auto)_auto_auto_auto] items-center gap-3 border-b border-white/[0.04] py-2 text-lol-text-bright transition-colors duration-[120ms] hover:bg-white/[0.025] last:border-b-0 ${
-                  row.championId === bestMatchup?.championId
-                    ? "bg-[rgba(34,197,94,0.06)]"
-                    : row.championId === worstMatchup?.championId
-                      ? "bg-[rgba(229,72,63,0.06)]"
-                      : ""
-                }`}
+                className="grid min-w-[900px] grid-cols-[minmax(10rem,1fr)_auto_auto_minmax(7rem,auto)_minmax(8rem,auto)_auto_auto] items-center gap-3 border-b border-white/[0.04] py-2 text-lol-text-bright transition-colors duration-[120ms] hover:bg-white/[0.025] last:border-b-0"
               >
                 <span className="flex min-w-0 items-center gap-2">
                   <ChampionIcon championId={row.championId} size={24} className="rounded-md" />
@@ -3043,8 +3160,19 @@ function MatchupsTab({
                 </span>
                 <span className="text-right tabular-nums">{row.games}</span>
                 <span className="text-right tabular-nums">
-                  <span className="text-lol-win">{row.wins}W</span>-
+                  <span className="text-lol-win">{row.wins}W</span> /{" "}
                   <span className="text-lol-loss">{row.games - row.wins}L</span>
+                  <span
+                    className={`ml-2 inline-flex items-center gap-0.5 rounded px-1.5 py-0.5 text-[10px] font-semibold ${
+                      winLossDelta >= 0
+                        ? "bg-[rgba(34,197,94,0.12)] text-[#22C55E]"
+                        : "bg-[rgba(229,72,63,0.12)] text-[#E5483F]"
+                    }`}
+                  >
+                    <DeltaIndicator positive={winLossDelta >= 0} />
+                    {winLossDelta >= 0 ? "+" : ""}
+                    {winLossDelta}
+                  </span>
                 </span>
                 <span className="flex min-w-[7rem] items-center justify-end gap-2">
                   <WinRateBar wins={row.wins} total={row.games} showPercent={false} />
@@ -3052,14 +3180,32 @@ function MatchupsTab({
                     {formatPercent(row.wins, row.games)}
                   </span>
                 </span>
-                <span className="whitespace-nowrap text-right tabular-nums">
-                  {(row.kills / games).toFixed(1)} / {(row.deaths / games).toFixed(1)} /{" "}
-                  {(row.assists / games).toFixed(1)}
-                </span>
                 <span className="text-right tabular-nums">{kda.toFixed(2)}</span>
-                <span className="text-right tabular-nums">{(row.cs / games).toFixed(0)}</span>
-                <span className="text-right tabular-nums">
-                  {formatPlain(row.goldEarned / games, 2)}
+                <span
+                  className={`text-right tabular-nums ${
+                    row.avgCsDiffAt15 == null
+                      ? ""
+                      : row.avgCsDiffAt15 > 0
+                        ? "text-lol-win"
+                        : row.avgCsDiffAt15 < 0
+                          ? "text-lol-loss"
+                          : ""
+                  }`}
+                >
+                  {row.avgCsDiffAt15 == null ? untracked : formatPlain(row.avgCsDiffAt15, 1)}
+                </span>
+                <span
+                  className={`text-right tabular-nums ${
+                    row.avgGoldDiffAt15 == null
+                      ? ""
+                      : row.avgGoldDiffAt15 > 0
+                        ? "text-lol-win"
+                        : row.avgGoldDiffAt15 < 0
+                          ? "text-lol-loss"
+                          : ""
+                  }`}
+                >
+                  {row.avgGoldDiffAt15 == null ? untracked : formatPlain(row.avgGoldDiffAt15, 0)}
                 </span>
               </div>
             );
@@ -6426,6 +6572,7 @@ function Stat({
   miniViz,
   accent: accentOverride,
   glow = false,
+  large = false,
 }: {
   label: string;
   value: string;
@@ -6436,6 +6583,7 @@ function Stat({
   miniViz?: ReactNode;
   accent?: string;
   glow?: boolean;
+  large?: boolean;
 }) {
   const statIndex = Math.max(
     0,
@@ -6444,7 +6592,9 @@ function Stat({
   const accent = accentOverride ?? CHART_PALETTE[statIndex % CHART_PALETTE.length];
   return (
     <div
-      className="relative rounded-xl border border-lol-border border-t-[3px] bg-black/10 px-[18px] py-4"
+      className={`relative rounded-xl border border-lol-border border-t-[3px] bg-black/10 ${
+        large ? "px-[22px] py-5" : "px-[18px] py-4"
+      }`}
       style={{
         borderTopColor: accent,
         backgroundImage: `radial-gradient(circle at top right, ${accent}1a, transparent 65%)`,
@@ -6462,7 +6612,9 @@ function Stat({
         {label}
       </span>
       <b
-        className={`my-0.5 block font-display text-[26px] font-bold leading-tight text-lol-text-bright ${valueClass}`}
+        className={`my-0.5 block font-display font-bold leading-tight text-lol-text-bright ${
+          large ? "text-[28px]" : "text-[26px]"
+        } ${valueClass}`}
       >
         {value}
       </b>

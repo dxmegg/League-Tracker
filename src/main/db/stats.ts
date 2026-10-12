@@ -656,7 +656,82 @@ export function getChampionMatchupList(
 
   const rows = db
     .prepare(`
-      WITH matchup_rows AS (
+      WITH owner_rows AS (
+        SELECT owner.game_id,
+               owner.participant_id AS ownerParticipantId,
+               owner.team_id AS ownerTeamId,
+               owner.team_position AS ownerPosition,
+               owner.win,
+               owner.kills,
+               owner.deaths,
+               owner.assists,
+               owner.cs,
+               owner.gold_earned
+        FROM match_participants owner
+        JOIN games g ON g.game_id = owner.game_id
+        WHERE ${where.join(" AND ")}
+      ),
+      lane_opponents AS (
+        SELECT owner.game_id,
+               owner.ownerParticipantId,
+               (
+                 SELECT lane_enemy.participant_id
+                 FROM match_participants lane_enemy
+                 WHERE lane_enemy.game_id = owner.game_id
+                   AND lane_enemy.team_id != owner.ownerTeamId
+                   AND lane_enemy.team_position = owner.ownerPosition
+                   AND owner.ownerPosition IS NOT NULL
+                   AND owner.ownerPosition != ''
+                 ORDER BY lane_enemy.participant_id
+                 LIMIT 1
+               ) AS enemyParticipantId
+        FROM owner_rows owner
+      ),
+      timeline_diffs AS (
+        SELECT lane.game_id,
+               (
+                 SELECT lane_enemy.champion_id
+                 FROM match_participants lane_enemy
+                 WHERE lane_enemy.game_id = lane.game_id
+                   AND lane_enemy.participant_id = lane.enemyParticipantId
+               ) AS enemyChampionId,
+               (
+                 SELECT owner_frame.cs
+                 FROM match_timeline_frames owner_frame
+                 WHERE owner_frame.game_id = lane.game_id
+                   AND owner_frame.participant_id = lane.ownerParticipantId
+                   AND ABS(owner_frame.timestamp_ms - 900000) <= 60000
+                 ORDER BY ABS(owner_frame.timestamp_ms - 900000)
+                 LIMIT 1
+               ) - (
+                 SELECT enemy_frame.cs
+                 FROM match_timeline_frames enemy_frame
+                 WHERE enemy_frame.game_id = lane.game_id
+                   AND enemy_frame.participant_id = lane.enemyParticipantId
+                   AND ABS(enemy_frame.timestamp_ms - 900000) <= 60000
+                 ORDER BY ABS(enemy_frame.timestamp_ms - 900000)
+                 LIMIT 1
+               ) AS csDiff15,
+               (
+                 SELECT owner_frame.gold
+                 FROM match_timeline_frames owner_frame
+                 WHERE owner_frame.game_id = lane.game_id
+                   AND owner_frame.participant_id = lane.ownerParticipantId
+                   AND ABS(owner_frame.timestamp_ms - 900000) <= 60000
+                 ORDER BY ABS(owner_frame.timestamp_ms - 900000)
+                 LIMIT 1
+               ) - (
+                 SELECT enemy_frame.gold
+                 FROM match_timeline_frames enemy_frame
+                 WHERE enemy_frame.game_id = lane.game_id
+                   AND enemy_frame.participant_id = lane.enemyParticipantId
+                   AND ABS(enemy_frame.timestamp_ms - 900000) <= 60000
+                 ORDER BY ABS(enemy_frame.timestamp_ms - 900000)
+                 LIMIT 1
+               ) AS goldDiff15
+        FROM lane_opponents lane
+      ),
+      matchup_rows AS (
         SELECT owner.game_id,
                enemy.champion_id AS championId,
                MAX(owner.win) AS wins,
@@ -664,14 +739,17 @@ export function getChampionMatchupList(
                MAX(owner.deaths) AS deaths,
                MAX(owner.assists) AS assists,
                MAX(owner.cs) AS cs,
-               MAX(owner.gold_earned) AS goldEarned
-        FROM match_participants owner
-        JOIN games g ON g.game_id = owner.game_id
+               MAX(owner.gold_earned) AS goldEarned,
+               MAX(timeline.csDiff15) AS csDiff15,
+               MAX(timeline.goldDiff15) AS goldDiff15
+        FROM owner_rows owner
         JOIN match_participants enemy
           ON enemy.game_id = owner.game_id
-         AND enemy.team_id != owner.team_id
-        WHERE ${where.join(" AND ")}
-          AND enemy.champion_id > 0
+         AND enemy.team_id != owner.ownerTeamId
+        LEFT JOIN timeline_diffs timeline
+          ON timeline.game_id = owner.game_id
+         AND timeline.enemyChampionId = enemy.champion_id
+        WHERE enemy.champion_id > 0
         GROUP BY owner.game_id, enemy.champion_id
       )
       SELECT championId,
@@ -681,7 +759,9 @@ export function getChampionMatchupList(
              COALESCE(SUM(deaths), 0) AS deaths,
              COALESCE(SUM(assists), 0) AS assists,
              COALESCE(SUM(cs), 0) AS cs,
-             COALESCE(SUM(goldEarned), 0) AS goldEarned
+             COALESCE(SUM(goldEarned), 0) AS goldEarned,
+             AVG(csDiff15) AS avgCsDiffAt15,
+             AVG(goldDiff15) AS avgGoldDiffAt15
       FROM matchup_rows
       GROUP BY championId
       HAVING games >= 1

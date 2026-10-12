@@ -647,6 +647,8 @@ export interface ChampionMatchupRow {
   assists: number;
   cs: number;
   goldEarned: number;
+  avgCsDiffAt15?: number | null;
+  avgGoldDiffAt15?: number | null;
 }
 
 export interface ChampionAllyRow {
