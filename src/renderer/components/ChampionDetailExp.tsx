@@ -4787,12 +4787,14 @@ function EconomyTab({
         {goldValues.length < 2 ? (
           <NoData text="Not enough timeline data" />
         ) : (
-          <LineChartExp
-            values={goldValues}
-            xLabels={goldLabels}
-            format={(item) => value(item)}
-            color="var(--theme-gold)"
-          />
+          <div className="[&_polyline]:[filter:drop-shadow(0_0_4px_currentColor)]">
+            <LineChartExp
+              values={goldValues}
+              xLabels={goldLabels}
+              format={(item) => value(item)}
+              color="var(--theme-gold)"
+            />
+          </div>
         )}
       </Panel>
       <Panel className={TAB_PANEL_CLASSES.gold}>
@@ -4888,11 +4890,13 @@ function EconomyTab({
         {goldLead.length < 2 ? (
           <NoData text="Not enough lane timeline data" />
         ) : (
-          <LineChartExp
-            values={goldLead}
-            format={(item) => value(item)}
-            color="var(--theme-gold)"
-          />
+          <div className="[&_polyline]:[filter:drop-shadow(0_0_4px_currentColor)]">
+            <LineChartExp
+              values={goldLead}
+              format={(item) => value(item)}
+              color="var(--theme-gold)"
+            />
+          </div>
         )}
       </Panel>
       <Panel className={TAB_PANEL_CLASSES.gold}>
@@ -4903,11 +4907,13 @@ function EconomyTab({
         {xpLead.length < 2 ? (
           <NoData text="Not enough lane timeline data" />
         ) : (
-          <LineChartExp
-            values={xpLead}
-            format={(item) => value(item)}
-            color="var(--theme-violet)"
-          />
+          <div className="[&_polyline]:[filter:drop-shadow(0_0_4px_currentColor)]">
+            <LineChartExp
+              values={xpLead}
+              format={(item) => value(item)}
+              color="var(--theme-violet)"
+            />
+          </div>
         )}
       </Panel>
       <Panel className={TAB_PANEL_CLASSES.gold}>
@@ -5000,10 +5006,10 @@ function EconomyTab({
                     <div className="h-2 overflow-hidden rounded-full bg-black/20">
                       <div
                         className="h-full rounded-full bg-lol-gold"
-                        style={{ width: `${(rate as number) * 100}%` }}
+                        style={{ width: `${rate as number}%` }}
                       />
                     </div>
-                    <span className="tabular-nums">{((rate as number) * 100).toFixed(1)}%</span>
+                    <span className="tabular-nums">{(rate as number).toFixed(1)}%</span>
                   </>
                 )}
               </div>
@@ -5063,8 +5069,12 @@ function EconomyTab({
                   <div className="flex h-20 w-full items-end rounded bg-black/20">
                     {bucket.averageItems != null && max > 0 ? (
                       <div
-                        className="w-full rounded-t bg-lol-gold"
-                        style={{ height: `${height}%` }}
+                        className="w-full rounded-t"
+                        style={{
+                          height: `${height}%`,
+                          background:
+                            "linear-gradient(to right, rgb(201 164 92 / 40%), rgb(201 164 92 / 95%))",
+                        }}
                       />
                     ) : null}
                   </div>

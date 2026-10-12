@@ -313,7 +313,8 @@ export function getChampionTimelineAverages(
       SELECT g.game_id AS gameId,
              mp.participant_id AS ownerParticipantId,
              mp.team_id AS ownerTeamId,
-             mp.team_position AS ownerPosition
+             mp.team_position AS ownerPosition,
+             mp.win AS win
       FROM match_participants mp
       JOIN games g ON g.game_id = mp.game_id
       JOIN match_timeline_status s ON s.game_id = g.game_id
@@ -477,7 +478,7 @@ export function getChampionTimelineAverages(
         name,
         entries.length === 0
           ? null
-          : entries.filter((entry) => entry.win === 1).length / entries.length,
+          : (entries.filter((entry) => entry.win === 1).length / entries.length) * 100,
       ];
     }),
   ) as ChampionTimelineAverages["winrateByGoldLead15"];
