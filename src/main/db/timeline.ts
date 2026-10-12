@@ -24,6 +24,26 @@ export interface TimelineBucket {
   sampleGames: number;
 }
 
+export interface ChampionTimelineAverages {
+  buckets: TimelineBucket[];
+  ahead10: number | null;
+  itemsBought: number | null;
+  comebacks: number | null;
+  winrateByGoldLead15: {
+    behind1000plus: number | null;
+    behind0to1000: number | null;
+    ahead0to1000: number | null;
+    ahead1000plus: number | null;
+  } | null;
+  goldLeadDistribution15: {
+    behind1000plus: number;
+    behind0to1000: number;
+    ahead0to1000: number;
+    ahead1000plus: number;
+  } | null;
+  spendingTimeline: Array<{ minute: number; averageItems: number | null }> | null;
+}
+
 export interface BackfillProgress {
   current: number;
   total: number;
@@ -262,7 +282,7 @@ export function getChampionTimelineAverages(
   patch?: string,
   queue?: number,
   account?: string,
-): TimelineBucket[] {
+): ChampionTimelineAverages {
   console.log("[db] getChampionTimelineAverages called:", {
     championId,
     patch,
@@ -304,6 +324,7 @@ export function getChampionTimelineAverages(
     ownerParticipantId: number;
     ownerTeamId: number;
     ownerPosition: string | null;
+    win: number;
   }>;
 
   const targetMinutes = [5, 10, 15, 20, 25, 30];
@@ -359,8 +380,28 @@ export function getChampionTimelineAverages(
       AND participant_id IN (?, ?)
     ORDER BY timestamp_ms
   `);
+  const itemPurchasesQuery = db.prepare(`
+    SELECT CAST(timestamp_ms / 60000 AS INTEGER) AS minute, COUNT(*) AS count
+    FROM match_timeline_events
+    WHERE game_id = ? AND participant_id = ? AND event_type = 'ITEM_PURCHASED'
+    GROUP BY minute
+  `);
+  const goldLead15: Array<{ diff: number; win: number }> = [];
+  const goldLead10: number[] = [];
+  const itemCounts: number[] = [];
+  const spendingCounts = [0, 0, 0, 0, 0, 0];
 
   for (const game of games) {
+    const purchases = itemPurchasesQuery.all(game.gameId, game.ownerParticipantId) as Array<{
+      minute: number;
+      count: number;
+    }>;
+    itemCounts.push(purchases.reduce((sum, purchase) => sum + purchase.count, 0));
+    for (const purchase of purchases) {
+      if (purchase.minute >= 0 && purchase.minute < 30) {
+        spendingCounts[Math.min(Math.floor(purchase.minute / 5), 5)] += purchase.count;
+      }
+    }
     const opponent =
       game.ownerPosition == null || game.ownerPosition === ""
         ? null
@@ -384,7 +425,10 @@ export function getChampionTimelineAverages(
       const opponentFrame = findClosestFrame(frames, opponent.participantId, bucket.minute);
       if (!opponentFrame) continue;
       if (ownerFrame.gold != null && opponentFrame.gold != null) {
-        bucket.goldDiff.push(ownerFrame.gold - opponentFrame.gold);
+        const goldDiff = ownerFrame.gold - opponentFrame.gold;
+        bucket.goldDiff.push(goldDiff);
+        if (bucket.minute === 10) goldLead10.push(goldDiff);
+        if (bucket.minute === 15) goldLead15.push({ diff: goldDiff, win: game.win });
       }
       if (ownerFrame.cs != null && opponentFrame.cs != null) {
         bucket.csDiff.push(ownerFrame.cs - opponentFrame.cs);
@@ -406,11 +450,63 @@ export function getChampionTimelineAverages(
     avgXpDiffVsLaneOpponent: average(bucket.xpDiff),
     sampleGames: bucket.sampleGames,
   }));
+  const bucketName = (diff: number) =>
+    diff <= -1000
+      ? "behind1000plus"
+      : diff < 0
+        ? "behind0to1000"
+        : diff < 1000
+          ? "ahead0to1000"
+          : "ahead1000plus";
+  const goldLeadDistribution15 = goldLead15.reduce(
+    (counts, entry) => {
+      counts[bucketName(entry.diff)]++;
+      return counts;
+    },
+    {
+      behind1000plus: 0,
+      behind0to1000: 0,
+      ahead0to1000: 0,
+      ahead1000plus: 0,
+    },
+  );
+  const winrateByGoldLead15 = Object.fromEntries(
+    Object.entries(goldLeadDistribution15).map(([name]) => {
+      const entries = goldLead15.filter((entry) => bucketName(entry.diff) === name);
+      return [
+        name,
+        entries.length === 0
+          ? null
+          : entries.filter((entry) => entry.win === 1).length / entries.length,
+      ];
+    }),
+  ) as ChampionTimelineAverages["winrateByGoldLead15"];
+  const economy = {
+    buckets: result,
+    ahead10:
+      goldLead10.length === 0
+        ? null
+        : goldLead10.filter((diff) => diff > 0).length / goldLead10.length,
+    itemsBought: itemCounts.length === 0 ? null : average(itemCounts),
+    comebacks:
+      goldLead15.length === 0
+        ? null
+        : goldLead15.filter((entry) => entry.diff < 0 && entry.win === 1).length,
+    winrateByGoldLead15,
+    goldLeadDistribution15: goldLead15.length === 0 ? null : goldLeadDistribution15,
+    spendingTimeline:
+      itemCounts.length === 0
+        ? null
+        : spendingCounts.map((count, index) => ({
+            minute: index * 5,
+            averageItems: count / itemCounts.length,
+          })),
+  };
   console.log("[db] getChampionTimelineAverages done:", {
     bucketCount: result.length,
     games: games.length,
   });
-  return result;
+  return economy;
 }
 
 export function getChampionKillDeathPositions(

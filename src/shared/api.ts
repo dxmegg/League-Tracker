@@ -1555,7 +1555,7 @@ export interface ElectronAPI {
     patch?: string,
     queue?: number,
     account?: string,
-  ) => Promise<TimelineBucket[]>;
+  ) => Promise<ChampionTimelineAverages>;
   getChampionKillDeathPositions: (
     championId: number,
     limit?: number,
@@ -1915,4 +1915,24 @@ export interface TimelineBucket {
   avgCsDiffVsLaneOpponent: number | null;
   avgXpDiffVsLaneOpponent: number | null;
   sampleGames: number;
+}
+
+export interface ChampionTimelineAverages {
+  buckets: TimelineBucket[];
+  ahead10: number | null;
+  itemsBought: number | null;
+  comebacks: number | null;
+  winrateByGoldLead15: {
+    behind1000plus: number | null;
+    behind0to1000: number | null;
+    ahead0to1000: number | null;
+    ahead1000plus: number | null;
+  } | null;
+  goldLeadDistribution15: {
+    behind1000plus: number;
+    behind0to1000: number;
+    ahead0to1000: number;
+    ahead1000plus: number;
+  } | null;
+  spendingTimeline: Array<{ minute: number; averageItems: number | null }> | null;
 }

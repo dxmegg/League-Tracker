@@ -8,7 +8,7 @@ import type {
   ChampionKillDeathPosition,
   ChampionRoleStat,
   ChampionTimelineGame,
-  TimelineBucket,
+  ChampionTimelineAverages,
   ChampionTrendsData,
   ChampionWeeklyMetrics,
   ElectronAPI,
@@ -66,7 +66,7 @@ const api: ElectronAPI = {
     patch?: string,
     queue?: number,
     account?: string,
-  ): Promise<TimelineBucket[]> =>
+  ): Promise<ChampionTimelineAverages> =>
     ipcRenderer.invoke("db:champion-timeline-averages", championId, patch, queue, account),
 
   getChampionKillDeathPositions: (
