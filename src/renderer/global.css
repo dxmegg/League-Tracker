@@ -508,6 +508,34 @@ html[data-theme="test"] #root {
     background: var(--theme-surface);
   }
 
+  .tbl.ct tbody tr {
+    transition: background-color 120ms ease;
+  }
+
+  .tbl.ct tbody td {
+    padding-top: 8px;
+    padding-bottom: 8px;
+    border-top: 0;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+  }
+
+  .tbl.ct tbody tr:hover {
+    background: rgba(255, 255, 255, 0.03);
+  }
+
+  .data-table .tbl tbody tr {
+    transition: background-color 120ms ease;
+  }
+
+  .data-table .tbl tbody td {
+    border-top: 0;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+  }
+
+  .data-table .tbl tbody tr:hover {
+    background: rgba(255, 255, 255, 0.03);
+  }
+
   .tbl .nm {
     display: flex;
     align-items: center;
