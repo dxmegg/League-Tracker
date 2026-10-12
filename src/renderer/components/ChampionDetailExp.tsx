@@ -899,6 +899,7 @@ export function ChampionDetailExp() {
           detailLoading={detailLoading}
           timeline={timelineAverages}
           timelineLoading={timelineAveragesLoading}
+          weeklyMetrics={weeklyMetrics}
           queueStats={queueStats}
           queueStatsLoading={queueStatsLoading}
         />
@@ -4663,6 +4664,7 @@ function EconomyTab({
   detailLoading,
   timeline,
   timelineLoading,
+  weeklyMetrics,
   queueStats,
   queueStatsLoading,
 }: {
@@ -4670,6 +4672,7 @@ function EconomyTab({
   detailLoading: boolean;
   timeline: ChampionTimelineAverages | null;
   timelineLoading: boolean;
+  weeklyMetrics: ChampionWeeklyMetrics[] | null;
   queueStats: ChampionQueueStat[] | null;
   queueStatsLoading: boolean;
 }) {
@@ -4741,6 +4744,7 @@ function EconomyTab({
             value={detail.goldPerMin.toFixed(0)}
             valueClass="text-right tabular-nums"
             sub="Average earned per minute"
+            sparkValues={weeklyMetrics?.map((entry) => entry.metrics.goldPerMin ?? null)}
           />
           <Stat
             label="Ahead @10"
@@ -4748,12 +4752,51 @@ function EconomyTab({
             sub={timeline?.ahead10 == null ? "Percentage unavailable" : "of your games"}
             emptySub={timeline?.ahead10 == null}
             valueClass="text-right tabular-nums"
+            miniViz={
+              timeline?.ahead10 == null ? undefined : (
+                <svg aria-hidden="true" className="h-8 w-8 -rotate-90" viewBox="0 0 36 36">
+                  <circle
+                    cx="18"
+                    cy="18"
+                    r="14"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="3"
+                    className="text-lol-border/60"
+                  />
+                  <circle
+                    cx="18"
+                    cy="18"
+                    r="14"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="3"
+                    strokeLinecap="round"
+                    strokeDasharray={`${(timeline.ahead10 * 100).toFixed(1)} 100`}
+                    pathLength="100"
+                    className="text-lol-win"
+                  />
+                </svg>
+              )
+            }
           />
           <Stat
             label="Gold lead @15"
             value={value(bucketAt(15)?.avgGoldDiffVsLaneOpponent)}
             sub="Versus lane opponent"
             valueClass="text-right tabular-nums"
+            miniViz={
+              bucketAt(15)?.avgGoldDiffVsLaneOpponent == null ? undefined : (
+                <span
+                  aria-hidden="true"
+                  className={`mt-1 block h-1.5 w-10 rounded-full ${
+                    (bucketAt(15)?.avgGoldDiffVsLaneOpponent ?? 0) >= 0
+                      ? "bg-lol-win"
+                      : "bg-lol-loss"
+                  }`}
+                />
+              )
+            }
           />
           <Stat
             label="Gold efficiency"
@@ -4811,6 +4854,7 @@ function EconomyTab({
               xLabels={goldLabels}
               format={(item) => value(item)}
               color="var(--theme-gold)"
+              showStats
             />
           </div>
         )}
@@ -5010,6 +5054,7 @@ function EconomyTab({
               values={goldLead}
               format={(item) => value(item)}
               color="var(--theme-gold)"
+              showStats
             />
           </div>
         )}
@@ -5027,6 +5072,7 @@ function EconomyTab({
               values={xpLead}
               format={(item) => value(item)}
               color="var(--theme-violet)"
+              showStats
             />
           </div>
         )}
@@ -5121,39 +5167,33 @@ function EconomyTab({
         {timeline?.winrateByGoldLead15 == null ? (
           <EmptyState text="Gold lead outcomes are not available" />
         ) : (
-          <div className="flex flex-col gap-2 text-xs">
+          <div className="grid grid-cols-4 gap-3 text-xs">
             {[
-              ["Behind 1000+", timeline.winrateByGoldLead15.behind1000plus],
-              ["Behind 0–1000", timeline.winrateByGoldLead15.behind0to1000],
-              ["Ahead 0–1000", timeline.winrateByGoldLead15.ahead0to1000],
-              ["Ahead 1000+", timeline.winrateByGoldLead15.ahead1000plus],
-            ].map(([label, rate]) => (
-              <div key={label} className="grid grid-cols-[7rem_1fr_auto] items-center gap-2">
-                <span className="text-lol-text">{label}</span>
+              ["Behind 1000+", timeline.winrateByGoldLead15.behind1000plus, "#E5483F"],
+              ["Behind 0–1000", timeline.winrateByGoldLead15.behind0to1000, "#C9A45C"],
+              ["Ahead 0–1000", timeline.winrateByGoldLead15.ahead0to1000, "#22C55E"],
+              ["Ahead 1000+", timeline.winrateByGoldLead15.ahead1000plus, "#3B82F6"],
+            ].map(([label, rate, color]) => (
+              <div key={label} className="min-w-0">
+                <div className="mb-1 truncate text-center text-[10px] text-lol-text">{label}</div>
                 {rate == null ? (
                   <EmptyState text="No games" />
                 ) : (
-                  <>
-                    <div className="relative h-7">
-                      <div className="absolute inset-x-0 top-2 h-2 rounded-full bg-black/20" />
-                      <div className="absolute bottom-0 left-1/2 top-0 border-l border-lol-text/40" />
-                      {(rate as number) !== 50 && (
-                        <div
-                          className={`absolute top-2 h-2 rounded-full ${
-                            (rate as number) > 50 ? "bg-[#22C55E]" : "bg-[#E5483F]"
-                          }`}
-                          style={{
-                            left: (rate as number) > 50 ? "50%" : `${rate as number}%`,
-                            width: `${Math.abs((rate as number) - 50)}%`,
-                          }}
-                        />
-                      )}
-                      <span className="absolute left-1/2 top-5 -translate-x-1/2 text-[9px] text-lol-text/60">
-                        50%
-                      </span>
+                  <div className="relative pt-4">
+                    <span className="absolute inset-x-0 top-0 text-center text-[10px] font-semibold tabular-nums text-lol-text-bright">
+                      {(rate as number).toFixed(1)}%
+                    </span>
+                    <div className="relative h-2 rounded-full bg-black/20">
+                      <div
+                        className="h-full rounded-full"
+                        style={{
+                          width: `${Math.max(0, Math.min(100, rate as number))}%`,
+                          backgroundColor: color as string,
+                        }}
+                      />
+                      <div className="absolute bottom-[-3px] left-1/2 top-[-3px] border-l border-lol-text/40" />
                     </div>
-                    <span className="tabular-nums">{(rate as number).toFixed(1)}%</span>
-                  </>
+                  </div>
                 )}
               </div>
             ))}
@@ -5168,20 +5208,32 @@ function EconomyTab({
         {timeline?.goldLeadDistribution15 == null ? (
           <EmptyState text="Per-game lead distribution is not available" />
         ) : (
-          <div className="flex flex-col gap-2 text-xs">
+          <div className="grid grid-cols-4 gap-3 text-xs">
             {goldLeadBuckets.map(([label, count, color]) => (
               <div
                 key={label}
-                className="grid grid-cols-[7rem_1fr_auto] items-center gap-2 border-b border-white/[0.04] py-2"
+                className="flex min-w-0 flex-col items-center gap-1 border-b border-white/[0.04] pb-2"
               >
-                <span className="text-lol-text">{label}</span>
-                <div className="h-2 overflow-hidden rounded-full bg-black/20">
+                <span className="w-full truncate text-center text-[10px] text-lol-text">
+                  {label}
+                </span>
+                <div className="flex h-24 w-full items-end overflow-hidden rounded bg-black/20">
                   <div
-                    className="h-full rounded-full"
-                    style={{ width: `${(count / goldLeadMax) * 100}%`, backgroundColor: color }}
+                    className="w-full rounded-t"
+                    style={{
+                      height: `${(count / goldLeadMax) * 100}%`,
+                      backgroundColor: color,
+                      opacity: count === 0 ? 0.2 : 0.9,
+                    }}
                   />
                 </div>
-                <span className="tabular-nums text-lol-text-bright">{count}</span>
+                <span
+                  className={`tabular-nums ${
+                    count === 0 ? "text-lol-text/60" : "text-lol-text-bright"
+                  }`}
+                >
+                  {count}
+                </span>
               </div>
             ))}
           </div>
@@ -5222,6 +5274,9 @@ function EconomyTab({
                       />
                     ) : null}
                   </div>
+                  <span className="text-[10px] tabular-nums text-lol-text">
+                    {bucket.averageItems == null ? "—" : bucket.averageItems.toFixed(1)}
+                  </span>
                   <span className="text-[10px] text-lol-text/70">
                     {bucket.minute}–{bucket.minute + 5}m
                   </span>
@@ -6042,6 +6097,7 @@ function Stat({
   emptySub = false,
   valueClass = "",
   sparkValues,
+  miniViz,
   accent: accentOverride,
   glow = false,
 }: {
@@ -6051,6 +6107,7 @@ function Stat({
   emptySub?: boolean;
   valueClass?: string;
   sparkValues?: Array<number | null>;
+  miniViz?: ReactNode;
   accent?: string;
   glow?: boolean;
 }) {
@@ -6073,6 +6130,7 @@ function Stat({
           <Sparkline values={sparkValues} />
         </div>
       )}
+      {miniViz && <div className="pointer-events-none absolute right-2.5 top-2.5">{miniViz}</div>}
       <span className="flex items-center gap-1.5 text-[12.5px] uppercase tracking-wider text-lol-text">
         <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: accent }} />
         {label}

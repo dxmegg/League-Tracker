@@ -16,6 +16,7 @@ export function LineChartExp({
   height = 150,
   secondaryValues,
   hollowIndices = [],
+  showStats = false,
 }: {
   values: number[];
   format: (v: number) => string;
@@ -32,9 +33,11 @@ export function LineChartExp({
   height?: number;
   secondaryValues?: number[];
   hollowIndices?: number[];
+  showStats?: boolean;
 }) {
   const gradientIdPrefix = useId().replace(/:/g, "-");
   const chartValues = series ? series.flatMap((item) => item.values) : values;
+  const statValues = series?.[0]?.values ?? values;
   const pointCount = series?.[0]?.values.length ?? values.length;
 
   if (
@@ -226,6 +229,33 @@ export function LineChartExp({
           );
         })}
       </svg>
+      {showStats && statValues.length > 0 && (
+        <div className="grid grid-cols-5 gap-2 border-t border-lol-border/40 px-2 pt-2 text-[10px] uppercase tracking-wider text-lol-text">
+          {[
+            ["Min", Math.min(...statValues), ""],
+            ["Average", statValues.reduce((sum, item) => sum + item, 0) / statValues.length, ""],
+            ["Max", Math.max(...statValues), ""],
+            ["Latest", statValues[statValues.length - 1], ""],
+            [
+              "Change",
+              statValues[statValues.length - 1] - statValues[0],
+              statValues[statValues.length - 1] - statValues[0] >= 0
+                ? "text-lol-win"
+                : "text-lol-loss",
+            ],
+          ].map(([label, stat, className]) => (
+            <div key={label} className="min-w-0">
+              <div className="truncate">{label}</div>
+              <div
+                className={`mt-0.5 truncate text-xs font-semibold tabular-nums text-lol-text-bright ${className}`}
+              >
+                {label === "Change" && (stat as number) > 0 ? "+" : ""}
+                {format(stat as number)}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
       {series && (
         <div className="flex flex-wrap gap-4 px-2 pt-1 text-xs text-lol-text">
           {series.map((item) => (
