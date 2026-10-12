@@ -1995,27 +1995,40 @@ function ItemsTab({
 
   return (
     <div className="grid grid-cols-1 gap-5 xl:grid-cols-2">
-      <InsightsPanel
-        insights={[
-          {
-            kind: items.length > 0 ? "good" : "info",
-            text: `${items.length.toLocaleString()} item aggregates available for this champion.`,
-          },
-        ]}
-      />
-      <div className="grid grid-cols-2 gap-3 xl:col-span-2 xl:grid-cols-4">
-        <CombatTile label="Tracked games" value={detail?.games} subtitle="champion aggregate" />
-        <CombatTile label="Unique items" value={items.length} subtitle="item aggregates" />
-        <CombatTile
-          label="Most built"
-          value={items.reduce((max, item) => Math.max(max, item.picks), 0)}
-          subtitle="highest pick count"
+      <div className="xl:col-span-2">
+        <IntroBox legend="Badges show where a number comes from: Match-V5 = Riot match data · Timeline = minute-by-minute data · Derived = calculated by the app · LCU = game client.">
+          What you build, when you finish each item, and which builds win.
+        </IntroBox>
+      </div>
+      <div className="xl:col-span-2">
+        <SectionHeading title="Key metrics" />
+        <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
+          <CombatTile label="Tracked games" value={detail?.games} subtitle="champion aggregate" />
+          <CombatTile label="Unique items" value={items.length} subtitle="item aggregates" />
+          <CombatTile
+            label="Most built"
+            value={items.reduce((max, item) => Math.max(max, item.picks), 0)}
+            subtitle="highest pick count"
+          />
+          <CombatTile
+            label="Recent builds"
+            value={recentMatches.length}
+            subtitle="match history rows"
+          />
+        </div>
+      </div>
+      <div className="xl:col-span-2">
+        <InsightsPanel
+          insights={[
+            {
+              kind: items.length > 0 ? "good" : "info",
+              text: `${items.length.toLocaleString()} item aggregates available for this champion.`,
+            },
+          ]}
         />
-        <CombatTile
-          label="Recent builds"
-          value={recentMatches.length}
-          subtitle="match history rows"
-        />
+      </div>
+      <div className="xl:col-span-2">
+        <SectionHeading title="Detailed statistics" />
       </div>
       <RatePanel
         title="Top items"
