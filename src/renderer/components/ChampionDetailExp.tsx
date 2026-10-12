@@ -2206,15 +2206,18 @@ function VisionTab({
         <p className="mb-3 text-[11px] text-lol-text/70">
           Vision activity normalized by the average length of your games.
         </p>
-        <div className="flex flex-col gap-3 text-xs">
+        <div className="flex flex-col divide-y divide-white/[0.04] text-xs">
           {[
             ["Vision score / min", perMinute(detail.avgVisionScore)],
             ["Wards placed / min", perMinute(detail.avgWardsPlaced)],
             ["Wards killed / min", perMinute(detail.avgWardsKilled)],
           ].map(([label, value]) => (
-            <div key={label} className="flex items-center justify-between">
+            <div
+              key={label}
+              className="flex items-center justify-between py-2 transition-colors duration-[120ms] hover:bg-white/[0.025]"
+            >
               <span className="text-lol-text">{label}</span>
-              <b className="tabular-nums text-lol-text-bright">{value}</b>
+              <b className="text-right tabular-nums text-lol-text-bright">{value}</b>
             </div>
           ))}
         </div>
@@ -2225,14 +2228,14 @@ function VisionTab({
         <p className="mb-3 text-[11px] text-lol-text/70">
           Ward clearing efficiency and the share of control wards purchased.
         </p>
-        <div className="flex flex-col gap-3 text-xs">
-          <div className="flex items-center justify-between">
+        <div className="flex flex-col divide-y divide-white/[0.04] text-xs">
+          <div className="flex items-center justify-between py-2 transition-colors duration-[120ms] hover:bg-white/[0.025]">
             <span className="text-lol-text">Ward kill ratio</span>
-            <b className="tabular-nums text-lol-text-bright">{wardKillRatio}</b>
+            <b className="text-right tabular-nums text-lol-text-bright">{wardKillRatio}</b>
           </div>
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between py-2 transition-colors duration-[120ms] hover:bg-white/[0.025]">
             <span className="text-lol-text">Control ward share</span>
-            <b className="tabular-nums text-lol-text-bright">{controlWardShare}</b>
+            <b className="text-right tabular-nums text-lol-text-bright">{controlWardShare}</b>
           </div>
         </div>
       </Panel>
@@ -2248,24 +2251,34 @@ function VisionTab({
           <div className="flex flex-col gap-2 text-xs">
             <div className="grid grid-cols-[minmax(8rem,1fr)_auto_auto_auto_auto] gap-3 border-b border-lol-border/50 pb-2 font-semibold text-lol-text">
               <span>Champion</span>
-              <span>Vision</span>
-              <span>Placed</span>
-              <span>Killed</span>
-              <span>Duration</span>
+              <span className="text-right">Vision</span>
+              <span className="text-right">Placed</span>
+              <span className="text-right">Killed</span>
+              <span className="text-right">Duration</span>
             </div>
             {recentMatches.map((match) => (
               <div
                 key={match.game_id}
-                className="grid grid-cols-[minmax(8rem,1fr)_auto_auto_auto_auto] items-center gap-3 border-b border-white/[0.04] py-2 text-lol-text-bright transition-colors duration-[120ms] hover:bg-white/[0.03]"
+                className={`grid grid-cols-[minmax(8rem,1fr)_auto_auto_auto_auto] items-center gap-3 border-b border-white/[0.04] border-l-2 py-2 text-lol-text-bright transition-colors duration-[120ms] hover:bg-white/[0.025] hover:border-l-[3px] last:border-b-0 ${
+                  match.win ? "border-l-lol-win" : "border-l-lol-loss"
+                }`}
               >
                 <span className="flex min-w-0 items-center gap-2">
                   <ChampionIcon championId={match.champion_id} size={24} className="rounded-md" />
                   <span className="truncate">{getChampionName(champData, match.champion_id)}</span>
                 </span>
-                <span className="tabular-nums">{formatCombatNumber(match.vision_score)}</span>
-                <span className="tabular-nums">{formatCombatNumber(match.wards_placed)}</span>
-                <span className="tabular-nums">{formatCombatNumber(match.wards_killed)}</span>
-                <span className="tabular-nums">{formatSeconds(match.game_duration)}</span>
+                <span className="text-right tabular-nums">
+                  {formatCombatNumber(match.vision_score)}
+                </span>
+                <span className="text-right tabular-nums">
+                  {formatCombatNumber(match.wards_placed)}
+                </span>
+                <span className="text-right tabular-nums">
+                  {formatCombatNumber(match.wards_killed)}
+                </span>
+                <span className="text-right tabular-nums">
+                  {formatSeconds(match.game_duration)}
+                </span>
               </div>
             ))}
           </div>
@@ -2838,11 +2851,11 @@ function MatchupsTab({
       {tierRows.length === 0 ? (
         <NoData text="Not enough games for a tier list" />
       ) : (
-        <div className="flex flex-col gap-3">
+        <div className="flex flex-col divide-y divide-white/[0.04]">
           {tierRows.map((tier) => (
             <div
               key={tier.label}
-              className="flex items-center gap-3 rounded-md border-l-[3px] px-2 py-1 transition-colors duration-[120ms] hover:bg-white/[0.03]"
+              className="flex items-center gap-3 border-l-[3px] px-2 py-2 transition-colors duration-[120ms] hover:bg-white/[0.025]"
               style={{ borderLeftColor: tier.color }}
             >
               <span
@@ -2902,16 +2915,16 @@ function MatchupsTab({
       ) : sortedMatchups.length === 0 ? (
         <NoData />
       ) : (
-        <div className="flex flex-col gap-2 overflow-x-auto text-xs">
+        <div className="flex flex-col overflow-x-auto text-xs">
           <div className="grid min-w-[760px] grid-cols-[minmax(10rem,1fr)_auto_auto_minmax(7rem,auto)_minmax(8rem,auto)_auto_auto_auto] gap-3 border-b border-lol-border/50 pb-2 font-semibold text-lol-text">
             <span>Opponent</span>
-            <span>Games</span>
-            <span>W-L</span>
-            <span>Win rate</span>
-            <span>K/D/A</span>
-            <span>KDA</span>
-            <span>Avg CS</span>
-            <span>Avg gold</span>
+            <span className="text-right">Games</span>
+            <span className="text-right">W-L</span>
+            <span className="text-right">Win rate</span>
+            <span className="text-right">K/D/A</span>
+            <span className="text-right">KDA</span>
+            <span className="text-right">Avg CS</span>
+            <span className="text-right">Avg gold</span>
           </div>
           {sortedMatchups.map((row) => {
             const games = Math.max(1, row.games);
@@ -2919,7 +2932,7 @@ function MatchupsTab({
             return (
               <div
                 key={row.championId}
-                className={`grid min-w-[760px] grid-cols-[minmax(10rem,1fr)_auto_auto_minmax(7rem,auto)_minmax(8rem,auto)_auto_auto_auto] items-center gap-3 border-b border-white/[0.04] py-2 text-lol-text-bright transition-colors duration-[120ms] hover:bg-white/[0.03] ${
+                className={`grid min-w-[760px] grid-cols-[minmax(10rem,1fr)_auto_auto_minmax(7rem,auto)_minmax(8rem,auto)_auto_auto_auto] items-center gap-3 border-b border-white/[0.04] py-2 text-lol-text-bright transition-colors duration-[120ms] hover:bg-white/[0.025] last:border-b-0 ${
                   row.championId === bestMatchup?.championId
                     ? "bg-[rgba(34,197,94,0.06)]"
                     : row.championId === worstMatchup?.championId
@@ -2931,24 +2944,26 @@ function MatchupsTab({
                   <ChampionIcon championId={row.championId} size={24} className="rounded-md" />
                   <span className="truncate">{getChampionName(champData, row.championId)}</span>
                 </span>
-                <span className="tabular-nums">{row.games}</span>
-                <span className="tabular-nums">
+                <span className="text-right tabular-nums">{row.games}</span>
+                <span className="text-right tabular-nums">
                   <span className="text-lol-win">{row.wins}W</span>-
                   <span className="text-lol-loss">{row.games - row.wins}L</span>
                 </span>
-                <span className="flex min-w-[7rem] items-center gap-2">
+                <span className="flex min-w-[7rem] items-center justify-end gap-2">
                   <WinRateBar wins={row.wins} total={row.games} showPercent={false} />
                   <span className="w-10 text-right tabular-nums">
                     {formatPercent(row.wins, row.games)}
                   </span>
                 </span>
-                <span className="whitespace-nowrap tabular-nums">
+                <span className="whitespace-nowrap text-right tabular-nums">
                   {(row.kills / games).toFixed(1)} / {(row.deaths / games).toFixed(1)} /{" "}
                   {(row.assists / games).toFixed(1)}
                 </span>
-                <span className="tabular-nums">{kda.toFixed(2)}</span>
-                <span className="tabular-nums">{(row.cs / games).toFixed(0)}</span>
-                <span className="tabular-nums">{formatPlain(row.goldEarned / games, 2)}</span>
+                <span className="text-right tabular-nums">{kda.toFixed(2)}</span>
+                <span className="text-right tabular-nums">{(row.cs / games).toFixed(0)}</span>
+                <span className="text-right tabular-nums">
+                  {formatPlain(row.goldEarned / games, 2)}
+                </span>
               </div>
             );
           })}
@@ -2976,7 +2991,10 @@ function MatchupsTab({
           />
           <div className="grid grid-cols-1 gap-2 text-xs sm:grid-cols-2">
             {classRows.map(([label, stats]) => (
-              <div key={label} className="flex items-center gap-3">
+              <div
+                key={label}
+                className="flex items-center gap-3 border-b border-white/[0.04] py-2 transition-colors duration-[120ms] hover:bg-white/[0.025] last:border-b-0"
+              >
                 <span className="w-24 truncate text-lol-text">{label}</span>
                 <div className="min-w-0 flex-1">
                   <WinRateBar wins={stats.wins} total={stats.games} showPercent={false} />
