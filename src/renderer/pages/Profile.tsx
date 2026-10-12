@@ -1023,7 +1023,7 @@ export default function Profile() {
               Most played champions
             </h2>
             <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 md:grid-cols-4">
-              {(allDashboard?.topChampions ?? []).slice(0, 4).map((champion) => (
+              {(allDashboard?.topChampions ?? []).slice(0, 8).map((champion) => (
                 <ChampCard
                   key={champion.championId}
                   championId={champion.championId}

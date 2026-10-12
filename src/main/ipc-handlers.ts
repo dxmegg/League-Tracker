@@ -235,6 +235,13 @@ export function registerIpcHandlers() {
     },
   );
 
+  ipcMain.handle("db:activity-heatmap", (_event, account?: string) => {
+    console.log("[db] activity-heatmap handler called:", { account });
+    const result = db.getActivityHeatmap(account);
+    console.log("[db] activity-heatmap handler done:", { count: result.length });
+    return result;
+  });
+
   ipcMain.handle(
     "db:champion-detail-stats",
     (_event, championId: number | null, patch?: string, queue?: number, account?: string) => {

@@ -66,7 +66,9 @@
     "files": [
       "out/**/*",
       "assets/icon.png",
-      "node_modules/better-sqlite3/**/*"
+      "node_modules/better-sqlite3/**/*",
+      "!data/**",
+      "!**/*.db"
     ],
     "win": {
       "target": "portable",

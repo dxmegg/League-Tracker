@@ -86,6 +86,7 @@ export {
 } from "./payloads";
 export {
   getChampionStatsAll,
+  getActivityHeatmap,
   getChampionQueueStats,
   getChampionRoleStats,
   getChampionKeystones,
@@ -119,6 +120,7 @@ export {
   teammateRows,
 } from "./stats";
 export type { ChampionRecord, ChampionRecordsResult } from "./stats";
+export type { ActivityHeatmapDay } from "./stats";
 export {
   upsertSummoner,
   saveAccountSnapshot,
