@@ -4252,17 +4252,6 @@ function CombatTab({
     0,
     (globalDetail?.avgDamage ?? 0) - detail.avgPhysicalDamageDealt - detail.avgMagicDamageDealt,
   );
-  const dealtTrueValues = matches.map((match) =>
-    Math.max(
-      0,
-      match.total_damage_dealt -
-        (match.physical_damage_dealt ?? 0) -
-        (match.magic_damage_dealt ?? 0),
-    ),
-  );
-  const dealtTrueBest = dealtTrueValues.length > 0 ? Math.max(...dealtTrueValues) : null;
-  const dealtTrueTotal =
-    dealtTrueValues.length > 0 ? dealtTrueValues.reduce((sum, value) => sum + value, 0) : null;
   const combatInsights: Insight[] = [];
   if (globalDetail && matches.length > 0) {
     const recentDamage =
@@ -4395,12 +4384,13 @@ function CombatTab({
           ],
           [
             "True",
-            dealtTrueAvg,
-            dealtTrueBest,
-            dealtTrueTotal,
+            detail.avgTrueDamageDealt,
+            detail.maxTrueDamageDealt,
+            undefined,
             formatCombatNumber,
-            undefined,
-            undefined,
+            detail.avgTrueDamageDealtInWins,
+            detail.avgTrueDamageDealtInLosses,
+            vsOther(detail.avgTrueDamageDealt, "avgTrueDamageDealtOther"),
           ],
         ]}
       />
