@@ -366,13 +366,11 @@ export function ChampionDetailExp() {
         : Promise.resolve([] as ChampionKeystoneStat[]),
     [overviewActive, id, account],
   );
-  const { data: queueStats, loading: queueStatsLoading } = useIpc<
-    Array<{ queueId: number; games: number; wins: number }>
-  >(
+  const { data: queueStats, loading: queueStatsLoading } = useIpc<ChampionQueueStat[]>(
     () =>
       overviewActive || economyActive || farmActive
         ? window.api.getChampionQueueStats(id, account)
-        : Promise.resolve([] as Array<{ queueId: number; games: number; wins: number }>),
+        : Promise.resolve([] as ChampionQueueStat[]),
     [overviewActive, economyActive, farmActive, id, account],
   );
   const { data: roleStats, loading: roleStatsLoading } = useIpc<ChampionRoleStat[]>(
@@ -4711,16 +4709,30 @@ function EconomyTab({
     : [];
   const goldLeadMax = Math.max(1, ...goldLeadBuckets.map(([, count]) => count));
   const timelineGames = buckets.reduce((sum, bucket) => sum + bucket.sampleGames, 0);
+  const goldLead15 = timeline?.goldLeadDistribution15;
+  const gamesAhead15 =
+    goldLead15 == null
+      ? null
+      : (() => {
+          const total =
+            goldLead15.behind1000plus +
+            goldLead15.behind0to1000 +
+            goldLead15.ahead0to1000 +
+            goldLead15.ahead1000plus;
+          return total > 0
+            ? ((goldLead15.ahead0to1000 + goldLead15.ahead1000plus) / total) * 100
+            : null;
+        })();
   const damagePerGold =
     detail.avgGoldSpent > 0
       ? (detail.avgPhysicalDamageDealt + detail.avgMagicDamageDealt) / detail.avgGoldSpent
       : null;
   const value = (number: number | null | undefined, digits = 0) => formatPlain(number, digits);
   const queueRows = queueStats ?? [];
-  const formatQueueKda = (row: ChampionQueueStat) => {
-    if (row.kills == null && row.deaths == null && row.assists == null) return "—";
-    if (row.deaths == null || row.deaths === 0) return "∞";
-    return (((row.kills ?? 0) + (row.assists ?? 0)) / row.deaths).toFixed(2);
+  const formatQueueKda = (kills?: number, deaths?: number, assists?: number) => {
+    if (kills == null && deaths == null && assists == null) return "—";
+    if (deaths == null || deaths === 0) return "∞";
+    return (((kills ?? 0) + (assists ?? 0)) / deaths).toFixed(2);
   };
 
   return (
@@ -4754,20 +4766,20 @@ function EconomyTab({
             valueClass="text-right tabular-nums"
             miniViz={
               timeline?.ahead10 == null ? undefined : (
-                <svg aria-hidden="true" className="h-8 w-8 -rotate-90" viewBox="0 0 36 36">
+                <svg aria-hidden="true" className="h-11 w-11 -rotate-90" viewBox="0 0 44 44">
                   <circle
-                    cx="18"
-                    cy="18"
-                    r="14"
+                    cx="22"
+                    cy="22"
+                    r="17"
                     fill="none"
                     stroke="currentColor"
                     strokeWidth="3"
                     className="text-lol-border/60"
                   />
                   <circle
-                    cx="18"
-                    cy="18"
-                    r="14"
+                    cx="22"
+                    cy="22"
+                    r="17"
                     fill="none"
                     stroke="currentColor"
                     strokeWidth="3"
@@ -4789,7 +4801,7 @@ function EconomyTab({
               bucketAt(15)?.avgGoldDiffVsLaneOpponent == null ? undefined : (
                 <span
                   aria-hidden="true"
-                  className={`mt-1 block h-1.5 w-10 rounded-full ${
+                  className={`mt-1 block h-2 w-[72px] rounded-full ${
                     (bucketAt(15)?.avgGoldDiffVsLaneOpponent ?? 0) >= 0
                       ? "bg-lol-win"
                       : "bg-lol-loss"
@@ -4895,29 +4907,27 @@ function EconomyTab({
           Gold and experience differences against your lane opponent.
         </p>
         <div className="grid min-h-40 gap-4 text-xs md:grid-cols-2">
-          <div className="flex flex-col gap-2">
-            <div className="grid grid-cols-[1fr_auto] gap-3 border-b border-lol-border/50 pb-2 font-semibold text-lol-text">
-              <span>Stat</span>
-              <span>Avg</span>
-            </div>
-            {[
-              ["Gold diff @5", bucketAt(5)?.avgGoldDiffVsLaneOpponent],
-              ["Gold diff @10", bucketAt(10)?.avgGoldDiffVsLaneOpponent],
-              ["Gold diff @15", bucketAt(15)?.avgGoldDiffVsLaneOpponent],
-              ["Gold diff @20", bucketAt(20)?.avgGoldDiffVsLaneOpponent],
-              ["XP diff @10", bucketAt(10)?.avgXpDiffVsLaneOpponent],
-              ["XP diff @15", bucketAt(15)?.avgXpDiffVsLaneOpponent],
-            ].map(([label, stat]) => (
-              <div
-                key={label}
-                className="grid grid-cols-[1fr_auto] gap-3 border-b border-white/[0.04] py-2 text-lol-text-bright transition-colors duration-[120ms] hover:bg-white/[0.025] last:border-b-0"
-              >
-                <span>{label}</span>
-                <span className="text-right tabular-nums">
-                  {value(stat as number | null | undefined)}
-                </span>
-              </div>
-            ))}
+          <div className="min-w-0 overflow-x-auto">
+            <EconomyStatTable
+              rows={[
+                { label: "Gold diff @5", avg: bucketAt(5)?.avgGoldDiffVsLaneOpponent },
+                { label: "Gold diff @10", avg: bucketAt(10)?.avgGoldDiffVsLaneOpponent },
+                { label: "Gold diff @15", avg: bucketAt(15)?.avgGoldDiffVsLaneOpponent },
+                {
+                  label: "Gold diff @20",
+                  avg: bucketAt(20)?.avgGoldDiffVsLaneOpponent,
+                  highlight: (bucketAt(20)?.avgGoldDiffVsLaneOpponent ?? 0) > 0,
+                },
+                { label: "XP diff @10", avg: bucketAt(10)?.avgXpDiffVsLaneOpponent },
+                { label: "XP diff @15", avg: bucketAt(15)?.avgXpDiffVsLaneOpponent },
+                {
+                  label: "Games ahead @10",
+                  avg: timeline?.ahead10 == null ? null : timeline.ahead10 * 100,
+                  suffix: "%",
+                },
+                { label: "Games ahead @15", avg: gamesAhead15, suffix: "%" },
+              ]}
+            />
           </div>
           <div className="flex flex-col gap-2">
             <div className="border-b border-lol-border/50 pb-2 font-semibold text-lol-text">
@@ -4974,24 +4984,23 @@ function EconomyTab({
           Final level and average level progression through the game.
         </p>
         <div className="grid min-h-40 gap-4 text-xs md:grid-cols-2">
-          <div className="flex flex-col gap-2">
-            {[
-              ["Final level", detail.maxChampLevel],
-              ["Level @5", bucketAt(5)?.avgLevel],
-              ["Level @10", bucketAt(10)?.avgLevel],
-              ["Level @15", bucketAt(15)?.avgLevel],
-              ["Level @20", bucketAt(20)?.avgLevel],
-            ].map(([label, stat]) => (
-              <div
-                key={label}
-                className="flex items-center justify-between border-b border-white/[0.04] py-2 text-lol-text-bright transition-colors duration-[120ms] hover:bg-white/[0.025] last:border-b-0"
-              >
-                <span className="text-lol-text">{label}</span>
-                <span className="text-right tabular-nums">
-                  {value(stat as number | null | undefined, 1)}
-                </span>
-              </div>
-            ))}
+          <div className="min-w-0 overflow-x-auto">
+            <EconomyStatTable
+              rows={[
+                {
+                  label: "Final level",
+                  avg: null,
+                  best: detail.maxChampLevel,
+                  wins: detail.maxChampLevelInWins,
+                  losses: detail.maxChampLevelInLosses,
+                  digits: 1,
+                },
+                { label: "Level @5", avg: bucketAt(5)?.avgLevel, digits: 1 },
+                { label: "Level @10", avg: bucketAt(10)?.avgLevel, digits: 1 },
+                { label: "Level @15", avg: bucketAt(15)?.avgLevel, digits: 1 },
+                { label: "Level @20", avg: bucketAt(20)?.avgLevel, digits: 1 },
+              ]}
+            />
           </div>
           <div className="flex flex-col gap-2">
             <div className="border-b border-lol-border/50 pb-2 font-semibold text-lol-text">
@@ -5143,19 +5152,23 @@ function EconomyTab({
               <span className="whitespace-nowrap">CS/min</span>
               <span className="whitespace-nowrap">KDA</span>
             </div>
-            {queueRows.map((row) => (
-              <div
-                key={row.queueId}
-                className="grid grid-cols-[1fr_auto_auto_auto_auto_auto] gap-2 border-b border-white/[0.04] py-2 text-lol-text-bright transition-colors duration-[120ms] hover:bg-white/[0.025] last:border-b-0"
-              >
-                <span>{QUEUE_LABELS[row.queueId] ?? row.queueId}</span>
-                <span className="text-right tabular-nums">{row.games}</span>
-                <span className="text-right tabular-nums">{formatSmallMetric(row.goldPerMin)}</span>
-                <span className="text-right tabular-nums">{formatSmallMetric(row.avgGold)}</span>
-                <span className="text-right tabular-nums">{formatSmallMetric(row.csPerMin)}</span>
-                <span className="text-right tabular-nums">{formatQueueKda(row)}</span>
-              </div>
-            ))}
+            {queueRows.map(
+              ({ queueId, games, goldPerMin, avgGold, csPerMin, kills, deaths, assists }) => (
+                <div
+                  key={queueId}
+                  className="grid grid-cols-[1fr_auto_auto_auto_auto_auto] gap-2 border-b border-white/[0.04] py-2 text-lol-text-bright transition-colors duration-[120ms] hover:bg-white/[0.025] last:border-b-0"
+                >
+                  <span>{QUEUE_LABELS[queueId] ?? queueId}</span>
+                  <span className="text-right tabular-nums">{games}</span>
+                  <span className="text-right tabular-nums">{formatSmallMetric(goldPerMin)}</span>
+                  <span className="text-right tabular-nums">{formatSmallMetric(avgGold)}</span>
+                  <span className="text-right tabular-nums">{formatSmallMetric(csPerMin)}</span>
+                  <span className="text-right tabular-nums">
+                    {formatQueueKda(kills, deaths, assists)}
+                  </span>
+                </div>
+              ),
+            )}
           </div>
         )}
       </Panel>
@@ -5853,6 +5866,90 @@ type CombatStatTableRow = [
   vsOther?: number | null,
 ];
 
+interface EconomyStatTableRow {
+  label: string;
+  avg?: number | null;
+  best?: number | null;
+  wins?: number | null;
+  losses?: number | null;
+  vsOthers?: number | null;
+  digits?: number;
+  suffix?: string;
+  highlight?: boolean;
+}
+
+function EconomyStatTable({ rows }: { rows: EconomyStatTableRow[] }) {
+  const renderValue = (entry: number | null | undefined, digits: number, suffix = "") =>
+    entry == null ? (
+      <span className="text-lol-text/40" title="Not tracked yet">
+        —
+      </span>
+    ) : (
+      `${formatPlain(entry, digits)}${suffix}`
+    );
+
+  return (
+    <div className="min-w-[680px] text-xs">
+      <div className="grid grid-cols-[minmax(150px,1.4fr)_repeat(5,minmax(76px,1fr))] gap-2 border-b border-lol-border/50 pb-2 font-semibold text-lol-text">
+        <span>Stat</span>
+        <span className="text-right whitespace-nowrap">Avg / game</span>
+        <span className="text-right whitespace-nowrap">Best</span>
+        <span className="text-right whitespace-nowrap">Wins</span>
+        <span className="text-right whitespace-nowrap">Losses</span>
+        <span className="text-right whitespace-nowrap">vs others</span>
+      </div>
+      {rows.map((row, index) => {
+        const digits = row.digits ?? 0;
+        const delta = row.vsOthers;
+        return (
+          <div
+            key={row.label}
+            className={`grid grid-cols-[minmax(150px,1.4fr)_repeat(5,minmax(76px,1fr))] items-center gap-2 py-2.5 text-lol-text-bright transition-colors duration-[120ms] hover:bg-white/[0.025] ${
+              row.highlight ? "bg-[rgba(201,164,92,0.08)]" : ""
+            } ${index < rows.length - 1 ? "border-b border-white/[0.04]" : ""}`}
+          >
+            <span>{row.label}</span>
+            <span className="text-right tabular-nums">
+              {renderValue(row.avg, digits, row.suffix)}
+            </span>
+            <span className="text-right tabular-nums">
+              {renderValue(row.best, digits, row.suffix)}
+            </span>
+            <span className="text-right tabular-nums">
+              {renderValue(row.wins, digits, row.suffix)}
+            </span>
+            <span className="text-right tabular-nums">
+              {renderValue(row.losses, digits, row.suffix)}
+            </span>
+            <span className="flex justify-end">
+              {delta == null ? (
+                <span
+                  className="inline-flex items-center rounded bg-lol-card/60 px-1.5 py-0.5 text-xs font-semibold text-lol-text"
+                  title="Not tracked yet"
+                >
+                  —
+                </span>
+              ) : (
+                <span
+                  className={`inline-flex items-center gap-0.5 rounded px-1.5 py-0.5 text-xs font-semibold ${
+                    delta >= 0
+                      ? "bg-[rgba(34,197,94,0.12)] text-[#22C55E]"
+                      : "bg-[rgba(229,72,63,0.12)] text-[#E5483F]"
+                  }`}
+                >
+                  <DeltaIndicator positive={delta >= 0} />
+                  {delta >= 0 ? "+" : ""}
+                  {delta.toFixed(1)}
+                </span>
+              )}
+            </span>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 function CombatStatTable({ rows }: { rows: CombatStatTableRow[] }) {
   return (
     <div className="flex flex-col gap-2 text-xs">
@@ -6118,7 +6215,7 @@ function Stat({
   const accent = accentOverride ?? CHART_PALETTE[statIndex % CHART_PALETTE.length];
   return (
     <div
-      className="relative rounded-xl border border-lol-border border-t-[3px] bg-black/10 px-3.5 py-3"
+      className="relative rounded-xl border border-lol-border border-t-[3px] bg-black/10 px-[18px] py-4"
       style={{
         borderTopColor: accent,
         backgroundImage: `radial-gradient(circle at top right, ${accent}1a, transparent 65%)`,
@@ -6127,7 +6224,7 @@ function Stat({
     >
       {sparkValues && (
         <div className="pointer-events-none absolute right-2.5 top-2.5">
-          <Sparkline values={sparkValues} />
+          <Sparkline values={sparkValues} width={72} height={28} />
         </div>
       )}
       {miniViz && <div className="pointer-events-none absolute right-2.5 top-2.5">{miniViz}</div>}
@@ -6136,7 +6233,7 @@ function Stat({
         {label}
       </span>
       <b
-        className={`my-0.5 block font-display text-[24px] font-bold leading-tight text-lol-text-bright ${valueClass}`}
+        className={`my-0.5 block font-display text-[26px] font-bold leading-tight text-lol-text-bright ${valueClass}`}
       >
         {value}
       </b>
