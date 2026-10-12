@@ -741,17 +741,28 @@ async function withLookupSlot<T>(fn: () => Promise<T>): Promise<T> {
 // already covered by the live data, and the rest are per-locale mirrors.
 async function getArchivedBranches(): Promise<string[]> {
   if (archivedBranches) return archivedBranches;
-  const listing = await fetchJson("https://raw.communitydragon.org/json/");
-  const branches: string[] = (Array.isArray(listing) ? listing : [])
-    .map((entry: any) => String(entry?.name ?? ""))
-    .filter((name) => /^\d+\.\d+$/.test(name))
-    .sort((a, b) => {
-      const [aMajor, aMinor] = a.split(".").map(Number);
-      const [bMajor, bMinor] = b.split(".").map(Number);
-      return bMajor - aMajor || bMinor - aMinor;
-    });
-  archivedBranches = branches;
-  return branches;
+  try {
+    const listing = await fetchJson("https://raw.communitydragon.org/json/");
+    const branches: string[] = (Array.isArray(listing) ? listing : [])
+      .map((entry: any) => String(entry?.name ?? ""))
+      .filter((name) => /^\d+\.\d+$/.test(name))
+      .sort((a, b) => {
+        const [aMajor, aMinor] = a.split(".").map(Number);
+        const [bMajor, bMinor] = b.split(".").map(Number);
+        return bMajor - aMajor || bMinor - aMinor;
+      });
+    archivedBranches = branches;
+    writeDragonCache("archived-branches", branches);
+    return branches;
+  } catch (err) {
+    const stale = readDragonCacheStale<string[]>("archived-branches");
+    if (stale) {
+      archivedBranches = stale;
+      console.warn("[dragon] getArchivedBranches using stale cache");
+      return stale;
+    }
+    throw err;
+  }
 }
 
 async function getBranchAugmentIcons(branch: string): Promise<Record<number, string>> {
@@ -767,7 +778,16 @@ async function getBranchAugmentIcons(branch: string): Promise<Record<number, str
       const iconPath = aug?.augmentSmallIconPath || aug?.iconSmall || aug?.iconLarge;
       if (aug?.id != null && iconPath) icons[Number(aug.id)] = iconPath;
     }
+    branchAugmentIcons.set(branch, icons);
+    writeDragonCache(`branch-augment-icons-${branch}`, icons);
+    return icons;
   } catch {
+    const stale = readDragonCacheStale<Record<number, string>>(`branch-augment-icons-${branch}`);
+    if (stale) {
+      branchAugmentIcons.set(branch, stale);
+      console.warn(`[dragon] getBranchAugmentIcons using stale cache (${branch})`);
+      return stale;
+    }
     // Branch missing or unreadable — memoize the empty result so the walk
     // doesn't retry it for every other augment in the same session.
     branchLoadFailures.add(branch);
