@@ -64,22 +64,22 @@ import WinRateBar from "./WinRateBar";
 import ItemIcon from "./ItemIcon";
 
 const TAB_ITEMS: TabStripItem[] = [
-  { key: "ov", label: "Overview", accent: "var(--theme-assist)" },
-  { key: "cb", label: "Combat", accent: "var(--theme-loss)" },
-  { key: "ec", label: "Economy", accent: "var(--theme-gold)" },
-  { key: "fa", label: "Farm", accent: "var(--theme-win)" },
-  { key: "ob", label: "Objectives", accent: "var(--theme-crimson)" },
-  { key: "vi", label: "Vision", accent: "var(--theme-assist)" },
-  { key: "ab", label: "Abilities", accent: "var(--theme-gold)" },
-  { key: "it", label: "Items", accent: "var(--theme-gold)" },
-  { key: "ru", label: "Runes", accent: "var(--theme-violet)" },
-  { key: "mu", label: "Matchups", accent: "var(--theme-loss)" },
-  { key: "sy", label: "Synergies", accent: "var(--theme-win)" },
-  { key: "tl", label: "Timeline", accent: "var(--theme-assist)" },
-  { key: "tr", label: "Trends", accent: "var(--theme-gold)" },
-  { key: "rc", label: "Records", accent: "var(--theme-crimson)" },
-  { key: "ma", label: "Matches", accent: "var(--theme-text)" },
-  { key: "ms", label: "Mastery", accent: "var(--theme-violet)" },
+  { key: "ov", label: "Overview", accent: "#E5483F" },
+  { key: "cb", label: "Combat", accent: "#E5483F" },
+  { key: "ec", label: "Economy", accent: "#E5483F" },
+  { key: "fa", label: "Farm", accent: "#E5483F" },
+  { key: "ob", label: "Objectives", accent: "#3B82F6" },
+  { key: "vi", label: "Vision", accent: "#3B82F6" },
+  { key: "ab", label: "Abilities", accent: "#3B82F6" },
+  { key: "it", label: "Items", accent: "#3B82F6" },
+  { key: "ru", label: "Runes", accent: "#3B82F6" },
+  { key: "mu", label: "Matchups", accent: "#C9A45C" },
+  { key: "sy", label: "Synergies", accent: "#C9A45C" },
+  { key: "tl", label: "Timeline", accent: "#C9A45C" },
+  { key: "tr", label: "Trends", accent: "#C9A45C" },
+  { key: "rc", label: "Records", accent: "#C9A45C" },
+  { key: "ma", label: "Matches", accent: "#22C55E" },
+  { key: "ms", label: "Mastery", accent: "#22C55E" },
 ];
 
 type RateSort = "count" | "winRate";
@@ -638,7 +638,7 @@ export function ChampionDetailExp() {
         ← All champions
       </button>
 
-      <div className="rounded-[14px] border border-lol-border bg-[linear-gradient(180deg,var(--theme-card-hover),var(--theme-card))] p-5">
+      <div className="rounded-[14px] border border-lol-border border-l-2 border-l-[#E5483F] bg-[radial-gradient(circle_at_top_right,rgba(229,72,63,0.18),transparent_60%),linear-gradient(to_bottom,rgba(229,72,63,0.10),transparent_40%),linear-gradient(180deg,var(--theme-card-hover),var(--theme-card))] px-5 py-[22px]">
         <div className="flex min-w-0 items-center gap-4">
           {isSummary ? (
             <div className="flex h-[76px] w-[76px] items-center justify-center rounded-2xl border border-lol-gold/40 bg-lol-gold/10 text-center font-display text-xs font-bold text-lol-gold">

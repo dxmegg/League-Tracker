@@ -34,7 +34,7 @@ export function TabStrip({
     <div
       role="tablist"
       aria-label="Champion detail sections"
-      className={`flex min-w-0 shrink-0 gap-1 overflow-x-auto border-b border-lol-border/60 ${className}`}
+      className={`relative flex min-w-0 shrink-0 gap-1 overflow-x-auto border-b border-lol-border/60 after:pointer-events-none after:absolute after:inset-y-0 after:right-0 after:w-16 after:bg-[linear-gradient(to_right,transparent_80%,var(--theme-bg-deep))] after:content-[''] ${className}`}
     >
       {items.map((item, index) => {
         const isActive = item.key === active;
@@ -63,23 +63,19 @@ export function TabStrip({
                 if (!item.disabled) onChange(item.key);
               }
             }}
-            className={`group inline-flex shrink-0 items-center gap-1.5 border-b-2 px-3 py-2 text-xs font-semibold transition-colors ${
+            className={`group inline-flex shrink-0 items-center gap-1.5 border-b-2 px-3 py-2 text-xs font-semibold transition-[background-color] duration-[60ms] ${
               isActive
                 ? "border-lol-crimson bg-lol-crimson text-lol-text-bright"
-                : "border-transparent text-lol-text hover:text-lol-text-bright"
+                : "border-transparent bg-[rgba(255,255,255,0.02)] text-lol-text hover:text-lol-text-bright"
             } ${item.disabled ? "cursor-not-allowed opacity-40" : ""}`}
           >
             {item.accent !== undefined ? (
               <span
                 aria-hidden="true"
                 className={`h-1.5 w-1.5 shrink-0 rounded-full ${
-                  item.disabled
-                    ? "opacity-30"
-                    : isActive
-                      ? ""
-                      : "opacity-70 group-hover:opacity-100"
+                  item.disabled ? "opacity-30" : "opacity-70 group-hover:opacity-100"
                 }`}
-                style={{ backgroundColor: item.accent }}
+                style={{ backgroundColor: isActive ? "#FFFFFF" : item.accent }}
               />
             ) : null}
             <span>{item.label}</span>
