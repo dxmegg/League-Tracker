@@ -2829,6 +2829,7 @@ function shortTrendDate(label: string, mode: "weekly" | "monthly") {
 function TrendChartPanel({
   title,
   source,
+  className,
   values,
   labels,
   color,
@@ -2839,6 +2840,7 @@ function TrendChartPanel({
 }: {
   title: string;
   source?: keyof typeof SOURCE_LABELS;
+  className?: string;
   values: number[];
   labels: string[];
   color: string;
@@ -2848,7 +2850,7 @@ function TrendChartPanel({
   baseline?: number;
 }) {
   return (
-    <Panel>
+    <Panel className={className}>
       <SectionHeading title={title} source={source} />
       <LineChartExp
         values={values}
@@ -2952,7 +2954,7 @@ function TrendsTab({
       <div className="xl:col-span-2">
         <SectionHeading title="Key metrics" />
       </div>
-      <Panel className="xl:col-span-2">
+      <Panel className="xl:col-span-2 bg-[radial-gradient(circle_at_top_right,rgba(229,72,63,0.06),transparent_50%),linear-gradient(180deg,var(--theme-card-hover),var(--theme-card))]">
         <div className="mb-4 flex items-center justify-between gap-3">
           <SectionHeading title="Win rate over time" source="m" />
           <div className="flex gap-1 rounded border border-lol-border p-0.5 text-xs">
@@ -2979,7 +2981,7 @@ function TrendsTab({
           height={200}
         />
       </Panel>
-      <Panel className="xl:col-span-2">
+      <Panel className="xl:col-span-2 bg-[radial-gradient(circle_at_top_right,rgba(201,164,92,0.06),transparent_50%),linear-gradient(180deg,var(--theme-card-hover),var(--theme-card))]">
         <SectionHeading title="Average KDA over time" source="m" />
         <LineChartExp
           values={kdas}
@@ -2992,6 +2994,7 @@ function TrendsTab({
       <TrendChartPanel
         title="Average score over time"
         source="m"
+        className="bg-[radial-gradient(circle_at_top_right,rgba(34,197,94,0.06),transparent_50%),linear-gradient(180deg,var(--theme-card-hover),var(--theme-card))]"
         values={scores}
         labels={labels}
         color="var(--theme-gold)"
@@ -3002,6 +3005,7 @@ function TrendsTab({
       <TrendChartPanel
         title="Average CS per game"
         source="m"
+        className="bg-[radial-gradient(circle_at_top_right,rgba(59,130,246,0.06),transparent_50%),linear-gradient(180deg,var(--theme-card-hover),var(--theme-card))]"
         values={averageCs}
         labels={labels}
         color="var(--theme-violet)"
@@ -3019,7 +3023,7 @@ function TrendsTab({
           {patches.map((row) => (
             <div
               key={row.patch}
-              className="grid grid-cols-[1fr_auto_auto_minmax(8rem,1fr)] items-center gap-3"
+              className="grid grid-cols-[1fr_auto_auto_minmax(8rem,1fr)] items-center gap-3 border-b border-white/[0.04] py-2 transition-colors duration-[120ms] hover:bg-white/[0.03]"
             >
               <span className="font-semibold text-lol-text-bright">{row.patch}</span>
               <span className="tabular-nums">{row.games}</span>
@@ -3040,6 +3044,7 @@ function TrendsTab({
       <Panel>
         <SectionHeading title="By day of week" source="m" />
         <TrendBars
+          color={CHART_PALETTE[0]}
           rows={weekdays.map((row, index) => ({
             label: ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"][index],
             games: row?.games ?? 0,
@@ -3049,9 +3054,9 @@ function TrendsTab({
       </Panel>
       <Panel>
         <SectionHeading title="By hour of day" source="m" />
-        <TrendBars rows={hours} />
+        <TrendBars rows={hours} color={CHART_PALETTE[1]} />
       </Panel>
-      <Panel className="xl:col-span-2">
+      <Panel className="xl:col-span-2 bg-[radial-gradient(circle_at_top_left,rgba(59,130,246,0.06),transparent_50%),linear-gradient(180deg,var(--theme-card-hover),var(--theme-card))]">
         <SectionHeading title="Skill profile" source="d" />
         {/* Placeholder data; backend skill-profile metrics land in a follow-up phase. */}
         <RadarChart
@@ -3074,7 +3079,13 @@ function TrendsTab({
   );
 }
 
-function TrendBars({ rows }: { rows: Array<{ label: string; games: number; wins: number }> }) {
+function TrendBars({
+  rows,
+  color,
+}: {
+  rows: Array<{ label: string; games: number; wins: number }>;
+  color: string;
+}) {
   return (
     <div className="flex h-40 items-end gap-2">
       {rows.map((row) => {
@@ -3087,7 +3098,7 @@ function TrendBars({ rows }: { rows: Array<{ label: string; games: number; wins:
             <div className="flex h-24 w-full items-end rounded-sm bg-lol-border/30">
               <div
                 className="w-full rounded-sm"
-                style={{ height: `${rate}%`, backgroundColor: CHART_PALETTE[2] }}
+                style={{ height: `${rate}%`, backgroundColor: color }}
               />
             </div>
             <span className="truncate text-[10px] text-lol-text">{row.label}</span>
@@ -4329,7 +4340,7 @@ function EconomyTab({
       <div className="xl:col-span-2">
         <SectionHeading title="Detailed statistics" />
       </div>
-      <Panel>
+      <Panel className="bg-[radial-gradient(circle_at_top_right,rgba(229,72,63,0.06),transparent_50%),linear-gradient(180deg,var(--theme-card-hover),var(--theme-card))]">
         <SectionHeading title="Gold over time" source="d" />
         {goldValues.length < 2 ? (
           <NoData text="Not enough timeline data" />
@@ -4356,7 +4367,7 @@ function EconomyTab({
           ]}
         />
       </Panel>
-      <Panel>
+      <Panel className="bg-[radial-gradient(circle_at_top_right,rgba(201,164,92,0.06),transparent_50%),linear-gradient(180deg,var(--theme-card-hover),var(--theme-card))]">
         <SectionHeading title="Lead vs lane opponent" source="d" />
         <div className="flex flex-col gap-2 text-xs">
           <div className="grid grid-cols-[1fr_auto] gap-3 border-b border-lol-border/50 pb-2 font-semibold text-lol-text">
@@ -4371,7 +4382,10 @@ function EconomyTab({
             ["XP diff @10", bucketAt(10)?.avgXpDiffVsLaneOpponent],
             ["XP diff @15", bucketAt(15)?.avgXpDiffVsLaneOpponent],
           ].map(([label, stat]) => (
-            <div key={label} className="grid grid-cols-[1fr_auto] gap-3 text-lol-text-bright">
+            <div
+              key={label}
+              className="grid grid-cols-[1fr_auto] gap-3 border-b border-white/[0.04] py-2 text-lol-text-bright transition-colors duration-[120ms] hover:bg-white/[0.03]"
+            >
               <span>{label}</span>
               <span className="tabular-nums">{value(stat as number | null | undefined)}</span>
             </div>
@@ -4388,14 +4402,17 @@ function EconomyTab({
             ["Level @15", bucketAt(15)?.avgLevel],
             ["Level @20", bucketAt(20)?.avgLevel],
           ].map(([label, stat]) => (
-            <div key={label} className="flex items-center justify-between text-lol-text-bright">
+            <div
+              key={label}
+              className="flex items-center justify-between border-b border-white/[0.04] py-2 text-lol-text-bright transition-colors duration-[120ms] hover:bg-white/[0.03]"
+            >
               <span className="text-lol-text">{label}</span>
               <span className="tabular-nums">{value(stat as number | null | undefined, 1)}</span>
             </div>
           ))}
         </div>
       </Panel>
-      <Panel>
+      <Panel className="bg-[radial-gradient(circle_at_top_right,rgba(34,197,94,0.06),transparent_50%),linear-gradient(180deg,var(--theme-card-hover),var(--theme-card))]">
         <SectionHeading title="Gold lead curve" source="d" />
         {goldLead.length < 2 ? (
           <NoData text="Not enough lane timeline data" />
@@ -4407,7 +4424,7 @@ function EconomyTab({
           />
         )}
       </Panel>
-      <Panel>
+      <Panel className="bg-[radial-gradient(circle_at_top_right,rgba(59,130,246,0.06),transparent_50%),linear-gradient(180deg,var(--theme-card-hover),var(--theme-card))]">
         <SectionHeading title="XP lead curve" source="d" />
         {xpLead.length < 2 ? (
           <NoData text="Not enough lane timeline data" />
@@ -4447,7 +4464,7 @@ function EconomyTab({
             {queueRows.map((row) => (
               <div
                 key={row.queueId}
-                className="grid grid-cols-[1fr_auto_auto_auto_auto_auto] gap-2 text-lol-text-bright"
+                className="grid grid-cols-[1fr_auto_auto_auto_auto_auto] gap-2 border-b border-white/[0.04] py-2 text-lol-text-bright transition-colors duration-[120ms] hover:bg-white/[0.03]"
               >
                 <span>{QUEUE_LABELS[row.queueId] ?? row.queueId}</span>
                 <span className="tabular-nums">{row.games}</span>
@@ -4603,7 +4620,7 @@ function FarmTab({
           ))}
         </div>
       </Panel>
-      <Panel>
+      <Panel className="bg-[radial-gradient(circle_at_top_right,rgba(34,197,94,0.06),transparent_50%),linear-gradient(180deg,var(--theme-card-hover),var(--theme-card))]">
         <SectionHeading title="CS curve" source="d" />
         {csValues.length < 2 ? (
           <NoData text="Not enough timeline data" />
@@ -4615,7 +4632,7 @@ function FarmTab({
           />
         )}
       </Panel>
-      <Panel>
+      <Panel className="bg-[radial-gradient(circle_at_top_right,rgba(34,197,94,0.06),transparent_50%),linear-gradient(180deg,var(--theme-card-hover),var(--theme-card))]">
         <SectionHeading title="CS lead vs lane opponent" source="d" />
         {csLead.length < 2 ? (
           <NoData text="Not enough lane timeline data" />
@@ -4657,7 +4674,7 @@ function FarmTab({
             {(queueStats ?? []).map((row) => (
               <div
                 key={row.queueId}
-                className="grid grid-cols-[1fr_auto_auto_auto] gap-2 text-lol-text-bright"
+                className="grid grid-cols-[1fr_auto_auto_auto] gap-2 border-b border-white/[0.04] py-2 text-lol-text-bright transition-colors duration-[120ms] hover:bg-white/[0.03]"
               >
                 <span>{QUEUE_LABELS[row.queueId] ?? row.queueId}</span>
                 <span className="tabular-nums">{row.games}</span>
@@ -4674,7 +4691,16 @@ function FarmTab({
         ["CS by game phase", "Phase-specific CS aggregation is not available"],
         ["Where CS comes from", "Lane/jungle source split is not available"],
       ].map(([title, text]) => (
-        <Panel key={title}>
+        <Panel
+          key={title}
+          className={
+            title === "CS per game histogram" ||
+            title === "CS by game phase" ||
+            title === "Where CS comes from"
+              ? "bg-[radial-gradient(circle_at_top_right,rgba(168,85,247,0.06),transparent_50%),linear-gradient(180deg,var(--theme-card-hover),var(--theme-card))]"
+              : ""
+          }
+        >
           <SectionHeading title={title} source="d" />
           <NoData text={text} />
         </Panel>
