@@ -60,9 +60,9 @@ type ButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & {
 
 function Button({ variant = "primary", children, className = "", ...props }: ButtonProps) {
   const variantClasses = {
-    primary: "border border-lol-border bg-lol-card text-lol-text-bright hover:border-lol-crimson",
+    primary: "border border-lol-crimson bg-lol-crimson text-white hover:bg-lol-crimson/90",
     secondary: "border border-lol-border bg-lol-card text-lol-text-bright hover:border-lol-crimson",
-    subtle: "border border-lol-border bg-lol-card text-lol-text-bright hover:border-lol-crimson",
+    subtle: "border border-lol-border/70 bg-transparent text-lol-text hover:border-lol-crimson",
     neutral: "border border-lol-border bg-lol-card text-lol-text-bright hover:border-lol-crimson",
     destructive: "border border-lol-loss/60 text-lol-loss hover:border-lol-loss",
   };
@@ -70,7 +70,7 @@ function Button({ variant = "primary", children, className = "", ...props }: But
   return (
     <button
       {...props}
-      className={`inline-flex items-center gap-1.5 rounded-lg px-4 py-2 text-sm font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-lol-crimson/60 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--theme-bg-deep)] ${variantClasses[variant]} ${className}`}
+      className={`inline-flex items-center gap-1.5 rounded-lg px-4 py-2 text-sm font-medium transition-colors duration-[120ms] disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-lol-crimson/60 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--theme-bg-deep)] ${variantClasses[variant]} ${className}`}
     >
       {children}
     </button>
@@ -116,8 +116,12 @@ function Section({
   className?: string;
 }) {
   return (
-    <Panel className={`flex flex-col ${className}`}>
-      <h2 className="mb-4 font-display text-[16px] font-semibold text-lol-text-bright">{title}</h2>
+    <Panel
+      className={`relative overflow-hidden border-t-2 border-lol-crimson before:pointer-events-none before:absolute before:right-0 before:top-0 before:h-32 before:w-40 before:bg-[radial-gradient(circle_at_top_right,rgba(225,29,72,0.08),transparent_70%)] ${className}`}
+    >
+      <h2 className="relative z-10 mb-4 font-display text-[16px] font-semibold text-lol-text-bright before:mr-2 before:inline-block before:h-1.5 before:w-1.5 before:rounded-full before:bg-lol-crimson after:mt-2 after:block after:h-px after:w-24 after:bg-gradient-to-r after:from-lol-crimson/70 after:to-transparent">
+        {title}
+      </h2>
       <div className="flex flex-col gap-3">{children}</div>
     </Panel>
   );
@@ -564,8 +568,11 @@ export function SettingsExp() {
         </p>
       </div>
 
-      <Section title="Appearance">
-        <div className="flex items-center justify-between gap-4 py-2.5 border-b border-lol-border/40 last:border-b-0">
+      <Section
+        title="Appearance"
+        className="[&>h2]:before:bg-lol-crimson border-t-lol-crimson before:bg-[radial-gradient(circle_at_top_right,rgba(225,29,72,0.08),transparent_70%)]"
+      >
+        <div className="flex items-center justify-between gap-4 border-b border-lol-border/40 py-2.5 transition-colors duration-[120ms] hover:bg-white/[0.02] last:border-b-0">
           <label htmlFor="theme-select" className="text-[13.5px] text-lol-text-bright">
             Theme
           </label>
@@ -600,7 +607,10 @@ export function SettingsExp() {
         </div>
       </Section>
 
-      <Section title="League history sync">
+      <Section
+        title="League history sync"
+        className="[&>h2]:before:bg-lol-gold border-t-lol-gold before:bg-[radial-gradient(circle_at_top_right,rgba(234,179,8,0.08),transparent_70%)]"
+      >
         <div className="flex items-center gap-2 mt-3">
           <Button variant="primary" onClick={handleBackfill} disabled={anyRunning}>
             {backfilling ? "Working..." : "Backfill"}
@@ -631,12 +641,15 @@ export function SettingsExp() {
         {backfillStatus && <p className="text-[12.5px] text-lol-text mt-2">{backfillStatus}</p>}
       </Section>
 
-      <Section title="Timeline backfill">
+      <Section
+        title="Timeline backfill"
+        className="[&>h2]:before:bg-[#10b981] border-t-[#10b981] before:bg-[radial-gradient(circle_at_top_right,rgba(16,185,129,0.08),transparent_70%)]"
+      >
         <p className="text-[12.5px] text-lol-text">
           Fetches detailed timeline data (gold, items, abilities over time) for stored matches.
           Skips Arena and Mayhem automatically.
         </p>
-        <Panel className="flex flex-col gap-3">
+        <Panel className="flex flex-col gap-3 border-t-2 border-t-[#10b981] bg-[radial-gradient(circle_at_top_right,rgba(16,185,129,0.08),transparent_70%)]">
           <label className="flex items-center justify-between gap-4 text-[13.5px] text-lol-text-bright">
             <span>Games to scan</span>
             <input
@@ -648,7 +661,7 @@ export function SettingsExp() {
               onChange={(event) =>
                 setTimelineLimit(Math.min(5000, Math.max(1, Number(event.target.value) || 1)))
               }
-              className="w-24 rounded-lg border border-lol-border bg-lol-card px-3 py-2 text-right text-sm text-lol-text-bright outline-none focus:border-lol-crimson"
+              className="w-24 rounded-lg border border-lol-border bg-lol-card px-3 py-2 text-right text-sm text-lol-text-bright outline-none transition-colors duration-[120ms] hover:border-lol-border/80 focus:border-lol-crimson"
             />
           </label>
           <div className="flex items-center gap-2">
@@ -688,9 +701,12 @@ export function SettingsExp() {
         </Panel>
       </Section>
 
-      <Section title="Data Management">
+      <Section
+        title="Data Management"
+        className="[&>h2]:before:bg-[#3b82f6] border-t-[#3b82f6] before:bg-[radial-gradient(circle_at_top_right,rgba(59,130,246,0.08),transparent_70%)]"
+      >
         <div className="space-y-4">
-          <div className="flex items-center justify-between gap-4 py-2.5 border-b border-lol-border/40 last:border-b-0 px-3 py-2 xl:px-4 xl:py-3">
+          <div className="flex items-center justify-between gap-4 border-b border-lol-border/40 px-3 py-2 transition-colors duration-[120ms] hover:bg-white/[0.02] last:border-b-0 xl:px-4 xl:py-3">
             <div>
               <p className="text-[13.5px] text-lol-text-bright">Export data</p>
               <p className="text-[12.5px] text-lol-text">
@@ -754,7 +770,7 @@ export function SettingsExp() {
 
           <div className="border-t border-lol-border/40" />
 
-          <div className="flex items-center justify-between gap-4 py-2.5 border-b border-lol-border/40 last:border-b-0 px-3 py-2 xl:px-4 xl:py-3">
+          <div className="flex items-center justify-between gap-4 border-b border-lol-border/40 px-3 py-2 transition-colors duration-[120ms] hover:bg-white/[0.02] last:border-b-0 xl:px-4 xl:py-3">
             <div>
               <p className="text-[13.5px] text-lol-text-bright">Import data</p>
               <p className="text-[12.5px] text-lol-text">
@@ -790,7 +806,10 @@ export function SettingsExp() {
         </div>
       </Section>
 
-      <Section title="Saved accounts">
+      <Section
+        title="Saved accounts"
+        className="[&>h2]:before:bg-lol-violet border-t-lol-violet before:bg-[radial-gradient(circle_at_top_right,rgba(139,92,246,0.08),transparent_70%)]"
+      >
         <p className="text-[12.5px] text-lol-text mb-4">
           Accounts that can appear in the Local Account and Match History views. Deleting one
           removes its summoner row and every game stored for it; games still owned by another saved
@@ -809,7 +828,7 @@ export function SettingsExp() {
               return (
                 <div
                   key={summoner.puuid}
-                  className="flex items-center justify-between gap-4 py-2.5 border-b border-lol-border/40 last:border-b-0 gap-3 rounded-lg border border-lol-border bg-lol-card px-3 py-2 xl:px-4 xl:py-3"
+                  className="flex items-center justify-between gap-4 gap-3 rounded-lg border border-lol-border bg-lol-card px-3 py-2 transition-colors duration-[120ms] hover:bg-white/[0.02] last:border-b-0 xl:px-4 xl:py-3"
                 >
                   <div className="min-w-0">
                     <p className="text-[12.5px] text-lol-text-bright truncate">{name}</p>
@@ -864,9 +883,12 @@ export function SettingsExp() {
       </Section>
 
       {/* General */}
-      <Section title="General">
+      <Section
+        title="General"
+        className="[&>h2]:before:bg-[#94a3b8] border-t-[#94a3b8] before:bg-[radial-gradient(circle_at_top_right,rgba(148,163,184,0.08),transparent_70%)]"
+      >
         <div className="space-y-4">
-          <div className="flex items-center justify-between gap-4 py-2.5 border-b border-lol-border/40 last:border-b-0">
+          <div className="flex items-center justify-between gap-4 border-b border-lol-border/40 py-2.5 transition-colors duration-[120ms] hover:bg-white/[0.02] last:border-b-0">
             <div>
               <p className="text-[13.5px] text-lol-text-bright">Start with Windows</p>
               <p className="text-[12.5px] text-lol-text">
@@ -884,7 +906,7 @@ export function SettingsExp() {
 
           <div className="border-t border-lol-border/40" />
 
-          <div className="flex items-center justify-between gap-4 py-2.5 border-b border-lol-border/40 last:border-b-0">
+          <div className="flex items-center justify-between gap-4 border-b border-lol-border/40 py-2.5 transition-colors duration-[120ms] hover:bg-white/[0.02] last:border-b-0">
             <div>
               <p className="text-[13.5px] text-lol-text-bright">Minimize to tray on close</p>
               <p className="text-[12.5px] text-lol-text">
@@ -897,7 +919,7 @@ export function SettingsExp() {
 
           <div className="border-t border-lol-border/40" />
 
-          <div className="flex items-center justify-between gap-4 py-2.5 border-b border-lol-border/40 last:border-b-0">
+          <div className="flex items-center justify-between gap-4 border-b border-lol-border/40 py-2.5 transition-colors duration-[120ms] hover:bg-white/[0.02] last:border-b-0">
             <div>
               <p className="text-[13.5px] text-lol-text-bright">Remember filters and sorting</p>
               <p className="text-[12.5px] text-lol-text">
@@ -910,7 +932,7 @@ export function SettingsExp() {
 
           <div className="border-t border-lol-border/40" />
 
-          <div className="flex items-center justify-between gap-4 py-2.5 border-b border-lol-border/40 last:border-b-0">
+          <div className="flex items-center justify-between gap-4 border-b border-lol-border/40 py-2.5 transition-colors duration-[120ms] hover:bg-white/[0.02] last:border-b-0">
             <div>
               <p className="text-[13.5px] text-lol-text-bright">Hide remakes</p>
               <p className="text-[12.5px] text-lol-text">
@@ -944,7 +966,7 @@ export function SettingsExp() {
                     return (
                       <div
                         key={q}
-                        className="flex items-center justify-between gap-4 py-2.5 border-b border-lol-border/40 last:border-b-0 py-1.5 xl:py-2"
+                        className="flex items-center justify-between gap-4 border-b border-lol-border/40 py-1.5 transition-colors duration-[120ms] hover:bg-white/[0.02] last:border-b-0 xl:py-2"
                       >
                         <p className="text-sm text-lol-text">{queueLabel(q)}</p>
                         {/* Switching off the last one would empty every page */}
@@ -964,9 +986,12 @@ export function SettingsExp() {
       </Section>
 
       {/* Backups */}
-      <Section title="Backups">
+      <Section
+        title="Backups"
+        className="[&>h2]:before:bg-lol-crimson border-t-lol-crimson before:bg-[radial-gradient(circle_at_top_right,rgba(225,29,72,0.08),transparent_70%)]"
+      >
         <div className="space-y-4">
-          <div className="flex items-center justify-between gap-4 py-2.5 border-b border-lol-border/40 last:border-b-0">
+          <div className="flex items-center justify-between gap-4 border-b border-lol-border/40 py-2.5 transition-colors duration-[120ms] hover:bg-white/[0.02] last:border-b-0">
             <div>
               <p className="text-[13.5px] text-lol-text-bright">Automatic backups</p>
               <p className="text-[12.5px] text-lol-text">
@@ -987,7 +1012,7 @@ export function SettingsExp() {
               {backups.map((backup) => (
                 <div
                   key={backup.file}
-                  className="flex items-center justify-between gap-4 py-2.5 border-b border-lol-border/40 last:border-b-0 gap-3 px-3 py-2 text-xs xl:px-4 xl:py-3"
+                  className="flex items-center justify-between gap-4 gap-3 border-b border-lol-border/40 px-3 py-2 text-xs transition-colors duration-[120ms] hover:bg-white/[0.02] last:border-b-0 xl:px-4 xl:py-3"
                 >
                   <div className="min-w-0">
                     <p className="text-lol-text-bright">{formatTaken(backup.created)}</p>
@@ -1039,7 +1064,10 @@ export function SettingsExp() {
       </Section>
 
       {/* Credits */}
-      <Section title="Credits & Acknowledgements">
+      <Section
+        title="Credits & Acknowledgements"
+        className="[&>h2]:before:bg-lol-gold border-t-lol-gold before:bg-[radial-gradient(circle_at_top_right,rgba(234,179,8,0.08),transparent_70%)]"
+      >
         <div className="space-y-3 text-sm text-lol-text leading-relaxed">
           <p>
             <a
