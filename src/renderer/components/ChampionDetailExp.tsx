@@ -86,6 +86,28 @@ type RateSort = "count" | "winRate";
 
 const CHART_PALETTE = ["#E5483F", "#C9A45C", "#22C55E", "#3B82F6", "#A855F7", "#94A3B8"] as const;
 
+const STAT_LABEL_ORDER = [
+  "Games",
+  "Win rate",
+  "KDA",
+  "CS / min",
+  "Score",
+  "MVP / ACE",
+  "Avg damage",
+  "Avg gold",
+  "Kill participation",
+  "Damage share",
+  "Avg damage taken",
+  "Avg heal",
+  "Gold / min",
+  "Avg game length",
+  "Total time played",
+  "Streak",
+] as const;
+
+const BREAKDOWN_PANEL_CLASS =
+  "border-t border-white/[0.06] bg-[linear-gradient(to_bottom,rgba(255,255,255,0.02),transparent_40%),linear-gradient(180deg,var(--theme-card-hover),var(--theme-card))]";
+
 type CombatMatch = MatchListItem & {
   physical_damage_dealt: number | null;
   magic_damage_dealt: number | null;
@@ -1591,7 +1613,7 @@ function OverviewTab({
         )}
       </Panel>
 
-      <Panel>
+      <Panel className={BREAKDOWN_PANEL_CLASS}>
         <SectionHeading title="Role split" aside="Games and win rate" />
         {roleStatsLoading || !roleStats ? (
           <SectionLoading />
@@ -1641,6 +1663,7 @@ function OverviewTab({
 
       <RatePanel
         title="Top augments"
+        className={BREAKDOWN_PANEL_CLASS}
         sort={augmentSort}
         options={[
           ["count", "Most picked"],
@@ -1674,6 +1697,7 @@ function OverviewTab({
       >
         <RatePanel
           title="Top items"
+          className={BREAKDOWN_PANEL_CLASS}
           sort={itemSort}
           options={[
             ["count", "Most built"],
@@ -1706,6 +1730,7 @@ function OverviewTab({
 
         <RatePanel
           title="Keystones"
+          className={BREAKDOWN_PANEL_CLASS}
           sort={keystoneSort}
           options={[
             ["count", "Most played"],
@@ -1741,7 +1766,7 @@ function OverviewTab({
         </RatePanel>
       </div>
 
-      <Panel>
+      <Panel className={BREAKDOWN_PANEL_CLASS}>
         <SectionHeading title="Games by queue" />
         {queueStatsLoading || !queueStats ? (
           <SectionLoading />
@@ -1755,7 +1780,7 @@ function OverviewTab({
               .map((queueStat) => (
                 <div
                   key={queueStat.queueId}
-                  className="grid grid-cols-[minmax(0,1fr)_auto_auto_auto_minmax(92px,1fr)_auto] items-center gap-3 rounded-lg border-t border-transparent px-3 py-2.5 text-[12px] transition-colors hover:border-lol-border/60 hover:bg-lol-card-hover"
+                  className="grid grid-cols-[minmax(0,1fr)_auto_auto_auto_minmax(92px,1fr)_auto] items-center gap-3 rounded-lg border-t border-transparent px-3 py-3.5 text-[12px] transition-colors duration-[120ms] hover:border-white/[0.06] hover:bg-white/[0.03]"
                 >
                   <div className="flex min-w-0 items-center gap-2">
                     <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-md bg-lol-card text-[9px] font-bold text-lol-text-bright">
@@ -4803,6 +4828,7 @@ function formatPercent(value: number | null | undefined, total: number) {
 function RatePanel({
   title,
   source,
+  className,
   sort,
   options,
   onSortChange,
@@ -4812,6 +4838,7 @@ function RatePanel({
 }: {
   title: string;
   source?: keyof typeof SOURCE_LABELS;
+  className?: string;
   sort: RateSort;
   options: [RateSort, string][];
   onSortChange: (sort: RateSort) => void;
@@ -4820,7 +4847,7 @@ function RatePanel({
   children: ReactNode;
 }) {
   return (
-    <Panel>
+    <Panel className={className}>
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
         <SectionHeading title={title} source={source} />
         <SortButtons value={sort} options={options} onChange={onSortChange} />
@@ -4895,14 +4922,28 @@ function Stat({
   valueClass?: string;
   sparkValues?: Array<number | null>;
 }) {
+  const statIndex = Math.max(
+    0,
+    STAT_LABEL_ORDER.findIndex((entry) => entry === label),
+  );
+  const accent = CHART_PALETTE[statIndex % CHART_PALETTE.length];
   return (
-    <div className="relative rounded-xl border border-lol-border bg-black/10 px-3.5 py-3">
+    <div
+      className="relative rounded-xl border border-lol-border border-t-[3px] bg-black/10 px-3.5 py-3"
+      style={{
+        borderTopColor: accent,
+        backgroundImage: `radial-gradient(circle at top right, ${accent}1a, transparent 65%)`,
+      }}
+    >
       {sparkValues && (
         <div className="pointer-events-none absolute right-2.5 top-2.5">
           <Sparkline values={sparkValues} />
         </div>
       )}
-      <span className="text-[12.5px] uppercase tracking-wider text-lol-text">{label}</span>
+      <span className="flex items-center gap-1.5 text-[12.5px] uppercase tracking-wider text-lol-text">
+        <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: accent }} />
+        {label}
+      </span>
       <b
         className={`my-0.5 block font-display text-[24px] font-bold leading-tight text-lol-text-bright ${valueClass}`}
       >
@@ -4986,12 +5027,17 @@ function SectionHeading({
   source?: keyof typeof SOURCE_LABELS;
 }) {
   return (
-    <div className="mb-4 flex items-baseline justify-between gap-3">
+    <div className="relative mb-4 flex items-baseline justify-between gap-3">
       <h2 className="flex items-center gap-2 font-display text-[16px] font-semibold text-lol-text-bright">
-        {title}
+        <span className="h-1.5 w-1.5 shrink-0 rotate-45 bg-[#E5483F]" aria-hidden="true" />
+        <span>{title}</span>
         {source && <SourceBadge kind={source} />}
       </h2>
       {aside && <span className="text-[12px] text-lol-text">{aside}</span>}
+      <span
+        className="pointer-events-none absolute bottom-[-6px] left-0 h-px w-2/5 bg-gradient-to-r from-[#E5483F]/35 to-transparent"
+        aria-hidden="true"
+      />
     </div>
   );
 }
@@ -5024,7 +5070,7 @@ function RoleRow({
   const unknown = role === "UNKNOWN";
   return (
     <div
-      className={`grid grid-cols-[auto_minmax(0,1fr)_auto_auto_minmax(92px,1fr)_auto_auto] items-center gap-2 rounded-lg border-t border-transparent px-3 py-2.5 transition-colors hover:border-lol-border/60 hover:bg-lol-card-hover ${unknown ? "text-lol-text/50" : ""}`}
+      className={`grid grid-cols-[auto_minmax(0,1fr)_auto_auto_minmax(92px,1fr)_auto_auto] items-center gap-2 rounded-lg border-t border-transparent px-3 py-3.5 transition-colors duration-[120ms] hover:border-white/[0.06] hover:bg-white/[0.03] ${unknown ? "text-lol-text/50" : ""}`}
     >
       <RoleIcon role={role} />
       <span
@@ -5049,8 +5095,8 @@ function RoleRow({
           delta == null
             ? "bg-lol-card/60 text-lol-text"
             : delta >= 0
-              ? "bg-emerald-500/10 text-lol-win"
-              : "bg-rose-500/10 text-lol-loss"
+              ? "bg-[rgba(34,197,94,0.12)] text-[#22C55E]"
+              : "bg-[rgba(229,72,63,0.12)] text-[#E5483F]"
         }`}
       >
         {delta == null ? "—" : `${delta >= 0 ? "+" : ""}${delta.toFixed(1)}`}
@@ -5061,17 +5107,20 @@ function RoleRow({
 
 function RoleIcon({ role }: { role: string }) {
   const label = role === "UNKNOWN" ? "?" : role.slice(0, 1);
+  const accent =
+    role === "MIDDLE"
+      ? { color: "#C9A45C", background: "rgba(201,164,92,0.15)" }
+      : role === "TOP"
+        ? { color: "#E5483F", background: "rgba(229,72,63,0.15)" }
+        : role === "BOTTOM"
+          ? { color: "#22C55E", background: "rgba(34,197,94,0.15)" }
+          : role === "JUNGLE"
+            ? { color: "#3B82F6", background: "rgba(59,130,246,0.15)" }
+            : { color: "#94A3B8", background: "rgba(148,163,184,0.15)" };
   return (
     <svg aria-hidden="true" className="h-6 w-6 shrink-0" viewBox="0 0 24 24" role="img">
-      <rect x="1" y="1" width="22" height="22" rx="5" fill="var(--theme-card)" />
-      <text
-        x="12"
-        y="16"
-        fill="var(--theme-text-bright)"
-        fontSize="11"
-        fontWeight="700"
-        textAnchor="middle"
-      >
+      <rect x="1" y="1" width="22" height="22" rx="5" fill={accent.background} />
+      <text x="12" y="16" fill={accent.color} fontSize="11" fontWeight="700" textAnchor="middle">
         {label}
       </text>
     </svg>
@@ -5127,7 +5176,7 @@ function RateRow({
         : "text-lol-text";
   const sparse = sampleSize != null && sampleSize < 3;
   return (
-    <div className="flex min-w-0 items-center gap-2 rounded-lg border-t border-transparent px-3 py-2.5 transition-colors hover:border-lol-border/60 hover:bg-lol-card-hover">
+    <div className="flex min-w-0 items-center gap-2 rounded-lg border-t border-transparent px-3 py-3.5 transition-colors duration-[120ms] hover:border-white/[0.06] hover:bg-white/[0.03]">
       {icon}
       <div className="min-w-0 flex-1">
         <span className="block truncate text-[12.5px] text-lol-text-bright">{name}</span>
@@ -5149,7 +5198,9 @@ function RateRow({
         {delta != null && (
           <span
             className={`ml-1 rounded px-1 py-0.5 text-xs font-semibold ${
-              delta >= 0 ? "bg-emerald-500/10 text-lol-win" : "bg-rose-500/10 text-lol-loss"
+              delta >= 0
+                ? "bg-[rgba(34,197,94,0.12)] text-[#22C55E]"
+                : "bg-[rgba(229,72,63,0.12)] text-[#E5483F]"
             }`}
           >
             {delta >= 0 ? "+" : ""}
