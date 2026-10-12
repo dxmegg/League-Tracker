@@ -4660,7 +4660,7 @@ function EconomyTab({
   detailLoading: boolean;
   timeline: TimelineBucket[] | null;
   timelineLoading: boolean;
-  queueStats: Array<{ queueId: number; games: number; wins: number }> | null;
+  queueStats: ChampionQueueStat[] | null;
   queueStatsLoading: boolean;
 }) {
   if (detailLoading) return <SectionLoading />;
@@ -4686,6 +4686,11 @@ function EconomyTab({
       : null;
   const value = (number: number | null | undefined, digits = 0) => formatPlain(number, digits);
   const queueRows = queueStats ?? [];
+  const formatQueueKda = (row: ChampionQueueStat) => {
+    if (row.kills == null && row.deaths == null && row.assists == null) return "—";
+    if (row.deaths == null || row.deaths === 0) return "∞";
+    return (((row.kills ?? 0) + (row.assists ?? 0)) / row.deaths).toFixed(2);
+  };
 
   return (
     <div className="grid grid-cols-1 gap-5 xl:grid-cols-2">
@@ -4952,10 +4957,10 @@ function EconomyTab({
               >
                 <span>{QUEUE_LABELS[row.queueId] ?? row.queueId}</span>
                 <span className="text-right tabular-nums">{row.games}</span>
-                <span className="text-right tabular-nums">—</span>
-                <span className="text-right tabular-nums">—</span>
-                <span className="text-right tabular-nums">—</span>
-                <span className="text-right tabular-nums">—</span>
+                <span className="text-right tabular-nums">{formatSmallMetric(row.goldPerMin)}</span>
+                <span className="text-right tabular-nums">{formatSmallMetric(row.avgGold)}</span>
+                <span className="text-right tabular-nums">{formatSmallMetric(row.csPerMin)}</span>
+                <span className="text-right tabular-nums">{formatQueueKda(row)}</span>
               </div>
             ))}
           </div>

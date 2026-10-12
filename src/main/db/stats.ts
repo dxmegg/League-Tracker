@@ -200,6 +200,11 @@ export function getChampionQueueStats(
                AVG(${source.alias}.kills) as kills,
                AVG(${source.alias}.deaths) as deaths,
                AVG(${source.alias}.assists) as assists,
+               AVG(${source.alias}.gold_earned) as avgGold,
+               AVG(CASE WHEN g.game_duration >= 60
+                        THEN ${source.alias}.gold_earned * 60.0 / g.game_duration END) as goldPerMin,
+               AVG(CASE WHEN g.game_duration >= 60
+                        THEN ${source.alias}.cs * 60.0 / g.game_duration END) as csPerMin,
                AVG(${source.alias}.score) as avgScore,
                AVG(g.game_duration) as avgGameLength
         FROM ${source.table} ${source.alias}
@@ -215,6 +220,9 @@ export function getChampionQueueStats(
     kills: number;
     deaths: number;
     assists: number;
+    avgGold: number | null;
+    goldPerMin: number | null;
+    csPerMin: number | null;
     avgScore: number | null;
     avgGameLength: number | null;
   }>;

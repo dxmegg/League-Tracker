@@ -586,6 +586,9 @@ export interface ChampionQueueStat {
   kills?: number;
   deaths?: number;
   assists?: number;
+  avgGold?: number | null;
+  goldPerMin?: number | null;
+  csPerMin?: number | null;
   avgScore?: number | null;
   avgGameLength?: number | null;
 }
