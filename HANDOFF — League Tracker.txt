@@ -73,6 +73,12 @@ Faza — champion tab pattern (2026-10-12):
 - Commits: 07e7230a (Overview), ac221c84 (Combat), 9105c6ef (Economy), 151b0afe/d379292b (Farm), 4e1612f4 (Vision), 5e45d574 (Abilities), then Objectives, Items, Runes, Matchups, Synergies, Timeline, Trends, Records, Matches, Mastery on 2026-10-12
 - Note: 5-column tables render "—" placeholders for In wins / In losses / vs your other champions columns on Combat/CombatStatTable-driven panels — backfill of per-result breakdown is deferred
 
+Faza — visual polish (2026-10-12):
+- A: chart gradients + brighter palette (CHART_PALETTE 6-color) + tinted InsightsPanel by kind
+- B: metric cards with 6-color rotating accents + tinted delta chips + crimson diamond section headings + breakdown depth (top border, inner gradient, hover)
+- C: champion banner aura (crimson left bar, radial top-right, vertical gradient) + tab category colors (crimson/sapphire/gold/emerald dots) + right-edge scroll fade
+- D: sidebar active accent + glow, icon glow on items/augments/keystones, sparkline drop-shadow, match row hover with 2→3px edge
+
 Ostatnie zamknięte fazy (2026-10-11):
 - A (log noise dragon:*): DONE (already silent before this session)
 - D (summary tiles): DONE (source + runtime verified — SCORE 6.3, MVP/ACE 562/249, CS/MIN 2.3 in /champions/summary)
@@ -132,8 +138,8 @@ Cherry-pickuje commity między worktree'ami — nie używać subsessji.
 6. Co dalej
 - A — Per-result breakdown backfill (In wins / In losses / vs other champions) to replace "—" placeholders
 - B — Hint text under panel headers (mockup has one-line description above each panel)
-- C — Per-tab accent color for InsightsPanel (currently all tabs share the same styling)
-- D — CDragon 522 intermittent failures (mitigated by cache)
+- C — CDragon 522 intermittent failures (mitigated by cache)
+- D — Additional visual polish: animations on tab change, hover effects on champion list rows, weekly activity heatmap color scale
 - E — New feature (ask user)
 
 7. Komendy
