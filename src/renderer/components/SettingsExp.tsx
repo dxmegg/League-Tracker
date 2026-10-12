@@ -117,7 +117,7 @@ function Section({
 }) {
   return (
     <Panel
-      className={`relative overflow-hidden border-t-2 border-lol-crimson before:pointer-events-none before:absolute before:right-0 before:top-0 before:h-32 before:w-40 before:bg-[radial-gradient(circle_at_top_right,rgba(225,29,72,0.08),transparent_70%)] ${className}`}
+      className={`relative border-t-2 border-lol-crimson before:pointer-events-none before:absolute before:right-0 before:top-0 before:h-32 before:w-40 before:bg-[radial-gradient(circle_at_top_right,rgba(225,29,72,0.08),transparent_70%)] ${className}`}
     >
       <h2 className="relative z-10 mb-4 font-display text-[16px] font-semibold text-lol-text-bright before:mr-2 before:inline-block before:h-1.5 before:w-1.5 before:rounded-full before:bg-lol-crimson after:mt-2 after:block after:h-px after:w-24 after:bg-gradient-to-r after:from-lol-crimson/70 after:to-transparent">
         {title}

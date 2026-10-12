@@ -4357,9 +4357,9 @@ function CombatTab({
         title="Damage dealt"
         accentClass={TAB_PANEL_CLASSES.gold}
         segments={[
-          ["Physical", detail.avgPhysicalDamageDealt, "var(--theme-win)"],
-          ["Magic", detail.avgMagicDamageDealt, "var(--theme-gold)"],
-          ["True", dealtTrueAvg, "var(--theme-loss)"],
+          ["Physical", detail.avgPhysicalDamageDealt, "#FF8C00"],
+          ["Magic", detail.avgMagicDamageDealt, "#00D9FF"],
+          ["True", dealtTrueAvg, "#FFFFFF"],
         ]}
         rows={[
           [
@@ -4399,9 +4399,9 @@ function CombatTab({
         title="Damage taken"
         accentClass={TAB_PANEL_CLASSES.emerald}
         segments={[
-          ["Physical", detail.avgPhysicalDamageTaken, "var(--theme-win)"],
-          ["Magic", detail.avgMagicDamageTaken, "var(--theme-gold)"],
-          ["True", detail.avgTrueDamageTaken, "var(--theme-loss)"],
+          ["Physical", detail.avgPhysicalDamageTaken, "#FF8C00"],
+          ["Magic", detail.avgMagicDamageTaken, "#00D9FF"],
+          ["True", detail.avgTrueDamageTaken, "#FFFFFF"],
         ]}
         rows={[
           [
