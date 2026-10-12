@@ -2443,13 +2443,16 @@ function ItemsTab({
             {topItemPairs.map(([key, count]) => {
               const [first, second] = key.split(":").map(Number);
               return (
-                <div key={key} className="flex items-center gap-2">
+                <div
+                  key={key}
+                  className="flex items-center gap-2 border-b border-white/[0.04] py-2 transition-colors duration-[120ms] hover:bg-white/[0.025] last:border-b-0"
+                >
                   <ItemIcon itemId={first} size={26} patch={patch} />
                   <ItemIcon itemId={second} size={26} patch={patch} />
                   <span className="min-w-0 flex-1 truncate text-lol-text-bright">
                     {getItemName(itemData, first)} + {getItemName(itemData, second)}
                   </span>
-                  <span className="tabular-nums text-lol-text">{count}x</span>
+                  <span className="text-right tabular-nums text-lol-text">{count}x</span>
                 </div>
               );
             })}
@@ -2469,14 +2472,14 @@ function ItemsTab({
             {topBuildVariants.map((variant) => (
               <div
                 key={variant.items.join(",")}
-                className="flex flex-wrap items-center gap-2 rounded-lg border-b border-white/[0.04] border-lol-border/50 bg-black/10 px-3 py-2 transition-colors duration-[120ms] hover:bg-white/[0.03]"
+                className="flex flex-wrap items-center gap-2 rounded-lg border-b border-white/[0.04] border-lol-border/50 bg-black/10 px-3 py-2 transition-colors duration-[120ms] hover:bg-white/[0.025] last:border-b-0"
               >
                 <div className="flex min-w-0 flex-1 flex-wrap gap-1">
                   {variant.items.map((itemId) => (
                     <ItemIcon key={itemId} itemId={itemId} size={28} patch={patch} />
                   ))}
                 </div>
-                <span className="text-xs tabular-nums text-lol-text">
+                <span className="text-right text-xs tabular-nums text-lol-text">
                   {variant.games} games · {formatPercent(variant.wins, variant.games)}
                 </span>
               </div>
@@ -2494,7 +2497,7 @@ function ItemsTab({
           {slotItems.map((slot, index) => (
             <div
               key={index}
-              className="min-w-0 rounded-lg border-b border-white/[0.04] border-lol-border/50 bg-black/10 p-2.5 transition-colors duration-[120ms] hover:bg-white/[0.03]"
+              className="min-w-0 rounded-lg border-b border-white/[0.04] border-lol-border/50 bg-black/10 p-2.5 transition-colors duration-[120ms] hover:bg-white/[0.025] last:border-b-0"
             >
               <div className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-lol-text">
                 {index === 6 ? "Trinket" : `Slot ${index + 1}`}
@@ -2504,9 +2507,14 @@ function ItemsTab({
               ) : (
                 <div className="flex flex-col gap-2">
                   {slot.map(([itemId, count]) => (
-                    <div key={itemId} className="flex items-center justify-between gap-2">
+                    <div
+                      key={itemId}
+                      className="flex items-center justify-between gap-2 border-b border-white/[0.04] py-1 transition-colors duration-[120ms] hover:bg-white/[0.025] last:border-b-0"
+                    >
                       <ItemIcon itemId={itemId} size={28} patch={patch} />
-                      <span className="text-xs tabular-nums text-lol-text-bright">{count}x</span>
+                      <span className="text-right text-xs tabular-nums text-lol-text-bright">
+                        {count}x
+                      </span>
                     </div>
                   ))}
                 </div>
@@ -2538,7 +2546,7 @@ function ItemsTab({
               return (
                 <div
                   key={match.game_id}
-                  className="flex flex-wrap items-center gap-3 rounded-lg border border-lol-border/50 border-l-[#3B82F6] border-l-[3px] bg-black/10 px-3 py-2"
+                  className="flex flex-wrap items-center gap-3 rounded-lg border border-b-white/[0.04] border-lol-border/50 border-l-[#3B82F6] border-l-[3px] bg-black/10 px-3 py-2 transition-colors duration-[120ms] hover:bg-white/[0.025] last:border-b-0"
                 >
                   <ChampionIcon championId={match.champion_id} size={30} className="rounded-md" />
                   <span
@@ -2555,10 +2563,10 @@ function ItemsTab({
                       ))
                     )}
                   </div>
-                  <span className="text-xs tabular-nums text-lol-text">
+                  <span className="text-right text-xs tabular-nums text-lol-text">
                     {formatSeconds(match.game_duration)}
                   </span>
-                  <span className="w-20 text-right text-xs text-lol-text">
+                  <span className="w-20 text-right text-xs tabular-nums text-lol-text">
                     {formatTimeAgo(match.game_creation)}
                   </span>
                 </div>
@@ -4698,21 +4706,42 @@ function EconomyTab({
           <Stat
             label="Gold/min"
             value={detail.goldPerMin.toFixed(0)}
+            valueClass="text-right tabular-nums"
             sub="Average earned per minute"
           />
-          <Stat label="Ahead @10" value="—" sub="Percentage unavailable" emptySub />
+          <Stat
+            label="Ahead @10"
+            value="—"
+            sub="Percentage unavailable"
+            emptySub
+            valueClass="text-right tabular-nums"
+          />
           <Stat
             label="Gold lead @15"
             value={value(bucketAt(15)?.avgGoldDiffVsLaneOpponent)}
             sub="Versus lane opponent"
+            valueClass="text-right tabular-nums"
           />
           <Stat
             label="Gold efficiency"
             value={value(damagePerGold, 2)}
             sub="Damage per gold spent"
+            valueClass="text-right tabular-nums"
           />
-          <Stat label="Items bought" value="—" sub="Not stored in aggregate stats" emptySub />
-          <Stat label="Comebacks" value="—" sub="Not available from current data" emptySub />
+          <Stat
+            label="Items bought"
+            value="—"
+            sub="Not stored in aggregate stats"
+            emptySub
+            valueClass="text-right tabular-nums"
+          />
+          <Stat
+            label="Comebacks"
+            value="—"
+            sub="Not available from current data"
+            emptySub
+            valueClass="text-right tabular-nums"
+          />
         </div>
       </Panel>
       <div className="xl:col-span-2">
@@ -4788,10 +4817,12 @@ function EconomyTab({
           ].map(([label, stat]) => (
             <div
               key={label}
-              className="grid grid-cols-[1fr_auto] gap-3 border-b border-white/[0.04] py-2 text-lol-text-bright transition-colors duration-[120ms] hover:bg-white/[0.03]"
+              className="grid grid-cols-[1fr_auto] gap-3 border-b border-white/[0.04] py-2 text-lol-text-bright transition-colors duration-[120ms] hover:bg-white/[0.025] last:border-b-0"
             >
               <span>{label}</span>
-              <span className="tabular-nums">{value(stat as number | null | undefined)}</span>
+              <span className="text-right tabular-nums">
+                {value(stat as number | null | undefined)}
+              </span>
             </div>
           ))}
         </div>
@@ -4811,10 +4842,12 @@ function EconomyTab({
           ].map(([label, stat]) => (
             <div
               key={label}
-              className="flex items-center justify-between border-b border-white/[0.04] py-2 text-lol-text-bright transition-colors duration-[120ms] hover:bg-white/[0.03]"
+              className="flex items-center justify-between border-b border-white/[0.04] py-2 text-lol-text-bright transition-colors duration-[120ms] hover:bg-white/[0.025] last:border-b-0"
             >
               <span className="text-lol-text">{label}</span>
-              <span className="tabular-nums">{value(stat as number | null | undefined, 1)}</span>
+              <span className="text-right tabular-nums">
+                {value(stat as number | null | undefined, 1)}
+              </span>
             </div>
           ))}
         </div>
@@ -4855,9 +4888,11 @@ function EconomyTab({
           Average gold spent per game from the available match aggregates.
         </p>
         <div className="flex flex-col gap-2 text-xs">
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between border-b border-white/[0.04] py-2 transition-colors duration-[120ms] hover:bg-white/[0.025] last:border-b-0">
             <span className="text-lol-text">Gold spent average</span>
-            <span className="tabular-nums text-lol-text-bright">{value(detail.avgGoldSpent)}</span>
+            <span className="text-right tabular-nums text-lol-text-bright">
+              {value(detail.avgGoldSpent)}
+            </span>
           </div>
         </div>
       </Panel>
@@ -4874,23 +4909,23 @@ function EconomyTab({
           <div className="flex flex-col gap-2 text-xs">
             <div className="grid grid-cols-[1fr_auto_auto_auto_auto_auto] gap-2 border-b border-lol-border/50 pb-2 font-semibold text-lol-text">
               <span>Queue</span>
-              <span>Games</span>
-              <span>Gold/min</span>
-              <span>Avg gold</span>
-              <span>CS/min</span>
-              <span>KDA</span>
+              <span className="whitespace-nowrap">Games</span>
+              <span className="whitespace-nowrap">Gold/min</span>
+              <span className="whitespace-nowrap">Avg gold</span>
+              <span className="whitespace-nowrap">CS/min</span>
+              <span className="whitespace-nowrap">KDA</span>
             </div>
             {queueRows.map((row) => (
               <div
                 key={row.queueId}
-                className="grid grid-cols-[1fr_auto_auto_auto_auto_auto] gap-2 border-b border-white/[0.04] py-2 text-lol-text-bright transition-colors duration-[120ms] hover:bg-white/[0.03]"
+                className="grid grid-cols-[1fr_auto_auto_auto_auto_auto] gap-2 border-b border-white/[0.04] py-2 text-lol-text-bright transition-colors duration-[120ms] hover:bg-white/[0.025] last:border-b-0"
               >
                 <span>{QUEUE_LABELS[row.queueId] ?? row.queueId}</span>
-                <span className="tabular-nums">{row.games}</span>
-                <span>—</span>
-                <span>—</span>
-                <span>—</span>
-                <span>—</span>
+                <span className="text-right tabular-nums">{row.games}</span>
+                <span className="text-right tabular-nums">—</span>
+                <span className="text-right tabular-nums">—</span>
+                <span className="text-right tabular-nums">—</span>
+                <span className="text-right tabular-nums">—</span>
               </div>
             ))}
           </div>
@@ -4970,16 +5005,38 @@ function FarmTab({
                 : "—"
             }
             sub="Average minions per minute"
+            valueClass="text-right tabular-nums"
           />
-          <Stat label="CS @10" value={value(bucketAt(10)?.avgCs)} sub="Timeline average" />
+          <Stat
+            label="CS @10"
+            value={value(bucketAt(10)?.avgCs)}
+            sub="Timeline average"
+            valueClass="text-right tabular-nums"
+          />
           <Stat
             label="CS diff @15"
             value={value(bucketAt(15)?.avgCsDiffVsLaneOpponent)}
             sub="Versus lane opponent"
+            valueClass="text-right tabular-nums"
           />
-          <Stat label="8+ CS/min games" value="—" sub="Not available from current data" />
-          <Stat label="Jungle share" value="—" sub="Percentage unavailable" />
-          <Stat label="Possible CS @10" value="—" sub="Not available from current data" />
+          <Stat
+            label="8+ CS/min games"
+            value="—"
+            sub="Not available from current data"
+            valueClass="text-right tabular-nums"
+          />
+          <Stat
+            label="Jungle share"
+            value="—"
+            sub="Percentage unavailable"
+            valueClass="text-right tabular-nums"
+          />
+          <Stat
+            label="Possible CS @10"
+            value="—"
+            sub="Not available from current data"
+            valueClass="text-right tabular-nums"
+          />
         </div>
       </Panel>
       <div className="xl:col-span-2">
@@ -5060,12 +5117,15 @@ function FarmTab({
         <div className="flex flex-col gap-2 text-xs">
           <div className="grid grid-cols-[1fr_auto] gap-3 border-b border-lol-border/50 pb-2 font-semibold text-lol-text">
             <span>Stat</span>
-            <span>Avg</span>
+            <span className="text-right whitespace-nowrap">Avg</span>
           </div>
           {[5, 10, 15, 20, 25, 30].map((minute) => (
-            <div key={minute} className="grid grid-cols-[1fr_auto] gap-3 text-lol-text-bright">
+            <div
+              key={minute}
+              className="grid grid-cols-[1fr_auto] gap-3 border-b border-white/[0.04] py-2 text-lol-text-bright transition-colors duration-[120ms] hover:bg-white/[0.025] last:border-b-0"
+            >
               <span>CS @{minute}</span>
-              <span className="tabular-nums">{value(bucketAt(minute)?.avgCs)}</span>
+              <span className="text-right tabular-nums">{value(bucketAt(minute)?.avgCs)}</span>
             </div>
           ))}
         </div>
@@ -5102,15 +5162,15 @@ function FarmTab({
           Allied and enemy jungle minions included in your farm totals.
         </p>
         <div className="flex flex-col gap-2 text-xs">
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between border-b border-white/[0.04] py-2 transition-colors duration-[120ms] hover:bg-white/[0.025] last:border-b-0">
             <span className="text-lol-text">Allied jungle</span>
-            <span className="tabular-nums text-lol-text-bright">
+            <span className="text-right tabular-nums text-lol-text-bright">
               {value(detail.avgNeutralMinionsTeamJungle)}
             </span>
           </div>
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between border-b border-white/[0.04] py-2 transition-colors duration-[120ms] hover:bg-white/[0.025] last:border-b-0">
             <span className="text-lol-text">Enemy jungle</span>
-            <span className="tabular-nums text-lol-text-bright">
+            <span className="text-right tabular-nums text-lol-text-bright">
               {value(detail.avgNeutralMinionsEnemyJungle)}
             </span>
           </div>
@@ -5129,19 +5189,19 @@ function FarmTab({
           <div className="flex flex-col gap-2 text-xs">
             <div className="grid grid-cols-[1fr_auto_auto_auto] gap-2 border-b border-lol-border/50 pb-2 font-semibold text-lol-text">
               <span>Queue</span>
-              <span>Games</span>
-              <span>CS/min</span>
-              <span>Avg CS</span>
+              <span className="whitespace-nowrap">Games</span>
+              <span className="whitespace-nowrap">CS/min</span>
+              <span className="whitespace-nowrap">Avg CS</span>
             </div>
             {(queueStats ?? []).map((row) => (
               <div
                 key={row.queueId}
-                className="grid grid-cols-[1fr_auto_auto_auto] gap-2 border-b border-white/[0.04] py-2 text-lol-text-bright transition-colors duration-[120ms] hover:bg-white/[0.03]"
+                className="grid grid-cols-[1fr_auto_auto_auto] gap-2 border-b border-white/[0.04] py-2 text-lol-text-bright transition-colors duration-[120ms] hover:bg-white/[0.025] last:border-b-0"
               >
                 <span>{QUEUE_LABELS[row.queueId] ?? row.queueId}</span>
-                <span className="tabular-nums">{row.games}</span>
-                <span>—</span>
-                <span>—</span>
+                <span className="text-right tabular-nums">{row.games}</span>
+                <span className="text-right tabular-nums">—</span>
+                <span className="text-right tabular-nums">—</span>
               </div>
             ))}
           </div>
