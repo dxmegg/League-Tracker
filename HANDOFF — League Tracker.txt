@@ -130,6 +130,15 @@ Ostatnie zamknięte fazy (2026-10-11):
 Co NIE zostało z conceptu:
 - Brak otwartych pozycji z konceptu po timeline map.
 
+Faza — unified table treatment + polish final (2026-10-12):
+- All 16 champion detail tabs share: right-aligned tabular-nums in numeric cells, 1px rgba(255,255,255,0.04) row separators, 120ms hover rgba(255,255,255,0.025), one-line headers, per-tab panel top accents and radial glows.
+- Combat: damage-type color identity (Physical #FF8C00, Magic #00D9FF, True #FFFFFF) for dots, numeric tints, and split bars; Multikills redesigned as colored pill rows with ratio bars; True damage dealt reads the standalone true_damage_dealt column.
+- Overview: queue breakdown column alignment, column legends, tooltip on "—", Recent games full-width.
+- Runes: rune tree accent colors (Precision #D6A84F, Domination #E04F5F, Sorcery #4AA3F5, Resolve #52A675, Inspiration #A783E8).
+- Settings: fixed section clipping regression (removed Section overflow-hidden).
+- Arena queue variants (3x6, Bravery, Arena) merged into single Arena row in Games by queue.
+- PR #72.
+
 4. Architektura — kluczowe reguły
 Nowy kanał IPC wymaga zmian w 4 miejscach: ipc-handlers.ts → preload/index.ts → shared/api.ts → caller w rendererze
 
@@ -176,8 +185,9 @@ Czasem myli MatchupsTab return z innym JSX.
 Cherry-pickuje commity między worktree'ami — nie używać subsessji.
 
 6. Co dalej
-- A — New features (ask user for direction)
-- B — Performance / caching improvements (CDragon done, other areas TBD)
+- A — Ad-hoc polish on remaining surfaces (modals, hover states) as user requests
+- B — New feature (ask user for direction)
+- C — Bug fixes / maintenance
 - C — Bug reports / maintenance
 
 7. Komendy
