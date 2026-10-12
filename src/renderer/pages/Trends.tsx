@@ -128,16 +128,29 @@ function useContainerWidth<T extends HTMLElement>() {
 function Card({
   title,
   right,
+  accent = "crimson",
   children,
 }: {
   title: string;
   right?: React.ReactNode;
+  accent?: "gold" | "win" | "crimson";
   children: React.ReactNode;
 }) {
+  const glow =
+    accent === "gold"
+      ? "bg-[radial-gradient(circle_at_top_right,rgba(201,164,92,0.06),transparent_38%),linear-gradient(145deg,#0c0e11_0%,#090b0d_48%,#060809_100%)]"
+      : accent === "win"
+        ? "bg-[radial-gradient(circle_at_top_right,rgba(74,222,128,0.06),transparent_38%),linear-gradient(145deg,#0c0e11_0%,#090b0d_48%,#060809_100%)]"
+        : "bg-[radial-gradient(circle_at_top_right,rgba(165,15,21,0.06),transparent_38%),linear-gradient(145deg,#0c0e11_0%,#090b0d_48%,#060809_100%)]";
+
   return (
-    <div className="rounded-lg border border-lol-crimson/40 bg-[linear-gradient(145deg,#0c0e11_0%,#090b0d_48%,#060809_100%)] shadow-[0_0_3px_rgba(150,30,30,0.55),0_0_10px_rgba(90,15,15,0.35),0_0_20px_rgba(60,10,10,0.20)] ring-1 ring-inset ring-white/[0.03] overflow-hidden p-4">
+    <div
+      className={`relative overflow-hidden rounded-lg border border-lol-crimson/40 ${glow} shadow-[0_0_3px_rgba(150,30,30,0.55),0_0_10px_rgba(90,15,15,0.35),0_0_20px_rgba(60,10,10,0.20)] ring-1 ring-inset ring-white/[0.03] p-4`}
+    >
       <div className="flex items-center justify-between">
-        <h2 className="text-xs font-bold uppercase tracking-wider text-lol-gold mb-3">{title}</h2>
+        <h2 className="relative mb-3 pl-4 text-xs font-bold uppercase tracking-wider text-lol-gold after:absolute after:bottom-[-5px] after:left-4 after:h-px after:w-16 after:bg-gradient-to-r after:from-lol-crimson after:to-transparent before:absolute before:left-0 before:top-1/2 before:h-2 before:w-2 before:-translate-y-1/2 before:rotate-45 before:bg-lol-crimson">
+          {title}
+        </h2>
         {right}
       </div>
       {children}
@@ -780,11 +793,11 @@ export default function Trends() {
         {granularityToggle}
       </div>
 
-      <Card title="Activity">
+      <Card title="Activity" accent="gold">
         <ActivityHeatmap daily={data.daily} />
       </Card>
 
-      <Card title="Win Rate Over Time">
+      <Card title="Win Rate Over Time" accent="win">
         <TimeSeriesChart
           points={winRatePoints}
           yMin={0}
@@ -796,7 +809,7 @@ export default function Trends() {
       </Card>
 
       {scoreDomain && (
-        <Card title="Average Score Over Time">
+        <Card title="Average Score Over Time" accent="crimson">
           <TimeSeriesChart
             points={scorePoints}
             yMin={scoreDomain.min}
@@ -808,16 +821,16 @@ export default function Trends() {
       )}
 
       {data.patches.length > 1 && (
-        <Card title="Win Rate by Patch">
+        <Card title="Win Rate by Patch" accent="gold">
           <PatchBars patches={data.patches} />
         </Card>
       )}
 
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
-        <Card title="By Day of Week">
+        <Card title="By Day of Week" accent="win">
           <WeekdayChart weekdays={data.weekdays} />
         </Card>
-        <Card title="By Hour of Day">
+        <Card title="By Hour of Day" accent="crimson">
           <HourChart hours={data.hours} />
         </Card>
       </div>
