@@ -992,16 +992,34 @@ export function RecordsTab({
     ["longestGame", "shortestWin", "longestAlive"].includes(record.key)
       ? formatSeconds(value)
       : value.toLocaleString(undefined, { maximumFractionDigits: 2 });
+  const recordsInsights: Insight[] = [
+    ...(podium[0]?.score != null
+      ? [
+          {
+            kind: "good" as const,
+            text: `Best game scored ${podium[0].score.toFixed(1)} with a ${podium[0].kills}/${podium[0].deaths}/${podium[0].assists} K/D/A.`,
+          },
+        ]
+      : []),
+    {
+      kind: "info",
+      text: `${records.records.length.toLocaleString()} personal records are in scope across the tracked categories.`,
+    },
+    ...(almostRecords.length > 0
+      ? [
+          {
+            kind: "info" as const,
+            text: `${almostRecords.length.toLocaleString()} near-miss record${almostRecords.length === 1 ? "" : "s"} are within the comparison window.`,
+          },
+        ]
+      : []),
+  ];
   return (
     <div className="flex flex-col gap-5">
-      <InsightsPanel
-        insights={[
-          {
-            kind: "info",
-            text: "Personal bests for this champion — the specific game that holds each record is shown on the card.",
-          },
-        ]}
-      />
+      <IntroBox legend="Badges show where a number comes from: Match-V5 = Riot match data · Timeline = minute-by-minute data · Derived = calculated by the app · LCU = game client.">
+        Your personal bests with this champion, plus near-misses and rare achievements.
+      </IntroBox>
+      <SectionHeading title="Key metrics" />
       <Panel>
         <SectionHeading title="Podium — best games" />
         {podium.length === 0 ? (
@@ -1037,6 +1055,8 @@ export function RecordsTab({
           </div>
         )}
       </Panel>
+      <InsightsPanel items={recordsInsights} />
+      <SectionHeading title="Detailed statistics" />
       <Panel>
         <SectionHeading title="Almost records" source="d" />
         {almostRecords.length === 0 ? (
