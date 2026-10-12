@@ -25,7 +25,8 @@ const STYLE = `
   padding: 12px 16px 12px 18px;
   border: 1px solid var(--theme-border);
   border-radius: 12px;
-  box-shadow: inset 3px 0 0 var(--edge);
+  box-shadow: inset 2px 0 0 var(--edge);
+  transition: background-color 60ms ease, box-shadow 60ms ease;
   --edge: var(--theme-win);
   container-type: inline-size;
   grid-template-columns: 76px minmax(170px, 1.1fr) 106px 58px 62px 172px 138px minmax(0, 1fr) 68px;
@@ -38,6 +39,10 @@ const STYLE = `
 }
 .match-row[data-win="false"] {
   background: linear-gradient(90deg, rgba(240,86,110,0.11) 0%, transparent 55%), var(--theme-card);
+}
+.match-row:hover {
+  box-shadow: inset 3px 0 0 var(--edge);
+  background: rgba(255,255,255,0.02);
 }
 .match-row[data-remake="true"] {
   --edge: rgba(255,255,255,0.08);

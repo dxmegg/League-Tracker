@@ -33,7 +33,13 @@ export default function Sparkline({
       viewBox={`0 0 ${width} ${height}`}
       fill="none"
     >
-      <polyline points={polyline} stroke="currentColor" strokeWidth="1.5" />
+      <polyline
+        points={polyline}
+        stroke="currentColor"
+        strokeWidth="1.5"
+        filter="drop-shadow(0 0 4px currentColor)"
+        opacity="0.35"
+      />
     </svg>
   );
 }

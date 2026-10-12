@@ -183,10 +183,10 @@ export function Sidebar() {
               {index === 3 && <hr className="my-2 border-lol-border/40" />}
               <NavLink
                 to={to}
-                className={`flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors ${
+                className={`flex items-center gap-3 rounded-lg border-l-[3px] px-3 py-2 text-sm transition-[background-color,border-left-color,border-left-width] duration-[60ms] ${
                   isLinkActive(to)
-                    ? "bg-gradient-to-r from-lol-crimson/30 to-lol-crimson/5 text-lol-text-bright shadow-[inset_2px_0_0_var(--theme-crimson)]"
-                    : "text-lol-text hover:bg-white/[0.04] hover:text-lol-text-bright"
+                    ? "border-l-[#E5483F] bg-[radial-gradient(circle_at_left_center,rgba(229,72,63,0.15),transparent_70%)] text-lol-text-bright"
+                    : "border-l-[rgba(255,255,255,0.04)] text-lol-text hover:bg-white/[0.04] hover:text-lol-text-bright hover:border-l-white/10"
                 }`}
               >
                 <span

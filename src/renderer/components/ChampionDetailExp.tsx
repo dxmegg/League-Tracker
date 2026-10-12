@@ -86,6 +86,12 @@ type RateSort = "count" | "winRate";
 
 const CHART_PALETTE = ["#E5483F", "#C9A45C", "#22C55E", "#3B82F6", "#A855F7", "#94A3B8"] as const;
 
+const AUGMENT_ACCENTS: Record<string, string> = {
+  kSilver: "#94A3B8",
+  kGold: "#EAB308",
+  kPrismatic: "#D946EF",
+};
+
 const STAT_LABEL_ORDER = [
   "Games",
   "Win rate",
@@ -1673,10 +1679,15 @@ function OverviewTab({
         loading={globalDetailLoading || augmentsLoading}
         empty={augments.length === 0}
       >
-        {sortRates(augments, augmentSort).map((augment) => (
+        {sortRates(augments, augmentSort).map((augment, index) => (
           <RateRow
             key={augment.augment_id}
             icon={<AugmentIcon augmentId={augment.augment_id} size={24} />}
+            iconAccent={
+              AUGMENT_ACCENTS[augmentData[augment.augment_id]?.rarity ?? ""] ??
+              CHART_PALETTE[index % CHART_PALETTE.length]
+            }
+            iconSize={24}
             name={getAugmentName(augmentData, augment.augment_id)}
             wins={augment.wins}
             total={augment.picks}
@@ -1711,6 +1722,8 @@ function OverviewTab({
             <RateRow
               key={item.item_id}
               icon={<ItemIcon itemId={item.item_id} size={28} patch={patch} />}
+              iconAccent={CHART_PALETTE[index % CHART_PALETTE.length]}
+              iconSize={28}
               name={getItemName(itemData, item.item_id)}
               wins={item.wins}
               total={item.picks}
@@ -1740,7 +1753,7 @@ function OverviewTab({
           loading={keystonesLoading}
           empty={!keystones || keystones.length === 0}
         >
-          {sortRates(keystones ?? [], keystoneSort).map((keystone) => (
+          {sortRates(keystones ?? [], keystoneSort).map((keystone, index) => (
             <RateRow
               key={keystone.runeId}
               icon={
@@ -1750,6 +1763,8 @@ function OverviewTab({
                   size={24}
                 />
               }
+              iconAccent={CHART_PALETTE[index % CHART_PALETTE.length]}
+              iconSize={24}
               name={runeData[keystone.runeId]?.name ?? `Rune ${keystone.runeId}`}
               wins={keystone.wins}
               total={keystone.picks}
@@ -5149,6 +5164,8 @@ function formatBuyTime(seconds: number) {
 
 function RateRow({
   icon,
+  iconAccent,
+  iconSize = 24,
   name,
   wins,
   total,
@@ -5158,6 +5175,8 @@ function RateRow({
   secondary,
 }: {
   icon: ReactNode;
+  iconAccent?: string;
+  iconSize?: number;
   name: string;
   wins: number;
   total: number;
@@ -5177,7 +5196,21 @@ function RateRow({
   const sparse = sampleSize != null && sampleSize < 3;
   return (
     <div className="flex min-w-0 items-center gap-2 rounded-lg border-t border-transparent px-3 py-3.5 transition-colors duration-[120ms] hover:border-white/[0.06] hover:bg-white/[0.03]">
-      {icon}
+      {iconAccent ? (
+        <span
+          className="flex shrink-0 items-center justify-center overflow-hidden rounded-md border"
+          style={{
+            width: iconSize,
+            height: iconSize,
+            borderColor: `${iconAccent}59`,
+            boxShadow: `0 0 8px 0 ${iconAccent}33`,
+          }}
+        >
+          {icon}
+        </span>
+      ) : (
+        icon
+      )}
       <div className="min-w-0 flex-1">
         <span className="block truncate text-[12.5px] text-lol-text-bright">{name}</span>
         {secondary && <span className="block truncate text-xs text-lol-text">{secondary}</span>}
