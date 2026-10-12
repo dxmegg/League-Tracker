@@ -1921,19 +1921,17 @@ function OverviewTab({
             {mergedQueueStats.map(({ stat: queueStat, label }) => (
               <div
                 key={queueStat.queueId}
-                className="grid grid-cols-[minmax(0,1fr)_auto_auto_auto_minmax(92px,1fr)_auto] items-center gap-3 rounded-lg border-t border-transparent px-3 py-3.5 text-[12px] transition-colors duration-[120ms] hover:border-white/[0.06] hover:bg-white/[0.03]"
+                className="grid grid-cols-[28px_minmax(140px,1fr)_60px_120px_48px_80px_60px] items-center gap-3 rounded-lg border-t border-transparent px-3 py-3.5 text-[12px] transition-colors duration-[120ms] hover:border-white/[0.06] hover:bg-white/[0.03]"
               >
-                <div className="flex min-w-0 items-center gap-2">
-                  <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-md bg-lol-card text-[9px] font-bold text-lol-text-bright">
-                    {label.slice(0, 2).toUpperCase()}
-                  </span>
-                  <span className="min-w-0 truncate text-lol-text-bright">{label}</span>
-                </div>
-                <span className="text-lol-text">{queueStat.games} games</span>
+                <span className="flex h-5 w-5 items-center justify-center rounded-md bg-lol-card text-[9px] font-bold text-lol-text-bright">
+                  {label.slice(0, 2).toUpperCase()}
+                </span>
+                <span className="min-w-0 truncate text-lol-text-bright">{label}</span>
+                <span className="text-right tabular-nums text-lol-text">{queueStat.games}</span>
                 <span className="text-right text-sm tabular-nums text-lol-text">
                   {formatRowKda(queueStat)}
                 </span>
-                <span className="ml-2 text-right text-sm tabular-nums text-lol-gold">
+                <span className="text-right text-sm tabular-nums text-lol-gold">
                   {formatSmallMetric(queueStat.avgScore)}
                 </span>
                 <div className="flex h-2.5 w-20 min-w-0 overflow-hidden rounded-full bg-lol-loss/20">
@@ -5713,7 +5711,7 @@ function RoleRow({
   const unknown = role === "UNKNOWN";
   return (
     <div
-      className={`grid grid-cols-[auto_minmax(0,1fr)_auto_auto_minmax(92px,1fr)_auto_auto] items-center gap-2 rounded-lg border-t border-transparent px-3 py-3.5 transition-colors duration-[120ms] hover:border-white/[0.06] hover:bg-white/[0.03] ${unknown ? "text-lol-text/50" : ""}`}
+      className={`grid grid-cols-[auto_minmax(0,1fr)_auto_auto_minmax(92px,1fr)_auto_minmax(76px,auto)] items-center gap-2 rounded-lg border-t border-transparent px-3 py-3.5 transition-colors duration-[120ms] hover:border-white/[0.06] hover:bg-white/[0.03] ${unknown ? "text-lol-text/50" : ""}`}
     >
       <RoleIcon role={role} />
       <span
@@ -5730,28 +5728,30 @@ function RoleRow({
           <WinRateBar wins={wins} total={games} showPercent={false} />
         </div>
       </div>
-      <span className={`text-right text-sm font-semibold tabular-nums ${rateColor}`}>
-        {rate.toFixed(1)}%
-      </span>
-      <span
-        className={`inline-flex items-center gap-0.5 whitespace-nowrap rounded px-1.5 py-0.5 text-right text-xs font-semibold ${
-          delta == null
-            ? "bg-lol-card/60 text-lol-text"
-            : delta >= 0
-              ? "bg-[rgba(34,197,94,0.12)] text-[#22C55E]"
-              : "bg-[rgba(229,72,63,0.12)] text-[#E5483F]"
-        }`}
-      >
-        {delta == null ? (
-          "—"
-        ) : (
-          <>
-            <DeltaIndicator positive={delta >= 0} />
-            {delta >= 0 ? "+" : ""}
-            {delta.toFixed(1)}
-          </>
-        )}
-      </span>
+      <div className="flex min-w-[76px] flex-col items-end justify-center gap-0.5">
+        <span className={`text-right text-sm font-semibold tabular-nums ${rateColor}`}>
+          {rate.toFixed(1)}%
+        </span>
+        <span
+          className={`inline-flex items-center gap-0.5 whitespace-nowrap rounded px-1.5 py-0.5 text-right text-xs font-semibold ${
+            delta == null
+              ? "bg-lol-card/60 text-lol-text"
+              : delta >= 0
+                ? "bg-[rgba(34,197,94,0.12)] text-[#22C55E]"
+                : "bg-[rgba(229,72,63,0.12)] text-[#E5483F]"
+          }`}
+        >
+          {delta == null ? (
+            "—"
+          ) : (
+            <>
+              <DeltaIndicator positive={delta >= 0} />
+              {delta >= 0 ? "+" : ""}
+              {delta.toFixed(1)}
+            </>
+          )}
+        </span>
+      </div>
     </div>
   );
 }
@@ -5872,24 +5872,32 @@ function RateRow({
       <div className={`w-20 shrink-0 ${sparse ? "opacity-40 grayscale" : ""}`}>
         <WinRateBar wins={wins} total={total} showPercent={false} />
       </div>
-      <span
-        className={`w-[76px] shrink-0 text-right text-sm font-semibold tabular-nums ${baseline == null ? (rate >= 50 ? "text-lol-win" : "text-lol-loss") : deltaClass}`}
-      >
-        {rate.toFixed(1)}%
-        {delta != null && (
-          <span
-            className={`ml-1 inline-flex items-center gap-0.5 rounded px-1 py-0.5 text-xs font-semibold ${
-              delta >= 0
+      <div className="flex w-[76px] shrink-0 flex-col items-end justify-center gap-0.5">
+        <span
+          className={`text-right text-sm font-semibold tabular-nums ${baseline == null ? (rate >= 50 ? "text-lol-win" : "text-lol-loss") : deltaClass}`}
+        >
+          {rate.toFixed(1)}%
+        </span>
+        <span
+          className={`inline-flex items-center gap-0.5 whitespace-nowrap rounded px-1 py-0.5 text-xs font-semibold ${
+            delta == null
+              ? "bg-lol-card/60 text-lol-text"
+              : delta >= 0
                 ? "bg-[rgba(34,197,94,0.12)] text-[#22C55E]"
                 : "bg-[rgba(229,72,63,0.12)] text-[#E5483F]"
-            }`}
-          >
-            <DeltaIndicator positive={delta >= 0} />
-            {delta >= 0 ? "+" : ""}
-            {delta.toFixed(1)}
-          </span>
-        )}
-      </span>
+          }`}
+        >
+          {delta == null ? (
+            "—"
+          ) : (
+            <>
+              <DeltaIndicator positive={delta >= 0} />
+              {delta >= 0 ? "+" : ""}
+              {delta.toFixed(1)}
+            </>
+          )}
+        </span>
+      </div>
     </div>
   );
 }
