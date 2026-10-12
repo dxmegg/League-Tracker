@@ -34,7 +34,7 @@ export function TabStrip({
     <div
       role="tablist"
       aria-label="Champion detail sections"
-      className={`relative flex min-w-0 shrink-0 gap-1 overflow-x-auto border-b border-lol-border/60 after:pointer-events-none after:absolute after:inset-y-0 after:right-0 after:w-16 after:bg-[linear-gradient(to_right,transparent_80%,var(--theme-bg-deep))] after:content-[''] ${className}`}
+      className={`relative flex min-w-0 shrink-0 gap-1 overflow-x-auto border-b border-lol-border/30 after:pointer-events-none after:absolute after:inset-y-0 after:right-0 after:w-16 after:bg-[linear-gradient(to_right,transparent_80%,var(--theme-bg-deep))] after:content-[''] ${className}`}
     >
       {items.map((item, index) => {
         const isActive = item.key === active;

@@ -86,6 +86,14 @@ type RateSort = "count" | "winRate";
 
 const CHART_PALETTE = ["#E5483F", "#C9A45C", "#22C55E", "#3B82F6", "#A855F7", "#94A3B8"] as const;
 
+const RUNE_TREE_ACCENTS: Record<string, string> = {
+  Precision: "#C9A45C",
+  Domination: "#E5483F",
+  Sorcery: "#3B82F6",
+  Resolve: "#22C55E",
+  Inspiration: "#A855F7",
+};
+
 const AUGMENT_ACCENTS: Record<string, string> = {
   kSilver: "#94A3B8",
   kGold: "#EAB308",
@@ -2241,7 +2249,7 @@ function ItemsTab({
             {topBuildVariants.map((variant) => (
               <div
                 key={variant.items.join(",")}
-                className="flex flex-wrap items-center gap-2 rounded-lg border border-lol-border/50 bg-black/10 px-3 py-2"
+                className="flex flex-wrap items-center gap-2 rounded-lg border-b border-white/[0.04] border-lol-border/50 bg-black/10 px-3 py-2 transition-colors duration-[120ms] hover:bg-white/[0.03]"
               >
                 <div className="flex min-w-0 flex-1 flex-wrap gap-1">
                   {variant.items.map((itemId) => (
@@ -2263,7 +2271,7 @@ function ItemsTab({
           {slotItems.map((slot, index) => (
             <div
               key={index}
-              className="min-w-0 rounded-lg border border-lol-border/50 bg-black/10 p-2.5"
+              className="min-w-0 rounded-lg border-b border-white/[0.04] border-lol-border/50 bg-black/10 p-2.5 transition-colors duration-[120ms] hover:bg-white/[0.03]"
             >
               <div className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-lol-text">
                 {index === 6 ? "Trinket" : `Slot ${index + 1}`}
@@ -2304,7 +2312,7 @@ function ItemsTab({
               return (
                 <div
                   key={match.game_id}
-                  className="flex flex-wrap items-center gap-3 rounded-lg border border-lol-border/50 bg-black/10 px-3 py-2"
+                  className="flex flex-wrap items-center gap-3 rounded-lg border border-lol-border/50 border-l-[#3B82F6] border-l-[3px] bg-black/10 px-3 py-2"
                 >
                   <ChampionIcon championId={match.champion_id} size={30} className="rounded-md" />
                   <span
@@ -2434,7 +2442,7 @@ function RunesTab({
         runeData={runeData}
       />
 
-      <Panel className="xl:col-span-2">
+      <Panel className="xl:col-span-2 bg-[radial-gradient(circle_at_top_left,rgba(168,85,247,0.08),transparent_50%),linear-gradient(180deg,var(--theme-card-hover),var(--theme-card))]">
         <SectionHeading title="Rune pages" source="m" />
         {detail.pages.length === 0 ? (
           <NoData />
@@ -2443,7 +2451,7 @@ function RunesTab({
             {detail.pages.map((page) => (
               <div
                 key={page.runes}
-                className="grid grid-cols-[minmax(0,auto)_auto_minmax(6rem,1fr)] items-center gap-3 rounded-lg border border-lol-border/50 bg-black/10 px-3 py-2"
+                className="grid grid-cols-[minmax(0,auto)_auto_minmax(6rem,1fr)] items-center gap-3 rounded-lg border-b border-b-white/[0.04] border-lol-border/50 bg-black/10 px-3 py-2 transition-colors duration-[120ms] hover:bg-white/[0.03]"
               >
                 <div className="flex min-w-0 flex-wrap gap-1.5">
                   {page.runes.split(",").map((runeId) => {
@@ -2487,18 +2495,26 @@ function RuneTreePanel({
         <NoData />
       ) : (
         <div className="flex flex-col gap-2.5">
-          {trees.map((tree) => (
-            <div key={tree.styleId} className="flex items-center gap-2">
-              <RuneIcon runeId={tree.styleId} path={runeData[tree.styleId]?.icon} size={22} />
-              <span className="min-w-0 flex-1 truncate text-[12.5px] text-lol-text-bright">
-                {runeData[tree.styleId]?.name ?? `Tree ${tree.styleId}`}
-              </span>
-              <span className="shrink-0 text-[11px] text-lol-text">{tree.picks}x</span>
-              <div className="w-20 shrink-0">
-                <WinRateBar wins={tree.wins} total={tree.picks} showPercent={false} />
+          {trees.map((tree) => {
+            const treeName = runeData[tree.styleId]?.name ?? `Tree ${tree.styleId}`;
+            const accent = RUNE_TREE_ACCENTS[treeName] ?? "#94A3B8";
+            return (
+              <div
+                key={tree.styleId}
+                className="flex items-center gap-2 border-l-[3px] pl-2"
+                style={{ borderLeftColor: accent }}
+              >
+                <RuneIcon runeId={tree.styleId} path={runeData[tree.styleId]?.icon} size={22} />
+                <span className="min-w-0 flex-1 truncate text-[12.5px] text-lol-text-bright">
+                  {treeName}
+                </span>
+                <span className="shrink-0 text-[11px] text-lol-text">{tree.picks}x</span>
+                <div className="w-20 shrink-0">
+                  <WinRateBar wins={tree.wins} total={tree.picks} showPercent={false} />
+                </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
     </Panel>
@@ -3916,18 +3932,26 @@ function CombatTab({
               globalDetail?.avgDamage ?? detail.avgPhysicalDamageDealt + detail.avgMagicDamageDealt
             }
             subtitle="Average per game"
+            accent={CHART_PALETTE[0]}
           />
           <CombatTile
             label="Damage taken"
             value={detail.avgDamageTaken}
             subtitle="Average per game"
+            accent={CHART_PALETTE[1]}
           />
           <CombatTile
             label="CC / min"
             value={detail.avgCcPerMin}
             subtitle="Average crowd control"
+            accent={CHART_PALETTE[2]}
           />
-          <CombatTile label="Healing" value={globalDetail?.avgHeal} subtitle="Average per game" />
+          <CombatTile
+            label="Healing"
+            value={globalDetail?.avgHeal}
+            subtitle="Average per game"
+            accent={CHART_PALETTE[3]}
+          />
         </div>
       </div>
       {combatInsights.length > 0 && (
@@ -4117,7 +4141,7 @@ function CombatTab({
           <div className="grid grid-cols-[1fr_auto_auto] gap-3 border-b border-lol-border/50 pb-2 font-semibold text-lol-text">
             <span>Multikill type</span>
             <span>Total</span>
-            <span>Per game (%)</span>
+            <span>Per game</span>
           </div>
           {[
             { label: "Double kills", value: globalDetail?.doubleKills },
@@ -4128,7 +4152,9 @@ function CombatTab({
             <div key={label} className="grid grid-cols-[1fr_auto_auto] gap-3 text-lol-text-bright">
               <span>{label}</span>
               <span className="tabular-nums">{formatCombatNumber(value)}</span>
-              <span className="tabular-nums">{formatPercent(value, detail.games)}</span>
+              <span className="tabular-nums">
+                {detail.games > 0 && value != null ? (value / detail.games).toFixed(2) : "—"}
+              </span>
             </div>
           ))}
         </div>
@@ -4195,7 +4221,7 @@ function EconomyTab({
             value={detail.goldPerMin.toFixed(0)}
             sub="Average earned per minute"
           />
-          <Stat label="Ahead @10" value="—" sub="Percentage unavailable" />
+          <Stat label="Ahead @10" value="—" sub="Percentage unavailable" emptySub />
           <Stat
             label="Gold lead @15"
             value={value(bucketAt(15)?.avgGoldDiffVsLaneOpponent)}
@@ -4206,8 +4232,8 @@ function EconomyTab({
             value={value(damagePerGold, 2)}
             sub="Damage per gold spent"
           />
-          <Stat label="Items bought" value="—" sub="Not stored in aggregate stats" />
-          <Stat label="Comebacks" value="—" sub="Not available from current data" />
+          <Stat label="Items bought" value="—" sub="Not stored in aggregate stats" emptySub />
+          <Stat label="Comebacks" value="—" sub="Not available from current data" emptySub />
         </div>
       </Panel>
       <div className="xl:col-span-2">
@@ -4369,7 +4395,7 @@ function EconomyTab({
       ].map(([title, text]) => (
         <Panel key={title}>
           <SectionHeading title={title} source="d" />
-          <NoData text={text} />
+          <EmptyState text={text} />
         </Panel>
       ))}
     </div>
@@ -4801,15 +4827,27 @@ function CombatStatTable({ rows }: { rows: CombatStatTableRow[] }) {
         return (
           <div
             key={label}
-            className="grid grid-cols-[minmax(0,1fr)_auto_auto_auto_auto_auto] gap-3 text-lol-text-bright"
+            className="grid grid-cols-[minmax(0,1fr)_auto_auto_auto_auto_auto] gap-3 border-b border-white/[0.04] py-[3px] text-lol-text-bright transition-colors duration-[120ms] hover:bg-white/[0.03]"
           >
             <span>{label}</span>
             <span className="tabular-nums">{format(avg)}</span>
             <span className="tabular-nums">{format(best)}</span>
             {/* TODO: requires per-result breakdown in ChampionCombatStats */}
-            <span className="tabular-nums text-lol-text">—</span>
-            <span className="tabular-nums text-lol-text">—</span>
-            <span className="tabular-nums text-lol-text">—</span>
+            <span className="tabular-nums text-lol-text">
+              <span className="text-lol-text/40" title="Not tracked yet">
+                —
+              </span>
+            </span>
+            <span className="tabular-nums text-lol-text">
+              <span className="text-lol-text/40" title="Not tracked yet">
+                —
+              </span>
+            </span>
+            <span className="tabular-nums text-lol-text">
+              <span className="text-lol-text/40" title="Not tracked yet">
+                —
+              </span>
+            </span>
           </div>
         );
       })}
@@ -4821,13 +4859,26 @@ function CombatTile({
   label,
   value,
   subtitle,
+  accent,
 }: {
   label: string;
   value: number | null | undefined;
   subtitle: string;
+  accent?: string;
 }) {
   return (
-    <div className="rounded-lg border border-lol-border bg-black/10 p-3">
+    <div
+      className="rounded-lg border border-lol-border border-t-[3px] bg-black/10 p-3"
+      style={
+        accent
+          ? {
+              borderTopColor: accent,
+              backgroundImage: `radial-gradient(circle at top right, ${accent}1a, transparent 65%)`,
+              boxShadow: `0 0 8px 0 ${accent}26`,
+            }
+          : undefined
+      }
+    >
       <span className="text-xs text-lol-text">{label}</span>
       <b className="mt-1 block font-display text-2xl text-lol-text-bright">
         {formatCombatNumber(value)}
@@ -4943,12 +4994,14 @@ function Stat({
   label,
   value,
   sub,
+  emptySub = false,
   valueClass = "",
   sparkValues,
 }: {
   label: string;
   value: string;
   sub: string;
+  emptySub?: boolean;
   valueClass?: string;
   sparkValues?: Array<number | null>;
 }) {
@@ -4979,7 +5032,12 @@ function Stat({
       >
         {value}
       </b>
-      {sub && <div className="text-[12px] text-lol-text">{sub}</div>}
+      {sub &&
+        (emptySub ? (
+          <EmptyState text={sub} />
+        ) : (
+          <div className="text-[12px] text-lol-text">{sub}</div>
+        ))}
     </div>
   );
 }
@@ -5081,6 +5139,17 @@ function SectionLoading() {
 
 function NoData({ text = "No data" }: { text?: string }) {
   return <span className="text-[12.5px] text-lol-text">{text}</span>;
+}
+
+function EmptyState({ text }: { text: string }) {
+  return (
+    <div className="rounded-md border border-dashed border-white/[0.08] bg-white/[0.02] px-4 py-3 text-lol-text/70">
+      <span className="mr-2" aria-hidden="true">
+        ⓘ
+      </span>
+      {text}
+    </div>
+  );
 }
 
 function RoleRow({
