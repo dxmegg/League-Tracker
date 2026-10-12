@@ -4788,11 +4788,24 @@ function EconomyTab({
         <CombatStatTable
           rows={[
             [
+              "Gold earned",
+              detail.avgGoldEarned,
+              detail.maxGoldEarned,
+              detail.totalGoldEarned,
+              formatCombatNumber,
+              detail.avgGoldEarnedInWins,
+              detail.avgGoldEarnedInLosses,
+              undefined,
+            ],
+            [
               "Gold spent",
               detail.avgGoldSpent,
               detail.maxGoldSpent,
               detail.totalGoldSpent,
               formatCombatNumber,
+              detail.avgGoldSpentInWins,
+              detail.avgGoldSpentInLosses,
+              undefined,
             ],
           ]}
         />
@@ -4887,14 +4900,31 @@ function EconomyTab({
         <p className="mb-3 text-[11px] text-lol-text/70">
           Average gold spent per game from the available match aggregates.
         </p>
-        <div className="flex flex-col gap-2 text-xs">
-          <div className="flex items-center justify-between border-b border-white/[0.04] py-2 transition-colors duration-[120ms] hover:bg-white/[0.025] last:border-b-0">
-            <span className="text-lol-text">Gold spent average</span>
-            <span className="text-right tabular-nums text-lol-text-bright">
-              {value(detail.avgGoldSpent)}
-            </span>
-          </div>
-        </div>
+        <CombatStatTable
+          rows={[
+            [
+              "Gold spent",
+              detail.avgGoldSpent,
+              detail.maxGoldSpent,
+              detail.totalGoldSpent,
+              formatCombatNumber,
+            ],
+            [
+              "Gold spent in wins",
+              detail.avgGoldSpentInWins,
+              detail.maxGoldSpentInWins,
+              detail.totalGoldSpentInWins,
+              formatCombatNumber,
+            ],
+            [
+              "Gold spent in losses",
+              detail.avgGoldSpentInLosses,
+              detail.maxGoldSpentInLosses,
+              detail.totalGoldSpentInLosses,
+              formatCombatNumber,
+            ],
+          ]}
+        />
       </Panel>
       <Panel className={TAB_PANEL_CLASSES.gold}>
         <SectionHeading title="Economy by queue" source="m" />
@@ -4932,7 +4962,6 @@ function EconomyTab({
         )}
       </Panel>
       {[
-        ["Gold sources", "Gold-source split not available"],
         ["WR by gold lead @15", "Gold lead outcomes are not available"],
         ["Gold lead distribution", "Per-game lead distribution is not available"],
         ["Spending timeline", "Item purchase timeline is not available"],

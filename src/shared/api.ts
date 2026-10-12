@@ -377,6 +377,15 @@ export interface ChampionDetailStats {
   avgCcPerMin: number;
   avgCcPerMinInWins?: number | null;
   avgCcPerMinInLosses?: number | null;
+  avgGoldEarned?: number | null;
+  maxGoldEarned?: number | null;
+  totalGoldEarned?: number | null;
+  avgGoldEarnedInWins?: number | null;
+  avgGoldEarnedInLosses?: number | null;
+  maxGoldEarnedInWins?: number | null;
+  maxGoldEarnedInLosses?: number | null;
+  totalGoldEarnedInWins?: number | null;
+  totalGoldEarnedInLosses?: number | null;
   avgGoldSpent: number;
   avgGoldSpentInWins?: number | null;
   avgGoldSpentInLosses?: number | null;
