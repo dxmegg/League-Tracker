@@ -154,11 +154,10 @@ Czasem myli MatchupsTab return z innym JSX.
 Cherry-pickuje commity między worktree'ami — nie używać subsessji.
 
 6. Co dalej
-- A — Hint text under panel headers (one-line description above each panel; mockup has them on some tabs but not all)
-- B — Home page hero polish (ribbon, live tile, top champions grid)
-- C — History match row polish + weekly heatmap color scale
-- D — CDragon 522 intermittent failures (mitigated by cache)
-- E — New feature (ask user)
+- A — Home page hero polish (ribbon, live tile, top champions grid)
+- B — History match row polish + weekly heatmap color scale
+- C — CDragon 522 intermittent failures (mitigated by cache)
+- D — New feature (ask user)
 
 7. Komendy
 npm run dev          # apka (wymaga LCU jako admin)
