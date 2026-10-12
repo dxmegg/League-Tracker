@@ -71,6 +71,11 @@ export interface ChampionTrendsData {
   weekdays: ChampionTrendsWeekday[];
 }
 
+export interface ActivityHeatmapDay {
+  day: string;
+  games: number;
+}
+
 export interface ChampionRecord {
   key: string;
   label: string;
@@ -130,6 +135,41 @@ export function getChampionStatsAll(
     ORDER BY games DESC
   `)
     .all(...params, ...timeFilter.params, ...NO_STATS_QUEUE_IDS);
+}
+
+export function getActivityHeatmap(account?: string): ActivityHeatmapDay[] {
+  console.log("[db] getActivityHeatmap called:", { account });
+  const statsPlaceholders = NO_STATS_QUEUE_IDS.map(() => "?").join(",");
+  const where = [
+    "g.is_remake = 0",
+    "g.source != 'search-import'",
+    `g.queue_id NOT IN (${statsPlaceholders})`,
+    "g.game_creation >= (strftime('%s', 'now', '-182 days') * 1000)",
+  ];
+  const params: any[] = [...NO_STATS_QUEUE_IDS];
+
+  if (account === "all") {
+    where.push("mp.puuid IN (SELECT puuid FROM summoner)");
+  } else if (account) {
+    where.push("mp.puuid = ?");
+    params.push(account);
+  } else {
+    where.push("mp.puuid = g.puuid");
+  }
+
+  const rows = db
+    .prepare(`
+      SELECT strftime('%Y-%m-%d', g.game_creation / 1000, 'unixepoch') AS day,
+             COUNT(*) AS games
+      FROM match_participants mp
+      JOIN games g ON g.game_id = mp.game_id
+      WHERE ${where.join(" AND ")}
+      GROUP BY day
+      ORDER BY day ASC
+    `)
+    .all(...params) as ActivityHeatmapDay[];
+  console.log("[db] getActivityHeatmap done:", { count: rows.length });
+  return rows;
 }
 
 export function getChampionQueueStats(

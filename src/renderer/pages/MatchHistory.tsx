@@ -17,6 +17,7 @@ import type {
   LcuStatus,
   BackfillProgress,
 } from "../lib/types";
+import type { ActivityHeatmapDay } from "../../shared/api";
 import ChampionIcon from "../components/ChampionIcon";
 import ItemIcon from "../components/ItemIcon";
 import { parseAugmentIds, AugmentGrid } from "../components/AugmentGrid";
@@ -34,6 +35,7 @@ import SummonerSpellIcon from "../components/SummonerSpellIcon";
 import WinRateBar from "../components/WinRateBar";
 import { NoxianHerald } from "../components/NoxianHerald";
 import { SessionHeaderExp } from "../components/SessionHeaderExp";
+import ActivityHeatmap from "../components/ActivityHeatmap";
 import { ArrowDownIcon, StarIcon } from "../components/icons";
 import {
   formatDuration,
@@ -453,6 +455,27 @@ export default function MatchHistory({
     () => (isDateSort ? groupIntoSessions(matches) : null),
     [isDateSort, matches],
   );
+  const { data: activityRows } = useIpc<ActivityHeatmapDay[]>(
+    () => window.api.getActivityHeatmap(accountFilter ?? "all"),
+    [accountFilter],
+  );
+  const activityDays = useMemo(() => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const start = new Date(today);
+    start.setDate(today.getDate() - 181);
+    const counts = new Map((activityRows ?? []).map((row) => [row.day, row.games]));
+    return Array.from({ length: 182 }, (_, index) => {
+      const date = new Date(start);
+      date.setDate(start.getDate() + index);
+      const day = [
+        date.getFullYear(),
+        String(date.getMonth() + 1).padStart(2, "0"),
+        String(date.getDate()).padStart(2, "0"),
+      ].join("-");
+      return { day, games: counts.get(day) ?? 0 };
+    });
+  }, [activityRows]);
 
   return (
     <div className="space-y-4 w-full">
@@ -760,6 +783,8 @@ export default function MatchHistory({
             </HomeCard>
           </div>
         ))}
+
+      <ActivityHeatmap days={activityDays} />
 
       <div className="flex flex-wrap items-center justify-between">
         <h1 className="relative flex items-center gap-2 text-xl font-bold text-lol-text-bright after:absolute after:-bottom-2 after:left-0 after:h-px after:w-32 after:bg-gradient-to-r after:from-lol-crimson/60 after:to-transparent after:content-['']">

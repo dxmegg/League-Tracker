@@ -3,6 +3,7 @@ import type {
   BackfillProgress,
   BackfillResult,
   ChampionDetailStats,
+  ActivityHeatmapDay,
   ChampionStatBaseline,
   ChampionKillDeathPosition,
   ChampionRoleStat,
@@ -135,6 +136,9 @@ const api: ElectronAPI = {
 
   getChampionStats: (patch?: string, queue?: number, account?: string) =>
     ipcRenderer.invoke("db:champion-stats", patch, queue, account),
+
+  getActivityHeatmap: (account?: string): Promise<ActivityHeatmapDay[]> =>
+    ipcRenderer.invoke("db:activity-heatmap", account),
 
   getChampionDetailStats: (
     championId: number | null,

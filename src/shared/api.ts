@@ -1097,6 +1097,11 @@ export interface ChampionTrendsData {
   weekdays: ChampionTrendsWeekday[];
 }
 
+export interface ActivityHeatmapDay {
+  day: string;
+  games: number;
+}
+
 // Just enough of a game to draw a record's context line and open its match.
 export interface RecordMatchRef {
   game_id: number;
@@ -1473,6 +1478,7 @@ export interface ElectronAPI {
   ) => () => void;
   toggleFavorite: (gameId: number) => Promise<boolean>;
   getChampionStats: (patch?: string, queue?: number, account?: string) => Promise<ChampionStats[]>;
+  getActivityHeatmap: (account?: string) => Promise<ActivityHeatmapDay[]>;
   getChampionDetailStats: (
     championId: number | null,
     patch?: string,
