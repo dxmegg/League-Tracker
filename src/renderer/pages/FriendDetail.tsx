@@ -147,7 +147,7 @@ export default function FriendDetail() {
 
       <div className="grid grid-cols-[1fr_22rem] gap-4 items-stretch">
         <div className="flex flex-col gap-3">
-          <div className="flex items-center gap-3">
+          <div className="relative flex items-center gap-3 overflow-hidden rounded-lg border border-lol-border/60 border-l-[3px] border-l-[#E5483F] bg-[radial-gradient(circle_at_top_right,rgba(229,72,63,0.10),transparent_55%),linear-gradient(180deg,rgba(255,255,255,0.03),transparent_45%)] p-3">
             <SummonerIcon iconId={player.profileIcon} size={56} />
             <div className="min-w-0">
               <h1 className="text-xl font-bold text-lol-text-bright truncate">{player.name}</h1>
@@ -161,8 +161,10 @@ export default function FriendDetail() {
           {/* items-center keeps the columns at content height, so the dividers
               stop short of the card's top and bottom edges */}
           <HomeCard className="flex-1 flex items-center divide-x divide-lol-border/60">
-            <div className="flex-1 px-4 py-2.5">
-              <div className="text-[11px] text-lol-text uppercase tracking-wider">Record</div>
+            <div className="relative flex-1 border-t-[3px] border-t-[#E5483F] bg-[radial-gradient(circle_at_top_right,rgba(229,72,63,0.08),transparent_70%)] px-4 py-2.5 transition-colors duration-[120ms] hover:bg-white/[0.02]">
+              <div className="text-[11px] text-lol-text uppercase tracking-wider before:mr-2 before:inline-block before:h-1.5 before:w-1.5 before:rounded-full before:bg-[#E5483F]">
+                Record
+              </div>
               <div className="text-xl font-bold text-lol-text-bright">
                 {player.wins}W <span className="text-lol-text/60">{losses}L</span>
               </div>
@@ -170,8 +172,10 @@ export default function FriendDetail() {
                 <WinRateBar wins={player.wins} total={player.games} />
               </div>
             </div>
-            <div className="flex-1 px-4 py-2.5">
-              <div className="text-[11px] text-lol-text uppercase tracking-wider">Their KDA</div>
+            <div className="relative flex-1 border-t-[3px] border-t-[#C9A45C] bg-[radial-gradient(circle_at_top_right,rgba(201,164,92,0.08),transparent_70%)] px-4 py-2.5 transition-colors duration-[120ms] hover:bg-white/[0.02]">
+              <div className="text-[11px] text-lol-text uppercase tracking-wider before:mr-2 before:inline-block before:h-1.5 before:w-1.5 before:rounded-full before:bg-[#C9A45C]">
+                Their KDA
+              </div>
               <div className={`text-xl font-bold ${kdaColor(ratio)}`}>
                 {kdaRatio(player.kills, player.deaths, player.assists)}
               </div>
@@ -179,8 +183,8 @@ export default function FriendDetail() {
                 {avg(player.kills)} / {avg(player.deaths)} / {avg(player.assists)} per game
               </div>
             </div>
-            <div className="flex-1 px-4 py-2.5">
-              <div className="text-[11px] text-lol-text uppercase tracking-wider">
+            <div className="relative flex-1 border-t-[3px] border-t-[#22C55E] bg-[radial-gradient(circle_at_top_right,rgba(34,197,94,0.08),transparent_70%)] px-4 py-2.5 transition-colors duration-[120ms] hover:bg-white/[0.02]">
+              <div className="text-[11px] text-lol-text uppercase tracking-wider before:mr-2 before:inline-block before:h-1.5 before:w-1.5 before:rounded-full before:bg-[#22C55E]">
                 Their Avg Score
               </div>
               <div
@@ -195,7 +199,7 @@ export default function FriendDetail() {
           </HomeCard>
         </div>
 
-        <HomeCard className="flex flex-col overflow-hidden">
+        <HomeCard className="flex flex-col overflow-hidden border-t-[3px] border-t-[#3B82F6] bg-[radial-gradient(circle_at_top_right,rgba(59,130,246,0.08),transparent_60%)]">
           <div className="px-3 py-2 border-b border-lol-border/60 flex items-center justify-between">
             <span className="text-[11px] text-lol-text uppercase tracking-wider">
               Their Champions
@@ -204,7 +208,7 @@ export default function FriendDetail() {
           </div>
           {/* Sets the height of the whole top block — the stat card stretches
               to match it — then scrolls */}
-          <div className="max-h-44 overflow-y-auto divide-y divide-lol-border/40">
+          <div className="max-h-44 overflow-y-auto divide-y divide-white/[0.04]">
             {player.champions.map((c) => (
               <ChampionRow key={c.champion_id} champ={c} champData={champData} />
             ))}
@@ -212,7 +216,7 @@ export default function FriendDetail() {
         </HomeCard>
       </div>
 
-      <h2 className="text-sm font-semibold text-lol-text-bright uppercase tracking-wider pt-1">
+      <h2 className="relative flex items-center gap-3 pb-2 text-sm font-semibold text-lol-text-bright uppercase tracking-wider pt-1 after:absolute after:bottom-0 after:left-0 after:h-px after:w-2/5 after:bg-gradient-to-r after:from-[#E5483F]/50 after:to-transparent before:h-2 before:w-2 before:rotate-45 before:bg-[#E5483F]">
         {enemies ? "Games Played By Him" : "Games Played Together"}
       </h2>
 
@@ -241,8 +245,12 @@ function ChampionRow({ champ, champData }: { champ: TeammateChampionStats; champ
     champ.deaths > 0 ? (champ.kills + champ.assists) / champ.deaths : champ.kills + champ.assists;
 
   return (
-    <div className="flex items-center gap-2 px-3 py-1.5">
-      <ChampionIcon championId={champ.champion_id} size={26} />
+    <div className="flex items-center gap-2 border-b border-white/[0.04] px-3 py-2 transition-colors duration-[120ms] hover:bg-white/[0.03]">
+      <ChampionIcon
+        championId={champ.champion_id}
+        size={26}
+        className="rounded-md border-l-2 border-l-[#E5483F] shadow-[0_0_10px_rgba(229,72,63,0.12)]"
+      />
       <div className="min-w-0 flex-1">
         <div className="text-xs text-lol-text-bright truncate">
           {getChampionName(champData, champ.champion_id)}
@@ -369,11 +377,13 @@ function SharedGameRow({
     <div>
       <button
         onClick={onToggle}
-        className={`relative overflow-hidden w-full flex items-center gap-4 pl-4 pr-3 py-2.5 border border-lol-border/60 bg-lol-card hover:bg-lol-card-hover transition-colors text-left ${
+        className={`group relative overflow-hidden w-full flex items-center gap-4 pl-4 pr-3 py-2.5 border border-b-white/[0.04] border-lol-border/60 bg-lol-card hover:bg-white/[0.02] transition-colors duration-[120ms] text-left ${
           expanded ? "rounded-t-lg" : "rounded-lg"
         }`}
       >
-        <span className={`absolute left-0 inset-y-0 w-[3px] ${accent}`} />
+        <span
+          className={`absolute left-0 inset-y-0 w-[2px] transition-[width] duration-[120ms] group-hover:w-[3px] ${accent}`}
+        />
         <span className={`absolute inset-0 pointer-events-none bg-gradient-to-r ${tint}`} />
         <div
           className={`text-xs font-bold shrink-0 w-8 ${isWin ? "text-lol-win" : "text-lol-loss"}`}
