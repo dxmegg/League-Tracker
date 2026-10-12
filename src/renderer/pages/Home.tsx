@@ -639,7 +639,7 @@ export default function Home() {
         {/* 12-column grid */}
         <div className="grid grid-cols-12 gap-5">
           {/* Hero: 8 columns */}
-          <Panel className="col-span-12 2xl:col-span-8">
+          <Panel className="col-span-12 border-t-[3px] border-t-lol-win bg-[radial-gradient(circle_at_top_right,rgba(34,197,94,0.10),transparent_42%)] 2xl:col-span-8">
             <HomeHero
               dashboard={dashboard}
               loading={loading}
@@ -649,7 +649,7 @@ export default function Home() {
           </Panel>
 
           {/* Live game: 4 columns */}
-          <Panel className="col-span-12 2xl:col-span-4">
+          <Panel className="col-span-12 border-l-[3px] border-l-lol-win bg-[radial-gradient(circle_at_top_right,rgba(34,197,94,0.08),transparent_55%)] 2xl:col-span-4">
             <LiveGameTile game={live.game} session={live.session} />
           </Panel>
 
@@ -657,6 +657,7 @@ export default function Home() {
           <Panel className="col-span-12 2xl:col-span-7">
             <div className="mb-4 flex items-baseline justify-between gap-3">
               <h2 className="font-display text-[16px] font-semibold text-lol-text-bright">
+                <span className="mr-2 inline-block h-1.5 w-1.5 rotate-45 bg-lol-crimson align-middle" />
                 Most played champions
               </h2>
               <span className="text-[13px] text-lol-text">
@@ -671,6 +672,7 @@ export default function Home() {
                   games={champion.games}
                   wins={champion.wins}
                   champData={champData}
+                  accentIndex={champion.championId}
                 />
               ))}
             </div>
@@ -680,6 +682,7 @@ export default function Home() {
           <Panel className="col-span-12 2xl:col-span-5">
             <div className="mb-4 flex items-baseline justify-between gap-3">
               <h2 className="font-display text-[16px] font-semibold text-lol-text-bright">
+                <span className="mr-2 inline-block h-1.5 w-1.5 rotate-45 bg-lol-crimson align-middle" />
                 Records
               </h2>
               <span className="text-[13px] text-lol-text">All time</span>
@@ -703,11 +706,12 @@ export default function Home() {
                     championId={record.championId}
                     win={record.win}
                     gameCreation={record.gameCreation}
+                    accentIndex={record.championId}
                   />
                 ) : (
                   <div
                     key={label}
-                    className="rounded-xl border border-lol-border bg-black/10 px-3.5 py-3 text-[12.5px] text-lol-text"
+                    className="rounded-xl border border-lol-border border-t-[3px] border-t-lol-crimson/50 bg-black/10 px-3.5 py-3 text-[12.5px] text-lol-text transition-colors duration-[120ms] hover:bg-white/[0.02]"
                   >
                     <span className="uppercase tracking-wider">{label}</span>
                     <b className="my-0.5 block font-display text-[28px] font-bold leading-tight text-lol-text-bright/40">
@@ -723,6 +727,7 @@ export default function Home() {
           <Panel className="col-span-12">
             <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
               <h2 className="font-display text-[16px] font-semibold text-lol-text-bright">
+                <span className="mr-2 inline-block h-1.5 w-1.5 rotate-45 bg-lol-crimson align-middle" />
                 Last 20 played games
               </h2>
               <QueueFilterChips value={queue} onChange={setQueue} />

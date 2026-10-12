@@ -51,7 +51,7 @@ export function LiveGameTile({
     };
 
     return (
-      <div className="flex h-full min-h-[280px] flex-col justify-center gap-4">
+      <div className="flex h-full min-h-[280px] flex-col justify-center gap-4 border-l-[3px] border-l-lol-win bg-[radial-gradient(circle_at_top_right,rgba(34,197,94,0.08),transparent_55%)] pl-4">
         <div className="flex items-center gap-2 font-display text-[14px] font-semibold text-lol-win">
           <span className="h-2 w-2 shrink-0 rounded-full bg-lol-win" />
           <span>Live game</span>
@@ -101,7 +101,7 @@ export function LiveGameTile({
 
   if (!game) {
     return (
-      <div className="flex h-full min-h-[280px] flex-col items-center justify-center gap-2 text-center">
+      <div className="flex h-full min-h-[280px] flex-col items-center justify-center gap-2 border-l-[3px] border-l-lol-win bg-[radial-gradient(circle_at_top_right,rgba(34,197,94,0.08),transparent_55%)] pl-4 text-center">
         <div className="flex items-center gap-2 font-display text-[14px] font-semibold text-lol-text/60">
           <span className="h-2 w-2 shrink-0 rounded-full bg-lol-text/40" />
           <span>Live game</span>
@@ -116,7 +116,7 @@ export function LiveGameTile({
   const items = game.items ?? [];
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex flex-col gap-4 border-l-[3px] border-l-lol-win bg-[radial-gradient(circle_at_top_right,rgba(34,197,94,0.10),transparent_55%)] pl-4">
       <div className="flex items-center gap-2 font-display text-[14px] font-semibold text-lol-win">
         <span className="h-2 w-2 shrink-0 rounded-full bg-lol-win" />
         <span>Live game</span>

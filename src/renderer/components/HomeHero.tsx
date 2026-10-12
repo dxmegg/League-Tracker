@@ -30,7 +30,9 @@ export function HomeHero({
   const ribbonData = [...recentForm].reverse();
 
   return (
-    <div className={`transition-opacity ${loading ? "opacity-50" : ""}`}>
+    <div
+      className={`relative overflow-hidden rounded-[10px] bg-[radial-gradient(circle_at_top_right,rgba(34,197,94,0.10),transparent_42%)] transition-opacity ${loading ? "opacity-50" : ""}`}
+    >
       <div className="flex flex-wrap items-end justify-between gap-5">
         <div>
           <div className="mb-0.5 font-display text-[15px] font-semibold text-lol-text">
@@ -51,7 +53,10 @@ export function HomeHero({
         </div>
       </div>
 
-      <div className="relative mt-6 flex h-24 gap-px" aria-hidden="true">
+      <div
+        className="relative mt-6 flex h-24 gap-px border-b border-lol-border/60 pb-px"
+        aria-hidden="true"
+      >
         <span className="pointer-events-none absolute inset-x-0 top-[60px] border-t border-lol-border" />
         {ribbonData.map((game, i) => {
           const tooltip = (
@@ -81,14 +86,14 @@ export function HomeHero({
             >
               {game.win ? (
                 <b
-                  className="row-start-1 self-end rounded-sm bg-lol-win"
+                  className="row-start-1 self-end rounded-sm bg-gradient-to-t from-lol-win/80 to-lol-win"
                   style={{
                     height: `${Math.max(6, Math.round((((game.score ?? 5) as number) / 10) * 60))}px`,
                   }}
                 />
               ) : (
                 <b
-                  className="row-start-2 self-start rounded-sm bg-lol-loss"
+                  className="row-start-2 self-start rounded-sm bg-gradient-to-b from-lol-loss/80 to-lol-loss"
                   style={{
                     height: `${Math.max(4, Math.round((((game.score ?? 5) as number) / 10) * 36))}px`,
                   }}
@@ -106,29 +111,41 @@ export function HomeHero({
       </div>
 
       <div className="mt-5 grid grid-cols-4 gap-4 border-t border-lol-border/40 pt-5">
-        <div>
+        <div className="relative rounded-md border-t-[3px] border-t-amber-400 bg-[radial-gradient(circle_at_top_right,rgba(245,158,11,0.08),transparent_70%)]">
           <b className="block font-display text-[30px] font-bold leading-tight text-lol-gold">
             {formatNumber(dashboard?.summary.totalKills ?? 0)}
           </b>
-          <span className="text-[13px] text-lol-text">Kills</span>
+          <span className="text-[13px] text-lol-text">
+            <i className="mr-1 inline-block h-1.5 w-1.5 rounded-full bg-amber-400" />
+            Kills
+          </span>
         </div>
-        <div>
+        <div className="relative rounded-md border-t-[3px] border-t-red-400 bg-[radial-gradient(circle_at_top_right,rgba(248,113,113,0.08),transparent_70%)]">
           <b className="block font-display text-[30px] font-bold leading-tight text-lol-loss">
             {formatNumber(dashboard?.summary.totalDeaths ?? 0)}
           </b>
-          <span className="text-[13px] text-lol-text">Deaths</span>
+          <span className="text-[13px] text-lol-text">
+            <i className="mr-1 inline-block h-1.5 w-1.5 rounded-full bg-red-400" />
+            Deaths
+          </span>
         </div>
-        <div>
+        <div className="relative rounded-md border-t-[3px] border-t-sky-400 bg-[radial-gradient(circle_at_top_right,rgba(56,189,248,0.08),transparent_70%)]">
           <b className="block font-display text-[30px] font-bold leading-tight text-lol-assist">
             {formatNumber(dashboard?.summary.totalAssists ?? 0)}
           </b>
-          <span className="text-[13px] text-lol-text">Assists</span>
+          <span className="text-[13px] text-lol-text">
+            <i className="mr-1 inline-block h-1.5 w-1.5 rounded-full bg-sky-400" />
+            Assists
+          </span>
         </div>
-        <div>
+        <div className="relative rounded-md border-t-[3px] border-t-lol-text-bright bg-[radial-gradient(circle_at_top_right,rgba(226,232,240,0.08),transparent_70%)]">
           <b className="block font-display text-[30px] font-bold leading-tight">
             {(dashboard?.summary.avgKda ?? 0).toFixed(2)}
           </b>
-          <span className="text-[13px] text-lol-text">Average K/D/A</span>
+          <span className="text-[13px] text-lol-text">
+            <i className="mr-1 inline-block h-1.5 w-1.5 rounded-full bg-lol-text-bright" />
+            Average K/D/A
+          </span>
         </div>
       </div>
     </div>
