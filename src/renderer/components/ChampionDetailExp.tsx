@@ -1104,7 +1104,7 @@ export function RecordsTab({
             {podium.map((match, index) => (
               <div
                 key={match.game_id}
-                className={`flex items-center gap-3 rounded-lg border border-lol-border/40 px-3 py-2 ${
+                className={`flex items-center gap-3 rounded-lg border border-lol-border/40 px-3 py-2 text-right transition-colors duration-[120ms] hover:bg-white/[0.025] last:border-b-0 ${
                   index === 0
                     ? "bg-[linear-gradient(to_right,rgba(201,164,92,0.08),transparent_40%)]"
                     : index === 1
@@ -1150,7 +1150,7 @@ export function RecordsTab({
             {almostRecords.map(({ record, gapPct }) => (
               <div
                 key={record.key}
-                className="flex flex-col gap-1.5 border-l-[3px] border-l-[#C9A45C] bg-[rgba(201,164,92,0.05)] px-3 py-2"
+                className="flex flex-col gap-1.5 border-b border-l-[3px] border-b-white/[0.04] border-l-[#C9A45C] bg-[rgba(201,164,92,0.05)] px-3 py-2 transition-colors duration-[120ms] hover:bg-white/[0.025] last:border-b-0"
               >
                 <div className="flex items-center gap-2 text-xs">
                   <span className="min-w-0 flex-1 truncate text-lol-text">{record.label}</span>
@@ -1194,10 +1194,10 @@ export function RecordsTab({
                   }}
                 >
                   <span className="text-xs text-lol-text">{record.label}</span>
-                  <b className="mt-1 block font-display text-2xl text-lol-text-bright">
+                  <b className="mt-1 block font-display text-2xl tabular-nums text-lol-text-bright">
                     {formatRecordValue(record, record.value)}
                   </b>
-                  <span className="mt-1 block text-[11px] text-lol-text">
+                  <span className="mt-1 block text-[11px] tabular-nums text-lol-text">
                     Game {record.gameId ?? "—"}
                   </span>
                 </div>
@@ -1346,7 +1346,7 @@ export function MatchesTab({
           <NoData />
         ) : (
           <div
-            className="match-list-exp flex flex-col gap-2.5"
+            className="match-list-exp flex flex-col gap-2.5 [&_.m-cs]:tabular-nums [&_.m-kda]:tabular-nums [&_.m-score]:tabular-nums [&_.m-time]:tabular-nums last:[&>article]:border-b-0"
             style={{ containerType: "inline-size" }}
           >
             {visibleMatches.map((match) => (
@@ -1435,11 +1435,11 @@ export function MasteryTab({
         <p className="mb-3 text-[11px] text-lol-text/70">
           Milestone levels reached and the next champion mastery goals.
         </p>
-        <div className="flex flex-col gap-2">
+        <div className="flex flex-col divide-y divide-white/[0.04]">
           {[5, 7, 10].map((level) => (
             <div
               key={level}
-              className={`flex items-center justify-between rounded-md border border-lol-border/60 border-l-[3px] px-3 py-2 text-sm transition-colors duration-[120ms] hover:bg-white/[0.03] ${
+              className={`flex items-center justify-between rounded-md border border-lol-border/60 border-l-[3px] px-3 py-2 text-sm transition-colors duration-[120ms] hover:bg-white/[0.025] ${
                 mastery.level >= level ? "border-l-[#C9A45C]" : "border-l-white/[0.15]"
               }`}
             >
@@ -1459,9 +1459,9 @@ export function MasteryTab({
         <table className="w-full text-xs">
           <thead className="border-b border-lol-border/50 text-left text-lol-text">
             <tr>
-              <th className="pb-2 font-semibold">Level</th>
-              <th className="pb-2 text-right font-semibold">Points needed</th>
-              <th className="pb-2 text-right font-semibold">Status</th>
+              <th className="whitespace-nowrap pb-2 font-semibold">Level</th>
+              <th className="whitespace-nowrap pb-2 text-right font-semibold">Points needed</th>
+              <th className="whitespace-nowrap pb-2 text-right font-semibold">Status</th>
             </tr>
           </thead>
           <tbody>
@@ -1482,7 +1482,7 @@ export function MasteryTab({
               return (
                 <tr
                   key={level}
-                  className={`border-b border-white/[0.04] transition-colors duration-[120ms] hover:bg-white/[0.03] ${
+                  className={`border-b border-white/[0.04] transition-colors duration-[120ms] hover:bg-white/[0.025] last:border-b-0 ${
                     mastery.level === level ? "bg-[rgba(201,164,92,0.06)]" : ""
                   }`}
                 >
