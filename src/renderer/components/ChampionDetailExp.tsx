@@ -4708,7 +4708,7 @@ function EconomyTab({
         />
       )}
       {section === "details" && (
-        <>
+        <div className="flex flex-col gap-5">
           <Panel className={TAB_PANEL_CLASSES.gold}>
             <SectionHeading title="Gold over time" source="d" />
             <p className="mb-3 text-[11px] text-lol-text/70">
@@ -5196,7 +5196,7 @@ function EconomyTab({
               </div>
             )}
           </Panel>
-        </>
+        </div>
       )}
     </>
   );
@@ -5277,7 +5277,7 @@ function FarmTab({
         </>
       )}
       {section === "details" && (
-        <>
+        <div className="flex flex-col gap-5">
           <Panel className={TAB_PANEL_CLASSES.emerald}>
             <SectionHeading title="Minion split" source="m" />
             <p className="mb-3 text-[11px] text-lol-text/70">
@@ -5434,7 +5434,7 @@ function FarmTab({
               </div>
             )}
           </Panel>
-        </>
+        </div>
       )}
     </>
   );
