@@ -5428,7 +5428,10 @@ function EconomyTab({
       ? (detail.avgPhysicalDamageDealt + detail.avgMagicDamageDealt) / detail.avgGoldSpent
       : null;
   const value = (number: number | null | undefined, digits = 0) => formatPlain(number, digits);
-  const queueRows = queueStats ?? [];
+  const queueRows = (queueStats ?? []).filter(({ queueId }) => {
+    const label = QUEUE_LABELS[queueId] ?? "";
+    return !label.startsWith("Arena") && !label.includes("Co-op vs AI");
+  });
   const formatQueueKda = (kills?: number, deaths?: number, assists?: number) => {
     if (kills == null && deaths == null && assists == null) return "—";
     if (deaths == null || deaths === 0) return "∞";
@@ -5813,47 +5816,33 @@ function EconomyTab({
         <p className="mb-3 text-[11px] text-lol-text/70">
           Average gold spent per game from the available match aggregates.
         </p>
-        <div className="grid min-h-40 gap-4 md:grid-cols-2">
-          <CombatStatTable
-            rows={[
-              [
-                "Gold spent",
-                detail.avgGoldSpent,
-                detail.maxGoldSpent,
-                detail.totalGoldSpent,
-                formatCombatNumber,
-              ],
-              [
-                "Gold spent in wins",
-                detail.avgGoldSpentInWins,
-                detail.maxGoldSpentInWins,
-                detail.totalGoldSpentInWins,
-                formatCombatNumber,
-              ],
-              [
-                "Gold spent in losses",
-                detail.avgGoldSpentInLosses,
-                detail.maxGoldSpentInLosses,
-                detail.totalGoldSpentInLosses,
-                formatCombatNumber,
-              ],
-            ]}
-          />
-          <div className="grid grid-cols-2 gap-3 self-start">
-            <div className="rounded-md border border-lol-border/50 bg-black/10 p-3">
-              <div className="text-[11px] text-lol-text/70">Gold per minute</div>
-              <div className="mt-2 text-right text-lg font-semibold tabular-nums text-lol-text-bright">
-                {detail.goldPerMin.toFixed(0)}
-              </div>
-            </div>
-            <div className="rounded-md border border-lol-border/50 bg-black/10 p-3">
-              <div className="text-[11px] text-lol-text/70">Items per game</div>
-              <div className="mt-2 text-right text-lg font-semibold tabular-nums text-lol-text-bright">
-                {value(timeline?.itemsBought, 1)}
-              </div>
-            </div>
-          </div>
-        </div>
+        <CombatStatTable
+          rows={[
+            [
+              "Gold spent",
+              detail.avgGoldSpent,
+              detail.maxGoldSpent,
+              undefined,
+              formatCombatNumber,
+              detail.avgGoldSpentInWins,
+              detail.avgGoldSpentInLosses,
+            ],
+            [
+              "Gold spent in wins",
+              detail.avgGoldSpentInWins,
+              detail.maxGoldSpentInWins,
+              undefined,
+              formatCombatNumber,
+            ],
+            [
+              "Gold spent in losses",
+              detail.avgGoldSpentInLosses,
+              detail.maxGoldSpentInLosses,
+              undefined,
+              formatCombatNumber,
+            ],
+          ]}
+        />
       </Panel>
       <Panel className={TAB_PANEL_CLASSES.gold}>
         <SectionHeading title="Economy by queue" source="m" />
@@ -6009,9 +5998,6 @@ function EconomyTab({
                       />
                     ) : null}
                   </div>
-                  <span className="text-[10px] tabular-nums text-lol-text">
-                    {bucket.averageItems == null ? "—" : bucket.averageItems.toFixed(1)}
-                  </span>
                   <span className="text-[10px] text-lol-text/70">
                     {bucket.minute}–{bucket.minute + 5}m
                   </span>
@@ -6047,6 +6033,10 @@ function FarmTab({
   if (timelineLoading) return <SectionLoading />;
   const vsOther = (value: number | null | undefined, key: string) =>
     value == null || baseline?.[key] == null ? null : value - baseline[key]!;
+  const farmQueueRows = (queueStats ?? []).filter(({ queueId }) => {
+    const label = QUEUE_LABELS[queueId] ?? "";
+    return !label.startsWith("Arena") && !label.includes("Co-op vs AI");
+  });
 
   const buckets = timeline ?? [];
   const bucketAt = (minute: number) => buckets.find((bucket) => bucket.minute === minute);
@@ -6081,7 +6071,7 @@ function FarmTab({
         <p className="mb-3 text-[11px] text-lol-text/70">
           CS pace, lane advantage, and farming coverage for this champion.
         </p>
-        <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
+        <div className="grid grid-cols-3 gap-3">
           <Stat
             label="CS/min"
             value={
@@ -6102,24 +6092,6 @@ function FarmTab({
             label="CS diff @15"
             value={value(bucketAt(15)?.avgCsDiffVsLaneOpponent)}
             sub="Versus lane opponent"
-            valueClass="text-right tabular-nums"
-          />
-          <Stat
-            label="8+ CS/min games"
-            value="—"
-            sub="Not available from current data"
-            valueClass="text-right tabular-nums"
-          />
-          <Stat
-            label="Jungle share"
-            value="—"
-            sub="Percentage unavailable"
-            valueClass="text-right tabular-nums"
-          />
-          <Stat
-            label="Possible CS @10"
-            value="—"
-            sub="Not available from current data"
             valueClass="text-right tabular-nums"
           />
         </div>
@@ -6264,26 +6236,29 @@ function FarmTab({
           </>
         )}
       </Panel>
-      <Panel className={TAB_PANEL_CLASSES.emerald}>
-        <SectionHeading title="Jungle share" source="m" />
-        <p className="mb-3 text-[11px] text-lol-text/70">
-          Allied and enemy jungle minions included in your farm totals.
-        </p>
-        <div className="flex flex-col gap-2 text-xs">
-          <div className="flex items-center justify-between border-b border-white/[0.04] py-2 transition-colors duration-[120ms] hover:bg-white/[0.025] last:border-b-0">
-            <span className="text-lol-text">Allied jungle</span>
-            <span className="text-right tabular-nums text-lol-text-bright">
-              {value(detail.avgNeutralMinionsTeamJungle)}
-            </span>
+      {(detail.avgNeutralMinionsTeamJungle ?? 0) !== 0 ||
+      (detail.avgNeutralMinionsEnemyJungle ?? 0) !== 0 ? (
+        <Panel className={TAB_PANEL_CLASSES.emerald}>
+          <SectionHeading title="Jungle share" source="m" />
+          <p className="mb-3 text-[11px] text-lol-text/70">
+            Allied and enemy jungle minions included in your farm totals.
+          </p>
+          <div className="flex flex-col gap-2 text-xs">
+            <div className="flex items-center justify-between border-b border-white/[0.04] py-2 transition-colors duration-[120ms] hover:bg-white/[0.025] last:border-b-0">
+              <span className="text-lol-text">Allied jungle</span>
+              <span className="text-right tabular-nums text-lol-text-bright">
+                {value(detail.avgNeutralMinionsTeamJungle)}
+              </span>
+            </div>
+            <div className="flex items-center justify-between border-b border-white/[0.04] py-2 transition-colors duration-[120ms] hover:bg-white/[0.025] last:border-b-0">
+              <span className="text-lol-text">Enemy jungle</span>
+              <span className="text-right tabular-nums text-lol-text-bright">
+                {value(detail.avgNeutralMinionsEnemyJungle)}
+              </span>
+            </div>
           </div>
-          <div className="flex items-center justify-between border-b border-white/[0.04] py-2 transition-colors duration-[120ms] hover:bg-white/[0.025] last:border-b-0">
-            <span className="text-lol-text">Enemy jungle</span>
-            <span className="text-right tabular-nums text-lol-text-bright">
-              {value(detail.avgNeutralMinionsEnemyJungle)}
-            </span>
-          </div>
-        </div>
-      </Panel>
+        </Panel>
+      ) : null}
       <Panel className={TAB_PANEL_CLASSES.emerald}>
         <SectionHeading title="Farm by queue" source="m" />
         <p className="mb-3 text-[11px] text-lol-text/70">
@@ -6291,7 +6266,7 @@ function FarmTab({
         </p>
         {queueStatsLoading ? (
           <SectionLoading />
-        ) : (queueStats ?? []).length === 0 ? (
+        ) : farmQueueRows.length === 0 ? (
           <NoData text="No queue data" />
         ) : (
           <div className="flex flex-col gap-2 text-xs">
@@ -6301,7 +6276,7 @@ function FarmTab({
               <span className="whitespace-nowrap">CS/min</span>
               <span className="whitespace-nowrap">Avg CS</span>
             </div>
-            {(queueStats ?? []).map((row) => (
+            {farmQueueRows.map((row) => (
               <div
                 key={row.queueId}
                 className="grid grid-cols-[1fr_auto_auto_auto] gap-2 border-b border-white/[0.04] py-2 text-lol-text-bright transition-colors duration-[120ms] hover:bg-white/[0.025] last:border-b-0"
@@ -6315,29 +6290,6 @@ function FarmTab({
           </div>
         )}
       </Panel>
-      {[
-        ["CS per game histogram", "Per-game CS distribution is not available"],
-        ["WR by CS @10", "CS-at-10 outcomes are not available per game"],
-        ["CS by game phase", "Phase-specific CS aggregation is not available"],
-        ["Where CS comes from", "Lane/jungle source split is not available"],
-      ].map(([title, text]) => (
-        <Panel
-          key={title}
-          className={`${TAB_PANEL_CLASSES.emerald} ${
-            title === "CS per game histogram" ||
-            title === "CS by game phase" ||
-            title === "Where CS comes from"
-              ? "bg-[radial-gradient(circle_at_top_right,rgba(168,85,247,0.06),transparent_50%),linear-gradient(180deg,var(--theme-card-hover),var(--theme-card))]"
-              : ""
-          }`}
-        >
-          <SectionHeading title={title} source="d" />
-          <p className="mb-3 text-[11px] text-lol-text/70">
-            Additional farming breakdown unavailable from the stored data.
-          </p>
-          <NoData text={text} />
-        </Panel>
-      ))}
     </div>
   );
 }
