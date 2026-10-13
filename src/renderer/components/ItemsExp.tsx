@@ -1,8 +1,7 @@
 import { useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import type { ItemStats } from "../lib/types";
+import type { ItemData, OwnedItemStats, OwnedItemStatsResult } from "../lib/types";
 import ItemIcon from "./ItemIcon";
-import { Tile } from "./Tile";
 import { TileGrid } from "./TileGrid";
 import QueueSelect from "./QueueSelect";
 import PatchSelect from "./PatchSelect";
@@ -16,40 +15,245 @@ import { isAugmentQueue } from "../../shared/queues";
 import { formatNumber } from "../lib/format";
 
 type SortMode = "most-built" | "best-wr";
-const TILE_ACCENTS = ["#E5483F", "#C9A45C", "#22C55E", "#3B82F6", "#A855F7", "#64748B"];
+type Accent = { color: string; tint: string };
+
+const ACCENTS: Accent[] = [
+  { color: "#E5483F", tint: "rgba(229,72,63,0.08)" },
+  { color: "#C9A45C", tint: "rgba(201,164,92,0.08)" },
+  { color: "#3B82F6", tint: "rgba(59,130,246,0.08)" },
+  { color: "#A855F7", tint: "rgba(168,85,247,0.08)" },
+];
+
+function resultRows(result: (OwnedItemStatsResult & OwnedItemStats[]) | null): OwnedItemStats[] {
+  return result?.rows ?? result ?? [];
+}
+
+function resultTotalBuilds(
+  result: (OwnedItemStatsResult & OwnedItemStats[]) | null,
+  rows: OwnedItemStats[],
+): number {
+  return result?.totalBuilds ?? rows.reduce((sum, row) => sum + row.picks, 0);
+}
+
+function resultWinRate(
+  result: (OwnedItemStatsResult & OwnedItemStats[]) | null,
+  rows: OwnedItemStats[],
+): number {
+  return (
+    result?.avgWinRate ??
+    (() => {
+      const builds = rows.reduce((sum, row) => sum + row.picks, 0);
+      return builds > 0 ? (rows.reduce((sum, row) => sum + row.wins, 0) / builds) * 100 : 0;
+    })()
+  );
+}
+
+function itemBranch(item: ItemData[number] | undefined): { label: string; color: string } {
+  const text = `${item?.name ?? ""} ${item?.description ?? ""}`.toLowerCase();
+  if (text.includes("boots") || text.includes("movement speed")) {
+    return { label: "Boots", color: "#C9A45C" };
+  }
+  if (text.includes("ability power") || text.includes("spell damage")) {
+    return { label: "AP", color: "#3B82F6" };
+  }
+  if (text.includes("attack damage") || text.includes("critical strike")) {
+    return { label: "AD", color: "#E5483F" };
+  }
+  if (
+    text.includes("health") ||
+    text.includes("armor") ||
+    text.includes("magic resist") ||
+    text.includes("tenacity")
+  ) {
+    return { label: "Tank", color: "#22C55E" };
+  }
+  return { label: item ? "Other" : "—", color: "#64748B" };
+}
+
+function formatBuyTime(milliseconds: number): string {
+  const seconds = Math.max(0, Math.floor(milliseconds / 1000));
+  return `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")}`;
+}
+
+function ItemWinRateBar({ wins, picks }: { wins: number; picks: number }) {
+  const rate = picks > 0 ? (wins / picks) * 100 : 0;
+  return (
+    <div className="relative h-2.5 overflow-visible rounded-full bg-[#a51e1e]/20">
+      <div
+        className="h-full rounded-full bg-[#15803d] shadow-[0_0_10px_rgba(21,128,61,0.45)]"
+        style={{ width: `${Math.max(0, Math.min(100, rate))}%` }}
+      />
+      <span className="absolute left-1/2 top-[-2px] h-[14px] w-px bg-white/70" />
+    </div>
+  );
+}
+
+function KpiTile({
+  label,
+  value,
+  caption,
+  accent,
+}: {
+  label: string;
+  value: string;
+  caption: string;
+  accent: Accent;
+}) {
+  return (
+    <div
+      className="relative overflow-hidden rounded-[12px] border border-lol-border p-4 before:absolute before:inset-x-0 before:top-0 before:h-[3px]"
+      style={{ background: `radial-gradient(circle at 100% 0, ${accent.tint}, transparent 65%)` }}
+    >
+      <span
+        className="absolute inset-x-0 top-0 h-[3px]"
+        style={{ backgroundColor: accent.color }}
+      />
+      <div className="text-[10px] font-bold uppercase tracking-wider text-lol-text">{label}</div>
+      <div className="mt-2 text-[26px] font-bold leading-none text-lol-text-bright">{value}</div>
+      <div className="mt-1 text-xs text-lol-text">{caption}</div>
+    </div>
+  );
+}
+
+function HighlightCard({
+  title,
+  item,
+  value,
+  caption,
+  itemData,
+  accent,
+  emptyTitle,
+}: {
+  title: string;
+  item: OwnedItemStats | null;
+  value: string;
+  caption: string;
+  itemData: ItemData;
+  accent: Accent;
+  emptyTitle?: string;
+}) {
+  return (
+    <div
+      className="relative min-h-[132px] overflow-hidden rounded-[12px] border border-lol-border p-4"
+      style={{ background: `radial-gradient(circle at 100% 0, ${accent.tint}, transparent 65%)` }}
+      title={emptyTitle}
+    >
+      <span
+        className="absolute inset-x-0 top-0 h-[3px]"
+        style={{ backgroundColor: accent.color }}
+      />
+      <div className="flex items-start gap-3">
+        {item ? (
+          <div
+            className="shrink-0 rounded-lg border p-1 shadow-[0_0_14px_rgba(229,72,63,0.18)]"
+            style={{ borderColor: accent.color }}
+          >
+            <ItemIcon itemId={item.item_id} size={40} />
+          </div>
+        ) : (
+          <div className="h-[50px] w-[50px] shrink-0 rounded-lg border border-lol-border bg-black/10" />
+        )}
+        <div className="min-w-0">
+          <div className="text-[10px] font-bold uppercase tracking-wider text-lol-text">
+            {title}
+          </div>
+          <div className="mt-1 truncate text-sm font-bold text-lol-text-bright">
+            {item ? getItemName(itemData, item.item_id) : (emptyTitle ?? "—")}
+          </div>
+          <div className="mt-1 text-xl font-bold leading-none text-lol-text-bright">{value}</div>
+          <div className="mt-1 text-[11px] text-lol-text">{caption}</div>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 export function ItemsExp() {
   const navigate = useNavigate();
   const { scope } = useParams<{ scope?: string }>();
-  const itemData = useItemData();
-
   const [queue, setQueue] = useViewState<number | undefined>("items.queue", undefined);
   const [patch, setPatch] = useViewState<string | undefined>("items.patch", undefined);
   const scopedQueue = queue ?? useHistoryScopeQueue();
   const [activeAccountRaw] = useActiveAccount();
   const account = activeAccountRaw === ALL_ACCOUNTS_SENTINEL ? "all" : activeAccountRaw;
-
-  const { data: stats, loading } = useIpc<ItemStats[]>(
+  const itemData = useItemData(patch);
+  const { data: patchOptions } = useIpc<{ patches: string[] }>(
+    () => window.api.getMatchFilterOptions(),
+    [],
+  );
+  const { data: statsResult, loading } = useIpc<OwnedItemStatsResult & OwnedItemStats[]>(
     () => window.api.getOwnedItemStats(patch, scopedQueue, account),
     [patch, scopedQueue, account],
   );
-
+  const rows = resultRows(statsResult);
+  const totalBuilds = resultTotalBuilds(statsResult, rows);
+  const avgWinRate = resultWinRate(statsResult, rows);
+  const patches = patchOptions?.patches ?? [];
+  const currentPatch = patch ?? patches[0];
+  const previousPatch =
+    currentPatch == null ? undefined : patches[patches.indexOf(currentPatch) + 1];
+  const { data: currentPatchResult } = useIpc<(OwnedItemStatsResult & OwnedItemStats[]) | null>(
+    () =>
+      currentPatch && previousPatch
+        ? window.api.getOwnedItemStats(currentPatch, scopedQueue, account)
+        : Promise.resolve(null),
+    [currentPatch, previousPatch, scopedQueue, account],
+  );
+  const { data: previousPatchResult } = useIpc<(OwnedItemStatsResult & OwnedItemStats[]) | null>(
+    () =>
+      previousPatch
+        ? window.api.getOwnedItemStats(previousPatch, scopedQueue, account)
+        : Promise.resolve(null),
+    [previousPatch, scopedQueue, account],
+  );
   const [sortMode, setSortMode] = useState<SortMode>("most-built");
 
   const sorted = useMemo(() => {
-    if (!stats) return [];
-    const copy = [...stats];
-    if (sortMode === "most-built") {
-      copy.sort((a, b) => b.picks - a.picks);
-    } else {
+    const copy = [...rows];
+    if (sortMode === "most-built") copy.sort((a, b) => b.picks - a.picks);
+    else {
       copy.sort((a, b) => {
         const wrA = a.picks > 0 ? a.wins / a.picks : 0;
         const wrB = b.picks > 0 ? b.wins / b.picks : 0;
-        return wrB - wrA;
+        return wrB - wrA || b.picks - a.picks;
       });
     }
     return copy;
-  }, [stats, sortMode]);
+  }, [rows, sortMode]);
+
+  const highlights = useMemo(() => {
+    const mostBuilt = rows.reduce<OwnedItemStats | null>(
+      (best, row) => (!best || row.picks > best.picks ? row : best),
+      null,
+    );
+    const bestWinRate =
+      rows
+        .filter((row) => row.picks >= 25)
+        .sort((a, b) => b.wins / b.picks - a.wins / a.picks || b.picks - a.picks)[0] ?? null;
+    const hiddenGem =
+      rows
+        .filter((row) => row.picks >= 25 && row.picks <= 100 && row.wins / row.picks >= 0.7)
+        .sort((a, b) => b.wins / b.picks - a.wins / a.picks)[0] ?? null;
+    const currentRows = resultRows(currentPatchResult);
+    const previousRows = resultRows(previousPatchResult);
+    const previousByItem = new Map(previousRows.map((row) => [row.item_id, row]));
+    const comparable = currentRows
+      .map((row) => {
+        const previous = previousByItem.get(row.item_id);
+        return previous
+          ? {
+              row,
+              delta:
+                (row.wins / Math.max(row.picks, 1) - previous.wins / Math.max(previous.picks, 1)) *
+                100,
+            }
+          : null;
+      })
+      .filter((entry): entry is { row: OwnedItemStats; delta: number } => entry !== null);
+    const rising =
+      comparable.length >= 5 ? (comparable.sort((a, b) => b.delta - a.delta)[0] ?? null) : null;
+    return { mostBuilt, bestWinRate, hiddenGem, rising, comparableCount: comparable.length };
+  }, [currentPatchResult, previousPatchResult, rows]);
 
   return (
     <div className="mx-auto flex min-h-full w-full max-w-[1320px] flex-col gap-5">
@@ -90,30 +294,168 @@ export function ItemsExp() {
         </div>
       </div>
 
-      <div className="min-w-0 rounded-[14px] border border-lol-border bg-[radial-gradient(circle_at_100%_0,rgba(229,72,63,0.08),transparent_42%),linear-gradient(180deg,var(--theme-card-hover),var(--theme-card))] p-5">
-        {loading || !stats ? (
-          <div className="py-8 text-center text-sm text-lol-text">Loading…</div>
-        ) : sorted.length === 0 ? (
-          <div className="py-8 text-center text-sm text-lol-text">No items played yet.</div>
-        ) : (
-          <TileGrid>
-            {sorted.map((row, index) => {
-              const wr = row.picks > 0 ? (row.wins / row.picks) * 100 : 0;
-              return (
-                <Tile
-                  key={row.item_id}
-                  icon={<ItemIcon itemId={row.item_id} size={38} patch={patch} />}
-                  title={getItemName(itemData, row.item_id)}
-                  subtitle={`${formatNumber(row.picks)} games · ${wr.toFixed(1)}% win`}
-                  trackValue={wr}
-                  accent={TILE_ACCENTS[index % TILE_ACCENTS.length]}
-                  onClick={() => navigate(`/history/${scope ?? "full"}/items/${row.item_id}`)}
-                />
-              );
-            })}
-          </TileGrid>
-        )}
-      </div>
+      {loading || !statsResult ? (
+        <div className="rounded-[14px] border border-lol-border p-8 text-center text-sm text-lol-text">
+          Loading…
+        </div>
+      ) : (
+        <>
+          <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
+            <KpiTile
+              label="Items shown"
+              value={formatNumber(rows.length)}
+              caption={`of ${formatNumber(rows.length)} tracked`}
+              accent={ACCENTS[0]}
+            />
+            <KpiTile
+              label="Total builds"
+              value={formatNumber(totalBuilds)}
+              caption="in the selected queue and patch"
+              accent={ACCENTS[1]}
+            />
+            <KpiTile
+              label="Average win rate"
+              value={`${avgWinRate.toFixed(1)}%`}
+              caption="across all items"
+              accent={ACCENTS[2]}
+            />
+            <KpiTile
+              label="Items per game"
+              value={`${(totalBuilds / Math.max(statsResult.totalGames ?? 0, 1)).toFixed(1)}`}
+              caption="completed items"
+              accent={ACCENTS[3]}
+            />
+          </div>
+
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4">
+            <HighlightCard
+              title="Most built"
+              item={highlights.mostBuilt}
+              value={
+                highlights.mostBuilt ? `${formatNumber(highlights.mostBuilt.picks)} builds` : "—"
+              }
+              caption={
+                highlights.mostBuilt
+                  ? `${((highlights.mostBuilt.picks / Math.max(totalBuilds, 1)) * 100).toFixed(1)}% of all builds`
+                  : "No item data"
+              }
+              itemData={itemData}
+              accent={ACCENTS[0]}
+            />
+            <HighlightCard
+              title="Best win rate"
+              item={highlights.bestWinRate}
+              value={
+                highlights.bestWinRate
+                  ? `${((highlights.bestWinRate.wins / highlights.bestWinRate.picks) * 100).toFixed(1)}%`
+                  : "—"
+              }
+              caption={
+                highlights.bestWinRate
+                  ? `minimum 25 games · ${formatNumber(highlights.bestWinRate.picks)} builds`
+                  : "No item meets the minimum"
+              }
+              itemData={itemData}
+              accent={ACCENTS[1]}
+            />
+            <HighlightCard
+              title="Rising this patch"
+              item={highlights.rising?.row ?? null}
+              value={
+                highlights.rising
+                  ? `${highlights.rising.delta >= 0 ? "+" : ""}${highlights.rising.delta.toFixed(1)} pts`
+                  : "—"
+              }
+              caption="win rate change since the previous patch"
+              itemData={itemData}
+              accent={ACCENTS[2]}
+              emptyTitle={highlights.rising ? undefined : "Not enough prior-patch data"}
+            />
+            <HighlightCard
+              title="Hidden gem"
+              item={highlights.hiddenGem}
+              value={
+                highlights.hiddenGem
+                  ? `${((highlights.hiddenGem.wins / highlights.hiddenGem.picks) * 100).toFixed(1)}%`
+                  : "—"
+              }
+              caption={
+                highlights.hiddenGem
+                  ? `only ${formatNumber(highlights.hiddenGem.picks)} builds, but it wins`
+                  : "No hidden gem found"
+              }
+              itemData={itemData}
+              accent={ACCENTS[3]}
+            />
+          </div>
+
+          <div className="min-w-0 rounded-[14px] border border-lol-border bg-[radial-gradient(circle_at_100%_0,rgba(229,72,63,0.08),transparent_42%),linear-gradient(180deg,var(--theme-card-hover),var(--theme-card))] p-5">
+            {sorted.length === 0 ? (
+              <div className="py-8 text-center text-sm text-lol-text">No items played yet.</div>
+            ) : (
+              <TileGrid>
+                {sorted.map((row, index) => {
+                  const wr = row.picks > 0 ? (row.wins / row.picks) * 100 : 0;
+                  const delta = wr - avgWinRate;
+                  const branch = itemBranch(itemData[row.item_id]);
+                  const item = itemData[row.item_id];
+                  return (
+                    <button
+                      type="button"
+                      key={row.item_id}
+                      onClick={() => navigate(`/history/${scope ?? "full"}/items/${row.item_id}`)}
+                      className="relative flex min-h-[190px] flex-col gap-2 rounded-[12px] border border-lol-border bg-black/10 p-4 text-left transition-[background-color,border-color,box-shadow] duration-120 hover:border-lol-crimson/40 hover:bg-white/[0.025]"
+                    >
+                      <div className="flex items-center gap-3">
+                        <div
+                          className="shrink-0 rounded-lg border p-1 shadow-[0_0_14px_rgba(229,72,63,0.16)]"
+                          style={{ borderColor: branch.color }}
+                        >
+                          <ItemIcon itemId={row.item_id} size={38} patch={patch} />
+                        </div>
+                        <span className="truncate text-sm font-bold text-lol-text-bright">
+                          {getItemName(itemData, row.item_id)}
+                        </span>
+                      </div>
+                      <div className="text-[11px] text-lol-text">
+                        {item?.branch && item.price != null
+                          ? `${branch.label} · ${formatNumber(item.price)} gold`
+                          : "—"}
+                      </div>
+                      <div className="flex items-center justify-between text-xs text-lol-text">
+                        <span>{formatNumber(row.picks)} games</span>
+                        <span
+                          className={
+                            wr >= 55
+                              ? "text-lol-win"
+                              : wr <= 45
+                                ? "text-lol-loss"
+                                : "text-lol-text-bright"
+                          }
+                        >
+                          {wr.toFixed(1)}% win
+                        </span>
+                      </div>
+                      <ItemWinRateBar wins={row.wins} picks={row.picks} />
+                      <div className="mt-auto flex items-center justify-between gap-2 text-[11px]">
+                        <span className={delta >= 0 ? "text-lol-win" : "text-lol-loss"}>
+                          {delta >= 0 ? "▲" : "▼"} {Math.abs(delta).toFixed(1)} vs your average
+                        </span>
+                        {row.avgBuyTimeMs != null && (
+                          <span className="shrink-0 text-lol-text">
+                            Buy {formatBuyTime(row.avgBuyTimeMs)}
+                          </span>
+                        )}
+                      </div>
+                      <span className="sr-only">Item rank {index + 1}</span>
+                    </button>
+                  );
+                })}
+              </TileGrid>
+            )}
+          </div>
+        </>
+      )}
     </div>
   );
 }

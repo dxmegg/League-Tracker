@@ -8,7 +8,8 @@ import type {
   ChampionSkillOrder,
   ChampionSkillOrdersResult,
   ChampionTeammateRow,
-  ItemStats,
+  OwnedItemStats,
+  OwnedItemStatsResult,
 } from "../../shared/api";
 import { getChampionClasses } from "../dragon";
 import {
@@ -1804,7 +1805,11 @@ export function getGlobalStats(
   };
 }
 
-export function getOwnedItemStats(patch?: string, queue?: number, account?: string): ItemStats[] {
+export function getOwnedItemStats(
+  patch?: string,
+  queue?: number,
+  account?: string,
+): OwnedItemStatsResult & OwnedItemStats[] {
   const source = statsSource(account);
   const where = ["g.is_remake = 0"];
   where.push(source.accountFilter);
@@ -1818,23 +1823,89 @@ export function getOwnedItemStats(patch?: string, queue?: number, account?: stri
   where.push(`g.queue_id NOT IN (${EXCLUDED_STATS_SQL})`);
   const columns = [0, 1, 2, 3, 4, 5, 6];
   const excluded = EXCLUDED_ITEM_IDS.join(", ");
-  return db
+  const rows = db
     .prepare(`
-      SELECT item_id, COUNT(*) AS picks, SUM(win) AS wins
-      FROM (
+      WITH item_occurrences AS (
         ${columns
           .map(
-            (i) => `SELECT ps.item${i} AS item_id, ps.win
+            (i) => `SELECT ps.game_id, ps.item${i} AS item_id, ps.win, ${i} AS purchase_slot
                     FROM ${source.table} ps JOIN games g ON g.game_id = ps.game_id
                     WHERE ${where.join(" AND ")}
                       AND ps.item${i} > 0 AND ps.item${i} NOT IN (${excluded})`,
           )
           .join(" UNION ALL ")}
+      ),
+      item_games AS (
+        SELECT DISTINCT game_id, item_id
+        FROM item_occurrences
+      ),
+      purchase_times AS (
+        SELECT ig.item_id, ig.game_id, MIN(e.timestamp_ms) AS first_purchase_ms
+        FROM item_games ig
+        LEFT JOIN match_timeline_events e
+          ON e.game_id = ig.game_id
+         AND e.item_id = ig.item_id
+         AND e.event_type = 'ITEM_PURCHASED'
+        GROUP BY ig.item_id, ig.game_id
+      ),
+      slot_counts AS (
+        SELECT item_id, purchase_slot, COUNT(*) AS slot_count
+        FROM item_occurrences
+        GROUP BY item_id, purchase_slot
+      ),
+      common_slots AS (
+        SELECT item_id, purchase_slot
+        FROM (
+          SELECT item_id, purchase_slot,
+                 ROW_NUMBER() OVER (
+                   PARTITION BY item_id
+                   ORDER BY slot_count DESC, purchase_slot ASC
+                 ) AS slot_rank
+          FROM slot_counts
+        )
+        WHERE slot_rank = 1
+      ),
+      item_summary AS (
+        SELECT item_id, COUNT(*) AS picks, SUM(win) AS wins
+        FROM item_occurrences
+        GROUP BY item_id
+      ),
+      purchase_averages AS (
+        SELECT item_id, AVG(first_purchase_ms) AS avg_buy_time_ms
+        FROM purchase_times
+        GROUP BY item_id
       )
-      GROUP BY item_id
+      SELECT summary.item_id,
+             summary.picks,
+             summary.wins,
+             averages.avg_buy_time_ms AS avgBuyTimeMs,
+             cs.purchase_slot AS commonPurchaseSlot
+      FROM item_summary summary
+      LEFT JOIN purchase_averages averages ON averages.item_id = summary.item_id
+      LEFT JOIN common_slots cs ON cs.item_id = summary.item_id
       ORDER BY picks DESC
     `)
-    .all(...columns.flatMap(() => params)) as ItemStats[];
+    .all(...columns.flatMap(() => params)) as OwnedItemStats[];
+  const scope = db
+    .prepare(
+      `SELECT COUNT(DISTINCT ps.game_id) AS totalGames
+       FROM ${source.table} ps JOIN games g ON g.game_id = ps.game_id
+       WHERE ${where.join(" AND ")}`,
+    )
+    .get(...params) as { totalGames: number };
+  const totalBuilds = rows.reduce((sum, row) => sum + row.picks, 0);
+  const totalWins = rows.reduce((sum, row) => sum + row.wins, 0);
+  const result = rows as OwnedItemStatsResult & OwnedItemStats[];
+  Object.defineProperties(result, {
+    rows: { value: rows, enumerable: true },
+    totalGames: { value: scope.totalGames, enumerable: true },
+    totalBuilds: { value: totalBuilds, enumerable: true },
+    avgWinRate: {
+      value: totalBuilds > 0 ? (totalWins / totalBuilds) * 100 : 0,
+      enumerable: true,
+    },
+  });
+  return result;
 }
 
 export function getOwnedItemDetail(itemId: number, patch?: string, queue?: number) {

@@ -25,6 +25,8 @@ import type {
   HomeAccountFilter,
   HomeDashboardPayload,
   HomeTimePeriod,
+  OwnedItemStats,
+  OwnedItemStatsResult,
   RecordsData,
 } from "../shared/api";
 
@@ -1004,7 +1006,12 @@ export function registerIpcHandlers() {
   ipcMain.handle(
     "db:owned-item-stats",
     (_event, patch?: string, queue?: number, account?: string) => {
-      return db.getOwnedItemStats(patch, queue, account);
+      const result: OwnedItemStatsResult & OwnedItemStats[] = db.getOwnedItemStats(
+        patch,
+        queue,
+        account,
+      );
+      return result;
     },
   );
   ipcMain.handle(

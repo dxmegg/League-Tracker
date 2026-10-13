@@ -24,6 +24,8 @@ import type {
   TimelineBackfillProgress,
   ExportProgress,
   ImportProgress,
+  OwnedItemStats,
+  OwnedItemStatsResult,
 } from "../shared/api";
 
 // Annotated rather than inferred, so the compiler checks this object against
@@ -381,7 +383,11 @@ const api: ElectronAPI = {
 
   getGlobalStats: (patch?: string, queue?: number) =>
     ipcRenderer.invoke("db:global-stats", patch, queue),
-  getOwnedItemStats: (patch?: string, queue?: number, account?: string) =>
+  getOwnedItemStats: (
+    patch?: string,
+    queue?: number,
+    account?: string,
+  ): Promise<OwnedItemStatsResult & OwnedItemStats[]> =>
     ipcRenderer.invoke("db:owned-item-stats", patch, queue, account),
   getOwnedRuneStats: (queue?: number, patch?: string, account?: string) =>
     ipcRenderer.invoke("db:owned-rune-stats", queue, patch, account),

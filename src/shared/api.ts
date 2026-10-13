@@ -694,6 +694,16 @@ export interface ItemStats {
   avgBuyTime?: number | null;
   commonPurchaseSlot?: number | null;
 }
+export interface OwnedItemStats extends ItemStats {
+  avgBuyTimeMs?: number | null;
+  commonPurchaseSlot?: number | null;
+}
+export interface OwnedItemStatsResult {
+  rows: OwnedItemStats[];
+  totalGames: number;
+  totalBuilds: number;
+  avgWinRate: number;
+}
 export interface RuneStats {
   rune_id: number;
   picks: number;
@@ -1675,7 +1685,11 @@ export interface ElectronAPI {
     relation?: "friends" | "enemies",
   ) => Promise<TeammateDetail | null>;
   getGlobalStats: (patch?: string, queue?: number) => Promise<GlobalStats>;
-  getOwnedItemStats: (patch?: string, queue?: number, account?: string) => Promise<ItemStats[]>;
+  getOwnedItemStats: (
+    patch?: string,
+    queue?: number,
+    account?: string,
+  ) => Promise<OwnedItemStatsResult & OwnedItemStats[]>;
   getOwnedRuneStats: (queue?: number, patch?: string, account?: string) => Promise<RuneOverview>;
   getRuneData: () => Promise<RuneData>;
   getRuneTrees: () => Promise<RuneTreeLayout>;
