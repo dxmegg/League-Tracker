@@ -5416,12 +5416,12 @@ function EconomyTab({
       <div className="xl:col-span-2">
         <SectionHeading title="Key metrics" />
       </div>
-      <Panel className={`${TAB_PANEL_CLASSES.gold} `}>
+      <div className="xl:col-span-2">
         <SectionHeading title="Economy snapshot" source="d" />
         <p className="mb-3 text-[11px] text-lol-text/70">
           Gold earned, spent, and efficiency measures for this champion.
         </p>
-        <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
+        <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
           <Stat
             label="Gold/min"
             value={detail.goldPerMin.toFixed(0)}
@@ -5502,7 +5502,7 @@ function EconomyTab({
             valueClass="text-right tabular-nums"
           />
         </div>
-      </Panel>
+      </div>
       <div className="xl:col-span-2">
         <InsightsPanel
           insights={[
@@ -6016,12 +6016,12 @@ function FarmTab({
       <div className="xl:col-span-2">
         <SectionHeading title="Key metrics" />
       </div>
-      <Panel className={`${TAB_PANEL_CLASSES.emerald} `}>
+      <div className="xl:col-span-2">
         <SectionHeading title="Farm snapshot" source="d" />
         <p className="mb-3 text-[11px] text-lol-text/70">
           CS pace, lane advantage, and farming coverage for this champion.
         </p>
-        <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
+        <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
           <Stat
             label="CS/min"
             value={
@@ -6063,7 +6063,7 @@ function FarmTab({
             valueClass="text-right tabular-nums"
           />
         </div>
-      </Panel>
+      </div>
       <div className="xl:col-span-2">
         <InsightsPanel
           insights={[
