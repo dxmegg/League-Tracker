@@ -219,13 +219,6 @@ export function registerIpcHandlers() {
     console.log("[db] backfill-combat-stats handler called:", {
       batchSize: options?.batchSize ?? 200,
     });
-
-    ipcMain.handle("db:backfill-teams-local", (_event, options?: { limit?: number }) => {
-      console.log("[db] backfill-teams-local handler called:", options ?? {});
-      const result = backfillTeamsLocal(options);
-      console.log("[db] backfill-teams-local handler done:", result);
-      return result;
-    });
     const operation = db.backfillParticipantCombatStats((done: number, total: number) => {
       if (win && !win.isDestroyed()) {
         win.webContents.send("db:backfill-combat-stats-progress", { done, total });
@@ -239,6 +232,13 @@ export function registerIpcHandlers() {
     } finally {
       if (activeCombatBackfill === operation) activeCombatBackfill = null;
     }
+  });
+
+  ipcMain.handle("db:backfill-teams-local", (_event, options?: { limit?: number }) => {
+    console.log("[db] backfill-teams-local handler called:", options ?? {});
+    const result = backfillTeamsLocal(options);
+    console.log("[db] backfill-teams-local handler done:", result);
+    return result;
   });
 
   ipcMain.handle("db:toggle-favorite", (_event, gameId: number) => {
