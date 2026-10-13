@@ -5115,21 +5115,21 @@ function EconomyTab({
                 <NoData text="No queue data" />
               ) : (
                 <div className="flex flex-col gap-2 text-xs">
-                  <div className="grid grid-cols-[minmax(0,1fr)_auto_auto_auto_auto_auto] gap-2 border-b border-lol-border/50 pb-2 font-semibold text-lol-text">
-                    <span>Queue</span>
-                    <span className="text-right whitespace-nowrap">Games</span>
-                    <span className="text-right whitespace-nowrap">Gold/min</span>
-                    <span className="text-right whitespace-nowrap">Avg gold</span>
-                    <span className="text-right whitespace-nowrap">CS/min</span>
-                    <span className="text-right whitespace-nowrap">KDA</span>
+                  <div className="grid grid-cols-[minmax(0,1fr)_70px_90px_90px_80px_70px] gap-2 border-b border-lol-border/50 pb-2 font-semibold text-lol-text">
+                    <span className="text-left">Queue</span>
+                    <span className="text-right tabular-nums whitespace-nowrap">Games</span>
+                    <span className="text-right tabular-nums whitespace-nowrap">Gold/min</span>
+                    <span className="text-right tabular-nums whitespace-nowrap">Avg gold</span>
+                    <span className="text-right tabular-nums whitespace-nowrap">CS/min</span>
+                    <span className="text-right tabular-nums whitespace-nowrap">KDA</span>
                   </div>
                   {queueRows.map(
                     ({ queueId, games, goldPerMin, avgGold, csPerMin, kills, deaths, assists }) => (
                       <div
                         key={queueId}
-                        className="grid grid-cols-[minmax(0,1fr)_auto_auto_auto_auto_auto] gap-2 border-b border-white/[0.04] py-2 text-lol-text-bright transition-colors duration-[120ms] hover:bg-white/[0.025] last:border-b-0"
+                        className="grid grid-cols-[minmax(0,1fr)_70px_90px_90px_80px_70px] gap-2 border-b border-white/[0.04] py-2 text-lol-text-bright transition-colors duration-[120ms] hover:bg-white/[0.025] last:border-b-0"
                       >
-                        <span>{QUEUE_LABELS[queueId] ?? queueId}</span>
+                        <span className="text-left">{QUEUE_LABELS[queueId] ?? queueId}</span>
                         <span className="text-right tabular-nums">{games}</span>
                         <span className="text-right tabular-nums">
                           {formatSmallMetric(goldPerMin)}
@@ -5536,18 +5536,18 @@ function FarmTab({
                 <NoData text="No queue data" />
               ) : (
                 <div className="flex flex-col gap-2 text-xs">
-                  <div className="grid grid-cols-[minmax(0,1fr)_auto_auto_auto] gap-2 border-b border-lol-border/50 pb-2 font-semibold text-lol-text">
-                    <span>Queue</span>
-                    <span className="text-right whitespace-nowrap">Games</span>
-                    <span className="text-right whitespace-nowrap">CS/min</span>
-                    <span className="text-right whitespace-nowrap">Avg CS</span>
+                  <div className="grid grid-cols-[minmax(0,1fr)_70px_80px_80px] gap-2 border-b border-lol-border/50 pb-2 font-semibold text-lol-text">
+                    <span className="text-left">Queue</span>
+                    <span className="text-right tabular-nums whitespace-nowrap">Games</span>
+                    <span className="text-right tabular-nums whitespace-nowrap">CS/min</span>
+                    <span className="text-right tabular-nums whitespace-nowrap">Avg CS</span>
                   </div>
                   {farmQueueRows.map((row) => (
                     <div
                       key={row.queueId}
-                      className="grid grid-cols-[minmax(0,1fr)_auto_auto_auto] gap-2 border-b border-white/[0.04] py-2 text-lol-text-bright transition-colors duration-[120ms] hover:bg-white/[0.025] last:border-b-0"
+                      className="grid grid-cols-[minmax(0,1fr)_70px_80px_80px] gap-2 border-b border-white/[0.04] py-2 text-lol-text-bright transition-colors duration-[120ms] hover:bg-white/[0.025] last:border-b-0"
                     >
-                      <span>{QUEUE_LABELS[row.queueId] ?? row.queueId}</span>
+                      <span className="text-left">{QUEUE_LABELS[row.queueId] ?? row.queueId}</span>
                       <span className="text-right tabular-nums">{row.games}</span>
                       <span className="text-right tabular-nums">
                         {formatSmallMetric(row.csPerMin)}
@@ -5968,21 +5968,23 @@ function CombatStatTable({
     variant === "compact"
       ? "grid-cols-[minmax(0,1fr)_minmax(0,auto)]"
       : hideVsOther
-        ? "grid-cols-[minmax(0,1fr)_auto_auto_auto_auto]"
-        : "grid-cols-[minmax(0,1fr)_auto_auto_auto_auto_auto]";
+        ? "grid-cols-[minmax(0,1fr)_90px_90px_90px_90px]"
+        : "grid-cols-[minmax(0,1fr)_90px_90px_90px_90px_90px]";
   return (
     <div className="flex flex-col gap-2 text-xs">
       <div
         className={`grid ${columnsClass} gap-3 border-b border-lol-border/50 pb-2 font-semibold text-lol-text`}
       >
-        <span>Stat</span>
-        <span className="text-right whitespace-nowrap">Avg / game</span>
+        <span className="text-left">Stat</span>
+        <span className="text-right tabular-nums whitespace-nowrap">Avg / game</span>
         {variant === "full" && (
           <>
-            <span className="text-right whitespace-nowrap">Best game</span>
-            <span className="text-right whitespace-nowrap">In wins</span>
-            <span className="text-right whitespace-nowrap">In losses</span>
-            {!hideVsOther && <span className="text-right whitespace-nowrap">vs other</span>}
+            <span className="text-right tabular-nums whitespace-nowrap">Best game</span>
+            <span className="text-right tabular-nums whitespace-nowrap">In wins</span>
+            <span className="text-right tabular-nums whitespace-nowrap">In losses</span>
+            {!hideVsOther && (
+              <span className="text-right tabular-nums whitespace-nowrap">vs other</span>
+            )}
           </>
         )}
       </div>
@@ -6011,7 +6013,7 @@ function CombatStatTable({
               index < rows.length - 1 ? "border-b border-white/[0.04]" : ""
             }`}
           >
-            <span className="flex min-w-0 items-center gap-2">
+            <span className="flex min-w-0 items-center gap-2 text-left">
               {damageColor && (
                 <span
                   className="h-1.5 w-1.5 shrink-0 rounded-full"
