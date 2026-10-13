@@ -186,9 +186,8 @@ Cherry-pickuje commity między worktree'ami — nie używać subsessji.
 
 6. Co dalej
 - A — Backend data gaps (each separate SQL session):
-    - Economy: Gold Sources donut (no backend source)
+    - Economy: Gold Sources donut (no backend source; Riot API does not return gold source breakdown)
     - Matchups: best/worst row markers (payload does not mark them)
-    - Timeline: teamfights, power spikes, kill-map champion metadata
 - B — Branch cleanup (feature/new-feature fully merged, dozens of stale dxmegg-* branches)
 - C — New feature (ask user for direction)
 - D — Bug fixes / maintenance
