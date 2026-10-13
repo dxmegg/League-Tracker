@@ -2135,7 +2135,6 @@ export function getOwnedRuneStats(queue?: number, patch?: string, account?: stri
           current.wins += row.win;
           totals.set(id, current);
         }
-        if (championId > 0) champions.set(championId, champion);
       }
       for (const rune of legacyRunes) {
         const id = Number(rune.runeId ?? rune.perk ?? rune.id);
@@ -2145,6 +2144,7 @@ export function getOwnedRuneStats(queue?: number, patch?: string, account?: stri
         current.wins += row.win;
         totals.set(id, current);
       }
+      if (championId > 0) champions.set(championId, champion);
     }
     return {
       runes: [...totals.entries()]
