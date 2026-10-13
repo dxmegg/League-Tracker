@@ -1924,6 +1924,12 @@ export interface ChampionTimelineAverages {
   ahead10: number | null;
   itemsBought: number | null;
   comebacks: number | null;
+  avgLevel6Ms?: number | null;
+  avgLevel11Ms?: number | null;
+  avgLevel16Ms?: number | null;
+  level6Games?: number;
+  level11Games?: number;
+  level16Games?: number;
   winrateByGoldLead15: {
     behind1000plus: number | null;
     behind0to1000: number | null;

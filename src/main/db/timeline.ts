@@ -29,6 +29,12 @@ export interface ChampionTimelineAverages {
   ahead10: number | null;
   itemsBought: number | null;
   comebacks: number | null;
+  avgLevel6Ms?: number | null;
+  avgLevel11Ms?: number | null;
+  avgLevel16Ms?: number | null;
+  level6Games?: number;
+  level11Games?: number;
+  level16Games?: number;
   winrateByGoldLead15: {
     behind1000plus: number | null;
     behind0to1000: number | null;
@@ -387,12 +393,31 @@ export function getChampionTimelineAverages(
     WHERE game_id = ? AND participant_id = ? AND event_type = 'ITEM_PURCHASED'
     GROUP BY minute
   `);
+  const levelMilestonesQuery = db.prepare(`
+    SELECT
+      MIN(CASE WHEN level >= 6 THEN timestamp_ms END) AS level6Ms,
+      MIN(CASE WHEN level >= 11 THEN timestamp_ms END) AS level11Ms,
+      MIN(CASE WHEN level >= 16 THEN timestamp_ms END) AS level16Ms
+    FROM match_timeline_frames
+    WHERE game_id = ? AND participant_id = ?
+  `);
   const goldLead15: Array<{ diff: number; win: number }> = [];
   const goldLead10: number[] = [];
   const itemCounts: number[] = [];
   const spendingCounts = [0, 0, 0, 0, 0, 0];
+  const level6Times: number[] = [];
+  const level11Times: number[] = [];
+  const level16Times: number[] = [];
 
   for (const game of games) {
+    const milestones = levelMilestonesQuery.get(game.gameId, game.ownerParticipantId) as {
+      level6Ms: number | null;
+      level11Ms: number | null;
+      level16Ms: number | null;
+    };
+    if (milestones.level6Ms != null) level6Times.push(milestones.level6Ms);
+    if (milestones.level11Ms != null) level11Times.push(milestones.level11Ms);
+    if (milestones.level16Ms != null) level16Times.push(milestones.level16Ms);
     const purchases = itemPurchasesQuery.all(game.gameId, game.ownerParticipantId) as Array<{
       minute: number;
       count: number;
@@ -502,6 +527,12 @@ export function getChampionTimelineAverages(
             minute: index * 5,
             averageItems: count / itemCounts.length,
           })),
+    avgLevel6Ms: level6Times.length >= 3 ? average(level6Times) : null,
+    avgLevel11Ms: level11Times.length >= 3 ? average(level11Times) : null,
+    avgLevel16Ms: level16Times.length >= 3 ? average(level16Times) : null,
+    level6Games: level6Times.length,
+    level11Games: level11Times.length,
+    level16Games: level16Times.length,
   };
   console.log("[db] getChampionTimelineAverages done:", {
     bucketCount: result.length,

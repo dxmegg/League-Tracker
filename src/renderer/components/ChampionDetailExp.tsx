@@ -4041,32 +4041,68 @@ function TimelineTab({
             {ownerFrames.length === 0 ? (
               <NoData text="No timeline frames for this match" />
             ) : (
-              <div className="grid grid-cols-3 border-y border-white/[0.04]">
-                {powerSpikes.map((spike, index) => (
-                  <div
-                    key={spike.level}
-                    className={`border-t-[3px] px-3 py-3 text-right ${
-                      index === 0
-                        ? "border-t-[#C9A45C]"
-                        : index === 1
-                          ? "border-t-[#22C55E]"
-                          : "border-t-[#E5483F]"
-                    } ${index > 0 ? "border-l border-white/[0.04]" : ""}`}
-                  >
-                    <div className="text-[11px] text-lol-text/70">Level {spike.level}</div>
+              <div>
+                <div className="grid grid-cols-3 border-y border-white/[0.04]">
+                  {[
+                    ["Avg L6", timelineAverages?.avgLevel6Ms, timelineAverages?.level6Games ?? 0],
+                    [
+                      "Avg L11",
+                      timelineAverages?.avgLevel11Ms,
+                      timelineAverages?.level11Games ?? 0,
+                    ],
+                    [
+                      "Avg L16",
+                      timelineAverages?.avgLevel16Ms,
+                      timelineAverages?.level16Games ?? 0,
+                    ],
+                  ].map(([label, timestampMs, sampleGames], index) => (
                     <div
-                      className="mt-1 tabular-nums text-lg font-semibold text-lol-text-bright"
-                      title={spike.timestampMs == null ? "Not reached" : undefined}
+                      key={label}
+                      className={`px-3 py-2 text-right ${index > 0 ? "border-l border-white/[0.04]" : ""}`}
                     >
-                      {spike.timestampMs == null ? "—" : formatBuyTime(spike.timestampMs / 1000)}
+                      <div className="text-[11px] text-lol-text/70">{label}</div>
+                      <div
+                        className="mt-1 tabular-nums text-base font-semibold text-lol-text-bright"
+                        title={
+                          timestampMs == null
+                            ? "Not enough games with timeline coverage"
+                            : undefined
+                        }
+                      >
+                        {timestampMs == null ? "—" : formatBuyTime(Number(timestampMs) / 1000)}
+                      </div>
+                      <div className="text-[11px] text-lol-text/50">across {sampleGames} games</div>
                     </div>
-                    <div className="text-[11px] text-lol-text/50">
-                      {spike.timestampMs == null
-                        ? "Not reached"
-                        : `${(spike.timestampMs / 60000).toFixed(1)} minutes`}
+                  ))}
+                </div>
+                <div className="my-3 border-t border-white/[0.04]" />
+                <div className="grid grid-cols-3 border-y border-white/[0.04]">
+                  {powerSpikes.map((spike, index) => (
+                    <div
+                      key={spike.level}
+                      className={`border-t-[3px] px-3 py-3 text-right ${
+                        index === 0
+                          ? "border-t-[#C9A45C]"
+                          : index === 1
+                            ? "border-t-[#22C55E]"
+                            : "border-t-[#E5483F]"
+                      } ${index > 0 ? "border-l border-white/[0.04]" : ""}`}
+                    >
+                      <div className="text-[11px] text-lol-text/70">Level {spike.level}</div>
+                      <div
+                        className="mt-1 tabular-nums text-lg font-semibold text-lol-text-bright"
+                        title={spike.timestampMs == null ? "Not reached" : undefined}
+                      >
+                        {spike.timestampMs == null ? "—" : formatBuyTime(spike.timestampMs / 1000)}
+                      </div>
+                      <div className="text-[11px] text-lol-text/50">
+                        {spike.timestampMs == null
+                          ? "Not reached"
+                          : `${(spike.timestampMs / 60000).toFixed(1)} minutes`}
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  ))}
+                </div>
               </div>
             )}
           </Panel>
