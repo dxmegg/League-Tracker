@@ -859,6 +859,18 @@ export function ChampionDetailExp() {
               />
             </div>
             <SectionHeading title="Detailed statistics" />
+            <div className="flex flex-col gap-2">
+              <EconomyTab
+                section="insights"
+                detail={detailStats}
+                detailLoading={detailLoading}
+                timeline={timelineAverages}
+                timelineLoading={timelineAveragesLoading}
+                weeklyMetrics={weeklyMetrics}
+                queueStats={queueStats}
+                queueStatsLoading={queueStatsLoading}
+              />
+            </div>
             <div className="grid grid-cols-1 gap-5 xl:grid-cols-2">
               <EconomyTab
                 section="details"
@@ -4515,7 +4527,7 @@ function EconomyTab({
   queueStats,
   queueStatsLoading,
 }: {
-  section: "snapshot" | "details";
+  section: "snapshot" | "insights" | "details";
   detail: ChampionDetailStats | null;
   detailLoading: boolean;
   timeline: ChampionTimelineAverages | null;
@@ -4685,23 +4697,18 @@ function EconomyTab({
           />
         </>
       )}
+      {section === "insights" && (
+        <InsightsPanel
+          insights={[
+            {
+              kind: "good",
+              text: `Timeline-based averages across ${timelineGames} game-minute samples; lane comparisons use the nearest available opponent frame.`,
+            },
+          ]}
+        />
+      )}
       {section === "details" && (
         <>
-          <InsightsPanel
-            insights={[
-              {
-                kind: "good",
-                text: `Gold timeline averages are based on ${timelineGames} game-minute samples.`,
-              },
-              {
-                kind: "info",
-                text:
-                  goldLead.length > 0
-                    ? "Lane gold lead is shown at the nearest available timeline minute."
-                    : "Lane gold lead is not available without a matching opponent timeline.",
-              },
-            ]}
-          />
           <Panel className={TAB_PANEL_CLASSES.gold}>
             <SectionHeading title="Gold over time" source="d" />
             <p className="mb-3 text-[11px] text-lol-text/70">
@@ -5225,7 +5232,6 @@ function FarmTab({
     (bucket) =>
       `${bucket.minute}m / ${formatChartNumber(bucket.avgCsDiffVsLaneOpponent!, true)} CS`,
   );
-  const timelineGames = buckets.reduce((sum, bucket) => sum + bucket.sampleGames, 0);
   const value = (number: number | null | undefined, digits = 1) => formatPlain(number, digits);
 
   return (
@@ -5258,21 +5264,6 @@ function FarmTab({
       )}
       {section === "details" && (
         <>
-          <InsightsPanel
-            insights={[
-              {
-                kind: "good",
-                text: `CS pace is based on ${timelineGames} game-minute samples with timeline data.`,
-              },
-              {
-                kind: "info",
-                text:
-                  csLead.length > 0
-                    ? "The CS curve can be compared with the nearest available lane-opponent frame."
-                    : "Lane CS lead is not available without a matching opponent timeline.",
-              },
-            ]}
-          />
           <Panel className={TAB_PANEL_CLASSES.emerald}>
             <SectionHeading title="Minion split" source="m" />
             <p className="mb-3 text-[11px] text-lol-text/70">
@@ -5299,26 +5290,6 @@ function FarmTab({
                   detail.avgNeutralMinionsKilledInWins,
                   detail.avgNeutralMinionsKilledInLosses,
                   vsOther(detail.avgNeutralMinionsKilled, "avgNeutralMinionsKilledOther"),
-                ],
-                [
-                  "Jungle minions (enemy)",
-                  detail.avgNeutralMinionsEnemyJungle,
-                  detail.maxNeutralMinionsEnemyJungle,
-                  detail.totalNeutralMinionsEnemyJungle,
-                  undefined,
-                  detail.avgNeutralMinionsEnemyJungleInWins,
-                  detail.avgNeutralMinionsEnemyJungleInLosses,
-                  vsOther(detail.avgNeutralMinionsEnemyJungle, "avgNeutralMinionsEnemyJungleOther"),
-                ],
-                [
-                  "Jungle minions (team)",
-                  detail.avgNeutralMinionsTeamJungle,
-                  detail.maxNeutralMinionsTeamJungle,
-                  detail.totalNeutralMinionsTeamJungle,
-                  undefined,
-                  detail.avgNeutralMinionsTeamJungleInWins,
-                  detail.avgNeutralMinionsTeamJungleInLosses,
-                  vsOther(detail.avgNeutralMinionsTeamJungle, "avgNeutralMinionsTeamJungleOther"),
                 ],
               ]}
             />
