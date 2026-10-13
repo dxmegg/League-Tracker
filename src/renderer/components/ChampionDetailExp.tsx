@@ -4,7 +4,6 @@ import type {
   AugmentStats,
   ChampionAllyRow,
   ChampionDetailStats,
-  ChampionKillDeathPosition,
   ChampionKeystoneStat,
   ChampionMatchupRow,
   ChampionRuneStatsResult,
@@ -14,7 +13,6 @@ import type {
   ChampionStatBaseline,
   ChampionSkillOrdersResult,
   ChampionTeammateRow,
-  ChampionTimelineGame,
   ChampionTrendsData,
   ChampionWeeklyWinRate,
   ChampionWeeklyMetrics,
@@ -23,11 +21,7 @@ import type {
   TimelineBucket,
   GlobalChampionDetail,
   ItemStats,
-  MasteryChampion,
   MatchListItem,
-  ProfileExtras,
-  AccountSnapshot,
-  TimelineData,
 } from "../../shared/api";
 import { QUEUE_LABELS } from "../../shared/queues";
 import { useActiveAccount } from "../hooks/useActiveAccount";
@@ -61,7 +55,6 @@ import { MatchRowExperiment } from "./MatchRowExperiment";
 import { Panel } from "./Panel";
 import PatchSelect from "./PatchSelect";
 import { RadarChart } from "./RadarChart";
-import RiftMapScatter from "./RiftMapScatter";
 import RuneIcon from "./RuneIcon";
 import { SegmentedControl } from "./SegmentedControl";
 import Sparkline from "./Sparkline";
@@ -75,7 +68,6 @@ const TAB_ITEMS: TabStripItem[] = [
   { key: "ov", label: "Overview", accent: "#E5483F" },
   { key: "cb", label: "Combat", accent: "#E5483F" },
   { key: "ec", label: "Economy", accent: "#E5483F" },
-  { key: "fa", label: "Farm", accent: "#E5483F" },
   { key: "ob", label: "Objectives", accent: "#3B82F6" },
   { key: "vi", label: "Vision", accent: "#3B82F6" },
   { key: "ab", label: "Abilities", accent: "#3B82F6" },
@@ -83,11 +75,9 @@ const TAB_ITEMS: TabStripItem[] = [
   { key: "ru", label: "Runes", accent: "#3B82F6" },
   { key: "mu", label: "Matchups", accent: "#C9A45C" },
   { key: "sy", label: "Synergies", accent: "#C9A45C" },
-  { key: "tl", label: "Timeline", accent: "#C9A45C" },
   { key: "tr", label: "Trends", accent: "#C9A45C" },
   { key: "rc", label: "Records", accent: "#C9A45C" },
   { key: "ma", label: "Matches", accent: "#22C55E" },
-  { key: "ms", label: "Mastery", accent: "#22C55E" },
 ];
 
 type RateSort = "count" | "winRate";
@@ -171,14 +161,12 @@ export function ChampionDetailExp() {
   const [augmentSort, setAugmentSort] = useState<RateSort>("count");
   const [itemSort, setItemSort] = useState<RateSort>("count");
   const [keystoneSort, setKeystoneSort] = useState<RateSort>("count");
-  const [selectedTimelineGameId, setSelectedTimelineGameId] = useState<number | null>(null);
   const scopedQueue = queue ?? useHistoryScopeQueue();
   const [activeAccountRaw] = useActiveAccount();
   const account = activeAccountRaw === ALL_ACCOUNTS_SENTINEL ? "all" : activeAccountRaw;
   const overviewActive = activeTab === "ov";
   const combatActive = activeTab === "cb";
   const economyActive = activeTab === "ec";
-  const farmActive = activeTab === "fa";
   const objectivesActive = activeTab === "ob";
   const visionActive = activeTab === "vi";
   const itemsActive = activeTab === "it";
@@ -187,15 +175,12 @@ export function ChampionDetailExp() {
   const matchupsActive = activeTab === "mu";
   const synergiesActive = activeTab === "sy";
   const trendsActive = activeTab === "tr";
-  const timelineActive = activeTab === "tl";
   const recordsActive = activeTab === "rc";
   const matchesActive = activeTab === "ma";
-  const masteryActive = activeTab === "ms";
   const detailActive =
     overviewActive ||
     combatActive ||
     economyActive ||
-    farmActive ||
     objectivesActive ||
     visionActive ||
     itemsActive ||
@@ -216,32 +201,29 @@ export function ChampionDetailExp() {
   );
   const { data: statBaseline } = useIpc<ChampionStatBaseline>(
     () =>
-      combatActive || farmActive || objectivesActive || visionActive
+      combatActive || economyActive || objectivesActive || visionActive
         ? id === null
           ? Promise.resolve({})
           : window.api.getChampionStatBaseline(id, patch, scopedQueue, account)
         : Promise.resolve({}),
-    [combatActive, farmActive, objectivesActive, visionActive, id, patch, scopedQueue, account],
+    [combatActive, economyActive, objectivesActive, visionActive, id, patch, scopedQueue, account],
   );
-  const {
-    data: timelineAverages,
-    loading: timelineAveragesLoading,
-    error: timelineAveragesError,
-  } = useIpc<ChampionTimelineAverages>(
-    () =>
-      economyActive || farmActive || timelineActive
-        ? window.api.getChampionTimelineAverages(id, patch, scopedQueue, account)
-        : Promise.resolve({
-            buckets: [],
-            ahead10: null,
-            itemsBought: null,
-            comebacks: null,
-            winrateByGoldLead15: null,
-            goldLeadDistribution15: null,
-            spendingTimeline: null,
-          }),
-    [economyActive, farmActive, timelineActive, id, patch, scopedQueue, account],
-  );
+  const { data: timelineAverages, loading: timelineAveragesLoading } =
+    useIpc<ChampionTimelineAverages>(
+      () =>
+        economyActive
+          ? window.api.getChampionTimelineAverages(id, patch, scopedQueue, account)
+          : Promise.resolve({
+              buckets: [],
+              ahead10: null,
+              itemsBought: null,
+              comebacks: null,
+              winrateByGoldLead15: null,
+              goldLeadDistribution15: null,
+              spendingTimeline: null,
+            }),
+      [economyActive, id, patch, scopedQueue, account],
+    );
   const { data: skillOrders, loading: skillOrdersLoading } = useIpc<ChampionSkillOrdersResult>(
     () =>
       abilitiesActive && !isSummary
@@ -291,31 +273,6 @@ export function ChampionDetailExp() {
         : Promise.resolve(null),
     [trendsActive, id, patch, scopedQueue, account],
   );
-  const { data: timelineGames, loading: timelineGamesLoading } = useIpc<
-    ChampionTimelineGame[] | null
-  >(
-    () =>
-      timelineActive
-        ? window.api.getChampionTimelineGames(id, 20, patch, scopedQueue, account)
-        : Promise.resolve(null),
-    [timelineActive, id, patch, scopedQueue, account],
-  );
-  const { data: timelineData, loading: timelineLoading } = useIpc<TimelineData | null>(
-    () =>
-      timelineActive && selectedTimelineGameId != null
-        ? window.api.getTimeline(selectedTimelineGameId)
-        : Promise.resolve(null),
-    [timelineActive, selectedTimelineGameId],
-  );
-  const { data: killDeathPositions, loading: killDeathPositionsLoading } = useIpc<
-    ChampionKillDeathPosition[]
-  >(
-    () =>
-      timelineActive && !isSummary && id != null
-        ? window.api.getChampionKillDeathPositions(id, 500, account)
-        : Promise.resolve([]),
-    [timelineActive, isSummary, id, account],
-  );
   const { data: matchHistory } = useIpc<{ matches: MatchListItem[]; total: number }>(
     () =>
       detailActive && !isSummary
@@ -336,17 +293,6 @@ export function ChampionDetailExp() {
         ? window.api.getChampionRecords(id, patch, scopedQueue, account)
         : Promise.resolve(null),
     [recordsActive, id, patch, scopedQueue, account],
-  );
-  const { data: masterySource, loading: masteryLoading } = useIpc<
-    ProfileExtras | AccountSnapshot | null
-  >(
-    () =>
-      masteryActive
-        ? account === "all"
-          ? window.api.getProfileExtras()
-          : window.api.getAccountSnapshot(account)
-        : Promise.resolve(null),
-    [masteryActive, account],
   );
   const { data: globalDetail, loading: globalDetailLoading } = useIpc<GlobalChampionDetail | null>(
     () =>
@@ -371,10 +317,10 @@ export function ChampionDetailExp() {
   );
   const { data: queueStats, loading: queueStatsLoading } = useIpc<ChampionQueueStat[]>(
     () =>
-      overviewActive || economyActive || farmActive
+      overviewActive || economyActive
         ? window.api.getChampionQueueStats(id, account)
         : Promise.resolve([] as ChampionQueueStat[]),
-    [overviewActive, economyActive, farmActive, id, account],
+    [overviewActive, economyActive, id, account],
   );
   const { data: roleStats, loading: roleStatsLoading } = useIpc<ChampionRoleStat[]>(
     () =>
@@ -495,21 +441,6 @@ export function ChampionDetailExp() {
   const itemData = useItemData(patch);
   const runeData = useRuneData();
   const name = isSummary ? "All champions summary" : getChampionName(champData, id ?? 0);
-  const mastery = useMemo<MasteryChampion | null>(() => {
-    return masterySource?.topMasteryChampions.find((item) => item.championId === id) ?? null;
-  }, [id, masterySource]);
-  const masteryAccountName =
-    masterySource && "gameName" in masterySource ? masterySource.gameName : null;
-  useEffect(() => {
-    const firstGame = timelineGames?.[0];
-    if (!timelineActive || !firstGame) return;
-    if (
-      selectedTimelineGameId == null ||
-      !timelineGames.some((game) => game.gameId === selectedTimelineGameId)
-    ) {
-      setSelectedTimelineGameId(firstGame.gameId);
-    }
-  }, [timelineActive, timelineGames, selectedTimelineGameId]);
   const games = stats?.games ?? detailStats?.games ?? 0;
   const wins = stats?.wins ?? globalDetail?.wins ?? 0;
   const losses = games - wins;
@@ -895,25 +826,27 @@ export function ChampionDetailExp() {
           globalDetail={globalDetail}
         />
       ) : activeTab === "ec" ? (
-        <EconomyTab
-          detail={detailStats}
-          detailLoading={detailLoading}
-          timeline={timelineAverages}
-          timelineLoading={timelineAveragesLoading}
-          weeklyMetrics={weeklyMetrics}
-          queueStats={queueStats}
-          queueStatsLoading={queueStatsLoading}
-        />
-      ) : activeTab === "fa" ? (
-        <FarmTab
-          detail={detailStats}
-          baseline={statBaseline}
-          detailLoading={detailLoading}
-          timeline={timelineAverages?.buckets ?? null}
-          timelineLoading={timelineAveragesLoading}
-          queueStats={queueStats}
-          queueStatsLoading={queueStatsLoading}
-        />
+        <>
+          <EconomyTab
+            detail={detailStats}
+            detailLoading={detailLoading}
+            timeline={timelineAverages}
+            timelineLoading={timelineAveragesLoading}
+            weeklyMetrics={weeklyMetrics}
+            queueStats={queueStats}
+            queueStatsLoading={queueStatsLoading}
+          />
+          <div className="mt-5 border-t border-lol-border/40 pt-5" />
+          <FarmTab
+            detail={detailStats}
+            baseline={statBaseline}
+            detailLoading={detailLoading}
+            timeline={timelineAverages?.buckets ?? null}
+            timelineLoading={timelineAveragesLoading}
+            queueStats={queueStats}
+            queueStatsLoading={queueStatsLoading}
+          />
+        </>
       ) : activeTab === "ob" ? (
         <ObjectivesTab detail={detailStats} baseline={statBaseline} detailLoading={detailLoading} />
       ) : activeTab === "vi" ? (
@@ -970,22 +903,6 @@ export function ChampionDetailExp() {
         />
       ) : activeTab === "tr" ? (
         <TrendsTab trends={trends} trendsLoading={trendsLoading} />
-      ) : activeTab === "tl" ? (
-        <TimelineTab
-          games={timelineGames}
-          gamesLoading={timelineGamesLoading}
-          selectedGameId={selectedTimelineGameId}
-          onSelectGame={setSelectedTimelineGameId}
-          timeline={timelineData}
-          timelineLoading={timelineLoading}
-          timelineAverages={timelineAverages}
-          timelineAveragesLoading={timelineAveragesLoading}
-          timelineAveragesError={timelineAveragesError}
-          champData={champData}
-          isSummary={isSummary}
-          killDeathPositions={killDeathPositions}
-          killDeathPositionsLoading={killDeathPositionsLoading}
-        />
       ) : activeTab === "rc" ? (
         <RecordsTab records={records} recordsLoading={recordsLoading} matchHistory={matchHistory} />
       ) : matchesActive ? (
@@ -1001,18 +918,6 @@ export function ChampionDetailExp() {
             account={account}
             championName={name}
             champData={champData}
-          />
-        )
-      ) : activeTab === "ms" ? (
-        isSummary ? (
-          <Panel>
-            <NoData text="Mastery is champion-specific." />
-          </Panel>
-        ) : (
-          <MasteryTab
-            mastery={mastery}
-            masteryLoading={masteryLoading}
-            accountName={masteryAccountName}
           />
         )
       ) : (
@@ -1386,142 +1291,6 @@ export function MatchesTab({
             {loading ? "Loading…" : "Load more"}
           </button>
         )}
-      </Panel>
-    </div>
-  );
-}
-
-export function MasteryTab({
-  mastery,
-  masteryLoading,
-  accountName,
-}: {
-  mastery: MasteryChampion | null;
-  masteryLoading: boolean;
-  accountName: string | null;
-}) {
-  if (masteryLoading) return <SectionLoading />;
-  if (!mastery) {
-    return <NoData text="No mastery data" />;
-  }
-
-  const masteryInsights: Insight[] = [
-    {
-      kind: "info",
-      text: `Level ${formatPlain(mastery.level, 0)} with ${formatPlain(mastery.points, 0)} points.`,
-    },
-    {
-      kind: "info",
-      text: `${formatPlain(mastery.points, 0)} mastery points recorded for ${accountName ?? "this account"}.`,
-    },
-  ];
-
-  return (
-    <div className="flex flex-col gap-5">
-      <IntroBox legend="Badges show where a number comes from: Match-V5 = Riot match data · Timeline = minute-by-minute data · Derived = calculated by the app · LCU = game client.">
-        Champion mastery progress, level thresholds, Eternals and owned skins.
-      </IntroBox>
-      <SectionHeading title="Key metrics" />
-      <Panel>
-        <SectionHeading title="Mastery" aside={accountName ?? undefined} />
-        <p className="mb-3 text-[11px] text-lol-text/70">
-          Current mastery level and points earned on this champion.
-        </p>
-        <div className="grid grid-cols-2 gap-3">
-          <Stat
-            label="Level"
-            value={formatPlain(mastery.level, 0)}
-            sub="Current champion level"
-            accent={CHART_PALETTE[1]}
-            glow
-            valueClass="drop-shadow-[0_0_12px_rgba(201,164,92,0.25)]"
-          />
-          <Stat
-            label="Points"
-            value={formatPlain(mastery.points, 0)}
-            sub="Current champion points"
-          />
-        </div>
-        <p className="mt-4 text-xs text-lol-text">Progress bar unavailable</p>
-      </Panel>
-      <InsightsPanel items={masteryInsights} />
-      <SectionHeading title="Detailed statistics" />
-      <Panel className={TAB_PANEL_CLASSES.gold}>
-        <SectionHeading title="Milestones" />
-        <p className="mb-3 text-[11px] text-lol-text/70">
-          Milestone levels reached and the next champion mastery goals.
-        </p>
-        <div className="flex flex-col divide-y divide-white/[0.04]">
-          {[5, 7, 10].map((level) => (
-            <div
-              key={level}
-              className={`flex items-center justify-between rounded-md border border-lol-border/60 border-l-[3px] px-3 py-2 text-sm transition-colors duration-[120ms] hover:bg-white/[0.025] ${
-                mastery.level >= level ? "border-l-[#C9A45C]" : "border-l-white/[0.15]"
-              }`}
-            >
-              <span className="text-lol-text-bright">Level {level}</span>
-              <span className={mastery.level >= level ? "text-lol-win" : "text-lol-text"}>
-                {mastery.level >= level ? "✓ Reached" : "Not reached"}
-              </span>
-            </div>
-          ))}
-        </div>
-      </Panel>
-      <Panel className={TAB_PANEL_CLASSES.gold}>
-        <SectionHeading title="Level thresholds" source="l" />
-        <p className="mb-3 text-[11px] text-lol-text/70">
-          Points required for each mastery level and your current progress.
-        </p>
-        <table className="w-full text-xs">
-          <thead className="border-b border-lol-border/50 text-left text-lol-text">
-            <tr>
-              <th className="whitespace-nowrap pb-2 font-semibold">Level</th>
-              <th className="whitespace-nowrap pb-2 text-right font-semibold">Points needed</th>
-              <th className="whitespace-nowrap pb-2 text-right font-semibold">Status</th>
-            </tr>
-          </thead>
-          <tbody>
-            {[
-              [5, 10_000],
-              [6, 13_000],
-              [7, 21_600],
-              [8, 33_000],
-              [9, 47_000],
-              [10, 63_000],
-              [11, 80_000],
-              [12, 101_600],
-            ].map(([level, points], index, thresholds) => {
-              const reached = mastery.points >= points;
-              const next =
-                !reached &&
-                thresholds.slice(0, index).every(([, threshold]) => mastery.points >= threshold);
-              return (
-                <tr
-                  key={level}
-                  className={`border-b border-white/[0.04] transition-colors duration-[120ms] hover:bg-white/[0.025] last:border-b-0 ${
-                    mastery.level === level ? "bg-[rgba(201,164,92,0.06)]" : ""
-                  }`}
-                >
-                  <td className="py-2 text-lol-text-bright">Level {level}</td>
-                  <td className="py-2 text-right tabular-nums text-lol-text-bright">
-                    {formatPlain(points, 0)}
-                  </td>
-                  <td
-                    className={`py-2 text-right tabular-nums ${
-                      reached ? "text-lol-win" : next ? "text-lol-text" : "text-lol-text"
-                    }`}
-                  >
-                    {reached
-                      ? "Reached"
-                      : next
-                        ? `${formatPlain(points - mastery.points, 0)} to go`
-                        : "—"}
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
       </Panel>
     </div>
   );
@@ -3623,651 +3392,6 @@ function TrendBars({
       })}
     </div>
   );
-}
-
-function TimelineTab({
-  games,
-  gamesLoading,
-  selectedGameId,
-  onSelectGame,
-  timeline,
-  timelineLoading,
-  timelineAverages,
-  timelineAveragesLoading,
-  timelineAveragesError,
-  champData,
-  isSummary,
-  killDeathPositions,
-  killDeathPositionsLoading,
-}: {
-  games: ChampionTimelineGame[] | null;
-  gamesLoading: boolean;
-  selectedGameId: number | null;
-  onSelectGame: (gameId: number) => void;
-  timeline: TimelineData | null;
-  timelineLoading: boolean;
-  timelineAverages: ChampionTimelineAverages | null;
-  timelineAveragesLoading: boolean;
-  timelineAveragesError: string | null;
-  champData: ReturnType<typeof useChampionData>;
-  isSummary: boolean;
-  killDeathPositions: ChampionKillDeathPosition[] | null;
-  killDeathPositionsLoading: boolean;
-}) {
-  const [timelinePhase, setTimelinePhase] = useState<"all" | "early" | "mid" | "late">("all");
-  const [mapMode, setMapMode] = useState<"dots" | "heatmap">("dots");
-  const itemData = useItemData();
-  const selectedGame = games?.find((game) => game.gameId === selectedGameId) ?? null;
-  const ownerFrames =
-    selectedGame && timeline
-      ? timeline.frames.filter((frame) => frame.puuid === selectedGame.ownerPuuid)
-      : [];
-  const ownerGoldValues = ownerFrames.map((frame) => frame.gold ?? 0);
-  const ownerCsScaledValues = ownerFrames.map((frame) => (frame.cs ?? 0) * 10);
-  const ownerLevelValues = ownerFrames.map((frame) => (frame.level ?? 0) * 100);
-  const ownerXpScaledValues = ownerFrames.map((frame) => (frame.xp ?? 0) / 10);
-  const ownerParticipantId = ownerFrames[0]?.participant_id ?? null;
-  const powerSpikes = [6, 11, 16].map((level) => {
-    const frame = ownerFrames.find((candidate) => (candidate.level ?? 0) >= level);
-    return {
-      level,
-      timestampMs: frame?.timestamp_ms ?? null,
-    };
-  });
-  const teamfights = useMemo(() => {
-    const kills = timelineEventsForTeamfights(timeline?.events ?? []);
-    const clusters: Array<typeof kills> = [];
-    for (const kill of kills) {
-      const current = clusters.at(-1);
-      if (!current || kill.timestamp_ms - current[0].timestamp_ms > 30_000) {
-        clusters.push([kill]);
-      } else {
-        current.push(kill);
-      }
-    }
-    return clusters
-      .filter((cluster) => cluster.length >= 3)
-      .map((cluster) => {
-        const startTimeMs = cluster[0].timestamp_ms;
-        const endTimeMs = cluster.at(-1)?.timestamp_ms ?? startTimeMs;
-        const killsForOwner =
-          ownerParticipantId == null
-            ? 0
-            : cluster.filter((kill) => kill.killer_id === ownerParticipantId).length;
-        const killsAgainstOwner =
-          ownerParticipantId == null
-            ? 0
-            : cluster.filter((kill) => kill.victim_id === ownerParticipantId).length;
-        return {
-          startTimeMs,
-          endTimeMs,
-          durationSeconds: Math.round((endTimeMs - startTimeMs) / 1000),
-          totalKills: cluster.length,
-          killsForOwner,
-          killsAgainstOwner,
-          result:
-            killsForOwner > killsAgainstOwner
-              ? ("won" as const)
-              : killsForOwner < killsAgainstOwner
-                ? ("lost" as const)
-                : ("even" as const),
-        };
-      });
-  }, [ownerParticipantId, timeline?.events]);
-  const labels = ownerFrames.map((frame) => `${Math.round(frame.timestamp_ms / 60000)}m`);
-  const events =
-    timeline?.events
-      .filter((event) =>
-        [
-          "CHAMPION_KILL",
-          "ELITE_MONSTER_KILL",
-          "BUILDING_KILL",
-          "TURRET_PLATE_DESTROYED",
-          "ITEM_PURCHASED",
-        ].includes(event.event_type),
-      )
-      .slice(0, 60) ?? [];
-  const timelineEvents = timeline?.events ?? [];
-  const championKillEvents = timelineEvents.filter((event) => event.event_type === "CHAMPION_KILL");
-  const timelineGameKills = games?.reduce((sum, game) => sum + game.kills, 0) ?? 0;
-  const timelineGameDeaths = games?.reduce((sum, game) => sum + game.deaths, 0) ?? 0;
-  const averageKda =
-    timelineGameDeaths > 0
-      ? timelineGameKills / timelineGameDeaths
-      : timelineGameKills > 0
-        ? Number.POSITIVE_INFINITY
-        : null;
-  const goldDiffBuckets =
-    timelineAverages?.buckets.filter((bucket) => bucket.avgGoldDiffVsLaneOpponent != null) ?? [];
-  const eventSummary = [
-    {
-      label: "Dragons",
-      count: timelineEvents.filter(
-        (event) =>
-          event.event_type === "ELITE_MONSTER_KILL" &&
-          event.monster_type?.toUpperCase().includes("DRAGON"),
-      ).length,
-    },
-    {
-      label: "Barons",
-      count: timelineEvents.filter(
-        (event) =>
-          event.event_type === "ELITE_MONSTER_KILL" &&
-          event.monster_type?.toUpperCase().includes("BARON"),
-      ).length,
-    },
-    {
-      label: "Towers",
-      count: timelineEvents.filter(
-        (event) =>
-          event.event_type === "BUILDING_KILL" &&
-          event.building_type?.toUpperCase().includes("TURRET"),
-      ).length,
-    },
-    {
-      label: "Turret plates",
-      count: timelineEvents.filter((event) => event.event_type === "TURRET_PLATE_DESTROYED").length,
-    },
-  ];
-  const filteredKillDeathPositions = useMemo(() => {
-    if (!killDeathPositions || timelinePhase === "all") return killDeathPositions;
-    return killDeathPositions.filter((position) => {
-      if (timelinePhase === "early") return position.timestampMs < 900_000;
-      if (timelinePhase === "mid") {
-        return position.timestampMs >= 900_000 && position.timestampMs <= 1_800_000;
-      }
-      return position.timestampMs > 1_800_000;
-    });
-  }, [killDeathPositions, timelinePhase]);
-
-  if (gamesLoading) return <SectionLoading />;
-  if (games == null || games.length === 0)
-    return <NoData text="No timeline data for this champion" />;
-
-  const timelineInsights: Insight[] = [
-    {
-      kind: "info",
-      text: `${formatPlain(games.length, 0)} timeline game${games.length === 1 ? "" : "s"} available for this champion.`,
-    },
-    ...(selectedGame
-      ? (() => {
-          const selectedRatio =
-            selectedGame.deaths > 0
-              ? selectedGame.kills / selectedGame.deaths
-              : selectedGame.kills > 0
-                ? Number.POSITIVE_INFINITY
-                : 0;
-          const totalKills = games.reduce((sum, game) => sum + game.kills, 0);
-          const totalDeaths = games.reduce((sum, game) => sum + game.deaths, 0);
-          const baselineRatio =
-            totalDeaths > 0
-              ? totalKills / totalDeaths
-              : totalKills > 0
-                ? Number.POSITIVE_INFINITY
-                : 0;
-          const selectedAboveBaseline = selectedRatio > baselineRatio;
-          const selectedBelowBaseline = selectedRatio < baselineRatio;
-          return [
-            {
-              kind: selectedAboveBaseline ? "good" : selectedBelowBaseline ? "warn" : "info",
-              text: `Selected game K/D is ${selectedAboveBaseline ? "above" : selectedBelowBaseline ? "below" : "at"} the loaded champion baseline.`,
-            } satisfies Insight,
-          ];
-        })()
-      : []),
-    ...(timeline
-      ? [
-          {
-            kind: "info" as const,
-            text: `${formatPlain(timeline.events.filter((event) => event.event_type === "CHAMPION_KILL").length, 0)} champion kill events recorded in the selected match.`,
-          },
-        ]
-      : []),
-  ];
-
-  return (
-    <div className="grid grid-cols-1 gap-5">
-      <IntroBox legend="Badges show where a number comes from: Match-V5 = Riot match data · Timeline = minute-by-minute data · Derived = calculated by the app · LCU = game client.">
-        One match, minute by minute: events, fights, power spikes and stat growth.
-      </IntroBox>
-      <SectionHeading title="Key metrics" />
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-        <Stat
-          label="Timeline games"
-          value={formatPlain(games.length, 0)}
-          sub="Loaded timeline matches"
-          accent={CHART_PALETTE[0]}
-          large
-        />
-        <Stat
-          label="Selected match K/D"
-          value={selectedGame ? `${selectedGame.kills} / ${selectedGame.deaths}` : "—"}
-          sub={selectedGame ? "Kills / deaths" : "No selected match"}
-          accent={CHART_PALETTE[1]}
-          large
-        />
-        <Stat
-          label="Champion kills"
-          value={formatPlain(championKillEvents.length, 0)}
-          sub={timeline ? "Selected match" : "No selected match"}
-          accent={CHART_PALETTE[2]}
-          large
-        />
-        <Stat
-          label="Avg K/D"
-          value={
-            averageKda == null ? "—" : Number.isFinite(averageKda) ? averageKda.toFixed(2) : "∞"
-          }
-          sub="Across loaded games"
-          accent={CHART_PALETTE[3]}
-          large
-          sparkValues={games.map((game) =>
-            game.deaths > 0 ? game.kills / game.deaths : game.kills > 0 ? game.kills : 0,
-          )}
-        />
-      </div>
-      <Panel className={TAB_PANEL_CLASSES.sapphire}>
-        <SectionHeading title="Game picker" source="t" />
-        <p className="mb-3 text-[11px] text-lol-text/70">
-          Choose a tracked match to inspect its timeline details.
-        </p>
-        <div className="flex gap-2 overflow-x-auto pb-1">
-          {games.map((game) => (
-            <button
-              key={game.gameId}
-              type="button"
-              className={`flex shrink-0 items-center gap-2 rounded-lg border border-b-white/[0.04] border-l-[3px] px-3 py-2 text-left transition-colors duration-[120ms] hover:bg-white/[0.025] last:border-b-0 ${
-                game.gameId === selectedGameId
-                  ? "border-lol-crimson bg-lol-crimson/15"
-                  : "border-lol-border bg-black/10"
-              }`}
-              style={{ borderLeftColor: game.win ? "#22C55E" : "#E5483F" }}
-              onClick={() => onSelectGame(game.gameId)}
-            >
-              <ChampionIcon championId={game.championId} size={24} className="rounded-md" />
-              <span className="flex flex-col text-xs">
-                <span
-                  className={`text-right tabular-nums ${game.win ? "text-lol-win" : "text-lol-loss"}`}
-                >
-                  {game.win ? "W" : "L"} · {game.kills}/{game.deaths}/{game.assists}
-                </span>
-                <span className="text-lol-text">{formatTimeAgo(game.gameCreation)}</span>
-              </span>
-            </button>
-          ))}
-        </div>
-      </Panel>
-      <SectionHeading title="Detailed statistics" />
-      {!isSummary && (
-        <Panel className={`${TAB_PANEL_CLASSES.sapphire} `}>
-          <SectionHeading title="Kill and death map" source="t" />
-          <p className="mb-3 text-[11px] text-lol-text/70">
-            Kill and death locations across the selected match timeline.
-          </p>
-          {killDeathPositionsLoading ? (
-            <SectionLoading />
-          ) : killDeathPositions && killDeathPositions.length > 0 ? (
-            <>
-              <div className="mb-3 flex flex-wrap items-center gap-2">
-                {(
-                  [
-                    ["all", "All"],
-                    ["early", "Early (0-15)"],
-                    ["mid", "Mid (15-30)"],
-                    ["late", "Late (30+)"],
-                  ] as const
-                ).map(([value, label]) => (
-                  <button
-                    key={value}
-                    type="button"
-                    aria-pressed={timelinePhase === value}
-                    className={`rounded-md border px-2.5 py-1 text-xs transition-colors ${
-                      timelinePhase === value
-                        ? "border-lol-crimson bg-lol-crimson/15 text-lol-text-bright"
-                        : "border-lol-border bg-black/10 text-lol-text hover:border-lol-crimson/60"
-                    }`}
-                    onClick={() => setTimelinePhase(value)}
-                  >
-                    {label}
-                  </button>
-                ))}
-                <span className="mx-1 h-4 border-l border-lol-border" aria-hidden="true" />
-                <div className="flex items-center gap-1" aria-label="Map render mode">
-                  {(
-                    [
-                      ["dots", "Dots"],
-                      ["heatmap", "Heatmap"],
-                    ] as const
-                  ).map(([value, label]) => (
-                    <button
-                      key={value}
-                      type="button"
-                      aria-pressed={mapMode === value}
-                      className={`rounded-md border px-2.5 py-1 text-xs transition-colors ${
-                        mapMode === value
-                          ? "border-lol-crimson bg-lol-crimson/15 text-lol-text-bright"
-                          : "border-lol-border bg-black/10 text-lol-text hover:border-lol-crimson/60"
-                      }`}
-                      onClick={() => setMapMode(value)}
-                    >
-                      {label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-              {filteredKillDeathPositions && filteredKillDeathPositions.length > 0 ? (
-                <RiftMapScatter positions={filteredKillDeathPositions} mode={mapMode} />
-              ) : (
-                <NoData text="No kill positions recorded in this phase." />
-              )}
-            </>
-          ) : (
-            <NoData text="No kill positions recorded for this champion yet." />
-          )}
-        </Panel>
-      )}
-      <InsightsPanel items={timelineInsights} />
-      {timelineLoading ? (
-        <Panel className={TAB_PANEL_CLASSES.sapphire}>
-          <SectionLoading />
-        </Panel>
-      ) : timeline == null ? (
-        <Panel className={TAB_PANEL_CLASSES.sapphire}>
-          <NoData text="No timeline selected" />
-        </Panel>
-      ) : (
-        <>
-          <Panel className={`xl:col-span-2 ${TAB_PANEL_CLASSES.sapphire}`}>
-            <SectionHeading title="Gold and CS curves" source="t" />
-            <p className="mb-3 text-[11px] text-lol-text/70">
-              Gold and minion progress minute by minute through the selected game.
-            </p>
-            {ownerFrames.length === 0 ? (
-              <NoData text="No timeline frames for this match" />
-            ) : (
-              <LineChartExp
-                values={ownerGoldValues}
-                series={[
-                  {
-                    values: ownerGoldValues,
-                    color: "var(--theme-gold)",
-                    label: "Gold",
-                  },
-                  {
-                    values: ownerCsScaledValues,
-                    color: "var(--theme-violet)",
-                    label: "CS (×10)",
-                  },
-                ]}
-                format={(value) => formatChartNumber(value)}
-                xLabels={labels}
-                min={0}
-                yFormat={formatChartNumber}
-                yTicks={chartTicks([...ownerGoldValues, ...ownerCsScaledValues])}
-                height={200}
-                showStats
-              />
-            )}
-          </Panel>
-          <Panel className={`xl:col-span-2 ${TAB_PANEL_CLASSES.sapphire}`}>
-            <SectionHeading title="Level and XP" source="t" />
-            <p className="mb-3 text-[11px] text-lol-text/70">
-              Champion level and experience growth across the selected game.
-            </p>
-            {ownerFrames.length === 0 ? (
-              <NoData text="No timeline frames for this match" />
-            ) : (
-              <LineChartExp
-                values={ownerLevelValues}
-                series={[
-                  {
-                    values: ownerLevelValues,
-                    color: "var(--theme-assist)",
-                    label: "Level (×100)",
-                  },
-                  {
-                    values: ownerXpScaledValues,
-                    color: "var(--theme-win)",
-                    label: "XP (÷10)",
-                  },
-                ]}
-                format={(value) => formatChartNumber(value)}
-                xLabels={labels}
-                min={0}
-                yFormat={formatChartNumber}
-                yTicks={chartTicks([...ownerLevelValues, ...ownerXpScaledValues])}
-                height={200}
-                showStats
-              />
-            )}
-          </Panel>
-          <Panel className={TAB_PANEL_CLASSES.gold}>
-            <SectionHeading title="Power spikes" source="d" />
-            <p className="mb-3 text-[11px] text-lol-text/70">
-              First recorded game time when the owner reached each level milestone.
-            </p>
-            {ownerFrames.length === 0 ? (
-              <NoData text="No timeline frames for this match" />
-            ) : (
-              <div>
-                <div className="grid grid-cols-3 border-y border-white/[0.04]">
-                  {[
-                    ["Avg L6", timelineAverages?.avgLevel6Ms, timelineAverages?.level6Games ?? 0],
-                    [
-                      "Avg L11",
-                      timelineAverages?.avgLevel11Ms,
-                      timelineAverages?.level11Games ?? 0,
-                    ],
-                    [
-                      "Avg L16",
-                      timelineAverages?.avgLevel16Ms,
-                      timelineAverages?.level16Games ?? 0,
-                    ],
-                  ].map(([label, timestampMs, sampleGames], index) => (
-                    <div
-                      key={label}
-                      className={`px-3 py-2 text-right ${index > 0 ? "border-l border-white/[0.04]" : ""}`}
-                    >
-                      <div className="text-[11px] text-lol-text/70">{label}</div>
-                      <div
-                        className="mt-1 tabular-nums text-base font-semibold text-lol-text-bright"
-                        title={
-                          timestampMs == null
-                            ? "Not enough games with timeline coverage"
-                            : undefined
-                        }
-                      >
-                        {timestampMs == null ? "—" : formatBuyTime(Number(timestampMs) / 1000)}
-                      </div>
-                      <div className="text-[11px] text-lol-text/50">across {sampleGames} games</div>
-                    </div>
-                  ))}
-                </div>
-                <div className="my-3 border-t border-white/[0.04]" />
-                <div className="grid grid-cols-3 border-y border-white/[0.04]">
-                  {powerSpikes.map((spike, index) => (
-                    <div
-                      key={spike.level}
-                      className={`border-t-[3px] px-3 py-3 text-right ${
-                        index === 0
-                          ? "border-t-[#C9A45C]"
-                          : index === 1
-                            ? "border-t-[#22C55E]"
-                            : "border-t-[#E5483F]"
-                      } ${index > 0 ? "border-l border-white/[0.04]" : ""}`}
-                    >
-                      <div className="text-[11px] text-lol-text/70">Level {spike.level}</div>
-                      <div
-                        className="mt-1 tabular-nums text-lg font-semibold text-lol-text-bright"
-                        title={spike.timestampMs == null ? "Not reached" : undefined}
-                      >
-                        {spike.timestampMs == null ? "—" : formatBuyTime(spike.timestampMs / 1000)}
-                      </div>
-                      <div className="text-[11px] text-lol-text/50">
-                        {spike.timestampMs == null
-                          ? "Not reached"
-                          : `${(spike.timestampMs / 60000).toFixed(1)} minutes`}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-          </Panel>
-          <Panel className={TAB_PANEL_CLASSES.emerald}>
-            <SectionHeading title="Teamfights" source="d" />
-            <p className="mb-3 text-[11px] text-lol-text/70">
-              Clusters of three or more champion kills within a 30-second window.
-            </p>
-            {teamfights.length === 0 ? (
-              <NoData text="No teamfights detected in this match" />
-            ) : (
-              <div className="overflow-x-auto">
-                <div className="min-w-[520px] text-xs">
-                  <div className="grid grid-cols-[1.3fr_1fr_0.8fr_0.7fr_0.9fr_1fr] gap-2 border-b border-white/[0.04] px-3 py-2 text-[10px] uppercase tracking-[0.14em] text-lol-text/50">
-                    <span>Time</span>
-                    <span>Duration</span>
-                    <span className="text-right">Kills</span>
-                    <span className="text-right">For</span>
-                    <span className="text-right">Against</span>
-                    <span className="text-right">Result</span>
-                  </div>
-                  {teamfights.map((fight) => (
-                    <div
-                      key={`${fight.startTimeMs}-${fight.endTimeMs}`}
-                      className={`grid grid-cols-[1.3fr_1fr_0.8fr_0.7fr_0.9fr_1fr] gap-2 border-b border-white/[0.04] border-l-2 px-3 py-2 transition-[border-width,background-color] duration-[120ms] hover:border-l-[3px] hover:bg-white/[0.025] last:border-b-0 ${
-                        fight.result === "won"
-                          ? "border-l-lol-win"
-                          : fight.result === "lost"
-                            ? "border-l-lol-loss"
-                            : "border-l-transparent"
-                      }`}
-                    >
-                      <span className="tabular-nums text-lol-text-bright">
-                        {formatBuyTime(fight.startTimeMs / 1000)}
-                      </span>
-                      <span className="tabular-nums text-lol-text">{fight.durationSeconds}s</span>
-                      <span className="text-right tabular-nums text-lol-text">
-                        {fight.totalKills}
-                      </span>
-                      <span className="text-right tabular-nums text-lol-win">
-                        {fight.killsForOwner}
-                      </span>
-                      <span className="text-right tabular-nums text-lol-loss">
-                        {fight.killsAgainstOwner}
-                      </span>
-                      <span className="text-right">
-                        <span
-                          className={`inline-flex rounded-full border px-2 py-0.5 text-[10px] uppercase tracking-wider ${
-                            fight.result === "won"
-                              ? "border-lol-win/40 bg-lol-win/10 text-lol-win"
-                              : fight.result === "lost"
-                                ? "border-lol-loss/40 bg-lol-loss/10 text-lol-loss"
-                                : "border-lol-border bg-white/[0.04] text-lol-text/70"
-                          }`}
-                        >
-                          {fight.result}
-                        </span>
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-          </Panel>
-          <Panel className={`xl:col-span-2 ${TAB_PANEL_CLASSES.sapphire}`}>
-            <SectionHeading title="Gold diff vs lane opponent" source="t" />
-            <p className="mb-3 text-[11px] text-lol-text/70">
-              Average owner gold difference against the lane opponent at each timeline minute.
-            </p>
-            {timelineAveragesLoading ? (
-              <SectionLoading />
-            ) : timelineAveragesError || goldDiffBuckets.length === 0 ? (
-              <NoData text="No lane-opponent timeline data" />
-            ) : (
-              <LineChartExp
-                values={goldDiffBuckets.map((bucket) => bucket.avgGoldDiffVsLaneOpponent ?? 0)}
-                format={(value) => formatPlain(value, 0)}
-                xLabels={goldDiffBuckets.map((bucket) => `${bucket.minute}m`)}
-                tooltips={goldDiffBuckets.map(
-                  (bucket) =>
-                    `${bucket.minute}m / ${formatChartNumber(bucket.avgGoldDiffVsLaneOpponent ?? 0, true)} gold`,
-                )}
-                color="var(--theme-gold)"
-                yFormat={(value) => formatChartNumber(value, true)}
-                yTicks={chartTicks(
-                  goldDiffBuckets.map((bucket) => bucket.avgGoldDiffVsLaneOpponent ?? 0),
-                  true,
-                )}
-                baseline={0}
-                showStats
-              />
-            )}
-          </Panel>
-          <Panel className={TAB_PANEL_CLASSES.sapphire}>
-            <SectionHeading title="Events" source="t" />
-            <p className="mb-3 text-[11px] text-lol-text/70">
-              Major kills, objectives, purchases, and structures from the match.
-            </p>
-            <div className="mb-3 grid grid-cols-4 gap-2 border-y border-white/[0.04] py-2 text-xs">
-              {eventSummary.map((item) => (
-                <div key={item.label} className="flex items-center justify-between gap-2">
-                  <span className="truncate text-lol-text">{item.label}</span>
-                  <span className="tabular-nums text-lol-text-bright">{item.count}</span>
-                </div>
-              ))}
-            </div>
-            <div className="flex max-h-[420px] flex-col gap-2 overflow-y-auto text-xs">
-              {events.length === 0 ? (
-                <NoData text="No timeline events" />
-              ) : (
-                events.map((event) => (
-                  <div
-                    key={event.event_index}
-                    className="flex gap-3 border-b border-white/[0.04] py-2 transition-colors duration-[120ms] hover:bg-white/[0.025] last:border-b-0"
-                  >
-                    <span className="w-12 shrink-0 text-right tabular-nums text-lol-text">
-                      {formatSeconds(event.timestamp_ms / 1000)}
-                    </span>
-                    <span className="text-lol-text-bright">
-                      {timelineEventDescription(event, itemData, champData)}
-                    </span>
-                  </div>
-                ))
-              )}
-            </div>
-          </Panel>
-        </>
-      )}
-    </div>
-  );
-}
-
-function timelineEventDescription(
-  event: TimelineData["events"][number],
-  itemData: ReturnType<typeof useItemData>,
-  _champData: ReturnType<typeof useChampionData>,
-) {
-  if (event.event_type === "ITEM_PURCHASED" && event.item_id != null) {
-    return `Participant ${event.participant_id ?? "?"} purchased ${getItemName(itemData, event.item_id)}`;
-  }
-  if (event.event_type === "CHAMPION_KILL") {
-    return `Participant ${event.killer_id ?? "?"} killed participant ${event.victim_id ?? "?"}`;
-  }
-  if (event.event_type === "ELITE_MONSTER_KILL") {
-    return `${event.monster_type ?? "Monster"} defeated by participant ${event.killer_id ?? "?"}`;
-  }
-  if (event.event_type === "BUILDING_KILL") {
-    return `${event.building_type ?? "Building"} destroyed`;
-  }
-  return "Turret plate destroyed";
-}
-
-function timelineEventsForTeamfights(events: TimelineData["events"]) {
-  return events
-    .filter((event) => event.event_type === "CHAMPION_KILL")
-    .slice()
-    .sort((a, b) => a.timestamp_ms - b.timestamp_ms);
 }
 
 function SynergiesTab({
