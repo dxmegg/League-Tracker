@@ -9,6 +9,7 @@ import type {
   ProfileRankedEntry,
   RecentRiotMatch,
   RiotAccountConfig,
+  RiotSyncProgress,
 } from "../shared/api";
 import { computeMatchScores, type ScoreInput } from "../shared/opScore";
 import { PROXY_BASE_URL } from "../shared/proxy";
@@ -1011,11 +1012,22 @@ export type RiotSyncResult = {
   scanned: number;
   totalGames: number;
   complete: boolean;
+  cancelled: boolean;
 };
 
+let syncCancelRequested = false;
+
+export function cancelRiotSync(): void {
+  syncCancelRequested = true;
+}
+
 export async function syncRiotHistory(
-  options: { refreshExisting?: boolean } = {},
+  options: {
+    refreshExisting?: boolean;
+    onProgress?: (info: RiotSyncProgress) => void;
+  } = {},
 ): Promise<RiotSyncResult> {
+  syncCancelRequested = false;
   const stored = readAccounts();
   const resolvedPuuids = new Map<string, string>();
   const identities = stored.length
@@ -1029,19 +1041,44 @@ export async function syncRiotHistory(
   let added = 0;
   let scanned = 0;
   let complete = true;
-  for (const { identity } of identities) {
-    const result = await syncRiotAccount(identity, resolvedPuuids, options);
+  let cancelled = false;
+  for (const [index, { identity }] of identities.entries()) {
+    if (syncCancelRequested) {
+      console.log("[sync] cancelled by user");
+      cancelled = true;
+      break;
+    }
+    const result = await syncRiotAccount(identity, resolvedPuuids, {
+      ...options,
+      accountIndex: index,
+      accountTotal: identities.length,
+    });
     added += result.added;
     scanned += result.scanned;
     complete &&= result.complete;
+    if (result.cancelled) {
+      cancelled = true;
+      break;
+    }
   }
-  return { added, scanned, totalGames: db.getDashboardData().totalGames, complete };
+  return {
+    added,
+    scanned,
+    totalGames: db.getDashboardData().totalGames,
+    complete: complete && !cancelled,
+    cancelled,
+  };
 }
 
 async function syncRiotAccount(
   identity: Awaited<ReturnType<typeof configuredIdentity>>,
   resolvedPuuids: Map<string, string>,
-  options: { refreshExisting?: boolean } = {},
+  options: {
+    refreshExisting?: boolean;
+    onProgress?: (info: RiotSyncProgress) => void;
+    accountIndex?: number;
+    accountTotal?: number;
+  } = {},
 ): Promise<RiotSyncResult> {
   const refreshExisting = options.refreshExisting ?? false;
   console.log("[sync-riot] refreshExisting flag:", refreshExisting);
@@ -1062,6 +1099,8 @@ async function syncRiotAccount(
     });
   }
   const tag = `${identity.gameName ?? puuid}#${identity.tagLine ?? ""}`;
+  const accountIndex = options.accountIndex ?? 0;
+  const accountTotal = options.accountTotal ?? 1;
   const known = db.getAllKnownGameIds();
   const ignored = db.getIgnoredGameIds();
   const pageSize = 100;
@@ -1071,8 +1110,14 @@ async function syncRiotAccount(
     Math.max(1, Number.isFinite(configuredPage) ? configuredPage : pageSize),
   );
   const ids: number[] = [];
+  let cancelled = false;
 
   for (let start = 0; start < 10_000; start += count) {
+    if (syncCancelRequested) {
+      console.log("[sync] cancelled by user");
+      cancelled = true;
+      break;
+    }
     let page: string[] = [];
     console.log("[sync] calling by-puuid for puuid=" + puuid.substring(0, 12) + "...");
     try {
@@ -1100,6 +1145,14 @@ async function syncRiotAccount(
         ", ignored: " +
         ignored.size,
     );
+    options.onProgress?.({
+      phase: "collecting",
+      accountIndex,
+      accountTotal,
+      currentGame: 0,
+      totalGames: ids.length,
+      currentAccount: tag,
+    });
     if (
       page.length < count ||
       (!refreshExisting && page.every((id) => known.has(normalizeMatchId(id) ?? -1)))
@@ -1109,7 +1162,20 @@ async function syncRiotAccount(
 
   let added = 0;
   for (const [index, id] of ids.entries()) {
+    if (syncCancelRequested) {
+      console.log("[sync] cancelled by user");
+      cancelled = true;
+      break;
+    }
     if (refreshExisting && index > 0) await sleep(500);
+    options.onProgress?.({
+      phase: "refreshing",
+      accountIndex,
+      accountTotal,
+      currentGame: index + 1,
+      totalGames: ids.length,
+      currentAccount: tag,
+    });
     const knownAlready = known.has(id);
     if (knownAlready && !refreshExisting) continue;
     let payload: any;
@@ -1142,7 +1208,8 @@ async function syncRiotAccount(
     added,
     scanned: ids.length,
     totalGames: db.getDashboardData().totalGames,
-    complete: ids.length < 10_000,
+    complete: !cancelled && ids.length < 10_000,
+    cancelled,
   };
 }
 

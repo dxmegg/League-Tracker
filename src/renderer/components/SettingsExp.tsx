@@ -17,6 +17,7 @@ import {
   type ExportProgress,
   type ImportProgress,
   type RiotAccountConfig,
+  type RiotSyncProgress,
 } from "../../shared/api";
 import { Panel } from "./Panel";
 
@@ -379,6 +380,7 @@ export function SettingsExp() {
   const [backfillStatus, setBackfillStatus] = useState<string | null>(null);
   const [riotSyncing, setRiotSyncing] = useState(false);
   const [riotSyncStatus, setRiotSyncStatus] = useState<string | null>(null);
+  const [riotSyncProgress, setRiotSyncProgress] = useState<RiotSyncProgress | null>(null);
   const [riotAccounts, setRiotAccounts] = useState<RiotAccountConfig[]>([]);
   const [riotGameName, setRiotGameName] = useState("");
   const [riotTagLine, setRiotTagLine] = useState("");
@@ -474,9 +476,13 @@ export function SettingsExp() {
     const offImport = window.api.onImportProgress((progress) => {
       setImportProgress(progress);
     });
+    const offRiotSync = window.api.onRiotSyncProgress((progress) => {
+      setRiotSyncProgress(progress);
+    });
     return () => {
       offExport();
       offImport();
+      offRiotSync();
     };
   }, []);
 
@@ -524,10 +530,13 @@ export function SettingsExp() {
   const handleRiotSync = useCallback(async () => {
     setRiotSyncing(true);
     setRiotSyncStatus(null);
+    setRiotSyncProgress(null);
     try {
       const result = await window.api.syncRiotHistory();
       if ("error" in result) {
         setRiotSyncStatus(`Error: ${result.error}`);
+      } else if (result.cancelled) {
+        setRiotSyncStatus(`Cancelled after ${result.scanned} game(s).`);
       } else {
         setRiotSyncStatus(
           `Synced ${result.added} new match(es) from ${result.scanned} scanned match(es).`,
@@ -575,10 +584,13 @@ export function SettingsExp() {
   const handleRiotRefresh = useCallback(async () => {
     setRiotSyncing(true);
     setRiotSyncStatus(null);
+    setRiotSyncProgress(null);
     try {
       const result = await window.api.syncRiotHistory({ refreshExisting: true });
       if ("error" in result) {
         setRiotSyncStatus(`Error: ${result.error}`);
+      } else if (result.cancelled) {
+        setRiotSyncStatus(`Cancelled after ${result.scanned} game(s).`);
       } else {
         setRiotSyncStatus(
           `Refreshed ${result.scanned} existing/new match(es); added ${result.added} new match(es).`,
@@ -589,6 +601,10 @@ export function SettingsExp() {
     } finally {
       setRiotSyncing(false);
     }
+  }, []);
+
+  const handleRiotCancel = useCallback(() => {
+    void window.api.riotCancelSync();
   }, []);
 
   const handleRepair = useCallback(async () => {
@@ -1113,8 +1129,36 @@ export function SettingsExp() {
             >
               {riotSyncing ? "Refreshing..." : "Refresh existing (Match-V5)"}
             </button>
+            {riotSyncing && (
+              <button
+                className="rounded border border-lol-loss/60 px-3 py-1.5 text-xs text-lol-loss hover:border-lol-loss"
+                onClick={handleRiotCancel}
+              >
+                Stop
+              </button>
+            )}
           </div>
         </div>
+        {riotSyncing && (
+          <div className="mt-2 space-y-1">
+            <div className="flex items-center justify-between text-xs text-lol-text">
+              <span>{riotSyncProgress?.currentAccount ?? "Starting..."}</span>
+              <span>
+                {riotSyncProgress
+                  ? `${riotSyncProgress.currentGame} / ${riotSyncProgress.totalGames} games`
+                  : ""}
+              </span>
+            </div>
+            <div className="h-1.5 w-full overflow-hidden rounded bg-black/30">
+              <div
+                className="h-full bg-emerald-500 transition-all"
+                style={{
+                  width: `${riotSyncProgress ? (riotSyncProgress.currentGame / Math.max(1, riotSyncProgress.totalGames)) * 100 : 0}%`,
+                }}
+              />
+            </div>
+          </div>
+        )}
         {riotSyncStatus && <p className="mt-1 text-xs text-lol-text">{riotSyncStatus}</p>}
       </Section>
 

@@ -1372,10 +1372,20 @@ export interface RiotSyncResult {
   scanned: number;
   totalGames: number;
   complete: boolean;
+  cancelled: boolean;
 }
 
 export interface RiotSyncOptions {
   refreshExisting?: boolean;
+}
+
+export interface RiotSyncProgress {
+  phase: string;
+  accountIndex: number;
+  accountTotal: number;
+  currentGame: number;
+  totalGames: number;
+  currentAccount: string;
 }
 
 export interface ResolvedPlatform {
@@ -1831,6 +1841,8 @@ export interface ElectronAPI {
   ) => Promise<unknown | { error: string }>;
   refreshGames: () => Promise<{ newGames: number; totalGames: number } | { error: string }>;
   syncRiotHistory: (options?: RiotSyncOptions) => Promise<RiotSyncResult | { error: string }>;
+  riotCancelSync: () => Promise<{ cancelled: true }>;
+  onRiotSyncProgress: (callback: (progress: RiotSyncProgress) => void) => () => void;
   listRiotAccounts: () => Promise<RiotAccountConfig[]>;
   addRiotAccount: (account: RiotAccountInput) => Promise<RiotAccountConfig[]>;
   removeRiotAccount: (id: string) => Promise<RiotAccountConfig[]>;

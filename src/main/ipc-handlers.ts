@@ -694,16 +694,26 @@ export function registerIpcHandlers() {
   });
 
   ipcMain.handle("riot:sync", async (event, options?: { refreshExisting?: boolean }) => {
+    const win = senderWindow(event);
     try {
       const result = await riot.syncRiotHistory({
         refreshExisting: options?.refreshExisting === true,
+        onProgress: (info) => {
+          if (win && !win.isDestroyed()) {
+            win.webContents.send("riot:sync-progress", info);
+          }
+        },
       });
       invalidateDashboardCache();
-      senderWindow(event)?.webContents.send("lcu:games-updated");
+      win?.webContents.send("lcu:games-updated");
       return result;
     } catch (err) {
       return { error: riot.friendlyRiotError(err, "match") };
     }
+  });
+  ipcMain.handle("riot:cancel-sync", () => {
+    riot.cancelRiotSync();
+    return { cancelled: true as const };
   });
   ipcMain.handle(
     "riot:recent-matches",

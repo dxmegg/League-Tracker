@@ -17,6 +17,7 @@ import type {
   ParticipantScoreBackfillProgress,
   RiotSyncResult,
   RiotSyncOptions,
+  RiotSyncProgress,
   RiotAccountConfig,
   RiotAccountInput,
   ResolvedPlatform,
@@ -313,6 +314,12 @@ const api: ElectronAPI = {
 
   syncRiotHistory: (options?: RiotSyncOptions): Promise<RiotSyncResult | { error: string }> =>
     ipcRenderer.invoke("riot:sync", options),
+  riotCancelSync: (): Promise<{ cancelled: true }> => ipcRenderer.invoke("riot:cancel-sync"),
+  onRiotSyncProgress: (callback: (progress: RiotSyncProgress) => void) => {
+    const handler = (_event: unknown, progress: RiotSyncProgress) => callback(progress);
+    ipcRenderer.on("riot:sync-progress", handler);
+    return () => ipcRenderer.removeListener("riot:sync-progress", handler);
+  },
   getProfileData: (gameName: string, tagLine: string, platform: string, force = false) =>
     ipcRenderer.invoke("riot:profile", gameName, tagLine, platform, force),
   getSummonerGameHistoryFromMcp: (gameName: string, tagLine: string, region: string) =>
