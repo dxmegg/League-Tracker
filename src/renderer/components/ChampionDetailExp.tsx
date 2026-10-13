@@ -4603,6 +4603,19 @@ function EconomyTab({
     minute,
     value: bucketAt(minute)?.avgLevel ?? null,
   }));
+  const levelChartMin = 5;
+  const levelChartMax = 16;
+  const levelChartLeft = 42;
+  const levelChartRight = 418;
+  const levelChartTop = 16;
+  const levelChartBottom = 146;
+  const levelChartX = (index: number) =>
+    levelChartLeft +
+    (index / Math.max(levelPoints.length - 1, 1)) * (levelChartRight - levelChartLeft);
+  const levelChartY = (level: number) =>
+    levelChartBottom -
+    ((level - levelChartMin) / (levelChartMax - levelChartMin)) *
+      (levelChartBottom - levelChartTop);
   const goldLeadBuckets: Array<[string, number, string]> = timeline?.goldLeadDistribution15
     ? [
         ["Behind 1000+", timeline.goldLeadDistribution15.behind1000plus, "#E5483F"],
@@ -4837,56 +4850,38 @@ function EconomyTab({
                   <div className="border-b border-lol-border/50 pb-2 font-semibold text-lol-text">
                     Gold diff by minute
                   </div>
-                  <svg
+                  <div
                     aria-label="Gold difference at five, ten, fifteen, twenty, twenty-five, and thirty minutes"
-                    className="h-32 w-full"
+                    className="flex flex-col gap-1.5 text-xs"
                     role="img"
-                    viewBox="0 0 160 120"
-                    preserveAspectRatio="none"
                   >
-                    <line
-                      x1="80"
-                      x2="80"
-                      y1="8"
-                      y2="112"
-                      stroke="currentColor"
-                      strokeOpacity="0.25"
-                    />
-                    {leadPoints.map((point, index) => {
+                    {leadPoints.map((point) => {
                       const valueAtPoint = point.value;
                       const width =
-                        valueAtPoint == null ? 0 : (Math.abs(valueAtPoint) / leadScale) * 68;
-                      const y = 10 + index * 20;
+                        valueAtPoint == null
+                          ? 0
+                          : Math.min(60, (Math.abs(valueAtPoint) / leadScale) * 60);
                       return (
-                        <g key={point.minute}>
-                          <text x="2" y={y + 4} fill="currentColor" fillOpacity="0.7" fontSize="9">
+                        <div
+                          key={point.minute}
+                          className="grid grid-cols-[2.5rem_minmax(0,1fr)_5rem] items-center gap-2"
+                        >
+                          <span className="text-right tabular-nums text-lol-text">
                             {point.minute}m
-                          </text>
-                          {valueAtPoint != null && (
-                            <rect
-                              x={valueAtPoint >= 0 ? 80 : 80 - width}
-                              y={y - 5}
-                              width={width}
-                              height="10"
-                              rx="3"
-                              fill={valueAtPoint >= 0 ? "#22C55E" : "#E5483F"}
-                              fillOpacity="0.8"
+                          </span>
+                          <div className="h-2 overflow-hidden rounded-full bg-black/20">
+                            <div
+                              className="h-full rounded-full bg-[#22C55E] transition-[width] duration-200"
+                              style={{ width: `${width}%` }}
                             />
-                          )}
-                          <text
-                            x="158"
-                            y={y + 4}
-                            fill="currentColor"
-                            fillOpacity="0.7"
-                            fontSize="9"
-                            textAnchor="end"
-                          >
-                            {value(valueAtPoint)}
-                          </text>
-                        </g>
+                          </div>
+                          <span className="text-right tabular-nums text-lol-text-bright">
+                            {value(valueAtPoint, 0)}
+                          </span>
+                        </div>
                       );
                     })}
-                  </svg>
+                  </div>
                 </div>
               </div>
             </Panel>
@@ -4897,79 +4892,97 @@ function EconomyTab({
               <p className="mb-3 text-[11px] text-lol-text/70">
                 Final level and average level progression through the game.
               </p>
-              <div className="grid gap-4 text-xs md:grid-cols-2">
-                <div className="min-w-0 overflow-x-auto">
-                  <EconomyStatTable
-                    rows={[
-                      {
-                        label: "Final level",
-                        avg: null,
-                        best: detail.maxChampLevel,
-                        wins: detail.maxChampLevelInWins,
-                        losses: detail.maxChampLevelInLosses,
-                        digits: 1,
-                      },
-                    ]}
-                  />
-                  <EconomyStatTable
-                    variant="compact"
-                    rows={[
-                      { label: "Level @5", avg: bucketAt(5)?.avgLevel, digits: 1 },
-                      { label: "Level @10", avg: bucketAt(10)?.avgLevel, digits: 1 },
-                      { label: "Level @15", avg: bucketAt(15)?.avgLevel, digits: 1 },
-                      { label: "Level @20", avg: bucketAt(20)?.avgLevel, digits: 1 },
-                      { label: "Level @25", avg: bucketAt(25)?.avgLevel, digits: 1 },
-                      { label: "Level @30", avg: bucketAt(30)?.avgLevel, digits: 1 },
-                    ]}
-                  />
-                </div>
-                <div className="flex flex-col gap-2">
-                  <div className="border-b border-lol-border/50 pb-2 font-semibold text-lol-text">
-                    Level progression
+              <div className="flex flex-col gap-4 text-xs">
+                <div className="text-xs">
+                  <div className="grid grid-cols-[minmax(0,1fr)_auto_auto_auto_auto] gap-3 border-b border-lol-border/50 pb-2 font-semibold text-lol-text">
+                    <span>Stat</span>
+                    <span className="text-right whitespace-nowrap">Avg / game</span>
+                    <span className="text-right whitespace-nowrap">Best game</span>
+                    <span className="text-right whitespace-nowrap">In wins</span>
+                    <span className="text-right whitespace-nowrap">In losses</span>
                   </div>
+                  <div className="grid grid-cols-[minmax(0,1fr)_auto_auto_auto_auto] items-baseline gap-3 py-2.5 text-lol-text-bright">
+                    <span>Final level</span>
+                    <span className="text-right tabular-nums text-lol-text/40">—</span>
+                    <span className="text-right tabular-nums">
+                      {formatPlain(detail.maxChampLevel, 1)}
+                    </span>
+                    <span className="text-right tabular-nums">
+                      {formatPlain(detail.maxChampLevelInWins, 1)}
+                    </span>
+                    <span className="text-right tabular-nums">
+                      {formatPlain(detail.maxChampLevelInLosses, 1)}
+                    </span>
+                  </div>
+                </div>
+                <div>
+                  <div className="mb-2 font-semibold text-lol-text">Level progression</div>
                   <svg
                     aria-label="Average level progression from five to thirty minutes"
-                    className="h-32 w-full"
+                    className="h-40 w-full"
                     role="img"
-                    viewBox="0 0 160 80"
+                    viewBox="0 0 440 180"
                     preserveAspectRatio="none"
                   >
-                    <line
-                      x1="14"
-                      x2="146"
-                      y1="42"
-                      y2="42"
-                      stroke="currentColor"
-                      strokeOpacity="0.25"
-                    />
+                    {[5, 8, 11, 14, 16].map((level) => {
+                      const y = levelChartY(level);
+                      return (
+                        <g key={level}>
+                          <line
+                            x1={levelChartLeft}
+                            x2={levelChartRight}
+                            y1={y}
+                            y2={y}
+                            stroke="currentColor"
+                            strokeOpacity="0.18"
+                            strokeDasharray="4 4"
+                          />
+                          <text
+                            x="34"
+                            y={y + 3}
+                            fill="currentColor"
+                            fillOpacity="0.7"
+                            fontSize="10"
+                            textAnchor="end"
+                          >
+                            {level}
+                          </text>
+                        </g>
+                      );
+                    })}
                     {levelPoints.map((point, index) => {
-                      const levelStep = 132 / (levelPoints.length - 1 || 1);
-                      const x = 14 + index * levelStep;
-                      const y = point.value == null ? 42 : 66 - (point.value / 18) * 48;
+                      const x = levelChartX(index);
+                      const y = point.value == null ? null : levelChartY(point.value);
+                      const previous = levelPoints[index - 1];
+                      const previousX = index > 0 ? levelChartX(index - 1) : 0;
+                      const previousY =
+                        previous?.value == null ? null : levelChartY(previous.value);
                       return (
                         <g key={point.minute}>
-                          {index > 0 &&
-                            levelPoints[index - 1].value != null &&
-                            point.value != null && (
-                              <line
-                                x1={x - levelStep}
-                                x2={x}
-                                y1={66 - (levelPoints[index - 1].value! / 18) * 48}
-                                y2={y}
-                                stroke="#C9A45C"
-                                strokeOpacity="0.65"
-                                strokeWidth="2"
-                              />
-                            )}
-                          {point.value != null && (
-                            <circle cx={x} cy={y} r="5" fill="#C9A45C" fillOpacity="0.9" />
+                          {y != null && previousY != null && (
+                            <line
+                              x1={previousX}
+                              x2={x}
+                              y1={previousY}
+                              y2={y}
+                              stroke="#C9A45C"
+                              strokeOpacity="0.9"
+                              strokeWidth="2.5"
+                            />
+                          )}
+                          {y != null && (
+                            <circle cx={x} cy={y} r="4.5" fill="#C9A45C" fillOpacity="0.95">
+                              <title>
+                                {point.minute}m: {formatPlain(point.value, 1)} average level
+                              </title>
+                            </circle>
                           )}
                           <text
                             x={x}
-                            y="76"
+                            y="169"
                             fill="currentColor"
                             fillOpacity="0.7"
-                            fontSize="9"
+                            fontSize="10"
                             textAnchor="middle"
                           >
                             {point.minute}m
@@ -4979,6 +4992,17 @@ function EconomyTab({
                     })}
                   </svg>
                 </div>
+                <EconomyStatTable
+                  variant="compact"
+                  rows={[
+                    { label: "Level @5", avg: bucketAt(5)?.avgLevel, digits: 1 },
+                    { label: "Level @10", avg: bucketAt(10)?.avgLevel, digits: 1 },
+                    { label: "Level @15", avg: bucketAt(15)?.avgLevel, digits: 1 },
+                    { label: "Level @20", avg: bucketAt(20)?.avgLevel, digits: 1 },
+                    { label: "Level @25", avg: bucketAt(25)?.avgLevel, digits: 1 },
+                    { label: "Level @30", avg: bucketAt(30)?.avgLevel, digits: 1 },
+                  ]}
+                />
               </div>
             </Panel>
           )}
@@ -5944,8 +5968,8 @@ function CombatStatTable({
     variant === "compact"
       ? "grid-cols-[minmax(0,1fr)_minmax(0,auto)]"
       : hideVsOther
-        ? "grid-cols-[minmax(0,1fr)_repeat(4,minmax(0,auto))]"
-        : "grid-cols-[minmax(0,1fr)_repeat(5,minmax(0,auto))]";
+        ? "grid-cols-[minmax(0,1fr)_auto_auto_auto_auto]"
+        : "grid-cols-[minmax(0,1fr)_auto_auto_auto_auto_auto]";
   return (
     <div className="flex flex-col gap-2 text-xs">
       <div
