@@ -115,6 +115,24 @@ const CHALLENGE_LABELS: Record<string, string> = {
   dodgeSkillShotsSmallWindow: "Dodge skillshots (small window)",
   saveAllyFromDeath: "Save ally from death",
   stealthWardsPlaced: "Stealth wards placed",
+  wardsPlaced: "Wards placed",
+  wardsKilled: "Wards killed",
+  controlWardsPlaced: "Control wards placed",
+  turretKills: "Turret kills",
+  inhibitorKills: "Inhibitor kills",
+  baronTakedowns: "Baron takedowns",
+  dragonTakedowns: "Dragon takedowns",
+  riftHeraldTakedowns: "Rift Herald takedowns",
+  takedownsFirstXMinutes: "Takedowns in first minutes",
+  multikills: "Multikills",
+  largestMultikill: "Largest multikill",
+  longestTimeSpentLiving: "Longest time spent living",
+  totalTimeCCDealt: "Total crowd control time",
+  damageTakenOnTeam: "Damage taken on team",
+  damageDealtToChampions: "Damage dealt to champions",
+  totalDamageDealt: "Total damage dealt",
+  totalDamageTaken: "Total damage taken",
+  minionsKilled: "Minions killed",
 };
 
 const STAT_LABEL_ORDER = [
@@ -1432,7 +1450,8 @@ function ChallengesPanel({
     );
   }
 
-  const metrics = aggregates.metrics.slice(0, 15);
+  const [showAll, setShowAll] = useState(false);
+  const metrics = showAll ? aggregates.metrics : aggregates.metrics.slice(0, 15);
   return (
     <Panel className={TAB_PANEL_CLASSES.sapphire}>
       <SectionHeading title="Challenges" source="m" />
@@ -1477,6 +1496,16 @@ function ChallengesPanel({
           </tbody>
         </table>
       </div>
+      {aggregates.metrics.length > 15 && (
+        <button
+          type="button"
+          className="mt-3 rounded-md border border-lol-border px-3 py-1.5 text-xs font-semibold text-lol-text-bright transition-colors duration-[120ms] hover:border-lol-crimson hover:bg-white/[0.04]"
+          onClick={() => setShowAll((expanded) => !expanded)}
+          aria-expanded={showAll}
+        >
+          {showAll ? "Show top 15" : `Show all (${formatPlain(aggregates.metrics.length, 0)})`}
+        </button>
+      )}
     </Panel>
   );
 }
