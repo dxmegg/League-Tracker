@@ -277,6 +277,22 @@ export function registerIpcHandlers() {
     },
   );
 
+  ipcMain.handle(
+    "db:get-champion-challenge-aggregates",
+    (_event, puuid: string, championId: number) => {
+      console.log("[db] get-champion-challenge-aggregates handler called:", { puuid, championId });
+      if (typeof puuid !== "string" || !Number.isInteger(championId) || championId <= 0) {
+        throw new TypeError("puuid and championId are required");
+      }
+      const result = db.getChampionChallengeAggregates(puuid, championId);
+      console.log("[db] get-champion-challenge-aggregates handler done:", {
+        gamesWithChallenges: result.gamesWithChallenges,
+        metrics: result.metrics.length,
+      });
+      return result;
+    },
+  );
+
   ipcMain.handle("db:get-champion-team-objectives", (_event, puuid: string, championId: number) => {
     if (typeof puuid !== "string" || !Number.isInteger(championId) || championId <= 0) {
       throw new TypeError("puuid and championId are required");

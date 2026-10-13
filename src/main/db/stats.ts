@@ -3111,6 +3111,59 @@ export interface ChampionTeamObjectives {
   };
 }
 
+export function getChampionChallengeAggregates(
+  puuid: string,
+  championId: number,
+): {
+  gamesWithChallenges: number;
+  metrics: Array<{
+    key: string;
+    avg: number | null;
+    best: number | null;
+    games: number;
+  }>;
+} {
+  console.log("[db] getChampionChallengeAggregates called:", { puuid, championId });
+  const participantFilter =
+    puuid === "all" ? "p.puuid IN (SELECT puuid FROM summoner)" : "p.puuid = ?";
+  const params = puuid === "all" ? [championId] : [puuid, championId];
+  const gamesWithChallenges = db
+    .prepare(
+      `SELECT COUNT(DISTINCT c.game_id) AS games
+       FROM match_participant_challenges c
+       JOIN match_participants p
+         ON p.game_id = c.game_id AND p.participant_id = c.participant_id
+       WHERE ${participantFilter} AND p.champion_id = ?`,
+    )
+    .get(...params) as { games: number };
+  const metrics = db
+    .prepare(
+      `SELECT
+         c.challenge_key AS key,
+         AVG(c.value) AS avg,
+         MAX(c.value) AS best,
+         COUNT(*) AS games
+       FROM match_participant_challenges c
+       JOIN match_participants p
+         ON p.game_id = c.game_id AND p.participant_id = c.participant_id
+       WHERE ${participantFilter} AND p.champion_id = ?
+       GROUP BY c.challenge_key
+       ORDER BY games DESC`,
+    )
+    .all(...params) as Array<{
+    key: string;
+    avg: number | null;
+    best: number | null;
+    games: number;
+  }>;
+  const result = { gamesWithChallenges: gamesWithChallenges.games, metrics };
+  console.log("[db] getChampionChallengeAggregates done:", {
+    gamesWithChallenges: result.gamesWithChallenges,
+    metrics: result.metrics.length,
+  });
+  return result;
+}
+
 export function getChampionTeamObjectives(
   puuid: string,
   championId: number,

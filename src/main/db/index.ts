@@ -109,6 +109,7 @@ export {
   getOwnedRuneStats,
   getGlobalChampionDetail,
   getChampionDetailStats,
+  getChampionChallengeAggregates,
   getChampionTeamObjectives,
   getChampionStatBaseline,
   getChampionSkillOrders,

@@ -2,6 +2,7 @@ import { contextBridge, ipcRenderer } from "electron";
 import type {
   BackfillProgress,
   BackfillResult,
+  ChampionChallengeAggregates,
   ChampionDetailStats,
   ActivityHeatmapDay,
   ChampionStatBaseline,
@@ -162,6 +163,12 @@ const api: ElectronAPI = {
     account?: string,
   ): Promise<ChampionDetailStats> =>
     ipcRenderer.invoke("db:champion-detail-stats", championId, patch, queue, account),
+
+  getChampionChallengeAggregates: (
+    puuid: string,
+    championId: number,
+  ): Promise<ChampionChallengeAggregates> =>
+    ipcRenderer.invoke("db:get-champion-challenge-aggregates", puuid, championId),
 
   getChampionTeamObjectives: (puuid: string, championId: number): Promise<ChampionTeamObjectives> =>
     ipcRenderer.invoke("db:get-champion-team-objectives", puuid, championId),

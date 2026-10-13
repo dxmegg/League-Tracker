@@ -599,6 +599,18 @@ export interface ChampionTeamObjectives {
 
 export type ChampionStatBaseline = Record<string, number | null>;
 
+export interface ChampionChallengeMetric {
+  key: string;
+  avg: number | null;
+  best: number | null;
+  games: number;
+}
+
+export interface ChampionChallengeAggregates {
+  gamesWithChallenges: number;
+  metrics: ChampionChallengeMetric[];
+}
+
 export interface ChampionSkillOrder {
   order: string;
   picks: number;
@@ -1639,6 +1651,10 @@ export interface ElectronAPI {
     queue?: number,
     account?: string,
   ) => Promise<ChampionDetailStats>;
+  getChampionChallengeAggregates: (
+    puuid: string,
+    championId: number,
+  ) => Promise<ChampionChallengeAggregates>;
   getChampionTeamObjectives: (puuid: string, championId: number) => Promise<ChampionTeamObjectives>;
   getChampionStatBaseline: (
     championId: number,

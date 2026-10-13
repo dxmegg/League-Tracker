@@ -3,6 +3,7 @@ import { useNavigate, useParams } from "react-router-dom";
 import type {
   AugmentStats,
   ChampionAllyRow,
+  ChampionChallengeAggregates,
   ChampionDetailStats,
   ChampionTeamObjectives,
   ChampionKeystoneStat,
@@ -97,6 +98,23 @@ const AUGMENT_ACCENTS: Record<string, string> = {
   kSilver: "#94A3B8",
   kGold: "#EAB308",
   kPrismatic: "#D946EF",
+};
+
+const CHALLENGE_LABELS: Record<string, string> = {
+  soloKills: "Solo kills",
+  damagePerMinute: "DPM",
+  goldPerMinute: "GPM",
+  visionScorePerMinute: "Vision score / min",
+  skillshotsHit: "Skillshots hit",
+  skillshotsDodged: "Skillshots dodged",
+  epicMonsterSteals: "Epic monster steals",
+  turretPlatesTaken: "Turret plates taken",
+  killParticipation: "Kill participation",
+  teamDamagePercentage: "Team damage %",
+  effectiveHealAndShielding: "Effective heal + shield",
+  dodgeSkillShotsSmallWindow: "Dodge skillshots (small window)",
+  saveAllyFromDeath: "Save ally from death",
+  stealthWardsPlaced: "Stealth wards placed",
 };
 
 const STAT_LABEL_ORDER = [
@@ -200,6 +218,14 @@ export function ChampionDetailExp() {
     () => window.api.getChampionDetailStats(id, patch, scopedQueue, account),
     [id, patch, scopedQueue, account],
   );
+  const { data: challengeAggregates, loading: challengeAggregatesLoading } =
+    useIpc<ChampionChallengeAggregates>(
+      () =>
+        id == null
+          ? Promise.resolve({ gamesWithChallenges: 0, metrics: [] })
+          : window.api.getChampionChallengeAggregates(account, id),
+      [account, id],
+    );
   const { data: statBaseline } = useIpc<ChampionStatBaseline>(
     () =>
       combatActive || economyActive || objectivesActive || visionActive
@@ -817,6 +843,8 @@ export function ChampionDetailExp() {
           matchHistory={matchHistory}
           championName={name}
           champData={champData}
+          challengeAggregates={challengeAggregates}
+          challengeAggregatesLoading={challengeAggregatesLoading}
         />
       ) : activeTab === "cb" ? (
         <CombatTab
@@ -1379,6 +1407,80 @@ export function MatchesTab({
   );
 }
 
+function ChallengesPanel({
+  aggregates,
+  loading,
+}: {
+  aggregates: ChampionChallengeAggregates | null;
+  loading: boolean;
+}) {
+  if (loading) {
+    return (
+      <Panel className={TAB_PANEL_CLASSES.sapphire}>
+        <SectionHeading title="Challenges" source="m" />
+        <SectionLoading />
+      </Panel>
+    );
+  }
+
+  if (!aggregates || aggregates.gamesWithChallenges === 0) {
+    return (
+      <Panel className={TAB_PANEL_CLASSES.sapphire}>
+        <SectionHeading title="Challenges" source="m" />
+        <EmptyState text="No challenge data for this champion. Challenges require Match-V5 sync (Settings → Riot Match-V5 sync)." />
+      </Panel>
+    );
+  }
+
+  const metrics = aggregates.metrics.slice(0, 15);
+  return (
+    <Panel className={TAB_PANEL_CLASSES.sapphire}>
+      <SectionHeading title="Challenges" source="m" />
+      <p className="mb-3 text-[11px] text-lol-text/70">
+        Top challenge metrics across {formatPlain(aggregates.gamesWithChallenges, 0)} games with
+        Match-V5 data.
+      </p>
+      <div className="overflow-x-auto">
+        <table className="w-full min-w-[30rem] text-xs">
+          <thead>
+            <tr className="border-b border-lol-border/50 text-left text-lol-text">
+              <th className="px-3 py-2 font-semibold">Challenge</th>
+              <th className="px-3 py-2 text-right font-semibold">Avg</th>
+              <th className="px-3 py-2 text-right font-semibold">Best</th>
+              <th className="px-3 py-2 text-right font-semibold">Games</th>
+            </tr>
+          </thead>
+          <tbody>
+            {metrics.map((metric) => (
+              <tr
+                key={metric.key}
+                className="border-b border-white/[0.04] transition-colors duration-[120ms] hover:bg-white/[0.025]"
+              >
+                <td className="px-3 py-2 text-lol-text-bright">
+                  {CHALLENGE_LABELS[metric.key] ?? metric.key}
+                </td>
+                <td className="px-3 py-2 text-right tabular-nums text-lol-text-bright">
+                  {metric.avg == null ? "—" : formatPlain(metric.avg, 2)}
+                </td>
+                <td className="px-3 py-2 text-right tabular-nums text-lol-text-bright">
+                  {metric.best == null
+                    ? "—"
+                    : Number.isInteger(metric.best)
+                      ? formatPlain(metric.best, 0)
+                      : formatPlain(metric.best, 2)}
+                </td>
+                <td className="px-3 py-2 text-right tabular-nums text-lol-text">
+                  {formatPlain(metric.games, 0)}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </Panel>
+  );
+}
+
 function OverviewTab({
   globalDetail,
   globalDetailLoading,
@@ -1410,6 +1512,8 @@ function OverviewTab({
   matchHistory,
   championName,
   champData,
+  challengeAggregates,
+  challengeAggregatesLoading,
 }: {
   globalDetail: GlobalChampionDetail | null;
   globalDetailLoading: boolean;
@@ -1452,6 +1556,8 @@ function OverviewTab({
   matchHistory: { matches: MatchListItem[]; total: number } | null;
   championName: string;
   champData: ReturnType<typeof useChampionData>;
+  challengeAggregates: ChampionChallengeAggregates | null;
+  challengeAggregatesLoading: boolean;
 }) {
   const baseline =
     globalDetail && globalDetail.games > 0 ? (globalDetail.wins / globalDetail.games) * 100 : null;
@@ -1496,6 +1602,9 @@ function OverviewTab({
     <div className="grid grid-cols-1 gap-5 xl:grid-cols-2">
       <div className="xl:col-span-2">
         <SectionHeading title="Detailed statistics" />
+      </div>
+      <div className="xl:col-span-2">
+        <ChallengesPanel aggregates={challengeAggregates} loading={challengeAggregatesLoading} />
       </div>
       <Panel className={`xl:col-span-2 ${TAB_PANEL_CLASSES.crimson}`}>
         <div className="flex flex-wrap items-center justify-between gap-3">
