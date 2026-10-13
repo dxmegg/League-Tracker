@@ -471,7 +471,7 @@ export default function Records() {
             {accountSelect}
           </div>
         </div>
-        <div className="rounded-lg border border-lol-crimson/40 bg-[linear-gradient(145deg,#0c0e11_0%,#090b0d_48%,#060809_100%)] shadow-[0_0_3px_rgba(150,30,30,0.55),0_0_10px_rgba(90,15,15,0.35),0_0_20px_rgba(60,10,10,0.20)] ring-1 ring-inset ring-white/[0.03] p-12 text-center">
+        <div className="rounded-lg border border-lol-crimson/40 border-t-[3px] border-t-lol-crimson bg-[radial-gradient(circle_at_top_right,rgba(165,15,21,0.08),transparent_42%),linear-gradient(145deg,#0c0e11_0%,#090b0d_48%,#060809_100%)] shadow-[0_0_3px_rgba(150,30,30,0.55),0_0_10px_rgba(90,15,15,0.35),0_0_20px_rgba(60,10,10,0.20)] ring-1 ring-inset ring-white/[0.03] p-12 text-center">
           <p className="text-sm text-lol-text">Loading records…</p>
         </div>
       </div>
@@ -487,7 +487,7 @@ export default function Records() {
             {accountSelect}
           </div>
         </div>
-        <div className="rounded-lg border border-lol-crimson/40 bg-[linear-gradient(145deg,#0c0e11_0%,#090b0d_48%,#060809_100%)] shadow-[0_0_3px_rgba(150,30,30,0.55),0_0_10px_rgba(90,15,15,0.35),0_0_20px_rgba(60,10,10,0.20)] ring-1 ring-inset ring-white/[0.03] p-12 text-center">
+        <div className="rounded-lg border border-lol-crimson/40 border-t-[3px] border-t-lol-crimson bg-[radial-gradient(circle_at_top_right,rgba(165,15,21,0.08),transparent_42%),linear-gradient(145deg,#0c0e11_0%,#090b0d_48%,#060809_100%)] shadow-[0_0_3px_rgba(150,30,30,0.55),0_0_10px_rgba(90,15,15,0.35),0_0_20px_rgba(60,10,10,0.20)] ring-1 ring-inset ring-white/[0.03] p-12 text-center">
           <p className="text-sm font-semibold text-lol-text-bright">No records yet</p>
           <p className="text-xs text-lol-text mt-1">Play more matches to set personal bests.</p>
         </div>
@@ -517,16 +517,21 @@ export default function Records() {
         </div>
       </div>
 
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 items-stretch">
-        {cards.map(({ key, ...card }, tileIndex) => (
-          <RecordCard
-            key={key}
-            {...card}
-            tileIndex={tileIndex}
-            champData={champData}
-            onOpen={setOpenMatch}
-          />
-        ))}
+      <div>
+        <h2 className="relative mb-3 pl-4 text-xs font-bold uppercase tracking-wider text-lol-gold before:absolute before:left-0 before:top-1/2 before:h-2 before:w-2 before:-translate-y-1/2 before:rotate-45 before:bg-lol-crimson">
+          Personal bests
+        </h2>
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 items-stretch">
+          {cards.map(({ key, ...card }, tileIndex) => (
+            <RecordCard
+              key={key}
+              {...card}
+              tileIndex={tileIndex}
+              champData={champData}
+              onOpen={setOpenMatch}
+            />
+          ))}
+        </div>
       </div>
 
       {openMatch && (

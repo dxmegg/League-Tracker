@@ -68,14 +68,22 @@ export function TrendsExp({ data }: { data: TrendsData | null }) {
     : [];
 
   if (!data) {
-    return <div className="py-12 text-center text-sm text-lol-text">Loading trends…</div>;
+    return (
+      <div className="relative overflow-hidden rounded-xl border border-lol-border border-t-[3px] border-t-[#E5483F] bg-[radial-gradient(circle_at_top_right,rgba(229,72,63,0.10),transparent_46%),linear-gradient(180deg,#151012,#0b0d10)] p-12 text-center before:pointer-events-none before:absolute before:inset-x-0 before:top-0 before:h-10 before:bg-[linear-gradient(180deg,rgba(229,72,63,0.05),transparent)]">
+        <p className="relative text-sm text-lol-text">Loading trends…</p>
+      </div>
+    );
   }
 
   if (data.daily.length === 0) {
     return (
-      <div className="py-12 text-center">
-        <p className="text-sm font-semibold text-lol-text-bright">No trend data for this scope</p>
-        <p className="mt-1 text-xs text-lol-text">Sync more matches to build your trends.</p>
+      <div className="relative overflow-hidden rounded-xl border border-lol-border border-t-[3px] border-t-[#E5483F] bg-[radial-gradient(circle_at_top_right,rgba(229,72,63,0.10),transparent_46%),linear-gradient(180deg,#151012,#0b0d10)] p-12 text-center before:pointer-events-none before:absolute before:inset-x-0 before:top-0 before:h-10 before:bg-[linear-gradient(180deg,rgba(229,72,63,0.05),transparent)]">
+        <p className="relative text-sm font-semibold text-lol-text-bright">
+          No trend data for this scope
+        </p>
+        <p className="relative mt-1 text-xs text-lol-text">
+          Sync more matches to build your trends.
+        </p>
       </div>
     );
   }
@@ -85,17 +93,19 @@ export function TrendsExp({ data }: { data: TrendsData | null }) {
 
   return (
     <div className="mx-auto flex min-h-full w-full max-w-[1320px] flex-col gap-5">
-      <div>
-        <h1 className="font-display text-[30px] font-bold leading-tight tracking-[0.2px] text-lol-text-bright">
+      <div className="relative overflow-hidden rounded-xl border border-lol-border border-t-[3px] border-t-[#E5483F] bg-[radial-gradient(circle_at_top_right,rgba(229,72,63,0.10),transparent_46%),linear-gradient(180deg,#151012,#0b0d10)] px-5 py-4 before:pointer-events-none before:absolute before:inset-x-0 before:top-0 before:h-10 before:bg-[linear-gradient(180deg,rgba(229,72,63,0.05),transparent)]">
+        <h1 className="relative pl-4 font-display text-[30px] font-bold leading-tight tracking-[0.2px] text-lol-text-bright before:absolute before:left-0 before:top-1/2 before:h-2.5 before:w-2.5 before:-translate-y-1/2 before:rotate-45 before:bg-[#E5483F]">
           Trends
         </h1>
-        <p className="mt-1.5 text-lol-text">How your last 12 weeks look</p>
+        <p className="relative mt-1.5 pl-4 text-lol-text">How your last 12 weeks look</p>
       </div>
 
       <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
-        <Panel>
+        <Panel className="border-t-[3px] border-t-[#E5483F] bg-[radial-gradient(circle_at_top_right,rgba(229,72,63,0.08),transparent_48%),linear-gradient(180deg,var(--theme-card-hover),var(--theme-card))]">
           <div className="mb-3 flex items-baseline justify-between">
-            <h2 className="font-display text-xl font-semibold text-lol-text-bright">Win rate</h2>
+            <h2 className="relative pl-4 font-display text-xl font-semibold text-lol-text-bright before:absolute before:left-0 before:top-1/2 before:h-2 before:w-2 before:-translate-y-1/2 before:rotate-45 before:bg-lol-crimson">
+              Win rate
+            </h2>
             <span className="text-xs uppercase tracking-wider text-lol-text">
               Now {currentWinRate.toFixed(1)}%
             </span>
@@ -109,9 +119,11 @@ export function TrendsExp({ data }: { data: TrendsData | null }) {
           />
         </Panel>
 
-        <Panel>
+        <Panel className="border-t-[3px] border-t-[#C9A45C] bg-[radial-gradient(circle_at_top_right,rgba(201,164,92,0.08),transparent_48%),linear-gradient(180deg,var(--theme-card-hover),var(--theme-card))]">
           <div className="mb-3 flex items-baseline justify-between">
-            <h2 className="font-display text-xl font-semibold text-lol-text-bright">Average KDA</h2>
+            <h2 className="relative pl-4 font-display text-xl font-semibold text-lol-text-bright before:absolute before:left-0 before:top-1/2 before:h-2 before:w-2 before:-translate-y-1/2 before:rotate-45 before:bg-lol-crimson">
+              Average KDA
+            </h2>
             <span className="text-xs uppercase tracking-wider text-lol-text">
               Now {currentKda.toFixed(2)}
             </span>
@@ -125,9 +137,9 @@ export function TrendsExp({ data }: { data: TrendsData | null }) {
           />
         </Panel>
 
-        <Panel>
+        <Panel className="border-t-[3px] border-t-[#22C55E] bg-[radial-gradient(circle_at_top_right,rgba(34,197,94,0.08),transparent_48%),linear-gradient(180deg,var(--theme-card-hover),var(--theme-card))]">
           <div className="mb-3 flex items-baseline justify-between">
-            <h2 className="font-display text-xl font-semibold text-lol-text-bright">
+            <h2 className="relative pl-4 font-display text-xl font-semibold text-lol-text-bright before:absolute before:left-0 before:top-1/2 before:h-2 before:w-2 before:-translate-y-1/2 before:rotate-45 before:bg-lol-crimson">
               Average score
             </h2>
             <span className="text-xs uppercase tracking-wider text-lol-text">out of 10</span>
@@ -141,9 +153,9 @@ export function TrendsExp({ data }: { data: TrendsData | null }) {
           />
         </Panel>
 
-        <Panel>
+        <Panel className="border-t-[3px] border-t-[#3B82F6] bg-[radial-gradient(circle_at_top_right,rgba(59,130,246,0.08),transparent_48%),linear-gradient(180deg,var(--theme-card-hover),var(--theme-card))]">
           <div className="mb-3 flex items-baseline justify-between">
-            <h2 className="font-display text-xl font-semibold text-lol-text-bright">
+            <h2 className="relative pl-4 font-display text-xl font-semibold text-lol-text-bright before:absolute before:left-0 before:top-1/2 before:h-2 before:w-2 before:-translate-y-1/2 before:rotate-45 before:bg-lol-crimson">
               Games by weekday
             </h2>
             <span className="text-xs uppercase tracking-wider text-lol-text">Last 12 weeks</span>

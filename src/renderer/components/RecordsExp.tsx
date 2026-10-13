@@ -19,7 +19,7 @@ function DecimalRecordTile({
   });
 
   return (
-    <div className="flex flex-col rounded-xl border border-lol-border bg-black/10 px-3.5 py-3">
+    <div className="flex flex-col rounded-xl border border-lol-border border-t-[3px] border-t-lol-gold bg-[radial-gradient(circle_at_top_right,rgba(201,164,92,0.08),transparent_55%),linear-gradient(180deg,var(--theme-card-hover),var(--theme-card))] px-3.5 py-3 transition-colors duration-[120ms] hover:bg-white/[0.02]">
       <span className="text-[12.5px] uppercase tracking-wider text-lol-text">{label}</span>
       <b className="my-0.5 font-display text-[28px] font-bold leading-tight text-lol-text-bright">
         {value.toFixed(2)}
@@ -37,7 +37,7 @@ function DecimalRecordTile({
 
 function StreakTile({ label, streak }: { label: string; streak: StreakRecord }) {
   return (
-    <div className="flex flex-col rounded-xl border border-lol-border bg-black/10 px-3.5 py-3">
+    <div className="flex flex-col rounded-xl border border-lol-border border-t-[3px] border-t-lol-violet bg-[radial-gradient(circle_at_top_right,rgba(168,85,247,0.08),transparent_55%),linear-gradient(180deg,var(--theme-card-hover),var(--theme-card))] px-3.5 py-3 transition-colors duration-[120ms] hover:bg-white/[0.02]">
       <span className="text-[12.5px] uppercase tracking-wider text-lol-text">{label}</span>
       <b className="my-0.5 font-display text-[28px] font-bold leading-tight text-lol-text-bright">
         {streak.length} games
@@ -79,14 +79,20 @@ function StandardRecordTile({
 
 export function RecordsExp({ data }: { data: RecordsData | null }) {
   if (!data) {
-    return <div className="py-12 text-center text-sm text-lol-text">Loading records…</div>;
+    return (
+      <div className="relative overflow-hidden rounded-xl border border-lol-border border-t-[3px] border-t-[#E5483F] bg-[radial-gradient(circle_at_top_right,rgba(229,72,63,0.10),transparent_46%),linear-gradient(180deg,#151012,#0b0d10)] p-12 text-center">
+        <p className="relative text-sm text-lol-text">Loading records…</p>
+      </div>
+    );
   }
 
   if (data.totalGames === 0) {
     return (
-      <div className="py-12 text-center">
-        <p className="text-sm font-semibold text-lol-text-bright">No records yet</p>
-        <p className="mt-1 text-xs text-lol-text">Play more matches to set personal bests.</p>
+      <div className="relative overflow-hidden rounded-xl border border-lol-border border-t-[3px] border-t-[#E5483F] bg-[radial-gradient(circle_at_top_right,rgba(229,72,63,0.10),transparent_46%),linear-gradient(180deg,#151012,#0b0d10)] p-12 text-center">
+        <p className="relative text-sm font-semibold text-lol-text-bright">No records yet</p>
+        <p className="relative mt-1 text-xs text-lol-text">
+          Play more matches to set personal bests.
+        </p>
       </div>
     );
   }
@@ -174,13 +180,18 @@ export function RecordsExp({ data }: { data: RecordsData | null }) {
 
   return (
     <div className="mx-auto flex min-h-full w-full max-w-[1320px] flex-col gap-5">
-      <div>
-        <h1 className="font-display text-[30px] font-bold leading-tight tracking-[0.2px] text-lol-text-bright">
+      <div className="relative overflow-hidden rounded-xl border border-lol-border border-t-[3px] border-t-[#E5483F] bg-[radial-gradient(circle_at_top_right,rgba(229,72,63,0.10),transparent_46%),linear-gradient(180deg,#151012,#0b0d10)] px-5 py-4">
+        <h1 className="relative pl-4 font-display text-[30px] font-bold leading-tight tracking-[0.2px] text-lol-text-bright before:absolute before:left-0 before:top-1/2 before:h-2.5 before:w-2.5 before:-translate-y-1/2 before:rotate-45 before:bg-[#E5483F]">
           Records
         </h1>
-        <p className="mt-1.5 text-lol-text">Personal bests across all accounts</p>
+        <p className="relative mt-1.5 pl-4 text-lol-text">Personal bests across all accounts</p>
       </div>
-      <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">{tiles}</div>
+      <div>
+        <h2 className="relative mb-3 pl-4 text-xs font-bold uppercase tracking-wider text-lol-gold before:absolute before:left-0 before:top-1/2 before:h-2 before:w-2 before:-translate-y-1/2 before:rotate-45 before:bg-lol-crimson">
+          Personal bests
+        </h2>
+        <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">{tiles}</div>
+      </div>
     </div>
   );
 }
