@@ -1,6 +1,6 @@
 import { db } from "../db";
 import { getAllPuuids } from "./summoner";
-import { getCachedOwnedItemStats, setCachedOwnedItemStats } from "./cache";
+import { cachedQuery, getCachedOwnedItemStats, setCachedOwnedItemStats } from "./cache";
 import zlib from "zlib";
 import { NO_STATS_QUEUE_IDS } from "../../shared/queues";
 import { computeMatchScores } from "../../shared/opScore";
@@ -96,19 +96,24 @@ export function getChampionStatsAll(
   account?: string,
   timePeriod?: "24h" | "7d" | "30d" | "full",
 ): any[] {
-  const source = statsSource(account);
-  const where = ["g.is_remake = 0"];
-  where.push(source.accountFilter);
-  const params: any[] = account && account !== "all" ? [account] : [];
-  if (patch) {
-    where.push("g.game_version = ?");
-    params.push(patch);
-  }
-  applyQueueFilter(where, params, queue);
-  const timeFilter = applyTimeFilter(timePeriod);
-  const statsPlaceholders = NO_STATS_QUEUE_IDS.map(() => "?").join(",");
-  return db
-    .prepare(`
+  return cachedQuery(
+    "getChampionStatsAll",
+    [patch, Array.isArray(queue) ? queue.join(",") : queue, account, timePeriod],
+    60_000,
+    () => {
+      const source = statsSource(account);
+      const where = ["g.is_remake = 0"];
+      where.push(source.accountFilter);
+      const params: any[] = account && account !== "all" ? [account] : [];
+      if (patch) {
+        where.push("g.game_version = ?");
+        params.push(patch);
+      }
+      applyQueueFilter(where, params, queue);
+      const timeFilter = applyTimeFilter(timePeriod);
+      const statsPlaceholders = NO_STATS_QUEUE_IDS.map(() => "?").join(",");
+      return db
+        .prepare(`
     SELECT
       ps.champion_id,
       COUNT(*) as games,
@@ -136,7 +141,9 @@ export function getChampionStatsAll(
     GROUP BY ps.champion_id
     ORDER BY games DESC
   `)
-    .all(...params, ...timeFilter.params, ...NO_STATS_QUEUE_IDS);
+        .all(...params, ...timeFilter.params, ...NO_STATS_QUEUE_IDS);
+    },
+  );
 }
 
 export function getActivityHeatmap(account?: string): ActivityHeatmapDay[] {
@@ -639,25 +646,26 @@ export function getChampionMatchupList(
   queue?: number,
   account?: string,
 ): ChampionMatchupRow[] {
-  console.log("[db] getChampionMatchupList called:", { championId, patch, queue, account });
+  return cachedQuery("getChampionMatchupList", [championId, patch, queue, account], 30_000, () => {
+    console.log("[db] getChampionMatchupList called:", { championId, patch, queue, account });
 
-  const participant = participantFilter(patch, undefined, "owner");
-  const ownerFilter =
-    account === "all"
-      ? "owner.puuid IN (SELECT puuid FROM summoner)"
-      : account
-        ? "owner.puuid = ?"
-        : "owner.puuid = g.puuid";
-  const where = [ownerFilter, participant.sql];
-  if (championId !== null) where.push("owner.champion_id = ?");
-  const params: any[] = [];
-  if (account && account !== "all") params.push(account);
-  params.push(...participant.params);
-  if (championId !== null) params.push(championId);
-  applyQueueFilter(where, params, queue, "g");
+    const participant = participantFilter(patch, undefined, "owner");
+    const ownerFilter =
+      account === "all"
+        ? "owner.puuid IN (SELECT puuid FROM summoner)"
+        : account
+          ? "owner.puuid = ?"
+          : "owner.puuid = g.puuid";
+    const where = [ownerFilter, participant.sql];
+    if (championId !== null) where.push("owner.champion_id = ?");
+    const params: any[] = [];
+    if (account && account !== "all") params.push(account);
+    params.push(...participant.params);
+    if (championId !== null) params.push(championId);
+    applyQueueFilter(where, params, queue, "g");
 
-  const rows = db
-    .prepare(`
+    const rows = db
+      .prepare(`
       WITH owner_rows AS (
         SELECT owner.game_id,
                owner.participant_id AS ownerParticipantId,
@@ -769,10 +777,11 @@ export function getChampionMatchupList(
       HAVING games >= 1
       ORDER BY games DESC, championId ASC
     `)
-    .all(...params) as ChampionMatchupRow[];
+      .all(...params) as ChampionMatchupRow[];
 
-  console.log("[db] getChampionMatchupList done:", { count: rows.length });
-  return rows;
+    console.log("[db] getChampionMatchupList done:", { count: rows.length });
+    return rows;
+  });
 }
 
 export function getChampionAllyStats(
@@ -1240,75 +1249,77 @@ export function getAugmentStatsWithChampions(
     champions: { champion_id: number; picks: number; wins: number }[];
   }[];
 } {
-  const source = statsSource(account);
-  const where = ["g.is_remake = 0", source.accountFilter];
-  const params: any[] = account && account !== "all" ? [account] : [];
-  if (patch) {
-    where.push("g.game_version = ?");
-    params.push(patch);
-  }
-  applyQueueFilter(where, params, queue);
-  where.push(`g.queue_id NOT IN (${EXCLUDED_STATS_SQL})`);
-  const augmentId = account ? "mpa.augment_id" : "ga.augment_id";
-  const augmentSource = account
-    ? `FROM match_participant_augments mpa
+  return cachedQuery("getAugmentStatsWithChampions", [patch, queue, account], 60_000, () => {
+    const source = statsSource(account);
+    const where = ["g.is_remake = 0", source.accountFilter];
+    const params: any[] = account && account !== "all" ? [account] : [];
+    if (patch) {
+      where.push("g.game_version = ?");
+      params.push(patch);
+    }
+    applyQueueFilter(where, params, queue);
+    where.push(`g.queue_id NOT IN (${EXCLUDED_STATS_SQL})`);
+    const augmentId = account ? "mpa.augment_id" : "ga.augment_id";
+    const augmentSource = account
+      ? `FROM match_participant_augments mpa
        JOIN match_participants mp
          ON mp.game_id = mpa.game_id
         AND mp.participant_id = mpa.participant_id
         AND mp.puuid = ps.puuid
        JOIN ${source.table} ${source.alias} ON mpa.game_id = ps.game_id
        JOIN games g ON mpa.game_id = g.game_id`
-    : `FROM game_augments ga
+      : `FROM game_augments ga
        JOIN ${source.table} ${source.alias} ON ga.game_id = ps.game_id
        JOIN games g ON ga.game_id = g.game_id`;
-  const augments = db
-    .prepare(`
+    const augments = db
+      .prepare(`
     SELECT ${augmentId} as augment_id, COUNT(*) as picks, SUM(ps.win) as wins
     ${augmentSource}
     WHERE ${where.join(" AND ")}
     GROUP BY ${augmentId}
     ORDER BY picks DESC
   `)
-    .all(...params) as { augment_id: number; picks: number; wins: number }[];
+      .all(...params) as { augment_id: number; picks: number; wins: number }[];
 
-  const champBreakdown = db
-    .prepare(`
+    const champBreakdown = db
+      .prepare(`
     SELECT ${augmentId} as augment_id, ps.champion_id, COUNT(*) as picks, SUM(ps.win) as wins
     ${augmentSource}
     WHERE ${where.join(" AND ")}
     GROUP BY ${augmentId}, ps.champion_id
     ORDER BY picks DESC
   `)
-    .all(...params) as { augment_id: number; champion_id: number; picks: number; wins: number }[];
+      .all(...params) as { augment_id: number; champion_id: number; picks: number; wins: number }[];
 
-  const champMap = new Map<number, { champion_id: number; picks: number; wins: number }[]>();
-  for (const row of champBreakdown) {
-    if (!champMap.has(row.augment_id)) champMap.set(row.augment_id, []);
-    champMap
-      .get(row.augment_id)!
-      .push({ champion_id: row.champion_id, picks: row.picks, wins: row.wins });
-  }
+    const champMap = new Map<number, { champion_id: number; picks: number; wins: number }[]>();
+    for (const row of champBreakdown) {
+      if (!champMap.has(row.augment_id)) champMap.set(row.augment_id, []);
+      champMap
+        .get(row.augment_id)!
+        .push({ champion_id: row.champion_id, picks: row.picks, wins: row.wins });
+    }
 
-  // Counted here rather than derived from the augment rows. Picks are slots,
-  // not games: a game carries up to AUGMENT_SLOTS of them and often fewer, so
-  // dividing picks by the slot count lands on neither number and disagrees
-  // with what the Champions tab sums for the same filters.
-  const { totalGames } = db
-    .prepare(`
+    // Counted here rather than derived from the augment rows. Picks are slots,
+    // not games: a game carries up to AUGMENT_SLOTS of them and often fewer, so
+    // dividing picks by the slot count lands on neither number and disagrees
+    // with what the Champions tab sums for the same filters.
+    const { totalGames } = db
+      .prepare(`
     SELECT COUNT(*) as totalGames
     FROM ${source.table} ps
     JOIN games g ON ps.game_id = g.game_id
     WHERE ${where.join(" AND ")}
   `)
-    .get(...params) as { totalGames: number };
+      .get(...params) as { totalGames: number };
 
-  return {
-    totalGames,
-    augments: augments.map((a) => ({
-      ...a,
-      champions: champMap.get(a.augment_id) ?? [],
-    })),
-  };
+    return {
+      totalGames,
+      augments: augments.map((a) => ({
+        ...a,
+        champions: champMap.get(a.augment_id) ?? [],
+      })),
+    };
+  });
 }
 
 export function getChampionItemStats(
@@ -1472,90 +1483,92 @@ export function getTeammateStats(
   queue?: number,
   relation: "friends" | "enemies" = "friends",
 ): any[] {
-  const puuids = getAllPuuids();
-  if (puuids.length === 0) return [];
+  return cachedQuery("getTeammateStats", [queue, relation], 60_000, () => {
+    const puuids = getAllPuuids();
+    if (puuids.length === 0) return [];
 
-  const playerMap = new Map<
-    string,
-    {
-      name: string;
-      puuid: string | null;
-      profileIcon: number | null;
-      games: number;
-      wins: number;
-      kills: number;
-      deaths: number;
-      assists: number;
-      champions: Map<number, number>;
-      lastPlayed: number;
-    }
-  >();
-
-  for (const row of teammateRows(puuids, queue, relation)) {
-    const name = teammateName(row.game_name, row.tag_line, row.participant_id);
-    const key = teammateKey(row.puuid, name);
-
-    // If we now have a puuid but previously tracked this player by name, merge
-    if (row.puuid && !playerMap.has(row.puuid) && playerMap.has(name)) {
-      const old = playerMap.get(name)!;
-      if (!old.puuid) {
-        playerMap.set(row.puuid, old);
-        old.puuid = row.puuid;
-        playerMap.delete(name);
+    const playerMap = new Map<
+      string,
+      {
+        name: string;
+        puuid: string | null;
+        profileIcon: number | null;
+        games: number;
+        wins: number;
+        kills: number;
+        deaths: number;
+        assists: number;
+        champions: Map<number, number>;
+        lastPlayed: number;
       }
+    >();
+
+    for (const row of teammateRows(puuids, queue, relation)) {
+      const name = teammateName(row.game_name, row.tag_line, row.participant_id);
+      const key = teammateKey(row.puuid, name);
+
+      // If we now have a puuid but previously tracked this player by name, merge
+      if (row.puuid && !playerMap.has(row.puuid) && playerMap.has(name)) {
+        const old = playerMap.get(name)!;
+        if (!old.puuid) {
+          playerMap.set(row.puuid, old);
+          old.puuid = row.puuid;
+          playerMap.delete(name);
+        }
+      }
+
+      if (!playerMap.has(key)) {
+        playerMap.set(key, {
+          name,
+          puuid: row.puuid,
+          profileIcon: null,
+          games: 0,
+          wins: 0,
+          kills: 0,
+          deaths: 0,
+          assists: 0,
+          champions: new Map(),
+          lastPlayed: 0,
+        });
+      }
+
+      const entry = playerMap.get(key)!;
+      // Update name and icon to the most recent version
+      if (row.game_creation > entry.lastPlayed) {
+        entry.name = name;
+        if (row.profile_icon != null) entry.profileIcon = row.profile_icon;
+      }
+      entry.games++;
+      if (row.win) entry.wins++;
+      entry.kills += row.kills;
+      entry.deaths += row.deaths;
+      entry.assists += row.assists;
+      entry.lastPlayed = Math.max(entry.lastPlayed, row.game_creation);
+      entry.champions.set(row.champion_id, (entry.champions.get(row.champion_id) || 0) + 1);
     }
 
-    if (!playerMap.has(key)) {
-      playerMap.set(key, {
-        name,
-        puuid: row.puuid,
-        profileIcon: null,
-        games: 0,
-        wins: 0,
-        kills: 0,
-        deaths: 0,
-        assists: 0,
-        champions: new Map(),
-        lastPlayed: 0,
-      });
-    }
-
-    const entry = playerMap.get(key)!;
-    // Update name and icon to the most recent version
-    if (row.game_creation > entry.lastPlayed) {
-      entry.name = name;
-      if (row.profile_icon != null) entry.profileIcon = row.profile_icon;
-    }
-    entry.games++;
-    if (row.win) entry.wins++;
-    entry.kills += row.kills;
-    entry.deaths += row.deaths;
-    entry.assists += row.assists;
-    entry.lastPlayed = Math.max(entry.lastPlayed, row.game_creation);
-    entry.champions.set(row.champion_id, (entry.champions.get(row.champion_id) || 0) + 1);
-  }
-
-  return Array.from(playerMap.entries())
-    .filter(([, p]) => p.games >= 1)
-    .map(([key, p]) => ({
-      key,
-      name: p.name,
-      puuid: p.puuid,
-      profileIcon: p.profileIcon,
-      games: p.games,
-      wins: p.wins,
-      kills: p.kills,
-      deaths: p.deaths,
-      assists: p.assists,
-      // Champion id breaks ties so the same five champions come back in the
-      // same order every time, rather than in whatever order the rows arrived.
-      champions: Array.from(p.champions.entries())
-        .sort((a, b) => b[1] - a[1] || a[0] - b[0])
-        .slice(0, 5)
-        .map(([champion_id, games]) => ({ champion_id, games })),
-      lastPlayed: p.lastPlayed,
-    }))
-    .sort((a, b) => b.games - a.games);
+    return Array.from(playerMap.entries())
+      .filter(([, p]) => p.games >= 1)
+      .map(([key, p]) => ({
+        key,
+        name: p.name,
+        puuid: p.puuid,
+        profileIcon: p.profileIcon,
+        games: p.games,
+        wins: p.wins,
+        kills: p.kills,
+        deaths: p.deaths,
+        assists: p.assists,
+        // Champion id breaks ties so the same five champions come back in the
+        // same order every time, rather than in whatever order the rows arrived.
+        champions: Array.from(p.champions.entries())
+          .sort((a, b) => b[1] - a[1] || a[0] - b[0])
+          .slice(0, 5)
+          .map(([champion_id, games]) => ({ champion_id, games })),
+        lastPlayed: p.lastPlayed,
+      }))
+      .sort((a, b) => b.games - a.games);
+  });
 }
 
 // Every game we played alongside one teammate, from both sides: our stored
@@ -1565,32 +1578,33 @@ export function getTeammateDetail(
   queue?: number,
   relation: "friends" | "enemies" = "friends",
 ): { player: any; matches: any[] } | null {
-  const puuids = getAllPuuids();
-  if (puuids.length === 0) return null;
+  return cachedQuery("getTeammateDetail", [key, queue, relation], 30_000, () => {
+    const puuids = getAllPuuids();
+    if (puuids.length === 0) return null;
 
-  // Rows are newest-first, so the first hit carries the current name and icon.
-  // Older games can be missing puuids; once we know who we're looking at, match
-  // those on name too — the same merge the Friends list does.
-  const theirs: TeammateRow[] = [];
-  let name: string | null = null;
-  for (const row of teammateRows(puuids, queue, relation)) {
-    const rowName = teammateName(row.game_name, row.tag_line, row.participant_id);
-    if (teammateKey(row.puuid, rowName) === key) {
-      name ??= rowName;
-      theirs.push(row);
-    } else if (name != null && row.puuid == null && rowName === name) {
-      theirs.push(row);
+    // Rows are newest-first, so the first hit carries the current name and icon.
+    // Older games can be missing puuids; once we know who we're looking at, match
+    // those on name too — the same merge the Friends list does.
+    const theirs: TeammateRow[] = [];
+    let name: string | null = null;
+    for (const row of teammateRows(puuids, queue, relation)) {
+      const rowName = teammateName(row.game_name, row.tag_line, row.participant_id);
+      if (teammateKey(row.puuid, rowName) === key) {
+        name ??= rowName;
+        theirs.push(row);
+      } else if (name != null && row.puuid == null && rowName === name) {
+        theirs.push(row);
+      }
     }
-  }
-  if (theirs.length === 0) return null;
+    if (theirs.length === 0) return null;
 
-  const byGame = new Map(theirs.map((row) => [row.game_id, row]));
-  const gameIds = Array.from(byGame.keys());
-  const idList = gameIds.map(() => "?").join(", ");
+    const byGame = new Map(theirs.map((row) => [row.game_id, row]));
+    const gameIds = Array.from(byGame.keys());
+    const idList = gameIds.map(() => "?").join(", ");
 
-  // Our own row for each shared game — the same columns the match list shows.
-  const ourMatches = db
-    .prepare(`
+    // Our own row for each shared game — the same columns the match list shows.
+    const ourMatches = db
+      .prepare(`
       SELECT g.game_id, g.queue_id, g.game_creation, g.game_duration, g.is_remake, g.favorite,
              g.puuid, g.game_version,
              ps.champion_id, ps.win, ps.kills, ps.deaths, ps.assists,
@@ -1608,120 +1622,122 @@ ${GAME_MAX_STATS_SQL}
       WHERE g.game_id IN (${idList})
       ORDER BY g.game_creation DESC
     `)
-    .all(...gameIds) as any[];
+      .all(...gameIds) as any[];
 
-  // The teammate's score has to be computed rather than looked up — player_stats
-  // only ever scores our own row — so each shared game needs all ten players.
-  const scoreRows = groupByGame(
-    db
-      .prepare(
-        `SELECT game_id, ${SCORE_ROW_COLUMNS} FROM match_participants WHERE game_id IN (${idList})`,
-      )
-      .all(...gameIds) as (ScoreRow & { game_id: number })[],
-  );
-
-  interface ChampionTotals {
-    games: number;
-    wins: number;
-    kills: number;
-    deaths: number;
-    assists: number;
-  }
-
-  const matches: any[] = [];
-  const champions = new Map<number, ChampionTotals>();
-  const first = theirs[0];
-  const player = {
-    key,
-    name: name ?? key,
-    puuid: first.puuid,
-    profileIcon: first.profile_icon,
-    games: 0,
-    wins: 0,
-    kills: 0,
-    deaths: 0,
-    assists: 0,
-    champions: [] as ({ champion_id: number } & ChampionTotals)[],
-    lastPlayed: first.game_creation,
-  };
-
-  for (const row of ourMatches) {
-    const friend = byGame.get(row.game_id);
-    if (!friend) continue;
-
-    if (player.profileIcon == null) player.profileIcon = friend.profile_icon;
-
-    player.games++;
-    if (friend.win) player.wins++;
-    player.kills += friend.kills;
-    player.deaths += friend.deaths;
-    player.assists += friend.assists;
-
-    if (!champions.has(friend.champion_id)) {
-      champions.set(friend.champion_id, { games: 0, wins: 0, kills: 0, deaths: 0, assists: 0 });
-    }
-    const champ = champions.get(friend.champion_id)!;
-    champ.games++;
-    if (friend.win) champ.wins++;
-    champ.kills += friend.kills;
-    champ.deaths += friend.deaths;
-    champ.assists += friend.assists;
-
-    const gameRows = scoreRows.get(row.game_id) ?? [];
-    const friendScore = computeMatchScores(scoreInputsFromRows(gameRows), getChampionClasses()).get(
-      friend.participant_id,
+    // The teammate's score has to be computed rather than looked up — player_stats
+    // only ever scores our own row — so each shared game needs all ten players.
+    const scoreRows = groupByGame(
+      db
+        .prepare(
+          `SELECT game_id, ${SCORE_ROW_COLUMNS} FROM match_participants WHERE game_id IN (${idList})`,
+        )
+        .all(...gameIds) as (ScoreRow & { game_id: number })[],
     );
-    const friendStats = gameRows.find((p) => p.participant_id === friend.participant_id);
 
-    const base = {
-      ...row,
-      friend: {
-        champion_id: friend.champion_id,
-        win: friend.win,
-        kills: friend.kills,
-        deaths: friend.deaths,
-        assists: friend.assists,
-        total_damage_dealt: friendStats?.total_damage_dealt ?? 0,
-        total_damage_taken: friendStats?.total_damage_taken ?? 0,
-        total_heal: friendStats?.total_heal ?? 0,
-        score: friendScore?.score ?? null,
-        score_badge: friendScore?.badge ?? null,
-      },
-    };
-    if (relation === "enemies") {
-      const enemy = base.friend;
-      base.friend = {
-        champion_id: row.champion_id,
-        win: row.win,
-        kills: row.kills,
-        deaths: row.deaths,
-        assists: row.assists,
-        total_damage_dealt: row.total_damage_dealt,
-        total_damage_taken: row.total_damage_taken,
-        total_heal: row.total_heal,
-        score: row.score,
-        score_badge: row.score_badge,
-      };
-      base.champion_id = enemy.champion_id;
-      base.win = enemy.win;
-      base.kills = enemy.kills;
-      base.deaths = enemy.deaths;
-      base.assists = enemy.assists;
-      base.total_damage_dealt = enemy.total_damage_dealt;
-      base.total_damage_taken = enemy.total_damage_taken;
-      base.total_heal = enemy.total_heal;
-      base.score = enemy.score;
-      base.score_badge = enemy.score_badge;
+    interface ChampionTotals {
+      games: number;
+      wins: number;
+      kills: number;
+      deaths: number;
+      assists: number;
     }
-    matches.push(base);
-  }
 
-  if (player.games === 0) return null;
-  player.champions = Array.from(champions.entries())
-    .map(([champion_id, totals]) => ({ champion_id, ...totals }))
-    .sort((a, b) => b.games - a.games);
+    const matches: any[] = [];
+    const champions = new Map<number, ChampionTotals>();
+    const first = theirs[0];
+    const player = {
+      key,
+      name: name ?? key,
+      puuid: first.puuid,
+      profileIcon: first.profile_icon,
+      games: 0,
+      wins: 0,
+      kills: 0,
+      deaths: 0,
+      assists: 0,
+      champions: [] as ({ champion_id: number } & ChampionTotals)[],
+      lastPlayed: first.game_creation,
+    };
 
-  return { player, matches };
+    for (const row of ourMatches) {
+      const friend = byGame.get(row.game_id);
+      if (!friend) continue;
+
+      if (player.profileIcon == null) player.profileIcon = friend.profile_icon;
+
+      player.games++;
+      if (friend.win) player.wins++;
+      player.kills += friend.kills;
+      player.deaths += friend.deaths;
+      player.assists += friend.assists;
+
+      if (!champions.has(friend.champion_id)) {
+        champions.set(friend.champion_id, { games: 0, wins: 0, kills: 0, deaths: 0, assists: 0 });
+      }
+      const champ = champions.get(friend.champion_id)!;
+      champ.games++;
+      if (friend.win) champ.wins++;
+      champ.kills += friend.kills;
+      champ.deaths += friend.deaths;
+      champ.assists += friend.assists;
+
+      const gameRows = scoreRows.get(row.game_id) ?? [];
+      const friendScore = computeMatchScores(
+        scoreInputsFromRows(gameRows),
+        getChampionClasses(),
+      ).get(friend.participant_id);
+      const friendStats = gameRows.find((p) => p.participant_id === friend.participant_id);
+
+      const base = {
+        ...row,
+        friend: {
+          champion_id: friend.champion_id,
+          win: friend.win,
+          kills: friend.kills,
+          deaths: friend.deaths,
+          assists: friend.assists,
+          total_damage_dealt: friendStats?.total_damage_dealt ?? 0,
+          total_damage_taken: friendStats?.total_damage_taken ?? 0,
+          total_heal: friendStats?.total_heal ?? 0,
+          score: friendScore?.score ?? null,
+          score_badge: friendScore?.badge ?? null,
+        },
+      };
+      if (relation === "enemies") {
+        const enemy = base.friend;
+        base.friend = {
+          champion_id: row.champion_id,
+          win: row.win,
+          kills: row.kills,
+          deaths: row.deaths,
+          assists: row.assists,
+          total_damage_dealt: row.total_damage_dealt,
+          total_damage_taken: row.total_damage_taken,
+          total_heal: row.total_heal,
+          score: row.score,
+          score_badge: row.score_badge,
+        };
+        base.champion_id = enemy.champion_id;
+        base.win = enemy.win;
+        base.kills = enemy.kills;
+        base.deaths = enemy.deaths;
+        base.assists = enemy.assists;
+        base.total_damage_dealt = enemy.total_damage_dealt;
+        base.total_damage_taken = enemy.total_damage_taken;
+        base.total_heal = enemy.total_heal;
+        base.score = enemy.score;
+        base.score_badge = enemy.score_badge;
+      }
+      matches.push(base);
+    }
+
+    if (player.games === 0) return null;
+    player.champions = Array.from(champions.entries())
+      .map(([champion_id, totals]) => ({ champion_id, ...totals }))
+      .sort((a, b) => b.games - a.games);
+
+    return { player, matches };
+  });
 }
 
 export function getGlobalStats(
@@ -1734,33 +1750,34 @@ export function getGlobalStats(
   totalParticipantSlots: number;
   totalGames: number;
 } {
-  const mp = participantFilter(patch, queue);
-  const mpa = participantFilter(patch, queue, "mpa");
+  return cachedQuery("getGlobalStats", [patch, queue], 60_000, () => {
+    const mp = participantFilter(patch, queue);
+    const mpa = participantFilter(patch, queue, "mpa");
 
-  const champions = db
-    .prepare(`
+    const champions = db
+      .prepare(`
       SELECT mp.champion_id, COUNT(*) as games, SUM(mp.win) as wins
       FROM match_participants mp
       WHERE ${mp.sql} AND mp.champion_id > 0
       GROUP BY mp.champion_id
       ORDER BY games DESC
     `)
-    .all(...mp.params) as { champion_id: number; games: number; wins: number }[];
+      .all(...mp.params) as { champion_id: number; games: number; wins: number }[];
 
-  const augments = db
-    .prepare(`
+    const augments = db
+      .prepare(`
       SELECT mpa.augment_id, COUNT(*) as picks, SUM(mpa.win) as wins
       FROM match_participant_augments mpa
       WHERE ${mpa.sql}
       GROUP BY mpa.augment_id
       ORDER BY picks DESC
     `)
-    .all(...mpa.params) as { augment_id: number; picks: number; wins: number }[];
+      .all(...mpa.params) as { augment_id: number; picks: number; wins: number }[];
 
-  const itemCols = [0, 1, 2, 3, 4, 5, 6];
-  const excludedList = EXCLUDED_ITEM_IDS.join(", ");
-  const items = db
-    .prepare(`
+    const itemCols = [0, 1, 2, 3, 4, 5, 6];
+    const excludedList = EXCLUDED_ITEM_IDS.join(", ");
+    const items = db
+      .prepare(`
       SELECT item_id, COUNT(*) as picks, SUM(win) as wins
       FROM (
         ${itemCols
@@ -1775,35 +1792,36 @@ export function getGlobalStats(
       GROUP BY item_id
       ORDER BY picks DESC
     `)
-    .all(...itemCols.flatMap(() => mp.params)) as {
-    item_id: number;
-    picks: number;
-    wins: number;
-  }[];
+      .all(...itemCols.flatMap(() => mp.params)) as {
+      item_id: number;
+      picks: number;
+      wins: number;
+    }[];
 
-  const slots = db
-    .prepare(`
+    const slots = db
+      .prepare(`
       SELECT COUNT(*) as count
       FROM match_participants mp
       WHERE ${mp.sql} AND mp.champion_id > 0
     `)
-    .get(...mp.params) as { count: number };
+      .get(...mp.params) as { count: number };
 
-  const games = db
-    .prepare(`
+    const games = db
+      .prepare(`
       SELECT COUNT(DISTINCT mp.game_id) as count
       FROM match_participants mp
       WHERE ${mp.sql} AND mp.champion_id > 0
     `)
-    .get(...mp.params) as { count: number };
+      .get(...mp.params) as { count: number };
 
-  return {
-    champions,
-    augments,
-    items,
-    totalParticipantSlots: slots.count,
-    totalGames: games.count,
-  };
+    return {
+      champions,
+      augments,
+      items,
+      totalParticipantSlots: slots.count,
+      totalGames: games.count,
+    };
+  });
 }
 
 export function getOwnedItemStats(
@@ -1813,7 +1831,7 @@ export function getOwnedItemStats(
 ): OwnedItemStatsResult & OwnedItemStats[] {
   const cacheKey = `owned-item-stats:${patch ?? "all"}:${queue ?? "all"}:${account ?? "all"}`;
   const cached = getCachedOwnedItemStats(cacheKey);
-  if (cached) return cached;
+  if (cached) return cached as OwnedItemStatsResult & OwnedItemStats[];
 
   const source = statsSource(account);
   const where = ["g.is_remake = 0"];
@@ -1935,210 +1953,216 @@ export function getOwnedItemStats(
 }
 
 export function getOwnedItemDetail(itemId: number, patch?: string, queue?: number) {
-  const where = [
-    "g.is_remake = 0",
-    "(ps.item0 = ? OR ps.item1 = ? OR ps.item2 = ? OR ps.item3 = ? OR ps.item4 = ? OR ps.item5 = ? OR ps.item6 = ?)",
-  ];
-  where.push(localGamesFilter("g"));
-  const params: any[] = Array(7).fill(itemId);
-  if (patch) {
-    where.push("g.game_version = ?");
-    params.push(patch);
-  }
-
-  applyQueueFilter(where, params, queue);
-  const rows = db
-    .prepare(
-      `SELECT ps.game_id, ps.champion_id, g.game_creation, g.game_duration, ps.win, ps.kills, ps.deaths, ps.assists FROM player_stats ps JOIN games g ON g.game_id = ps.game_id WHERE ${where.join(" AND ")} ORDER BY g.game_creation DESC`,
-    )
-    .all(...params) as {
-    game_id: number;
-    champion_id: number;
-    game_creation: number;
-    game_duration: number;
-    win: number;
-    kills: number;
-    deaths: number;
-    assists: number;
-  }[];
-  const totalWhere = ["g.is_remake = 0"];
-  totalWhere.push(localGamesFilter("g"));
-  const totalParams: any[] = [];
-  if (patch) {
-    totalWhere.push("g.game_version = ?");
-    totalParams.push(patch);
-  }
-  applyQueueFilter(totalWhere, totalParams, queue);
-  const totalGames = (
-    db
-      .prepare(`SELECT COUNT(*) count FROM games g WHERE ${totalWhere.join(" AND ")}`)
-      .get(...totalParams) as {
-      count: number;
+  return cachedQuery("getOwnedItemDetail", [itemId, patch, queue], 30_000, () => {
+    const where = [
+      "g.is_remake = 0",
+      "(ps.item0 = ? OR ps.item1 = ? OR ps.item2 = ? OR ps.item3 = ? OR ps.item4 = ? OR ps.item5 = ? OR ps.item6 = ?)",
+    ];
+    where.push(localGamesFilter("g"));
+    const params: any[] = Array(7).fill(itemId);
+    if (patch) {
+      where.push("g.game_version = ?");
+      params.push(patch);
     }
-  ).count;
-  const champions = new Map<number, { games: number; wins: number; matches: typeof rows }>();
-  for (const row of rows) {
-    const current = champions.get(row.champion_id) ?? { games: 0, wins: 0, matches: [] };
-    current.games++;
-    current.wins += row.win;
-    current.matches.push(row);
-    champions.set(row.champion_id, current);
-  }
-  const championTotals = db
-    .prepare(
-      `SELECT ps.champion_id, COUNT(*) games
+
+    applyQueueFilter(where, params, queue);
+    const rows = db
+      .prepare(
+        `SELECT ps.game_id, ps.champion_id, g.game_creation, g.game_duration, ps.win, ps.kills, ps.deaths, ps.assists FROM player_stats ps JOIN games g ON g.game_id = ps.game_id WHERE ${where.join(" AND ")} ORDER BY g.game_creation DESC`,
+      )
+      .all(...params) as {
+      game_id: number;
+      champion_id: number;
+      game_creation: number;
+      game_duration: number;
+      win: number;
+      kills: number;
+      deaths: number;
+      assists: number;
+    }[];
+    const totalWhere = ["g.is_remake = 0"];
+    totalWhere.push(localGamesFilter("g"));
+    const totalParams: any[] = [];
+    if (patch) {
+      totalWhere.push("g.game_version = ?");
+      totalParams.push(patch);
+    }
+    applyQueueFilter(totalWhere, totalParams, queue);
+    const totalGames = (
+      db
+        .prepare(`SELECT COUNT(*) count FROM games g WHERE ${totalWhere.join(" AND ")}`)
+        .get(...totalParams) as {
+        count: number;
+      }
+    ).count;
+    const champions = new Map<number, { games: number; wins: number; matches: typeof rows }>();
+    for (const row of rows) {
+      const current = champions.get(row.champion_id) ?? { games: 0, wins: 0, matches: [] };
+      current.games++;
+      current.wins += row.win;
+      current.matches.push(row);
+      champions.set(row.champion_id, current);
+    }
+    const championTotals = db
+      .prepare(
+        `SELECT ps.champion_id, COUNT(*) games
        FROM player_stats ps JOIN games g ON g.game_id = ps.game_id
        WHERE ${totalWhere.join(" AND ")}
        GROUP BY ps.champion_id`,
-    )
-    .all(...totalParams) as { champion_id: number; games: number }[];
-  const totalByChampion = new Map(championTotals.map((row) => [row.champion_id, row.games]));
-  return {
-    item_id: itemId,
-    picks: rows.length,
-    wins: rows.reduce((sum, row) => sum + row.win, 0),
-    totalGames,
-    champions: [...champions.entries()]
-      .map(([champion_id, value]) => ({
-        champion_id,
-        ...value,
-        championGames: totalByChampion.get(champion_id) ?? value.games,
-      }))
-      .sort((a, b) => b.games - a.games),
-  };
+      )
+      .all(...totalParams) as { champion_id: number; games: number }[];
+    const totalByChampion = new Map(championTotals.map((row) => [row.champion_id, row.games]));
+    return {
+      item_id: itemId,
+      picks: rows.length,
+      wins: rows.reduce((sum, row) => sum + row.win, 0),
+      totalGames,
+      champions: [...champions.entries()]
+        .map(([champion_id, value]) => ({
+          champion_id,
+          ...value,
+          championGames: totalByChampion.get(champion_id) ?? value.games,
+        }))
+        .sort((a, b) => b.games - a.games),
+    };
+  });
 }
 
 export function getOwnedRuneStats(queue?: number, patch?: string, account?: string) {
-  const source = statsSource(account);
-  const where = ["g.is_remake = 0", "g.raw_gz IS NOT NULL"];
-  where.push(source.accountFilter);
-  const params: any[] = account && account !== "all" ? [account] : [];
-  if (patch) {
-    where.push("g.game_version = ?");
-    params.push(patch);
-  }
-  applyQueueFilter(where, params, queue);
-  where.push(`g.queue_id NOT IN (${EXCLUDED_STATS_SQL})`);
-  const rows = db
-    .prepare(
-      `SELECT g.raw_gz, g.puuid, ${source.alias}.win, ${source.alias}.champion_id, ${source.alias}.kills, ${source.alias}.deaths, ${source.alias}.assists
+  return cachedQuery("getOwnedRuneStats", [queue, patch, account], 60_000, () => {
+    const source = statsSource(account);
+    const where = ["g.is_remake = 0", "g.raw_gz IS NOT NULL"];
+    where.push(source.accountFilter);
+    const params: any[] = account && account !== "all" ? [account] : [];
+    if (patch) {
+      where.push("g.game_version = ?");
+      params.push(patch);
+    }
+    applyQueueFilter(where, params, queue);
+    where.push(`g.queue_id NOT IN (${EXCLUDED_STATS_SQL})`);
+    const rows = db
+      .prepare(
+        `SELECT g.raw_gz, g.puuid, ${source.alias}.win, ${source.alias}.champion_id, ${source.alias}.kills, ${source.alias}.deaths, ${source.alias}.assists
        FROM games g JOIN ${source.table} ${source.alias} ON g.game_id = ${source.alias}.game_id
        WHERE ${where.join(" AND ")}`,
-    )
-    .all(...params) as {
-    raw_gz: Buffer;
-    puuid: string;
-    win: number;
-    champion_id: number;
-    kills: number;
-    deaths: number;
-    assists: number;
-  }[];
-  const totals = new Map<number, { picks: number; wins: number }>();
-  const champions = new Map<number, { games: number; keystones: Map<number, number> }>();
-  for (const row of rows) {
-    let raw: any;
-    try {
-      raw = JSON.parse(zlib.gunzipSync(row.raw_gz).toString("utf8"));
-    } catch {
-      continue;
-    }
-    const participants = raw.info?.participants ?? raw.participants ?? [];
-    const identities = raw.participantIdentities ?? raw.info?.participantIdentities ?? [];
-    const participantIndex = participants.findIndex((p: any, index: number) => {
-      const participantId = Number(p.participantId ?? index + 1);
-      const identity = identities[participantId - 1]?.player;
-      return (
-        p.puuid === row.puuid || identity?.puuid === row.puuid || identity?.summonerId === row.puuid
-      );
-    });
-    const participant =
-      participantIndex >= 0
-        ? participants[participantIndex]
-        : participants.find((p: any) => {
-            const stats = p.stats ?? p;
-            return (
-              Number(p.championId ?? stats.championId) === row.champion_id &&
-              Number(stats.kills ?? p.kills) === row.kills &&
-              Number(stats.deaths ?? p.deaths) === row.deaths &&
-              Number(stats.assists ?? p.assists) === row.assists
-            );
-          });
-    const championId = Number(participant?.championId ?? participant?.stats?.championId ?? 0);
-    const champion = champions.get(championId) ?? { games: 0, keystones: new Map() };
-    if (championId > 0) champion.games++;
-    const perks =
-      participant?.perks ??
-      participant?.stats?.perks ??
-      participant?.stats?.runes ??
-      participant?.runes;
-    const styles = perks?.styles ?? perks?.perkStyles ?? [];
-    const legacyRunes = Array.isArray(perks) ? perks : [];
-    const legacyIds = [
-      participant?.perk0,
-      participant?.perk1,
-      participant?.perk2,
-      participant?.perk3,
-      participant?.perk4,
-      participant?.perk5,
-      participant?.stats?.perk0,
-      participant?.stats?.perk1,
-      participant?.stats?.perk2,
-      participant?.stats?.perk3,
-      participant?.stats?.perk4,
-      participant?.stats?.perk5,
-    ]
-      .map(Number)
-      .filter(Boolean);
-    for (const id of legacyIds) {
-      const current = totals.get(id) ?? { picks: 0, wins: 0 };
-      current.picks++;
-      current.wins += row.win;
-      totals.set(id, current);
-    }
-    for (const style of styles) {
-      const keystone = Number(style.selections?.[0]?.perk);
-      if (championId > 0 && keystone) {
-        champion.keystones.set(keystone, (champion.keystones.get(keystone) ?? 0) + 1);
+      )
+      .all(...params) as {
+      raw_gz: Buffer;
+      puuid: string;
+      win: number;
+      champion_id: number;
+      kills: number;
+      deaths: number;
+      assists: number;
+    }[];
+    const totals = new Map<number, { picks: number; wins: number }>();
+    const champions = new Map<number, { games: number; keystones: Map<number, number> }>();
+    for (const row of rows) {
+      let raw: any;
+      try {
+        raw = JSON.parse(zlib.gunzipSync(row.raw_gz).toString("utf8"));
+      } catch {
+        continue;
       }
-      // Only the selected perks are runes a player actually picked;
-      // style.style is the tree ID (e.g. 8000/8100) and must not be
-      // counted as a rune itself.
-      for (const selection of style.selections ?? []) {
-        const id = Number(selection?.perk);
+      const participants = raw.info?.participants ?? raw.participants ?? [];
+      const identities = raw.participantIdentities ?? raw.info?.participantIdentities ?? [];
+      const participantIndex = participants.findIndex((p: any, index: number) => {
+        const participantId = Number(p.participantId ?? index + 1);
+        const identity = identities[participantId - 1]?.player;
+        return (
+          p.puuid === row.puuid ||
+          identity?.puuid === row.puuid ||
+          identity?.summonerId === row.puuid
+        );
+      });
+      const participant =
+        participantIndex >= 0
+          ? participants[participantIndex]
+          : participants.find((p: any) => {
+              const stats = p.stats ?? p;
+              return (
+                Number(p.championId ?? stats.championId) === row.champion_id &&
+                Number(stats.kills ?? p.kills) === row.kills &&
+                Number(stats.deaths ?? p.deaths) === row.deaths &&
+                Number(stats.assists ?? p.assists) === row.assists
+              );
+            });
+      const championId = Number(participant?.championId ?? participant?.stats?.championId ?? 0);
+      const champion = champions.get(championId) ?? { games: 0, keystones: new Map() };
+      if (championId > 0) champion.games++;
+      const perks =
+        participant?.perks ??
+        participant?.stats?.perks ??
+        participant?.stats?.runes ??
+        participant?.runes;
+      const styles = perks?.styles ?? perks?.perkStyles ?? [];
+      const legacyRunes = Array.isArray(perks) ? perks : [];
+      const legacyIds = [
+        participant?.perk0,
+        participant?.perk1,
+        participant?.perk2,
+        participant?.perk3,
+        participant?.perk4,
+        participant?.perk5,
+        participant?.stats?.perk0,
+        participant?.stats?.perk1,
+        participant?.stats?.perk2,
+        participant?.stats?.perk3,
+        participant?.stats?.perk4,
+        participant?.stats?.perk5,
+      ]
+        .map(Number)
+        .filter(Boolean);
+      for (const id of legacyIds) {
+        const current = totals.get(id) ?? { picks: 0, wins: 0 };
+        current.picks++;
+        current.wins += row.win;
+        totals.set(id, current);
+      }
+      for (const style of styles) {
+        const keystone = Number(style.selections?.[0]?.perk);
+        if (championId > 0 && keystone) {
+          champion.keystones.set(keystone, (champion.keystones.get(keystone) ?? 0) + 1);
+        }
+        // Only the selected perks are runes a player actually picked;
+        // style.style is the tree ID (e.g. 8000/8100) and must not be
+        // counted as a rune itself.
+        for (const selection of style.selections ?? []) {
+          const id = Number(selection?.perk);
+          if (!id) continue;
+          const current = totals.get(id) ?? { picks: 0, wins: 0 };
+          current.picks++;
+          current.wins += row.win;
+          totals.set(id, current);
+        }
+        if (championId > 0) champions.set(championId, champion);
+      }
+      for (const rune of legacyRunes) {
+        const id = Number(rune.runeId ?? rune.perk ?? rune.id);
         if (!id) continue;
         const current = totals.get(id) ?? { picks: 0, wins: 0 };
         current.picks++;
         current.wins += row.win;
         totals.set(id, current);
       }
-      if (championId > 0) champions.set(championId, champion);
     }
-    for (const rune of legacyRunes) {
-      const id = Number(rune.runeId ?? rune.perk ?? rune.id);
-      if (!id) continue;
-      const current = totals.get(id) ?? { picks: 0, wins: 0 };
-      current.picks++;
-      current.wins += row.win;
-      totals.set(id, current);
-    }
-  }
-  return {
-    runes: [...totals.entries()]
-      .map(([rune_id, value]) => ({ rune_id, ...value }))
-      .sort((a, b) => b.picks - a.picks),
-    champions: [...champions.entries()]
-      .filter(([id]) => id > 0)
-      .map(([champion_id, value]) => ({
-        champion_id,
-        games: value.games,
-        keystones: [...value.keystones.entries()]
-          .map(([rune_id, picks]) => ({ rune_id, picks }))
-          .sort((a, b) => b.picks - a.picks)
-          .slice(0, 3),
-      }))
-      .sort((a, b) => b.games - a.games),
-  };
+    return {
+      runes: [...totals.entries()]
+        .map(([rune_id, value]) => ({ rune_id, ...value }))
+        .sort((a, b) => b.picks - a.picks),
+      champions: [...champions.entries()]
+        .filter(([id]) => id > 0)
+        .map(([champion_id, value]) => ({
+          champion_id,
+          games: value.games,
+          keystones: [...value.keystones.entries()]
+            .map(([rune_id, picks]) => ({ rune_id, picks }))
+            .sort((a, b) => b.picks - a.picks)
+            .slice(0, 3),
+        }))
+        .sort((a, b) => b.games - a.games),
+    };
+  });
 }
 
 // Everything we know about one champion across the stored games owned by the
@@ -2172,27 +2196,28 @@ export function getGlobalChampionDetail(
   items: { item_id: number; picks: number; wins: number }[];
   augments: { augment_id: number; picks: number; wins: number }[];
 } {
-  const mp = participantFilter(patch, queue);
-  const mpa = participantFilter(patch, queue, "mpa");
-  const accountSql = (alias: string) =>
-    account && account !== "all"
-      ? alias === "mp"
-        ? ` AND ${alias}.puuid = ?`
-        : ` AND EXISTS (SELECT 1 FROM match_participants owner WHERE owner.game_id = ${alias}.game_id AND owner.puuid = ?)`
-      : alias === "mp"
-        ? ` AND ${alias}.puuid IN (SELECT puuid FROM summoner)`
-        : ` AND EXISTS (SELECT 1 FROM match_participants owner WHERE owner.game_id = ${alias}.game_id AND owner.puuid IN (SELECT puuid FROM summoner))`;
-  const mpSql = `${mp.sql}${accountSql("mp")}`;
-  const mpaSql = `${mpa.sql}${accountSql("mpa")}`;
-  const mpParams = account && account !== "all" ? [...mp.params, account] : mp.params;
-  const mpaParams = account && account !== "all" ? [...mpa.params, account] : mpa.params;
+  return cachedQuery("getGlobalChampionDetail", [championId, patch, queue, account], 60_000, () => {
+    const mp = participantFilter(patch, queue);
+    const mpa = participantFilter(patch, queue, "mpa");
+    const accountSql = (alias: string) =>
+      account && account !== "all"
+        ? alias === "mp"
+          ? ` AND ${alias}.puuid = ?`
+          : ` AND EXISTS (SELECT 1 FROM match_participants owner WHERE owner.game_id = ${alias}.game_id AND owner.puuid = ?)`
+        : alias === "mp"
+          ? ` AND ${alias}.puuid IN (SELECT puuid FROM summoner)`
+          : ` AND EXISTS (SELECT 1 FROM match_participants owner WHERE owner.game_id = ${alias}.game_id AND owner.puuid IN (SELECT puuid FROM summoner))`;
+    const mpSql = `${mp.sql}${accountSql("mp")}`;
+    const mpaSql = `${mpa.sql}${accountSql("mpa")}`;
+    const mpParams = account && account !== "all" ? [...mp.params, account] : mp.params;
+    const mpaParams = account && account !== "all" ? [...mpa.params, account] : mpa.params;
 
-  // Shares are per-game ratios averaged over the games they're defined in, so
-  // a game with no team damage/kills recorded can't drag the average to zero —
-  // which is what AVG over a NULLable expression does.
-  const championFilter = championId !== null ? " AND mp.champion_id = ?" : "";
-  const totals = db
-    .prepare(`
+    // Shares are per-game ratios averaged over the games they're defined in, so
+    // a game with no team damage/kills recorded can't drag the average to zero —
+    // which is what AVG over a NULLable expression does.
+    const championFilter = championId !== null ? " AND mp.champion_id = ?" : "";
+    const totals = db
+      .prepare(`
       WITH teams AS (
         SELECT mp.game_id, mp.team_id,
                SUM(mp.total_damage_dealt) as team_damage,
@@ -2222,20 +2247,20 @@ export function getGlobalChampionDetail(
       JOIN teams t ON t.game_id = mp.game_id AND t.team_id = mp.team_id
       WHERE ${mpSql}${championFilter}
     `)
-    .get(...mpParams, ...mpParams, ...(championId !== null ? [championId] : [])) as any;
+      .get(...mpParams, ...mpParams, ...(championId !== null ? [championId] : [])) as any;
 
-  const slots = db
-    .prepare(`
+    const slots = db
+      .prepare(`
       SELECT COUNT(*) as count
       FROM match_participants mp
       WHERE ${mpSql} AND mp.champion_id > 0
     `)
-    .get(...mpParams) as { count: number };
+      .get(...mpParams) as { count: number };
 
-  const itemCols = [0, 1, 2, 3, 4, 5, 6];
-  const excludedList = EXCLUDED_ITEM_IDS.join(", ");
-  const items = db
-    .prepare(`
+    const itemCols = [0, 1, 2, 3, 4, 5, 6];
+    const excludedList = EXCLUDED_ITEM_IDS.join(", ");
+    const items = db
+      .prepare(`
       SELECT item_id, COUNT(*) as picks, SUM(win) as wins
       FROM (
         ${itemCols
@@ -2250,55 +2275,56 @@ export function getGlobalChampionDetail(
       GROUP BY item_id
       ORDER BY picks DESC
     `)
-    .all(
-      ...itemCols.flatMap(() => [...mpParams, ...(championId !== null ? [championId] : [])]),
-    ) as {
-    item_id: number;
-    picks: number;
-    wins: number;
-  }[];
+      .all(
+        ...itemCols.flatMap(() => [...mpParams, ...(championId !== null ? [championId] : [])]),
+      ) as {
+      item_id: number;
+      picks: number;
+      wins: number;
+    }[];
 
-  const augments = db
-    .prepare(`
+    const augments = db
+      .prepare(`
       SELECT mpa.augment_id, COUNT(*) as picks, SUM(mpa.win) as wins
       FROM match_participant_augments mpa
       WHERE ${mpaSql}${championId !== null ? " AND mpa.champion_id = ?" : ""}
       GROUP BY mpa.augment_id
       ORDER BY picks DESC
     `)
-    .all(...mpaParams, ...(championId !== null ? [championId] : [])) as {
-    augment_id: number;
-    picks: number;
-    wins: number;
-  }[];
+      .all(...mpaParams, ...(championId !== null ? [championId] : [])) as {
+      augment_id: number;
+      picks: number;
+      wins: number;
+    }[];
 
-  const games = totals?.games ?? 0;
-  const avg = (total: number | null) => (games > 0 ? Math.round((total ?? 0) / games) : 0);
+    const games = totals?.games ?? 0;
+    const avg = (total: number | null) => (games > 0 ? Math.round((total ?? 0) / games) : 0);
 
-  return {
-    champion_id: championId ?? 0,
-    games,
-    wins: totals?.wins ?? 0,
-    kills: totals?.kills ?? 0,
-    deaths: totals?.deaths ?? 0,
-    assists: totals?.assists ?? 0,
-    totalKills: totals?.kills ?? 0,
-    totalDeaths: totals?.deaths ?? 0,
-    totalAssists: totals?.assists ?? 0,
-    avgDamage: avg(totals?.damage),
-    avgDamageTaken: avg(totals?.damageTaken),
-    avgGold: avg(totals?.gold),
-    avgHeal: avg(totals?.heal),
-    damageShare: totals?.damageShare ?? 0,
-    killParticipation: totals?.killParticipation ?? 0,
-    doubleKills: totals?.doubleKills ?? 0,
-    tripleKills: totals?.tripleKills ?? 0,
-    quadraKills: totals?.quadraKills ?? 0,
-    pentaKills: totals?.pentaKills ?? 0,
-    totalParticipantSlots: slots.count,
-    items,
-    augments,
-  };
+    return {
+      champion_id: championId ?? 0,
+      games,
+      wins: totals?.wins ?? 0,
+      kills: totals?.kills ?? 0,
+      deaths: totals?.deaths ?? 0,
+      assists: totals?.assists ?? 0,
+      totalKills: totals?.kills ?? 0,
+      totalDeaths: totals?.deaths ?? 0,
+      totalAssists: totals?.assists ?? 0,
+      avgDamage: avg(totals?.damage),
+      avgDamageTaken: avg(totals?.damageTaken),
+      avgGold: avg(totals?.gold),
+      avgHeal: avg(totals?.heal),
+      damageShare: totals?.damageShare ?? 0,
+      killParticipation: totals?.killParticipation ?? 0,
+      doubleKills: totals?.doubleKills ?? 0,
+      tripleKills: totals?.tripleKills ?? 0,
+      quadraKills: totals?.quadraKills ?? 0,
+      pentaKills: totals?.pentaKills ?? 0,
+      totalParticipantSlots: slots.count,
+      items,
+      augments,
+    };
+  });
 }
 
 export function getChampionDetailStats(
@@ -3271,19 +3297,20 @@ export function getChampionSkillOrders(
 // from days and come as their own aggregates. All local time — "games per day"
 // means the player's day, not UTC's.
 export function getTrendsData(queue?: number, account?: string): any {
-  const source = statsSource(account);
-  const where = ["g.is_remake = 0"];
-  where.push(source.accountFilter);
-  const params: any[] = account && account !== "all" ? [account] : [];
-  applyQueueFilter(where, params, queue);
-  where.push(`g.queue_id NOT IN (${EXCLUDED_STATS_SQL})`);
-  const whereSql = `WHERE ${where.join(" AND ")}`;
-  const fromSql = `FROM games g JOIN ${source.table} ps ON g.game_id = ps.game_id`;
+  return cachedQuery("getTrendsData", [queue, account], 60_000, () => {
+    const source = statsSource(account);
+    const where = ["g.is_remake = 0"];
+    where.push(source.accountFilter);
+    const params: any[] = account && account !== "all" ? [account] : [];
+    applyQueueFilter(where, params, queue);
+    where.push(`g.queue_id NOT IN (${EXCLUDED_STATS_SQL})`);
+    const whereSql = `WHERE ${where.join(" AND ")}`;
+    const fromSql = `FROM games g JOIN ${source.table} ps ON g.game_id = ps.game_id`;
 
-  // SUM/COUNT over ps.score skip NULLs, so score averages stay honest for
-  // days where only some games have a stored score.
-  const daily = db
-    .prepare(`
+    // SUM/COUNT over ps.score skip NULLs, so score averages stay honest for
+    // days where only some games have a stored score.
+    const daily = db
+      .prepare(`
       SELECT date(g.game_creation / 1000, 'unixepoch', 'localtime') as day,
              COUNT(*) as games,
              SUM(ps.win) as wins,
@@ -3297,12 +3324,12 @@ export function getTrendsData(queue?: number, account?: string): any {
       GROUP BY day
       ORDER BY day
     `)
-    .all(...params);
+      .all(...params);
 
-  // Ordered by when the patch was first played rather than by parsing version
-  // strings — chronological is what a trend axis wants anyway.
-  const patches = db
-    .prepare(`
+    // Ordered by when the patch was first played rather than by parsing version
+    // strings — chronological is what a trend axis wants anyway.
+    const patches = db
+      .prepare(`
       SELECT g.game_version as patch,
              COUNT(*) as games,
              SUM(ps.win) as wins,
@@ -3313,10 +3340,10 @@ export function getTrendsData(queue?: number, account?: string): any {
       GROUP BY g.game_version
       ORDER BY first_played
     `)
-    .all(...params);
+      .all(...params);
 
-  const hours = db
-    .prepare(`
+    const hours = db
+      .prepare(`
       SELECT CAST(strftime('%H', g.game_creation / 1000, 'unixepoch', 'localtime') AS INTEGER) as hour,
              COUNT(*) as games,
              SUM(ps.win) as wins
@@ -3325,11 +3352,11 @@ export function getTrendsData(queue?: number, account?: string): any {
       GROUP BY hour
       ORDER BY hour
     `)
-    .all(...params);
+      .all(...params);
 
-  // strftime('%w'): 0 = Sunday
-  const weekdays = db
-    .prepare(`
+    // strftime('%w'): 0 = Sunday
+    const weekdays = db
+      .prepare(`
       SELECT CAST(strftime('%w', g.game_creation / 1000, 'unixepoch', 'localtime') AS INTEGER) as weekday,
              COUNT(*) as games,
              SUM(ps.win) as wins
@@ -3338,9 +3365,10 @@ export function getTrendsData(queue?: number, account?: string): any {
       GROUP BY weekday
       ORDER BY weekday
     `)
-    .all(...params);
+      .all(...params);
 
-  return { daily, patches, hours, weekdays };
+    return { daily, patches, hours, weekdays };
+  });
 }
 
 export function getChampionRecords(
@@ -3558,17 +3586,22 @@ export function getRecords(
   account?: string,
   timePeriod?: "24h" | "7d" | "30d" | "full",
 ): any {
-  if (account === undefined) account = "all";
-  const source = statsSource(account);
-  const where = ["g.is_remake = 0"];
-  where.push(source.accountFilter);
-  const params: any[] = account && account !== "all" ? [account] : [];
-  applyQueueFilter(where, params, queue);
-  const timeFilter = applyTimeFilter(timePeriod);
-  const statsPlaceholders = NO_STATS_QUEUE_IDS.map(() => "?").join(",");
+  return cachedQuery(
+    "getRecords",
+    [Array.isArray(queue) ? queue.join(",") : queue, account, timePeriod],
+    30_000,
+    () => {
+      if (account === undefined) account = "all";
+      const source = statsSource(account);
+      const where = ["g.is_remake = 0"];
+      where.push(source.accountFilter);
+      const params: any[] = account && account !== "all" ? [account] : [];
+      applyQueueFilter(where, params, queue);
+      const timeFilter = applyTimeFilter(timePeriod);
+      const statsPlaceholders = NO_STATS_QUEUE_IDS.map(() => "?").join(",");
 
-  const rows = db
-    .prepare(`
+      const rows = db
+        .prepare(`
       SELECT g.game_id, g.game_creation, g.game_duration, g.queue_id,
              ps.puuid,
              ps.champion_id, ps.win, ps.kills, ps.deaths, ps.assists,
@@ -3581,102 +3614,104 @@ export function getRecords(
         AND g.queue_id NOT IN (${statsPlaceholders})
       ORDER BY ps.puuid ASC, g.game_creation ASC, g.game_id ASC
     `)
-    .all(...params, ...timeFilter.params, ...NO_STATS_QUEUE_IDS) as any[];
+        .all(...params, ...timeFilter.params, ...NO_STATS_QUEUE_IDS) as any[];
 
-  // Just enough of the game to render a record's context and open its match
-  const matchOf = (r: any) => ({
-    game_id: r.game_id,
-    game_creation: r.game_creation,
-    game_duration: r.game_duration,
-    queue_id: r.queue_id,
-    champion_id: r.champion_id,
-    win: r.win,
-    kills: r.kills,
-    deaths: r.deaths,
-    assists: r.assists,
-  });
+      // Just enough of the game to render a record's context and open its match
+      const matchOf = (r: any) => ({
+        game_id: r.game_id,
+        game_creation: r.game_creation,
+        game_duration: r.game_duration,
+        queue_id: r.queue_id,
+        champion_id: r.champion_id,
+        win: r.win,
+        kills: r.kills,
+        deaths: r.deaths,
+        assists: r.assists,
+      });
 
-  const bests: Record<string, { value: number; match: any } | null> = {
-    kills: null,
-    deaths: null,
-    assists: null,
-    kda: null,
-    score: null,
-    killingSpree: null,
-    damage: null,
-    damageTaken: null,
-    totalDamage: null,
-    trueDamage: null,
-    cs: null,
-    csPerMinute: null,
-    healing: null,
-    gold: null,
-    fastestWin: null,
-    fastestLoss: null,
-    longestGame: null,
-    criticalStrike: null,
-  };
-  const higher = (a: number, b: number) => a > b;
-  const lower = (a: number, b: number) => a < b;
-  const track = (key: string, value: number | null, row: any, better = higher) => {
-    if (value == null) return;
-    const current = bests[key];
-    if (!current || better(value, current.value)) bests[key] = { value, match: matchOf(row) };
-  };
+      const bests: Record<string, { value: number; match: any } | null> = {
+        kills: null,
+        deaths: null,
+        assists: null,
+        kda: null,
+        score: null,
+        killingSpree: null,
+        damage: null,
+        damageTaken: null,
+        totalDamage: null,
+        trueDamage: null,
+        cs: null,
+        csPerMinute: null,
+        healing: null,
+        gold: null,
+        fastestWin: null,
+        fastestLoss: null,
+        longestGame: null,
+        criticalStrike: null,
+      };
+      const higher = (a: number, b: number) => a > b;
+      const lower = (a: number, b: number) => a < b;
+      const track = (key: string, value: number | null, row: any, better = higher) => {
+        if (value == null) return;
+        const current = bests[key];
+        if (!current || better(value, current.value)) bests[key] = { value, match: matchOf(row) };
+      };
 
-  interface Streak {
-    length: number;
-    start: number;
-    end: number;
-    match: any;
-  }
-  let winStreak: Streak | null = null;
-  let lossStreak: Streak | null = null;
-  let run: { win: number; length: number; start: number } | null = null;
-  let lastPuuid: string | null = null;
+      interface Streak {
+        length: number;
+        start: number;
+        end: number;
+        match: any;
+      }
+      let winStreak: Streak | null = null;
+      let lossStreak: Streak | null = null;
+      let run: { win: number; length: number; start: number } | null = null;
+      let lastPuuid: string | null = null;
 
-  for (const r of rows) {
-    track("kills", r.kills, r);
-    track("deaths", r.deaths, r);
-    track("assists", r.assists, r);
-    // Deathless games rank by kills+assists rather than dividing by zero; the
-    // renderer still labels them "Perfect"
-    track("kda", (r.kills + r.assists) / Math.max(r.deaths, 1), r);
-    track("score", r.score_raw, r);
-    track("killingSpree", r.largest_killing_spree, r);
-    track("damage", r.total_damage_dealt, r);
-    track("damageTaken", r.total_damage_taken, r);
-    track("totalDamage", r.total_damage_dealt_all, r);
-    track("trueDamage", r.true_damage_dealt, r);
-    track("cs", r.cs, r);
-    // CS/min needs at least a minute of game to mean anything; a 0-second
-    // remake would otherwise divide by ~0 and post an absurd rate.
-    if (r.game_duration >= 60) track("csPerMinute", r.cs / (r.game_duration / 60), r);
-    track("criticalStrike", r.largest_critical_strike, r);
-    track("healing", r.total_heal, r);
-    track("gold", r.gold_earned, r);
-    if (r.win) track("fastestWin", r.game_duration, r, lower);
-    else track("fastestLoss", r.game_duration, r, lower);
-    track("longestGame", r.game_duration, r);
+      for (const r of rows) {
+        track("kills", r.kills, r);
+        track("deaths", r.deaths, r);
+        track("assists", r.assists, r);
+        // Deathless games rank by kills+assists rather than dividing by zero; the
+        // renderer still labels them "Perfect"
+        track("kda", (r.kills + r.assists) / Math.max(r.deaths, 1), r);
+        track("score", r.score_raw, r);
+        track("killingSpree", r.largest_killing_spree, r);
+        track("damage", r.total_damage_dealt, r);
+        track("damageTaken", r.total_damage_taken, r);
+        track("totalDamage", r.total_damage_dealt_all, r);
+        track("trueDamage", r.true_damage_dealt, r);
+        track("cs", r.cs, r);
+        // CS/min needs at least a minute of game to mean anything; a 0-second
+        // remake would otherwise divide by ~0 and post an absurd rate.
+        if (r.game_duration >= 60) track("csPerMinute", r.cs / (r.game_duration / 60), r);
+        track("criticalStrike", r.largest_critical_strike, r);
+        track("healing", r.total_heal, r);
+        track("gold", r.gold_earned, r);
+        if (r.win) track("fastestWin", r.game_duration, r, lower);
+        else track("fastestLoss", r.game_duration, r, lower);
+        track("longestGame", r.game_duration, r);
 
-    // Remakes never make it into rows, so they can't break a streak
-    if (!run || run.win !== r.win || lastPuuid !== r.puuid) {
-      run = { win: r.win, length: 0, start: r.game_creation };
-    }
-    lastPuuid = r.puuid;
-    run.length++;
-    const record: Streak = {
-      length: run.length,
-      start: run.start,
-      end: r.game_creation,
-      match: matchOf(r),
-    };
-    if (r.win) {
-      if (!winStreak || run.length > winStreak.length) winStreak = record;
-    } else {
-      if (!lossStreak || run.length > lossStreak.length) lossStreak = record;
-    }
-  }
+        // Remakes never make it into rows, so they can't break a streak
+        if (!run || run.win !== r.win || lastPuuid !== r.puuid) {
+          run = { win: r.win, length: 0, start: r.game_creation };
+        }
+        lastPuuid = r.puuid;
+        run.length++;
+        const record: Streak = {
+          length: run.length,
+          start: run.start,
+          end: r.game_creation,
+          match: matchOf(r),
+        };
+        if (r.win) {
+          if (!winStreak || run.length > winStreak.length) winStreak = record;
+        } else {
+          if (!lossStreak || run.length > lossStreak.length) lossStreak = record;
+        }
+      }
 
-  return { totalGames: rows.length, bests, winStreak, lossStreak };
+      return { totalGames: rows.length, bests, winStreak, lossStreak };
+    },
+  );
 }

@@ -10,6 +10,7 @@ import { MAYHEM_QUEUE_IDS, QUEUE_ID_CUSTOM, TUTORIAL_QUEUE_IDS } from "../../sha
 import { parseTimeline, type ParsedTimeline } from "../timeline";
 import { acquireRequestSlot, fetchMatchTimeline, RiotApiError } from "../riot-api";
 import { db } from "../db";
+import { cachedQuery } from "./cache";
 import { applyQueueFilter, participantFilter, statsSource } from "./filters";
 
 export interface TimelineBucket {
@@ -233,32 +234,37 @@ export function getChampionTimelineGames(
   queue?: number,
   account?: string,
 ): ChampionTimelineGame[] {
-  console.log("[db] getChampionTimelineGames called:", {
-    championId,
-    limit,
-    patch,
-    queue,
-    account,
-  });
+  return cachedQuery(
+    "getChampionTimelineGames",
+    [championId, limit, patch, queue, account],
+    30_000,
+    () => {
+      console.log("[db] getChampionTimelineGames called:", {
+        championId,
+        limit,
+        patch,
+        queue,
+        account,
+      });
 
-  const source = statsSource(account);
-  const participant = participantFilter(patch, undefined, "mp");
-  const ownerPuuidSql = account ? "ps.puuid" : "g.puuid";
-  const where = [
-    source.accountFilter,
-    participant.sql,
-    `mp.puuid = ${ownerPuuidSql}`,
-    "s.frame_count > 0",
-  ];
-  if (championId !== null) where.splice(2, 0, "mp.champion_id = ?");
-  const params: any[] = [];
-  if (account && account !== "all") params.push(account);
-  params.push(...participant.params);
-  if (championId !== null) params.push(championId);
-  applyQueueFilter(where, params, queue, "g");
+      const source = statsSource(account);
+      const participant = participantFilter(patch, undefined, "mp");
+      const ownerPuuidSql = account ? "ps.puuid" : "g.puuid";
+      const where = [
+        source.accountFilter,
+        participant.sql,
+        `mp.puuid = ${ownerPuuidSql}`,
+        "s.frame_count > 0",
+      ];
+      if (championId !== null) where.splice(2, 0, "mp.champion_id = ?");
+      const params: any[] = [];
+      if (account && account !== "all") params.push(account);
+      params.push(...participant.params);
+      if (championId !== null) params.push(championId);
+      applyQueueFilter(where, params, queue, "g");
 
-  const rows = db
-    .prepare(`
+      const rows = db
+        .prepare(`
       SELECT g.game_id AS gameId,
              g.game_creation AS gameCreation,
              g.queue_id AS queueId,
@@ -277,10 +283,12 @@ export function getChampionTimelineGames(
       ORDER BY g.game_creation DESC
       LIMIT ?
     `)
-    .all(...params, limit) as ChampionTimelineGame[];
+        .all(...params, limit) as ChampionTimelineGame[];
 
-  console.log("[db] getChampionTimelineGames done:", { count: rows.length });
-  return rows;
+      console.log("[db] getChampionTimelineGames done:", { count: rows.length });
+      return rows;
+    },
+  );
 }
 
 export function getChampionTimelineAverages(
@@ -289,33 +297,38 @@ export function getChampionTimelineAverages(
   queue?: number,
   account?: string,
 ): ChampionTimelineAverages {
-  console.log("[db] getChampionTimelineAverages called:", {
-    championId,
-    patch,
-    queue,
-    account,
-  });
+  return cachedQuery(
+    "getChampionTimelineAverages",
+    [championId, patch, queue, account],
+    30_000,
+    () => {
+      console.log("[db] getChampionTimelineAverages called:", {
+        championId,
+        patch,
+        queue,
+        account,
+      });
 
-  const participant = participantFilter(patch, undefined, "mp");
-  const where = [participant.sql, "s.frame_count > 0"];
-  const params: any[] = [];
-  if (championId !== null) {
-    where.splice(1, 0, "mp.champion_id = ?");
-  }
-  params.push(...participant.params);
-  if (championId !== null) params.push(championId);
-  if (account === "all") {
-    where.push("mp.puuid IN (SELECT puuid FROM summoner)");
-  } else if (account) {
-    where.push("mp.puuid = ?");
-    params.push(account);
-  } else {
-    where.push("mp.puuid = g.puuid");
-  }
-  applyQueueFilter(where, params, queue, "g");
+      const participant = participantFilter(patch, undefined, "mp");
+      const where = [participant.sql, "s.frame_count > 0"];
+      const params: any[] = [];
+      if (championId !== null) {
+        where.splice(1, 0, "mp.champion_id = ?");
+      }
+      params.push(...participant.params);
+      if (championId !== null) params.push(championId);
+      if (account === "all") {
+        where.push("mp.puuid IN (SELECT puuid FROM summoner)");
+      } else if (account) {
+        where.push("mp.puuid = ?");
+        params.push(account);
+      } else {
+        where.push("mp.puuid = g.puuid");
+      }
+      applyQueueFilter(where, params, queue, "g");
 
-  const games = db
-    .prepare(`
+      const games = db
+        .prepare(`
       SELECT g.game_id AS gameId,
              mp.participant_id AS ownerParticipantId,
              mp.team_id AS ownerTeamId,
@@ -326,48 +339,48 @@ export function getChampionTimelineAverages(
       JOIN match_timeline_status s ON s.game_id = g.game_id
       WHERE ${where.join(" AND ")}
     `)
-    .all(...params) as Array<{
-    gameId: number;
-    ownerParticipantId: number;
-    ownerTeamId: number;
-    ownerPosition: string | null;
-    win: number;
-  }>;
+        .all(...params) as Array<{
+        gameId: number;
+        ownerParticipantId: number;
+        ownerTeamId: number;
+        ownerPosition: string | null;
+        win: number;
+      }>;
 
-  const targetMinutes = [5, 10, 15, 20, 25, 30];
-  const buckets = targetMinutes.map((minute) => ({
-    minute,
-    gold: [] as number[],
-    cs: [] as number[],
-    xp: [] as number[],
-    level: [] as number[],
-    goldDiff: [] as number[],
-    csDiff: [] as number[],
-    xpDiff: [] as number[],
-    sampleGames: 0,
-  }));
-  const findClosestFrame = (
-    frames: TimelineFrame[],
-    participantId: number,
-    minute: number,
-  ): TimelineFrame | null => {
-    const targetMs = minute * 60_000;
-    let closest: TimelineFrame | null = null;
-    let closestDistance = Number.POSITIVE_INFINITY;
-    for (const frame of frames) {
-      if (frame.participant_id !== participantId) continue;
-      const distance = Math.abs(frame.timestamp_ms - targetMs);
-      if (distance <= 60_000 && distance < closestDistance) {
-        closest = frame;
-        closestDistance = distance;
-      }
-    }
-    return closest;
-  };
-  const average = (values: number[]) =>
-    values.length === 0 ? null : values.reduce((sum, value) => sum + value, 0) / values.length;
+      const targetMinutes = [5, 10, 15, 20, 25, 30];
+      const buckets = targetMinutes.map((minute) => ({
+        minute,
+        gold: [] as number[],
+        cs: [] as number[],
+        xp: [] as number[],
+        level: [] as number[],
+        goldDiff: [] as number[],
+        csDiff: [] as number[],
+        xpDiff: [] as number[],
+        sampleGames: 0,
+      }));
+      const findClosestFrame = (
+        frames: TimelineFrame[],
+        participantId: number,
+        minute: number,
+      ): TimelineFrame | null => {
+        const targetMs = minute * 60_000;
+        let closest: TimelineFrame | null = null;
+        let closestDistance = Number.POSITIVE_INFINITY;
+        for (const frame of frames) {
+          if (frame.participant_id !== participantId) continue;
+          const distance = Math.abs(frame.timestamp_ms - targetMs);
+          if (distance <= 60_000 && distance < closestDistance) {
+            closest = frame;
+            closestDistance = distance;
+          }
+        }
+        return closest;
+      };
+      const average = (values: number[]) =>
+        values.length === 0 ? null : values.reduce((sum, value) => sum + value, 0) / values.length;
 
-  const opponentQuery = db.prepare(`
+      const opponentQuery = db.prepare(`
     SELECT participant_id AS participantId
     FROM match_participants
     WHERE game_id = ?
@@ -378,7 +391,7 @@ export function getChampionTimelineAverages(
     ORDER BY participant_id
     LIMIT 1
   `);
-  const framesQuery = db.prepare(`
+      const framesQuery = db.prepare(`
     SELECT frame_index, timestamp_ms, participant_id, puuid, level, xp, gold, cs,
            position_x, position_y, attack_damage, ability_power, armor, magic_resist,
            attack_speed, ability_haste, move_speed, max_health, current_health
@@ -387,13 +400,13 @@ export function getChampionTimelineAverages(
       AND participant_id IN (?, ?)
     ORDER BY timestamp_ms
   `);
-  const itemPurchasesQuery = db.prepare(`
+      const itemPurchasesQuery = db.prepare(`
     SELECT CAST(timestamp_ms / 60000 AS INTEGER) AS minute, COUNT(*) AS count
     FROM match_timeline_events
     WHERE game_id = ? AND participant_id = ? AND event_type = 'ITEM_PURCHASED'
     GROUP BY minute
   `);
-  const levelMilestonesQuery = db.prepare(`
+      const levelMilestonesQuery = db.prepare(`
     SELECT
       MIN(CASE WHEN level >= 6 THEN timestamp_ms END) AS level6Ms,
       MIN(CASE WHEN level >= 11 THEN timestamp_ms END) AS level11Ms,
@@ -401,144 +414,146 @@ export function getChampionTimelineAverages(
     FROM match_timeline_frames
     WHERE game_id = ? AND participant_id = ?
   `);
-  const goldLead15: Array<{ diff: number; win: number }> = [];
-  const goldLead10: number[] = [];
-  const itemCounts: number[] = [];
-  const spendingCounts = [0, 0, 0, 0, 0, 0];
-  const level6Times: number[] = [];
-  const level11Times: number[] = [];
-  const level16Times: number[] = [];
+      const goldLead15: Array<{ diff: number; win: number }> = [];
+      const goldLead10: number[] = [];
+      const itemCounts: number[] = [];
+      const spendingCounts = [0, 0, 0, 0, 0, 0];
+      const level6Times: number[] = [];
+      const level11Times: number[] = [];
+      const level16Times: number[] = [];
 
-  for (const game of games) {
-    const milestones = levelMilestonesQuery.get(game.gameId, game.ownerParticipantId) as {
-      level6Ms: number | null;
-      level11Ms: number | null;
-      level16Ms: number | null;
-    };
-    if (milestones.level6Ms != null) level6Times.push(milestones.level6Ms);
-    if (milestones.level11Ms != null) level11Times.push(milestones.level11Ms);
-    if (milestones.level16Ms != null) level16Times.push(milestones.level16Ms);
-    const purchases = itemPurchasesQuery.all(game.gameId, game.ownerParticipantId) as Array<{
-      minute: number;
-      count: number;
-    }>;
-    itemCounts.push(purchases.reduce((sum, purchase) => sum + purchase.count, 0));
-    for (const purchase of purchases) {
-      if (purchase.minute >= 0 && purchase.minute < 30) {
-        spendingCounts[Math.min(Math.floor(purchase.minute / 5), 5)] += purchase.count;
+      for (const game of games) {
+        const milestones = levelMilestonesQuery.get(game.gameId, game.ownerParticipantId) as {
+          level6Ms: number | null;
+          level11Ms: number | null;
+          level16Ms: number | null;
+        };
+        if (milestones.level6Ms != null) level6Times.push(milestones.level6Ms);
+        if (milestones.level11Ms != null) level11Times.push(milestones.level11Ms);
+        if (milestones.level16Ms != null) level16Times.push(milestones.level16Ms);
+        const purchases = itemPurchasesQuery.all(game.gameId, game.ownerParticipantId) as Array<{
+          minute: number;
+          count: number;
+        }>;
+        itemCounts.push(purchases.reduce((sum, purchase) => sum + purchase.count, 0));
+        for (const purchase of purchases) {
+          if (purchase.minute >= 0 && purchase.minute < 30) {
+            spendingCounts[Math.min(Math.floor(purchase.minute / 5), 5)] += purchase.count;
+          }
+        }
+        const opponent =
+          game.ownerPosition == null || game.ownerPosition === ""
+            ? null
+            : (opponentQuery.get(game.gameId, game.ownerTeamId, game.ownerPosition) as
+                | { participantId: number }
+                | undefined);
+        const frames = framesQuery.all(
+          game.gameId,
+          game.ownerParticipantId,
+          opponent?.participantId ?? -1,
+        ) as TimelineFrame[];
+        for (const bucket of buckets) {
+          const ownerFrame = findClosestFrame(frames, game.ownerParticipantId, bucket.minute);
+          if (!ownerFrame) continue;
+          bucket.sampleGames += 1;
+          if (ownerFrame.gold != null) bucket.gold.push(ownerFrame.gold);
+          if (ownerFrame.cs != null) bucket.cs.push(ownerFrame.cs);
+          if (ownerFrame.xp != null) bucket.xp.push(ownerFrame.xp);
+          if (ownerFrame.level != null) bucket.level.push(ownerFrame.level);
+          if (!opponent) continue;
+          const opponentFrame = findClosestFrame(frames, opponent.participantId, bucket.minute);
+          if (!opponentFrame) continue;
+          if (ownerFrame.gold != null && opponentFrame.gold != null) {
+            const goldDiff = ownerFrame.gold - opponentFrame.gold;
+            bucket.goldDiff.push(goldDiff);
+            if (bucket.minute === 10) goldLead10.push(goldDiff);
+            if (bucket.minute === 15) goldLead15.push({ diff: goldDiff, win: game.win });
+          }
+          if (ownerFrame.cs != null && opponentFrame.cs != null) {
+            bucket.csDiff.push(ownerFrame.cs - opponentFrame.cs);
+          }
+          if (ownerFrame.xp != null && opponentFrame.xp != null) {
+            bucket.xpDiff.push(ownerFrame.xp - opponentFrame.xp);
+          }
+        }
       }
-    }
-    const opponent =
-      game.ownerPosition == null || game.ownerPosition === ""
-        ? null
-        : (opponentQuery.get(game.gameId, game.ownerTeamId, game.ownerPosition) as
-            | { participantId: number }
-            | undefined);
-    const frames = framesQuery.all(
-      game.gameId,
-      game.ownerParticipantId,
-      opponent?.participantId ?? -1,
-    ) as TimelineFrame[];
-    for (const bucket of buckets) {
-      const ownerFrame = findClosestFrame(frames, game.ownerParticipantId, bucket.minute);
-      if (!ownerFrame) continue;
-      bucket.sampleGames += 1;
-      if (ownerFrame.gold != null) bucket.gold.push(ownerFrame.gold);
-      if (ownerFrame.cs != null) bucket.cs.push(ownerFrame.cs);
-      if (ownerFrame.xp != null) bucket.xp.push(ownerFrame.xp);
-      if (ownerFrame.level != null) bucket.level.push(ownerFrame.level);
-      if (!opponent) continue;
-      const opponentFrame = findClosestFrame(frames, opponent.participantId, bucket.minute);
-      if (!opponentFrame) continue;
-      if (ownerFrame.gold != null && opponentFrame.gold != null) {
-        const goldDiff = ownerFrame.gold - opponentFrame.gold;
-        bucket.goldDiff.push(goldDiff);
-        if (bucket.minute === 10) goldLead10.push(goldDiff);
-        if (bucket.minute === 15) goldLead15.push({ diff: goldDiff, win: game.win });
-      }
-      if (ownerFrame.cs != null && opponentFrame.cs != null) {
-        bucket.csDiff.push(ownerFrame.cs - opponentFrame.cs);
-      }
-      if (ownerFrame.xp != null && opponentFrame.xp != null) {
-        bucket.xpDiff.push(ownerFrame.xp - opponentFrame.xp);
-      }
-    }
-  }
 
-  const result = buckets.map((bucket) => ({
-    minute: bucket.minute,
-    avgGold: average(bucket.gold),
-    avgCs: average(bucket.cs),
-    avgXp: average(bucket.xp),
-    avgLevel: average(bucket.level),
-    avgGoldDiffVsLaneOpponent: average(bucket.goldDiff),
-    avgCsDiffVsLaneOpponent: average(bucket.csDiff),
-    avgXpDiffVsLaneOpponent: average(bucket.xpDiff),
-    sampleGames: bucket.sampleGames,
-  }));
-  const bucketName = (diff: number) =>
-    diff <= -1000
-      ? "behind1000plus"
-      : diff < 0
-        ? "behind0to1000"
-        : diff < 1000
-          ? "ahead0to1000"
-          : "ahead1000plus";
-  const goldLeadDistribution15 = goldLead15.reduce(
-    (counts, entry) => {
-      counts[bucketName(entry.diff)]++;
-      return counts;
-    },
-    {
-      behind1000plus: 0,
-      behind0to1000: 0,
-      ahead0to1000: 0,
-      ahead1000plus: 0,
+      const result = buckets.map((bucket) => ({
+        minute: bucket.minute,
+        avgGold: average(bucket.gold),
+        avgCs: average(bucket.cs),
+        avgXp: average(bucket.xp),
+        avgLevel: average(bucket.level),
+        avgGoldDiffVsLaneOpponent: average(bucket.goldDiff),
+        avgCsDiffVsLaneOpponent: average(bucket.csDiff),
+        avgXpDiffVsLaneOpponent: average(bucket.xpDiff),
+        sampleGames: bucket.sampleGames,
+      }));
+      const bucketName = (diff: number) =>
+        diff <= -1000
+          ? "behind1000plus"
+          : diff < 0
+            ? "behind0to1000"
+            : diff < 1000
+              ? "ahead0to1000"
+              : "ahead1000plus";
+      const goldLeadDistribution15 = goldLead15.reduce(
+        (counts, entry) => {
+          counts[bucketName(entry.diff)]++;
+          return counts;
+        },
+        {
+          behind1000plus: 0,
+          behind0to1000: 0,
+          ahead0to1000: 0,
+          ahead1000plus: 0,
+        },
+      );
+      const winrateByGoldLead15 = Object.fromEntries(
+        Object.entries(goldLeadDistribution15).map(([name]) => {
+          const entries = goldLead15.filter((entry) => bucketName(entry.diff) === name);
+          return [
+            name,
+            entries.length === 0
+              ? null
+              : (entries.filter((entry) => entry.win === 1).length / entries.length) * 100,
+          ];
+        }),
+      ) as ChampionTimelineAverages["winrateByGoldLead15"];
+      const economy = {
+        buckets: result,
+        ahead10:
+          goldLead10.length === 0
+            ? null
+            : goldLead10.filter((diff) => diff > 0).length / goldLead10.length,
+        itemsBought: itemCounts.length === 0 ? null : average(itemCounts),
+        comebacks:
+          goldLead15.length === 0
+            ? null
+            : goldLead15.filter((entry) => entry.diff < 0 && entry.win === 1).length,
+        winrateByGoldLead15,
+        goldLeadDistribution15: goldLead15.length === 0 ? null : goldLeadDistribution15,
+        spendingTimeline:
+          itemCounts.length === 0
+            ? null
+            : spendingCounts.map((count, index) => ({
+                minute: index * 5,
+                averageItems: count / itemCounts.length,
+              })),
+        avgLevel6Ms: level6Times.length >= 3 ? average(level6Times) : null,
+        avgLevel11Ms: level11Times.length >= 3 ? average(level11Times) : null,
+        avgLevel16Ms: level16Times.length >= 3 ? average(level16Times) : null,
+        level6Games: level6Times.length,
+        level11Games: level11Times.length,
+        level16Games: level16Times.length,
+      };
+      console.log("[db] getChampionTimelineAverages done:", {
+        bucketCount: result.length,
+        games: games.length,
+      });
+      return economy;
     },
   );
-  const winrateByGoldLead15 = Object.fromEntries(
-    Object.entries(goldLeadDistribution15).map(([name]) => {
-      const entries = goldLead15.filter((entry) => bucketName(entry.diff) === name);
-      return [
-        name,
-        entries.length === 0
-          ? null
-          : (entries.filter((entry) => entry.win === 1).length / entries.length) * 100,
-      ];
-    }),
-  ) as ChampionTimelineAverages["winrateByGoldLead15"];
-  const economy = {
-    buckets: result,
-    ahead10:
-      goldLead10.length === 0
-        ? null
-        : goldLead10.filter((diff) => diff > 0).length / goldLead10.length,
-    itemsBought: itemCounts.length === 0 ? null : average(itemCounts),
-    comebacks:
-      goldLead15.length === 0
-        ? null
-        : goldLead15.filter((entry) => entry.diff < 0 && entry.win === 1).length,
-    winrateByGoldLead15,
-    goldLeadDistribution15: goldLead15.length === 0 ? null : goldLeadDistribution15,
-    spendingTimeline:
-      itemCounts.length === 0
-        ? null
-        : spendingCounts.map((count, index) => ({
-            minute: index * 5,
-            averageItems: count / itemCounts.length,
-          })),
-    avgLevel6Ms: level6Times.length >= 3 ? average(level6Times) : null,
-    avgLevel11Ms: level11Times.length >= 3 ? average(level11Times) : null,
-    avgLevel16Ms: level16Times.length >= 3 ? average(level16Times) : null,
-    level6Games: level6Times.length,
-    level11Games: level11Times.length,
-    level16Games: level16Times.length,
-  };
-  console.log("[db] getChampionTimelineAverages done:", {
-    bucketCount: result.length,
-    games: games.length,
-  });
-  return economy;
 }
 
 export function getChampionKillDeathPositions(
@@ -546,19 +561,20 @@ export function getChampionKillDeathPositions(
   limit = 500,
   account?: string,
 ): ChampionKillDeathPosition[] {
-  console.log("[db] getChampionKillDeathPositions called:", { championId, limit, account });
-  const cappedLimit = Math.min(Math.max(Math.trunc(limit), 1), 5000);
-  const ownerScope =
-    account === "all"
-      ? "mp.puuid IN (SELECT puuid FROM summoner)"
-      : account
-        ? "mp.puuid = ?"
-        : "mp.puuid IN (SELECT puuid FROM summoner)";
-  const params: Array<number | string> = [championId];
-  if (account && account !== "all") params.push(account);
+  return cachedQuery("getChampionKillDeathPositions", [championId, limit, account], 30_000, () => {
+    console.log("[db] getChampionKillDeathPositions called:", { championId, limit, account });
+    const cappedLimit = Math.min(Math.max(Math.trunc(limit), 1), 5000);
+    const ownerScope =
+      account === "all"
+        ? "mp.puuid IN (SELECT puuid FROM summoner)"
+        : account
+          ? "mp.puuid = ?"
+          : "mp.puuid IN (SELECT puuid FROM summoner)";
+    const params: Array<number | string> = [championId];
+    if (account && account !== "all") params.push(account);
 
-  const rows = db
-    .prepare(`
+    const rows = db
+      .prepare(`
       WITH tracked_participants AS (
         SELECT mp.game_id, mp.participant_id
         FROM match_participants mp
@@ -627,10 +643,11 @@ export function getChampionKillDeathPositions(
       WHERE x IS NOT NULL AND y IS NOT NULL
       LIMIT ?
     `)
-    .all(...params, cappedLimit) as ChampionKillDeathPosition[];
+      .all(...params, cappedLimit) as ChampionKillDeathPosition[];
 
-  console.log("[db] getChampionKillDeathPositions done:", { count: rows.length });
-  return rows;
+    console.log("[db] getChampionKillDeathPositions done:", { count: rows.length });
+    return rows;
+  });
 }
 
 export function insertTimeline(gameId: number, parsed: ParsedTimeline, rawPayload: any): void {
