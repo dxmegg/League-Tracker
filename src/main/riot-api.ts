@@ -81,6 +81,10 @@ export function normalizeMatchId(value: string): number | null {
   return Number.isSafeInteger(id) && id > 0 ? id : null;
 }
 
+export function toMatchV5Id(gameId: number, platform: string): string {
+  return `${platform.trim().toUpperCase()}_${gameId}`;
+}
+
 type RecentMatchResponse = {
   info?: {
     gameCreation?: number;
@@ -582,6 +586,27 @@ export async function accountByRiotId(
   );
 }
 
+export async function resolveRiotPuuid(
+  gameName: string,
+  tagLine: string,
+  platform: string,
+): Promise<string> {
+  console.log("[riot] resolveRiotPuuid called:", { gameName, tagLine, platform });
+  const route = regionalRoute(platform);
+  const url = `https://${route}.api.riotgames.com/riot/account/v1/accounts/by-riot-id/${encodeURIComponent(gameName)}/${encodeURIComponent(tagLine)}`;
+  const data = await riotFetch<{ puuid: string }>(url, route, undefined, `account-v1-${gameName}`);
+  if (!data?.puuid) {
+    console.warn("[riot] resolveRiotPuuid missing puuid:", { gameName, tagLine });
+    throw new Error(`Could not resolve puuid for ${gameName}#${tagLine}`);
+  }
+  console.log("[riot] resolveRiotPuuid done:", {
+    gameName,
+    tagLine,
+    puuidPrefix: data.puuid.slice(0, 12),
+  });
+  return data.puuid;
+}
+
 export async function getProfileDataByRiotId(
   gameName: string,
   tagLine: string,
@@ -938,6 +963,7 @@ export type RiotSyncResult = {
 
 export async function syncRiotHistory(): Promise<RiotSyncResult> {
   const stored = readAccounts();
+  const resolvedPuuids = new Map<string, string>();
   const identities = stored.length
     ? await Promise.all(
         stored.map(async (account) => {
@@ -950,7 +976,7 @@ export async function syncRiotHistory(): Promise<RiotSyncResult> {
   let scanned = 0;
   let complete = true;
   for (const { identity } of identities) {
-    const result = await syncRiotAccount(identity);
+    const result = await syncRiotAccount(identity, resolvedPuuids);
     added += result.added;
     scanned += result.scanned;
     complete &&= result.complete;
@@ -960,14 +986,30 @@ export async function syncRiotHistory(): Promise<RiotSyncResult> {
 
 async function syncRiotAccount(
   identity: Awaited<ReturnType<typeof configuredIdentity>>,
+  resolvedPuuids: Map<string, string>,
 ): Promise<RiotSyncResult> {
   const route = regionalRoute(identity.platform);
-  const tag = `${identity.gameName ?? identity.puuid}#${identity.tagLine ?? ""}`;
+  let puuid = identity.puuid;
+  if (identity.gameName && identity.tagLine) {
+    const gameName = identity.gameName.trim();
+    const tagLine = identity.tagLine.trim();
+    const cacheKey = `${gameName.toLowerCase()}#${tagLine.toLowerCase()}@${identity.platform}`;
+    puuid = resolvedPuuids.get(cacheKey) ?? "";
+    if (!puuid) {
+      puuid = await resolveRiotPuuid(gameName, tagLine, identity.platform);
+      resolvedPuuids.set(cacheKey, puuid);
+    }
+  } else {
+    console.warn("[riot] syncRiotAccount missing Riot ID; using identity puuid:", {
+      puuid: identity.puuid,
+    });
+  }
+  const tag = `${identity.gameName ?? puuid}#${identity.tagLine ?? ""}`;
   // Per-account, not the global getKnownGameIds(): a game only counts as
   // known for *this* account once it shows up among its own participants,
   // so pagination doesn't stop early just because another tracked account
   // already synced a game this account also happened to play in.
-  const known = db.getKnownGameIdsForPuuid(identity.puuid);
+  const known = db.getKnownGameIdsForPuuid(puuid);
   const ignored = db.getIgnoredGameIds();
   const pageSize = 100;
   const configuredPage = Number(db.getSetting("riot_sync_page_size") ?? pageSize);
@@ -981,7 +1023,7 @@ async function syncRiotAccount(
     let page: string[];
     try {
       page = await riotFetch<string[]>(
-        `https://${route}.api.riotgames.com/lol/match/v5/matches/by-puuid/${encodeURIComponent(identity.puuid)}/ids?start=${start}&count=${count}`,
+        `https://${route}.api.riotgames.com/lol/match/v5/matches/by-puuid/${encodeURIComponent(puuid)}/ids?start=${start}&count=${count}`,
         route,
         undefined,
         tag,
@@ -1002,7 +1044,7 @@ async function syncRiotAccount(
     let payload: any;
     try {
       payload = await riotFetch<any>(
-        `https://${route}.api.riotgames.com/lol/match/v5/matches/${id}`,
+        `https://${route}.api.riotgames.com/lol/match/v5/matches/${encodeURIComponent(toMatchV5Id(id, identity.platform))}`,
         route,
         undefined,
         tag,
@@ -1015,11 +1057,11 @@ async function syncRiotAccount(
       }
       throw new Error(friendlyRiotError(err, "match"));
     }
-    const normalized = normalizeMatchPayload(payload, id, identity.puuid);
-    if (db.insertGameFull(normalized, identity.puuid, "riot-sync")) added++;
+    const normalized = normalizeMatchPayload(payload, id, puuid);
+    if (db.insertGameFull(normalized, puuid, "riot-sync")) added++;
   }
 
-  db.setRiotSyncState(identity.puuid, identity.platform, ids[0] ?? null, ids.length < 10_000);
+  db.setRiotSyncState(puuid, identity.platform, ids[0] ?? null, ids.length < 10_000);
   return {
     added,
     scanned: ids.length,
