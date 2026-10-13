@@ -13,8 +13,12 @@ import { useViewState } from "../hooks/useViewState";
 import { useIpc } from "../hooks/useIpc";
 import { isAugmentQueue } from "../../shared/queues";
 import { formatNumber } from "../lib/format";
+import { FilterChip } from "./FilterChip";
+import { SearchInput } from "./SearchInput";
 
-type SortMode = "most-built" | "best-wr";
+type SortMode = "most-built" | "best-wr" | "vs-average" | "best-score" | "rising";
+type ItemClass = "All" | "AD" | "AP" | "Tank" | "Boots" | "Other";
+type ViewMode = "cards" | "table";
 type Accent = { color: string; tint: string };
 
 const ACCENTS: Accent[] = [
@@ -48,7 +52,56 @@ function resultWinRate(
   );
 }
 
-function itemBranch(item: ItemData[number] | undefined): { label: string; color: string } {
+// Explicit classes for the 30 most common completed items; unfamiliar items use the tooltip heuristic below.
+const COMMON_ITEM_CLASSES: Record<string, Exclude<ItemClass, "All">> = {
+  "Berserker's Greaves": "Boots",
+  "Boots of Swiftness": "Boots",
+  "Ionian Boots of Lucidity": "Boots",
+  "Mercury's Treads": "Boots",
+  "Plated Steelcaps": "Boots",
+  "Sorcerer's Shoes": "Boots",
+  "Synchronized Souls": "Boots",
+  "Abyssal Mask": "Tank",
+  "Dead Man's Plate": "Tank",
+  "Force of Nature": "Tank",
+  Heartsteel: "Tank",
+  "Jak'Sho, The Protean": "Tank",
+  "Randuin's Omen": "Tank",
+  "Spirit Visage": "Tank",
+  "Sunfire Aegis": "Tank",
+  Thornmail: "Tank",
+  "Unending Despair": "Tank",
+  Bloodthirster: "AD",
+  Eclipse: "AD",
+  "Essence Reaver": "AD",
+  "Infinity Edge": "AD",
+  "Kraken Slayer": "AD",
+  "Navori Flickerblade": "AD",
+  "Ravenous Hydra": "AD",
+  "Sterak's Gage": "AD",
+  "Trinity Force": "AD",
+  "Nashor's Tooth": "AP",
+  "Rabadon's Deathcap": "AP",
+  Riftmaker: "AP",
+  "Void Staff": "AP",
+};
+
+function itemBranch(item: ItemData[number] | undefined): { label: ItemClass; color: string } {
+  const name = item?.name ?? "";
+  const knownClass = COMMON_ITEM_CLASSES[name];
+  if (knownClass) {
+    return {
+      label: knownClass,
+      color:
+        knownClass === "Boots"
+          ? "#C9A45C"
+          : knownClass === "AP"
+            ? "#3B82F6"
+            : knownClass === "AD"
+              ? "#E5483F"
+              : "#22C55E",
+    };
+  }
   const text = `${item?.name ?? ""} ${item?.description ?? ""}`.toLowerCase();
   if (text.includes("boots") || text.includes("movement speed")) {
     return { label: "Boots", color: "#C9A45C" };
@@ -67,7 +120,7 @@ function itemBranch(item: ItemData[number] | undefined): { label: string; color:
   ) {
     return { label: "Tank", color: "#22C55E" };
   }
-  return { label: item ? "Other" : "—", color: "#64748B" };
+  return { label: "Other", color: "#64748B" };
 }
 
 function formatBuyTime(milliseconds: number): string {
@@ -188,6 +241,7 @@ export function ItemsExp() {
   const rows = resultRows(statsResult);
   const totalBuilds = resultTotalBuilds(statsResult, rows);
   const avgWinRate = resultWinRate(statsResult, rows);
+  const totalGames = statsResult?.totalGames ?? 0;
   const patches = patchOptions?.patches ?? [];
   const currentPatch = patch ?? patches[0];
   const previousPatch =
@@ -207,19 +261,69 @@ export function ItemsExp() {
     [previousPatch, scopedQueue, account],
   );
   const [sortMode, setSortMode] = useState<SortMode>("most-built");
+  const [itemClass, setItemClass] = useState<ItemClass>("All");
+  const [minGames, setMinGames] = useState(0);
+  const [viewMode, setViewMode] = useState<ViewMode>("cards");
+  const [search, setSearch] = useState("");
+
+  const risingDeltaByItem = useMemo(() => {
+    const previousByItem = new Map(
+      resultRows(previousPatchResult).map((row) => [row.item_id, row]),
+    );
+    return new Map(
+      resultRows(currentPatchResult)
+        .map((row) => {
+          const previous = previousByItem.get(row.item_id);
+          return previous
+            ? [
+                row.item_id,
+                (row.wins / Math.max(row.picks, 1) - previous.wins / Math.max(previous.picks, 1)) *
+                  100,
+              ]
+            : null;
+        })
+        .filter((entry): entry is [number, number] => entry !== null),
+    );
+  }, [currentPatchResult, previousPatchResult]);
+
+  const visibleRows = useMemo(
+    () =>
+      rows.filter((row) => {
+        const branch = itemBranch(itemData[row.item_id]);
+        return (
+          (itemClass === "All" || branch.label === itemClass) &&
+          row.picks >= minGames &&
+          getItemName(itemData, row.item_id).toLowerCase().includes(search.toLowerCase())
+        );
+      }),
+    [itemClass, itemData, minGames, rows, search],
+  );
 
   const sorted = useMemo(() => {
-    const copy = [...rows];
-    if (sortMode === "most-built") copy.sort((a, b) => b.picks - a.picks);
-    else {
-      copy.sort((a, b) => {
-        const wrA = a.picks > 0 ? a.wins / a.picks : 0;
-        const wrB = b.picks > 0 ? b.wins / b.picks : 0;
-        return wrB - wrA || b.picks - a.picks;
-      });
-    }
+    const copy = [...visibleRows];
+    copy.sort((a, b) => {
+      const wrA = a.picks > 0 ? (a.wins / a.picks) * 100 : 0;
+      const wrB = b.picks > 0 ? (b.wins / b.picks) * 100 : 0;
+      const deltaA = wrA - avgWinRate;
+      const deltaB = wrB - avgWinRate;
+      const scoreA = deltaA * Math.log10(Math.max(a.picks, 1));
+      const scoreB = deltaB * Math.log10(Math.max(b.picks, 1));
+      const risingA = risingDeltaByItem.get(a.item_id);
+      const risingB = risingDeltaByItem.get(b.item_id);
+      const result =
+        sortMode === "most-built"
+          ? b.picks - a.picks
+          : sortMode === "best-wr"
+            ? wrB - wrA
+            : sortMode === "vs-average"
+              ? deltaB - deltaA
+              : sortMode === "best-score"
+                ? scoreB - scoreA
+                : (risingB == null ? -Infinity : risingB) - (risingA == null ? -Infinity : risingA);
+      return result || b.picks - a.picks;
+    });
     return copy;
-  }, [rows, sortMode]);
+  }, [avgWinRate, risingDeltaByItem, sortMode, visibleRows]);
 
   const highlights = useMemo(() => {
     const mostBuilt = rows.reduce<OwnedItemStats | null>(
@@ -267,30 +371,6 @@ export function ItemsExp() {
         <div className="flex flex-wrap items-center gap-2">
           <QueueSelect value={queue} onChange={setQueue} filter={(id) => !isAugmentQueue(id)} />
           <PatchSelect value={patch} onChange={setPatch} />
-          <div className="inline-flex rounded-[10px] border border-lol-border bg-lol-card p-[3px]">
-            <button
-              type="button"
-              onClick={() => setSortMode("most-built")}
-              className={`rounded-[7px] px-4 py-1.5 font-display text-[13px] font-semibold transition-colors ${
-                sortMode === "most-built"
-                  ? "bg-lol-crimson text-white"
-                  : "text-lol-text hover:text-lol-text-bright"
-              }`}
-            >
-              Most built
-            </button>
-            <button
-              type="button"
-              onClick={() => setSortMode("best-wr")}
-              className={`rounded-[7px] px-4 py-1.5 font-display text-[13px] font-semibold transition-colors ${
-                sortMode === "best-wr"
-                  ? "bg-lol-crimson text-white"
-                  : "text-lol-text hover:text-lol-text-bright"
-              }`}
-            >
-              Best win rate
-            </button>
-          </div>
         </div>
       </div>
 
@@ -390,8 +470,190 @@ export function ItemsExp() {
           </div>
 
           <div className="min-w-0 rounded-[14px] border border-lol-border bg-[radial-gradient(circle_at_100%_0,rgba(229,72,63,0.08),transparent_42%),linear-gradient(180deg,var(--theme-card-hover),var(--theme-card))] p-5">
+            <div className="mb-4 flex flex-col gap-3">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-lol-text">
+                    Class
+                  </span>
+                  {(["All", "AD", "AP", "Tank", "Boots", "Other"] as const).map((value) => {
+                    const count =
+                      value === "All"
+                        ? rows.length
+                        : rows.filter((row) => itemBranch(itemData[row.item_id]).label === value)
+                            .length;
+                    return (
+                      <FilterChip
+                        key={value}
+                        active={itemClass === value}
+                        disabled={count === 0 && value !== "All"}
+                        title={
+                          count === 0 && value !== "All" ? "No items in this category" : undefined
+                        }
+                        onClick={() => setItemClass(value)}
+                        className="h-8 px-3 text-xs font-semibold"
+                      >
+                        {value}
+                      </FilterChip>
+                    );
+                  })}
+                  <span className="ml-2 text-[10px] font-bold uppercase tracking-wider text-lol-text">
+                    Min games
+                  </span>
+                  {(
+                    [
+                      [0, "Any"],
+                      [10, "10+"],
+                      [25, "25+"],
+                      [50, "50+"],
+                    ] as const
+                  ).map(([value, label]) => (
+                    <FilterChip
+                      key={label}
+                      active={minGames === value}
+                      onClick={() => setMinGames(value)}
+                      className="h-8 px-3 text-xs font-semibold"
+                    >
+                      {label}
+                    </FilterChip>
+                  ))}
+                </div>
+                <SearchInput
+                  className="w-56"
+                  placeholder="Search items"
+                  value={search}
+                  onChange={(event) => setSearch(event.target.value)}
+                />
+              </div>
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-lol-text">
+                    Sort
+                  </span>
+                  {(
+                    [
+                      ["most-built", "Most built"],
+                      ["best-wr", "Best win rate"],
+                      ["vs-average", "Vs average"],
+                      ["best-score", "Best score"],
+                      ["rising", "Rising"],
+                    ] as const
+                  ).map(([value, label]) => (
+                    <FilterChip
+                      key={value}
+                      active={sortMode === value}
+                      onClick={() => setSortMode(value)}
+                      className="h-8 px-3 text-xs font-semibold"
+                    >
+                      {label}
+                    </FilterChip>
+                  ))}
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-lol-text">
+                    View
+                  </span>
+                  {(
+                    [
+                      ["cards", "Cards"],
+                      ["table", "Table"],
+                    ] as const
+                  ).map(([value, label]) => (
+                    <FilterChip
+                      key={value}
+                      active={viewMode === value}
+                      onClick={() => setViewMode(value)}
+                      className="h-8 px-3 text-xs font-semibold"
+                    >
+                      {label}
+                    </FilterChip>
+                  ))}
+                </div>
+              </div>
+            </div>
             {sorted.length === 0 ? (
               <div className="py-8 text-center text-sm text-lol-text">No items played yet.</div>
+            ) : viewMode === "table" ? (
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead className="border-b border-lol-border/40">
+                    <tr>
+                      {[
+                        "#",
+                        "Item",
+                        "Category",
+                        "Games",
+                        "Pick rate",
+                        "Win rate",
+                        "Vs avg",
+                        "Buy time",
+                        "Slot",
+                      ].map((heading, index) => (
+                        <th
+                          key={heading}
+                          className={`px-3 py-2.5 text-[10px] font-bold uppercase tracking-wider text-lol-text ${
+                            index === 0 || index >= 3 ? "text-right" : "text-left"
+                          }`}
+                        >
+                          {heading}
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {sorted.map((row, index) => {
+                      const wr = row.picks > 0 ? (row.wins / row.picks) * 100 : 0;
+                      const branch = itemBranch(itemData[row.item_id]);
+                      return (
+                        <tr
+                          key={row.item_id}
+                          onClick={() =>
+                            navigate(`/history/${scope ?? "full"}/items/${row.item_id}`)
+                          }
+                          className="cursor-pointer border-b border-white/[0.04] transition-colors duration-120 hover:bg-white/[0.025]"
+                        >
+                          <td className="px-3 py-2 text-right text-xs tabular-nums text-lol-text">
+                            {index + 1}
+                          </td>
+                          <td className="px-3 py-2">
+                            <span className="flex items-center gap-3 text-sm font-bold text-lol-text-bright">
+                              <ItemIcon itemId={row.item_id} size={28} patch={patch} />
+                              {getItemName(itemData, row.item_id)}
+                            </span>
+                          </td>
+                          <td className="px-3 py-2 text-left text-xs text-lol-text">
+                            {branch.label}
+                          </td>
+                          <td className="px-3 py-2 text-right text-xs tabular-nums text-lol-text">
+                            {formatNumber(row.picks)}
+                          </td>
+                          <td className="px-3 py-2 text-right text-xs tabular-nums text-lol-text">
+                            {totalGames
+                              ? `${((row.picks / totalGames) * 100).toFixed(1)}%`
+                              : "0.0%"}
+                          </td>
+                          <td className="px-3 py-2 text-right text-xs tabular-nums text-lol-text">
+                            {wr.toFixed(1)}%
+                          </td>
+                          <td
+                            className={`px-3 py-2 text-right text-xs tabular-nums ${
+                              wr >= avgWinRate ? "text-lol-win" : "text-lol-loss"
+                            }`}
+                          >
+                            {`${wr - avgWinRate >= 0 ? "+" : ""}${(wr - avgWinRate).toFixed(1)} pts`}
+                          </td>
+                          <td className="px-3 py-2 text-right text-xs tabular-nums text-lol-text">
+                            {row.avgBuyTimeMs != null ? formatBuyTime(row.avgBuyTimeMs) : "—"}
+                          </td>
+                          <td className="px-3 py-2 text-right text-xs tabular-nums text-lol-text">
+                            {row.commonPurchaseSlot != null ? row.commonPurchaseSlot : "—"}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
             ) : (
               <TileGrid>
                 {sorted.map((row, index) => {
