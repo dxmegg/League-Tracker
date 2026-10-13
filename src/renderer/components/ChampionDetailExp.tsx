@@ -1422,7 +1422,7 @@ export function MasteryTab({
         Champion mastery progress, level thresholds, Eternals and owned skins.
       </IntroBox>
       <SectionHeading title="Key metrics" />
-      <Panel className={TAB_PANEL_CLASSES.gold}>
+      <Panel>
         <SectionHeading title="Mastery" aside={accountName ?? undefined} />
         <p className="mb-3 text-[11px] text-lol-text/70">
           Current mastery level and points earned on this champion.
@@ -3662,6 +3662,54 @@ function TimelineTab({
     selectedGame && timeline
       ? timeline.frames.filter((frame) => frame.puuid === selectedGame.ownerPuuid)
       : [];
+  const ownerParticipantId = ownerFrames[0]?.participant_id ?? null;
+  const powerSpikes = [6, 11, 16].map((level) => {
+    const frame = ownerFrames.find((candidate) => (candidate.level ?? 0) >= level);
+    return {
+      level,
+      timestampMs: frame?.timestamp_ms ?? null,
+    };
+  });
+  const teamfights = useMemo(() => {
+    const kills = timelineEventsForTeamfights(timeline?.events ?? []);
+    const clusters: Array<typeof kills> = [];
+    for (const kill of kills) {
+      const current = clusters.at(-1);
+      if (!current || kill.timestamp_ms - current[0].timestamp_ms > 30_000) {
+        clusters.push([kill]);
+      } else {
+        current.push(kill);
+      }
+    }
+    return clusters
+      .filter((cluster) => cluster.length >= 3)
+      .map((cluster) => {
+        const startTimeMs = cluster[0].timestamp_ms;
+        const endTimeMs = cluster.at(-1)?.timestamp_ms ?? startTimeMs;
+        const killsForOwner =
+          ownerParticipantId == null
+            ? 0
+            : cluster.filter((kill) => kill.killer_id === ownerParticipantId).length;
+        const killsAgainstOwner =
+          ownerParticipantId == null
+            ? 0
+            : cluster.filter((kill) => kill.victim_id === ownerParticipantId).length;
+        return {
+          startTimeMs,
+          endTimeMs,
+          durationSeconds: Math.round((endTimeMs - startTimeMs) / 1000),
+          totalKills: cluster.length,
+          killsForOwner,
+          killsAgainstOwner,
+          result:
+            killsForOwner > killsAgainstOwner
+              ? ("won" as const)
+              : killsForOwner < killsAgainstOwner
+                ? ("lost" as const)
+                : ("even" as const),
+        };
+      });
+  }, [ownerParticipantId, timeline?.events]);
   const labels = ownerFrames.map((frame) => `${Math.round(frame.timestamp_ms / 60000)}m`);
   const events =
     timeline?.events
@@ -3919,7 +3967,7 @@ function TimelineTab({
         <Panel className={TAB_PANEL_CLASSES.sapphire}>
           <SectionLoading />
         </Panel>
-      ) : timeline == null || ownerFrames.length === 0 ? (
+      ) : timeline == null ? (
         <Panel className={TAB_PANEL_CLASSES.sapphire}>
           <NoData text="No timeline selected" />
         </Panel>
@@ -3930,52 +3978,158 @@ function TimelineTab({
             <p className="mb-3 text-[11px] text-lol-text/70">
               Gold and minion progress minute by minute through the selected game.
             </p>
-            <LineChartExp
-              values={ownerFrames.map((frame) => frame.gold ?? 0)}
-              series={[
-                {
-                  values: ownerFrames.map((frame) => frame.gold ?? 0),
-                  color: "var(--theme-gold)",
-                  label: "Gold",
-                },
-                {
-                  values: ownerFrames.map((frame) => (frame.cs ?? 0) * 10),
-                  color: "var(--theme-violet)",
-                  label: "CS (×10)",
-                },
-              ]}
-              format={(value) => formatPlain(value, 2)}
-              xLabels={labels}
-              min={0}
-              height={200}
-              showStats
-            />
+            {ownerFrames.length === 0 ? (
+              <NoData text="No timeline frames for this match" />
+            ) : (
+              <LineChartExp
+                values={ownerFrames.map((frame) => frame.gold ?? 0)}
+                series={[
+                  {
+                    values: ownerFrames.map((frame) => frame.gold ?? 0),
+                    color: "var(--theme-gold)",
+                    label: "Gold",
+                  },
+                  {
+                    values: ownerFrames.map((frame) => (frame.cs ?? 0) * 10),
+                    color: "var(--theme-violet)",
+                    label: "CS (×10)",
+                  },
+                ]}
+                format={(value) => formatPlain(value, 2)}
+                xLabels={labels}
+                min={0}
+                height={200}
+                showStats
+              />
+            )}
           </Panel>
           <Panel className={`xl:col-span-2 ${TAB_PANEL_CLASSES.sapphire}`}>
             <SectionHeading title="Level and XP" source="t" />
             <p className="mb-3 text-[11px] text-lol-text/70">
               Champion level and experience growth across the selected game.
             </p>
-            <LineChartExp
-              values={ownerFrames.map((frame) => (frame.level ?? 0) * 100)}
-              series={[
-                {
-                  values: ownerFrames.map((frame) => (frame.level ?? 0) * 100),
-                  color: "var(--theme-assist)",
-                  label: "Level (×100)",
-                },
-                {
-                  values: ownerFrames.map((frame) => (frame.xp ?? 0) / 10),
-                  color: "var(--theme-win)",
-                  label: "XP (÷10)",
-                },
-              ]}
-              format={(value) => value.toFixed(0)}
-              xLabels={labels}
-              min={0}
-              height={200}
-              showStats
-            />
+            {ownerFrames.length === 0 ? (
+              <NoData text="No timeline frames for this match" />
+            ) : (
+              <LineChartExp
+                values={ownerFrames.map((frame) => (frame.level ?? 0) * 100)}
+                series={[
+                  {
+                    values: ownerFrames.map((frame) => (frame.level ?? 0) * 100),
+                    color: "var(--theme-assist)",
+                    label: "Level (×100)",
+                  },
+                  {
+                    values: ownerFrames.map((frame) => (frame.xp ?? 0) / 10),
+                    color: "var(--theme-win)",
+                    label: "XP (÷10)",
+                  },
+                ]}
+                format={(value) => value.toFixed(0)}
+                xLabels={labels}
+                min={0}
+                height={200}
+                showStats
+              />
+            )}
+          </Panel>
+          <Panel className={TAB_PANEL_CLASSES.gold}>
+            <SectionHeading title="Power spikes" source="d" />
+            <p className="mb-3 text-[11px] text-lol-text/70">
+              First recorded game time when the owner reached each level milestone.
+            </p>
+            {ownerFrames.length === 0 ? (
+              <NoData text="No timeline frames for this match" />
+            ) : (
+              <div className="grid grid-cols-3 border-y border-white/[0.04]">
+                {powerSpikes.map((spike, index) => (
+                  <div
+                    key={spike.level}
+                    className={`border-t-[3px] px-3 py-3 text-right ${
+                      index === 0
+                        ? "border-t-[#C9A45C]"
+                        : index === 1
+                          ? "border-t-[#22C55E]"
+                          : "border-t-[#E5483F]"
+                    } ${index > 0 ? "border-l border-white/[0.04]" : ""}`}
+                  >
+                    <div className="text-[11px] text-lol-text/70">Level {spike.level}</div>
+                    <div
+                      className="mt-1 tabular-nums text-lg font-semibold text-lol-text-bright"
+                      title={spike.timestampMs == null ? "Not reached" : undefined}
+                    >
+                      {spike.timestampMs == null ? "—" : formatBuyTime(spike.timestampMs / 1000)}
+                    </div>
+                    <div className="text-[11px] text-lol-text/50">
+                      {spike.timestampMs == null
+                        ? "Not reached"
+                        : `${(spike.timestampMs / 60000).toFixed(1)} minutes`}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </Panel>
+          <Panel className={TAB_PANEL_CLASSES.emerald}>
+            <SectionHeading title="Teamfights" source="d" />
+            <p className="mb-3 text-[11px] text-lol-text/70">
+              Clusters of three or more champion kills within a 30-second window.
+            </p>
+            {teamfights.length === 0 ? (
+              <NoData text="No teamfights detected in this match" />
+            ) : (
+              <div className="overflow-x-auto">
+                <div className="min-w-[520px] text-xs">
+                  <div className="grid grid-cols-[1.3fr_1fr_0.8fr_0.7fr_0.9fr_1fr] gap-2 border-b border-white/[0.04] px-3 py-2 text-[10px] uppercase tracking-[0.14em] text-lol-text/50">
+                    <span>Time</span>
+                    <span>Duration</span>
+                    <span className="text-right">Kills</span>
+                    <span className="text-right">For</span>
+                    <span className="text-right">Against</span>
+                    <span className="text-right">Result</span>
+                  </div>
+                  {teamfights.map((fight) => (
+                    <div
+                      key={`${fight.startTimeMs}-${fight.endTimeMs}`}
+                      className={`grid grid-cols-[1.3fr_1fr_0.8fr_0.7fr_0.9fr_1fr] gap-2 border-b border-white/[0.04] border-l-2 px-3 py-2 transition-[border-width,background-color] duration-[120ms] hover:border-l-[3px] hover:bg-white/[0.025] last:border-b-0 ${
+                        fight.result === "won"
+                          ? "border-l-lol-win"
+                          : fight.result === "lost"
+                            ? "border-l-lol-loss"
+                            : "border-l-transparent"
+                      }`}
+                    >
+                      <span className="tabular-nums text-lol-text-bright">
+                        {formatBuyTime(fight.startTimeMs / 1000)}
+                      </span>
+                      <span className="tabular-nums text-lol-text">{fight.durationSeconds}s</span>
+                      <span className="text-right tabular-nums text-lol-text">
+                        {fight.totalKills}
+                      </span>
+                      <span className="text-right tabular-nums text-lol-win">
+                        {fight.killsForOwner}
+                      </span>
+                      <span className="text-right tabular-nums text-lol-loss">
+                        {fight.killsAgainstOwner}
+                      </span>
+                      <span className="text-right">
+                        <span
+                          className={`inline-flex rounded-full border px-2 py-0.5 text-[10px] uppercase tracking-wider ${
+                            fight.result === "won"
+                              ? "border-lol-win/40 bg-lol-win/10 text-lol-win"
+                              : fight.result === "lost"
+                                ? "border-lol-loss/40 bg-lol-loss/10 text-lol-loss"
+                                : "border-lol-border bg-white/[0.04] text-lol-text/70"
+                          }`}
+                        >
+                          {fight.result}
+                        </span>
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </Panel>
           <Panel className={`xl:col-span-2 ${TAB_PANEL_CLASSES.sapphire}`}>
             <SectionHeading title="Gold diff vs lane opponent" source="t" />
@@ -4054,6 +4208,13 @@ function timelineEventDescription(
     return `${event.building_type ?? "Building"} destroyed`;
   }
   return "Turret plate destroyed";
+}
+
+function timelineEventsForTeamfights(events: TimelineData["events"]) {
+  return events
+    .filter((event) => event.event_type === "CHAMPION_KILL")
+    .slice()
+    .sort((a, b) => a.timestamp_ms - b.timestamp_ms);
 }
 
 function SynergiesTab({
