@@ -697,6 +697,9 @@ export interface ItemStats {
 export interface OwnedItemStats extends ItemStats {
   avgBuyTimeMs?: number | null;
   commonPurchaseSlot?: number | null;
+  scopeTotalGames?: number;
+  scopeTotalBuilds?: number;
+  scopeAvgWinRate?: number;
 }
 export interface OwnedItemStatsResult {
   rows: OwnedItemStats[];

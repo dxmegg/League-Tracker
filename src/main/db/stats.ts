@@ -1835,23 +1835,43 @@ export function getOwnedItemStats(
           )
           .join(" UNION ALL ")}
       ),
-      item_games AS (
-        SELECT DISTINCT game_id, item_id
+      item_summary AS (
+        SELECT item_id, COUNT(*) AS picks, SUM(win) AS wins
         FROM item_occurrences
+        GROUP BY item_id
+      ),
+      top_items AS (
+        SELECT item_id
+        FROM item_summary
+        ORDER BY picks DESC
+        LIMIT 100
+      ),
+      item_games AS (
+        SELECT DISTINCT io.game_id, io.item_id
+        FROM item_occurrences io
+        JOIN top_items ti ON ti.item_id = io.item_id
+      ),
+      purchase_events AS (
+        SELECT e.game_id, e.item_id, MIN(e.timestamp_ms) AS first_purchase_ms
+        FROM match_timeline_events e
+        JOIN item_games ig
+          ON ig.game_id = e.game_id
+         AND ig.item_id = e.item_id
+        WHERE e.event_type = 'ITEM_PURCHASED'
+        GROUP BY e.game_id, e.item_id
       ),
       purchase_times AS (
-        SELECT ig.item_id, ig.game_id, MIN(e.timestamp_ms) AS first_purchase_ms
+        SELECT ig.item_id, ig.game_id, pe.first_purchase_ms
         FROM item_games ig
-        LEFT JOIN match_timeline_events e
-          ON e.game_id = ig.game_id
-         AND e.item_id = ig.item_id
-         AND e.event_type = 'ITEM_PURCHASED'
-        GROUP BY ig.item_id, ig.game_id
+        LEFT JOIN purchase_events pe
+          ON pe.game_id = ig.game_id
+         AND pe.item_id = ig.item_id
       ),
       slot_counts AS (
-        SELECT item_id, purchase_slot, COUNT(*) AS slot_count
-        FROM item_occurrences
-        GROUP BY item_id, purchase_slot
+        SELECT io.item_id, io.purchase_slot, COUNT(*) AS slot_count
+        FROM item_occurrences io
+        JOIN top_items ti ON ti.item_id = io.item_id
+        GROUP BY io.item_id, io.purchase_slot
       ),
       common_slots AS (
         SELECT item_id, purchase_slot
@@ -1864,11 +1884,6 @@ export function getOwnedItemStats(
           FROM slot_counts
         )
         WHERE slot_rank = 1
-      ),
-      item_summary AS (
-        SELECT item_id, COUNT(*) AS picks, SUM(win) AS wins
-        FROM item_occurrences
-        GROUP BY item_id
       ),
       purchase_averages AS (
         SELECT item_id, AVG(first_purchase_ms) AS avg_buy_time_ms
@@ -1896,6 +1911,11 @@ export function getOwnedItemStats(
   const totalBuilds = rows.reduce((sum, row) => sum + row.picks, 0);
   const totalWins = rows.reduce((sum, row) => sum + row.wins, 0);
   const result = rows as OwnedItemStatsResult & OwnedItemStats[];
+  for (const row of rows) {
+    row.scopeTotalGames = scope.totalGames;
+    row.scopeTotalBuilds = totalBuilds;
+    row.scopeAvgWinRate = totalBuilds > 0 ? (totalWins / totalBuilds) * 100 : 0;
+  }
   Object.defineProperties(result, {
     rows: { value: rows, enumerable: true },
     totalGames: { value: scope.totalGames, enumerable: true },

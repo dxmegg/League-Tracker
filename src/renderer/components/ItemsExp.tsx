@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import type { ItemData, OwnedItemStats, OwnedItemStatsResult } from "../lib/types";
 import ItemIcon from "./ItemIcon";
@@ -36,7 +36,11 @@ function resultTotalBuilds(
   result: (OwnedItemStatsResult & OwnedItemStats[]) | null,
   rows: OwnedItemStats[],
 ): number {
-  return result?.totalBuilds ?? rows.reduce((sum, row) => sum + row.picks, 0);
+  return (
+    result?.totalBuilds ??
+    rows[0]?.scopeTotalBuilds ??
+    rows.reduce((sum, row) => sum + row.picks, 0)
+  );
 }
 
 function resultWinRate(
@@ -45,6 +49,7 @@ function resultWinRate(
 ): number {
   return (
     result?.avgWinRate ??
+    rows[0]?.scopeAvgWinRate ??
     (() => {
       const builds = rows.reduce((sum, row) => sum + row.picks, 0);
       return builds > 0 ? (rows.reduce((sum, row) => sum + row.wins, 0) / builds) * 100 : 0;
@@ -146,16 +151,19 @@ function KpiTile({
   value,
   caption,
   accent,
+  title,
 }: {
   label: string;
   value: string;
   caption: string;
   accent: Accent;
+  title?: string;
 }) {
   return (
     <div
       className="relative overflow-hidden rounded-[12px] border border-lol-border p-4 before:absolute before:inset-x-0 before:top-0 before:h-[3px]"
       style={{ background: `radial-gradient(circle at 100% 0, ${accent.tint}, transparent 65%)` }}
+      title={title}
     >
       <span
         className="absolute inset-x-0 top-0 h-[3px]"
@@ -241,24 +249,21 @@ export function ItemsExp() {
   const rows = resultRows(statsResult);
   const totalBuilds = resultTotalBuilds(statsResult, rows);
   const avgWinRate = resultWinRate(statsResult, rows);
-  const totalGames = statsResult?.totalGames ?? 0;
+  const totalGames = statsResult?.totalGames ?? rows[0]?.scopeTotalGames ?? 0;
   const patches = patchOptions?.patches ?? [];
   const currentPatch = patch ?? patches[0];
   const previousPatch =
     currentPatch == null ? undefined : patches[patches.indexOf(currentPatch) + 1];
-  const { data: currentPatchResult } = useIpc<(OwnedItemStatsResult & OwnedItemStats[]) | null>(
-    () =>
-      currentPatch && previousPatch
-        ? window.api.getOwnedItemStats(currentPatch, scopedQueue, account)
-        : Promise.resolve(null),
-    [currentPatch, previousPatch, scopedQueue, account],
-  );
+  const [loadRisingData, setLoadRisingData] = useState(false);
+  useEffect(() => {
+    if (statsResult) setLoadRisingData(true);
+  }, [statsResult]);
   const { data: previousPatchResult } = useIpc<(OwnedItemStatsResult & OwnedItemStats[]) | null>(
     () =>
-      previousPatch
+      loadRisingData && previousPatch
         ? window.api.getOwnedItemStats(previousPatch, scopedQueue, account)
         : Promise.resolve(null),
-    [previousPatch, scopedQueue, account],
+    [loadRisingData, previousPatch, scopedQueue, account],
   );
   const [sortMode, setSortMode] = useState<SortMode>("most-built");
   const [itemClass, setItemClass] = useState<ItemClass>("All");
@@ -271,7 +276,7 @@ export function ItemsExp() {
       resultRows(previousPatchResult).map((row) => [row.item_id, row]),
     );
     return new Map(
-      resultRows(currentPatchResult)
+      rows
         .map((row) => {
           const previous = previousByItem.get(row.item_id);
           return previous
@@ -284,7 +289,7 @@ export function ItemsExp() {
         })
         .filter((entry): entry is [number, number] => entry !== null),
     );
-  }, [currentPatchResult, previousPatchResult]);
+  }, [previousPatchResult, rows]);
 
   const visibleRows = useMemo(
     () =>
@@ -338,7 +343,7 @@ export function ItemsExp() {
       rows
         .filter((row) => row.picks >= 25 && row.picks <= 100 && row.wins / row.picks >= 0.7)
         .sort((a, b) => b.wins / b.picks - a.wins / a.picks)[0] ?? null;
-    const currentRows = resultRows(currentPatchResult);
+    const currentRows = rows;
     const previousRows = resultRows(previousPatchResult);
     const previousByItem = new Map(previousRows.map((row) => [row.item_id, row]));
     const comparable = currentRows
@@ -357,7 +362,7 @@ export function ItemsExp() {
     const rising =
       comparable.length >= 5 ? (comparable.sort((a, b) => b.delta - a.delta)[0] ?? null) : null;
     return { mostBuilt, bestWinRate, hiddenGem, rising, comparableCount: comparable.length };
-  }, [currentPatchResult, previousPatchResult, rows]);
+  }, [previousPatchResult, rows]);
 
   return (
     <div className="mx-auto flex min-h-full w-full max-w-[1320px] flex-col gap-5">
@@ -401,9 +406,10 @@ export function ItemsExp() {
             />
             <KpiTile
               label="Items per game"
-              value={`${(totalBuilds / Math.max(statsResult.totalGames ?? 0, 1)).toFixed(1)}`}
+              value={totalGames > 0 ? (totalBuilds / totalGames).toFixed(1) : "—"}
               caption="completed items"
               accent={ACCENTS[3]}
+              title={totalGames > 0 ? undefined : "No games in scope"}
             />
           </div>
 
