@@ -107,6 +107,7 @@ export function LineChartExp({
           viewBox={`0 0 ${W} ${H}`}
           width="100%"
           height={H}
+          style={{ height: H }}
           preserveAspectRatio="none"
           role="img"
         >

@@ -4564,7 +4564,7 @@ function EconomyTab({
     (bucket) =>
       `${bucket.minute}m / ${formatChartNumber(bucket.avgXpDiffVsLaneOpponent!, true)} XP`,
   );
-  const leadPoints = [5, 10, 15, 20].map((minute) => ({
+  const leadPoints = [5, 10, 15, 20, 25, 30].map((minute) => ({
     minute,
     value: bucketAt(minute)?.avgGoldDiffVsLaneOpponent ?? null,
   }));
@@ -4782,8 +4782,12 @@ function EconomyTab({
                       avg: bucketAt(20)?.avgGoldDiffVsLaneOpponent,
                       highlight: (bucketAt(20)?.avgGoldDiffVsLaneOpponent ?? 0) > 0,
                     },
+                    { label: "XP diff @5", avg: bucketAt(5)?.avgXpDiffVsLaneOpponent },
                     { label: "XP diff @10", avg: bucketAt(10)?.avgXpDiffVsLaneOpponent },
                     { label: "XP diff @15", avg: bucketAt(15)?.avgXpDiffVsLaneOpponent },
+                    { label: "XP diff @20", avg: bucketAt(20)?.avgXpDiffVsLaneOpponent },
+                    { label: "XP diff @25", avg: bucketAt(25)?.avgXpDiffVsLaneOpponent },
+                    { label: "XP diff @30", avg: bucketAt(30)?.avgXpDiffVsLaneOpponent },
                     {
                       label: "Games ahead @10",
                       avg: timeline?.ahead10 == null ? null : timeline.ahead10 * 100,
@@ -4791,6 +4795,7 @@ function EconomyTab({
                     },
                     { label: "Games ahead @15", avg: gamesAhead15, suffix: "%" },
                   ]}
+                  variant="compact"
                 />
               </div>
               <div className="flex flex-col gap-2">
@@ -4798,7 +4803,7 @@ function EconomyTab({
                   Gold diff by minute
                 </div>
                 <svg
-                  aria-label="Gold difference at five, ten, fifteen, and twenty minutes"
+                  aria-label="Gold difference at five, ten, fifteen, twenty, twenty-five, and thirty minutes"
                   className="h-32 w-full"
                   role="img"
                   viewBox="0 0 160 120"
@@ -4816,7 +4821,7 @@ function EconomyTab({
                     const valueAtPoint = point.value;
                     const width =
                       valueAtPoint == null ? 0 : (Math.abs(valueAtPoint) / leadScale) * 68;
-                    const y = 14 + index * 26;
+                    const y = 10 + index * 20;
                     return (
                       <g key={point.minute}>
                         <text x="2" y={y + 4} fill="currentColor" fillOpacity="0.7" fontSize="9">
@@ -4867,10 +4872,17 @@ function EconomyTab({
                       losses: detail.maxChampLevelInLosses,
                       digits: 1,
                     },
+                  ]}
+                />
+                <EconomyStatTable
+                  variant="compact"
+                  rows={[
                     { label: "Level @5", avg: bucketAt(5)?.avgLevel, digits: 1 },
                     { label: "Level @10", avg: bucketAt(10)?.avgLevel, digits: 1 },
                     { label: "Level @15", avg: bucketAt(15)?.avgLevel, digits: 1 },
                     { label: "Level @20", avg: bucketAt(20)?.avgLevel, digits: 1 },
+                    { label: "Level @25", avg: bucketAt(25)?.avgLevel, digits: 1 },
+                    { label: "Level @30", avg: bucketAt(30)?.avgLevel, digits: 1 },
                   ]}
                 />
               </div>
@@ -5718,7 +5730,13 @@ interface EconomyStatTableRow {
   highlight?: boolean;
 }
 
-function EconomyStatTable({ rows }: { rows: EconomyStatTableRow[] }) {
+function EconomyStatTable({
+  rows,
+  variant = "full",
+}: {
+  rows: EconomyStatTableRow[];
+  variant?: "full" | "compact";
+}) {
   const renderValue = (entry: number | null | undefined, digits: number, suffix = "") =>
     entry == null ? (
       <span className="text-lol-text/40" title="Not tracked yet">
@@ -5730,13 +5748,23 @@ function EconomyStatTable({ rows }: { rows: EconomyStatTableRow[] }) {
 
   return (
     <div className="text-xs">
-      <div className="grid grid-cols-[minmax(0,1fr)_repeat(5,minmax(0,auto))] gap-2 border-b border-lol-border/50 pb-2 font-semibold text-lol-text">
+      <div
+        className={`grid ${
+          variant === "compact"
+            ? "grid-cols-[minmax(0,1fr)_minmax(0,auto)]"
+            : "grid-cols-[minmax(0,1fr)_repeat(5,minmax(0,auto))]"
+        } gap-2 border-b border-lol-border/50 pb-2 font-semibold text-lol-text`}
+      >
         <span>Stat</span>
         <span className="text-right whitespace-nowrap">Avg / game</span>
-        <span className="text-right whitespace-nowrap">Best</span>
-        <span className="text-right whitespace-nowrap">Wins</span>
-        <span className="text-right whitespace-nowrap">Losses</span>
-        <span className="text-right whitespace-nowrap">vs others</span>
+        {variant === "full" && (
+          <>
+            <span className="text-right whitespace-nowrap">Best</span>
+            <span className="text-right whitespace-nowrap">Wins</span>
+            <span className="text-right whitespace-nowrap">Losses</span>
+            <span className="text-right whitespace-nowrap">vs others</span>
+          </>
+        )}
       </div>
       {rows.map((row, index) => {
         const digits = row.digits ?? 0;
@@ -5744,7 +5772,11 @@ function EconomyStatTable({ rows }: { rows: EconomyStatTableRow[] }) {
         return (
           <div
             key={row.label}
-            className={`grid grid-cols-[minmax(0,1fr)_repeat(5,minmax(0,auto))] items-baseline gap-2 py-2.5 text-lol-text-bright transition-colors duration-[120ms] hover:bg-white/[0.025] ${
+            className={`grid ${
+              variant === "compact"
+                ? "grid-cols-[minmax(0,1fr)_minmax(0,auto)]"
+                : "grid-cols-[minmax(0,1fr)_repeat(5,minmax(0,auto))]"
+            } items-baseline gap-2 py-2.5 text-lol-text-bright transition-colors duration-[120ms] hover:bg-white/[0.025] ${
               row.highlight ? "bg-[rgba(201,164,92,0.08)]" : ""
             } ${index < rows.length - 1 ? "border-b border-white/[0.04]" : ""}`}
           >
@@ -5752,37 +5784,41 @@ function EconomyStatTable({ rows }: { rows: EconomyStatTableRow[] }) {
             <span className="text-right tabular-nums">
               {renderValue(row.avg, digits, row.suffix)}
             </span>
-            <span className="text-right tabular-nums">
-              {renderValue(row.best, digits, row.suffix)}
-            </span>
-            <span className="text-right tabular-nums">
-              {renderValue(row.wins, digits, row.suffix)}
-            </span>
-            <span className="text-right tabular-nums">
-              {renderValue(row.losses, digits, row.suffix)}
-            </span>
-            <span className="text-right tabular-nums">
-              {delta == null ? (
-                <span
-                  className="inline-flex items-center rounded bg-lol-card/60 px-1.5 py-0.5 text-xs font-semibold text-lol-text"
-                  title="Not tracked yet"
-                >
-                  —
+            {variant === "full" && (
+              <>
+                <span className="text-right tabular-nums">
+                  {renderValue(row.best, digits, row.suffix)}
                 </span>
-              ) : (
-                <span
-                  className={`inline-flex items-center gap-0.5 rounded px-1.5 py-0.5 text-xs font-semibold ${
-                    delta >= 0
-                      ? "bg-[rgba(34,197,94,0.12)] text-[#22C55E]"
-                      : "bg-[rgba(229,72,63,0.12)] text-[#E5483F]"
-                  }`}
-                >
-                  <DeltaIndicator positive={delta >= 0} />
-                  {delta >= 0 ? "+" : ""}
-                  {delta.toFixed(1)}
+                <span className="text-right tabular-nums">
+                  {renderValue(row.wins, digits, row.suffix)}
                 </span>
-              )}
-            </span>
+                <span className="text-right tabular-nums">
+                  {renderValue(row.losses, digits, row.suffix)}
+                </span>
+                <span className="text-right tabular-nums">
+                  {delta == null ? (
+                    <span
+                      className="inline-flex items-center rounded bg-lol-card/60 px-1.5 py-0.5 text-xs font-semibold text-lol-text"
+                      title="Not tracked yet"
+                    >
+                      —
+                    </span>
+                  ) : (
+                    <span
+                      className={`inline-flex items-center gap-0.5 rounded px-1.5 py-0.5 text-xs font-semibold ${
+                        delta >= 0
+                          ? "bg-[rgba(34,197,94,0.12)] text-[#22C55E]"
+                          : "bg-[rgba(229,72,63,0.12)] text-[#E5483F]"
+                      }`}
+                    >
+                      <DeltaIndicator positive={delta >= 0} />
+                      {delta >= 0 ? "+" : ""}
+                      {delta.toFixed(1)}
+                    </span>
+                  )}
+                </span>
+              </>
+            )}
           </div>
         );
       })}
