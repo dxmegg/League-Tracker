@@ -5581,12 +5581,7 @@ function ObjectivesTab({
   const vsOther = (value: number | null | undefined, key: string) =>
     value == null || baseline?.[key] == null ? null : value - baseline[key]!;
 
-  const objectiveTotal =
-    detail.totalTurretKills +
-    detail.totalInhibitorKills +
-    detail.totalBaronKills +
-    detail.totalObjectivesStolen;
-  const objectiveDamagePerGame = detail.avgDamageToObjectives + detail.avgDamageToTurrets;
+  const objectiveTotal = detail.totalTurretKills + detail.totalInhibitorKills;
 
   return (
     <div className="grid grid-cols-1 gap-5 xl:grid-cols-2">
@@ -5602,13 +5597,13 @@ function ObjectivesTab({
           <CombatTile
             label="Objective events / game"
             value={objectiveTotal / detail.games}
-            subtitle="turrets, inhibitors, barons and steals"
+            subtitle="turrets and inhibitors"
             accent={CHART_PALETTE[0]}
           />
           <CombatTile
             label="Objective damage / game"
-            value={objectiveDamagePerGame}
-            subtitle="combined objective and turret damage"
+            value={detail.avgDamageToObjectives}
+            subtitle="damage to objectives"
             accent={CHART_PALETTE[1]}
           />
           <CombatTile
@@ -5618,9 +5613,9 @@ function ObjectivesTab({
             accent={CHART_PALETTE[2]}
           />
           <CombatTile
-            label="First inhibitor rate"
+            label="First inhibitor rate (not tracked)"
             value={(detail.totalFirstInhibitorKill / detail.games) * 100}
-            subtitle={`${formatPlain(detail.totalFirstInhibitorKill, 0)} first inhibitors`}
+            subtitle="not available from stored payload"
             accent={CHART_PALETTE[3]}
           />
         </div>
@@ -5669,31 +5664,11 @@ function ObjectivesTab({
               detail.avgInhibitorKillsInLosses,
               vsOther(detail.avgInhibitorKills, "avgInhibitorKillsOther"),
             ],
-            [
-              "Turret plates taken",
-              detail.avgTurretPlatesTaken,
-              detail.maxTurretPlatesTaken,
-              detail.totalTurretPlatesTaken,
-              undefined,
-              detail.avgTurretPlatesTakenInWins,
-              detail.avgTurretPlatesTakenInLosses,
-              vsOther(detail.avgTurretPlatesTaken, "avgTurretPlatesTakenOther"),
-            ],
-            [
-              "Baron kills",
-              detail.avgBaronKills,
-              detail.maxBaronKills,
-              detail.totalBaronKills,
-              undefined,
-              detail.avgBaronKillsInWins,
-              detail.avgBaronKillsInLosses,
-              vsOther(detail.avgBaronKills, "avgBaronKillsOther"),
-            ],
           ]}
         />
       </Panel>
 
-      <Panel className={TAB_PANEL_CLASSES.sapphire}>
+      <Panel className={TAB_PANEL_CLASSES.gold}>
         <SectionHeading title="Damage to objectives" source="m" />
         <p className="mb-3 text-[11px] text-lol-text/70">
           Damage dealt to major objectives and enemy structures each game.
@@ -5724,7 +5699,7 @@ function ObjectivesTab({
         />
       </Panel>
 
-      <Panel className={`${TAB_PANEL_CLASSES.sapphire} `}>
+      <Panel className={`${TAB_PANEL_CLASSES.emerald} `}>
         <SectionHeading title="First blood objectives" source="m" />
         <p className="mb-3 text-[11px] text-lol-text/70">
           First tower and inhibitor kills or assists, with rates across games.
@@ -5742,57 +5717,16 @@ function ObjectivesTab({
             subtitle={`across ${formatCombatNumber(detail.games)} games (${formatPercent(detail.totalFirstTowerAssist, detail.games)})`}
             accent={CHART_PALETTE[1]}
           />
-          <CombatTile
-            label="First inhibitor kills"
-            value={detail.totalFirstInhibitorKill}
-            subtitle={`across ${formatCombatNumber(detail.games)} games (${formatPercent(detail.totalFirstInhibitorKill, detail.games)})`}
-            accent={CHART_PALETTE[2]}
-          />
-          <CombatTile
-            label="First inhibitor assists"
-            value={detail.totalFirstInhibitorAssist}
-            subtitle={`across ${formatCombatNumber(detail.games)} games (${formatPercent(detail.totalFirstInhibitorAssist, detail.games)})`}
-            accent={CHART_PALETTE[3]}
-          />
         </div>
       </Panel>
 
       <Panel className={TAB_PANEL_CLASSES.sapphire}>
         <SectionHeading title="Stolen objectives" source="m" />
-        <p className="mb-3 text-[11px] text-lol-text/70">
-          Objectives stolen and assisted steals recorded across your matches.
-        </p>
-        <CombatStatTable
-          rows={[
-            [
-              "Objectives stolen",
-              detail.avgObjectivesStolen,
-              detail.maxObjectivesStolen,
-              detail.totalObjectivesStolen,
-              undefined,
-              detail.avgObjectivesStolenInWins,
-              detail.avgObjectivesStolenInLosses,
-              vsOther(detail.avgObjectivesStolen, "avgObjectivesStolenOther"),
-            ],
-            [
-              "Objectives stolen assists",
-              detail.avgObjectivesStolenAssists,
-              detail.maxObjectivesStolenAssists,
-              detail.totalObjectivesStolenAssists,
-              undefined,
-              detail.avgObjectivesStolenAssistsInWins,
-              detail.avgObjectivesStolenAssistsInLosses,
-              vsOther(detail.avgObjectivesStolenAssists, "avgObjectivesStolenAssistsOther"),
-            ],
-          ]}
-        />
+        <EmptyState text="Objective steal tracking is not available from Riot's stored payload." />
       </Panel>
       <Panel className={TAB_PANEL_CLASSES.sapphire}>
-        <SectionHeading title="Unavailable objective detail" source="d" />
-        <p className="mb-3 text-[11px] text-lol-text/70">
-          Detailed objective timing and team-control metrics are not stored.
-        </p>
-        <EmptyState text="Objective timing, dragon types, and team control are not stored." />
+        <SectionHeading title="Unavailable objective detail (future work)" source="d" />
+        <EmptyState text="Objective timing and dragon types are not yet shown here — timeline data is available but not surfaced." />
       </Panel>
     </div>
   );
