@@ -18,7 +18,7 @@ export function FullHistoryShell() {
 
   if (showSidebar) {
     return (
-      <div className="flex h-full w-full">
+      <div className="flex h-full w-full min-h-0">
         <Sidebar />
         <div className="flex min-h-0 min-w-0 flex-1 flex-col">
           <div className="titlebar-drag flex h-9 w-full shrink-0 items-center border-b border-lol-border/40 bg-lol-card/30">
@@ -36,7 +36,7 @@ export function FullHistoryShell() {
   }
 
   return (
-    <div className="flex h-full w-full flex-col">
+    <div className="flex h-full w-full min-h-0 flex-col">
       <RecoveryBanner />
       <TopNav />
       <div className="flex min-h-0 flex-1">
