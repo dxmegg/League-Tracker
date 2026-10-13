@@ -1077,6 +1077,20 @@ export function registerIpcHandlers() {
     return result;
   });
 
+  ipcMain.handle("db:get-resolved-platform", () => {
+    console.log("[db] get resolved platform handler called:", {});
+    const platform = db.getResolvedPlatform();
+    if (!platform) {
+      console.warn("[db] get resolved platform handler: no platform configured");
+      return {
+        error: "No platform configured. Set a Riot ID in Settings or start the League client once.",
+      };
+    }
+    const route = riot.regionalRoute(platform);
+    console.log("[db] get resolved platform handler done:", { platform, route });
+    return { platform, route };
+  });
+
   ipcMain.handle("db:get-account-snapshot", (_event, puuid: string) => {
     console.log("[db] get account snapshot handler called:", { puuid });
     const result = db.getAccountSnapshot(puuid);

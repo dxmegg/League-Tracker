@@ -886,9 +886,12 @@ async function configuredIdentity(
     if (current?.puuid) {
       const gameName = current.gameName ?? current.displayName ?? current.internalName ?? null;
       const tagLine = current.tagLine ?? null;
-      const platform = String(
-        db.getSetting("riot_platform") ?? current.region ?? current.platform ?? "na1",
-      );
+      const platform = db.getResolvedPlatform() ?? current.platform?.trim().toLowerCase() ?? null;
+      if (!platform) {
+        throw new Error(
+          "No platform configured. Set a Riot ID in Settings or start the League client once.",
+        );
+      }
       db.upsertSummoner({ ...current, gameName, tagLine });
       return { puuid: current.puuid, gameName, tagLine, platform };
     }
@@ -898,7 +901,12 @@ async function configuredIdentity(
 
   const gameName = configured?.gameName.trim() || db.getSetting("riot_game_name")?.trim();
   const tagLine = configured?.tagLine.trim() || db.getSetting("riot_tag_line")?.trim();
-  const platform = configured?.platform.trim() || db.getSetting("riot_platform")?.trim() || "na1";
+  const platform = configured?.platform.trim().toLowerCase() || db.getResolvedPlatform();
+  if (!platform) {
+    throw new Error(
+      "No platform configured. Set a Riot ID in Settings or start the League client once.",
+    );
+  }
   if (!gameName || !tagLine) {
     throw new Error("No account selected. Open the League client or enter a Riot ID in Settings.");
   }

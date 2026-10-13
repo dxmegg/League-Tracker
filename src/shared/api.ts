@@ -1374,6 +1374,11 @@ export interface RiotSyncResult {
   complete: boolean;
 }
 
+export interface ResolvedPlatform {
+  platform: string;
+  route: string;
+}
+
 export interface RiotAccountConfig {
   id: string;
   gameName: string;
@@ -1748,6 +1753,7 @@ export interface ElectronAPI {
   getSummonerPuuid: () => Promise<string | null>;
   getAllSummonerPuuids: () => Promise<string[]>;
   listAccountsWithData: () => Promise<AccountListItem[]>;
+  getResolvedPlatform: () => Promise<ResolvedPlatform | { error: string }>;
   getAccountSnapshot: (puuid: string) => Promise<AccountSnapshot | null>;
   getCurrentPuuid: () => Promise<string | null>;
   getSavedSummoners: () => Promise<

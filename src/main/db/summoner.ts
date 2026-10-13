@@ -72,6 +72,32 @@ export function upsertSummoner(summoner: {
   );
 }
 
+export function getResolvedPlatform(): string | null {
+  console.log("[db] getResolvedPlatform called:", {});
+  const candidates = [
+    getSetting("riot_platform"),
+    getSetting("platform"),
+    (
+      db
+        .prepare(
+          "SELECT platform FROM riot_sync_state WHERE TRIM(platform) <> '' ORDER BY last_sync_at DESC LIMIT 1",
+        )
+        .get() as { platform?: string } | undefined
+    )?.platform,
+    (
+      db
+        .prepare(
+          "SELECT platform FROM summoner WHERE TRIM(platform) <> '' ORDER BY updated_at DESC LIMIT 1",
+        )
+        .get() as { platform?: string } | undefined
+    )?.platform,
+  ];
+  const platform =
+    candidates.find((value): value is string => Boolean(value?.trim()))?.trim() ?? null;
+  console.log("[db] getResolvedPlatform done:", { platform });
+  return platform;
+}
+
 export function restoreSummonerFull(row: {
   puuid: string;
   game_name: string | null;

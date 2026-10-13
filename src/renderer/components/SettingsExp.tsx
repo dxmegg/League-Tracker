@@ -348,6 +348,10 @@ export function SettingsExp() {
   const [backfillStatus, setBackfillStatus] = useState<string | null>(null);
   const [riotSyncing, setRiotSyncing] = useState(false);
   const [riotSyncStatus, setRiotSyncStatus] = useState<string | null>(null);
+  const [resolvedPlatform, setResolvedPlatform] = useState<{
+    platform: string;
+    route: string;
+  } | null>(null);
   const [repairing, setRepairing] = useState(false);
   const [restoring, setRestoring] = useState(false);
   const [backups, setBackups] = useState<BackupInfo[]>([]);
@@ -402,6 +406,17 @@ export function SettingsExp() {
       setRememberFilters(remember === "true");
       setLoading(false);
     });
+  }, []);
+
+  useEffect(() => {
+    window.api
+      .getResolvedPlatform()
+      .then((result) => {
+        setResolvedPlatform("error" in result ? null : result);
+      })
+      .catch(() => {
+        setResolvedPlatform(null);
+      });
   }, []);
 
   useEffect(() => {
@@ -894,6 +909,12 @@ export function SettingsExp() {
               Pull the latest matches through the Riot API to capture pings, spell casts, and
               challenge metrics that LCU does not provide. Only works for accounts with a configured
               Riot ID.
+            </p>
+            <p className="mt-1 text-[11px] text-lol-text">
+              Platform:{" "}
+              {resolvedPlatform
+                ? `${resolvedPlatform.platform} → ${resolvedPlatform.route}`
+                : "not configured"}
             </p>
           </div>
           <button

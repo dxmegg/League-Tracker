@@ -134,6 +134,7 @@ export {
   getSummoner,
   getProfile,
   getAllPuuids,
+  getResolvedPlatform,
   listSavedSummoners,
   deleteSavedSummoner,
   deleteSearchedSummoners,

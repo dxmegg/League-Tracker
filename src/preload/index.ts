@@ -17,6 +17,7 @@ import type {
   ParticipantScoreBackfillProgress,
   RiotSyncResult,
   RiotAccountConfig,
+  ResolvedPlatform,
   RestoreOlderGamesResult,
   HomeAccountFilter,
   HomeTimePeriod,
@@ -424,6 +425,8 @@ const api: ElectronAPI = {
 
   getAllSummonerPuuids: () => ipcRenderer.invoke("db:all-summoner-puuids"),
   listAccountsWithData: () => ipcRenderer.invoke("db:list-accounts"),
+  getResolvedPlatform: (): Promise<ResolvedPlatform | { error: string }> =>
+    ipcRenderer.invoke("db:get-resolved-platform"),
   getAccountSnapshot: (puuid: string) => ipcRenderer.invoke("db:get-account-snapshot", puuid),
   getCurrentPuuid: () => ipcRenderer.invoke("lcu:current-puuid"),
 
