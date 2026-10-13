@@ -34,7 +34,7 @@ export function TabStrip({
     <div
       role="tablist"
       aria-label="Champion detail sections"
-      className={`flex min-w-0 shrink-0 gap-1 overflow-x-auto py-1 ${className}`}
+      className={`flex min-w-0 shrink-0 gap-0.5 overflow-x-auto py-1 ${className}`}
     >
       {items.map((item, index) => {
         const isActive = item.key === active;
@@ -63,7 +63,7 @@ export function TabStrip({
                 if (!item.disabled) onChange(item.key);
               }
             }}
-            className={`group inline-flex shrink-0 items-center gap-1.5 rounded-md border px-2.5 py-1 text-xs font-bold uppercase tracking-wider transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-lol-crimson/60 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--theme-bg-deep)] ${
+            className={`group inline-flex shrink-0 items-center gap-1.5 rounded-md border px-2 py-1 text-xs font-bold uppercase tracking-wide transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-lol-crimson/60 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--theme-bg-deep)] ${
               isActive
                 ? "border-lol-crimson/60 bg-lol-crimson/20 text-lol-text-bright"
                 : "border-lol-border/50 bg-lol-card/40 text-lol-text hover:border-lol-crimson/40 hover:text-lol-text-bright"
@@ -72,7 +72,7 @@ export function TabStrip({
             {item.accent !== undefined ? (
               <span
                 aria-hidden="true"
-                className={`h-1.5 w-1.5 shrink-0 rounded-full ${
+                className={`hidden h-1.5 w-1.5 shrink-0 rounded-full 2xl:block ${
                   item.disabled ? "opacity-30" : "opacity-70 group-hover:opacity-100"
                 }`}
                 style={{ backgroundColor: isActive ? "#FFFFFF" : item.accent }}
