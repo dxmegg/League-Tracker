@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import type { ItemDetail as ItemDetailData } from "../lib/types";
 import { useIpc } from "../hooks/useIpc";
@@ -8,6 +8,7 @@ import ItemIcon from "./ItemIcon";
 import ChampionIcon from "./ChampionIcon";
 import WinRateBar from "./WinRateBar";
 import RiotText from "./RiotText";
+import { SearchInput } from "./SearchInput";
 
 const KPI_CLASSES = {
   gold: "border-t-[#C9A45C] bg-[radial-gradient(circle_at_top_right,rgba(201,164,92,0.10),transparent_70%)]",
@@ -15,6 +16,8 @@ const KPI_CLASSES = {
     "border-t-[#22C55E] bg-[radial-gradient(circle_at_top_right,rgba(34,197,94,0.10),transparent_70%)]",
   blue: "border-t-[#3B82F6] bg-[radial-gradient(circle_at_top_right,rgba(59,130,246,0.10),transparent_70%)]",
 };
+
+type ChampionSort = "games" | "winRate" | "name";
 
 function KpiTile({
   label,
@@ -45,10 +48,35 @@ export function ItemDetailExp() {
   const items = useItemData();
   const champions = useChampionData();
   const [expandedChampion, setExpandedChampion] = useState<number | null>(null);
+  const [championSearch, setChampionSearch] = useState("");
+  const [championSort, setChampionSort] = useState<ChampionSort>("games");
+  const [championSortDesc, setChampionSortDesc] = useState(true);
+  const [showAllChampions, setShowAllChampions] = useState(false);
   const { data, loading } = useIpc<ItemDetailData>(
     () => window.api.getOwnedItemDetail(id, undefined, queue),
     [id, queue],
   );
+  const visibleChampions = useMemo(() => {
+    if (!data) return [];
+    const search = championSearch.trim().toLowerCase();
+    const filtered = data.champions.filter((row) =>
+      getChampionName(champions, row.champion_id).toLowerCase().includes(search),
+    );
+    filtered.sort((a, b) => {
+      const aName = getChampionName(champions, a.champion_id);
+      const bName = getChampionName(champions, b.champion_id);
+      const aWinRate = a.games ? a.wins / a.games : 0;
+      const bWinRate = b.games ? b.wins / b.games : 0;
+      const result =
+        championSort === "name"
+          ? aName.localeCompare(bName)
+          : championSort === "winRate"
+            ? aWinRate - bWinRate
+            : a.games - b.games;
+      return (championSortDesc ? -1 : 1) * result || aName.localeCompare(bName);
+    });
+    return showAllChampions ? filtered : filtered.slice(0, 30);
+  }, [championSearch, championSort, championSortDesc, champions, data, showAllChampions]);
 
   if (loading || !data) {
     return (
@@ -72,27 +100,14 @@ export function ItemDetailExp() {
         ← Items
       </Link>
 
-      <div className="grid grid-cols-1 gap-5 xl:grid-cols-[12rem_1fr_18rem]">
+      <div className="grid grid-cols-1 items-start gap-4 xl:grid-cols-[5rem_minmax(0,1fr)_14rem]">
         <div className="min-w-0">
-          <div className="relative overflow-hidden rounded-[12px] border border-lol-border border-l-[#C9A45C] bg-black/10 p-2 shadow-[0_0_14px_rgba(201,164,92,0.12)]">
-            <ItemIcon itemId={id} size={176} />
+          <div className="relative overflow-hidden rounded-[12px] border border-lol-border border-l-[#C9A45C] bg-black/10 p-1 shadow-[0_0_14px_rgba(201,164,92,0.12)]">
+            <ItemIcon itemId={id} size={64} />
           </div>
-          {item?.from && item.from.length > 0 && (
-            <div className="mt-2 flex flex-wrap items-center gap-1">
-              {item.from.map((component, index) => (
-                <span
-                  key={component}
-                  className="flex items-center gap-1 rounded-lg border border-lol-border bg-black/10 p-1 transition-colors duration-120 hover:border-lol-crimson/40 hover:bg-white/[0.025]"
-                >
-                  {index > 0 && <span className="text-xs font-bold text-lol-gold">+</span>}
-                  <ItemIcon itemId={component} size={28} />
-                </span>
-              ))}
-            </div>
-          )}
         </div>
 
-        <div className="min-w-0 rounded-[12px] border border-lol-border border-t-[#E5483F] border-t-[3px] bg-[radial-gradient(circle_at_top_right,rgba(229,72,63,0.08),transparent_55%),linear-gradient(180deg,var(--theme-card-hover),var(--theme-card))] p-5">
+        <div className="min-w-0 rounded-[12px] border border-lol-border border-t-[#E5483F] border-t-[3px] bg-[radial-gradient(circle_at_top_right,rgba(229,72,63,0.08),transparent_55%),linear-gradient(180deg,var(--theme-card-hover),var(--theme-card))] p-4">
           <div className="flex flex-wrap items-start justify-between gap-4">
             <div>
               <div className="text-[10px] font-bold uppercase tracking-wider text-lol-text">
@@ -115,6 +130,22 @@ export function ItemDetailExp() {
           <div className="mt-5 text-sm leading-relaxed text-lol-text">
             <RiotText markup={item?.description ?? "No item description available."} />
           </div>
+          {item?.from && item.from.length > 0 && (
+            <div className="mt-4 flex flex-wrap items-center gap-1.5">
+              <span className="mr-1 text-[10px] font-bold uppercase tracking-wider text-lol-text">
+                Components
+              </span>
+              {item.from.map((component, index) => (
+                <span
+                  key={component}
+                  className="flex items-center gap-1 rounded-lg border border-lol-border bg-black/10 p-1 transition-colors duration-120 hover:border-lol-crimson/40 hover:bg-white/[0.025]"
+                >
+                  {index > 0 && <span className="text-xs font-bold text-lol-gold">+</span>}
+                  <ItemIcon itemId={component} size={28} />
+                </span>
+              ))}
+            </div>
+          )}
         </div>
 
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-3 xl:grid-cols-1">
@@ -139,7 +170,7 @@ export function ItemDetailExp() {
       </div>
 
       <div>
-        <div className="mb-3 flex items-end justify-between gap-3">
+        <div className="mb-3 flex flex-wrap items-end justify-between gap-3">
           <div>
             <h2 className="font-display text-[18px] font-semibold text-lol-text-bright">
               Champions
@@ -148,68 +179,109 @@ export function ItemDetailExp() {
               Champion performance in games where this item was built.
             </p>
           </div>
-          <span className="text-xs tabular-nums text-lol-text">
-            {data.champions.length} champions
-          </span>
+          <div className="flex flex-wrap items-center gap-2">
+            <SearchInput
+              className="w-52"
+              placeholder="Search champions"
+              value={championSearch}
+              onChange={(event) => setChampionSearch(event.target.value)}
+            />
+            <select
+              value={championSort}
+              onChange={(event) => setChampionSort(event.target.value as ChampionSort)}
+              className="h-9 rounded-md border border-lol-border/60 bg-lol-card/40 px-2 text-xs text-lol-text-bright"
+              aria-label="Sort champions by"
+            >
+              <option value="games">Games</option>
+              <option value="winRate">Win rate</option>
+              <option value="name">Name</option>
+            </select>
+            <button
+              type="button"
+              onClick={() => setChampionSortDesc((value) => !value)}
+              className="h-9 rounded-md border border-lol-border/60 px-2 text-xs font-semibold text-lol-text-bright transition-colors duration-120 hover:border-lol-crimson/40 hover:bg-white/[0.025]"
+              aria-label={`Sort ${championSortDesc ? "ascending" : "descending"}`}
+            >
+              {championSortDesc ? "↓" : "↑"}
+            </button>
+          </div>
         </div>
         <div className="overflow-hidden rounded-[12px] border border-lol-border bg-[radial-gradient(circle_at_100%_0,rgba(229,72,63,0.08),transparent_42%),linear-gradient(180deg,var(--theme-card-hover),var(--theme-card))]">
-          {data.champions.map((row) => (
-            <div key={row.champion_id}>
-              <button
-                type="button"
-                onClick={() =>
-                  setExpandedChampion((current) =>
-                    current === row.champion_id ? null : row.champion_id,
-                  )
-                }
-                className="group flex min-h-14 w-full items-center gap-3 border-b border-white/[0.04] px-4 py-2.5 text-left transition-colors duration-120 hover:bg-white/[0.025]"
-              >
-                <ChampionIcon
-                  championId={row.champion_id}
-                  size={34}
-                  className="rounded-md border border-lol-border shadow-[0_0_10px_rgba(168,85,247,0.12)]"
-                />
-                <span className="min-w-0 flex-1 truncate text-sm font-semibold text-lol-text-bright">
-                  {getChampionName(champions, row.champion_id)}
-                </span>
-                <span className="hidden w-28 shrink-0 text-right text-xs tabular-nums text-lol-text sm:block">
-                  {row.games.toLocaleString()} / {row.championGames.toLocaleString()}
-                </span>
-                <div className="w-28 shrink-0">
-                  <WinRateBar wins={row.wins} total={row.games} />
-                </div>
-                <span className="w-14 shrink-0 text-right text-xs tabular-nums text-lol-text-bright">
-                  {row.games ? `${((row.wins / row.games) * 100).toFixed(1)}%` : "—"}
-                </span>
-              </button>
-              {expandedChampion === row.champion_id && (
-                <div className="border-b border-white/[0.04] bg-black/10 px-6 py-2">
-                  {(row.matches ?? []).length > 0 ? (
-                    row.matches.map((match) => (
-                      <div
-                        key={match.game_id}
-                        className="flex items-center gap-3 border-b border-white/[0.04] py-2 text-xs text-lol-text last:border-0"
-                      >
-                        <span className={match.win ? "text-lol-win" : "text-lol-loss"}>
-                          {match.win ? "WIN" : "LOSS"}
-                        </span>
-                        <span className="text-lol-text-bright">
-                          {match.kills} / {match.deaths} / {match.assists}
-                        </span>
-                        <span>{Math.floor(match.game_duration / 60)}m</span>
-                        <span className="ml-auto">
-                          {new Date(match.game_creation).toLocaleDateString()}
-                        </span>
-                      </div>
-                    ))
-                  ) : (
-                    <div className="py-2 text-xs text-lol-text">No matching games found.</div>
-                  )}
-                </div>
-              )}
+          {visibleChampions.length === 0 ? (
+            <div className="p-8 text-center text-sm text-lol-text">
+              No champions match your search.
             </div>
-          ))}
+          ) : (
+            visibleChampions.map((row) => (
+              <div key={row.champion_id}>
+                <button
+                  type="button"
+                  onClick={() =>
+                    setExpandedChampion((current) =>
+                      current === row.champion_id ? null : row.champion_id,
+                    )
+                  }
+                  className="group flex min-h-14 w-full items-center gap-3 border-b border-white/[0.04] px-4 py-2.5 text-left transition-colors duration-120 hover:bg-white/[0.025]"
+                >
+                  <ChampionIcon
+                    championId={row.champion_id}
+                    size={34}
+                    className="rounded-md border border-lol-border shadow-[0_0_10px_rgba(168,85,247,0.12)]"
+                  />
+                  <span className="min-w-0 flex-1 truncate text-sm font-semibold text-lol-text-bright">
+                    {getChampionName(champions, row.champion_id)}
+                  </span>
+                  <span className="hidden w-28 shrink-0 text-right text-xs tabular-nums text-lol-text sm:block">
+                    {row.games.toLocaleString()} / {row.championGames.toLocaleString()}
+                  </span>
+                  <div className="w-28 shrink-0">
+                    <WinRateBar wins={row.wins} total={row.games} />
+                  </div>
+                  <span className="w-14 shrink-0 text-right text-xs tabular-nums text-lol-text-bright">
+                    {row.games ? `${((row.wins / row.games) * 100).toFixed(1)}%` : "—"}
+                  </span>
+                </button>
+                {expandedChampion === row.champion_id && (
+                  <div className="border-b border-white/[0.04] bg-black/10 px-6 py-2">
+                    {(row.matches ?? []).length > 0 ? (
+                      row.matches.map((match) => (
+                        <div
+                          key={match.game_id}
+                          className="flex items-center gap-3 border-b border-white/[0.04] py-2 text-xs text-lol-text last:border-0"
+                        >
+                          <span className={match.win ? "text-lol-win" : "text-lol-loss"}>
+                            {match.win ? "WIN" : "LOSS"}
+                          </span>
+                          <span className="text-lol-text-bright">
+                            {match.kills} / {match.deaths} / {match.assists}
+                          </span>
+                          <span>{Math.floor(match.game_duration / 60)}m</span>
+                          <span className="ml-auto">
+                            {new Date(match.game_creation).toLocaleDateString()}
+                          </span>
+                        </div>
+                      ))
+                    ) : (
+                      <div className="py-2 text-xs text-lol-text">No matching games found.</div>
+                    )}
+                  </div>
+                )}
+              </div>
+            ))
+          )}
         </div>
+        {data.champions.length > 30 && (
+          <button
+            type="button"
+            onClick={() => setShowAllChampions((value) => !value)}
+            className="mt-3 w-full rounded-md border border-lol-border px-3 py-2 text-xs font-semibold text-lol-text-bright transition-colors duration-120 hover:border-lol-crimson/40 hover:bg-white/[0.025]"
+            aria-expanded={showAllChampions}
+          >
+            {showAllChampions
+              ? "Show top 30"
+              : `Show all (${data.champions.length.toLocaleString()})`}
+          </button>
+        )}
       </div>
     </div>
   );
