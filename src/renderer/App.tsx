@@ -8,6 +8,7 @@ import Profile from "./pages/Profile";
 import HistorySection from "./pages/HistorySection";
 import GlobalChampionDetail from "./pages/GlobalChampionDetail";
 import { ChampionDetailExp } from "./components/ChampionDetailExp";
+import { ItemDetailExp } from "./components/ItemDetailExp";
 import ItemDetail from "./pages/ItemDetail";
 import Home from "./pages/Home";
 import Champions from "./pages/Champions";
@@ -23,6 +24,11 @@ import { useActiveTheme } from "./hooks/useActiveTheme";
 function ChampionsDetailRoute() {
   const activeTheme = useActiveTheme();
   return activeTheme === "experiment" ? <ChampionDetailExp /> : <GlobalChampionDetail />;
+}
+
+function ItemDetailRoute() {
+  const activeTheme = useActiveTheme();
+  return activeTheme === "experiment" ? <ItemDetailExp /> : <ItemDetail />;
 }
 
 function ScopedFriendDetail() {
@@ -111,7 +117,7 @@ export default function App() {
             path="/history/:scope/:section/champion/:championId"
             element={<GlobalChampionDetail />}
           />
-          <Route path="/history/:scope/items/:itemId" element={<ItemDetail />} />
+          <Route path="/history/:scope/items/:itemId" element={<ItemDetailRoute />} />
           <Route path="/history/:scope/:section/:key" element={<ScopedFriendDetail />} />
           <Route path="/history/mayhem" element={<MatchHistory scope="mayhem" />} />
           <Route path="/history/rest" element={<MatchHistory scope="rest" />} />
@@ -125,7 +131,7 @@ export default function App() {
           <Route path="/champions" element={<FullHistorySection section="champions" />} />
           <Route path="/champions/:championId" element={<ChampionsDetailRoute />} />
           <Route path="/items" element={<FullHistorySection section="items" />} />
-          <Route path="/items/:itemId" element={<ItemDetail />} />
+          <Route path="/items/:itemId" element={<ItemDetailRoute />} />
           <Route path="/augments" element={<FullHistorySection section="augments" />} />
           <Route path="/runes" element={<FullHistorySection section="runes" />} />
           <Route path="/friends" element={<FullHistorySection section="friends" />} />
