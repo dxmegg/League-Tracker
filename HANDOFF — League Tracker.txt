@@ -187,16 +187,29 @@ Cherry-pickuje commity między worktree'ami — nie używać subsessji.
 6. Co dalej
 
 - A — New feature (ask user for direction)
-- B — Payload phase C: Match-V5 ingestion path + schema for pings/casts/heal-on-teammates/shield/challenges top-15 (affects future imports only, ~2h)
-- C — Payload phase D: UI surfacing new timeline fields (bounty, shutdown, assists, position) in Match detail or Score tab
+- B — Payload phase D: UI surfacing new telemetry fields (challenges, pings, spell casts) in Match detail / Score tab
+- C — Payload phase E: add remaining Riot IDs in Settings + refresh existing (only current account "helupa lover#xxxx" has Match-V5 telemetry — 5 games, 7098 challenge rows, 13 ping rows, 58 cast rows)
 - D — Vision KPI bug: "Control ward share" shows 100.0% when 0 wards bought (0/0 division)
-- E — Optional cleanup: revisit Home page KPI/highlights
+- E — Optional: revisit Home page KPI/highlights
 
 Completed since last handoff:
 
-- Payload phase B: timeline extensions — schema v27, match_timeline_events gained bounty_gold/shutdown_bounty/kill_streak_length/assisting_participant_ids/position_x/position_y; match_timeline_frames gained jungle_minions_killed/time_enemy_spent_controlled. Local backfill (941 games, 0 errors). Parser + IPC db:backfill-timeline-local + Settings debug button.
-- Champion Detail Vision: compact variant for Per minute / Ratio, Recent games shows all rows, fixed numeric grid, missing avg renders as —
-- Fixed timeline frames INSERT placeholder count (was 23 values for 22 columns)
+- Riot Match-V5 sync end-to-end working:
+    - Account-V1 PUUID resolver (Riot API puuid vs LCU puuid — different encryption keys, was causing 400 "Exception decrypting")
+    - Regional route to proxy (europe/americas/asia/sea) for match-v5 endpoints
+    - Platform fallback chain (riot_platform → platform → riot_sync_state.platform → summoner.platform), no hardcoded na1
+    - Match-V5 ID format EUW1_xxx for detail fetches
+    - Refresh-existing mode: fetches known games previously marked ignored, backfills pings/casts/challenges via targeted UPDATE (preserves LCU-only fields like Arena augments)
+    - Global game lookup (getAllKnownGameIds) not puuid-scoped
+- Schema v28: match_participants +19 columns (11 pings, 6 spell casts, 2 teammate utility); new match_participant_challenges key-value table
+- Settings: "Riot Match-V5 sync" button + platform display + "Refresh existing (Match-V5)" button
+- Diagnostics in riotFetch (fetch/response/error/retry/parse logs) + sync (by-puuid/ids/filter logs)
+
+Known working-as-designed (do NOT touch without approval):
+
+- Overview, Combat, Economy tabs (user forbids)
+- Sync button stays on LCU (Match-V5 sync is separate Settings action)
+- Historical LCU games do NOT have pings/casts/challenges (only Match-V5 imports do)
 
 7. Komendy
 npm run dev          # apka (wymaga LCU jako admin)
