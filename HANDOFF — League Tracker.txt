@@ -185,10 +185,13 @@ Czasem myli MatchupsTab return z innym JSX.
 Cherry-pickuje commity między worktree'ami — nie używać subsessji.
 
 6. Co dalej
-- A — Polish top-level pages: Friends & foes, Trends, Records, Data (nietknięte)
-- B — Timeline backend: teamfights / power spikes / kill-map champion metadata (wymaga SQL)
-- C — Matchups: best/worst highlight wymaga payload markera (SQL)
-- D — Economy Gold Sources donut wymaga backendu
+- A — Backend data gaps (each separate SQL session):
+    - Economy: Gold Sources donut (no backend source)
+    - Matchups: best/worst row markers (payload does not mark them)
+    - Timeline: teamfights, power spikes, kill-map champion metadata
+- B — Branch cleanup (feature/new-feature fully merged, dozens of stale dxmegg-* branches)
+- C — New feature (ask user for direction)
+- D — Bug fixes / maintenance
 
 7. Komendy
 npm run dev          # apka (wymaga LCU jako admin)
