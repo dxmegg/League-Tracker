@@ -4569,7 +4569,7 @@ function EconomyTab({
     value: bucketAt(minute)?.avgGoldDiffVsLaneOpponent ?? null,
   }));
   const leadScale = Math.max(1, ...leadPoints.map((point) => Math.abs(point.value ?? 0)));
-  const levelPoints = [5, 10, 15, 20].map((minute) => ({
+  const levelPoints = [5, 10, 15, 20, 25, 30].map((minute) => ({
     minute,
     value: bucketAt(minute)?.avgLevel ?? null,
   }));
@@ -4740,6 +4740,7 @@ function EconomyTab({
               Gold spent totals and per-game averages from match data.
             </p>
             <CombatStatTable
+              hideVsOther
               rows={[
                 [
                   "Gold earned",
@@ -4878,7 +4879,7 @@ function EconomyTab({
                   Level progression
                 </div>
                 <svg
-                  aria-label="Average level progression from five to twenty minutes"
+                  aria-label="Average level progression from five to thirty minutes"
                   className="h-32 w-full"
                   role="img"
                   viewBox="0 0 160 80"
@@ -4893,7 +4894,8 @@ function EconomyTab({
                     strokeOpacity="0.25"
                   />
                   {levelPoints.map((point, index) => {
-                    const x = 14 + index * 44;
+                    const levelStep = 132 / (levelPoints.length - 1 || 1);
+                    const x = 14 + index * levelStep;
                     const y = point.value == null ? 42 : 66 - (point.value / 18) * 48;
                     return (
                       <g key={point.minute}>
@@ -4901,7 +4903,7 @@ function EconomyTab({
                           levelPoints[index - 1].value != null &&
                           point.value != null && (
                             <line
-                              x1={x - 44}
+                              x1={x - levelStep}
                               x2={x}
                               y1={66 - (levelPoints[index - 1].value! / 18) * 48}
                               y2={y}
@@ -5791,19 +5793,26 @@ function EconomyStatTable({ rows }: { rows: EconomyStatTableRow[] }) {
 function CombatStatTable({
   rows,
   deltaIndicators = false,
+  hideVsOther = false,
 }: {
   rows: CombatStatTableRow[];
   deltaIndicators?: boolean;
+  hideVsOther?: boolean;
 }) {
+  const columnsClass = hideVsOther
+    ? "grid-cols-[minmax(0,1.4fr)_96px_96px_96px_96px]"
+    : "grid-cols-[minmax(0,1.4fr)_96px_96px_96px_96px_96px]";
   return (
     <div className="flex flex-col gap-2 text-xs">
-      <div className="grid grid-cols-[minmax(0,1.4fr)_96px_96px_96px_96px_96px] gap-3 border-b border-lol-border/50 pb-2 font-semibold text-lol-text">
+      <div
+        className={`grid ${columnsClass} gap-3 border-b border-lol-border/50 pb-2 font-semibold text-lol-text`}
+      >
         <span>Stat</span>
         <span className="text-right whitespace-nowrap">Avg / game</span>
         <span className="text-right whitespace-nowrap">Best game</span>
         <span className="text-right whitespace-nowrap">In wins</span>
         <span className="text-right whitespace-nowrap">In losses</span>
-        <span className="text-right whitespace-nowrap">vs other</span>
+        {!hideVsOther && <span className="text-right whitespace-nowrap">vs other</span>}
       </div>
       {rows.map(([label, avg, best, _total, formatter, inWins, inLosses, vsOther], index) => {
         const format = formatter ?? formatCombatNumber;
@@ -5826,7 +5835,7 @@ function CombatStatTable({
         return (
           <div
             key={label}
-            className={`grid grid-cols-[minmax(0,1.4fr)_96px_96px_96px_96px_96px] items-center gap-3 py-2.5 text-lol-text-bright transition-colors duration-[120ms] hover:bg-white/[0.025] ${
+            className={`grid ${columnsClass} items-center gap-3 py-2.5 text-lol-text-bright transition-colors duration-[120ms] hover:bg-white/[0.025] ${
               index < rows.length - 1 ? "border-b border-white/[0.04]" : ""
             }`}
           >
@@ -5863,26 +5872,28 @@ function CombatStatTable({
             >
               {renderBreakdown(inLosses)}
             </span>
-            <span
-              className="text-right tabular-nums text-lol-text"
-              style={damageColor ? { color: damageColor, opacity: 0.9 } : undefined}
-            >
-              {deltaIndicators && vsOther != null ? (
-                <span
-                  className={`inline-flex items-center gap-0.5 rounded px-1.5 py-0.5 text-xs font-semibold ${
-                    vsOther >= 0
-                      ? "bg-[rgba(34,197,94,0.12)] text-[#22C55E]"
-                      : "bg-[rgba(229,72,63,0.12)] text-[#E5483F]"
-                  }`}
-                >
-                  <DeltaIndicator positive={vsOther >= 0} />
-                  {vsOther >= 0 ? "+" : ""}
-                  {vsOther.toFixed(1)}
-                </span>
-              ) : (
-                renderBreakdown(vsOther)
-              )}
-            </span>
+            {!hideVsOther && (
+              <span
+                className="text-right tabular-nums text-lol-text"
+                style={damageColor ? { color: damageColor, opacity: 0.9 } : undefined}
+              >
+                {deltaIndicators && vsOther != null ? (
+                  <span
+                    className={`inline-flex items-center gap-0.5 rounded px-1.5 py-0.5 text-xs font-semibold ${
+                      vsOther >= 0
+                        ? "bg-[rgba(34,197,94,0.12)] text-[#22C55E]"
+                        : "bg-[rgba(229,72,63,0.12)] text-[#E5483F]"
+                    }`}
+                  >
+                    <DeltaIndicator positive={vsOther >= 0} />
+                    {vsOther >= 0 ? "+" : ""}
+                    {vsOther.toFixed(1)}
+                  </span>
+                ) : (
+                  renderBreakdown(vsOther)
+                )}
+              </span>
+            )}
           </div>
         );
       })}
@@ -6109,14 +6120,18 @@ function Stat({
         </div>
       )}
       {miniViz && <div className="pointer-events-none absolute right-2.5 top-2.5">{miniViz}</div>}
-      <span className="flex items-center gap-1.5 text-[12.5px] uppercase tracking-wider text-lol-text">
+      <span
+        className={`flex items-center gap-1.5 text-[12.5px] uppercase tracking-wider text-lol-text ${
+          sparkValues ? "pr-20" : miniViz ? "pr-14" : ""
+        }`}
+      >
         <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: accent }} />
         {label}
       </span>
       <b
         className={`my-0.5 block font-display font-bold leading-tight text-lol-text-bright ${
           large ? "text-[28px]" : "text-[26px]"
-        } ${valueClass}`}
+        } ${valueClass} ${sparkValues ? "pr-20" : miniViz ? "pr-14" : ""}`}
       >
         {value}
       </b>

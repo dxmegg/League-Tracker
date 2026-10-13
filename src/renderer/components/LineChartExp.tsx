@@ -52,8 +52,10 @@ export function LineChartExp({
   const P = 16;
   const hasYAxis = yTicks != null && yTicks.length > 0;
   const leftPadding = paddingLeft ?? 0;
-  const plotLeft = P + (hasYAxis && leftPadding === 0 ? 44 : leftPadding);
-  const plotRight = W - P;
+  const axisWidth = hasYAxis ? 32 : 0;
+  const plotLeft = P + (leftPadding === 0 ? axisWidth : leftPadding);
+  const plotWidth = W - P - plotLeft;
+  const plotRight = plotLeft + plotWidth;
   const lo = min ?? Math.min(...chartValues) - 1;
   const hi = max ?? Math.max(...chartValues) + 1;
   const range = hi - lo || 1;
