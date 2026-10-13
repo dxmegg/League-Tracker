@@ -9,6 +9,7 @@ import type {
   ChampionSkillOrder,
   ChampionSkillOrdersResult,
   ChampionTeammateRow,
+  ChampionQueueStat,
   OwnedItemStats,
   OwnedItemStatsResult,
 } from "../../shared/api";
@@ -184,16 +185,7 @@ export function getActivityHeatmap(account?: string): ActivityHeatmapDay[] {
 export function getChampionQueueStats(
   championId: number | null,
   account?: string,
-): Array<{
-  queueId: number;
-  games: number;
-  wins: number;
-  kills: number;
-  deaths: number;
-  assists: number;
-  avgScore: number | null;
-  avgGameLength: number | null;
-}> {
+): ChampionQueueStat[] {
   const source = statsSource(account);
   const where = ["g.is_remake = 0"];
   where.push(source.accountFilter);
@@ -212,8 +204,8 @@ export function getChampionQueueStats(
                AVG(${source.alias}.gold_earned) as avgGold,
                AVG(CASE WHEN g.game_duration >= 60
                         THEN ${source.alias}.gold_earned * 60.0 / g.game_duration END) as goldPerMin,
-               AVG(CASE WHEN g.game_duration >= 60
-                        THEN ${source.alias}.cs * 60.0 / g.game_duration END) as csPerMin,
+               AVG(${source.alias}.cs) as avgCs,
+               SUM(${source.alias}.cs) / NULLIF(SUM(g.game_duration / 60.0), 0) as csPerMin,
                AVG(${source.alias}.score) as avgScore,
                AVG(g.game_duration) as avgGameLength
         FROM ${source.table} ${source.alias}
@@ -231,6 +223,7 @@ export function getChampionQueueStats(
     assists: number;
     avgGold: number | null;
     goldPerMin: number | null;
+    avgCs: number | null;
     csPerMin: number | null;
     avgScore: number | null;
     avgGameLength: number | null;

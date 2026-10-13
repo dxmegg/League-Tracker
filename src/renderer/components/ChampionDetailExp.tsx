@@ -5197,7 +5197,7 @@ function FarmTab({
   detailLoading: boolean;
   timeline: TimelineBucket[] | null;
   timelineLoading: boolean;
-  queueStats: Array<{ queueId: number; games: number; wins: number }> | null;
+  queueStats: ChampionQueueStat[] | null;
   queueStatsLoading: boolean;
 }) {
   if (detailLoading) return <SectionLoading />;
@@ -5440,8 +5440,10 @@ function FarmTab({
                   >
                     <span>{QUEUE_LABELS[row.queueId] ?? row.queueId}</span>
                     <span className="text-right tabular-nums">{row.games}</span>
-                    <span className="text-right tabular-nums">—</span>
-                    <span className="text-right tabular-nums">—</span>
+                    <span className="text-right tabular-nums">
+                      {formatSmallMetric(row.csPerMin)}
+                    </span>
+                    <span className="text-right tabular-nums">{formatSmallMetric(row.avgCs)}</span>
                   </div>
                 ))}
               </div>
