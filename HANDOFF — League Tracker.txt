@@ -185,26 +185,18 @@ Czasem myli MatchupsTab return z innym JSX.
 Cherry-pickuje commity między worktree'ami — nie używać subsessji.
 
 6. Co dalej
+
 - A — New feature (ask user for direction)
-- B — Bug fixes / maintenance
-- C — Payload expansion phase B: timeline extensions (bounty\_gold, shutdown\_bounty, kill\_streak\_length, assisting\_participant\_ids, position\_x/y in match\_timeline\_events; jungle\_minions\_killed, time\_enemy\_spent\_controlled in match\_timeline\_frames) — parser + local reparse from raw\_gz
-- D — Payload expansion phase C: Match-V5 ingestion path + schema for pings/casts/heal-on-teammates/shield/challenges top-15 — affects future imports only, no backfill
-- E — Payload expansion phase D: UI surfacing new payload fields (Score/Match detail tab)
-- F — Vision KPI bug: "Control ward share" shows 100.0% when 0 wards bought (0/0 division)
+- B — Payload phase C: Match-V5 ingestion path + schema for pings/casts/heal-on-teammates/shield/challenges top-15 (affects future imports only, ~2h)
+- C — Payload phase D: UI surfacing new timeline fields (bounty, shutdown, assists, position) in Match detail or Score tab
+- D — Vision KPI bug: "Control ward share" shows 100.0% when 0 wards bought (0/0 division)
+- E — Optional cleanup: revisit Home page KPI/highlights
 
 Completed since last handoff:
 
-- Settings: new "Stored Data / Payload Information" panel above Credits (7 categories, 148 fields from schema)
-- Champion Detail Objectives: team objectives backend — new match\_teams + match\_bans tables, parser reading raw.teams[]/bans[], local backfill (2156 games, 0 errors), new IPC db:get-champion-team-objectives, UI panel "Team objectives" (ally vs enemy, 11 metrics)
-- Champion Detail Vision: compact variant for Per minute / Ratio, Recent games shows all rows (not just those with vision\_score), fixed numeric grid, missing avg renders as —
-- Multiple handler-scope bugs fixed (backfill handlers were nested inside other handlers)
-
-Known working-as-designed (do NOT touch):
-
-- Overview, Combat tabs (user forbids changes without approval)
-- Economy tab (user forbids changes without approval)
-- Backfill of historical objective fields via Match-V5 abandoned (404 on old games, region mismatch)
-- payloads.ts s.X ?? p.X ?? p.challenges?.X fallback kept for future Match-V5 imports
+- Payload phase B: timeline extensions — schema v27, match_timeline_events gained bounty_gold/shutdown_bounty/kill_streak_length/assisting_participant_ids/position_x/position_y; match_timeline_frames gained jungle_minions_killed/time_enemy_spent_controlled. Local backfill (941 games, 0 errors). Parser + IPC db:backfill-timeline-local + Settings debug button.
+- Champion Detail Vision: compact variant for Per minute / Ratio, Recent games shows all rows, fixed numeric grid, missing avg renders as —
+- Fixed timeline frames INSERT placeholder count (was 23 values for 22 columns)
 
 7. Komendy
 npm run dev          # apka (wymaga LCU jako admin)
