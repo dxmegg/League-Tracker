@@ -1964,68 +1964,57 @@ function VisionTab({
     ? weeklyMetrics?.map((entry) => entry.metrics[weeklyVisionScoreKey] ?? null)
     : undefined;
   const visionRows: CombatStatTableRow[] = [];
-  if (Number.isFinite(detail.avgVisionScore)) {
-    visionRows.push([
-      "Vision score",
-      detail.avgVisionScore,
-      detail.maxVisionScore,
-      detail.totalVisionScore,
-      formatCombatNumber,
-      detail.avgVisionScoreInWins,
-      detail.avgVisionScoreInLosses,
-      vsOther(detail.avgVisionScore, "avgVisionScoreOther"),
-    ]);
-  }
-  if (Number.isFinite(detail.avgWardsPlaced)) {
-    visionRows.push([
-      "Wards placed",
-      detail.avgWardsPlaced,
-      detail.maxWardsPlaced,
-      detail.totalWardsPlaced,
-      formatCombatNumber,
-      detail.avgWardsPlacedInWins,
-      detail.avgWardsPlacedInLosses,
-      vsOther(detail.avgWardsPlaced, "avgWardsPlacedOther"),
-    ]);
-  }
-  if (Number.isFinite(detail.avgWardsKilled)) {
-    visionRows.push([
-      "Wards killed",
-      detail.avgWardsKilled,
-      detail.maxWardsKilled,
-      detail.totalWardsKilled,
-      formatCombatNumber,
-      detail.avgWardsKilledInWins,
-      detail.avgWardsKilledInLosses,
-      vsOther(detail.avgWardsKilled, "avgWardsKilledOther"),
-    ]);
-  }
-  if (Number.isFinite(detail.avgVisionWardsBought)) {
-    visionRows.push([
-      "Control wards bought",
-      detail.avgVisionWardsBought,
-      detail.maxVisionWardsBought,
-      detail.totalVisionWardsBought,
-      formatCombatNumber,
-      detail.avgVisionWardsBoughtInWins,
-      detail.avgVisionWardsBoughtInLosses,
-      vsOther(detail.avgVisionWardsBought, "avgVisionWardsBoughtOther"),
-    ]);
-  }
-  if (Number.isFinite(detail.avgSightWardsBought)) {
-    visionRows.push([
-      "Sight wards bought",
-      detail.avgSightWardsBought,
-      detail.maxSightWardsBought,
-      detail.totalSightWardsBought,
-      formatCombatNumber,
-      detail.avgSightWardsBoughtInWins,
-      detail.avgSightWardsBoughtInLosses,
-      vsOther(detail.avgSightWardsBought, "avgSightWardsBoughtOther"),
-    ]);
-  }
+  visionRows.push([
+    "Vision score",
+    detail.avgVisionScore ?? null,
+    detail.maxVisionScore,
+    detail.totalVisionScore,
+    formatCombatNumber,
+    detail.avgVisionScoreInWins,
+    detail.avgVisionScoreInLosses,
+    vsOther(detail.avgVisionScore, "avgVisionScoreOther"),
+  ]);
+  visionRows.push([
+    "Wards placed",
+    detail.avgWardsPlaced ?? null,
+    detail.maxWardsPlaced,
+    detail.totalWardsPlaced,
+    formatCombatNumber,
+    detail.avgWardsPlacedInWins,
+    detail.avgWardsPlacedInLosses,
+    vsOther(detail.avgWardsPlaced, "avgWardsPlacedOther"),
+  ]);
+  visionRows.push([
+    "Wards killed",
+    detail.avgWardsKilled ?? null,
+    detail.maxWardsKilled,
+    detail.totalWardsKilled,
+    formatCombatNumber,
+    detail.avgWardsKilledInWins,
+    detail.avgWardsKilledInLosses,
+    vsOther(detail.avgWardsKilled, "avgWardsKilledOther"),
+  ]);
+  visionRows.push([
+    "Control wards bought",
+    detail.avgVisionWardsBought ?? null,
+    detail.maxVisionWardsBought,
+    detail.totalVisionWardsBought,
+    formatCombatNumber,
+    detail.avgVisionWardsBoughtInWins,
+    detail.avgVisionWardsBoughtInLosses,
+    vsOther(detail.avgVisionWardsBought, "avgVisionWardsBoughtOther"),
+  ]);
+  visionRows.push([
+    "Sight wards bought",
+    detail.avgSightWardsBought ?? null,
+    detail.maxSightWardsBought,
+    detail.totalSightWardsBought,
+    formatCombatNumber,
+    detail.avgSightWardsBoughtInWins,
+    detail.avgSightWardsBoughtInLosses,
+    vsOther(detail.avgSightWardsBought, "avgSightWardsBoughtOther"),
+  ]);
   const recentMatches = (matchHistory?.matches ?? [])
-    .filter((match) => match.vision_score != null)
     .slice()
     .sort((a, b) => b.game_creation - a.game_creation)
     .slice(0, 8);
@@ -2156,6 +2145,7 @@ function VisionTab({
             ["Wards placed / min", perMinute(detail.avgWardsPlaced), null, null],
             ["Wards killed / min", perMinute(detail.avgWardsKilled), null, null],
           ]}
+          variant="compact"
         />
       </Panel>
 
@@ -2181,6 +2171,7 @@ function VisionTab({
               (value) => (value == null ? "—" : `${value.toFixed(1)}%`),
             ],
           ]}
+          variant="compact"
         />
       </Panel>
 
@@ -2193,7 +2184,7 @@ function VisionTab({
           <NoData />
         ) : (
           <div className="flex flex-col gap-2 text-xs">
-            <div className="grid grid-cols-[minmax(8rem,1fr)_auto_auto_auto_auto] gap-3 border-b border-lol-border/50 pb-2 font-semibold text-lol-text">
+            <div className="grid grid-cols-[minmax(8rem,1fr)_70px_70px_70px_80px] gap-3 border-b border-lol-border/50 pb-2 font-semibold text-lol-text">
               <span>Champion</span>
               <span className="text-right">Vision</span>
               <span className="text-right">Placed</span>
@@ -2203,7 +2194,7 @@ function VisionTab({
             {recentMatches.map((match) => (
               <div
                 key={match.game_id}
-                className={`grid grid-cols-[minmax(8rem,1fr)_auto_auto_auto_auto] items-center gap-3 border-b border-white/[0.04] border-l-2 py-2 text-lol-text-bright transition-colors duration-[120ms] hover:bg-white/[0.025] hover:border-l-[3px] last:border-b-0 ${
+                className={`grid grid-cols-[minmax(8rem,1fr)_70px_70px_70px_80px] items-center gap-3 border-b border-white/[0.04] border-l-2 py-2 text-lol-text-bright transition-colors duration-[120ms] hover:bg-white/[0.025] hover:border-l-[3px] last:border-b-0 ${
                   match.win ? "border-l-lol-win" : "border-l-lol-loss"
                 }`}
               >
