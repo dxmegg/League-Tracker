@@ -1947,16 +1947,11 @@ function VisionTab({
   const minutes = detail.avgGameLength > 0 ? detail.avgGameLength / 60 : 0;
   const perMinute = (value: number) => (minutes > 0 ? value / minutes : null);
   const wardKillRatio =
-    detail.avgWardsPlaced > 0
-      ? `${((detail.avgWardsKilled / detail.avgWardsPlaced) * 100).toFixed(1)}%`
-      : "—";
+    detail.avgWardsPlaced > 0 ? (detail.avgWardsKilled / detail.avgWardsPlaced) * 100 : null;
   const wardShareTotal = detail.avgVisionWardsBought + detail.avgSightWardsBought;
   const controlWardShare =
-    wardShareTotal > 0
-      ? `${((detail.avgVisionWardsBought / wardShareTotal) * 100).toFixed(1)}%`
-      : "—";
-  const controlWardShareValue =
     wardShareTotal > 0 ? (detail.avgVisionWardsBought / wardShareTotal) * 100 : null;
+  const controlWardShareValue = controlWardShare;
   const weeklyVisionScoreKey = [
     ...new Set(weeklyMetrics?.flatMap((entry) => Object.keys(entry.metrics)) ?? []),
   ].find((key) => /vision.*score/i.test(key));
@@ -2158,14 +2153,14 @@ function VisionTab({
           rows={[
             [
               "Ward kill ratio",
-              wardKillRatio === "—" ? null : Number.parseFloat(wardKillRatio),
+              wardKillRatio,
               null,
               null,
               (value) => (value == null ? "—" : `${value.toFixed(1)}%`),
             ],
             [
               "Control ward share",
-              controlWardShare === "—" ? null : Number.parseFloat(controlWardShare),
+              controlWardShare,
               null,
               null,
               (value) => (value == null ? "—" : `${value.toFixed(1)}%`),
