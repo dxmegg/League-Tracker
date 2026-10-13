@@ -116,7 +116,7 @@ export function DataExp() {
 
   return (
     <div className="mx-auto flex min-h-full w-full max-w-[1320px] flex-col gap-5">
-      <div className="relative overflow-hidden rounded-xl border border-lol-border border-t-[3px] border-t-[#E5483F] bg-[radial-gradient(circle_at_top_right,rgba(229,72,63,0.10),transparent_46%),linear-gradient(180deg,#151012,#0b0d10)] px-5 py-4 before:pointer-events-none before:absolute before:inset-x-0 before:top-0 before:h-10 before:bg-[linear-gradient(180deg,rgba(229,72,63,0.05),transparent)]">
+      <div className="shrink-0 overflow-hidden rounded-xl border border-lol-border border-t-[3px] border-t-[#E5483F] bg-[radial-gradient(circle_at_top_right,rgba(229,72,63,0.10),transparent_46%),linear-gradient(180deg,#151012,#0b0d10)] px-5 py-4 before:pointer-events-none before:absolute before:inset-x-0 before:top-0 before:h-10 before:bg-[linear-gradient(180deg,rgba(229,72,63,0.05),transparent)]">
         <h1 className="relative flex items-center font-display text-[30px] font-bold leading-tight tracking-[0.2px] text-lol-text-bright">
           <span className="mr-2 h-2.5 w-2.5 rotate-45 bg-lol-crimson shadow-[0_0_8px_rgba(229,72,63,0.45)]" />
           <span className="relative pb-2 after:absolute after:bottom-0 after:left-0 after:h-px after:w-full after:bg-gradient-to-r after:from-lol-crimson after:to-transparent">
