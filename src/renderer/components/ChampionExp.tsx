@@ -45,6 +45,9 @@ const COLUMNS: Array<{ key: ColumnKey | null; label: string }> = [
   { key: "mk", label: "Multikills" },
 ];
 
+const CHAMP_GRID =
+  "grid min-w-[1120px] grid-cols-[40px_minmax(160px,1fr)_60px_50px_50px_80px_90px_60px_70px_70px_90px_80px_80px_100px] items-center";
+
 const CHAMPION_ICON_ACCENTS = [
   "border-lol-crimson/70 shadow-[0_0_10px_rgba(229,72,63,0.22)]",
   "border-lol-gold/70 shadow-[0_0_10px_rgba(201,164,92,0.22)]",
@@ -384,12 +387,13 @@ export function ChampionExp() {
 
       <div className="min-w-0 rounded-[14px] border border-lol-border bg-[linear-gradient(180deg,var(--theme-card-hover),var(--theme-card))] p-5">
         <div className="scroll">
-          <table className="tbl ct">
-            <thead>
-              <tr>
+          <div role="table" className="tbl ct">
+            <div role="rowgroup">
+              <div role="row" className={CHAMP_GRID}>
                 {COLUMNS.map((column) => (
-                  <th
+                  <div
                     key={column.label}
+                    role="columnheader"
                     data-k={column.key ?? undefined}
                     aria-sort={
                       column.key === sortKey
@@ -399,29 +403,34 @@ export function ChampionExp() {
                         : undefined
                     }
                     onClick={column.key ? () => handleSort(column.key as ColumnKey) : undefined}
-                    style={{ cursor: column.key ? "pointer" : "default" }}
+                    className={`px-2.5 pb-2.5 text-right text-[12.5px] font-medium text-lol-text/60 ${
+                      column.key === null ? "text-left" : ""
+                    } ${column.key ? "cursor-pointer select-none" : ""}`}
                   >
-                    {column.label}
-                    {column.key === sortKey ? (sortDir === "asc" ? " ▴" : " ▾") : ""}
-                  </th>
+                    <span className="flex items-center justify-end gap-1">
+                      {column.label}
+                      {column.key === sortKey ? (sortDir === "asc" ? "▴" : "▾") : ""}
+                    </span>
+                  </div>
                 ))}
-              </tr>
-            </thead>
-            <tbody>
+              </div>
+            </div>
+            <div role="rowgroup">
               {sorted.length === 0 ? (
-                <tr>
-                  <td colSpan={COLUMNS.length} style={{ textAlign: "left" }}>
+                <div role="row" className={CHAMP_GRID}>
+                  <div role="cell" className="col-span-full px-2.5 py-2 text-left">
                     No champions match your filters
-                  </td>
-                </tr>
+                  </div>
+                </div>
               ) : (
                 sorted.map((r, i) => {
                   const wr = r.games > 0 ? (r.wins / r.games) * 100 : 0;
                   const kda = r.deaths > 0 ? (r.kills + r.assists) / r.deaths : null;
                   return (
-                    <tr
+                    <div
                       key={r.champion_id}
-                      className="clk"
+                      role="row"
+                      className={`${CHAMP_GRID} cursor-pointer border-b border-lol-border/40 transition-colors duration-[120ms] hover:bg-white/[0.03]`}
                       tabIndex={0}
                       data-champion-id={r.champion_id}
                       onClick={() => navigate(`/champions/${r.champion_id}`)}
@@ -429,8 +438,10 @@ export function ChampionExp() {
                         if (event.key === "Enter") navigate(`/champions/${r.champion_id}`);
                       }}
                     >
-                      <td className="muted">{i + 1}</td>
-                      <td>
+                      <div role="cell" className="px-2.5 py-2 text-left text-lol-text/60">
+                        {i + 1}
+                      </div>
+                      <div role="cell" className="px-2.5 py-2">
                         <div className="nm">
                           <ChampionIcon
                             championId={r.champion_id}
@@ -439,15 +450,17 @@ export function ChampionExp() {
                           />
                           <span>{getChampionName(champData, r.champion_id)}</span>
                         </div>
-                      </td>
-                      <td>{formatNumber(r.games)}</td>
-                      <td>
+                      </div>
+                      <div role="cell" className="px-2.5 py-2 text-right">
+                        {formatNumber(r.games)}
+                      </div>
+                      <div role="cell" className="px-2.5 py-2 text-right">
                         <span className="text-lol-win">{formatNumber(r.wins)}</span>
-                      </td>
-                      <td>
+                      </div>
+                      <div role="cell" className="px-2.5 py-2 text-right">
                         <span className="text-lol-loss">{formatNumber(r.games - r.wins)}</span>
-                      </td>
-                      <td>
+                      </div>
+                      <div role="cell" className="px-2.5 py-2 text-right">
                         <span
                           className={`rounded-md px-1.5 py-0.5 ${
                             wr >= 55
@@ -470,32 +483,41 @@ export function ChampionExp() {
                         >
                           <i style={{ width: `${wr}%` }} />
                         </span>
-                      </td>
-                      <td className="muted">
+                      </div>
+                      <div role="cell" className="px-2.5 py-2 text-right text-lol-text/60">
                         {r.avg_kills.toFixed(1)} / {r.avg_deaths.toFixed(1)} /{" "}
                         {r.avg_assists.toFixed(1)}
-                      </td>
-                      <td
-                        className={
+                      </div>
+                      <div
+                        role="cell"
+                        className={`px-2.5 py-2 text-right ${
                           kda != null && kda >= 4
                             ? "text-lol-gold"
                             : kda != null && kda >= 3
                               ? "text-lol-win"
                               : ""
-                        }
+                        }`}
                       >
                         {kda != null ? kda.toFixed(2) : "Perfect"}
-                      </td>
-                      <td>{r.avg_cs_per_min?.toFixed(1) ?? "—"}</td>
-                      <td className="text-lol-gold">{r.avg_score?.toFixed(1) ?? "—"}</td>
-                      <td>
+                      </div>
+                      <div role="cell" className="px-2.5 py-2 text-right">
+                        {r.avg_cs_per_min?.toFixed(1) ?? "—"}
+                      </div>
+                      <div role="cell" className="px-2.5 py-2 text-right text-lol-gold">
+                        {r.avg_score?.toFixed(1) ?? "—"}
+                      </div>
+                      <div role="cell" className="px-2.5 py-2 text-right">
                         {formatNumber(r.mvps)}{" "}
                         <span className="muted">/ {formatNumber(r.aces)}</span>
-                      </td>
-                      <td>{formatNumber(r.avg_damage)}</td>
-                      <td>{formatNumber(r.avg_gold)}</td>
-                      <td>
-                        <div className="grid w-max grid-cols-2 gap-x-2 gap-y-0.5 text-[10.5px] tabular-nums ml-auto">
+                      </div>
+                      <div role="cell" className="px-2.5 py-2 text-right">
+                        {formatNumber(r.avg_damage)}
+                      </div>
+                      <div role="cell" className="px-2.5 py-2 text-right">
+                        {formatNumber(r.avg_gold)}
+                      </div>
+                      <div role="cell" className="px-2.5 py-2 text-right">
+                        <div className="ml-auto grid w-max grid-cols-2 gap-x-2 gap-y-0.5 text-[10.5px] tabular-nums">
                           <span className="mk0 whitespace-nowrap" title="Double kills">
                             D {formatNumber(r.double_kills)}
                           </span>
@@ -509,13 +531,13 @@ export function ChampionExp() {
                             P {formatNumber(r.penta_kills)}
                           </span>
                         </div>
-                      </td>
-                    </tr>
+                      </div>
+                    </div>
                   );
                 })
               )}
-            </tbody>
-          </table>
+            </div>
+          </div>
         </div>
       </div>
     </div>
