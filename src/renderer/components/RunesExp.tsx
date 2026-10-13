@@ -2,16 +2,13 @@ import { useMemo, useState, type ReactNode } from "react";
 import type { RuneOverview } from "../lib/types";
 import { useIpc } from "../hooks/useIpc";
 import { useActiveAccount } from "../hooks/useActiveAccount";
-import { useChampionData, getChampionName, useRuneData } from "../hooks/useChampions";
+import { useRuneData } from "../hooks/useChampions";
 import { useHistoryScopeQueue } from "../lib/historyScope";
 import { useViewState } from "../hooks/useViewState";
 import { ALL_ACCOUNTS_SENTINEL } from "../lib/accountsEvent";
-import ChampionIcon from "./ChampionIcon";
 import RuneIcon from "./RuneIcon";
-import WinRateBar from "./WinRateBar";
 import { Tile } from "./Tile";
 import { TileGrid } from "./TileGrid";
-import { SortableTable, type SortableColumn } from "./SortableTable";
 import QueueSelect from "./QueueSelect";
 import PatchSelect from "./PatchSelect";
 import { FilterChip } from "./FilterChip";
@@ -53,13 +50,6 @@ function runeWinRate(row: { wins: number; picks: number }): number {
 }
 
 type RuneRow = { rune_id: number; picks: number; wins: number };
-
-type RuneChampionRow = {
-  champion_id: number;
-  rune_id: number;
-  games: number;
-  winRate: number;
-};
 
 function KpiTile({
   label,
@@ -145,7 +135,6 @@ function HighlightCard({
 }
 
 export function RunesExp() {
-  const champions = useChampionData();
   const runeData = useRuneData();
   const [patch, setPatch] = useViewState<string | undefined>("runes.patch", undefined);
   const [queue, setQueue] = useViewState<number | undefined>("runes.queue", undefined);
@@ -204,63 +193,6 @@ export function RunesExp() {
     return totals;
   }, [filteredRows, runeData]);
   const mostUsedTree = [...treeTotals.entries()].sort((a, b) => b[1] - a[1])[0] ?? null;
-  const championRows = useMemo<RuneChampionRow[]>(
-    () =>
-      (data?.champions ?? []).flatMap((champion) =>
-        champion.keystones.map((keystone) => {
-          const aggregate = data?.runes.find((rune) => rune.rune_id === keystone.rune_id);
-          return {
-            champion_id: champion.champion_id,
-            rune_id: keystone.rune_id,
-            games: keystone.picks,
-            winRate:
-              aggregate && aggregate.picks > 0 ? (aggregate.wins / aggregate.picks) * 100 : 0,
-          };
-        }),
-      ),
-    [data],
-  );
-  const columns = useMemo<SortableColumn<RuneChampionRow>[]>(
-    () => [
-      {
-        key: "champion_id",
-        label: "Champion",
-        render: (row) => (
-          <div className="nm">
-            <ChampionIcon championId={row.champion_id} size={30} />
-            <span>{getChampionName(champions, row.champion_id)}</span>
-          </div>
-        ),
-        sortValue: (row) => getChampionName(champions, row.champion_id),
-        defaultDir: "asc",
-      },
-      {
-        key: "rune_id",
-        label: "Keystone",
-        render: (row) => <span className="text-lol-text">{runeName(runeData, row.rune_id)}</span>,
-        sortValue: (row) => runeName(runeData, row.rune_id),
-        defaultDir: "asc",
-      },
-      {
-        key: "games",
-        label: "Games",
-        render: (row) => <span className="tabular-nums">{formatNumber(row.games)}</span>,
-        defaultDir: "desc",
-      },
-      {
-        key: "winRate",
-        label: "Win rate",
-        render: (row) => (
-          <div className="flex min-w-[150px] items-center gap-2">
-            <span className="w-12 tabular-nums">{row.winRate.toFixed(1)}%</span>
-            <WinRateBar wins={row.winRate} total={100} />
-          </div>
-        ),
-        defaultDir: "desc",
-      },
-    ],
-    [champions, runeData],
-  );
 
   return (
     <div className="mx-auto flex min-h-full w-full max-w-[1320px] flex-col gap-5">
@@ -446,20 +378,6 @@ export function RunesExp() {
                   })}
                 </TileGrid>
               )}
-            </div>
-
-            <div>
-              <div className="mb-3">
-                <h2 className="relative pl-3 font-display text-xl font-semibold text-lol-text-bright before:absolute before:left-0 before:top-1/2 before:h-1.5 before:w-1.5 before:-translate-y-1/2 before:rotate-45 before:bg-lol-crimson after:absolute after:bottom-[-6px] after:left-3 after:h-px after:w-20 after:bg-gradient-to-r after:from-lol-crimson/60 after:to-transparent">
-                  Keystone by champion
-                </h2>
-              </div>
-              <SortableTable
-                columns={columns}
-                rows={championRows}
-                defaultSortKey="games"
-                rowKey={(row) => `${row.champion_id}-${row.rune_id}`}
-              />
             </div>
           </section>
         </>
