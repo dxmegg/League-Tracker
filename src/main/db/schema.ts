@@ -150,6 +150,25 @@ export function createTables() {
       wards_killed           INTEGER NOT NULL DEFAULT 0,
       vision_wards_bought    INTEGER NOT NULL DEFAULT 0,
       sight_wards_bought     INTEGER NOT NULL DEFAULT 0,
+      enemy_missing_pings    INTEGER,
+      danger_pings           INTEGER,
+      on_my_way_pings        INTEGER,
+      assist_me_pings        INTEGER,
+      get_back_pings         INTEGER,
+      vision_cleared_pings   INTEGER,
+      need_vision_pings      INTEGER,
+      push_pings             INTEGER,
+      all_in_pings           INTEGER,
+      basic_pings            INTEGER,
+      command_pings          INTEGER,
+      spell1_casts           INTEGER,
+      spell2_casts           INTEGER,
+      spell3_casts           INTEGER,
+      spell4_casts           INTEGER,
+      summoner1_casts        INTEGER,
+      summoner2_casts        INTEGER,
+      total_heal_on_teammates INTEGER,
+      total_damage_shielded_on_teammates INTEGER,
       -- Copied down from games so an aggregate over every participant never
       -- has to join back. Kept honest by trg_games_denorm_*, since these are
       -- the only three game columns a stats query filters on.
@@ -165,6 +184,17 @@ export function createTables() {
       score          REAL,
       PRIMARY KEY (game_id, participant_id)
     );
+
+    CREATE TABLE IF NOT EXISTS match_participant_challenges (
+      game_id INTEGER NOT NULL,
+      participant_id INTEGER NOT NULL,
+      challenge_key TEXT NOT NULL,
+      value REAL,
+      PRIMARY KEY (game_id, participant_id, challenge_key),
+      FOREIGN KEY (game_id) REFERENCES games(game_id) ON DELETE CASCADE
+    );
+    CREATE INDEX IF NOT EXISTS idx_participant_challenges_game
+      ON match_participant_challenges(game_id);
 
     CREATE TABLE IF NOT EXISTS match_teams (
       game_id INTEGER NOT NULL,
@@ -371,7 +401,7 @@ export function createIndexes() {
 // versioning, so it could be missing any subset of the columns v1 adds — which
 // is why each step checks for its column rather than assuming. A database that
 // createTables just built is also version 0, and lands on the same no-op path.
-export const SCHEMA_VERSION = 27;
+export const SCHEMA_VERSION = 28;
 
 export function tableColumns(table: string): Set<string> {
   const rows = db.pragma(`table_info(${table})`) as { name: string }[];
@@ -1262,6 +1292,51 @@ export function migrateToV27(): void {
   console.log("[db] v27 added timeline fields");
 }
 
+export function migrateToV28(): void {
+  const columns = tableColumns("match_participants");
+  const additions = [
+    ["enemy_missing_pings", "INTEGER"],
+    ["danger_pings", "INTEGER"],
+    ["on_my_way_pings", "INTEGER"],
+    ["assist_me_pings", "INTEGER"],
+    ["get_back_pings", "INTEGER"],
+    ["vision_cleared_pings", "INTEGER"],
+    ["need_vision_pings", "INTEGER"],
+    ["push_pings", "INTEGER"],
+    ["all_in_pings", "INTEGER"],
+    ["basic_pings", "INTEGER"],
+    ["command_pings", "INTEGER"],
+    ["spell1_casts", "INTEGER"],
+    ["spell2_casts", "INTEGER"],
+    ["spell3_casts", "INTEGER"],
+    ["spell4_casts", "INTEGER"],
+    ["summoner1_casts", "INTEGER"],
+    ["summoner2_casts", "INTEGER"],
+    ["total_heal_on_teammates", "INTEGER"],
+    ["total_damage_shielded_on_teammates", "INTEGER"],
+  ] as const;
+
+  for (const [name, definition] of additions) {
+    if (!columns.has(name)) {
+      db.exec(`ALTER TABLE match_participants ADD COLUMN ${name} ${definition}`);
+    }
+  }
+
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS match_participant_challenges (
+      game_id INTEGER NOT NULL,
+      participant_id INTEGER NOT NULL,
+      challenge_key TEXT NOT NULL,
+      value REAL,
+      PRIMARY KEY (game_id, participant_id, challenge_key),
+      FOREIGN KEY (game_id) REFERENCES games(game_id) ON DELETE CASCADE
+    );
+    CREATE INDEX IF NOT EXISTS idx_participant_challenges_game
+      ON match_participant_challenges(game_id);
+  `);
+  console.log("[db] v28 added participant telemetry fields and challenges");
+}
+
 export async function runMigrations() {
   const current = db.pragma("user_version", { simple: true }) as number;
   function timelineTablesPresent(): boolean {
@@ -1344,6 +1419,35 @@ export async function runMigrations() {
     );
   }
 
+  function participantTelemetryPresent(): boolean {
+    const columns = tableColumns("match_participants");
+    const requiredColumns = [
+      "enemy_missing_pings",
+      "danger_pings",
+      "on_my_way_pings",
+      "assist_me_pings",
+      "get_back_pings",
+      "vision_cleared_pings",
+      "need_vision_pings",
+      "push_pings",
+      "all_in_pings",
+      "basic_pings",
+      "command_pings",
+      "spell1_casts",
+      "spell2_casts",
+      "spell3_casts",
+      "spell4_casts",
+      "summoner1_casts",
+      "summoner2_casts",
+      "total_heal_on_teammates",
+      "total_damage_shielded_on_teammates",
+    ];
+    const tables = db
+      .prepare("SELECT name FROM sqlite_master WHERE type='table' AND name = ?")
+      .get("match_participant_challenges");
+    return requiredColumns.every((column) => columns.has(column)) && !!tables;
+  }
+
   // Safety net for databases that were stamped to SCHEMA_VERSION by the
   // version-0 empty-DB shortcut before migrateToV22 existed. migrateToV22 is
   // idempotent (CREATE TABLE IF NOT EXISTS), so running it unconditionally
@@ -1360,6 +1464,9 @@ export async function runMigrations() {
   }
   if (current >= SCHEMA_VERSION && !timelineColumnsPresent()) {
     migrateToV27();
+  }
+  if (current >= SCHEMA_VERSION && !participantTelemetryPresent()) {
+    migrateToV28();
   }
   const teamTablesPresent = () => {
     const names = new Set(
@@ -1442,6 +1549,7 @@ export async function runMigrations() {
   if (current < 22) migrateToV22();
   if (current < 26) migrateToV26();
   if (current < 27) migrateToV27();
+  if (current < 28) migrateToV28();
 
   db.pragma(`user_version = ${SCHEMA_VERSION}`);
 }

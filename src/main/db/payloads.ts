@@ -95,6 +95,25 @@ export interface RawParticipantRow {
   wards_killed: number;
   vision_wards_bought: number;
   sight_wards_bought: number;
+  enemy_missing_pings: number;
+  danger_pings: number;
+  on_my_way_pings: number;
+  assist_me_pings: number;
+  get_back_pings: number;
+  vision_cleared_pings: number;
+  need_vision_pings: number;
+  push_pings: number;
+  all_in_pings: number;
+  basic_pings: number;
+  command_pings: number;
+  spell1_casts: number;
+  spell2_casts: number;
+  spell3_casts: number;
+  spell4_casts: number;
+  summoner1_casts: number;
+  summoner2_casts: number;
+  total_heal_on_teammates: number;
+  total_damage_shielded_on_teammates: number;
   spell1: number | null;
   spell2: number | null;
   rune0: number | null;
@@ -322,6 +341,26 @@ export function participantRowsFromRaw(raw: any): RawParticipantRow[] {
       wards_killed: s.wardsKilled ?? 0,
       vision_wards_bought: s.visionWardsBoughtInGame ?? 0,
       sight_wards_bought: s.sightWardsBoughtInGame ?? 0,
+      enemy_missing_pings: s.enemyMissingPings ?? p.enemyMissingPings ?? 0,
+      danger_pings: s.dangerPings ?? p.dangerPings ?? 0,
+      on_my_way_pings: s.onMyWayPings ?? p.onMyWayPings ?? 0,
+      assist_me_pings: s.assistMePings ?? p.assistMePings ?? 0,
+      get_back_pings: s.getBackPings ?? p.getBackPings ?? 0,
+      vision_cleared_pings: s.visionClearedPings ?? p.visionClearedPings ?? 0,
+      need_vision_pings: s.needVisionPings ?? p.needVisionPings ?? 0,
+      push_pings: s.pushPings ?? p.pushPings ?? 0,
+      all_in_pings: s.allInPings ?? p.allInPings ?? 0,
+      basic_pings: s.basicPings ?? p.basicPings ?? 0,
+      command_pings: s.commandPings ?? p.commandPings ?? 0,
+      spell1_casts: s.spell1Casts ?? p.spell1Casts ?? 0,
+      spell2_casts: s.spell2Casts ?? p.spell2Casts ?? 0,
+      spell3_casts: s.spell3Casts ?? p.spell3Casts ?? 0,
+      spell4_casts: s.spell4Casts ?? p.spell4Casts ?? 0,
+      summoner1_casts: s.summoner1Casts ?? p.summoner1Casts ?? 0,
+      summoner2_casts: s.summoner2Casts ?? p.summoner2Casts ?? 0,
+      total_heal_on_teammates: s.totalHealOnTeammates ?? p.totalHealOnTeammates ?? 0,
+      total_damage_shielded_on_teammates:
+        s.totalDamageShieldedOnTeammates ?? p.totalDamageShieldedOnTeammates ?? 0,
       spell1: p.spell1Id ?? p.summoner1Id ?? s.spell1Id ?? s.summoner1Id ?? null,
       spell2: p.spell2Id ?? p.summoner2Id ?? s.spell2Id ?? s.summoner2Id ?? null,
       cs:
@@ -422,11 +461,43 @@ export function teamRowsFromRaw(raw: any): { teams: RawTeamRow[]; bans: RawBanRo
   return { teams, bans };
 }
 
+export interface RawParticipantChallengeRow {
+  game_id: number;
+  participant_id: number;
+  challenge_key: string;
+  value: number;
+}
+
+export function challengeRowsFromRaw(raw: any, gameId: number): RawParticipantChallengeRow[] {
+  const participants = raw?.participants;
+  if (!Array.isArray(participants)) return [];
+
+  const rows: RawParticipantChallengeRow[] = [];
+  for (let index = 0; index < participants.length; index++) {
+    const participant = participants[index];
+    const challenges = participant?.challenges;
+    if (!challenges || typeof challenges !== "object" || Array.isArray(challenges)) continue;
+
+    for (const [challengeKey, value] of Object.entries(challenges)) {
+      if (typeof value !== "number" || !Number.isFinite(value)) continue;
+      rows.push({
+        game_id: gameId,
+        participant_id: participant.participantId ?? index + 1,
+        challenge_key: challengeKey,
+        value,
+      });
+    }
+  }
+  return rows;
+}
+
 let writeParticipantsStmts: {
   participant: Database.Statement;
   augment: Database.Statement;
+  challenge: Database.Statement;
   clearParticipants: Database.Statement;
   clearAugments: Database.Statement;
+  clearChallenges: Database.Statement;
   team: Database.Statement;
   ban: Database.Statement;
   clearTeams: Database.Statement;
@@ -458,6 +529,12 @@ export function participantStatements() {
           first_inhibitor_kill, first_inhibitor_assist, baron_kills, objectives_stolen,
           objectives_stolen_assists, total_units_healed, vision_score, wards_placed,
           wards_killed, vision_wards_bought, sight_wards_bought,
+          enemy_missing_pings, danger_pings, on_my_way_pings, assist_me_pings,
+          get_back_pings, vision_cleared_pings, need_vision_pings, push_pings,
+          all_in_pings, basic_pings, command_pings,
+          spell1_casts, spell2_casts, spell3_casts, spell4_casts,
+          summoner1_casts, summoner2_casts,
+          total_heal_on_teammates, total_damage_shielded_on_teammates,
           is_remake, queue_id, game_version,
           spell1, spell2, item0, item1, item2, item3, item4, item5, item6,
           team_position,
@@ -480,6 +557,12 @@ export function participantStatements() {
           @first_inhibitor_kill, @first_inhibitor_assist, @baron_kills, @objectives_stolen,
           @objectives_stolen_assists, @total_units_healed, @vision_score, @wards_placed,
           @wards_killed, @vision_wards_bought, @sight_wards_bought,
+          @enemy_missing_pings, @danger_pings, @on_my_way_pings, @assist_me_pings,
+          @get_back_pings, @vision_cleared_pings, @need_vision_pings, @push_pings,
+          @all_in_pings, @basic_pings, @command_pings,
+          @spell1_casts, @spell2_casts, @spell3_casts, @spell4_casts,
+          @summoner1_casts, @summoner2_casts,
+          @total_heal_on_teammates, @total_damage_shielded_on_teammates,
           @is_remake, @queue_id, @game_version,
           @spell1, @spell2, @item0, @item1, @item2, @item3, @item4, @item5, @item6,
           @team_position,
@@ -493,8 +576,14 @@ export function participantStatements() {
           champion_id, win, is_remake, queue_id, game_version
         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
       `),
+      challenge: db.prepare(`
+        INSERT OR REPLACE INTO match_participant_challenges (
+          game_id, participant_id, challenge_key, value
+        ) VALUES (?, ?, ?, ?)
+      `),
       clearParticipants: db.prepare("DELETE FROM match_participants WHERE game_id = ?"),
       clearAugments: db.prepare("DELETE FROM match_participant_augments WHERE game_id = ?"),
+      clearChallenges: db.prepare("DELETE FROM match_participant_challenges WHERE game_id = ?"),
       team: db.prepare(`
         INSERT OR REPLACE INTO match_teams (
           game_id, team_id, win, baron_kills, dragon_kills, rift_herald_kills,
@@ -554,6 +643,7 @@ export function writeParticipants(
   const stmts = participantStatements();
   stmts.clearParticipants.run(gameId);
   stmts.clearAugments.run(gameId);
+  stmts.clearChallenges.run(gameId);
 
   for (const row of rows) {
     stmts.participant.run({
@@ -622,6 +712,25 @@ export function writeParticipants(
       wards_killed: row.wards_killed,
       vision_wards_bought: row.vision_wards_bought,
       sight_wards_bought: row.sight_wards_bought,
+      enemy_missing_pings: row.enemy_missing_pings,
+      danger_pings: row.danger_pings,
+      on_my_way_pings: row.on_my_way_pings,
+      assist_me_pings: row.assist_me_pings,
+      get_back_pings: row.get_back_pings,
+      vision_cleared_pings: row.vision_cleared_pings,
+      need_vision_pings: row.need_vision_pings,
+      push_pings: row.push_pings,
+      all_in_pings: row.all_in_pings,
+      basic_pings: row.basic_pings,
+      command_pings: row.command_pings,
+      spell1_casts: row.spell1_casts,
+      spell2_casts: row.spell2_casts,
+      spell3_casts: row.spell3_casts,
+      spell4_casts: row.spell4_casts,
+      summoner1_casts: row.summoner1_casts,
+      summoner2_casts: row.summoner2_casts,
+      total_heal_on_teammates: row.total_heal_on_teammates,
+      total_damage_shielded_on_teammates: row.total_damage_shielded_on_teammates,
       team_position: row.team_position,
       is_remake: meta.is_remake,
       queue_id: meta.queue_id,
@@ -658,6 +767,14 @@ export function writeParticipants(
         meta.game_version,
       );
     }
+  }
+  for (const challenge of challengeRowsFromRaw(raw, gameId)) {
+    stmts.challenge.run(
+      challenge.game_id,
+      challenge.participant_id,
+      challenge.challenge_key,
+      challenge.value,
+    );
   }
   writeTeamsAndBans(gameId, raw);
 }
