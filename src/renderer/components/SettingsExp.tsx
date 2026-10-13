@@ -346,6 +346,8 @@ export function SettingsExp() {
   const [rememberFilters, setRememberFilters] = useState(false);
   const [loading, setLoading] = useState(true);
   const [backfillStatus, setBackfillStatus] = useState<string | null>(null);
+  const [riotSyncing, setRiotSyncing] = useState(false);
+  const [riotSyncStatus, setRiotSyncStatus] = useState<string | null>(null);
   const [repairing, setRepairing] = useState(false);
   const [restoring, setRestoring] = useState(false);
   const [backups, setBackups] = useState<BackupInfo[]>([]);
@@ -458,7 +460,22 @@ export function SettingsExp() {
   );
 
   const handleRiotSync = useCallback(async () => {
-    // TODO: rewrite Riot history sync from scratch
+    setRiotSyncing(true);
+    setRiotSyncStatus(null);
+    try {
+      const result = await window.api.syncRiotHistory();
+      if ("error" in result) {
+        setRiotSyncStatus(`Error: ${result.error}`);
+      } else {
+        setRiotSyncStatus(
+          `Synced ${result.added} new match(es) from ${result.scanned} scanned match(es).`,
+        );
+      }
+    } catch (err: unknown) {
+      setRiotSyncStatus(`Error: ${err instanceof Error ? err.message : String(err)}`);
+    } finally {
+      setRiotSyncing(false);
+    }
   }, []);
 
   const handleRepair = useCallback(async () => {
@@ -841,9 +858,6 @@ export function SettingsExp() {
           >
             Force Backfill
           </Button>
-          <Button variant="subtle" type="button" onClick={handleRiotSync}>
-            Sync from Riot History
-          </Button>
           <Button
             variant="subtle"
             type="button"
@@ -873,6 +887,24 @@ export function SettingsExp() {
           </Button>
         </div>
         {backfillStatus && <p className="text-[12.5px] text-lol-text mt-2">{backfillStatus}</p>}
+        <div className="flex items-center justify-between gap-3 py-2">
+          <div>
+            <p className="text-sm font-medium text-lol-text-bright">Riot Match-V5 sync</p>
+            <p className="text-xs text-lol-text">
+              Pull the latest matches through the Riot API to capture pings, spell casts, and
+              challenge metrics that LCU does not provide. Only works for accounts with a configured
+              Riot ID.
+            </p>
+          </div>
+          <button
+            className="rounded border border-lol-border px-3 py-1.5 text-xs text-lol-text-bright hover:bg-white/5"
+            onClick={handleRiotSync}
+            disabled={riotSyncing}
+          >
+            {riotSyncing ? "Syncing..." : "Sync now"}
+          </button>
+        </div>
+        {riotSyncStatus && <p className="mt-1 text-xs text-lol-text">{riotSyncStatus}</p>}
       </Section>
 
       <Section
