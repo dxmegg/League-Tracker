@@ -289,7 +289,14 @@ export default function GlobalStats() {
   }
 
   if (!data) {
-    return <div className="text-lol-text text-center mt-20">Loading...</div>;
+    return (
+      <div className="relative mx-auto mt-20 max-w-[1320px] overflow-hidden rounded-xl border border-lol-border border-t-[3px] border-t-[#E5483F] bg-[radial-gradient(circle_at_top_right,rgba(229,72,63,0.08),transparent_46%),linear-gradient(180deg,#151012,#0b0d10)] p-12 text-center">
+        <h2 className="relative mb-2 pl-4 text-left text-xs font-bold uppercase tracking-wider text-lol-gold before:absolute before:left-0 before:top-1/2 before:h-2 before:w-2 before:-translate-y-1/2 before:rotate-45 before:bg-lol-crimson">
+          Data
+        </h2>
+        <p className="relative text-sm text-lol-text">Loading...</p>
+      </div>
+    );
   }
 
   const ChampSortHeader = ({
@@ -351,22 +358,23 @@ export default function GlobalStats() {
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <span className="text-xs text-lol-text">
-            {totalGames} games &middot; {data.champions.length} champions &middot;{" "}
-            {data.augments.length} augments &middot; {data.items.length} items
-          </span>
-          <div className="flex items-center gap-2 [&_select]:h-9 [&_select]:rounded-md [&_select]:border [&_select]:border-lol-border/60 [&_select]:bg-lol-card/40 [&_select]:px-3 [&_select]:text-xs [&_select]:text-lol-text-bright [&_select]:focus-visible:outline-none [&_select]:focus-visible:border-lol-gold/60 [&_select]:focus-visible:ring-1 [&_select]:focus-visible:ring-lol-gold/40 [&_select]:transition-colors">
-            <QueueSelect value={queue} onChange={setQueue} />
-            <PatchSelect value={patch} onChange={setPatch} />
+      <div>
+        <h2 className="relative mb-3 pl-4 text-xs font-bold uppercase tracking-wider text-lol-gold before:absolute before:left-0 before:top-1/2 before:h-2 before:w-2 before:-translate-y-1/2 before:rotate-45 before:bg-lol-crimson">
+          Statistics about game presence
+        </h2>
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <span className="text-xs text-lol-text">
+              {totalGames} games &middot; {data.champions.length} champions &middot;{" "}
+              {data.augments.length} augments &middot; {data.items.length} items
+            </span>
+            <div className="flex items-center gap-2 [&_select]:h-9 [&_select]:rounded-md [&_select]:border [&_select]:border-lol-border/60 [&_select]:bg-lol-card/40 [&_select]:px-3 [&_select]:text-xs [&_select]:text-lol-text-bright [&_select]:focus-visible:outline-none [&_select]:focus-visible:border-lol-gold/60 [&_select]:focus-visible:ring-1 [&_select]:focus-visible:ring-lol-gold/40 [&_select]:transition-colors">
+              <QueueSelect value={queue} onChange={setQueue} />
+              <PatchSelect value={patch} onChange={setPatch} />
+            </div>
           </div>
         </div>
       </div>
-
-      <p className="text-xs font-bold uppercase tracking-wider text-lol-text">
-        Statistics about game presence
-      </p>
 
       {/* Tabs */}
       <div className="flex items-center">
@@ -414,63 +422,68 @@ export default function GlobalStats() {
             />
           </div>
 
-          <div className="rounded-lg border border-lol-crimson/40 bg-[linear-gradient(145deg,#0c0e11_0%,#090b0d_48%,#060809_100%)] shadow-[0_0_3px_rgba(150,30,30,0.55),0_0_10px_rgba(90,15,15,0.35),0_0_20px_rgba(60,10,10,0.20)] ring-1 ring-inset ring-white/[0.03] overflow-hidden">
-            <table className="w-full">
-              <thead className="border-b border-lol-border/40 bg-lol-dark/50">
-                <tr>
-                  <th className="px-3 py-2.5 text-left text-[10px] font-bold uppercase tracking-wider text-lol-text w-12">
-                    #
-                  </th>
-                  <ChampSortHeader label="Champion" field="name" />
-                  <ChampSortHeader label="Games" field="games" />
-                  <ChampSortHeader label="Pick Rate" field="pickRate" />
-                  <ChampSortHeader label="Win Rate" field="winRate" className="w-32" />
-                </tr>
-              </thead>
-              <tbody>
-                {sortedChampions.map((c, i) => {
-                  const pickRate =
-                    data.totalParticipantSlots > 0
-                      ? ((c.games / data.totalParticipantSlots) * 100).toFixed(1)
-                      : "0.0";
-                  return (
-                    <tr
-                      key={c.champion_id}
-                      onClick={() =>
-                        navigate(
-                          scope
-                            ? `/history/${scope}/total-stats/champion/${c.champion_id}${filterQuery}`
-                            : `/global/champion/${c.champion_id}${filterQuery}`,
-                        )
-                      }
-                      className="group border-b border-lol-border/20 transition-colors hover:bg-white/[0.03] cursor-pointer"
-                    >
-                      <td className="px-3 py-2 text-right text-xs text-lol-text tabular-nums">
-                        {i + 1}
-                      </td>
-                      <td className="px-3 py-2">
-                        <span className="flex items-center gap-3 text-sm font-bold text-lol-text-bright">
-                          <ChampionIcon championId={c.champion_id} size={28} />
-                          {getChampionName(champData, c.champion_id)}
-                        </span>
-                      </td>
-                      <td className="px-3 py-2 text-right text-xs text-lol-text tabular-nums">
-                        {c.games}
-                      </td>
-                      <td className="px-3 py-2 text-right text-xs text-lol-text tabular-nums">
-                        {pickRate}%
-                      </td>
-                      <td className="px-3 py-2 w-32">
-                        <WinRateBar wins={c.wins} total={c.games} />
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-            {sortedChampions.length === 0 && (
-              <div className="py-8 text-center text-sm text-lol-text">No champions found</div>
-            )}
+          <div>
+            <h2 className="relative mb-3 pl-4 text-xs font-bold uppercase tracking-wider text-lol-gold before:absolute before:left-0 before:top-1/2 before:h-2 before:w-2 before:-translate-y-1/2 before:rotate-45 before:bg-lol-crimson">
+              Champions
+            </h2>
+            <div className="rounded-lg border border-lol-crimson/40 border-t-[3px] border-t-lol-crimson bg-[radial-gradient(circle_at_top_right,rgba(165,15,21,0.08),transparent_42%),linear-gradient(145deg,#0c0e11_0%,#090b0d_48%,#060809_100%)] shadow-[0_0_3px_rgba(150,30,30,0.55),0_0_10px_rgba(90,15,15,0.35),0_0_20px_rgba(60,10,10,0.20)] ring-1 ring-inset ring-white/[0.03] overflow-hidden">
+              <table className="w-full">
+                <thead className="border-b border-lol-border/40 bg-lol-dark/50">
+                  <tr>
+                    <th className="px-3 py-2.5 text-left text-[10px] font-bold uppercase tracking-wider text-lol-text w-12">
+                      #
+                    </th>
+                    <ChampSortHeader label="Champion" field="name" />
+                    <ChampSortHeader label="Games" field="games" />
+                    <ChampSortHeader label="Pick Rate" field="pickRate" />
+                    <ChampSortHeader label="Win Rate" field="winRate" className="w-32" />
+                  </tr>
+                </thead>
+                <tbody>
+                  {sortedChampions.map((c, i) => {
+                    const pickRate =
+                      data.totalParticipantSlots > 0
+                        ? ((c.games / data.totalParticipantSlots) * 100).toFixed(1)
+                        : "0.0";
+                    return (
+                      <tr
+                        key={c.champion_id}
+                        onClick={() =>
+                          navigate(
+                            scope
+                              ? `/history/${scope}/total-stats/champion/${c.champion_id}${filterQuery}`
+                              : `/global/champion/${c.champion_id}${filterQuery}`,
+                          )
+                        }
+                        className="group border-b border-[rgba(255,255,255,0.04)] transition-colors duration-[120ms] hover:bg-white/[0.025] cursor-pointer"
+                      >
+                        <td className="px-3 py-2 text-right text-xs text-lol-text tabular-nums">
+                          {i + 1}
+                        </td>
+                        <td className="px-3 py-2">
+                          <span className="flex items-center gap-3 text-sm font-bold text-lol-text-bright">
+                            <ChampionIcon championId={c.champion_id} size={28} />
+                            {getChampionName(champData, c.champion_id)}
+                          </span>
+                        </td>
+                        <td className="px-3 py-2 text-right text-xs text-lol-text tabular-nums">
+                          {c.games}
+                        </td>
+                        <td className="px-3 py-2 text-right text-xs text-lol-text tabular-nums">
+                          {pickRate}%
+                        </td>
+                        <td className="px-3 py-2 w-32">
+                          <WinRateBar wins={c.wins} total={c.games} />
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+              {sortedChampions.length === 0 && (
+                <div className="py-8 text-center text-sm text-lol-text">No champions found</div>
+              )}
+            </div>
           </div>
         </>
       )}
@@ -486,52 +499,57 @@ export default function GlobalStats() {
             />
           </div>
 
-          <div className="rounded-lg border border-lol-crimson/40 bg-[linear-gradient(145deg,#0c0e11_0%,#090b0d_48%,#060809_100%)] shadow-[0_0_3px_rgba(150,30,30,0.55),0_0_10px_rgba(90,15,15,0.35),0_0_20px_rgba(60,10,10,0.20)] ring-1 ring-inset ring-white/[0.03] overflow-hidden">
-            <table className="w-full">
-              <thead className="border-b border-lol-border/40 bg-lol-dark/50">
-                <tr>
-                  <ItemSortHeader label="Item" field="name" />
-                  <ItemSortHeader label="Picks" field="picks" />
-                  <th className="px-3 py-2.5 text-left text-[10px] font-bold uppercase tracking-wider text-lol-text">
-                    Pick Rate
-                  </th>
-                  <ItemSortHeader label="Win Rate" field="winRate" className="w-32" />
-                </tr>
-              </thead>
-              <tbody>
-                {sortedItems.map((item) => {
-                  const pickRate =
-                    data.totalParticipantSlots > 0
-                      ? ((item.picks / data.totalParticipantSlots) * 100).toFixed(1)
-                      : "0.0";
-                  return (
-                    <tr
-                      key={item.item_id}
-                      className="group border-b border-lol-border/20 transition-colors hover:bg-white/[0.03]"
-                    >
-                      <td className="px-3 py-2">
-                        <span className="flex items-center gap-3 text-sm font-bold text-lol-text-bright">
-                          <ItemIcon itemId={item.item_id} size={28} patch={patch} />
-                          {getItemName(item.item_id)}
-                        </span>
-                      </td>
-                      <td className="px-3 py-2 text-right text-xs text-lol-text tabular-nums">
-                        {item.picks}
-                      </td>
-                      <td className="px-3 py-2 text-right text-xs text-lol-text tabular-nums">
-                        {pickRate}%
-                      </td>
-                      <td className="px-3 py-2 w-32">
-                        <WinRateBar wins={item.wins} total={item.picks} />
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-            {sortedItems.length === 0 && (
-              <div className="py-8 text-center text-sm text-lol-text">No items found</div>
-            )}
+          <div>
+            <h2 className="relative mb-3 pl-4 text-xs font-bold uppercase tracking-wider text-lol-gold before:absolute before:left-0 before:top-1/2 before:h-2 before:w-2 before:-translate-y-1/2 before:rotate-45 before:bg-lol-crimson">
+              Items
+            </h2>
+            <div className="rounded-lg border border-lol-crimson/40 border-t-[3px] border-t-lol-gold bg-[radial-gradient(circle_at_top_right,rgba(201,164,92,0.08),transparent_42%),linear-gradient(145deg,#0c0e11_0%,#090b0d_48%,#060809_100%)] shadow-[0_0_3px_rgba(150,30,30,0.55),0_0_10px_rgba(90,15,15,0.35),0_0_20px_rgba(60,10,10,0.20)] ring-1 ring-inset ring-white/[0.03] overflow-hidden">
+              <table className="w-full">
+                <thead className="border-b border-lol-border/40 bg-lol-dark/50">
+                  <tr>
+                    <ItemSortHeader label="Item" field="name" />
+                    <ItemSortHeader label="Picks" field="picks" />
+                    <th className="px-3 py-2.5 text-left text-[10px] font-bold uppercase tracking-wider text-lol-text">
+                      Pick Rate
+                    </th>
+                    <ItemSortHeader label="Win Rate" field="winRate" className="w-32" />
+                  </tr>
+                </thead>
+                <tbody>
+                  {sortedItems.map((item) => {
+                    const pickRate =
+                      data.totalParticipantSlots > 0
+                        ? ((item.picks / data.totalParticipantSlots) * 100).toFixed(1)
+                        : "0.0";
+                    return (
+                      <tr
+                        key={item.item_id}
+                        className="group border-b border-[rgba(255,255,255,0.04)] transition-colors duration-[120ms] hover:bg-white/[0.025]"
+                      >
+                        <td className="px-3 py-2">
+                          <span className="flex items-center gap-3 text-sm font-bold text-lol-text-bright">
+                            <ItemIcon itemId={item.item_id} size={28} patch={patch} />
+                            {getItemName(item.item_id)}
+                          </span>
+                        </td>
+                        <td className="px-3 py-2 text-right text-xs text-lol-text tabular-nums">
+                          {item.picks}
+                        </td>
+                        <td className="px-3 py-2 text-right text-xs text-lol-text tabular-nums">
+                          {pickRate}%
+                        </td>
+                        <td className="px-3 py-2 w-32">
+                          <WinRateBar wins={item.wins} total={item.picks} />
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+              {sortedItems.length === 0 && (
+                <div className="py-8 text-center text-sm text-lol-text">No items found</div>
+              )}
+            </div>
           </div>
         </>
       )}
@@ -572,52 +590,57 @@ export default function GlobalStats() {
             </div>
           </div>
 
-          <div className="rounded-lg border border-lol-crimson/40 bg-[linear-gradient(145deg,#0c0e11_0%,#090b0d_48%,#060809_100%)] shadow-[0_0_3px_rgba(150,30,30,0.55),0_0_10px_rgba(90,15,15,0.35),0_0_20px_rgba(60,10,10,0.20)] ring-1 ring-inset ring-white/[0.03] overflow-hidden">
-            <table className="w-full">
-              <thead className="border-b border-lol-border/40 bg-lol-dark/50">
-                <tr>
-                  <AugSortHeader label="Augment" field="name" />
-                  <AugSortHeader label="Picks" field="picks" />
-                  <th className="px-3 py-2.5 text-left text-[10px] font-bold uppercase tracking-wider text-lol-text">
-                    Pick Rate
-                  </th>
-                  <AugSortHeader label="Win Rate" field="winRate" className="w-32" />
-                </tr>
-              </thead>
-              <tbody>
-                {sortedAugments.map((a) => {
-                  const pickRate =
-                    data.totalParticipantSlots > 0
-                      ? ((a.picks / data.totalParticipantSlots) * 100).toFixed(1)
-                      : "0.0";
-                  return (
-                    <tr
-                      key={a.augment_id}
-                      className="group border-b border-lol-border/20 transition-colors hover:bg-white/[0.03]"
-                    >
-                      <td className="px-3 py-2">
-                        <span className="flex items-center gap-3 text-sm font-bold text-lol-text-bright">
-                          <AugmentIcon augmentId={a.augment_id} />
-                          {getAugmentName(augmentData, a.augment_id)}
-                        </span>
-                      </td>
-                      <td className="px-3 py-2 text-right text-xs text-lol-text tabular-nums">
-                        {a.picks}
-                      </td>
-                      <td className="px-3 py-2 text-right text-xs text-lol-text tabular-nums">
-                        {pickRate}%
-                      </td>
-                      <td className="px-3 py-2 w-32">
-                        <WinRateBar wins={a.wins} total={a.picks} />
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-            {sortedAugments.length === 0 && (
-              <div className="py-8 text-center text-sm text-lol-text">No augments found</div>
-            )}
+          <div>
+            <h2 className="relative mb-3 pl-4 text-xs font-bold uppercase tracking-wider text-lol-gold before:absolute before:left-0 before:top-1/2 before:h-2 before:w-2 before:-translate-y-1/2 before:rotate-45 before:bg-lol-crimson">
+              Augments
+            </h2>
+            <div className="rounded-lg border border-lol-crimson/40 border-t-[3px] border-t-[#3B82F6] bg-[radial-gradient(circle_at_top_right,rgba(59,130,246,0.08),transparent_42%),linear-gradient(145deg,#0c0e11_0%,#090b0d_48%,#060809_100%)] shadow-[0_0_3px_rgba(150,30,30,0.55),0_0_10px_rgba(90,15,15,0.35),0_0_20px_rgba(60,10,10,0.20)] ring-1 ring-inset ring-white/[0.03] overflow-hidden">
+              <table className="w-full">
+                <thead className="border-b border-lol-border/40 bg-lol-dark/50">
+                  <tr>
+                    <AugSortHeader label="Augment" field="name" />
+                    <AugSortHeader label="Picks" field="picks" />
+                    <th className="px-3 py-2.5 text-left text-[10px] font-bold uppercase tracking-wider text-lol-text">
+                      Pick Rate
+                    </th>
+                    <AugSortHeader label="Win Rate" field="winRate" className="w-32" />
+                  </tr>
+                </thead>
+                <tbody>
+                  {sortedAugments.map((a) => {
+                    const pickRate =
+                      data.totalParticipantSlots > 0
+                        ? ((a.picks / data.totalParticipantSlots) * 100).toFixed(1)
+                        : "0.0";
+                    return (
+                      <tr
+                        key={a.augment_id}
+                        className="group border-b border-[rgba(255,255,255,0.04)] transition-colors duration-[120ms] hover:bg-white/[0.025]"
+                      >
+                        <td className="px-3 py-2">
+                          <span className="flex items-center gap-3 text-sm font-bold text-lol-text-bright">
+                            <AugmentIcon augmentId={a.augment_id} />
+                            {getAugmentName(augmentData, a.augment_id)}
+                          </span>
+                        </td>
+                        <td className="px-3 py-2 text-right text-xs text-lol-text tabular-nums">
+                          {a.picks}
+                        </td>
+                        <td className="px-3 py-2 text-right text-xs text-lol-text tabular-nums">
+                          {pickRate}%
+                        </td>
+                        <td className="px-3 py-2 w-32">
+                          <WinRateBar wins={a.wins} total={a.picks} />
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+              {sortedAugments.length === 0 && (
+                <div className="py-8 text-center text-sm text-lol-text">No augments found</div>
+              )}
+            </div>
           </div>
         </>
       )}

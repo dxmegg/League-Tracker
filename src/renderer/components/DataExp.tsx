@@ -44,6 +44,32 @@ export function DataExp() {
   };
 
   const sizeMb = dbStats ? (dbStats.sizeBytes / (1024 * 1024)).toFixed(1) : "—";
+  const totalMatches = accounts?.reduce((sum, account) => sum + account.gameCount, 0) ?? 0;
+  const latestSync = accounts?.reduce(
+    (latest, account) => Math.max(latest, account.lastSeen ?? 0),
+    0,
+  );
+  const showAccountKpis = accounts != null && accounts.length >= 3;
+  const accountKpis: Array<{ label: string; value: string; width: number; color: string }> = [
+    {
+      label: "Accounts",
+      value: formatNumber(accounts?.length ?? 0),
+      width: Math.min((accounts?.length ?? 0) * 20, 100),
+      color: "#E5483F",
+    },
+    {
+      label: "Matches",
+      value: formatNumber(totalMatches),
+      width: Math.min(totalMatches, 100),
+      color: "#C9A45C",
+    },
+    {
+      label: "Latest sync",
+      value: latestSync ? formatTimeAgo(latestSync) : "—",
+      width: latestSync ? 100 : 0,
+      color: "#3B82F6",
+    },
+  ];
 
   const columns: Array<SortableColumn<AccountListItem>> = [
     {
@@ -90,18 +116,20 @@ export function DataExp() {
 
   return (
     <div className="mx-auto flex min-h-full w-full max-w-[1320px] flex-col gap-5">
-      <div>
-        <h1 className="flex items-center font-display text-[30px] font-bold leading-tight tracking-[0.2px] text-lol-text-bright">
+      <div className="relative overflow-hidden rounded-xl border border-lol-border border-t-[3px] border-t-[#E5483F] bg-[radial-gradient(circle_at_top_right,rgba(229,72,63,0.10),transparent_46%),linear-gradient(180deg,#151012,#0b0d10)] px-5 py-4 before:pointer-events-none before:absolute before:inset-x-0 before:top-0 before:h-10 before:bg-[linear-gradient(180deg,rgba(229,72,63,0.05),transparent)]">
+        <h1 className="relative flex items-center font-display text-[30px] font-bold leading-tight tracking-[0.2px] text-lol-text-bright">
           <span className="mr-2 h-2.5 w-2.5 rotate-45 bg-lol-crimson shadow-[0_0_8px_rgba(229,72,63,0.45)]" />
           <span className="relative pb-2 after:absolute after:bottom-0 after:left-0 after:h-px after:w-full after:bg-gradient-to-r after:from-lol-crimson after:to-transparent">
             Data
           </span>
         </h1>
-        <p className="mt-1.5 text-lol-text">What is stored locally and when it was last synced</p>
+        <p className="relative mt-1.5 pl-4 text-lol-text">
+          What is stored locally and when it was last synced
+        </p>
       </div>
 
       <div className="grid grid-cols-12 gap-5">
-        <Panel className="col-span-12 xl:col-span-8">
+        <Panel className="col-span-12 border-t-[3px] border-t-[#E5483F] bg-[radial-gradient(circle_at_top_right,rgba(229,72,63,0.08),transparent_42%),linear-gradient(180deg,var(--theme-card-hover),var(--theme-card))] xl:col-span-8">
           <h2 className="mb-4 flex items-center font-display text-[16px] font-semibold text-lol-text-bright">
             <span className="mr-2 h-1.5 w-1.5 rotate-45 bg-lol-crimson" />
             <span className="relative pb-1 after:absolute after:bottom-0 after:left-0 after:h-px after:w-full after:bg-gradient-to-r after:from-lol-crimson after:to-transparent">
@@ -109,16 +137,53 @@ export function DataExp() {
             </span>
           </h2>
           {accounts == null ? (
-            <div className="py-6 text-center text-sm text-lol-text">Loading…</div>
+            <div className="relative overflow-hidden rounded-lg border border-lol-border border-t-[3px] border-t-[#E5483F] bg-[radial-gradient(circle_at_top_right,rgba(229,72,63,0.08),transparent_48%),linear-gradient(180deg,var(--theme-card-hover),var(--theme-card))] p-8 text-center">
+              <h3 className="relative mb-2 pl-4 text-left text-xs font-bold uppercase tracking-wider text-lol-gold before:absolute before:left-0 before:top-1/2 before:h-2 before:w-2 before:-translate-y-1/2 before:rotate-45 before:bg-lol-crimson">
+                Accounts
+              </h3>
+              <p className="relative text-sm text-lol-text">Loading…</p>
+            </div>
           ) : accounts.length === 0 ? (
-            <div className="py-6 text-center text-sm text-lol-text">No accounts synced yet.</div>
+            <div className="relative overflow-hidden rounded-lg border border-lol-border border-t-[3px] border-t-[#E5483F] bg-[radial-gradient(circle_at_top_right,rgba(229,72,63,0.08),transparent_48%),linear-gradient(180deg,var(--theme-card-hover),var(--theme-card))] p-8 text-center">
+              <h3 className="relative mb-2 pl-4 text-left text-xs font-bold uppercase tracking-wider text-lol-gold before:absolute before:left-0 before:top-1/2 before:h-2 before:w-2 before:-translate-y-1/2 before:rotate-45 before:bg-lol-crimson">
+                Accounts
+              </h3>
+              <p className="relative text-sm text-lol-text">No accounts synced yet.</p>
+            </div>
           ) : (
-            <SortableTable<AccountListItem>
-              columns={columns}
-              rows={accounts}
-              defaultSortKey="lastSeen"
-              className="data-table"
-            />
+            <>
+              {showAccountKpis && (
+                <div className="mb-4 grid grid-cols-1 gap-2 sm:grid-cols-3">
+                  {accountKpis.map(({ label, value, width, color }) => (
+                    <div
+                      key={label}
+                      className="rounded-md border border-lol-border/60 bg-black/10 px-3 py-2"
+                    >
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="truncate text-[10px] font-bold uppercase tracking-wider text-lol-text">
+                          {label}
+                        </span>
+                        <span className="shrink-0 text-xs font-semibold tabular-nums text-lol-text-bright">
+                          {value}
+                        </span>
+                      </div>
+                      <div className="mt-1 h-2 w-[72px] overflow-hidden rounded-full bg-white/[0.06]">
+                        <div
+                          className="h-full rounded-full"
+                          style={{ width: `${width}%`, backgroundColor: color }}
+                        />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+              <SortableTable<AccountListItem>
+                columns={columns}
+                rows={accounts}
+                defaultSortKey="lastSeen"
+                className="data-table [&_tbody_td]:border-t-[1px] [&_tbody_td]:border-[rgba(255,255,255,0.04)] [&_tbody_td]:text-right [&_tbody_td]:tabular-nums [&_tbody_tr]:transition-colors [&_tbody_tr]:duration-[120ms] [&_tbody_tr:hover]:bg-white/[0.025]"
+              />
+            </>
           )}
         </Panel>
 
@@ -158,7 +223,7 @@ export function DataExp() {
               </b>
             </div>
           </div>
-          <div className="mt-4 rounded-xl border border-lol-border border-t-[2px] border-t-lol-crimson/70 bg-black/10 p-2">
+          <div className="mt-4 rounded-xl border border-lol-border border-t-[3px] border-t-lol-gold bg-[radial-gradient(circle_at_top_right,rgba(201,164,92,0.08),transparent_55%)] p-2">
             <button
               type="button"
               onClick={handleExport}
