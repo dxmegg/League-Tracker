@@ -1585,12 +1585,12 @@ function OverviewTab({
                 values={wrSeries.values}
                 format={(value) => `${value.toFixed(1)}%`}
                 color="var(--theme-win)"
-                min={0}
-                max={100}
                 xLabels={wrSeries.labels}
                 tooltips={wrSeries.tooltips}
                 yFormat={(value) => `${value.toFixed(0)}%`}
-                yTicks={[0, 25, 50, 75, 100]}
+                min={percentageAxisBounds(wrSeries.values)[0]}
+                max={percentageAxisBounds(wrSeries.values)[1]}
+                yTicks={percentageTicks(wrSeries.values)}
                 baseline={isSummary ? 50 : (globalDetail.wins / globalDetail.games) * 100}
                 secondaryValues={isSummary ? undefined : wrSeries.games}
                 hollowIndices={
@@ -6067,6 +6067,25 @@ function chartTicks(values: number[], includeZero = false) {
   if (min === max) return [min];
   const step = (max - min) / 3;
   return [...new Set([min, min + step, min + step * 2, max].map((value) => Math.round(value)))];
+}
+
+function percentageAxisBounds(values: number[]): [number, number] {
+  const finiteValues = values.filter(Number.isFinite);
+  if (finiteValues.length === 0) return [0, 100];
+  const min = Math.max(0, Math.round((Math.min(...finiteValues) - 5) / 10) * 10);
+  const max = Math.min(100, Math.round((Math.max(...finiteValues) + 5) / 10) * 10);
+  return min === max ? [Math.max(0, min - 10), Math.min(100, max + 10)] : [min, max];
+}
+
+function percentageTicks(values: number[]) {
+  const [min, max] = percentageAxisBounds(values);
+  if (min === max) return [min];
+  const step = Math.max(10, Math.round((max - min) / 4 / 10) * 10);
+  return [
+    ...new Set(
+      [min, min + step, min + step * 2, min + step * 3, max].filter((tick) => tick <= max),
+    ),
+  ];
 }
 
 function formatSeconds(value: number | null | undefined) {

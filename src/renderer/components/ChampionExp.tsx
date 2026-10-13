@@ -28,21 +28,25 @@ type ColumnKey =
   | "gold"
   | "mk";
 
-const COLUMNS: Array<{ key: ColumnKey | null; label: string }> = [
-  { key: null, label: "#" },
-  { key: "champion", label: "Champion" },
-  { key: "games", label: "Games" },
-  { key: "wins", label: "W" },
-  { key: "losses", label: "L" },
-  { key: "wr", label: "Win rate" },
-  { key: "kda_detail", label: "K/D/A" },
-  { key: "kda", label: "KDA" },
-  { key: "csmin", label: "CS/min" },
-  { key: "score", label: "Score" },
-  { key: "mvp", label: "MVP / ACE" },
-  { key: "dmg", label: "Avg dmg" },
-  { key: "gold", label: "Avg gold" },
-  { key: "mk", label: "Multikills" },
+const COLUMNS: Array<{
+  key: ColumnKey | null;
+  label: string;
+  align: "text-left" | "text-right" | "text-center";
+}> = [
+  { key: null, label: "#", align: "text-center" },
+  { key: "champion", label: "Champion", align: "text-left" },
+  { key: "games", label: "Games", align: "text-right" },
+  { key: "wins", label: "W", align: "text-right" },
+  { key: "losses", label: "L", align: "text-right" },
+  { key: "wr", label: "Win rate", align: "text-right" },
+  { key: "kda_detail", label: "K/D/A", align: "text-right" },
+  { key: "kda", label: "KDA", align: "text-right" },
+  { key: "csmin", label: "CS/min", align: "text-right" },
+  { key: "score", label: "Score", align: "text-right" },
+  { key: "mvp", label: "MVP / ACE", align: "text-right" },
+  { key: "dmg", label: "Avg dmg", align: "text-right" },
+  { key: "gold", label: "Avg gold", align: "text-right" },
+  { key: "mk", label: "Multikills", align: "text-right" },
 ];
 
 const CHAMP_GRID =
@@ -403,11 +407,19 @@ export function ChampionExp() {
                         : undefined
                     }
                     onClick={column.key ? () => handleSort(column.key as ColumnKey) : undefined}
-                    className={`px-2.5 pb-2.5 text-right text-[12.5px] font-medium text-lol-text/60 ${
-                      column.key === null ? "text-left" : ""
-                    } ${column.key ? "cursor-pointer select-none" : ""}`}
+                    className={`px-2.5 pb-2.5 text-[12.5px] font-medium text-lol-text/60 ${column.align} ${
+                      column.key ? "cursor-pointer select-none" : ""
+                    }`}
                   >
-                    <span className="flex items-center justify-end gap-1">
+                    <span
+                      className={`flex items-center gap-1 ${
+                        column.align === "text-right"
+                          ? "justify-end"
+                          : column.align === "text-center"
+                            ? "justify-center"
+                            : "justify-start"
+                      }`}
+                    >
                       {column.label}
                       {column.key === sortKey ? (sortDir === "asc" ? "▴" : "▾") : ""}
                     </span>
@@ -438,10 +450,13 @@ export function ChampionExp() {
                         if (event.key === "Enter") navigate(`/champions/${r.champion_id}`);
                       }}
                     >
-                      <div role="cell" className="px-2.5 py-2 text-left text-lol-text/60">
+                      <div
+                        role="cell"
+                        className={`px-2.5 py-2 ${COLUMNS[0].align} text-lol-text/60`}
+                      >
                         {i + 1}
                       </div>
-                      <div role="cell" className="px-2.5 py-2">
+                      <div role="cell" className={`px-2.5 py-2 ${COLUMNS[1].align}`}>
                         <div className="nm">
                           <ChampionIcon
                             championId={r.champion_id}
@@ -451,16 +466,16 @@ export function ChampionExp() {
                           <span>{getChampionName(champData, r.champion_id)}</span>
                         </div>
                       </div>
-                      <div role="cell" className="px-2.5 py-2 text-right">
+                      <div role="cell" className={`px-2.5 py-2 ${COLUMNS[2].align}`}>
                         {formatNumber(r.games)}
                       </div>
-                      <div role="cell" className="px-2.5 py-2 text-right">
+                      <div role="cell" className={`px-2.5 py-2 ${COLUMNS[3].align}`}>
                         <span className="text-lol-win">{formatNumber(r.wins)}</span>
                       </div>
-                      <div role="cell" className="px-2.5 py-2 text-right">
+                      <div role="cell" className={`px-2.5 py-2 ${COLUMNS[4].align}`}>
                         <span className="text-lol-loss">{formatNumber(r.games - r.wins)}</span>
                       </div>
-                      <div role="cell" className="px-2.5 py-2 text-right">
+                      <div role="cell" className={`px-2.5 py-2 ${COLUMNS[5].align}`}>
                         <span
                           className={`rounded-md px-1.5 py-0.5 ${
                             wr >= 55
@@ -484,13 +499,16 @@ export function ChampionExp() {
                           <i style={{ width: `${wr}%` }} />
                         </span>
                       </div>
-                      <div role="cell" className="px-2.5 py-2 text-right text-lol-text/60">
+                      <div
+                        role="cell"
+                        className={`px-2.5 py-2 ${COLUMNS[6].align} text-lol-text/60`}
+                      >
                         {r.avg_kills.toFixed(1)} / {r.avg_deaths.toFixed(1)} /{" "}
                         {r.avg_assists.toFixed(1)}
                       </div>
                       <div
                         role="cell"
-                        className={`px-2.5 py-2 text-right ${
+                        className={`px-2.5 py-2 ${COLUMNS[7].align} ${
                           kda != null && kda >= 4
                             ? "text-lol-gold"
                             : kda != null && kda >= 3
@@ -500,23 +518,23 @@ export function ChampionExp() {
                       >
                         {kda != null ? kda.toFixed(2) : "Perfect"}
                       </div>
-                      <div role="cell" className="px-2.5 py-2 text-right">
+                      <div role="cell" className={`px-2.5 py-2 ${COLUMNS[8].align}`}>
                         {r.avg_cs_per_min?.toFixed(1) ?? "—"}
                       </div>
-                      <div role="cell" className="px-2.5 py-2 text-right text-lol-gold">
+                      <div role="cell" className={`px-2.5 py-2 ${COLUMNS[9].align} text-lol-gold`}>
                         {r.avg_score?.toFixed(1) ?? "—"}
                       </div>
-                      <div role="cell" className="px-2.5 py-2 text-right">
+                      <div role="cell" className={`px-2.5 py-2 ${COLUMNS[10].align}`}>
                         {formatNumber(r.mvps)}{" "}
                         <span className="muted">/ {formatNumber(r.aces)}</span>
                       </div>
-                      <div role="cell" className="px-2.5 py-2 text-right">
+                      <div role="cell" className={`px-2.5 py-2 ${COLUMNS[11].align}`}>
                         {formatNumber(r.avg_damage)}
                       </div>
-                      <div role="cell" className="px-2.5 py-2 text-right">
+                      <div role="cell" className={`px-2.5 py-2 ${COLUMNS[12].align}`}>
                         {formatNumber(r.avg_gold)}
                       </div>
-                      <div role="cell" className="px-2.5 py-2 text-right">
+                      <div role="cell" className={`px-2.5 py-2 ${COLUMNS[13].align}`}>
                         <div className="ml-auto grid w-max grid-cols-2 gap-x-2 gap-y-0.5 text-[10.5px] tabular-nums">
                           <span className="mk0 whitespace-nowrap" title="Double kills">
                             D {formatNumber(r.double_kills)}
