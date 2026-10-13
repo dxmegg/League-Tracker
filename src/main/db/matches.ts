@@ -697,6 +697,11 @@ export function getKnownGameIds(): Set<number> {
   return new Set(rows.map((r) => r.game_id));
 }
 
+export function getAllKnownGameIds(): Set<number> {
+  const rows = db.prepare("SELECT game_id FROM games").all() as { game_id: number }[];
+  return new Set(rows.map((r) => r.game_id));
+}
+
 // Games already known *for this specific account*. A game only counts as
 // known here if the account's puuid shows up among the stored participants
 // (match_participants holds every real participant of an already-imported

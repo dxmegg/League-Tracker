@@ -1020,11 +1020,7 @@ async function syncRiotAccount(
     });
   }
   const tag = `${identity.gameName ?? puuid}#${identity.tagLine ?? ""}`;
-  // Per-account, not the global getKnownGameIds(): a game only counts as
-  // known for *this* account once it shows up among its own participants,
-  // so pagination doesn't stop early just because another tracked account
-  // already synced a game this account also happened to play in.
-  const known = db.getKnownGameIdsForPuuid(puuid);
+  const known = db.getAllKnownGameIds();
   const ignored = db.getIgnoredGameIds();
   const pageSize = 100;
   const configuredPage = Number(db.getSetting("riot_sync_page_size") ?? pageSize);
@@ -1051,12 +1047,8 @@ async function syncRiotAccount(
     console.log("[sync] by-puuid returned " + page.length + " ids");
     for (const raw of page) {
       const id = normalizeMatchId(raw);
-      if (
-        id !== null &&
-        !ids.includes(id) &&
-        (!ignored.has(id) || (refreshExisting && known.has(id)))
-      )
-        ids.push(id);
+      if (id === null || ids.includes(id)) continue;
+      if (refreshExisting || !ignored.has(id)) ids.push(id);
     }
     console.log(
       "[sync] ids after filter: " +

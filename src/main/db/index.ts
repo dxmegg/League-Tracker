@@ -33,6 +33,7 @@ export {
   toggleFavorite,
   gameExists,
   getKnownGameIds,
+  getAllKnownGameIds,
   getKnownGameIdsForPuuid,
   getTrackedGameIdsForPuuid,
   getTrackedRowCountForPuuid,
