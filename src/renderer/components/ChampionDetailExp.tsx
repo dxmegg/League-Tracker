@@ -2024,7 +2024,7 @@ function VisionTab({
     .slice(0, 8);
 
   return (
-    <div className="grid grid-cols-1 gap-5 xl:grid-cols-2">
+    <div className="grid grid-cols-1 items-start gap-5 xl:grid-cols-2">
       <div className="xl:col-span-2">
         <IntroBox legend="Badges show where a number comes from: Match-V5 = Riot match data · Timeline = minute-by-minute data · Derived = calculated by the app · LCU = game client.">
           Wards, vision score and pings: how you scout, deny vision and communicate.
