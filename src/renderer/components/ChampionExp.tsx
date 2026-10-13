@@ -54,6 +54,95 @@ const CHAMPION_ICON_ACCENTS = [
   "border-lol-text/40 shadow-[0_0_10px_rgba(148,163,184,0.16)]",
 ];
 
+type Accent = { color: string; tint: string };
+
+const ACCENTS: Accent[] = [
+  { color: "#E5483F", tint: "rgba(229,72,63,0.08)" },
+  { color: "#C9A45C", tint: "rgba(201,164,92,0.08)" },
+  { color: "#22C55E", tint: "rgba(34,197,94,0.08)" },
+  { color: "#3B82F6", tint: "rgba(59,130,246,0.08)" },
+];
+
+function KpiTile({
+  label,
+  value,
+  caption,
+  accent,
+}: {
+  label: string;
+  value: string;
+  caption: string;
+  accent: Accent;
+}) {
+  return (
+    <div
+      className="relative overflow-hidden rounded-[12px] border border-lol-border p-4"
+      style={{ background: `radial-gradient(circle at 100% 0, ${accent.tint}, transparent 65%)` }}
+    >
+      <span
+        className="absolute inset-x-0 top-0 h-[3px]"
+        style={{ backgroundColor: accent.color }}
+      />
+      <div className="text-[10px] font-bold uppercase tracking-wider text-lol-text">{label}</div>
+      <div className="mt-2 text-[26px] font-bold leading-none text-lol-text-bright">{value}</div>
+      <div className="mt-1 text-xs text-lol-text">{caption}</div>
+    </div>
+  );
+}
+
+function HighlightCard({
+  title,
+  champion,
+  value,
+  caption,
+  accent,
+  champData,
+  emptyTitle,
+}: {
+  title: string;
+  champion: ChampionStats | null;
+  value: string;
+  caption: string;
+  accent: Accent;
+  champData: ReturnType<typeof useChampionData>;
+  emptyTitle?: string;
+}) {
+  return (
+    <div
+      className="relative min-h-[132px] overflow-hidden rounded-[12px] border border-lol-border p-4"
+      style={{ background: `radial-gradient(circle at 100% 0, ${accent.tint}, transparent 65%)` }}
+      title={emptyTitle}
+    >
+      <span
+        className="absolute inset-x-0 top-0 h-[3px]"
+        style={{ backgroundColor: accent.color }}
+      />
+      <div className="flex items-start gap-3">
+        {champion ? (
+          <div
+            className="shrink-0 rounded-lg border p-1 shadow-[0_0_14px_rgba(229,72,63,0.18)]"
+            style={{ borderColor: accent.color }}
+          >
+            <ChampionIcon championId={champion.champion_id} size={40} />
+          </div>
+        ) : (
+          <div className="h-[50px] w-[50px] shrink-0 rounded-lg border border-lol-border bg-black/10" />
+        )}
+        <div className="min-w-0">
+          <div className="text-[10px] font-bold uppercase tracking-wider text-lol-text">
+            {title}
+          </div>
+          <div className="mt-1 truncate text-sm font-bold text-lol-text-bright">
+            {champion ? getChampionName(champData, champion.champion_id) : "—"}
+          </div>
+          <div className="mt-1 text-xl font-bold leading-none text-lol-text-bright">{value}</div>
+          <div className="mt-1 text-[11px] text-lol-text">{caption}</div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export function ChampionExp() {
   const champData = useChampionData();
   const navigate = useNavigate();
@@ -143,6 +232,32 @@ export function ChampionExp() {
     }
   };
 
+  const totalGames = filtered.reduce((sum, champion) => sum + champion.games, 0);
+  const totalWins = filtered.reduce((sum, champion) => sum + champion.wins, 0);
+  const mostPlayed = filtered.reduce<ChampionStats | null>(
+    (best, champion) => (best == null || champion.games > best.games ? champion : best),
+    null,
+  );
+  const bestWinRate = filtered
+    .filter((champion) => champion.games >= 25)
+    .reduce<ChampionStats | null>((best, champion) => {
+      const championWinRate = champion.wins / champion.games;
+      const bestWinRate = best ? best.wins / best.games : -1;
+      return best == null || championWinRate > bestWinRate ? champion : best;
+    }, null);
+  const highestScore = filtered
+    .filter((champion) => champion.games >= 10 && champion.avg_score != null)
+    .reduce<ChampionStats | null>(
+      (best, champion) =>
+        best == null || (champion.avg_score ?? -1) > (best.avg_score ?? -1) ? champion : best,
+      null,
+    );
+  const mostMvpAce = filtered.reduce<ChampionStats | null>((best, champion) => {
+    const championBadges = champion.mvps + champion.aces;
+    const bestBadges = best ? best.mvps + best.aces : -1;
+    return best == null || championBadges > bestBadges ? champion : best;
+  }, null);
+
   return (
     <div className="mx-auto flex min-h-full w-full max-w-[1320px] flex-col gap-5">
       <div className="flex flex-wrap items-end justify-between gap-4">
@@ -185,6 +300,86 @@ export function ChampionExp() {
             placeholder="Search champion"
           />
         </div>
+      </div>
+
+      <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
+        <KpiTile
+          label="Champions shown"
+          value={formatNumber(filtered.length)}
+          caption={`of ${formatNumber(filtered.length)} tracked`}
+          accent={ACCENTS[0]}
+        />
+        <KpiTile
+          label="Total games"
+          value={formatNumber(totalGames)}
+          caption="in the selected queue and patch"
+          accent={ACCENTS[1]}
+        />
+        <KpiTile
+          label="Average win rate"
+          value={totalGames > 0 ? `${((totalWins / totalGames) * 100).toFixed(1)}%` : "—"}
+          caption="across all champions"
+          accent={ACCENTS[2]}
+        />
+        <KpiTile
+          label="Games per champion"
+          value={filtered.length > 0 ? (totalGames / filtered.length).toFixed(1) : "—"}
+          caption="average sample"
+          accent={ACCENTS[3]}
+        />
+      </div>
+
+      <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4">
+        <HighlightCard
+          title="Most played"
+          champion={mostPlayed}
+          value={mostPlayed ? `${formatNumber(mostPlayed.games)} games` : "—"}
+          caption={
+            mostPlayed && totalGames > 0
+              ? `${((mostPlayed.games / totalGames) * 100).toFixed(1)}% of all games`
+              : "No champion data"
+          }
+          accent={ACCENTS[0]}
+          champData={champData}
+        />
+        <HighlightCard
+          title="Best win rate"
+          champion={bestWinRate}
+          value={
+            bestWinRate ? `${((bestWinRate.wins / bestWinRate.games) * 100).toFixed(1)}%` : "—"
+          }
+          caption={
+            bestWinRate
+              ? `minimum 25 games · ${formatNumber(bestWinRate.games)} games`
+              : "No champion meets the minimum"
+          }
+          accent={ACCENTS[1]}
+          champData={champData}
+          emptyTitle={bestWinRate ? undefined : "Not enough games"}
+        />
+        <HighlightCard
+          title="Highest average score"
+          champion={highestScore}
+          value={highestScore?.avg_score != null ? highestScore.avg_score.toFixed(1) : "—"}
+          caption={
+            highestScore
+              ? `across ${formatNumber(highestScore.games)} games`
+              : "No champion meets the minimum"
+          }
+          accent={ACCENTS[2]}
+          champData={champData}
+          emptyTitle={highestScore ? undefined : "Not enough games"}
+        />
+        <HighlightCard
+          title="Most MVP/ACE"
+          champion={mostMvpAce}
+          value={mostMvpAce ? formatNumber(mostMvpAce.mvps + mostMvpAce.aces) : "—"}
+          caption={
+            mostMvpAce ? `across ${formatNumber(mostMvpAce.games)} games` : "No champion data"
+          }
+          accent={ACCENTS[3]}
+          champData={champData}
+        />
       </div>
 
       <div className="min-w-0 rounded-[14px] border border-lol-border bg-[linear-gradient(180deg,var(--theme-card-hover),var(--theme-card))] p-5">
