@@ -5601,7 +5601,7 @@ function ObjectivesTab({
             accent={CHART_PALETTE[0]}
           />
           <CombatTile
-            label="Objective damage / game"
+            label="Damage to objectives / game"
             value={detail.avgDamageToObjectives}
             subtitle="damage to objectives"
             accent={CHART_PALETTE[1]}
@@ -5614,7 +5614,7 @@ function ObjectivesTab({
           />
           <CombatTile
             label="First inhibitor rate (not tracked)"
-            value={(detail.totalFirstInhibitorKill / detail.games) * 100}
+            value={null}
             subtitle="not available from stored payload"
             accent={CHART_PALETTE[3]}
           />
@@ -5629,7 +5629,7 @@ function ObjectivesTab({
             },
             {
               kind: "info",
-              text: `First tower rate is ${(detail.totalFirstTowerKill / detail.games) * 100}% across ${formatPlain(detail.totalFirstTowerKill, 0)} games.`,
+              text: `First tower rate is ${((detail.totalFirstTowerKill / detail.games) * 100).toFixed(1)}% across ${formatPlain(detail.totalFirstTowerKill, 0)} games.`,
             },
           ]}
         />
@@ -5640,7 +5640,7 @@ function ObjectivesTab({
       <Panel className={TAB_PANEL_CLASSES.sapphire}>
         <SectionHeading title="Turrets & inhibitors" source="m" />
         <p className="mb-3 text-[11px] text-lol-text/70">
-          Turret, inhibitor, plate, and Baron participation across your games.
+          Turret and inhibitor participation across your games.
         </p>
         <CombatStatTable
           rows={[
@@ -5702,7 +5702,7 @@ function ObjectivesTab({
       <Panel className={`${TAB_PANEL_CLASSES.emerald} `}>
         <SectionHeading title="First blood objectives" source="m" />
         <p className="mb-3 text-[11px] text-lol-text/70">
-          First tower and inhibitor kills or assists, with rates across games.
+          First tower kills and assists across your games.
         </p>
         <div className="grid grid-cols-2 gap-3">
           <CombatTile
@@ -5726,7 +5726,7 @@ function ObjectivesTab({
       </Panel>
       <Panel className={TAB_PANEL_CLASSES.sapphire}>
         <SectionHeading title="Unavailable objective detail (future work)" source="d" />
-        <EmptyState text="Objective timing and dragon types are not yet shown here — timeline data is available but not surfaced." />
+        <EmptyState text="Timeline objective data is available but not surfaced yet." />
       </Panel>
     </div>
   );
