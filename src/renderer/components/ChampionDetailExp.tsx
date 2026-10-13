@@ -4619,7 +4619,7 @@ function EconomyTab({
           <Stat
             label="Gold/min"
             value={detail.goldPerMin.toFixed(0)}
-            valueClass="text-right tabular-nums"
+            valueClass="tabular-nums"
             sub="Average earned per minute"
             sparkValues={weeklyMetrics?.map((entry) => entry.metrics.goldPerMin ?? null)}
           />
@@ -4628,7 +4628,7 @@ function EconomyTab({
             value={timeline?.ahead10 == null ? "—" : `${(timeline.ahead10 * 100).toFixed(1)}%`}
             sub={timeline?.ahead10 == null ? "Percentage unavailable" : "of your games"}
             emptySub={timeline?.ahead10 == null}
-            valueClass="text-right tabular-nums"
+            valueClass="tabular-nums"
             miniViz={
               timeline?.ahead10 == null ? undefined : (
                 <svg aria-hidden="true" className="h-11 w-11 -rotate-90" viewBox="0 0 44 44">
@@ -4661,7 +4661,7 @@ function EconomyTab({
             label="Gold lead @15"
             value={value(bucketAt(15)?.avgGoldDiffVsLaneOpponent)}
             sub="Versus lane opponent"
-            valueClass="text-right tabular-nums"
+            valueClass="tabular-nums"
             miniViz={
               bucketAt(15)?.avgGoldDiffVsLaneOpponent == null ? undefined : (
                 <span
@@ -4679,21 +4679,21 @@ function EconomyTab({
             label="Gold efficiency"
             value={value(damagePerGold, 2)}
             sub="Damage per gold spent"
-            valueClass="text-right tabular-nums"
+            valueClass="tabular-nums"
           />
           <Stat
             label="Items bought"
             value={value(timeline?.itemsBought, 1)}
             sub={timeline?.itemsBought == null ? "Not available" : "items per game"}
             emptySub={timeline?.itemsBought == null}
-            valueClass="text-right tabular-nums"
+            valueClass="tabular-nums"
           />
           <Stat
             label="Comebacks"
             value={timeline?.comebacks == null ? "—" : String(timeline.comebacks)}
             sub={timeline?.comebacks == null ? "Not available" : "wins from behind"}
             emptySub={timeline?.comebacks == null}
-            valueClass="text-right tabular-nums"
+            valueClass="tabular-nums"
           />
         </>
       )}
@@ -5248,19 +5248,19 @@ function FarmTab({
                 : "—"
             }
             sub="Average minions per minute"
-            valueClass="text-right tabular-nums"
+            valueClass="tabular-nums"
           />
           <Stat
             label="CS @10"
             value={value(bucketAt(10)?.avgCs)}
             sub="Timeline average"
-            valueClass="text-right tabular-nums"
+            valueClass="tabular-nums"
           />
           <Stat
             label="CS diff @15"
             value={value(bucketAt(15)?.avgCsDiffVsLaneOpponent)}
             sub="Versus lane opponent"
-            valueClass="text-right tabular-nums"
+            valueClass="tabular-nums"
           />
         </>
       )}
@@ -5729,8 +5729,8 @@ function EconomyStatTable({ rows }: { rows: EconomyStatTableRow[] }) {
     );
 
   return (
-    <div className="min-w-[680px] text-xs">
-      <div className="grid grid-cols-[minmax(150px,1.4fr)_repeat(5,minmax(76px,1fr))] gap-2 border-b border-lol-border/50 pb-2 font-semibold text-lol-text">
+    <div className="text-xs">
+      <div className="grid grid-cols-[minmax(0,1fr)_repeat(5,minmax(0,auto))] gap-2 border-b border-lol-border/50 pb-2 font-semibold text-lol-text">
         <span>Stat</span>
         <span className="text-right whitespace-nowrap">Avg / game</span>
         <span className="text-right whitespace-nowrap">Best</span>
@@ -5744,7 +5744,7 @@ function EconomyStatTable({ rows }: { rows: EconomyStatTableRow[] }) {
         return (
           <div
             key={row.label}
-            className={`grid grid-cols-[minmax(150px,1.4fr)_repeat(5,minmax(76px,1fr))] items-center gap-2 py-2.5 text-lol-text-bright transition-colors duration-[120ms] hover:bg-white/[0.025] ${
+            className={`grid grid-cols-[minmax(0,1fr)_repeat(5,minmax(0,auto))] items-baseline gap-2 py-2.5 text-lol-text-bright transition-colors duration-[120ms] hover:bg-white/[0.025] ${
               row.highlight ? "bg-[rgba(201,164,92,0.08)]" : ""
             } ${index < rows.length - 1 ? "border-b border-white/[0.04]" : ""}`}
           >
@@ -5761,7 +5761,7 @@ function EconomyStatTable({ rows }: { rows: EconomyStatTableRow[] }) {
             <span className="text-right tabular-nums">
               {renderValue(row.losses, digits, row.suffix)}
             </span>
-            <span className="flex justify-end">
+            <span className="text-right tabular-nums">
               {delta == null ? (
                 <span
                   className="inline-flex items-center rounded bg-lol-card/60 px-1.5 py-0.5 text-xs font-semibold text-lol-text"
@@ -5800,8 +5800,8 @@ function CombatStatTable({
   hideVsOther?: boolean;
 }) {
   const columnsClass = hideVsOther
-    ? "grid-cols-[minmax(0,1.4fr)_96px_96px_96px_96px]"
-    : "grid-cols-[minmax(0,1.4fr)_96px_96px_96px_96px_96px]";
+    ? "grid-cols-[minmax(0,1fr)_repeat(4,minmax(0,auto))]"
+    : "grid-cols-[minmax(0,1fr)_repeat(5,minmax(0,auto))]";
   return (
     <div className="flex flex-col gap-2 text-xs">
       <div
@@ -5835,7 +5835,7 @@ function CombatStatTable({
         return (
           <div
             key={label}
-            className={`grid ${columnsClass} items-center gap-3 py-2.5 text-lol-text-bright transition-colors duration-[120ms] hover:bg-white/[0.025] ${
+            className={`grid ${columnsClass} items-baseline gap-3 py-2.5 text-lol-text-bright transition-colors duration-[120ms] hover:bg-white/[0.025] ${
               index < rows.length - 1 ? "border-b border-white/[0.04]" : ""
             }`}
           >
@@ -6114,33 +6114,33 @@ function Stat({
         boxShadow: glow ? `0 0 8px 0 ${accent}26` : undefined,
       }}
     >
-      {sparkValues && (
-        <div className="pointer-events-none absolute right-2.5 top-2.5">
-          <Sparkline values={sparkValues} width={72} height={28} />
+      <div className="flex items-start justify-between gap-2">
+        <div className="min-w-0 flex-1 text-left">
+          <span className="flex items-center gap-1.5 text-[12.5px] uppercase tracking-wider text-lol-text">
+            <span
+              className="h-1.5 w-1.5 shrink-0 rounded-full"
+              style={{ backgroundColor: accent }}
+            />
+            {label}
+          </span>
+          <b
+            className={`my-0.5 block text-left font-display font-bold leading-tight text-lol-text-bright ${
+              large ? "text-[28px]" : "text-[26px]"
+            } ${valueClass}`}
+          >
+            {value}
+          </b>
+          {sub &&
+            (emptySub ? (
+              <EmptyState text={sub} />
+            ) : (
+              <div className="text-[12px] text-lol-text">{sub}</div>
+            ))}
         </div>
-      )}
-      {miniViz && <div className="pointer-events-none absolute right-2.5 top-2.5">{miniViz}</div>}
-      <span
-        className={`flex items-center gap-1.5 text-[12.5px] uppercase tracking-wider text-lol-text ${
-          sparkValues ? "pr-20" : miniViz ? "pr-14" : ""
-        }`}
-      >
-        <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: accent }} />
-        {label}
-      </span>
-      <b
-        className={`my-0.5 block font-display font-bold leading-tight text-lol-text-bright ${
-          large ? "text-[28px]" : "text-[26px]"
-        } ${valueClass} ${sparkValues ? "pr-20" : miniViz ? "pr-14" : ""}`}
-      >
-        {value}
-      </b>
-      {sub &&
-        (emptySub ? (
-          <EmptyState text={sub} />
-        ) : (
-          <div className="text-[12px] text-lol-text">{sub}</div>
-        ))}
+        <div className="flex h-12 w-20 shrink-0 items-start justify-end">
+          {sparkValues ? <Sparkline values={sparkValues} width={72} height={28} /> : miniViz}
+        </div>
+      </div>
     </div>
   );
 }
