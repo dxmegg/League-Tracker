@@ -107,6 +107,7 @@ export {
   getOwnedRuneStats,
   getGlobalChampionDetail,
   getChampionDetailStats,
+  getChampionTeamObjectives,
   getChampionStatBaseline,
   getChampionSkillOrders,
   getChampionTrendsData,
@@ -121,6 +122,7 @@ export {
 } from "./stats";
 export type { ChampionRecord, ChampionRecordsResult } from "./stats";
 export type { ActivityHeatmapDay } from "./stats";
+export type { ChampionTeamObjectives } from "./stats";
 export {
   upsertSummoner,
   saveAccountSnapshot,

@@ -2455,6 +2455,7 @@ export function getChampionDetailStats(
     where.push("g.game_version = ?");
     params.push(patch);
   }
+
   applyQueueFilter(where, params, queue, "g");
 
   if (account === "all") {
@@ -3078,6 +3079,107 @@ export function getChampionDetailStats(
 }
 
 export type { ChampionSkillOrder, ChampionSkillOrdersResult } from "../../shared/api";
+
+export interface ChampionTeamObjectives {
+  ally: {
+    games: number;
+    first_blood_pct: number;
+    first_tower_pct: number;
+    first_dragon_pct: number;
+    first_baron_pct: number;
+    first_herald_pct: number;
+    avg_dragon_kills: number;
+    avg_baron_kills: number;
+    avg_herald_kills: number;
+    avg_horde_kills: number;
+    avg_tower_kills: number;
+    avg_inhibitor_kills: number;
+  };
+  enemy: {
+    games: number;
+    first_blood_pct: number;
+    first_tower_pct: number;
+    first_dragon_pct: number;
+    first_baron_pct: number;
+    first_herald_pct: number;
+    avg_dragon_kills: number;
+    avg_baron_kills: number;
+    avg_herald_kills: number;
+    avg_horde_kills: number;
+    avg_tower_kills: number;
+    avg_inhibitor_kills: number;
+  };
+}
+
+export function getChampionTeamObjectives(
+  puuid: string,
+  championId: number,
+): ChampionTeamObjectives {
+  console.log("[db] getChampionTeamObjectives called:", { puuid, championId });
+  const empty = (): ChampionTeamObjectives["ally"] => ({
+    games: 0,
+    first_blood_pct: 0,
+    first_tower_pct: 0,
+    first_dragon_pct: 0,
+    first_baron_pct: 0,
+    first_herald_pct: 0,
+    avg_dragon_kills: 0,
+    avg_baron_kills: 0,
+    avg_herald_kills: 0,
+    avg_horde_kills: 0,
+    avg_tower_kills: 0,
+    avg_inhibitor_kills: 0,
+  });
+  if (!puuid || !Number.isInteger(championId) || championId <= 0) {
+    const result = { ally: empty(), enemy: empty() };
+    console.warn("[db] getChampionTeamObjectives empty:", { reason: "invalid arguments" });
+    return result;
+  }
+
+  const rows = db
+    .prepare(`
+      WITH player_games AS (
+        SELECT DISTINCT game_id, team_id
+        FROM match_participants
+        WHERE puuid = ? AND champion_id = ? AND is_remake = 0
+      ),
+      sides AS (
+        SELECT
+          CASE WHEN mt.team_id = pg.team_id THEN 'ally' ELSE 'enemy' END AS side,
+          mt.*
+        FROM player_games pg
+        JOIN match_teams mt ON mt.game_id = pg.game_id
+      )
+      SELECT
+        side,
+        COUNT(*) AS games,
+        COALESCE(AVG(first_blood) * 100, 0) AS first_blood_pct,
+        COALESCE(AVG(first_tower) * 100, 0) AS first_tower_pct,
+        COALESCE(AVG(first_dragon) * 100, 0) AS first_dragon_pct,
+        COALESCE(AVG(first_baron) * 100, 0) AS first_baron_pct,
+        COALESCE(AVG(first_herald) * 100, 0) AS first_herald_pct,
+        COALESCE(AVG(dragon_kills), 0) AS avg_dragon_kills,
+        COALESCE(AVG(baron_kills), 0) AS avg_baron_kills,
+        COALESCE(AVG(rift_herald_kills), 0) AS avg_herald_kills,
+        COALESCE(AVG(horde_kills), 0) AS avg_horde_kills,
+        COALESCE(AVG(tower_kills), 0) AS avg_tower_kills,
+        COALESCE(AVG(inhibitor_kills), 0) AS avg_inhibitor_kills
+      FROM sides
+      GROUP BY side
+    `)
+    .all(puuid, championId) as Array<ChampionTeamObjectives["ally"] & { side: "ally" | "enemy" }>;
+
+  const result = { ally: empty(), enemy: empty() };
+  for (const row of rows) {
+    const { side, ...values } = row;
+    result[side] = values;
+  }
+  console.log("[db] getChampionTeamObjectives done:", {
+    allyGames: result.ally.games,
+    enemyGames: result.enemy.games,
+  });
+  return result;
+}
 
 export function getChampionStatBaseline(
   championId: number,

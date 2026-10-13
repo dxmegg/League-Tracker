@@ -4,6 +4,7 @@ import type {
   AugmentStats,
   ChampionAllyRow,
   ChampionDetailStats,
+  ChampionTeamObjectives,
   ChampionKeystoneStat,
   ChampionMatchupRow,
   ChampionRuneStatsResult,
@@ -924,7 +925,13 @@ export function ChampionDetailExp() {
           </div>
         )
       ) : activeTab === "ob" ? (
-        <ObjectivesTab detail={detailStats} baseline={statBaseline} detailLoading={detailLoading} />
+        <ObjectivesTab
+          detail={detailStats}
+          baseline={statBaseline}
+          detailLoading={detailLoading}
+          championId={id}
+          puuid={account === ALL_ACCOUNTS_SENTINEL ? null : account}
+        />
       ) : activeTab === "vi" ? (
         <VisionTab
           detail={detailStats}
@@ -5571,11 +5578,40 @@ function ObjectivesTab({
   detail,
   baseline,
   detailLoading,
+  championId,
+  puuid,
 }: {
   detail: ChampionDetailStats | null;
   baseline: ChampionStatBaseline | null;
   detailLoading: boolean;
+  championId: number | null;
+  puuid: string | null;
 }) {
+  const [teamObj, setTeamObj] = useState<ChampionTeamObjectives | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    if (championId == null || !puuid) {
+      setTeamObj(null);
+      return () => {
+        cancelled = true;
+      };
+    }
+
+    void (async () => {
+      try {
+        const result = await window.api.getChampionTeamObjectives(puuid, championId);
+        if (!cancelled) setTeamObj(result);
+      } catch {
+        if (!cancelled) setTeamObj(null);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [championId, puuid]);
+
   if (detailLoading) return <SectionLoading />;
   if (!detail || detail.games === 0) return <NoData text="No data" />;
   const vsOther = (value: number | null | undefined, key: string) =>
@@ -5697,6 +5733,69 @@ function ObjectivesTab({
             ],
           ]}
         />
+      </Panel>
+
+      <Panel className={TAB_PANEL_CLASSES.emerald}>
+        <SectionHeading title="Team objectives" source="m" />
+        <p className="mb-3 text-[11px] text-lol-text/70">
+          Objective control and first-objective rates for your team vs enemy team across your games.
+        </p>
+        {!teamObj || teamObj.ally.games === 0 ? (
+          <EmptyState text="No team objective data for these games." />
+        ) : (
+          <div className="grid grid-cols-[minmax(0,1fr)_90px_90px] gap-3">
+            <div className="grid grid-cols-[minmax(0,1fr)_90px_90px] gap-3 border-b border-lol-border/50 pb-2 text-xs font-semibold text-lol-text">
+              <span className="text-left">Metric</span>
+              <span className="text-right tabular-nums">Ally</span>
+              <span className="text-right tabular-nums">Enemy</span>
+            </div>
+            {(
+              [
+                ["First blood", "first_blood_pct"],
+                ["First tower", "first_tower_pct"],
+                ["First dragon", "first_dragon_pct"],
+                ["First baron", "first_baron_pct"],
+                ["First herald", "first_herald_pct"],
+              ] as const
+            ).map(([label, key]) => (
+              <div
+                key={key}
+                className="grid grid-cols-[minmax(0,1fr)_90px_90px] gap-3 py-2 text-xs"
+              >
+                <span className="text-left text-lol-text-bright">{label}</span>
+                <span className="text-right tabular-nums text-lol-text-bright">
+                  {teamObj.ally[key].toFixed(1)}%
+                </span>
+                <span className="text-right tabular-nums text-lol-text-bright">
+                  {teamObj.enemy[key].toFixed(1)}%
+                </span>
+              </div>
+            ))}
+            {(
+              [
+                ["Dragon kills / game", "avg_dragon_kills"],
+                ["Baron kills / game", "avg_baron_kills"],
+                ["Rift Herald kills / game", "avg_herald_kills"],
+                ["Horde kills / game", "avg_horde_kills"],
+                ["Turret kills / game", "avg_tower_kills"],
+                ["Inhibitor kills / game", "avg_inhibitor_kills"],
+              ] as const
+            ).map(([label, key]) => (
+              <div
+                key={key}
+                className="grid grid-cols-[minmax(0,1fr)_90px_90px] gap-3 py-2 text-xs"
+              >
+                <span className="text-left text-lol-text-bright">{label}</span>
+                <span className="text-right tabular-nums text-lol-text-bright">
+                  {teamObj.ally[key].toFixed(2)}
+                </span>
+                <span className="text-right tabular-nums text-lol-text-bright">
+                  {teamObj.enemy[key].toFixed(2)}
+                </span>
+              </div>
+            ))}
+          </div>
+        )}
       </Panel>
 
       <Panel className={`${TAB_PANEL_CLASSES.emerald} `}>

@@ -557,6 +557,26 @@ export interface ChampionDetailStats {
   longestWinStreak: number; // best consecutive wins ever on this champion
 }
 
+export interface ChampionTeamObjectivesSide {
+  games: number;
+  first_blood_pct: number;
+  first_tower_pct: number;
+  first_dragon_pct: number;
+  first_baron_pct: number;
+  first_herald_pct: number;
+  avg_dragon_kills: number;
+  avg_baron_kills: number;
+  avg_herald_kills: number;
+  avg_horde_kills: number;
+  avg_tower_kills: number;
+  avg_inhibitor_kills: number;
+}
+
+export interface ChampionTeamObjectives {
+  ally: ChampionTeamObjectivesSide;
+  enemy: ChampionTeamObjectivesSide;
+}
+
 export type ChampionStatBaseline = Record<string, number | null>;
 
 export interface ChampionSkillOrder {
@@ -1526,6 +1546,10 @@ export interface ElectronAPI {
     queue?: number,
     account?: string,
   ) => Promise<ChampionDetailStats>;
+  getChampionTeamObjectives: (
+    puuid: string,
+    championId: number,
+  ) => Promise<ChampionTeamObjectives>;
   getChampionStatBaseline: (
     championId: number,
     patch?: string,

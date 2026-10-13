@@ -267,6 +267,16 @@ export function registerIpcHandlers() {
   );
 
   ipcMain.handle(
+    "db:get-champion-team-objectives",
+    (_event, puuid: string, championId: number) => {
+      if (typeof puuid !== "string" || !Number.isInteger(championId) || championId <= 0) {
+        throw new TypeError("puuid and championId are required");
+      }
+      return db.getChampionTeamObjectives(puuid, championId);
+    },
+  );
+
+  ipcMain.handle(
     "db:champion-stat-baseline",
     (_event, championId: number, patch?: string, queue?: number, account?: string) => {
       if (!Number.isInteger(championId) || championId <= 0) {
