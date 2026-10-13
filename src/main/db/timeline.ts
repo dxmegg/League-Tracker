@@ -673,7 +673,7 @@ export function insertTimeline(gameId: number, parsed: ParsedTimeline, rawPayloa
         position_x, position_y, jungle_minions_killed, time_enemy_spent_controlled,
         attack_damage, ability_power, armor, magic_resist, attack_speed, ability_haste,
         move_speed, max_health, current_health
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
     for (const frame of parsed.frames) {
       insertFrame.run(
