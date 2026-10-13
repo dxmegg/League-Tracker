@@ -635,6 +635,7 @@ function PlayerRow({
 }) {
   const kda = kdaRatio(p.kills, p.deaths, p.assists);
   const runeData = useRuneData();
+  const [telemetryExpanded, setTelemetryExpanded] = useState(false);
 
   return (
     <div
@@ -657,24 +658,35 @@ function PlayerRow({
 
       {/* Player name */}
       <div className="min-w-0">
-        <button
-          type="button"
-          onClick={() => {
-            if (!onPlayerClick) return;
-            onPlayerClick({
-              puuid: p.puuid,
-              gameName: p.gameName ?? null,
-              tagLine: p.tagLine ?? null,
-            });
-          }}
-          disabled={!onPlayerClick || !p.puuid}
-          className={`text-xs truncate text-left max-w-full transition-colors ${
-            p.isSelf ? "text-lol-gold font-semibold" : "text-lol-text-bright hover:text-lol-gold"
-          } ${onPlayerClick && p.puuid ? "cursor-pointer" : "cursor-default"}`}
-          title={p.gameName && p.tagLine ? `${p.gameName}#${p.tagLine}` : undefined}
-        >
-          {p.summonerName}
-        </button>
+        <div className="flex min-w-0 items-center gap-1">
+          <button
+            type="button"
+            onClick={() => setTelemetryExpanded((expanded) => !expanded)}
+            aria-expanded={telemetryExpanded}
+            aria-label={`${telemetryExpanded ? "Hide" : "Show"} telemetry for ${p.summonerName}`}
+            className="shrink-0 text-[10px] text-lol-text hover:text-lol-text-bright"
+          >
+            {telemetryExpanded ? "▾" : "▸"}
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              if (!onPlayerClick) return;
+              onPlayerClick({
+                puuid: p.puuid,
+                gameName: p.gameName ?? null,
+                tagLine: p.tagLine ?? null,
+              });
+            }}
+            disabled={!onPlayerClick || !p.puuid}
+            className={`text-xs truncate text-left max-w-full transition-colors ${
+              p.isSelf ? "text-lol-gold font-semibold" : "text-lol-text-bright hover:text-lol-gold"
+            } ${onPlayerClick && p.puuid ? "cursor-pointer" : "cursor-default"}`}
+            title={p.gameName && p.tagLine ? `${p.gameName}#${p.tagLine}` : undefined}
+          >
+            {p.summonerName}
+          </button>
+        </div>
         <div className="text-[10px] text-lol-text truncate transition-colors hover:text-lol-gold">
           {getChampionName(champData, p.championId)}
         </div>
@@ -738,8 +750,8 @@ function PlayerRow({
       </div>
 
       {/* Runes for standard queues; Arena/Mayhem show Augments instead — those
-          modes have no rune page at all, so falling back to "runes present?"
-          per player would silently show an empty grid for the whole lobby. */}
+            modes have no rune page at all, so falling back to "runes present?"
+            per player would silently show an empty grid for the whole lobby. */}
       <div className="flex items-center gap-1 justify-center">
         {showAugments ? (
           p.augments.map((augId, i) => (
@@ -759,6 +771,123 @@ function PlayerRow({
         )}
       </div>
       <div aria-hidden="true" />
+      {telemetryExpanded && (
+        <div className="col-span-full">
+          <TelemetryBlock player={p} />
+        </div>
+      )}
+    </div>
+  );
+}
+
+function TelemetryBlock({ player: p }: { player: ParsedParticipant }) {
+  const pings: [string, number | null | undefined][] = [
+    ["Enemy missing", p.enemyMissingPings],
+    ["Danger", p.dangerPings],
+    ["On my way", p.onMyWayPings],
+    ["Assist me", p.assistMePings],
+    ["Get back", p.getBackPings],
+    ["Vision cleared", p.visionClearedPings],
+    ["Need vision", p.needVisionPings],
+    ["Push", p.pushPings],
+    ["All in", p.allInPings],
+  ];
+  if (p.basicPings) pings.push(["Basic", p.basicPings]);
+  if (p.commandPings) pings.push(["Command", p.commandPings]);
+  const casts: [string, number | null | undefined][] = [
+    ["Q", p.spell1Casts],
+    ["W", p.spell2Casts],
+    ["E", p.spell3Casts],
+    ["R", p.spell4Casts],
+    ["Summoner 1", p.summoner1Casts],
+    ["Summoner 2", p.summoner2Casts],
+  ];
+  const telemetryValues = [
+    p.enemyMissingPings,
+    p.dangerPings,
+    p.onMyWayPings,
+    p.assistMePings,
+    p.getBackPings,
+    p.visionClearedPings,
+    p.needVisionPings,
+    p.pushPings,
+    p.allInPings,
+    p.basicPings,
+    p.commandPings,
+    p.spell1Casts,
+    p.spell2Casts,
+    p.spell3Casts,
+    p.spell4Casts,
+    p.summoner1Casts,
+    p.summoner2Casts,
+    p.totalHealOnTeammates,
+    p.totalDamageShieldedOnTeammates,
+  ];
+  const challengeEntries = Object.entries(p.challenges ?? {})
+    .filter(([, value]) => Number.isFinite(value))
+    .sort(([, a], [, b]) => b - a)
+    .slice(0, 10);
+  const hasTelemetry =
+    telemetryValues.some((value) => value != null && value !== 0) || challengeEntries.length > 0;
+
+  return (
+    <div className="border-b border-lol-border/20 bg-white/[0.015] px-4 py-2 text-[10px] text-lol-text">
+      {!hasTelemetry ? (
+        <div className="text-center italic">
+          Telemetry not available for this game (imported via LCU).
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+          <TelemetryColumn title="Pings" rows={pings} />
+          <TelemetryColumn title="Spell casts" rows={casts} />
+          <div className="space-y-3">
+            <TelemetryColumn
+              title="Utility"
+              rows={[
+                ["Heal on teammates", p.totalHealOnTeammates],
+                ["Damage shielded", p.totalDamageShieldedOnTeammates],
+              ]}
+            />
+            {challengeEntries.length > 0 && (
+              <div>
+                <div className="mb-1 font-bold uppercase tracking-wider text-lol-text-bright">
+                  Challenges
+                </div>
+                <div className="space-y-0.5">
+                  {challengeEntries.map(([key, value]) => (
+                    <div key={key} className="flex justify-between gap-2 tabular-nums">
+                      <span className="truncate">{key}</span>
+                      <span className="text-lol-text-bright">{value}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function TelemetryColumn({
+  title,
+  rows,
+}: {
+  title: string;
+  rows: readonly (readonly [string, number | null | undefined])[];
+}) {
+  return (
+    <div>
+      <div className="mb-1 font-bold uppercase tracking-wider text-lol-text-bright">{title}</div>
+      <div className="space-y-0.5">
+        {rows.map(([label, value]) => (
+          <div key={label} className="flex justify-between gap-2 tabular-nums">
+            <span>{label}</span>
+            <span className="text-lol-text-bright">{value ?? 0}</span>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }

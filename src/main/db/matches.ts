@@ -431,12 +431,31 @@ export function getMatchParticipants(gameId: number): any[] {
              kills, deaths, assists, double_kills, triple_kills, quadra_kills, penta_kills,
              total_damage_dealt, total_damage_taken, gold_earned, total_heal,
              largest_killing_spree, spell1, spell2,
-             item0, item1, item2, item3, item4, item5, item6
+             item0, item1, item2, item3, item4, item5, item6,
+             enemy_missing_pings, danger_pings, on_my_way_pings, assist_me_pings,
+             get_back_pings, vision_cleared_pings, need_vision_pings, push_pings,
+             all_in_pings, basic_pings, command_pings,
+             spell1_casts, spell2_casts, spell3_casts, spell4_casts,
+             summoner1_casts, summoner2_casts,
+             total_heal_on_teammates, total_damage_shielded_on_teammates
       FROM match_participants
       WHERE game_id = ?
       ORDER BY participant_id
     `)
     .all(gameId) as any[];
+
+  const challengeRows = db
+    .prepare(
+      "SELECT participant_id, challenge_key, value FROM match_participant_challenges WHERE game_id = ?",
+    )
+    .all(gameId) as { participant_id: number; challenge_key: string; value: number | null }[];
+  const challenges = new Map<number, Record<string, number>>();
+  for (const row of challengeRows) {
+    if (row.value == null) continue;
+    const participantChallenges = challenges.get(row.participant_id) ?? {};
+    participantChallenges[row.challenge_key] = row.value;
+    challenges.set(row.participant_id, participantChallenges);
+  }
 
   const augmentRows = db
     .prepare(`
@@ -481,6 +500,26 @@ export function getMatchParticipants(gameId: number): any[] {
       largestKillingSpree: r.largest_killing_spree,
       spell1Id: r.spell1,
       spell2Id: r.spell2,
+      enemyMissingPings: r.enemy_missing_pings ?? null,
+      dangerPings: r.danger_pings ?? null,
+      onMyWayPings: r.on_my_way_pings ?? null,
+      assistMePings: r.assist_me_pings ?? null,
+      getBackPings: r.get_back_pings ?? null,
+      visionClearedPings: r.vision_cleared_pings ?? null,
+      needVisionPings: r.need_vision_pings ?? null,
+      pushPings: r.push_pings ?? null,
+      allInPings: r.all_in_pings ?? null,
+      basicPings: r.basic_pings ?? null,
+      commandPings: r.command_pings ?? null,
+      spell1Casts: r.spell1_casts ?? null,
+      spell2Casts: r.spell2_casts ?? null,
+      spell3Casts: r.spell3_casts ?? null,
+      spell4Casts: r.spell4_casts ?? null,
+      summoner1Casts: r.summoner1_casts ?? null,
+      summoner2Casts: r.summoner2_casts ?? null,
+      totalHealOnTeammates: r.total_heal_on_teammates ?? null,
+      totalDamageShieldedOnTeammates: r.total_damage_shielded_on_teammates ?? null,
+      challenges: challenges.get(r.participant_id),
       items: [r.item0, r.item1, r.item2, r.item3, r.item4, r.item5, r.item6].map((i) => i ?? 0),
       augments: augments.get(r.participant_id) ?? [],
       cs: Number(

@@ -202,6 +202,26 @@ export interface MatchParticipantRecord {
   statShardIds: number[];
   items: number[];
   augments: number[];
+  enemyMissingPings?: number | null;
+  dangerPings?: number | null;
+  onMyWayPings?: number | null;
+  assistMePings?: number | null;
+  getBackPings?: number | null;
+  visionClearedPings?: number | null;
+  needVisionPings?: number | null;
+  pushPings?: number | null;
+  allInPings?: number | null;
+  basicPings?: number | null;
+  commandPings?: number | null;
+  spell1Casts?: number | null;
+  spell2Casts?: number | null;
+  spell3Casts?: number | null;
+  spell4Casts?: number | null;
+  summoner1Casts?: number | null;
+  summoner2Casts?: number | null;
+  totalHealOnTeammates?: number | null;
+  totalDamageShieldedOnTeammates?: number | null;
+  challenges?: Record<string, number>;
 }
 
 export interface MatchDetail {
@@ -1287,6 +1307,26 @@ export interface ParsedParticipant {
   primaryStyle: number | null;
   secondaryStyle: number | null;
   statShardIds: number[];
+  enemyMissingPings?: number | null;
+  dangerPings?: number | null;
+  onMyWayPings?: number | null;
+  assistMePings?: number | null;
+  getBackPings?: number | null;
+  visionClearedPings?: number | null;
+  needVisionPings?: number | null;
+  pushPings?: number | null;
+  allInPings?: number | null;
+  basicPings?: number | null;
+  commandPings?: number | null;
+  spell1Casts?: number | null;
+  spell2Casts?: number | null;
+  spell3Casts?: number | null;
+  spell4Casts?: number | null;
+  summoner1Casts?: number | null;
+  summoner2Casts?: number | null;
+  totalHealOnTeammates?: number | null;
+  totalDamageShieldedOnTeammates?: number | null;
+  challenges?: Record<string, number>;
   win: boolean;
   isSelf: boolean;
 }
