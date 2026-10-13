@@ -872,26 +872,54 @@ export function ChampionDetailExp() {
               />
             </div>
             <div className="grid grid-cols-1 gap-5 xl:grid-cols-2">
-              <EconomyTab
-                section="details"
-                detail={detailStats}
-                detailLoading={detailLoading}
-                timeline={timelineAverages}
-                timelineLoading={timelineAveragesLoading}
-                weeklyMetrics={weeklyMetrics}
-                queueStats={queueStats}
-                queueStatsLoading={queueStatsLoading}
-              />
-              <FarmTab
-                section="details"
-                detail={detailStats}
-                baseline={statBaseline}
-                detailLoading={detailLoading}
-                timeline={timelineAverages?.buckets ?? null}
-                timelineLoading={timelineAveragesLoading}
-                queueStats={queueStats}
-                queueStatsLoading={queueStatsLoading}
-              />
+              <div className="flex flex-col gap-5">
+                <EconomyTab
+                  section="details"
+                  panelFilter={(id) => ["E1", "E2", "E3", "E4"].includes(id)}
+                  detail={detailStats}
+                  detailLoading={detailLoading}
+                  timeline={timelineAverages}
+                  timelineLoading={timelineAveragesLoading}
+                  weeklyMetrics={weeklyMetrics}
+                  queueStats={queueStats}
+                  queueStatsLoading={queueStatsLoading}
+                />
+                <FarmTab
+                  section="details"
+                  panelFilter={(id) => ["F1", "F2", "F3", "F4"].includes(id)}
+                  detail={detailStats}
+                  baseline={statBaseline}
+                  detailLoading={detailLoading}
+                  timeline={timelineAverages?.buckets ?? null}
+                  timelineLoading={timelineAveragesLoading}
+                  queueStats={queueStats}
+                  queueStatsLoading={queueStatsLoading}
+                />
+              </div>
+              <div className="flex flex-col gap-5">
+                <EconomyTab
+                  section="details"
+                  panelFilter={(id) => ["E5", "E6", "E7", "E8", "E9", "E10", "E11"].includes(id)}
+                  detail={detailStats}
+                  detailLoading={detailLoading}
+                  timeline={timelineAverages}
+                  timelineLoading={timelineAveragesLoading}
+                  weeklyMetrics={weeklyMetrics}
+                  queueStats={queueStats}
+                  queueStatsLoading={queueStatsLoading}
+                />
+                <FarmTab
+                  section="details"
+                  panelFilter={(id) => ["F5", "F6"].includes(id)}
+                  detail={detailStats}
+                  baseline={statBaseline}
+                  detailLoading={detailLoading}
+                  timeline={timelineAverages?.buckets ?? null}
+                  timelineLoading={timelineAveragesLoading}
+                  queueStats={queueStats}
+                  queueStatsLoading={queueStatsLoading}
+                />
+              </div>
             </div>
           </div>
         )
@@ -4519,6 +4547,7 @@ function CombatTab({
 
 function EconomyTab({
   section,
+  panelFilter,
   detail,
   detailLoading,
   timeline,
@@ -4528,6 +4557,7 @@ function EconomyTab({
   queueStatsLoading,
 }: {
   section: "snapshot" | "insights" | "details";
+  panelFilter?: (id: string) => boolean;
   detail: ChampionDetailStats | null;
   detailLoading: boolean;
   timeline: ChampionTimelineAverages | null;
@@ -4709,493 +4739,521 @@ function EconomyTab({
       )}
       {section === "details" && (
         <div className="flex flex-col gap-5">
-          <Panel className={TAB_PANEL_CLASSES.gold}>
-            <SectionHeading title="Gold over time" source="d" />
-            <p className="mb-3 text-[11px] text-lol-text/70">
-              Average gold progression at each available minute of the game.
-            </p>
-            {goldValues.length < 2 ? (
-              <NoData text="Not enough timeline data" />
-            ) : (
-              <div className="[&_polyline]:[filter:drop-shadow(0_0_4px_currentColor)]">
-                <LineChartExp
-                  values={goldValues}
-                  xLabels={goldLabels}
-                  tooltips={goldTooltips}
-                  format={(item) => value(item)}
-                  color="var(--theme-gold)"
-                  yFormat={formatChartNumber}
-                  yTicks={chartTicks(goldValues)}
-                  showStats
-                />
-                <p className="mt-2 text-[11px] text-lol-text/50">
-                  Average gold earned per game at each timeline minute.
-                </p>
-              </div>
-            )}
-          </Panel>
-          <Panel className={TAB_PANEL_CLASSES.gold}>
-            <SectionHeading title="Gold" source="m" />
-            <p className="mb-3 text-[11px] text-lol-text/70">
-              Gold spent totals and per-game averages from match data.
-            </p>
-            <CombatStatTable
-              hideVsOther
-              rows={[
-                [
-                  "Gold earned",
-                  detail.avgGoldEarned,
-                  detail.maxGoldEarned,
-                  detail.totalGoldEarned,
-                  formatCombatNumber,
-                  detail.avgGoldEarnedInWins,
-                  detail.avgGoldEarnedInLosses,
-                  undefined,
-                ],
-                [
-                  "Gold spent",
-                  detail.avgGoldSpent,
-                  detail.maxGoldSpent,
-                  detail.totalGoldSpent,
-                  formatCombatNumber,
-                  detail.avgGoldSpentInWins,
-                  detail.avgGoldSpentInLosses,
-                  undefined,
-                ],
-              ]}
-            />
-          </Panel>
-          <Panel className={TAB_PANEL_CLASSES.gold}>
-            <SectionHeading title="Lead vs lane opponent" source="d" />
-            <p className="mb-3 text-[11px] text-lol-text/70">
-              Gold and experience differences against your lane opponent.
-            </p>
-            <div className="grid gap-4 text-xs md:grid-cols-2">
-              <div className="min-w-0 overflow-x-auto">
-                <EconomyStatTable
-                  rows={[
-                    { label: "Gold diff @5", avg: bucketAt(5)?.avgGoldDiffVsLaneOpponent },
-                    { label: "Gold diff @10", avg: bucketAt(10)?.avgGoldDiffVsLaneOpponent },
-                    { label: "Gold diff @15", avg: bucketAt(15)?.avgGoldDiffVsLaneOpponent },
-                    {
-                      label: "Gold diff @20",
-                      avg: bucketAt(20)?.avgGoldDiffVsLaneOpponent,
-                      highlight: (bucketAt(20)?.avgGoldDiffVsLaneOpponent ?? 0) > 0,
-                    },
-                    { label: "XP diff @5", avg: bucketAt(5)?.avgXpDiffVsLaneOpponent },
-                    { label: "XP diff @10", avg: bucketAt(10)?.avgXpDiffVsLaneOpponent },
-                    { label: "XP diff @15", avg: bucketAt(15)?.avgXpDiffVsLaneOpponent },
-                    { label: "XP diff @20", avg: bucketAt(20)?.avgXpDiffVsLaneOpponent },
-                    { label: "XP diff @25", avg: bucketAt(25)?.avgXpDiffVsLaneOpponent },
-                    { label: "XP diff @30", avg: bucketAt(30)?.avgXpDiffVsLaneOpponent },
-                    {
-                      label: "Games ahead @10",
-                      avg: timeline?.ahead10 == null ? null : timeline.ahead10 * 100,
-                      suffix: "%",
-                    },
-                    { label: "Games ahead @15", avg: gamesAhead15, suffix: "%" },
-                  ]}
-                  variant="compact"
-                />
-              </div>
-              <div className="flex flex-col gap-2">
-                <div className="border-b border-lol-border/50 pb-2 font-semibold text-lol-text">
-                  Gold diff by minute
-                </div>
-                <svg
-                  aria-label="Gold difference at five, ten, fifteen, twenty, twenty-five, and thirty minutes"
-                  className="h-32 w-full"
-                  role="img"
-                  viewBox="0 0 160 120"
-                  preserveAspectRatio="none"
-                >
-                  <line
-                    x1="80"
-                    x2="80"
-                    y1="8"
-                    y2="112"
-                    stroke="currentColor"
-                    strokeOpacity="0.25"
+          {panelFilter?.("E1") !== false && (
+            <Panel className={TAB_PANEL_CLASSES.gold}>
+              <SectionHeading title="Gold over time" source="d" />
+              <p className="mb-3 text-[11px] text-lol-text/70">
+                Average gold progression at each available minute of the game.
+              </p>
+              {goldValues.length < 2 ? (
+                <NoData text="Not enough timeline data" />
+              ) : (
+                <div className="[&_polyline]:[filter:drop-shadow(0_0_4px_currentColor)]">
+                  <LineChartExp
+                    values={goldValues}
+                    xLabels={goldLabels}
+                    tooltips={goldTooltips}
+                    format={(item) => value(item)}
+                    color="var(--theme-gold)"
+                    yFormat={formatChartNumber}
+                    yTicks={chartTicks(goldValues)}
+                    showStats
                   />
-                  {leadPoints.map((point, index) => {
-                    const valueAtPoint = point.value;
-                    const width =
-                      valueAtPoint == null ? 0 : (Math.abs(valueAtPoint) / leadScale) * 68;
-                    const y = 10 + index * 20;
-                    return (
-                      <g key={point.minute}>
-                        <text x="2" y={y + 4} fill="currentColor" fillOpacity="0.7" fontSize="9">
-                          {point.minute}m
-                        </text>
-                        {valueAtPoint != null && (
-                          <rect
-                            x={valueAtPoint >= 0 ? 80 : 80 - width}
-                            y={y - 5}
-                            width={width}
-                            height="10"
-                            rx="3"
-                            fill={valueAtPoint >= 0 ? "#22C55E" : "#E5483F"}
-                            fillOpacity="0.8"
-                          />
-                        )}
-                        <text
-                          x="158"
-                          y={y + 4}
-                          fill="currentColor"
-                          fillOpacity="0.7"
-                          fontSize="9"
-                          textAnchor="end"
-                        >
-                          {value(valueAtPoint)}
-                        </text>
-                      </g>
-                    );
-                  })}
-                </svg>
-              </div>
-            </div>
-          </Panel>
-          <Panel className={TAB_PANEL_CLASSES.gold}>
-            <SectionHeading title="Levels & XP" source="d" />
-            <p className="mb-3 text-[11px] text-lol-text/70">
-              Final level and average level progression through the game.
-            </p>
-            <div className="grid gap-4 text-xs md:grid-cols-2">
-              <div className="min-w-0 overflow-x-auto">
-                <EconomyStatTable
-                  rows={[
-                    {
-                      label: "Final level",
-                      avg: null,
-                      best: detail.maxChampLevel,
-                      wins: detail.maxChampLevelInWins,
-                      losses: detail.maxChampLevelInLosses,
-                      digits: 1,
-                    },
-                  ]}
-                />
-                <EconomyStatTable
-                  variant="compact"
-                  rows={[
-                    { label: "Level @5", avg: bucketAt(5)?.avgLevel, digits: 1 },
-                    { label: "Level @10", avg: bucketAt(10)?.avgLevel, digits: 1 },
-                    { label: "Level @15", avg: bucketAt(15)?.avgLevel, digits: 1 },
-                    { label: "Level @20", avg: bucketAt(20)?.avgLevel, digits: 1 },
-                    { label: "Level @25", avg: bucketAt(25)?.avgLevel, digits: 1 },
-                    { label: "Level @30", avg: bucketAt(30)?.avgLevel, digits: 1 },
-                  ]}
-                />
-              </div>
-              <div className="flex flex-col gap-2">
-                <div className="border-b border-lol-border/50 pb-2 font-semibold text-lol-text">
-                  Level progression
+                  <p className="mt-2 text-[11px] text-lol-text/50">
+                    Average gold earned per game at each timeline minute.
+                  </p>
                 </div>
-                <svg
-                  aria-label="Average level progression from five to thirty minutes"
-                  className="h-32 w-full"
-                  role="img"
-                  viewBox="0 0 160 80"
-                  preserveAspectRatio="none"
-                >
-                  <line
-                    x1="14"
-                    x2="146"
-                    y1="42"
-                    y2="42"
-                    stroke="currentColor"
-                    strokeOpacity="0.25"
+              )}
+            </Panel>
+          )}
+          {panelFilter?.("E2") !== false && (
+            <Panel className={TAB_PANEL_CLASSES.gold}>
+              <SectionHeading title="Gold" source="m" />
+              <p className="mb-3 text-[11px] text-lol-text/70">
+                Gold spent totals and per-game averages from match data.
+              </p>
+              <CombatStatTable
+                hideVsOther
+                rows={[
+                  [
+                    "Gold earned",
+                    detail.avgGoldEarned,
+                    detail.maxGoldEarned,
+                    detail.totalGoldEarned,
+                    formatCombatNumber,
+                    detail.avgGoldEarnedInWins,
+                    detail.avgGoldEarnedInLosses,
+                    undefined,
+                  ],
+                  [
+                    "Gold spent",
+                    detail.avgGoldSpent,
+                    detail.maxGoldSpent,
+                    detail.totalGoldSpent,
+                    formatCombatNumber,
+                    detail.avgGoldSpentInWins,
+                    detail.avgGoldSpentInLosses,
+                    undefined,
+                  ],
+                ]}
+              />
+            </Panel>
+          )}
+          {panelFilter?.("E3") !== false && (
+            <Panel className={TAB_PANEL_CLASSES.gold}>
+              <SectionHeading title="Lead vs lane opponent" source="d" />
+              <p className="mb-3 text-[11px] text-lol-text/70">
+                Gold and experience differences against your lane opponent.
+              </p>
+              <div className="grid gap-4 text-xs md:grid-cols-2">
+                <div className="min-w-0 overflow-x-auto">
+                  <EconomyStatTable
+                    rows={[
+                      { label: "Gold diff @5", avg: bucketAt(5)?.avgGoldDiffVsLaneOpponent },
+                      { label: "Gold diff @10", avg: bucketAt(10)?.avgGoldDiffVsLaneOpponent },
+                      { label: "Gold diff @15", avg: bucketAt(15)?.avgGoldDiffVsLaneOpponent },
+                      {
+                        label: "Gold diff @20",
+                        avg: bucketAt(20)?.avgGoldDiffVsLaneOpponent,
+                        highlight: (bucketAt(20)?.avgGoldDiffVsLaneOpponent ?? 0) > 0,
+                      },
+                      { label: "XP diff @5", avg: bucketAt(5)?.avgXpDiffVsLaneOpponent },
+                      { label: "XP diff @10", avg: bucketAt(10)?.avgXpDiffVsLaneOpponent },
+                      { label: "XP diff @15", avg: bucketAt(15)?.avgXpDiffVsLaneOpponent },
+                      { label: "XP diff @20", avg: bucketAt(20)?.avgXpDiffVsLaneOpponent },
+                      { label: "XP diff @25", avg: bucketAt(25)?.avgXpDiffVsLaneOpponent },
+                      { label: "XP diff @30", avg: bucketAt(30)?.avgXpDiffVsLaneOpponent },
+                      {
+                        label: "Games ahead @10",
+                        avg: timeline?.ahead10 == null ? null : timeline.ahead10 * 100,
+                        suffix: "%",
+                      },
+                      { label: "Games ahead @15", avg: gamesAhead15, suffix: "%" },
+                    ]}
+                    variant="compact"
                   />
-                  {levelPoints.map((point, index) => {
-                    const levelStep = 132 / (levelPoints.length - 1 || 1);
-                    const x = 14 + index * levelStep;
-                    const y = point.value == null ? 42 : 66 - (point.value / 18) * 48;
-                    return (
-                      <g key={point.minute}>
-                        {index > 0 &&
-                          levelPoints[index - 1].value != null &&
-                          point.value != null && (
-                            <line
-                              x1={x - levelStep}
-                              x2={x}
-                              y1={66 - (levelPoints[index - 1].value! / 18) * 48}
-                              y2={y}
-                              stroke="#C9A45C"
-                              strokeOpacity="0.65"
-                              strokeWidth="2"
+                </div>
+                <div className="flex flex-col gap-2">
+                  <div className="border-b border-lol-border/50 pb-2 font-semibold text-lol-text">
+                    Gold diff by minute
+                  </div>
+                  <svg
+                    aria-label="Gold difference at five, ten, fifteen, twenty, twenty-five, and thirty minutes"
+                    className="h-32 w-full"
+                    role="img"
+                    viewBox="0 0 160 120"
+                    preserveAspectRatio="none"
+                  >
+                    <line
+                      x1="80"
+                      x2="80"
+                      y1="8"
+                      y2="112"
+                      stroke="currentColor"
+                      strokeOpacity="0.25"
+                    />
+                    {leadPoints.map((point, index) => {
+                      const valueAtPoint = point.value;
+                      const width =
+                        valueAtPoint == null ? 0 : (Math.abs(valueAtPoint) / leadScale) * 68;
+                      const y = 10 + index * 20;
+                      return (
+                        <g key={point.minute}>
+                          <text x="2" y={y + 4} fill="currentColor" fillOpacity="0.7" fontSize="9">
+                            {point.minute}m
+                          </text>
+                          {valueAtPoint != null && (
+                            <rect
+                              x={valueAtPoint >= 0 ? 80 : 80 - width}
+                              y={y - 5}
+                              width={width}
+                              height="10"
+                              rx="3"
+                              fill={valueAtPoint >= 0 ? "#22C55E" : "#E5483F"}
+                              fillOpacity="0.8"
                             />
                           )}
-                        {point.value != null && (
-                          <circle cx={x} cy={y} r="5" fill="#C9A45C" fillOpacity="0.9" />
-                        )}
-                        <text
-                          x={x}
-                          y="76"
-                          fill="currentColor"
-                          fillOpacity="0.7"
-                          fontSize="9"
-                          textAnchor="middle"
-                        >
-                          {point.minute}m
-                        </text>
-                      </g>
+                          <text
+                            x="158"
+                            y={y + 4}
+                            fill="currentColor"
+                            fillOpacity="0.7"
+                            fontSize="9"
+                            textAnchor="end"
+                          >
+                            {value(valueAtPoint)}
+                          </text>
+                        </g>
+                      );
+                    })}
+                  </svg>
+                </div>
+              </div>
+            </Panel>
+          )}
+          {panelFilter?.("E4") !== false && (
+            <Panel className={TAB_PANEL_CLASSES.gold}>
+              <SectionHeading title="Levels & XP" source="d" />
+              <p className="mb-3 text-[11px] text-lol-text/70">
+                Final level and average level progression through the game.
+              </p>
+              <div className="grid gap-4 text-xs md:grid-cols-2">
+                <div className="min-w-0 overflow-x-auto">
+                  <EconomyStatTable
+                    rows={[
+                      {
+                        label: "Final level",
+                        avg: null,
+                        best: detail.maxChampLevel,
+                        wins: detail.maxChampLevelInWins,
+                        losses: detail.maxChampLevelInLosses,
+                        digits: 1,
+                      },
+                    ]}
+                  />
+                  <EconomyStatTable
+                    variant="compact"
+                    rows={[
+                      { label: "Level @5", avg: bucketAt(5)?.avgLevel, digits: 1 },
+                      { label: "Level @10", avg: bucketAt(10)?.avgLevel, digits: 1 },
+                      { label: "Level @15", avg: bucketAt(15)?.avgLevel, digits: 1 },
+                      { label: "Level @20", avg: bucketAt(20)?.avgLevel, digits: 1 },
+                      { label: "Level @25", avg: bucketAt(25)?.avgLevel, digits: 1 },
+                      { label: "Level @30", avg: bucketAt(30)?.avgLevel, digits: 1 },
+                    ]}
+                  />
+                </div>
+                <div className="flex flex-col gap-2">
+                  <div className="border-b border-lol-border/50 pb-2 font-semibold text-lol-text">
+                    Level progression
+                  </div>
+                  <svg
+                    aria-label="Average level progression from five to thirty minutes"
+                    className="h-32 w-full"
+                    role="img"
+                    viewBox="0 0 160 80"
+                    preserveAspectRatio="none"
+                  >
+                    <line
+                      x1="14"
+                      x2="146"
+                      y1="42"
+                      y2="42"
+                      stroke="currentColor"
+                      strokeOpacity="0.25"
+                    />
+                    {levelPoints.map((point, index) => {
+                      const levelStep = 132 / (levelPoints.length - 1 || 1);
+                      const x = 14 + index * levelStep;
+                      const y = point.value == null ? 42 : 66 - (point.value / 18) * 48;
+                      return (
+                        <g key={point.minute}>
+                          {index > 0 &&
+                            levelPoints[index - 1].value != null &&
+                            point.value != null && (
+                              <line
+                                x1={x - levelStep}
+                                x2={x}
+                                y1={66 - (levelPoints[index - 1].value! / 18) * 48}
+                                y2={y}
+                                stroke="#C9A45C"
+                                strokeOpacity="0.65"
+                                strokeWidth="2"
+                              />
+                            )}
+                          {point.value != null && (
+                            <circle cx={x} cy={y} r="5" fill="#C9A45C" fillOpacity="0.9" />
+                          )}
+                          <text
+                            x={x}
+                            y="76"
+                            fill="currentColor"
+                            fillOpacity="0.7"
+                            fontSize="9"
+                            textAnchor="middle"
+                          >
+                            {point.minute}m
+                          </text>
+                        </g>
+                      );
+                    })}
+                  </svg>
+                </div>
+              </div>
+            </Panel>
+          )}
+          {panelFilter?.("E5") !== false && (
+            <Panel className={TAB_PANEL_CLASSES.gold}>
+              <SectionHeading title="Gold lead curve" source="d" />
+              <p className="mb-3 text-[11px] text-lol-text/70">
+                Gold lead progression compared with your lane opponent over time.
+              </p>
+              {goldLead.length < 2 ? (
+                <NoData text="Not enough lane timeline data" />
+              ) : (
+                <div className="[&_polyline]:[filter:drop-shadow(0_0_4px_currentColor)]">
+                  <LineChartExp
+                    values={goldLead}
+                    xLabels={goldLeadLabels}
+                    tooltips={goldLeadTooltips}
+                    format={(item) => value(item)}
+                    color="var(--theme-gold)"
+                    yFormat={(item) => formatChartNumber(item, true)}
+                    yTicks={chartTicks(goldLead, true)}
+                    baseline={0}
+                    showStats
+                  />
+                  <p className="mt-2 text-[11px] text-lol-text/50">
+                    Gold lead versus the lane opponent; positive is ahead.
+                  </p>
+                </div>
+              )}
+            </Panel>
+          )}
+          {panelFilter?.("E6") !== false && (
+            <Panel className={TAB_PANEL_CLASSES.gold}>
+              <SectionHeading title="XP lead curve" source="d" />
+              <p className="mb-3 text-[11px] text-lol-text/70">
+                Experience lead progression compared with your lane opponent over time.
+              </p>
+              {xpLead.length < 2 ? (
+                <NoData text="Not enough lane timeline data" />
+              ) : (
+                <div className="[&_polyline]:[filter:drop-shadow(0_0_4px_currentColor)]">
+                  <LineChartExp
+                    values={xpLead}
+                    xLabels={xpLeadLabels}
+                    tooltips={xpLeadTooltips}
+                    format={(item) => value(item)}
+                    color="var(--theme-violet)"
+                    yFormat={(item) => formatChartNumber(item, true)}
+                    yTicks={chartTicks(xpLead, true)}
+                    baseline={0}
+                    showStats
+                  />
+                  <p className="mt-2 text-[11px] text-lol-text/50">
+                    XP lead versus the lane opponent; positive is ahead.
+                  </p>
+                </div>
+              )}
+            </Panel>
+          )}
+          {panelFilter?.("E7") !== false && (
+            <Panel className={TAB_PANEL_CLASSES.gold}>
+              <SectionHeading title="Gold spending" source="m" />
+              <p className="mb-3 text-[11px] text-lol-text/70">
+                Average gold spent per game from the available match aggregates.
+              </p>
+              <CombatStatTable
+                rows={[
+                  [
+                    "Gold spent",
+                    detail.avgGoldSpent,
+                    detail.maxGoldSpent,
+                    undefined,
+                    formatCombatNumber,
+                    detail.avgGoldSpentInWins,
+                    detail.avgGoldSpentInLosses,
+                  ],
+                  [
+                    "Gold spent in wins",
+                    detail.avgGoldSpentInWins,
+                    detail.maxGoldSpentInWins,
+                    undefined,
+                    formatCombatNumber,
+                  ],
+                  [
+                    "Gold spent in losses",
+                    detail.avgGoldSpentInLosses,
+                    detail.maxGoldSpentInLosses,
+                    undefined,
+                    formatCombatNumber,
+                  ],
+                ]}
+              />
+            </Panel>
+          )}
+          {panelFilter?.("E8") !== false && (
+            <Panel className={TAB_PANEL_CLASSES.gold}>
+              <SectionHeading title="Economy by queue" source="m" />
+              <p className="mb-3 text-[11px] text-lol-text/70">
+                Economy-related match counts grouped by queue.
+              </p>
+              {queueStatsLoading ? (
+                <SectionLoading />
+              ) : queueRows.length === 0 ? (
+                <NoData text="No queue data" />
+              ) : (
+                <div className="flex flex-col gap-2 text-xs">
+                  <div className="grid grid-cols-[1fr_auto_auto_auto_auto_auto] gap-2 border-b border-lol-border/50 pb-2 font-semibold text-lol-text">
+                    <span>Queue</span>
+                    <span className="whitespace-nowrap">Games</span>
+                    <span className="whitespace-nowrap">Gold/min</span>
+                    <span className="whitespace-nowrap">Avg gold</span>
+                    <span className="whitespace-nowrap">CS/min</span>
+                    <span className="whitespace-nowrap">KDA</span>
+                  </div>
+                  {queueRows.map(
+                    ({ queueId, games, goldPerMin, avgGold, csPerMin, kills, deaths, assists }) => (
+                      <div
+                        key={queueId}
+                        className="grid grid-cols-[1fr_auto_auto_auto_auto_auto] gap-2 border-b border-white/[0.04] py-2 text-lol-text-bright transition-colors duration-[120ms] hover:bg-white/[0.025] last:border-b-0"
+                      >
+                        <span>{QUEUE_LABELS[queueId] ?? queueId}</span>
+                        <span className="text-right tabular-nums">{games}</span>
+                        <span className="text-right tabular-nums">
+                          {formatSmallMetric(goldPerMin)}
+                        </span>
+                        <span className="text-right tabular-nums">
+                          {formatSmallMetric(avgGold)}
+                        </span>
+                        <span className="text-right tabular-nums">
+                          {formatSmallMetric(csPerMin)}
+                        </span>
+                        <span className="text-right tabular-nums">
+                          {formatQueueKda(kills, deaths, assists)}
+                        </span>
+                      </div>
+                    ),
+                  )}
+                </div>
+              )}
+            </Panel>
+          )}
+          {panelFilter?.("E9") !== false && (
+            <Panel className={TAB_PANEL_CLASSES.gold}>
+              <SectionHeading title="WR by gold lead @15" source="d" />
+              <p className="mb-3 text-[11px] text-lol-text/70">
+                Win rate by your gold lead at 15 minutes.
+              </p>
+              {timeline?.winrateByGoldLead15 == null ? (
+                <EmptyState text="Gold lead outcomes are not available" />
+              ) : (
+                <div className="grid grid-cols-4 gap-3 text-xs">
+                  {[
+                    ["Behind 1000+", timeline.winrateByGoldLead15.behind1000plus, "#E5483F"],
+                    ["Behind 0–1000", timeline.winrateByGoldLead15.behind0to1000, "#C9A45C"],
+                    ["Ahead 0–1000", timeline.winrateByGoldLead15.ahead0to1000, "#22C55E"],
+                    ["Ahead 1000+", timeline.winrateByGoldLead15.ahead1000plus, "#3B82F6"],
+                  ].map(([label, rate, color]) => (
+                    <div key={label} className="min-w-0">
+                      <div className="mb-1 truncate text-center text-[10px] text-lol-text">
+                        {label}
+                      </div>
+                      {rate == null ? (
+                        <EmptyState text="No games" />
+                      ) : (
+                        <div className="relative pt-4">
+                          <span className="absolute inset-x-0 top-0 text-center text-[10px] font-semibold tabular-nums text-lol-text-bright">
+                            {(rate as number).toFixed(1)}%
+                          </span>
+                          <div className="relative h-2 rounded-full bg-black/20">
+                            <div
+                              className="h-full rounded-full"
+                              style={{
+                                width: `${Math.max(0, Math.min(100, rate as number))}%`,
+                                backgroundColor: color as string,
+                              }}
+                            />
+                            <div className="absolute bottom-[-3px] left-1/2 top-[-3px] border-l border-lol-text/40" />
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </Panel>
+          )}
+          {panelFilter?.("E10") !== false && (
+            <Panel className={TAB_PANEL_CLASSES.gold}>
+              <SectionHeading title="Gold lead distribution" source="d" />
+              <p className="mb-3 text-[11px] text-lol-text/70">
+                Games in each 15-minute gold-lead bucket.
+              </p>
+              {timeline?.goldLeadDistribution15 == null ? (
+                <EmptyState text="Per-game lead distribution is not available" />
+              ) : (
+                <div className="grid grid-cols-4 gap-3 text-xs">
+                  {goldLeadBuckets.map(([label, count, color]) => (
+                    <div
+                      key={label}
+                      className="flex min-w-0 flex-col items-center gap-1 border-b border-white/[0.04] pb-2"
+                    >
+                      <span className="w-full truncate text-center text-[10px] text-lol-text">
+                        {label}
+                      </span>
+                      <div className="flex h-24 w-full items-end overflow-hidden rounded bg-black/20">
+                        <div
+                          className="w-full rounded-t"
+                          style={{
+                            height: `${(count / goldLeadMax) * 100}%`,
+                            backgroundColor: color,
+                            opacity: count === 0 ? 0.2 : 0.9,
+                          }}
+                        />
+                      </div>
+                      <span
+                        className={`tabular-nums ${
+                          count === 0 ? "text-lol-text/60" : "text-lol-text-bright"
+                        }`}
+                      >
+                        {count}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </Panel>
+          )}
+          {panelFilter?.("E11") !== false && (
+            <Panel className={TAB_PANEL_CLASSES.gold}>
+              <SectionHeading title="Spending timeline" source="d" />
+              <p className="mb-3 text-[11px] text-lol-text/70">
+                Average item purchases per game by minute.
+              </p>
+              {timeline?.spendingTimeline == null ? (
+                <EmptyState text="Item purchase timeline is not available" />
+              ) : (
+                <div className="flex h-32 items-end gap-2">
+                  {timeline.spendingTimeline.map((bucket) => {
+                    const max = Math.max(
+                      ...timeline.spendingTimeline!.map((entry) => entry.averageItems ?? 0),
+                    );
+                    const height =
+                      max > 0 && bucket.averageItems != null
+                        ? (bucket.averageItems / max) * 100
+                        : 0;
+                    return (
+                      <div
+                        key={bucket.minute}
+                        className="flex h-full flex-1 flex-col items-center justify-end gap-1"
+                      >
+                        <span className="text-[10px] tabular-nums text-lol-text">
+                          {bucket.averageItems == null ? "—" : bucket.averageItems.toFixed(1)}
+                        </span>
+                        <div className="flex h-20 w-full items-end rounded bg-black/20">
+                          {bucket.averageItems != null && max > 0 ? (
+                            <div
+                              className="w-full rounded-t"
+                              style={{
+                                height: `${height}%`,
+                                background:
+                                  "linear-gradient(to right, rgb(201 164 92 / 40%), rgb(201 164 92 / 95%))",
+                              }}
+                            />
+                          ) : null}
+                        </div>
+                        <span className="text-[10px] text-lol-text/70">
+                          {bucket.minute}–{bucket.minute + 5}m
+                        </span>
+                      </div>
                     );
                   })}
-                </svg>
-              </div>
-            </div>
-          </Panel>
-          <Panel className={TAB_PANEL_CLASSES.gold}>
-            <SectionHeading title="Gold lead curve" source="d" />
-            <p className="mb-3 text-[11px] text-lol-text/70">
-              Gold lead progression compared with your lane opponent over time.
-            </p>
-            {goldLead.length < 2 ? (
-              <NoData text="Not enough lane timeline data" />
-            ) : (
-              <div className="[&_polyline]:[filter:drop-shadow(0_0_4px_currentColor)]">
-                <LineChartExp
-                  values={goldLead}
-                  xLabels={goldLeadLabels}
-                  tooltips={goldLeadTooltips}
-                  format={(item) => value(item)}
-                  color="var(--theme-gold)"
-                  yFormat={(item) => formatChartNumber(item, true)}
-                  yTicks={chartTicks(goldLead, true)}
-                  baseline={0}
-                  showStats
-                />
-                <p className="mt-2 text-[11px] text-lol-text/50">
-                  Gold lead versus the lane opponent; positive is ahead.
-                </p>
-              </div>
-            )}
-          </Panel>
-          <Panel className={TAB_PANEL_CLASSES.gold}>
-            <SectionHeading title="XP lead curve" source="d" />
-            <p className="mb-3 text-[11px] text-lol-text/70">
-              Experience lead progression compared with your lane opponent over time.
-            </p>
-            {xpLead.length < 2 ? (
-              <NoData text="Not enough lane timeline data" />
-            ) : (
-              <div className="[&_polyline]:[filter:drop-shadow(0_0_4px_currentColor)]">
-                <LineChartExp
-                  values={xpLead}
-                  xLabels={xpLeadLabels}
-                  tooltips={xpLeadTooltips}
-                  format={(item) => value(item)}
-                  color="var(--theme-violet)"
-                  yFormat={(item) => formatChartNumber(item, true)}
-                  yTicks={chartTicks(xpLead, true)}
-                  baseline={0}
-                  showStats
-                />
-                <p className="mt-2 text-[11px] text-lol-text/50">
-                  XP lead versus the lane opponent; positive is ahead.
-                </p>
-              </div>
-            )}
-          </Panel>
-          <Panel className={TAB_PANEL_CLASSES.gold}>
-            <SectionHeading title="Gold spending" source="m" />
-            <p className="mb-3 text-[11px] text-lol-text/70">
-              Average gold spent per game from the available match aggregates.
-            </p>
-            <CombatStatTable
-              rows={[
-                [
-                  "Gold spent",
-                  detail.avgGoldSpent,
-                  detail.maxGoldSpent,
-                  undefined,
-                  formatCombatNumber,
-                  detail.avgGoldSpentInWins,
-                  detail.avgGoldSpentInLosses,
-                ],
-                [
-                  "Gold spent in wins",
-                  detail.avgGoldSpentInWins,
-                  detail.maxGoldSpentInWins,
-                  undefined,
-                  formatCombatNumber,
-                ],
-                [
-                  "Gold spent in losses",
-                  detail.avgGoldSpentInLosses,
-                  detail.maxGoldSpentInLosses,
-                  undefined,
-                  formatCombatNumber,
-                ],
-              ]}
-            />
-          </Panel>
-          <Panel className={TAB_PANEL_CLASSES.gold}>
-            <SectionHeading title="Economy by queue" source="m" />
-            <p className="mb-3 text-[11px] text-lol-text/70">
-              Economy-related match counts grouped by queue.
-            </p>
-            {queueStatsLoading ? (
-              <SectionLoading />
-            ) : queueRows.length === 0 ? (
-              <NoData text="No queue data" />
-            ) : (
-              <div className="flex flex-col gap-2 text-xs">
-                <div className="grid grid-cols-[1fr_auto_auto_auto_auto_auto] gap-2 border-b border-lol-border/50 pb-2 font-semibold text-lol-text">
-                  <span>Queue</span>
-                  <span className="whitespace-nowrap">Games</span>
-                  <span className="whitespace-nowrap">Gold/min</span>
-                  <span className="whitespace-nowrap">Avg gold</span>
-                  <span className="whitespace-nowrap">CS/min</span>
-                  <span className="whitespace-nowrap">KDA</span>
                 </div>
-                {queueRows.map(
-                  ({ queueId, games, goldPerMin, avgGold, csPerMin, kills, deaths, assists }) => (
-                    <div
-                      key={queueId}
-                      className="grid grid-cols-[1fr_auto_auto_auto_auto_auto] gap-2 border-b border-white/[0.04] py-2 text-lol-text-bright transition-colors duration-[120ms] hover:bg-white/[0.025] last:border-b-0"
-                    >
-                      <span>{QUEUE_LABELS[queueId] ?? queueId}</span>
-                      <span className="text-right tabular-nums">{games}</span>
-                      <span className="text-right tabular-nums">
-                        {formatSmallMetric(goldPerMin)}
-                      </span>
-                      <span className="text-right tabular-nums">{formatSmallMetric(avgGold)}</span>
-                      <span className="text-right tabular-nums">{formatSmallMetric(csPerMin)}</span>
-                      <span className="text-right tabular-nums">
-                        {formatQueueKda(kills, deaths, assists)}
-                      </span>
-                    </div>
-                  ),
-                )}
-              </div>
-            )}
-          </Panel>
-          <Panel className={TAB_PANEL_CLASSES.gold}>
-            <SectionHeading title="WR by gold lead @15" source="d" />
-            <p className="mb-3 text-[11px] text-lol-text/70">
-              Win rate by your gold lead at 15 minutes.
-            </p>
-            {timeline?.winrateByGoldLead15 == null ? (
-              <EmptyState text="Gold lead outcomes are not available" />
-            ) : (
-              <div className="grid grid-cols-4 gap-3 text-xs">
-                {[
-                  ["Behind 1000+", timeline.winrateByGoldLead15.behind1000plus, "#E5483F"],
-                  ["Behind 0–1000", timeline.winrateByGoldLead15.behind0to1000, "#C9A45C"],
-                  ["Ahead 0–1000", timeline.winrateByGoldLead15.ahead0to1000, "#22C55E"],
-                  ["Ahead 1000+", timeline.winrateByGoldLead15.ahead1000plus, "#3B82F6"],
-                ].map(([label, rate, color]) => (
-                  <div key={label} className="min-w-0">
-                    <div className="mb-1 truncate text-center text-[10px] text-lol-text">
-                      {label}
-                    </div>
-                    {rate == null ? (
-                      <EmptyState text="No games" />
-                    ) : (
-                      <div className="relative pt-4">
-                        <span className="absolute inset-x-0 top-0 text-center text-[10px] font-semibold tabular-nums text-lol-text-bright">
-                          {(rate as number).toFixed(1)}%
-                        </span>
-                        <div className="relative h-2 rounded-full bg-black/20">
-                          <div
-                            className="h-full rounded-full"
-                            style={{
-                              width: `${Math.max(0, Math.min(100, rate as number))}%`,
-                              backgroundColor: color as string,
-                            }}
-                          />
-                          <div className="absolute bottom-[-3px] left-1/2 top-[-3px] border-l border-lol-text/40" />
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                ))}
-              </div>
-            )}
-          </Panel>
-          <Panel className={TAB_PANEL_CLASSES.gold}>
-            <SectionHeading title="Gold lead distribution" source="d" />
-            <p className="mb-3 text-[11px] text-lol-text/70">
-              Games in each 15-minute gold-lead bucket.
-            </p>
-            {timeline?.goldLeadDistribution15 == null ? (
-              <EmptyState text="Per-game lead distribution is not available" />
-            ) : (
-              <div className="grid grid-cols-4 gap-3 text-xs">
-                {goldLeadBuckets.map(([label, count, color]) => (
-                  <div
-                    key={label}
-                    className="flex min-w-0 flex-col items-center gap-1 border-b border-white/[0.04] pb-2"
-                  >
-                    <span className="w-full truncate text-center text-[10px] text-lol-text">
-                      {label}
-                    </span>
-                    <div className="flex h-24 w-full items-end overflow-hidden rounded bg-black/20">
-                      <div
-                        className="w-full rounded-t"
-                        style={{
-                          height: `${(count / goldLeadMax) * 100}%`,
-                          backgroundColor: color,
-                          opacity: count === 0 ? 0.2 : 0.9,
-                        }}
-                      />
-                    </div>
-                    <span
-                      className={`tabular-nums ${
-                        count === 0 ? "text-lol-text/60" : "text-lol-text-bright"
-                      }`}
-                    >
-                      {count}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            )}
-          </Panel>
-          <Panel className={TAB_PANEL_CLASSES.gold}>
-            <SectionHeading title="Spending timeline" source="d" />
-            <p className="mb-3 text-[11px] text-lol-text/70">
-              Average item purchases per game by minute.
-            </p>
-            {timeline?.spendingTimeline == null ? (
-              <EmptyState text="Item purchase timeline is not available" />
-            ) : (
-              <div className="flex h-32 items-end gap-2">
-                {timeline.spendingTimeline.map((bucket) => {
-                  const max = Math.max(
-                    ...timeline.spendingTimeline!.map((entry) => entry.averageItems ?? 0),
-                  );
-                  const height =
-                    max > 0 && bucket.averageItems != null ? (bucket.averageItems / max) * 100 : 0;
-                  return (
-                    <div
-                      key={bucket.minute}
-                      className="flex h-full flex-1 flex-col items-center justify-end gap-1"
-                    >
-                      <span className="text-[10px] tabular-nums text-lol-text">
-                        {bucket.averageItems == null ? "—" : bucket.averageItems.toFixed(1)}
-                      </span>
-                      <div className="flex h-20 w-full items-end rounded bg-black/20">
-                        {bucket.averageItems != null && max > 0 ? (
-                          <div
-                            className="w-full rounded-t"
-                            style={{
-                              height: `${height}%`,
-                              background:
-                                "linear-gradient(to right, rgb(201 164 92 / 40%), rgb(201 164 92 / 95%))",
-                            }}
-                          />
-                        ) : null}
-                      </div>
-                      <span className="text-[10px] text-lol-text/70">
-                        {bucket.minute}–{bucket.minute + 5}m
-                      </span>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </Panel>
+              )}
+            </Panel>
+          )}
         </div>
       )}
     </>
@@ -5204,6 +5262,7 @@ function EconomyTab({
 
 function FarmTab({
   section,
+  panelFilter,
   detail,
   baseline,
   detailLoading,
@@ -5213,6 +5272,7 @@ function FarmTab({
   queueStatsLoading,
 }: {
   section: "snapshot" | "details";
+  panelFilter?: (id: string) => boolean;
   detail: ChampionDetailStats | null;
   baseline: ChampionStatBaseline | null;
   detailLoading: boolean;
@@ -5278,162 +5338,178 @@ function FarmTab({
       )}
       {section === "details" && (
         <div className="flex flex-col gap-5">
-          <Panel className={TAB_PANEL_CLASSES.emerald}>
-            <SectionHeading title="Minion split" source="m" />
-            <p className="mb-3 text-[11px] text-lol-text/70">
-              Lane, allied jungle, and enemy jungle minion totals.
-            </p>
-            <CombatStatTable
-              rows={[
-                [
-                  "Lane minions",
-                  detail.avgTotalMinionsKilled,
-                  detail.maxTotalMinionsKilled,
-                  detail.totalTotalMinionsKilled,
-                  undefined,
-                  detail.avgTotalMinionsKilledInWins,
-                  detail.avgTotalMinionsKilledInLosses,
-                  vsOther(detail.avgTotalMinionsKilled, "avgTotalMinionsKilledOther"),
-                ],
-                [
-                  "Jungle minions (all)",
-                  detail.avgNeutralMinionsKilled,
-                  detail.maxNeutralMinionsKilled,
-                  detail.totalNeutralMinionsKilled,
-                  undefined,
-                  detail.avgNeutralMinionsKilledInWins,
-                  detail.avgNeutralMinionsKilledInLosses,
-                  vsOther(detail.avgNeutralMinionsKilled, "avgNeutralMinionsKilledOther"),
-                ],
-              ]}
-            />
-          </Panel>
-          <Panel className={TAB_PANEL_CLASSES.emerald}>
-            <SectionHeading title="CS pace" source="d" />
-            <p className="mb-3 text-[11px] text-lol-text/70">
-              Average minion counts at key minutes throughout the game.
-            </p>
-            <div className="flex flex-col gap-2 text-xs">
-              <div className="grid grid-cols-[1fr_auto] gap-3 border-b border-lol-border/50 pb-2 font-semibold text-lol-text">
-                <span>Stat</span>
-                <span className="text-right whitespace-nowrap">Avg</span>
-              </div>
-              {[5, 10, 15, 20, 25, 30].map((minute) => (
-                <div
-                  key={minute}
-                  className="grid grid-cols-[1fr_auto] gap-3 border-b border-white/[0.04] py-2 text-lol-text-bright transition-colors duration-[120ms] hover:bg-white/[0.025] last:border-b-0"
-                >
-                  <span>CS @{minute}</span>
-                  <span className="text-right tabular-nums">{value(bucketAt(minute)?.avgCs)}</span>
-                </div>
-              ))}
-            </div>
-          </Panel>
-          <Panel className={TAB_PANEL_CLASSES.emerald}>
-            <SectionHeading title="CS curve" source="d" />
-            <p className="mb-3 text-[11px] text-lol-text/70">
-              Average creep score progression at each available game minute.
-            </p>
-            {csValues.length < 2 ? (
-              <NoData text="Not enough timeline data" />
-            ) : (
-              <>
-                <LineChartExp
-                  values={csValues}
-                  format={(item) => value(item)}
-                  color="var(--theme-violet)"
-                  xLabels={csLabels}
-                  tooltips={csTooltips}
-                  yFormat={(item) => formatChartNumber(item)}
-                  yTicks={chartTicks(csValues)}
-                />
-                <p className="mt-2 text-[11px] text-lol-text/50">
-                  Average creep score at each timeline minute.
-                </p>
-              </>
-            )}
-          </Panel>
-          <Panel className={TAB_PANEL_CLASSES.emerald}>
-            <SectionHeading title="CS lead vs lane opponent" source="d" />
-            <p className="mb-3 text-[11px] text-lol-text/70">
-              Creep score advantage compared with your lane opponent over time.
-            </p>
-            {csLead.length < 2 ? (
-              <NoData text="Not enough lane timeline data" />
-            ) : (
-              <>
-                <LineChartExp
-                  values={csLead}
-                  format={(item) => value(item)}
-                  color="var(--theme-win)"
-                  xLabels={csLeadLabels}
-                  tooltips={csLeadTooltips}
-                  yFormat={(item) => formatChartNumber(item, true)}
-                  yTicks={chartTicks(csLead, true)}
-                  baseline={0}
-                />
-                <p className="mt-2 text-[11px] text-lol-text/50">
-                  CS lead versus the lane opponent; positive is ahead.
-                </p>
-              </>
-            )}
-          </Panel>
-          {(detail.avgNeutralMinionsTeamJungle ?? 0) !== 0 ||
-          (detail.avgNeutralMinionsEnemyJungle ?? 0) !== 0 ? (
+          {panelFilter?.("F1") !== false && (
             <Panel className={TAB_PANEL_CLASSES.emerald}>
-              <SectionHeading title="Jungle share" source="m" />
+              <SectionHeading title="Minion split" source="m" />
               <p className="mb-3 text-[11px] text-lol-text/70">
-                Allied and enemy jungle minions included in your farm totals.
+                Lane, allied jungle, and enemy jungle minion totals.
+              </p>
+              <CombatStatTable
+                rows={[
+                  [
+                    "Lane minions",
+                    detail.avgTotalMinionsKilled,
+                    detail.maxTotalMinionsKilled,
+                    detail.totalTotalMinionsKilled,
+                    undefined,
+                    detail.avgTotalMinionsKilledInWins,
+                    detail.avgTotalMinionsKilledInLosses,
+                    vsOther(detail.avgTotalMinionsKilled, "avgTotalMinionsKilledOther"),
+                  ],
+                  [
+                    "Jungle minions (all)",
+                    detail.avgNeutralMinionsKilled,
+                    detail.maxNeutralMinionsKilled,
+                    detail.totalNeutralMinionsKilled,
+                    undefined,
+                    detail.avgNeutralMinionsKilledInWins,
+                    detail.avgNeutralMinionsKilledInLosses,
+                    vsOther(detail.avgNeutralMinionsKilled, "avgNeutralMinionsKilledOther"),
+                  ],
+                ]}
+              />
+            </Panel>
+          )}
+          {panelFilter?.("F2") !== false && (
+            <Panel className={TAB_PANEL_CLASSES.emerald}>
+              <SectionHeading title="CS pace" source="d" />
+              <p className="mb-3 text-[11px] text-lol-text/70">
+                Average minion counts at key minutes throughout the game.
               </p>
               <div className="flex flex-col gap-2 text-xs">
-                <div className="flex items-center justify-between border-b border-white/[0.04] py-2 transition-colors duration-[120ms] hover:bg-white/[0.025] last:border-b-0">
-                  <span className="text-lol-text">Allied jungle</span>
-                  <span className="text-right tabular-nums text-lol-text-bright">
-                    {value(detail.avgNeutralMinionsTeamJungle)}
-                  </span>
+                <div className="grid grid-cols-[1fr_auto] gap-3 border-b border-lol-border/50 pb-2 font-semibold text-lol-text">
+                  <span>Stat</span>
+                  <span className="text-right whitespace-nowrap">Avg</span>
                 </div>
-                <div className="flex items-center justify-between border-b border-white/[0.04] py-2 transition-colors duration-[120ms] hover:bg-white/[0.025] last:border-b-0">
-                  <span className="text-lol-text">Enemy jungle</span>
-                  <span className="text-right tabular-nums text-lol-text-bright">
-                    {value(detail.avgNeutralMinionsEnemyJungle)}
-                  </span>
-                </div>
-              </div>
-            </Panel>
-          ) : null}
-          <Panel className={TAB_PANEL_CLASSES.emerald}>
-            <SectionHeading title="Farm by queue" source="m" />
-            <p className="mb-3 text-[11px] text-lol-text/70">
-              Farming-related match counts grouped by queue.
-            </p>
-            {queueStatsLoading ? (
-              <SectionLoading />
-            ) : farmQueueRows.length === 0 ? (
-              <NoData text="No queue data" />
-            ) : (
-              <div className="flex flex-col gap-2 text-xs">
-                <div className="grid grid-cols-[1fr_auto_auto_auto] gap-2 border-b border-lol-border/50 pb-2 font-semibold text-lol-text">
-                  <span>Queue</span>
-                  <span className="whitespace-nowrap">Games</span>
-                  <span className="whitespace-nowrap">CS/min</span>
-                  <span className="whitespace-nowrap">Avg CS</span>
-                </div>
-                {farmQueueRows.map((row) => (
+                {[5, 10, 15, 20, 25, 30].map((minute) => (
                   <div
-                    key={row.queueId}
-                    className="grid grid-cols-[1fr_auto_auto_auto] gap-2 border-b border-white/[0.04] py-2 text-lol-text-bright transition-colors duration-[120ms] hover:bg-white/[0.025] last:border-b-0"
+                    key={minute}
+                    className="grid grid-cols-[1fr_auto] gap-3 border-b border-white/[0.04] py-2 text-lol-text-bright transition-colors duration-[120ms] hover:bg-white/[0.025] last:border-b-0"
                   >
-                    <span>{QUEUE_LABELS[row.queueId] ?? row.queueId}</span>
-                    <span className="text-right tabular-nums">{row.games}</span>
+                    <span>CS @{minute}</span>
                     <span className="text-right tabular-nums">
-                      {formatSmallMetric(row.csPerMin)}
+                      {value(bucketAt(minute)?.avgCs)}
                     </span>
-                    <span className="text-right tabular-nums">{formatSmallMetric(row.avgCs)}</span>
                   </div>
                 ))}
               </div>
-            )}
-          </Panel>
+            </Panel>
+          )}
+          {panelFilter?.("F3") !== false && (
+            <Panel className={TAB_PANEL_CLASSES.emerald}>
+              <SectionHeading title="CS curve" source="d" />
+              <p className="mb-3 text-[11px] text-lol-text/70">
+                Average creep score progression at each available game minute.
+              </p>
+              {csValues.length < 2 ? (
+                <NoData text="Not enough timeline data" />
+              ) : (
+                <>
+                  <LineChartExp
+                    values={csValues}
+                    format={(item) => value(item)}
+                    color="var(--theme-violet)"
+                    xLabels={csLabels}
+                    tooltips={csTooltips}
+                    yFormat={(item) => formatChartNumber(item)}
+                    yTicks={chartTicks(csValues)}
+                  />
+                  <p className="mt-2 text-[11px] text-lol-text/50">
+                    Average creep score at each timeline minute.
+                  </p>
+                </>
+              )}
+            </Panel>
+          )}
+          {panelFilter?.("F4") !== false && (
+            <Panel className={TAB_PANEL_CLASSES.emerald}>
+              <SectionHeading title="CS lead vs lane opponent" source="d" />
+              <p className="mb-3 text-[11px] text-lol-text/70">
+                Creep score advantage compared with your lane opponent over time.
+              </p>
+              {csLead.length < 2 ? (
+                <NoData text="Not enough lane timeline data" />
+              ) : (
+                <>
+                  <LineChartExp
+                    values={csLead}
+                    format={(item) => value(item)}
+                    color="var(--theme-win)"
+                    xLabels={csLeadLabels}
+                    tooltips={csLeadTooltips}
+                    yFormat={(item) => formatChartNumber(item, true)}
+                    yTicks={chartTicks(csLead, true)}
+                    baseline={0}
+                  />
+                  <p className="mt-2 text-[11px] text-lol-text/50">
+                    CS lead versus the lane opponent; positive is ahead.
+                  </p>
+                </>
+              )}
+            </Panel>
+          )}
+          {(detail.avgNeutralMinionsTeamJungle ?? 0) !== 0 ||
+          (detail.avgNeutralMinionsEnemyJungle ?? 0) !== 0
+            ? panelFilter?.("F5") !== false && (
+                <Panel className={TAB_PANEL_CLASSES.emerald}>
+                  <SectionHeading title="Jungle share" source="m" />
+                  <p className="mb-3 text-[11px] text-lol-text/70">
+                    Allied and enemy jungle minions included in your farm totals.
+                  </p>
+                  <div className="flex flex-col gap-2 text-xs">
+                    <div className="flex items-center justify-between border-b border-white/[0.04] py-2 transition-colors duration-[120ms] hover:bg-white/[0.025] last:border-b-0">
+                      <span className="text-lol-text">Allied jungle</span>
+                      <span className="text-right tabular-nums text-lol-text-bright">
+                        {value(detail.avgNeutralMinionsTeamJungle)}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between border-b border-white/[0.04] py-2 transition-colors duration-[120ms] hover:bg-white/[0.025] last:border-b-0">
+                      <span className="text-lol-text">Enemy jungle</span>
+                      <span className="text-right tabular-nums text-lol-text-bright">
+                        {value(detail.avgNeutralMinionsEnemyJungle)}
+                      </span>
+                    </div>
+                  </div>
+                </Panel>
+              )
+            : null}
+          {panelFilter?.("F6") !== false && (
+            <Panel className={TAB_PANEL_CLASSES.emerald}>
+              <SectionHeading title="Farm by queue" source="m" />
+              <p className="mb-3 text-[11px] text-lol-text/70">
+                Farming-related match counts grouped by queue.
+              </p>
+              {queueStatsLoading ? (
+                <SectionLoading />
+              ) : farmQueueRows.length === 0 ? (
+                <NoData text="No queue data" />
+              ) : (
+                <div className="flex flex-col gap-2 text-xs">
+                  <div className="grid grid-cols-[1fr_auto_auto_auto] gap-2 border-b border-lol-border/50 pb-2 font-semibold text-lol-text">
+                    <span>Queue</span>
+                    <span className="whitespace-nowrap">Games</span>
+                    <span className="whitespace-nowrap">CS/min</span>
+                    <span className="whitespace-nowrap">Avg CS</span>
+                  </div>
+                  {farmQueueRows.map((row) => (
+                    <div
+                      key={row.queueId}
+                      className="grid grid-cols-[1fr_auto_auto_auto] gap-2 border-b border-white/[0.04] py-2 text-lol-text-bright transition-colors duration-[120ms] hover:bg-white/[0.025] last:border-b-0"
+                    >
+                      <span>{QUEUE_LABELS[row.queueId] ?? row.queueId}</span>
+                      <span className="text-right tabular-nums">{row.games}</span>
+                      <span className="text-right tabular-nums">
+                        {formatSmallMetric(row.csPerMin)}
+                      </span>
+                      <span className="text-right tabular-nums">
+                        {formatSmallMetric(row.avgCs)}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </Panel>
+          )}
         </div>
       )}
     </>
