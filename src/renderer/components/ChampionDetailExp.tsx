@@ -4768,7 +4768,7 @@ function EconomyTab({
           )}
           {panelFilter?.("E2") !== false && (
             <Panel className={TAB_PANEL_CLASSES.gold}>
-              <SectionHeading title="Gold" source="m" />
+              <SectionHeading title="Gold" source="m" accent="gold" />
               <p className="mb-3 text-[11px] text-lol-text/70">
                 Gold spent totals and per-game averages from match data.
               </p>
@@ -4805,7 +4805,7 @@ function EconomyTab({
               <p className="mb-3 text-[11px] text-lol-text/70">
                 Gold and experience differences against your lane opponent.
               </p>
-              <div className="grid gap-4 text-xs md:grid-cols-2">
+              <div className="flex flex-col gap-4">
                 <div className="min-w-0 overflow-x-auto">
                   <EconomyStatTable
                     rows={[
@@ -5045,6 +5045,7 @@ function EconomyTab({
                 Average gold spent per game from the available match aggregates.
               </p>
               <CombatStatTable
+                hideVsOther
                 rows={[
                   [
                     "Gold spent",
@@ -5055,17 +5056,22 @@ function EconomyTab({
                     detail.avgGoldSpentInWins,
                     detail.avgGoldSpentInLosses,
                   ],
+                ]}
+              />
+              <CombatStatTable
+                variant="compact"
+                rows={[
                   [
                     "Gold spent in wins",
                     detail.avgGoldSpentInWins,
-                    detail.maxGoldSpentInWins,
+                    undefined,
                     undefined,
                     formatCombatNumber,
                   ],
                   [
                     "Gold spent in losses",
                     detail.avgGoldSpentInLosses,
-                    detail.maxGoldSpentInLosses,
+                    undefined,
                     undefined,
                     formatCombatNumber,
                   ],
@@ -5085,19 +5091,19 @@ function EconomyTab({
                 <NoData text="No queue data" />
               ) : (
                 <div className="flex flex-col gap-2 text-xs">
-                  <div className="grid grid-cols-[1fr_auto_auto_auto_auto_auto] gap-2 border-b border-lol-border/50 pb-2 font-semibold text-lol-text">
+                  <div className="grid grid-cols-[minmax(0,1fr)_auto_auto_auto_auto_auto] gap-2 border-b border-lol-border/50 pb-2 font-semibold text-lol-text">
                     <span>Queue</span>
-                    <span className="whitespace-nowrap">Games</span>
-                    <span className="whitespace-nowrap">Gold/min</span>
-                    <span className="whitespace-nowrap">Avg gold</span>
-                    <span className="whitespace-nowrap">CS/min</span>
-                    <span className="whitespace-nowrap">KDA</span>
+                    <span className="text-right whitespace-nowrap">Games</span>
+                    <span className="text-right whitespace-nowrap">Gold/min</span>
+                    <span className="text-right whitespace-nowrap">Avg gold</span>
+                    <span className="text-right whitespace-nowrap">CS/min</span>
+                    <span className="text-right whitespace-nowrap">KDA</span>
                   </div>
                   {queueRows.map(
                     ({ queueId, games, goldPerMin, avgGold, csPerMin, kills, deaths, assists }) => (
                       <div
                         key={queueId}
-                        className="grid grid-cols-[1fr_auto_auto_auto_auto_auto] gap-2 border-b border-white/[0.04] py-2 text-lol-text-bright transition-colors duration-[120ms] hover:bg-white/[0.025] last:border-b-0"
+                        className="grid grid-cols-[minmax(0,1fr)_auto_auto_auto_auto_auto] gap-2 border-b border-white/[0.04] py-2 text-lol-text-bright transition-colors duration-[120ms] hover:bg-white/[0.025] last:border-b-0"
                       >
                         <span>{QUEUE_LABELS[queueId] ?? queueId}</span>
                         <span className="text-right tabular-nums">{games}</span>
@@ -5131,11 +5137,31 @@ function EconomyTab({
               ) : (
                 <div className="grid grid-cols-4 gap-3 text-xs">
                   {[
-                    ["Behind 1000+", timeline.winrateByGoldLead15.behind1000plus, "#E5483F"],
-                    ["Behind 0–1000", timeline.winrateByGoldLead15.behind0to1000, "#C9A45C"],
-                    ["Ahead 0–1000", timeline.winrateByGoldLead15.ahead0to1000, "#22C55E"],
-                    ["Ahead 1000+", timeline.winrateByGoldLead15.ahead1000plus, "#3B82F6"],
-                  ].map(([label, rate, color]) => (
+                    [
+                      "Behind 1000+",
+                      timeline.winrateByGoldLead15.behind1000plus,
+                      "#E5483F",
+                      timeline.goldLeadDistribution15?.behind1000plus,
+                    ],
+                    [
+                      "Behind 0–1000",
+                      timeline.winrateByGoldLead15.behind0to1000,
+                      "#C9A45C",
+                      timeline.goldLeadDistribution15?.behind0to1000,
+                    ],
+                    [
+                      "Ahead 0–1000",
+                      timeline.winrateByGoldLead15.ahead0to1000,
+                      "#22C55E",
+                      timeline.goldLeadDistribution15?.ahead0to1000,
+                    ],
+                    [
+                      "Ahead 1000+",
+                      timeline.winrateByGoldLead15.ahead1000plus,
+                      "#3B82F6",
+                      timeline.goldLeadDistribution15?.ahead1000plus,
+                    ],
+                  ].map(([label, rate, color, games]) => (
                     <div key={label} className="min-w-0">
                       <div className="mb-1 truncate text-center text-[10px] text-lol-text">
                         {label}
@@ -5145,7 +5171,8 @@ function EconomyTab({
                       ) : (
                         <div className="relative pt-4">
                           <span className="absolute inset-x-0 top-0 text-center text-[10px] font-semibold tabular-nums text-lol-text-bright">
-                            {(rate as number).toFixed(1)}%
+                            {(rate as number).toFixed(1)}% ({games} {games === 1 ? "game" : "games"}
+                            )
                           </span>
                           <div className="relative h-2 rounded-full bg-black/20">
                             <div
@@ -5485,16 +5512,16 @@ function FarmTab({
                 <NoData text="No queue data" />
               ) : (
                 <div className="flex flex-col gap-2 text-xs">
-                  <div className="grid grid-cols-[1fr_auto_auto_auto] gap-2 border-b border-lol-border/50 pb-2 font-semibold text-lol-text">
+                  <div className="grid grid-cols-[minmax(0,1fr)_auto_auto_auto] gap-2 border-b border-lol-border/50 pb-2 font-semibold text-lol-text">
                     <span>Queue</span>
-                    <span className="whitespace-nowrap">Games</span>
-                    <span className="whitespace-nowrap">CS/min</span>
-                    <span className="whitespace-nowrap">Avg CS</span>
+                    <span className="text-right whitespace-nowrap">Games</span>
+                    <span className="text-right whitespace-nowrap">CS/min</span>
+                    <span className="text-right whitespace-nowrap">Avg CS</span>
                   </div>
                   {farmQueueRows.map((row) => (
                     <div
                       key={row.queueId}
-                      className="grid grid-cols-[1fr_auto_auto_auto] gap-2 border-b border-white/[0.04] py-2 text-lol-text-bright transition-colors duration-[120ms] hover:bg-white/[0.025] last:border-b-0"
+                      className="grid grid-cols-[minmax(0,1fr)_auto_auto_auto] gap-2 border-b border-white/[0.04] py-2 text-lol-text-bright transition-colors duration-[120ms] hover:bg-white/[0.025] last:border-b-0"
                     >
                       <span>{QUEUE_LABELS[row.queueId] ?? row.queueId}</span>
                       <span className="text-right tabular-nums">{row.games}</span>
@@ -5906,14 +5933,19 @@ function CombatStatTable({
   rows,
   deltaIndicators = false,
   hideVsOther = false,
+  variant = "full",
 }: {
   rows: CombatStatTableRow[];
   deltaIndicators?: boolean;
   hideVsOther?: boolean;
+  variant?: "full" | "compact";
 }) {
-  const columnsClass = hideVsOther
-    ? "grid-cols-[minmax(0,1fr)_repeat(4,minmax(0,auto))]"
-    : "grid-cols-[minmax(0,1fr)_repeat(5,minmax(0,auto))]";
+  const columnsClass =
+    variant === "compact"
+      ? "grid-cols-[minmax(0,1fr)_minmax(0,auto)]"
+      : hideVsOther
+        ? "grid-cols-[minmax(0,1fr)_repeat(4,minmax(0,auto))]"
+        : "grid-cols-[minmax(0,1fr)_repeat(5,minmax(0,auto))]";
   return (
     <div className="flex flex-col gap-2 text-xs">
       <div
@@ -5921,10 +5953,14 @@ function CombatStatTable({
       >
         <span>Stat</span>
         <span className="text-right whitespace-nowrap">Avg / game</span>
-        <span className="text-right whitespace-nowrap">Best game</span>
-        <span className="text-right whitespace-nowrap">In wins</span>
-        <span className="text-right whitespace-nowrap">In losses</span>
-        {!hideVsOther && <span className="text-right whitespace-nowrap">vs other</span>}
+        {variant === "full" && (
+          <>
+            <span className="text-right whitespace-nowrap">Best game</span>
+            <span className="text-right whitespace-nowrap">In wins</span>
+            <span className="text-right whitespace-nowrap">In losses</span>
+            {!hideVsOther && <span className="text-right whitespace-nowrap">vs other</span>}
+          </>
+        )}
       </div>
       {rows.map(([label, avg, best, _total, formatter, inWins, inLosses, vsOther], index) => {
         const format = formatter ?? formatCombatNumber;
@@ -5966,45 +6002,49 @@ function CombatStatTable({
             >
               {format(avg)}
             </span>
-            <span
-              className="text-right tabular-nums"
-              style={damageColor ? { color: damageColor, opacity: 0.9 } : undefined}
-            >
-              {format(best)}
-            </span>
-            <span
-              className="text-right tabular-nums text-lol-text"
-              style={damageColor ? { color: damageColor, opacity: 0.9 } : undefined}
-            >
-              {renderBreakdown(inWins)}
-            </span>
-            <span
-              className="text-right tabular-nums text-lol-text"
-              style={damageColor ? { color: damageColor, opacity: 0.9 } : undefined}
-            >
-              {renderBreakdown(inLosses)}
-            </span>
-            {!hideVsOther && (
-              <span
-                className="text-right tabular-nums text-lol-text"
-                style={damageColor ? { color: damageColor, opacity: 0.9 } : undefined}
-              >
-                {deltaIndicators && vsOther != null ? (
+            {variant === "full" && (
+              <>
+                <span
+                  className="text-right tabular-nums"
+                  style={damageColor ? { color: damageColor, opacity: 0.9 } : undefined}
+                >
+                  {format(best)}
+                </span>
+                <span
+                  className="text-right tabular-nums text-lol-text"
+                  style={damageColor ? { color: damageColor, opacity: 0.9 } : undefined}
+                >
+                  {renderBreakdown(inWins)}
+                </span>
+                <span
+                  className="text-right tabular-nums text-lol-text"
+                  style={damageColor ? { color: damageColor, opacity: 0.9 } : undefined}
+                >
+                  {renderBreakdown(inLosses)}
+                </span>
+                {!hideVsOther && (
                   <span
-                    className={`inline-flex items-center gap-0.5 rounded px-1.5 py-0.5 text-xs font-semibold ${
-                      vsOther >= 0
-                        ? "bg-[rgba(34,197,94,0.12)] text-[#22C55E]"
-                        : "bg-[rgba(229,72,63,0.12)] text-[#E5483F]"
-                    }`}
+                    className="text-right tabular-nums text-lol-text"
+                    style={damageColor ? { color: damageColor, opacity: 0.9 } : undefined}
                   >
-                    <DeltaIndicator positive={vsOther >= 0} />
-                    {vsOther >= 0 ? "+" : ""}
-                    {vsOther.toFixed(1)}
+                    {deltaIndicators && vsOther != null ? (
+                      <span
+                        className={`inline-flex items-center gap-0.5 rounded px-1.5 py-0.5 text-xs font-semibold ${
+                          vsOther >= 0
+                            ? "bg-[rgba(34,197,94,0.12)] text-[#22C55E]"
+                            : "bg-[rgba(229,72,63,0.12)] text-[#E5483F]"
+                        }`}
+                      >
+                        <DeltaIndicator positive={vsOther >= 0} />
+                        {vsOther >= 0 ? "+" : ""}
+                        {vsOther.toFixed(1)}
+                      </span>
+                    ) : (
+                      renderBreakdown(vsOther)
+                    )}
                   </span>
-                ) : (
-                  renderBreakdown(vsOther)
                 )}
-              </span>
+              </>
             )}
           </div>
         );
@@ -6343,16 +6383,22 @@ function SectionHeading({
   title,
   aside,
   source,
+  accent = "crimson",
 }: {
   title: string;
   aside?: string;
   source?: keyof typeof SOURCE_LABELS;
+  accent?: "crimson" | "gold";
 }) {
   return (
     <div className="relative mb-4 flex items-baseline justify-between gap-3">
       <h2 className="flex items-center gap-2 font-display text-[16px] font-semibold text-lol-text-bright">
         <span
-          className="h-2 w-2 shrink-0 rotate-45 bg-[#E5483F] shadow-[0_0_6px_0_rgba(229,72,63,0.45)]"
+          className={`h-2 w-2 shrink-0 rotate-45 ${
+            accent === "gold"
+              ? "bg-[#C9A45C] shadow-[0_0_6px_0_rgba(201,164,92,0.45)]"
+              : "bg-[#E5483F] shadow-[0_0_6px_0_rgba(229,72,63,0.45)]"
+          }`}
           aria-hidden="true"
         />
         <span>{title}</span>
