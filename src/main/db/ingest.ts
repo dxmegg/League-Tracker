@@ -287,6 +287,7 @@ export function insertGameFull(
         gameData.gameId,
         { is_remake: isRemake, queue_id: gameData.queueId, game_version: gameVersion },
         rows,
+        gameData,
       );
       const added = insertTrackedStatsStmt.run({ game_id: gameData.gameId, puuid, ...ownerStats });
       return added.changes > 0;
@@ -296,6 +297,7 @@ export function insertGameFull(
       gameData.gameId,
       { is_remake: isRemake, queue_id: gameData.queueId, game_version: gameVersion },
       rows,
+      gameData,
     );
 
     if (!foreign) {

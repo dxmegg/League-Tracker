@@ -352,11 +352,85 @@ export interface GameDenorm {
   game_version: string | null;
 }
 
+export interface RawTeamRow {
+  team_id: number;
+  win: number | null;
+  baron_kills: number;
+  dragon_kills: number;
+  rift_herald_kills: number;
+  horde_kills: number;
+  atakhan_kills: number;
+  tower_kills: number;
+  inhibitor_kills: number;
+  first_baron: number;
+  first_dragon: number;
+  first_herald: number;
+  first_tower: number;
+  first_blood: number;
+}
+
+export interface RawBanRow {
+  team_id: number;
+  pick_turn: number;
+  champion_id: number;
+}
+
+export function teamRowsFromRaw(raw: any): { teams: RawTeamRow[]; bans: RawBanRow[] } {
+  if (!Array.isArray(raw?.teams)) return { teams: [], bans: [] };
+
+  const teams: RawTeamRow[] = [];
+  const bans: RawBanRow[] = [];
+  for (const team of raw.teams) {
+    const teamId = Number(team?.teamId);
+    if (!Number.isInteger(teamId)) continue;
+    teams.push({
+      team_id: teamId,
+      win:
+        typeof team?.win === "boolean"
+          ? team.win
+            ? 1
+            : 0
+          : team?.win === "Win"
+            ? 1
+            : team?.win === "Fail"
+              ? 0
+              : null,
+      baron_kills: Number(team?.baronKills) || 0,
+      dragon_kills: Number(team?.dragonKills) || 0,
+      rift_herald_kills: Number(team?.riftHeraldKills) || 0,
+      horde_kills: Number(team?.hordeKills) || 0,
+      atakhan_kills: Number(team?.atakhanKills) || 0,
+      tower_kills: Number(team?.towerKills) || 0,
+      inhibitor_kills: Number(team?.inhibitorKills) || 0,
+      first_baron: team?.firstBaron ? 1 : 0,
+      first_dragon: team?.firstDragon || team?.firstDargon ? 1 : 0,
+      first_herald: team?.firstHerald ? 1 : 0,
+      first_tower: team?.firstTower ? 1 : 0,
+      first_blood: team?.firstBlood ? 1 : 0,
+    });
+
+    if (!Array.isArray(team?.bans)) continue;
+    for (const ban of team.bans) {
+      const championId = Number(ban?.championId);
+      const pickTurn = Number(ban?.pickTurn);
+      if (championId === -1 || !Number.isInteger(championId) || !Number.isInteger(pickTurn)) {
+        continue;
+      }
+      bans.push({ team_id: teamId, pick_turn: pickTurn, champion_id: championId });
+    }
+  }
+  return { teams, bans };
+}
+
 let writeParticipantsStmts: {
   participant: Database.Statement;
   augment: Database.Statement;
   clearParticipants: Database.Statement;
   clearAugments: Database.Statement;
+  team: Database.Statement;
+  ban: Database.Statement;
+  clearTeams: Database.Statement;
+  clearBans: Database.Statement;
 } | null = null;
 
 export function resetParticipantStatements(): void {
@@ -421,9 +495,51 @@ export function participantStatements() {
       `),
       clearParticipants: db.prepare("DELETE FROM match_participants WHERE game_id = ?"),
       clearAugments: db.prepare("DELETE FROM match_participant_augments WHERE game_id = ?"),
+      team: db.prepare(`
+        INSERT OR REPLACE INTO match_teams (
+          game_id, team_id, win, baron_kills, dragon_kills, rift_herald_kills,
+          horde_kills, atakhan_kills, tower_kills, inhibitor_kills,
+          first_baron, first_dragon, first_herald, first_tower, first_blood
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `),
+      ban: db.prepare(`
+        INSERT OR REPLACE INTO match_bans (game_id, team_id, pick_turn, champion_id)
+        VALUES (?, ?, ?, ?)
+      `),
+      clearTeams: db.prepare("DELETE FROM match_teams WHERE game_id = ?"),
+      clearBans: db.prepare("DELETE FROM match_bans WHERE game_id = ?"),
     };
   }
   return writeParticipantsStmts;
+}
+
+export function writeTeamsAndBans(gameId: number, raw: any): void {
+  const { teams, bans } = teamRowsFromRaw(raw);
+  const stmts = participantStatements();
+  stmts.clearTeams.run(gameId);
+  stmts.clearBans.run(gameId);
+  for (const team of teams) {
+    stmts.team.run(
+      gameId,
+      team.team_id,
+      team.win,
+      team.baron_kills,
+      team.dragon_kills,
+      team.rift_herald_kills,
+      team.horde_kills,
+      team.atakhan_kills,
+      team.tower_kills,
+      team.inhibitor_kills,
+      team.first_baron,
+      team.first_dragon,
+      team.first_herald,
+      team.first_tower,
+      team.first_blood,
+    );
+  }
+  for (const ban of bans) {
+    stmts.ban.run(gameId, ban.team_id, ban.pick_turn, ban.champion_id);
+  }
 }
 
 // Replaces one game's participant rows wholesale. Callers are already inside a
@@ -433,6 +549,7 @@ export function writeParticipants(
   gameId: number,
   meta: GameDenorm,
   rows: RawParticipantRow[],
+  raw?: any,
 ): void {
   const stmts = participantStatements();
   stmts.clearParticipants.run(gameId);
@@ -542,6 +659,7 @@ export function writeParticipants(
       );
     }
   }
+  writeTeamsAndBans(gameId, raw);
 }
 
 export async function backfillParticipantCombatStats(

@@ -166,6 +166,37 @@ export function createTables() {
       PRIMARY KEY (game_id, participant_id)
     );
 
+    CREATE TABLE IF NOT EXISTS match_teams (
+      game_id INTEGER NOT NULL,
+      team_id INTEGER NOT NULL,
+      win INTEGER,
+      baron_kills INTEGER DEFAULT 0,
+      dragon_kills INTEGER DEFAULT 0,
+      rift_herald_kills INTEGER DEFAULT 0,
+      horde_kills INTEGER DEFAULT 0,
+      atakhan_kills INTEGER DEFAULT 0,
+      tower_kills INTEGER DEFAULT 0,
+      inhibitor_kills INTEGER DEFAULT 0,
+      first_baron INTEGER DEFAULT 0,
+      first_dragon INTEGER DEFAULT 0,
+      first_herald INTEGER DEFAULT 0,
+      first_tower INTEGER DEFAULT 0,
+      first_blood INTEGER DEFAULT 0,
+      PRIMARY KEY (game_id, team_id),
+      FOREIGN KEY (game_id) REFERENCES games(game_id) ON DELETE CASCADE
+    );
+    CREATE INDEX IF NOT EXISTS idx_match_teams_game ON match_teams(game_id);
+
+    CREATE TABLE IF NOT EXISTS match_bans (
+      game_id INTEGER NOT NULL,
+      team_id INTEGER NOT NULL,
+      pick_turn INTEGER NOT NULL,
+      champion_id INTEGER NOT NULL,
+      PRIMARY KEY (game_id, team_id, pick_turn),
+      FOREIGN KEY (game_id) REFERENCES games(game_id) ON DELETE CASCADE
+    );
+    CREATE INDEX IF NOT EXISTS idx_match_bans_game ON match_bans(game_id);
+
     -- One row per augment taken by anyone, against game_augments' one row per
     -- augment WE took. champion_id/win/is_remake are denormalized so the
     -- augment leaderboards are a single grouped index scan.
@@ -340,7 +371,7 @@ export function createIndexes() {
 // versioning, so it could be missing any subset of the columns v1 adds — which
 // is why each step checks for its column rather than assuming. A database that
 // createTables just built is also version 0, and lands on the same no-op path.
-export const SCHEMA_VERSION = 25;
+export const SCHEMA_VERSION = 26;
 
 export function tableColumns(table: string): Set<string> {
   const rows = db.pragma(`table_info(${table})`) as { name: string }[];
@@ -427,7 +458,8 @@ export function rebuildParticipantsFromPayloads(): NormalizeResult {
 
     const tx = db.transaction(() => {
       for (const row of rows) {
-        const participants = participantRowsFromRaw(unpackRaw(row.raw_gz));
+        const raw = unpackRaw(row.raw_gz);
+        const participants = participantRowsFromRaw(raw);
         if (participants.length === 0) {
           result.unusable++;
           continue;
@@ -440,6 +472,7 @@ export function rebuildParticipantsFromPayloads(): NormalizeResult {
             game_version: row.game_version,
           },
           participants,
+          raw,
         );
         result.normalized++;
       }
@@ -1164,6 +1197,42 @@ export function migrateToV22(): void {
   console.log("[db] v22 added timeline tables");
 }
 
+export function migrateToV26(): void {
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS match_teams (
+      game_id INTEGER NOT NULL,
+      team_id INTEGER NOT NULL,
+      win INTEGER,
+      baron_kills INTEGER DEFAULT 0,
+      dragon_kills INTEGER DEFAULT 0,
+      rift_herald_kills INTEGER DEFAULT 0,
+      horde_kills INTEGER DEFAULT 0,
+      atakhan_kills INTEGER DEFAULT 0,
+      tower_kills INTEGER DEFAULT 0,
+      inhibitor_kills INTEGER DEFAULT 0,
+      first_baron INTEGER DEFAULT 0,
+      first_dragon INTEGER DEFAULT 0,
+      first_herald INTEGER DEFAULT 0,
+      first_tower INTEGER DEFAULT 0,
+      first_blood INTEGER DEFAULT 0,
+      PRIMARY KEY (game_id, team_id),
+      FOREIGN KEY (game_id) REFERENCES games(game_id) ON DELETE CASCADE
+    );
+    CREATE INDEX IF NOT EXISTS idx_match_teams_game ON match_teams(game_id);
+
+    CREATE TABLE IF NOT EXISTS match_bans (
+      game_id INTEGER NOT NULL,
+      team_id INTEGER NOT NULL,
+      pick_turn INTEGER NOT NULL,
+      champion_id INTEGER NOT NULL,
+      PRIMARY KEY (game_id, team_id, pick_turn),
+      FOREIGN KEY (game_id) REFERENCES games(game_id) ON DELETE CASCADE
+    );
+    CREATE INDEX IF NOT EXISTS idx_match_bans_game ON match_bans(game_id);
+  `);
+  console.log("[db] v26 added team and ban tables");
+}
+
 export async function runMigrations() {
   const current = db.pragma("user_version", { simple: true }) as number;
   function timelineTablesPresent(): boolean {
@@ -1243,6 +1312,19 @@ export async function runMigrations() {
   if (current >= SCHEMA_VERSION && !economyColumnsPresent()) {
     await migrateToV24();
   }
+  const teamTablesPresent = () => {
+    const names = new Set(
+      (
+        db.prepare("SELECT name FROM sqlite_master WHERE type='table'").all() as {
+          name: string;
+        }[]
+      ).map((row) => row.name),
+    );
+    return names.has("match_teams") && names.has("match_bans");
+  };
+  if (!teamTablesPresent()) {
+    migrateToV26();
+  }
 
   if (current >= SCHEMA_VERSION) return;
 
@@ -1308,6 +1390,7 @@ export async function runMigrations() {
   if (current < 25) migrateToV25();
   if (current < 21) migrateToV21();
   if (current < 22) migrateToV22();
+  if (current < 26) migrateToV26();
 
   db.pragma(`user_version = ${SCHEMA_VERSION}`);
 }

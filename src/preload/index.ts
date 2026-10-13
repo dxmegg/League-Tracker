@@ -26,6 +26,7 @@ import type {
   ImportProgress,
   OwnedItemStats,
   OwnedItemStatsResult,
+  BackfillTeamsLocalResult,
 } from "../shared/api";
 
 // Annotated rather than inferred, so the compiler checks this object against
@@ -86,6 +87,9 @@ const api: ElectronAPI = {
 
   backfillCombatStats: (options?: { batchSize?: number }) =>
     ipcRenderer.invoke("db:backfill-combat-stats", options),
+
+  backfillTeamsLocal: (options?: { limit?: number }): Promise<BackfillTeamsLocalResult> =>
+    ipcRenderer.invoke("db:backfill-teams-local", options),
 
   onBackfillCombatStatsProgress: (
     callback: (progress: { done: number; total: number }) => void,

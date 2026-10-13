@@ -20,6 +20,7 @@ import {
   setCachedDashboard,
 } from "./db/dashboard-cache";
 import { invalidateAllCaches } from "./db/cache";
+import { backfillTeamsLocal } from "./db/backfill-teams-local";
 import type { BackfillProgress } from "./db/timeline";
 import type {
   DashboardData,
@@ -217,6 +218,13 @@ export function registerIpcHandlers() {
     const win = senderWindow(event);
     console.log("[db] backfill-combat-stats handler called:", {
       batchSize: options?.batchSize ?? 200,
+    });
+
+    ipcMain.handle("db:backfill-teams-local", (_event, options?: { limit?: number }) => {
+      console.log("[db] backfill-teams-local handler called:", options ?? {});
+      const result = backfillTeamsLocal(options);
+      console.log("[db] backfill-teams-local handler done:", result);
+      return result;
     });
     const operation = db.backfillParticipantCombatStats((done: number, total: number) => {
       if (win && !win.isDestroyed()) {

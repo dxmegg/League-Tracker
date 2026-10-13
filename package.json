@@ -16,7 +16,8 @@
     "typecheck": "tsc -p tsconfig.node.json --noEmit && tsc -p tsconfig.web.json --noEmit",
     "format": "oxfmt --ignore-path .oxfmtignore",
     "format:check": "oxfmt --check --ignore-path .oxfmtignore",
-    "gen:augments": "node scripts/generate-augment-descriptions.mjs"
+    "gen:augments": "node scripts/generate-augment-descriptions.mjs",
+    "backfill:teams-local": "tsx src/main/db/backfill-teams-local.ts"
   },
   "dependencies": {
     "@fontsource/chakra-petch": "^5.3.0",

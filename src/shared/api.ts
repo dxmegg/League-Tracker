@@ -1320,6 +1320,14 @@ export interface BackfillResult {
   cancelled: boolean;
 }
 
+export interface BackfillTeamsLocalResult {
+  total: number;
+  processed: number;
+  inserted: number;
+  skipped: number;
+  errors: number;
+}
+
 export interface ParticipantScoreBackfillProgress {
   phase: "scores";
   done: number;
@@ -1494,6 +1502,7 @@ export interface ElectronAPI {
     updated: number;
     scanned: number;
   }>;
+  backfillTeamsLocal: (options?: { limit?: number }) => Promise<BackfillTeamsLocalResult>;
   onBackfillCombatStatsProgress: (
     callback: (progress: { done: number; total: number }) => void,
   ) => () => void;

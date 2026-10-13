@@ -740,6 +740,20 @@ export function SettingsExp() {
     await stopTimelineBackfill();
   }, [stopTimelineBackfill]);
 
+  const handleTeamsBackfill = useCallback(async () => {
+    setBackfillStatus("Backfilling teams and bans from local payloads...");
+    try {
+      const result = await window.api.backfillTeamsLocal();
+      setBackfillStatus(
+        `Teams/bans backfill: ${result.inserted} inserted, ${result.skipped} skipped, ${result.errors} errors.`,
+      );
+    } catch (err) {
+      setBackfillStatus(
+        `Teams/bans backfill failed: ${err instanceof Error ? err.message : String(err)}`,
+      );
+    }
+  }, []);
+
   useEffect(() => {
     if (!timelineMessage) return;
     const timer = window.setTimeout(() => setTimelineMessage(null), 8_000);
@@ -826,6 +840,14 @@ export function SettingsExp() {
           </Button>
           <Button variant="subtle" type="button" onClick={handleRepair} disabled={repairing}>
             {repairing ? "Repairing..." : "Repair"}
+          </Button>
+          <Button
+            variant="subtle"
+            type="button"
+            onClick={handleTeamsBackfill}
+            disabled={anyRunning}
+          >
+            Backfill teams/bans (local)
           </Button>
         </div>
         {backfillStatus && <p className="text-[12.5px] text-lol-text mt-2">{backfillStatus}</p>}
