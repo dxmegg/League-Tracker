@@ -50,7 +50,7 @@ export function LineChartExp({
   const W = 600;
   const H = height;
   const P = 16;
-  const hasYAxis = yTicks != null;
+  const hasYAxis = yTicks != null && yTicks.length > 0;
   const leftPadding = paddingLeft ?? 0;
   const plotLeft = P + (hasYAxis && leftPadding === 0 ? 44 : leftPadding);
   const plotRight = W - P;

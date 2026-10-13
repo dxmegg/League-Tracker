@@ -4721,7 +4721,7 @@ function EconomyTab({
                   yTicks={chartTicks(goldValues)}
                   showStats
                 />
-                <p className="mt-2 text-[11px] text-lol-text/70">
+                <p className="mt-2 text-[11px] text-lol-text/50">
                   Average gold earned per game at each timeline minute.
                 </p>
               </div>
@@ -4762,7 +4762,7 @@ function EconomyTab({
             <p className="mb-3 text-[11px] text-lol-text/70">
               Gold and experience differences against your lane opponent.
             </p>
-            <div className="grid min-h-40 gap-4 text-xs md:grid-cols-2">
+            <div className="grid gap-4 text-xs md:grid-cols-2">
               <div className="min-w-0 overflow-x-auto">
                 <EconomyStatTable
                   rows={[
@@ -4791,7 +4791,7 @@ function EconomyTab({
                 </div>
                 <svg
                   aria-label="Gold difference at five, ten, fifteen, and twenty minutes"
-                  className="h-full min-h-32 w-full"
+                  className="h-32 w-full"
                   role="img"
                   viewBox="0 0 160 120"
                   preserveAspectRatio="none"
@@ -4847,7 +4847,7 @@ function EconomyTab({
             <p className="mb-3 text-[11px] text-lol-text/70">
               Final level and average level progression through the game.
             </p>
-            <div className="grid min-h-40 gap-4 text-xs md:grid-cols-2">
+            <div className="grid gap-4 text-xs md:grid-cols-2">
               <div className="min-w-0 overflow-x-auto">
                 <EconomyStatTable
                   rows={[
@@ -4872,7 +4872,7 @@ function EconomyTab({
                 </div>
                 <svg
                   aria-label="Average level progression from five to twenty minutes"
-                  className="h-full min-h-32 w-full"
+                  className="h-32 w-full"
                   role="img"
                   viewBox="0 0 160 80"
                   preserveAspectRatio="none"
@@ -4943,7 +4943,7 @@ function EconomyTab({
                   baseline={0}
                   showStats
                 />
-                <p className="mt-2 text-[11px] text-lol-text/70">
+                <p className="mt-2 text-[11px] text-lol-text/50">
                   Gold lead versus the lane opponent; positive is ahead.
                 </p>
               </div>
@@ -4969,7 +4969,7 @@ function EconomyTab({
                   baseline={0}
                   showStats
                 />
-                <p className="mt-2 text-[11px] text-lol-text/70">
+                <p className="mt-2 text-[11px] text-lol-text/50">
                   XP lead versus the lane opponent; positive is ahead.
                 </p>
               </div>
@@ -5362,7 +5362,7 @@ function FarmTab({
                   yFormat={(item) => formatChartNumber(item)}
                   yTicks={chartTicks(csValues)}
                 />
-                <p className="mt-2 text-[11px] text-lol-text/70">
+                <p className="mt-2 text-[11px] text-lol-text/50">
                   Average creep score at each timeline minute.
                 </p>
               </>
@@ -5387,7 +5387,7 @@ function FarmTab({
                   yTicks={chartTicks(csLead, true)}
                   baseline={0}
                 />
-                <p className="mt-2 text-[11px] text-lol-text/70">
+                <p className="mt-2 text-[11px] text-lol-text/50">
                   CS lead versus the lane opponent; positive is ahead.
                 </p>
               </>
