@@ -225,7 +225,7 @@ export default function Friends({
         </div>
       </div>
 
-      <div className="rounded-lg border border-lol-crimson/40 bg-[linear-gradient(145deg,#0c0e11_0%,#090b0d_48%,#060809_100%)] shadow-[0_0_3px_rgba(150,30,30,0.55),0_0_10px_rgba(90,15,15,0.35),0_0_20px_rgba(60,10,10,0.20)] ring-1 ring-inset ring-white/[0.03] overflow-hidden">
+      <div className="rounded-lg border border-lol-crimson/40 border-t-[3px] border-t-lol-crimson bg-[radial-gradient(circle_at_top_right,rgba(165,15,21,0.08),transparent_42%),linear-gradient(145deg,#0c0e11_0%,#090b0d_48%,#060809_100%)] shadow-[0_0_3px_rgba(150,30,30,0.55),0_0_10px_rgba(90,15,15,0.35),0_0_20px_rgba(60,10,10,0.20)] ring-1 ring-inset ring-white/[0.03] overflow-hidden">
         <table className="w-full">
           <thead className="border-b border-lol-border/40">
             <tr>
@@ -263,7 +263,9 @@ export default function Friends({
                         : `/friends/${encodeURIComponent(t.key)}`,
                     )
                   }
-                  className="cv-row group border-b border-white/[0.04] transition-colors duration-[120ms] hover:bg-white/[0.03] cursor-pointer"
+                  className={`cv-row group border-b border-white/[0.04] border-l-2 ${
+                    t.wins / t.games >= 0.5 ? "border-l-lol-win" : "border-l-lol-loss"
+                  } transition-colors duration-[120ms] hover:border-l-[3px] hover:bg-white/[0.03] cursor-pointer`}
                 >
                   <td className="px-3 py-0.5 text-right text-xs text-lol-text tabular-nums">
                     {i + 1}
