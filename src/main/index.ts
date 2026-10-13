@@ -32,6 +32,7 @@ import { syncAutoStart, HIDDEN_FLAG } from "./autostart";
 import { PROXY_BASE_URL } from "../shared/proxy";
 import { registerDragonAssetProtocol, registerDragonAssetScheme } from "./dragon-assets";
 import { invalidateDashboardCache } from "./db/dashboard-cache";
+import { seedDefaultRiotAccounts } from "./riot-api";
 
 let mainWindow: BrowserWindow | null = null;
 let tray: Tray | null = null;
@@ -269,6 +270,7 @@ app.whenReady().then(async () => {
 
   // Registered once, outside createWindow: ipcMain.handle throws if the same
   // channel is claimed twice, which a second createWindow would have done.
+  seedDefaultRiotAccounts();
   registerIpcHandlers();
   registerDragonAssetProtocol();
 

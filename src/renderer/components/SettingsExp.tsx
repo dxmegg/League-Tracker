@@ -1,11 +1,23 @@
-import { useState, useEffect, useCallback, type ButtonHTMLAttributes, type ReactNode } from "react";
+import {
+  useState,
+  useEffect,
+  useCallback,
+  type ButtonHTMLAttributes,
+  type FormEvent,
+  type ReactNode,
+} from "react";
 import { useBackfill } from "../hooks/useBackfill";
 import { useTimelineBackfill } from "../hooks/useTimelineBackfill";
 import { queueLabel } from "../components/QueueSelect";
 import { FilterSelect } from "../components/FilterSelect";
 import { setRemembering } from "../lib/viewState";
 import type { BackupInfo } from "../lib/types";
-import type { ExportProgress, ImportProgress } from "../../shared/api";
+import {
+  RIOT_ACCOUNT_PLATFORMS,
+  type ExportProgress,
+  type ImportProgress,
+  type RiotAccountConfig,
+} from "../../shared/api";
 import { Panel } from "./Panel";
 
 const BACKUP_REASONS: Record<string, string> = {
@@ -14,6 +26,25 @@ const BACKUP_REASONS: Record<string, string> = {
   "pre-import": "Before import",
   "pre-repair": "Before repair",
   "pre-restore": "Before restore",
+};
+
+const PLATFORM_LABELS: Record<string, string> = {
+  euw1: "EUW",
+  eun1: "EUNE",
+  na1: "NA",
+  kr: "KR",
+  br1: "BR",
+  jp1: "JP",
+  tr1: "TR",
+  ru: "RU",
+  la1: "LAN",
+  la2: "LAS",
+  oc1: "OCE",
+  ph2: "PH",
+  sg2: "SG",
+  th2: "TH",
+  tw2: "TW",
+  vn2: "VN",
 };
 
 function formatSize(bytes: number): string {
@@ -348,6 +379,11 @@ export function SettingsExp() {
   const [backfillStatus, setBackfillStatus] = useState<string | null>(null);
   const [riotSyncing, setRiotSyncing] = useState(false);
   const [riotSyncStatus, setRiotSyncStatus] = useState<string | null>(null);
+  const [riotAccounts, setRiotAccounts] = useState<RiotAccountConfig[]>([]);
+  const [riotGameName, setRiotGameName] = useState("");
+  const [riotTagLine, setRiotTagLine] = useState("");
+  const [riotPlatform, setRiotPlatform] = useState<string>("euw1");
+  const [riotAccountStatus, setRiotAccountStatus] = useState<string | null>(null);
   const [resolvedPlatform, setResolvedPlatform] = useState<{
     platform: string;
     route: string;
@@ -418,6 +454,17 @@ export function SettingsExp() {
         setResolvedPlatform(null);
       });
   }, []);
+
+  const refreshRiotAccounts = useCallback(() => {
+    window.api
+      .listRiotAccounts()
+      .then(setRiotAccounts)
+      .catch((err: unknown) => {
+        setRiotAccountStatus(`Error: ${err instanceof Error ? err.message : String(err)}`);
+      });
+  }, []);
+
+  useEffect(refreshRiotAccounts, [refreshRiotAccounts]);
 
   useEffect(() => {
     const offExport = window.api.onExportProgress((progress) => {
@@ -490,6 +537,38 @@ export function SettingsExp() {
       setRiotSyncStatus(`Error: ${err instanceof Error ? err.message : String(err)}`);
     } finally {
       setRiotSyncing(false);
+    }
+  }, []);
+
+  const handleAddRiotAccount = useCallback(
+    async (event: FormEvent<HTMLFormElement>) => {
+      event.preventDefault();
+      setRiotAccountStatus(null);
+      try {
+        const accounts = await window.api.addRiotAccount({
+          gameName: riotGameName,
+          tagLine: riotTagLine,
+          platform: riotPlatform,
+        });
+        setRiotAccounts(accounts);
+        setRiotGameName("");
+        setRiotTagLine("");
+        setRiotAccountStatus("Riot account added.");
+      } catch (err: unknown) {
+        setRiotAccountStatus(`Error: ${err instanceof Error ? err.message : String(err)}`);
+      }
+    },
+    [riotGameName, riotPlatform, riotTagLine],
+  );
+
+  const handleRemoveRiotAccount = useCallback(async (id: string) => {
+    setRiotAccountStatus(null);
+    try {
+      const accounts = await window.api.removeRiotAccount(id);
+      setRiotAccounts(accounts);
+      setRiotAccountStatus("Riot account removed.");
+    } catch (err: unknown) {
+      setRiotAccountStatus(`Error: ${err instanceof Error ? err.message : String(err)}`);
     }
   }, []);
 
@@ -876,6 +955,85 @@ export function SettingsExp() {
           />
         </div>
       </Section>
+      <Section
+        title="Riot Accounts"
+        className="[&>h2]:before:bg-lol-violet border-t-lol-violet before:bg-[radial-gradient(circle_at_top_right,rgba(139,92,246,0.08),transparent_70%)]"
+      >
+        <p className="text-[12.5px] text-lol-text">
+          Accounts included when Match-V5 sync searches for recent League matches.
+        </p>
+        {riotAccounts.length === 0 ? (
+          <p className="text-[12.5px] text-lol-text">No Riot accounts configured.</p>
+        ) : (
+          <div className="overflow-hidden rounded-lg border border-lol-border">
+            {riotAccounts.map((account) => (
+              <div
+                key={account.id}
+                className="flex items-center justify-between gap-4 border-b border-lol-border/40 px-3 py-2 last:border-b-0"
+              >
+                <div className="min-w-0">
+                  <p className="truncate text-[13px] text-lol-text-bright">
+                    {account.gameName}#{account.tagLine}
+                  </p>
+                  <p className="text-[11px] uppercase tracking-wide text-lol-text">
+                    {PLATFORM_LABELS[account.platform] ?? account.platform}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  aria-label={`Remove ${account.gameName}#${account.tagLine}`}
+                  className="shrink-0 rounded border border-lol-loss/60 px-2 py-1 text-sm text-lol-loss hover:border-lol-loss"
+                  onClick={() => void handleRemoveRiotAccount(account.id)}
+                >
+                  X
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+        <form
+          className="grid gap-3 md:grid-cols-[1fr_1fr_10rem_auto]"
+          onSubmit={handleAddRiotAccount}
+        >
+          <label className="flex flex-col gap-1 text-[11px] text-lol-text">
+            Game Name
+            <input
+              value={riotGameName}
+              onChange={(event) => setRiotGameName(event.target.value)}
+              className="rounded border border-lol-border bg-lol-card px-3 py-2 text-[13px] text-lol-text-bright outline-none focus:border-lol-crimson"
+              required
+            />
+          </label>
+          <label className="flex flex-col gap-1 text-[11px] text-lol-text">
+            Tag Line
+            <input
+              value={riotTagLine}
+              onChange={(event) => setRiotTagLine(event.target.value)}
+              className="rounded border border-lol-border bg-lol-card px-3 py-2 text-[13px] text-lol-text-bright outline-none focus:border-lol-crimson"
+              required
+            />
+          </label>
+          <label className="flex flex-col gap-1 text-[11px] text-lol-text">
+            Platform
+            <select
+              value={riotPlatform}
+              onChange={(event) => setRiotPlatform(event.target.value)}
+              className="rounded border border-lol-border bg-lol-card px-3 py-2 text-[13px] text-lol-text-bright outline-none focus:border-lol-crimson"
+            >
+              {RIOT_ACCOUNT_PLATFORMS.map((platform) => (
+                <option key={platform} value={platform}>
+                  {PLATFORM_LABELS[platform] ?? platform}
+                </option>
+              ))}
+            </select>
+          </label>
+          <Button type="submit" className="self-end">
+            Add account
+          </Button>
+        </form>
+        {riotAccountStatus && <p className="text-xs text-lol-text">{riotAccountStatus}</p>}
+      </Section>
+
       <Section
         title="League history sync"
         className="[&>h2]:before:bg-lol-gold border-t-lol-gold before:bg-[radial-gradient(circle_at_top_right,rgba(234,179,8,0.08),transparent_70%)]"

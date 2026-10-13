@@ -1,6 +1,7 @@
 import * as db from "./db";
 import fs from "fs";
 import path from "path";
+import crypto from "crypto";
 import { getCurrentSummoner } from "./lcu";
 import { getDataDir } from "./paths";
 import type {
@@ -489,6 +490,47 @@ export function saveRiotAccount(account: RiotAccountConfig): void {
 
 export function removeRiotAccount(id: string): void {
   writeAccounts(readAccounts().filter((account) => account.id !== id));
+}
+
+export function seedDefaultRiotAccounts(): void {
+  console.log("[riot] seedDefaultRiotAccounts called:", {});
+  const stored = readAccounts();
+  const summoners = db
+    .getDatabase()
+    .prepare(
+      "SELECT game_name, tag_line, platform FROM summoner WHERE game_name IS NOT NULL AND tag_line IS NOT NULL AND game_name != '' AND tag_line != ''",
+    )
+    .all() as Array<{
+    game_name: string;
+    tag_line: string;
+    platform: string | null;
+  }>;
+  let seeded = 0;
+  for (const summoner of summoners) {
+    const gameName = summoner.game_name.trim();
+    const tagLine = summoner.tag_line.trim();
+    if (
+      !gameName ||
+      !tagLine ||
+      stored.some(
+        (account) =>
+          account.gameName.trim().toLocaleLowerCase() === gameName.toLocaleLowerCase() &&
+          account.tagLine.trim().toLocaleLowerCase() === tagLine.toLocaleLowerCase(),
+      )
+    ) {
+      continue;
+    }
+    const account = {
+      id: crypto.randomUUID(),
+      gameName,
+      tagLine,
+      platform: summoner.platform?.trim().toLowerCase() || "euw1",
+    };
+    saveRiotAccount(account);
+    stored.push(account);
+    seeded += 1;
+  }
+  console.log(`[riot] seeded ${seeded} accounts from summoner table`);
 }
 
 function sleep(ms: number): Promise<void> {

@@ -18,6 +18,7 @@ import type {
   RiotSyncResult,
   RiotSyncOptions,
   RiotAccountConfig,
+  RiotAccountInput,
   ResolvedPlatform,
   RestoreOlderGamesResult,
   HomeAccountFilter,
@@ -322,9 +323,11 @@ const api: ElectronAPI = {
     ipcRenderer.invoke("opgg:summary", region, summonerId),
   getOpggRecentGames: (region: string, summonerId: string, limit: number) =>
     ipcRenderer.invoke("opgg:games", region, summonerId, limit),
-  getRiotAccounts: (): Promise<RiotAccountConfig[]> => ipcRenderer.invoke("riot:accounts"),
-  saveRiotAccount: (account: RiotAccountConfig) => ipcRenderer.invoke("riot:save-account", account),
-  removeRiotAccount: (id: string) => ipcRenderer.invoke("riot:remove-account", id),
+  listRiotAccounts: (): Promise<RiotAccountConfig[]> => ipcRenderer.invoke("riot:list-accounts"),
+  addRiotAccount: (account: RiotAccountInput): Promise<RiotAccountConfig[]> =>
+    ipcRenderer.invoke("riot:add-account", account),
+  removeRiotAccount: (id: string): Promise<RiotAccountConfig[]> =>
+    ipcRenderer.invoke("riot:remove-account", { id }),
 
   backfillHistory: (forceFull = false) => ipcRenderer.invoke("lcu:backfill", forceFull),
   syncAccountHistory: (puuid: string) => ipcRenderer.invoke("backfill:sync-account", puuid),

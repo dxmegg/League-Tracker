@@ -1390,6 +1390,31 @@ export interface RiotAccountConfig {
   platform: string;
 }
 
+export interface RiotAccountInput {
+  gameName: string;
+  tagLine: string;
+  platform: string;
+}
+
+export const RIOT_ACCOUNT_PLATFORMS = [
+  "euw1",
+  "eun1",
+  "na1",
+  "kr",
+  "br1",
+  "jp1",
+  "tr1",
+  "ru",
+  "la1",
+  "la2",
+  "oc1",
+  "ph2",
+  "sg2",
+  "th2",
+  "tw2",
+  "vn2",
+] as const;
+
 export interface ProfileRankedEntry {
   tier: string;
   rank: string;
@@ -1806,9 +1831,9 @@ export interface ElectronAPI {
   ) => Promise<unknown | { error: string }>;
   refreshGames: () => Promise<{ newGames: number; totalGames: number } | { error: string }>;
   syncRiotHistory: (options?: RiotSyncOptions) => Promise<RiotSyncResult | { error: string }>;
-  getRiotAccounts: () => Promise<RiotAccountConfig[]>;
-  saveRiotAccount: (account: RiotAccountConfig) => Promise<void>;
-  removeRiotAccount: (id: string) => Promise<void>;
+  listRiotAccounts: () => Promise<RiotAccountConfig[]>;
+  addRiotAccount: (account: RiotAccountInput) => Promise<RiotAccountConfig[]>;
+  removeRiotAccount: (id: string) => Promise<RiotAccountConfig[]>;
   backfillHistory: (forceFull?: boolean) => Promise<BackfillResult | { error: string }>;
   syncAccountHistory: (puuid: string) => Promise<{ ok: boolean; error?: string }>;
   cancelBackfill: () => Promise<void>;
