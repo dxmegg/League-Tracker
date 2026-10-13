@@ -21,6 +21,7 @@ import {
 } from "./db/dashboard-cache";
 import { invalidateAllCaches } from "./db/cache";
 import { backfillTeamsLocal } from "./db/backfill-teams-local";
+import { backfillTimelineLocal } from "./db/backfill-timeline-local";
 import type { BackfillProgress } from "./db/timeline";
 import type {
   DashboardData,
@@ -241,6 +242,13 @@ export function registerIpcHandlers() {
     return result;
   });
 
+  ipcMain.handle("db:backfill-timeline-local", (_event, options?: { limit?: number }) => {
+    console.log("[db] backfill-timeline-local handler called:", options ?? {});
+    const result = backfillTimelineLocal(options);
+    console.log("[db] backfill-timeline-local handler done:", result);
+    return result;
+  });
+
   ipcMain.handle("db:toggle-favorite", (_event, gameId: number) => {
     return db.toggleFavorite(gameId);
   });
@@ -266,15 +274,12 @@ export function registerIpcHandlers() {
     },
   );
 
-  ipcMain.handle(
-    "db:get-champion-team-objectives",
-    (_event, puuid: string, championId: number) => {
-      if (typeof puuid !== "string" || !Number.isInteger(championId) || championId <= 0) {
-        throw new TypeError("puuid and championId are required");
-      }
-      return db.getChampionTeamObjectives(puuid, championId);
-    },
-  );
+  ipcMain.handle("db:get-champion-team-objectives", (_event, puuid: string, championId: number) => {
+    if (typeof puuid !== "string" || !Number.isInteger(championId) || championId <= 0) {
+      throw new TypeError("puuid and championId are required");
+    }
+    return db.getChampionTeamObjectives(puuid, championId);
+  });
 
   ipcMain.handle(
     "db:champion-stat-baseline",

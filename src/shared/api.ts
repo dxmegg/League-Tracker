@@ -1348,6 +1348,14 @@ export interface BackfillTeamsLocalResult {
   errors: number;
 }
 
+export interface BackfillTimelineLocalResult {
+  total: number;
+  processed: number;
+  updated: number;
+  skipped: number;
+  errors: number;
+}
+
 export interface ParticipantScoreBackfillProgress {
   phase: "scores";
   done: number;
@@ -1523,6 +1531,7 @@ export interface ElectronAPI {
     scanned: number;
   }>;
   backfillTeamsLocal: (options?: { limit?: number }) => Promise<BackfillTeamsLocalResult>;
+  backfillTimelineLocal: (options?: { limit?: number }) => Promise<BackfillTimelineLocalResult>;
   onBackfillCombatStatsProgress: (
     callback: (progress: { done: number; total: number }) => void,
   ) => () => void;
@@ -1546,10 +1555,7 @@ export interface ElectronAPI {
     queue?: number,
     account?: string,
   ) => Promise<ChampionDetailStats>;
-  getChampionTeamObjectives: (
-    puuid: string,
-    championId: number,
-  ) => Promise<ChampionTeamObjectives>;
+  getChampionTeamObjectives: (puuid: string, championId: number) => Promise<ChampionTeamObjectives>;
   getChampionStatBaseline: (
     championId: number,
     patch?: string,

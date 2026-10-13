@@ -670,9 +670,10 @@ export function insertTimeline(gameId: number, parsed: ParsedTimeline, rawPayloa
     const insertFrame = db.prepare(`
       INSERT INTO match_timeline_frames (
         game_id, frame_index, timestamp_ms, participant_id, puuid, level, xp, gold, cs,
-        position_x, position_y, attack_damage, ability_power, armor, magic_resist,
-        attack_speed, ability_haste, move_speed, max_health, current_health
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        position_x, position_y, jungle_minions_killed, time_enemy_spent_controlled,
+        attack_damage, ability_power, armor, magic_resist, attack_speed, ability_haste,
+        move_speed, max_health, current_health
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
     for (const frame of parsed.frames) {
       insertFrame.run(
@@ -687,6 +688,8 @@ export function insertTimeline(gameId: number, parsed: ParsedTimeline, rawPayloa
         frame.cs,
         frame.position_x,
         frame.position_y,
+        frame.jungle_minions_killed,
+        frame.time_enemy_spent_controlled,
         frame.attack_damage,
         frame.ability_power,
         frame.armor,
@@ -703,8 +706,9 @@ export function insertTimeline(gameId: number, parsed: ParsedTimeline, rawPayloa
       INSERT INTO match_timeline_events (
         game_id, event_index, timestamp_ms, event_type, participant_id, killer_id,
         victim_id, team_id, item_id, skill_slot, level_up_type, ward_type,
-        building_type, monster_type, monster_subtype, raw_json
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        building_type, monster_type, monster_subtype, bounty_gold, shutdown_bounty,
+        kill_streak_length, assisting_participant_ids, position_x, position_y, raw_json
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
     for (const event of parsed.events) {
       insertEvent.run(
@@ -723,6 +727,12 @@ export function insertTimeline(gameId: number, parsed: ParsedTimeline, rawPayloa
         event.building_type,
         event.monster_type,
         event.monster_subtype,
+        event.bounty_gold,
+        event.shutdown_bounty,
+        event.kill_streak_length,
+        event.assisting_participant_ids,
+        event.position_x,
+        event.position_y,
         event.raw_json,
       );
     }

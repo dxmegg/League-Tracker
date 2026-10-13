@@ -371,7 +371,7 @@ export function createIndexes() {
 // versioning, so it could be missing any subset of the columns v1 adds — which
 // is why each step checks for its column rather than assuming. A database that
 // createTables just built is also version 0, and lands on the same no-op path.
-export const SCHEMA_VERSION = 26;
+export const SCHEMA_VERSION = 27;
 
 export function tableColumns(table: string): Set<string> {
   const rows = db.pragma(`table_info(${table})`) as { name: string }[];
@@ -1233,6 +1233,35 @@ export function migrateToV26(): void {
   console.log("[db] v26 added team and ban tables");
 }
 
+export function migrateToV27(): void {
+  const frameColumns = tableColumns("match_timeline_frames");
+  const eventColumns = tableColumns("match_timeline_events");
+  const frameAdditions = [
+    ["jungle_minions_killed", "INTEGER"],
+    ["time_enemy_spent_controlled", "INTEGER"],
+  ] as const;
+  const eventAdditions = [
+    ["bounty_gold", "INTEGER"],
+    ["shutdown_bounty", "INTEGER"],
+    ["kill_streak_length", "INTEGER"],
+    ["assisting_participant_ids", "TEXT"],
+    ["position_x", "INTEGER"],
+    ["position_y", "INTEGER"],
+  ] as const;
+
+  for (const [name, definition] of frameAdditions) {
+    if (!frameColumns.has(name)) {
+      db.exec(`ALTER TABLE match_timeline_frames ADD COLUMN ${name} ${definition}`);
+    }
+  }
+  for (const [name, definition] of eventAdditions) {
+    if (!eventColumns.has(name)) {
+      db.exec(`ALTER TABLE match_timeline_events ADD COLUMN ${name} ${definition}`);
+    }
+  }
+  console.log("[db] v27 added timeline fields");
+}
+
 export async function runMigrations() {
   const current = db.pragma("user_version", { simple: true }) as number;
   function timelineTablesPresent(): boolean {
@@ -1298,6 +1327,23 @@ export async function runMigrations() {
     ].every((column) => columns.has(column));
   }
 
+  function timelineColumnsPresent(): boolean {
+    const requiredColumns: Record<string, string[]> = {
+      match_timeline_frames: ["jungle_minions_killed", "time_enemy_spent_controlled"],
+      match_timeline_events: [
+        "bounty_gold",
+        "shutdown_bounty",
+        "kill_streak_length",
+        "assisting_participant_ids",
+        "position_x",
+        "position_y",
+      ],
+    };
+    return Object.entries(requiredColumns).every(([table, columns]) =>
+      columns.every((column) => tableColumns(table).has(column)),
+    );
+  }
+
   // Safety net for databases that were stamped to SCHEMA_VERSION by the
   // version-0 empty-DB shortcut before migrateToV22 existed. migrateToV22 is
   // idempotent (CREATE TABLE IF NOT EXISTS), so running it unconditionally
@@ -1311,6 +1357,9 @@ export async function runMigrations() {
   }
   if (current >= SCHEMA_VERSION && !economyColumnsPresent()) {
     await migrateToV24();
+  }
+  if (current >= SCHEMA_VERSION && !timelineColumnsPresent()) {
+    migrateToV27();
   }
   const teamTablesPresent = () => {
     const names = new Set(
@@ -1358,6 +1407,7 @@ export async function runMigrations() {
     gamesCount.n === 0 &&
     currentSchemaReady &&
     timelineTablesPresent() &&
+    timelineColumnsPresent() &&
     combatColumnsPresent() &&
     economyColumnsPresent()
   ) {
@@ -1391,6 +1441,7 @@ export async function runMigrations() {
   if (current < 21) migrateToV21();
   if (current < 22) migrateToV22();
   if (current < 26) migrateToV26();
+  if (current < 27) migrateToV27();
 
   db.pragma(`user_version = ${SCHEMA_VERSION}`);
 }

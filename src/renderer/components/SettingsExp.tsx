@@ -754,6 +754,20 @@ export function SettingsExp() {
     }
   }, []);
 
+  const handleTimelineFieldsBackfill = useCallback(async () => {
+    setBackfillStatus("Backfilling timeline fields from local payloads...");
+    try {
+      const result = await window.api.backfillTimelineLocal();
+      setBackfillStatus(
+        `Timeline fields backfill: ${result.updated} updated, ${result.skipped} skipped, ${result.errors} errors.`,
+      );
+    } catch (err) {
+      setBackfillStatus(
+        `Timeline fields backfill failed: ${err instanceof Error ? err.message : String(err)}`,
+      );
+    }
+  }, []);
+
   useEffect(() => {
     if (!timelineMessage) return;
     const timer = window.setTimeout(() => setTimelineMessage(null), 8_000);
@@ -848,6 +862,14 @@ export function SettingsExp() {
             disabled={anyRunning}
           >
             Backfill teams/bans (local)
+          </Button>
+          <Button
+            variant="subtle"
+            type="button"
+            onClick={handleTimelineFieldsBackfill}
+            disabled={anyRunning}
+          >
+            Backfill timeline fields (local)
           </Button>
         </div>
         {backfillStatus && <p className="text-[12.5px] text-lol-text mt-2">{backfillStatus}</p>}

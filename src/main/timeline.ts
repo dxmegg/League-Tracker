@@ -10,6 +10,8 @@ export type ParsedTimeline = {
     cs: number | null;
     position_x: number | null;
     position_y: number | null;
+    jungle_minions_killed: number | null;
+    time_enemy_spent_controlled: number | null;
     attack_damage: number | null;
     ability_power: number | null;
     armor: number | null;
@@ -35,6 +37,12 @@ export type ParsedTimeline = {
     building_type: string | null;
     monster_type: string | null;
     monster_subtype: string | null;
+    bounty_gold: number | null;
+    shutdown_bounty: number | null;
+    kill_streak_length: number | null;
+    assisting_participant_ids: string | null;
+    position_x: number | null;
+    position_y: number | null;
     raw_json: string;
   }>;
 };
@@ -58,6 +66,8 @@ export function parseTimeline(raw: any): ParsedTimeline {
           : 0),
       position_x: participantFrame?.position?.x ?? null,
       position_y: participantFrame?.position?.y ?? null,
+      jungle_minions_killed: participantFrame?.jungleMinionsKilled ?? null,
+      time_enemy_spent_controlled: participantFrame?.timeEnemySpentControlled ?? null,
       // Riot timeline nests combat stats under championStats; currentHealth is not exposed at all in the timeline API.
       attack_damage: participantFrame?.championStats?.attackDamage ?? null,
       ability_power: participantFrame?.championStats?.abilityPower ?? null,
@@ -94,6 +104,14 @@ export function parseTimeline(raw: any): ParsedTimeline {
     building_type: event?.buildingType ?? null,
     monster_type: event?.monsterType ?? null,
     monster_subtype: event?.monsterSubType ?? null,
+    bounty_gold: event?.bounty ?? null,
+    shutdown_bounty: event?.shutdownBounty ?? null,
+    kill_streak_length: event?.killStreakLength ?? null,
+    assisting_participant_ids: Array.isArray(event?.assistingParticipantIds)
+      ? JSON.stringify(event.assistingParticipantIds)
+      : null,
+    position_x: event?.position?.x ?? null,
+    position_y: event?.position?.y ?? null,
     raw_json: JSON.stringify(event),
   }));
 

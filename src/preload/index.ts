@@ -27,6 +27,7 @@ import type {
   OwnedItemStats,
   OwnedItemStatsResult,
   BackfillTeamsLocalResult,
+  BackfillTimelineLocalResult,
   ChampionTeamObjectives,
 } from "../shared/api";
 
@@ -92,6 +93,9 @@ const api: ElectronAPI = {
   backfillTeamsLocal: (options?: { limit?: number }): Promise<BackfillTeamsLocalResult> =>
     ipcRenderer.invoke("db:backfill-teams-local", options),
 
+  backfillTimelineLocal: (options?: { limit?: number }): Promise<BackfillTimelineLocalResult> =>
+    ipcRenderer.invoke("db:backfill-timeline-local", options),
+
   onBackfillCombatStatsProgress: (
     callback: (progress: { done: number; total: number }) => void,
   ) => {
@@ -155,10 +159,7 @@ const api: ElectronAPI = {
   ): Promise<ChampionDetailStats> =>
     ipcRenderer.invoke("db:champion-detail-stats", championId, patch, queue, account),
 
-  getChampionTeamObjectives: (
-    puuid: string,
-    championId: number,
-  ): Promise<ChampionTeamObjectives> =>
+  getChampionTeamObjectives: (puuid: string, championId: number): Promise<ChampionTeamObjectives> =>
     ipcRenderer.invoke("db:get-champion-team-objectives", puuid, championId),
 
   getChampionStatBaseline: (
