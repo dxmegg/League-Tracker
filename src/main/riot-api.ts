@@ -179,7 +179,7 @@ export async function getRecentRiotMatches(
   const alreadyHave = ttlOk ? cached!.matches.length : 0;
   const ids = await riotFetch<string[]>(
     `https://${route}.api.riotgames.com/lol/match/v5/matches/by-puuid/${encodeURIComponent(puuid)}/ids?start=0&count=${needed}`,
-    platform,
+    route,
   );
   const haveIds = new Set(ttlOk ? cached!.matches.map((match) => match.gameId) : []);
   const knownLocally = db.getKnownGameIdsForPuuid(puuid);
@@ -203,7 +203,7 @@ export async function getRecentRiotMatches(
 
         const payload = await riotFetch<RecentMatchResponse>(
           `https://${route}.api.riotgames.com/lol/match/v5/matches/${encodeURIComponent(rawId)}`,
-          platform,
+          route,
         );
         cachePayload(gameId, payload);
         const info = payload.info;
@@ -315,7 +315,7 @@ export async function importRecentRiotMatches(
 
   const ids = await riotFetch<string[]>(
     `https://${route}.api.riotgames.com/lol/match/v5/matches/by-puuid/${encodeURIComponent(puuid)}/ids?start=0&count=${safeCount}`,
-    platform,
+    route,
   );
   console.log("[import] Riot returned", ids.length, "ids, first 3:", ids.slice(0, 3));
 
@@ -338,7 +338,7 @@ export async function importRecentRiotMatches(
         try {
           payload = await riotFetch<any>(
             `https://${route}.api.riotgames.com/lol/match/v5/matches/${encodeURIComponent(rawId)}`,
-            platform,
+            route,
           );
           cachePayload(gameId, payload);
           console.log(`[import] worker fetched ${gameId}`);
@@ -522,7 +522,8 @@ async function riotFetch<T>(
 ): Promise<T> {
   const original = new URL(url);
   const originalQuery = original.search.slice(1);
-  // The Worker speaks platform ids (na1, euw1); the regional route lives only in the URL hostname, because Riot itself needs it there.
+  // The Worker expects the regional route (americas, europe, asia, sea) in the
+  // query parameter, matching the regional Match-V5 hostname.
   const proxyUrl = `${PROXY_BASE_URL}/proxy${original.pathname}?platform=${encodeURIComponent(platform)}${
     originalQuery ? `&${originalQuery}` : ""
   }`;
@@ -981,7 +982,7 @@ async function syncRiotAccount(
     try {
       page = await riotFetch<string[]>(
         `https://${route}.api.riotgames.com/lol/match/v5/matches/by-puuid/${encodeURIComponent(identity.puuid)}/ids?start=${start}&count=${count}`,
-        identity.platform,
+        route,
         undefined,
         tag,
       );
@@ -1002,7 +1003,7 @@ async function syncRiotAccount(
     try {
       payload = await riotFetch<any>(
         `https://${route}.api.riotgames.com/lol/match/v5/matches/${id}`,
-        identity.platform,
+        route,
         undefined,
         tag,
       );
@@ -1049,7 +1050,7 @@ export async function fetchMatchTimeline(gameId: number, platform: string): Prom
   const fullMatchId = `${platform.toUpperCase()}_${gameId}`;
   const payload = await riotFetch<any>(
     `https://${route}.api.riotgames.com/lol/match/v5/matches/${fullMatchId}/timeline`,
-    platform,
+    route,
     undefined,
     `timeline-${gameId}`,
   );
