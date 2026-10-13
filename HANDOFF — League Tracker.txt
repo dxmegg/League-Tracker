@@ -185,10 +185,18 @@ Czasem myli MatchupsTab return z innym JSX.
 Cherry-pickuje commity między worktree'ami — nie używać subsessji.
 
 6. Co dalej
-- A — Branch cleanup (DONE: 135 merged local branches deleted; polish-session deleted local + remote)
-- B — Economy Gold Sources donut (NOT FEASIBLE without new ingestion: no normalized gold-source breakdown; raw_gz lacks challenges.gold* fields)
-- C — New feature (ask user for direction)
-- D — Bug fixes / maintenance
+- A — New feature (ask user for direction)
+- B — Bug fixes / maintenance
+- C — Optional polish: Home page KPI/highlights, Local Account polish
+- D — Optional: cache tuning if 60s TTL proves too long/short in use
+
+Completed since last handoff:
+
+- Runes: KPI row, highlight cards, queue/patch/search/sort/min-games filters, games-in-scope fix, keystone-by-champion table removed
+- Champions: KPI row + highlight cards
+- Augments: KPI row + highlight cards + queue/patch/search/sort/min-games filters
+- Generic memory cache for 14 heavy queries (60s/30s TTL), invalidated by existing dashboard invalidation triggers
+- Champion detail: tab strip unified to FilterChip pills, compacted to fit 16 tabs without scrollbar; KPI rows unboxed (Economy, Farm); chart clarity (x labels, y ticks, baseline, tooltips, captions); empty Farm panels removed; Gold spending / Economy by queue / Farm by queue reduced; Spending timeline deduplicated
 
 7. Komendy
 npm run dev          # apka (wymaga LCU jako admin)
