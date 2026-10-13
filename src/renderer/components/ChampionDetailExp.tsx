@@ -3662,6 +3662,10 @@ function TimelineTab({
     selectedGame && timeline
       ? timeline.frames.filter((frame) => frame.puuid === selectedGame.ownerPuuid)
       : [];
+  const ownerGoldValues = ownerFrames.map((frame) => frame.gold ?? 0);
+  const ownerCsScaledValues = ownerFrames.map((frame) => (frame.cs ?? 0) * 10);
+  const ownerLevelValues = ownerFrames.map((frame) => (frame.level ?? 0) * 100);
+  const ownerXpScaledValues = ownerFrames.map((frame) => (frame.xp ?? 0) / 10);
   const ownerParticipantId = ownerFrames[0]?.participant_id ?? null;
   const powerSpikes = [6, 11, 16].map((level) => {
     const frame = ownerFrames.find((candidate) => (candidate.level ?? 0) >= level);
@@ -3982,22 +3986,24 @@ function TimelineTab({
               <NoData text="No timeline frames for this match" />
             ) : (
               <LineChartExp
-                values={ownerFrames.map((frame) => frame.gold ?? 0)}
+                values={ownerGoldValues}
                 series={[
                   {
-                    values: ownerFrames.map((frame) => frame.gold ?? 0),
+                    values: ownerGoldValues,
                     color: "var(--theme-gold)",
                     label: "Gold",
                   },
                   {
-                    values: ownerFrames.map((frame) => (frame.cs ?? 0) * 10),
+                    values: ownerCsScaledValues,
                     color: "var(--theme-violet)",
                     label: "CS (×10)",
                   },
                 ]}
-                format={(value) => formatPlain(value, 2)}
+                format={(value) => formatChartNumber(value)}
                 xLabels={labels}
                 min={0}
+                yFormat={formatChartNumber}
+                yTicks={chartTicks([...ownerGoldValues, ...ownerCsScaledValues])}
                 height={200}
                 showStats
               />
@@ -4012,22 +4018,24 @@ function TimelineTab({
               <NoData text="No timeline frames for this match" />
             ) : (
               <LineChartExp
-                values={ownerFrames.map((frame) => (frame.level ?? 0) * 100)}
+                values={ownerLevelValues}
                 series={[
                   {
-                    values: ownerFrames.map((frame) => (frame.level ?? 0) * 100),
+                    values: ownerLevelValues,
                     color: "var(--theme-assist)",
                     label: "Level (×100)",
                   },
                   {
-                    values: ownerFrames.map((frame) => (frame.xp ?? 0) / 10),
+                    values: ownerXpScaledValues,
                     color: "var(--theme-win)",
                     label: "XP (÷10)",
                   },
                 ]}
-                format={(value) => value.toFixed(0)}
+                format={(value) => formatChartNumber(value)}
                 xLabels={labels}
                 min={0}
+                yFormat={formatChartNumber}
+                yTicks={chartTicks([...ownerLevelValues, ...ownerXpScaledValues])}
                 height={200}
                 showStats
               />
@@ -4181,7 +4189,16 @@ function TimelineTab({
                 values={goldDiffBuckets.map((bucket) => bucket.avgGoldDiffVsLaneOpponent ?? 0)}
                 format={(value) => formatPlain(value, 0)}
                 xLabels={goldDiffBuckets.map((bucket) => `${bucket.minute}m`)}
+                tooltips={goldDiffBuckets.map(
+                  (bucket) =>
+                    `${bucket.minute}m / ${formatChartNumber(bucket.avgGoldDiffVsLaneOpponent ?? 0, true)} gold`,
+                )}
                 color="var(--theme-gold)"
+                yFormat={(value) => formatChartNumber(value, true)}
+                yTicks={chartTicks(
+                  goldDiffBuckets.map((bucket) => bucket.avgGoldDiffVsLaneOpponent ?? 0),
+                  true,
+                )}
                 baseline={0}
                 showStats
               />
@@ -5351,15 +5368,27 @@ function EconomyTab({
 
   const buckets = timeline?.buckets ?? [];
   const bucketAt = (minute: number) => buckets.find((bucket) => bucket.minute === minute);
-  const goldValues = buckets.flatMap((bucket) => (bucket.avgGold == null ? [] : [bucket.avgGold]));
-  const goldLabels = buckets
-    .filter((bucket) => bucket.avgGold != null)
-    .map((bucket) => `${bucket.minute}m`);
-  const goldLead = buckets.flatMap((bucket) =>
-    bucket.avgGoldDiffVsLaneOpponent == null ? [] : [bucket.avgGoldDiffVsLaneOpponent],
+  const goldTimelineBuckets = buckets.filter((bucket) => bucket.avgGold != null);
+  const goldValues = goldTimelineBuckets.map((bucket) => bucket.avgGold!);
+  const goldLabels = goldTimelineBuckets.map((bucket) => `${bucket.minute}m`);
+  const goldTooltips = goldTimelineBuckets.map(
+    (bucket) => `${bucket.minute}m / ${formatChartNumber(bucket.avgGold!)} gold`,
   );
-  const xpLead = buckets.flatMap((bucket) =>
-    bucket.avgXpDiffVsLaneOpponent == null ? [] : [bucket.avgXpDiffVsLaneOpponent],
+  const goldLeadTimelineBuckets = buckets.filter(
+    (bucket) => bucket.avgGoldDiffVsLaneOpponent != null,
+  );
+  const goldLead = goldLeadTimelineBuckets.map((bucket) => bucket.avgGoldDiffVsLaneOpponent!);
+  const goldLeadLabels = goldLeadTimelineBuckets.map((bucket) => `${bucket.minute}m`);
+  const goldLeadTooltips = goldLeadTimelineBuckets.map(
+    (bucket) =>
+      `${bucket.minute}m / ${formatChartNumber(bucket.avgGoldDiffVsLaneOpponent!, true)} gold`,
+  );
+  const xpLeadTimelineBuckets = buckets.filter((bucket) => bucket.avgXpDiffVsLaneOpponent != null);
+  const xpLead = xpLeadTimelineBuckets.map((bucket) => bucket.avgXpDiffVsLaneOpponent!);
+  const xpLeadLabels = xpLeadTimelineBuckets.map((bucket) => `${bucket.minute}m`);
+  const xpLeadTooltips = xpLeadTimelineBuckets.map(
+    (bucket) =>
+      `${bucket.minute}m / ${formatChartNumber(bucket.avgXpDiffVsLaneOpponent!, true)} XP`,
   );
   const leadPoints = [5, 10, 15, 20].map((minute) => ({
     minute,
@@ -5535,10 +5564,16 @@ function EconomyTab({
             <LineChartExp
               values={goldValues}
               xLabels={goldLabels}
+              tooltips={goldTooltips}
               format={(item) => value(item)}
               color="var(--theme-gold)"
+              yFormat={formatChartNumber}
+              yTicks={chartTicks(goldValues)}
               showStats
             />
+            <p className="mt-2 text-[11px] text-lol-text/70">
+              Average gold earned per game at each timeline minute.
+            </p>
           </div>
         )}
       </Panel>
@@ -5732,10 +5767,18 @@ function EconomyTab({
           <div className="[&_polyline]:[filter:drop-shadow(0_0_4px_currentColor)]">
             <LineChartExp
               values={goldLead}
+              xLabels={goldLeadLabels}
+              tooltips={goldLeadTooltips}
               format={(item) => value(item)}
               color="var(--theme-gold)"
+              yFormat={(item) => formatChartNumber(item, true)}
+              yTicks={chartTicks(goldLead, true)}
+              baseline={0}
               showStats
             />
+            <p className="mt-2 text-[11px] text-lol-text/70">
+              Gold lead versus the lane opponent; positive is ahead.
+            </p>
           </div>
         )}
       </Panel>
@@ -5750,10 +5793,18 @@ function EconomyTab({
           <div className="[&_polyline]:[filter:drop-shadow(0_0_4px_currentColor)]">
             <LineChartExp
               values={xpLead}
+              xLabels={xpLeadLabels}
+              tooltips={xpLeadTooltips}
               format={(item) => value(item)}
               color="var(--theme-violet)"
+              yFormat={(item) => formatChartNumber(item, true)}
+              yTicks={chartTicks(xpLead, true)}
+              baseline={0}
               showStats
             />
+            <p className="mt-2 text-[11px] text-lol-text/70">
+              XP lead versus the lane opponent; positive is ahead.
+            </p>
           </div>
         )}
       </Panel>
@@ -5999,9 +6050,18 @@ function FarmTab({
 
   const buckets = timeline ?? [];
   const bucketAt = (minute: number) => buckets.find((bucket) => bucket.minute === minute);
-  const csValues = buckets.flatMap((bucket) => (bucket.avgCs == null ? [] : [bucket.avgCs]));
-  const csLead = buckets.flatMap((bucket) =>
-    bucket.avgCsDiffVsLaneOpponent == null ? [] : [bucket.avgCsDiffVsLaneOpponent],
+  const csTimelineBuckets = buckets.filter((bucket) => bucket.avgCs != null);
+  const csValues = csTimelineBuckets.map((bucket) => bucket.avgCs!);
+  const csLabels = csTimelineBuckets.map((bucket) => `${bucket.minute}m`);
+  const csTooltips = csTimelineBuckets.map(
+    (bucket) => `${bucket.minute}m / ${formatChartNumber(bucket.avgCs!)} CS`,
+  );
+  const csLeadTimelineBuckets = buckets.filter((bucket) => bucket.avgCsDiffVsLaneOpponent != null);
+  const csLead = csLeadTimelineBuckets.map((bucket) => bucket.avgCsDiffVsLaneOpponent!);
+  const csLeadLabels = csLeadTimelineBuckets.map((bucket) => `${bucket.minute}m`);
+  const csLeadTooltips = csLeadTimelineBuckets.map(
+    (bucket) =>
+      `${bucket.minute}m / ${formatChartNumber(bucket.avgCsDiffVsLaneOpponent!, true)} CS`,
   );
   const timelineGames = buckets.reduce((sum, bucket) => sum + bucket.sampleGames, 0);
   const value = (number: number | null | undefined, digits = 1) => formatPlain(number, digits);
@@ -6163,11 +6223,20 @@ function FarmTab({
         {csValues.length < 2 ? (
           <NoData text="Not enough timeline data" />
         ) : (
-          <LineChartExp
-            values={csValues}
-            format={(item) => value(item)}
-            color="var(--theme-violet)"
-          />
+          <>
+            <LineChartExp
+              values={csValues}
+              format={(item) => value(item)}
+              color="var(--theme-violet)"
+              xLabels={csLabels}
+              tooltips={csTooltips}
+              yFormat={(item) => formatChartNumber(item)}
+              yTicks={chartTicks(csValues)}
+            />
+            <p className="mt-2 text-[11px] text-lol-text/70">
+              Average creep score at each timeline minute.
+            </p>
+          </>
         )}
       </Panel>
       <Panel className={TAB_PANEL_CLASSES.emerald}>
@@ -6178,7 +6247,21 @@ function FarmTab({
         {csLead.length < 2 ? (
           <NoData text="Not enough lane timeline data" />
         ) : (
-          <LineChartExp values={csLead} format={(item) => value(item)} color="var(--theme-win)" />
+          <>
+            <LineChartExp
+              values={csLead}
+              format={(item) => value(item)}
+              color="var(--theme-win)"
+              xLabels={csLeadLabels}
+              tooltips={csLeadTooltips}
+              yFormat={(item) => formatChartNumber(item, true)}
+              yTicks={chartTicks(csLead, true)}
+              baseline={0}
+            />
+            <p className="mt-2 text-[11px] text-lol-text/70">
+              CS lead versus the lane opponent; positive is ahead.
+            </p>
+          </>
         )}
       </Panel>
       <Panel className={TAB_PANEL_CLASSES.emerald}>
@@ -6758,6 +6841,25 @@ function CombatTile({
 
 function formatCombatNumber(value: number | null | undefined) {
   return formatPlain(value, 2);
+}
+
+function formatChartNumber(value: number, signed = false) {
+  const absolute = Math.abs(value);
+  const sign = signed ? (value > 0 ? "+" : value < 0 ? "-" : "") : value < 0 ? "-" : "";
+  if (absolute >= 1000) {
+    return `${sign}${(absolute / 1000).toFixed(absolute >= 10000 ? 0 : 1)}k`;
+  }
+  return `${sign}${Math.round(absolute)}`;
+}
+
+function chartTicks(values: number[], includeZero = false) {
+  const finiteValues = values.filter(Number.isFinite);
+  if (finiteValues.length === 0) return [];
+  const min = includeZero ? Math.min(0, ...finiteValues) : Math.min(...finiteValues);
+  const max = includeZero ? Math.max(0, ...finiteValues) : Math.max(...finiteValues);
+  if (min === max) return [min];
+  const step = (max - min) / 3;
+  return [...new Set([min, min + step, min + step * 2, max].map((value) => Math.round(value)))];
 }
 
 function formatSeconds(value: number | null | undefined) {
