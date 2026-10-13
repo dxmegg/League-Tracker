@@ -5743,11 +5743,10 @@ function ObjectivesTab({
         {!teamObj || teamObj.ally.games === 0 ? (
           <EmptyState text="No team objective data for these games." />
         ) : (
-          <div className="grid grid-cols-[minmax(0,1fr)_90px_90px] gap-3">
-            <div className="grid grid-cols-[minmax(0,1fr)_90px_90px] gap-3 border-b border-lol-border/50 pb-2 text-xs font-semibold text-lol-text">
+          <div className="grid gap-3">
+            <div className="grid grid-cols-[minmax(0,1fr)_130px] gap-3 border-b border-lol-border/50 pb-2 text-xs font-semibold text-lol-text">
               <span className="text-left">Metric</span>
-              <span className="text-right tabular-nums">Ally</span>
-              <span className="text-right tabular-nums">Enemy</span>
+              <span className="text-right tabular-nums">Ally / Enemy</span>
             </div>
             {(
               [
@@ -5758,16 +5757,14 @@ function ObjectivesTab({
                 ["First herald", "first_herald_pct"],
               ] as const
             ).map(([label, key]) => (
-              <div
-                key={key}
-                className="grid grid-cols-[minmax(0,1fr)_90px_90px] gap-3 py-2 text-xs"
-              >
-                <span className="text-left text-lol-text-bright">{label}</span>
-                <span className="text-right tabular-nums text-lol-text-bright">
-                  {teamObj.ally[key].toFixed(1)}%
+              <div key={key} className="grid grid-cols-[minmax(0,1fr)_130px] gap-3 py-2 text-xs">
+                <span className="min-w-0 overflow-hidden text-ellipsis whitespace-nowrap text-left text-lol-text-bright">
+                  {label}
                 </span>
                 <span className="text-right tabular-nums text-lol-text-bright">
-                  {teamObj.enemy[key].toFixed(1)}%
+                  <span className="text-emerald-400">{teamObj.ally[key].toFixed(1)}%</span>
+                  <span className="text-lol-text/50"> / </span>
+                  <span className="text-red-400">{teamObj.enemy[key].toFixed(1)}%</span>
                 </span>
               </div>
             ))}
@@ -5781,16 +5778,14 @@ function ObjectivesTab({
                 ["Inhibitor kills / game", "avg_inhibitor_kills"],
               ] as const
             ).map(([label, key]) => (
-              <div
-                key={key}
-                className="grid grid-cols-[minmax(0,1fr)_90px_90px] gap-3 py-2 text-xs"
-              >
-                <span className="text-left text-lol-text-bright">{label}</span>
-                <span className="text-right tabular-nums text-lol-text-bright">
-                  {teamObj.ally[key].toFixed(2)}
+              <div key={key} className="grid grid-cols-[minmax(0,1fr)_130px] gap-3 py-2 text-xs">
+                <span className="min-w-0 overflow-hidden text-ellipsis whitespace-nowrap text-left text-lol-text-bright">
+                  {label}
                 </span>
                 <span className="text-right tabular-nums text-lol-text-bright">
-                  {teamObj.enemy[key].toFixed(2)}
+                  <span className="text-emerald-400">{teamObj.ally[key].toFixed(2)}</span>
+                  <span className="text-lol-text/50"> / </span>
+                  <span className="text-red-400">{teamObj.enemy[key].toFixed(2)}</span>
                 </span>
               </div>
             ))}
