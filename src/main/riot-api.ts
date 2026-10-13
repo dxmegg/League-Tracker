@@ -534,6 +534,7 @@ async function riotFetch<T>(
   const logPrefix = tag ? `[sync ${tag}] ` : "";
   for (let attempt = 0; ; attempt++) {
     console.log(`${logPrefix}Riot API request: ${proxyUrl}`);
+    console.log("[riot] fetch", { attempt, url: proxyUrl });
     const release = await acquireRequestSlot();
     let response: Response;
     try {
@@ -542,6 +543,10 @@ async function riotFetch<T>(
         signal: AbortSignal.timeout(30_000),
       });
       lastRequestAt = Date.now();
+      console.log("[riot] response", { attempt, status: response.status, url: proxyUrl });
+    } catch (err) {
+      console.error("[riot] fetch error", { attempt, error: String(err), url: proxyUrl });
+      throw err;
     } finally {
       release();
     }
@@ -556,6 +561,7 @@ async function riotFetch<T>(
       console.warn(
         `${logPrefix}Riot API 429 on ${proxyUrl}, pausing for ${Math.round(retryAfterMs / 1000)}s (attempt ${attempt + 1}/${MAX_RATE_LIMIT_RETRIES})`,
       );
+      console.log(`[riot] retry in ${retryAfterMs}ms (attempt ${attempt})`);
       continue;
     }
     const body = await response.text();
@@ -567,7 +573,11 @@ async function riotFetch<T>(
       }
       throw new RiotApiError(response.status, proxyUrl);
     }
-    return JSON.parse(body) as T;
+    const parsed = JSON.parse(body) as T;
+    console.log(
+      "[riot] parsed response, size: " + (Array.isArray(parsed) ? parsed.length : typeof parsed),
+    );
+    return parsed;
   }
 }
 
@@ -1025,7 +1035,8 @@ async function syncRiotAccount(
   const ids: number[] = [];
 
   for (let start = 0; start < 10_000; start += count) {
-    let page: string[];
+    let page: string[] = [];
+    console.log("[sync] calling by-puuid for puuid=" + puuid.substring(0, 12) + "...");
     try {
       page = await riotFetch<string[]>(
         `https://${route}.api.riotgames.com/lol/match/v5/matches/by-puuid/${encodeURIComponent(puuid)}/ids?start=${start}&count=${count}`,
@@ -1034,8 +1045,10 @@ async function syncRiotAccount(
         tag,
       );
     } catch (err) {
+      console.error("[sync] by-puuid failed:", err);
       throw new Error(friendlyRiotError(err, "match"));
     }
+    console.log("[sync] by-puuid returned " + page.length + " ids");
     for (const raw of page) {
       const id = normalizeMatchId(raw);
       if (
@@ -1045,6 +1058,14 @@ async function syncRiotAccount(
       )
         ids.push(id);
     }
+    console.log(
+      "[sync] ids after filter: " +
+        ids.length +
+        ", known: " +
+        known.size +
+        ", ignored: " +
+        ignored.size,
+    );
     if (
       page.length < count ||
       (!refreshExisting && page.every((id) => known.has(normalizeMatchId(id) ?? -1)))
