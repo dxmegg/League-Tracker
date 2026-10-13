@@ -992,6 +992,7 @@ async function syncRiotAccount(
   options: { refreshExisting?: boolean } = {},
 ): Promise<RiotSyncResult> {
   const refreshExisting = options.refreshExisting ?? false;
+  console.log("[sync-riot] refreshExisting flag:", refreshExisting);
   const route = regionalRoute(identity.platform);
   let puuid = identity.puuid;
   if (identity.gameName && identity.tagLine) {
@@ -1037,7 +1038,12 @@ async function syncRiotAccount(
     }
     for (const raw of page) {
       const id = normalizeMatchId(raw);
-      if (id !== null && !ids.includes(id) && !ignored.has(id)) ids.push(id);
+      if (
+        id !== null &&
+        !ids.includes(id) &&
+        (!ignored.has(id) || (refreshExisting && known.has(id)))
+      )
+        ids.push(id);
     }
     if (
       page.length < count ||
@@ -1070,6 +1076,7 @@ async function syncRiotAccount(
     const normalized = normalizeMatchPayload(payload, id, puuid);
     if (knownAlready) {
       db.refreshParticipantTelemetry(normalized);
+      console.log(`[sync] refreshed ${id} (${normalized.participants.length} participants)`);
     } else if (db.insertGameFull(normalized, puuid, "riot-sync")) {
       added++;
     }
