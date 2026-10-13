@@ -961,7 +961,9 @@ export type RiotSyncResult = {
   complete: boolean;
 };
 
-export async function syncRiotHistory(): Promise<RiotSyncResult> {
+export async function syncRiotHistory(
+  options: { refreshExisting?: boolean } = {},
+): Promise<RiotSyncResult> {
   const stored = readAccounts();
   const resolvedPuuids = new Map<string, string>();
   const identities = stored.length
@@ -976,7 +978,7 @@ export async function syncRiotHistory(): Promise<RiotSyncResult> {
   let scanned = 0;
   let complete = true;
   for (const { identity } of identities) {
-    const result = await syncRiotAccount(identity, resolvedPuuids);
+    const result = await syncRiotAccount(identity, resolvedPuuids, options);
     added += result.added;
     scanned += result.scanned;
     complete &&= result.complete;
@@ -987,7 +989,9 @@ export async function syncRiotHistory(): Promise<RiotSyncResult> {
 async function syncRiotAccount(
   identity: Awaited<ReturnType<typeof configuredIdentity>>,
   resolvedPuuids: Map<string, string>,
+  options: { refreshExisting?: boolean } = {},
 ): Promise<RiotSyncResult> {
+  const refreshExisting = options.refreshExisting ?? false;
   const route = regionalRoute(identity.platform);
   let puuid = identity.puuid;
   if (identity.gameName && identity.tagLine) {
@@ -1035,12 +1039,18 @@ async function syncRiotAccount(
       const id = normalizeMatchId(raw);
       if (id !== null && !ids.includes(id) && !ignored.has(id)) ids.push(id);
     }
-    if (page.length < count || page.every((id) => known.has(normalizeMatchId(id) ?? -1))) break;
+    if (
+      page.length < count ||
+      (!refreshExisting && page.every((id) => known.has(normalizeMatchId(id) ?? -1)))
+    )
+      break;
   }
 
   let added = 0;
-  for (const id of ids) {
-    if (known.has(id)) continue;
+  for (const [index, id] of ids.entries()) {
+    if (refreshExisting && index > 0) await sleep(500);
+    const knownAlready = known.has(id);
+    if (knownAlready && !refreshExisting) continue;
     let payload: any;
     try {
       payload = await riotFetch<any>(
@@ -1058,7 +1068,11 @@ async function syncRiotAccount(
       throw new Error(friendlyRiotError(err, "match"));
     }
     const normalized = normalizeMatchPayload(payload, id, puuid);
-    if (db.insertGameFull(normalized, puuid, "riot-sync")) added++;
+    if (knownAlready) {
+      db.refreshParticipantTelemetry(normalized);
+    } else if (db.insertGameFull(normalized, puuid, "riot-sync")) {
+      added++;
+    }
   }
 
   db.setRiotSyncState(puuid, identity.platform, ids[0] ?? null, ids.length < 10_000);

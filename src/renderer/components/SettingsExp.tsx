@@ -493,6 +493,25 @@ export function SettingsExp() {
     }
   }, []);
 
+  const handleRiotRefresh = useCallback(async () => {
+    setRiotSyncing(true);
+    setRiotSyncStatus(null);
+    try {
+      const result = await window.api.syncRiotHistory({ refreshExisting: true });
+      if ("error" in result) {
+        setRiotSyncStatus(`Error: ${result.error}`);
+      } else {
+        setRiotSyncStatus(
+          `Refreshed ${result.scanned} existing/new match(es); added ${result.added} new match(es).`,
+        );
+      }
+    } catch (err: unknown) {
+      setRiotSyncStatus(`Error: ${err instanceof Error ? err.message : String(err)}`);
+    } finally {
+      setRiotSyncing(false);
+    }
+  }, []);
+
   const handleRepair = useCallback(async () => {
     setRepairing(true);
     setBackfillStatus("Repairing game data...");
@@ -910,6 +929,10 @@ export function SettingsExp() {
               challenge metrics that LCU does not provide. Only works for accounts with a configured
               Riot ID.
             </p>
+            <p className="mt-1 text-[11px] text-amber-300">
+              Re-fetches existing games to backfill pings, casts, and challenges. May take several
+              minutes.
+            </p>
             <p className="mt-1 text-[11px] text-lol-text">
               Platform:{" "}
               {resolvedPlatform
@@ -917,13 +940,22 @@ export function SettingsExp() {
                 : "not configured"}
             </p>
           </div>
-          <button
-            className="rounded border border-lol-border px-3 py-1.5 text-xs text-lol-text-bright hover:bg-white/5"
-            onClick={handleRiotSync}
-            disabled={riotSyncing}
-          >
-            {riotSyncing ? "Syncing..." : "Sync now"}
-          </button>
+          <div className="flex flex-wrap justify-end gap-2">
+            <button
+              className="rounded border border-lol-border px-3 py-1.5 text-xs text-lol-text-bright hover:bg-white/5"
+              onClick={handleRiotSync}
+              disabled={riotSyncing}
+            >
+              {riotSyncing ? "Syncing..." : "Sync now"}
+            </button>
+            <button
+              className="rounded border border-amber-400/50 px-3 py-1.5 text-xs text-amber-200 hover:bg-amber-400/10"
+              onClick={handleRiotRefresh}
+              disabled={riotSyncing}
+            >
+              {riotSyncing ? "Refreshing..." : "Refresh existing (Match-V5)"}
+            </button>
+          </div>
         </div>
         {riotSyncStatus && <p className="mt-1 text-xs text-lol-text">{riotSyncStatus}</p>}
       </Section>

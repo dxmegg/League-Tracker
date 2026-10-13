@@ -690,9 +690,11 @@ export function registerIpcHandlers() {
     }
   });
 
-  ipcMain.handle("riot:sync", async (event) => {
+  ipcMain.handle("riot:sync", async (event, options?: { refreshExisting?: boolean }) => {
     try {
-      const result = await riot.syncRiotHistory();
+      const result = await riot.syncRiotHistory({
+        refreshExisting: options?.refreshExisting === true,
+      });
       invalidateDashboardCache();
       senderWindow(event)?.webContents.send("lcu:games-updated");
       return result;

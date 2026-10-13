@@ -53,6 +53,7 @@ export {
 export { getSetting, setSetting } from "./settings";
 export {
   insertGameFull,
+  refreshParticipantTelemetry,
   backfillMissingTrackedRows,
   findOwnerRow,
   insertTrackedStatsOnly,

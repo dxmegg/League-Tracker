@@ -1374,6 +1374,10 @@ export interface RiotSyncResult {
   complete: boolean;
 }
 
+export interface RiotSyncOptions {
+  refreshExisting?: boolean;
+}
+
 export interface ResolvedPlatform {
   platform: string;
   route: string;
@@ -1801,7 +1805,7 @@ export interface ElectronAPI {
     limit: number,
   ) => Promise<unknown | { error: string }>;
   refreshGames: () => Promise<{ newGames: number; totalGames: number } | { error: string }>;
-  syncRiotHistory: () => Promise<RiotSyncResult | { error: string }>;
+  syncRiotHistory: (options?: RiotSyncOptions) => Promise<RiotSyncResult | { error: string }>;
   getRiotAccounts: () => Promise<RiotAccountConfig[]>;
   saveRiotAccount: (account: RiotAccountConfig) => Promise<void>;
   removeRiotAccount: (id: string) => Promise<void>;

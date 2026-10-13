@@ -16,6 +16,7 @@ import type {
   MatchFilters,
   ParticipantScoreBackfillProgress,
   RiotSyncResult,
+  RiotSyncOptions,
   RiotAccountConfig,
   ResolvedPlatform,
   RestoreOlderGamesResult,
@@ -309,8 +310,8 @@ const api: ElectronAPI = {
 
   refreshGames: () => ipcRenderer.invoke("lcu:refresh"),
 
-  syncRiotHistory: (): Promise<RiotSyncResult | { error: string }> =>
-    ipcRenderer.invoke("riot:sync"),
+  syncRiotHistory: (options?: RiotSyncOptions): Promise<RiotSyncResult | { error: string }> =>
+    ipcRenderer.invoke("riot:sync", options),
   getProfileData: (gameName: string, tagLine: string, platform: string, force = false) =>
     ipcRenderer.invoke("riot:profile", gameName, tagLine, platform, force),
   getSummonerGameHistoryFromMcp: (gameName: string, tagLine: string, region: string) =>
