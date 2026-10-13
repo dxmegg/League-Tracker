@@ -237,6 +237,20 @@ export function participantRowsFromRaw(raw: any): RawParticipantRow[] {
     const placementNum = Number(placementRaw);
     const playerSubteamPlacement =
       Number.isFinite(placementNum) && placementNum > 0 ? placementNum : null;
+    const turretPlatesTaken =
+      s.turretPlatesTaken ?? p.turretPlatesTaken ?? p.challenges?.turretPlatesTaken ?? 0;
+    const baronKills = s.baronKills ?? p.baronKills ?? p.challenges?.baronKills ?? 0;
+    const objectivesStolen =
+      s.objectivesStolen ?? p.objectivesStolen ?? p.challenges?.objectivesStolen ?? 0;
+    const objectivesStolenAssists =
+      s.objectivesStolenAssists ??
+      p.objectivesStolenAssists ??
+      p.challenges?.objectivesStolenAssists ??
+      0;
+    const firstInhibitorKill =
+      s.firstInhibitorKill ?? p.firstInhibitorKill ?? p.challenges?.firstInhibitorKill ?? 0;
+    const firstInhibitorAssist =
+      s.firstInhibitorAssist ?? p.firstInhibitorAssist ?? p.challenges?.firstInhibitorAssist ?? 0;
 
     return {
       participant_id: p.participantId ?? i + 1,
@@ -294,14 +308,14 @@ export function participantRowsFromRaw(raw: any): RawParticipantRow[] {
       neutral_minions_team_jungle: s.neutralMinionsKilledTeamJungle ?? 0,
       turret_kills: s.turretKills ?? 0,
       inhibitor_kills: s.inhibitorKills ?? 0,
-      turret_plates_taken: s.turretPlatesTaken ?? 0,
+      turret_plates_taken: turretPlatesTaken,
       first_tower_kill: s.firstTowerKill ? 1 : 0,
       first_tower_assist: s.firstTowerAssist ? 1 : 0,
-      first_inhibitor_kill: s.firstInhibitorKill ? 1 : 0,
-      first_inhibitor_assist: s.firstInhibitorAssist ? 1 : 0,
-      baron_kills: s.baronKills ?? 0,
-      objectives_stolen: s.objectivesStolen ?? 0,
-      objectives_stolen_assists: s.objectivesStolenAssists ?? 0,
+      first_inhibitor_kill: firstInhibitorKill ? 1 : 0,
+      first_inhibitor_assist: firstInhibitorAssist ? 1 : 0,
+      baron_kills: baronKills,
+      objectives_stolen: objectivesStolen,
+      objectives_stolen_assists: objectivesStolenAssists,
       total_units_healed: s.totalUnitsHealed ?? 0,
       vision_score: s.visionScore ?? 0,
       wards_placed: s.wardsPlaced ?? 0,

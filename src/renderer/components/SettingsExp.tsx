@@ -606,7 +606,6 @@ export function SettingsExp() {
           />
         </div>
       </Section>
-
       <Section
         title="League history sync"
         className="[&>h2]:before:bg-lol-gold border-t-lol-gold before:bg-[radial-gradient(circle_at_top_right,rgba(234,179,8,0.08),transparent_70%)]"

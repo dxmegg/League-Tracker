@@ -558,7 +558,6 @@ export default function Settings() {
         </div>
         {backfillStatus && <p className="text-xs text-lol-text mt-2">{backfillStatus}</p>}
       </Section>
-
       <Section title="Data Management">
         <div className="space-y-4">
           <div className="w-full flex items-center justify-between gap-4 px-3 py-2 xl:px-4 xl:py-3">
