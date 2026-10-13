@@ -12,7 +12,6 @@ export function LineChartExp({
   tooltips,
   yFormat,
   yTicks,
-  paddingLeft,
   height = 150,
   secondaryValues,
   hollowIndices = [],
@@ -29,7 +28,6 @@ export function LineChartExp({
   tooltips?: string[];
   yFormat?: (v: number) => string;
   yTicks?: number[];
-  paddingLeft?: number;
   height?: number;
   secondaryValues?: number[];
   hollowIndices?: number[];
@@ -51,11 +49,8 @@ export function LineChartExp({
   const H = height;
   const P = 16;
   const hasYAxis = yTicks != null && yTicks.length > 0;
-  const leftPadding = paddingLeft ?? 0;
-  const axisWidth = hasYAxis ? 32 : 0;
-  const plotLeft = P + (leftPadding === 0 ? axisWidth : leftPadding);
-  const plotWidth = W - P - plotLeft;
-  const plotRight = plotLeft + plotWidth;
+  const plotLeft = 0;
+  const plotRight = W;
   const lo = min ?? Math.min(...chartValues) - 1;
   const hi = max ?? Math.max(...chartValues) + 1;
   const range = hi - lo || 1;
@@ -90,147 +85,164 @@ export function LineChartExp({
 
   return (
     <div>
-      <svg className="svgc" viewBox={`0 0 ${W} ${H}`} role="img">
-        <defs>
-          {series ? (
-            series.map((item, index) => (
+      <div className="flex gap-2">
+        {hasYAxis && (
+          <div
+            className="relative text-right text-[10px] tabular-nums text-lol-text/50"
+            style={{ height: H, minWidth: "32px" }}
+          >
+            {yTicks.map((tick) => (
+              <span
+                key={tick}
+                className="absolute right-0 -translate-y-1/2 whitespace-nowrap"
+                style={{ top: y(tick) }}
+              >
+                {yFormat ? yFormat(tick) : tick}
+              </span>
+            ))}
+          </div>
+        )}
+        <svg
+          className="svgc"
+          viewBox={`0 0 ${W} ${H}`}
+          width="100%"
+          height={H}
+          preserveAspectRatio="none"
+          role="img"
+        >
+          <defs>
+            {series ? (
+              series.map((item, index) => (
+                <linearGradient
+                  key={item.label}
+                  id={`${gradientIdPrefix}-line-gradient-${index}`}
+                  x1="0"
+                  y1="0"
+                  x2="0"
+                  y2="1"
+                >
+                  <stop offset="0%" stopColor={item.color} stopOpacity="0.35" />
+                  <stop offset="100%" stopColor={item.color} stopOpacity="0" />
+                </linearGradient>
+              ))
+            ) : (
               <linearGradient
-                key={item.label}
-                id={`${gradientIdPrefix}-line-gradient-${index}`}
+                id={`${gradientIdPrefix}-line-gradient-primary`}
                 x1="0"
                 y1="0"
                 x2="0"
                 y2="1"
               >
-                <stop offset="0%" stopColor={item.color} stopOpacity="0.35" />
-                <stop offset="100%" stopColor={item.color} stopOpacity="0" />
+                <stop offset="0%" stopColor={color} stopOpacity="0.35" />
+                <stop offset="100%" stopColor={color} stopOpacity="0" />
               </linearGradient>
-            ))
-          ) : (
-            <linearGradient
-              id={`${gradientIdPrefix}-line-gradient-primary`}
-              x1="0"
-              y1="0"
-              x2="0"
-              y2="1"
-            >
-              <stop offset="0%" stopColor={color} stopOpacity="0.35" />
-              <stop offset="100%" stopColor={color} stopOpacity="0" />
-            </linearGradient>
-          )}
-        </defs>
-        <line x1={plotLeft} x2={plotRight} y1={H - P} y2={H - P} stroke="var(--theme-border)" />
-        {yTicks?.map((tick) => (
-          <g key={tick}>
+            )}
+          </defs>
+          <line x1={plotLeft} x2={plotRight} y1={H - P} y2={H - P} stroke="var(--theme-border)" />
+          {yTicks?.map((tick) => (
+            <g key={tick}>
+              <line
+                x1={plotLeft}
+                x2={plotRight}
+                y1={y(tick)}
+                y2={y(tick)}
+                stroke="var(--theme-border)"
+                strokeDasharray="4 4"
+                strokeWidth="1"
+              />
+            </g>
+          ))}
+          {baseline != null && baseline >= lo && baseline <= hi && (
             <line
               x1={plotLeft}
               x2={plotRight}
-              y1={y(tick)}
-              y2={y(tick)}
+              y1={y(baseline)}
+              y2={y(baseline)}
               stroke="var(--theme-border)"
               strokeDasharray="4 4"
               strokeWidth="1"
             />
-            <text
-              x={plotLeft - 4}
-              y={y(tick) + 3}
-              textAnchor="end"
-              className="fill-lol-text text-[10px]"
-            >
-              {yFormat ? yFormat(tick) : String(tick)}
-            </text>
-          </g>
-        ))}
-        {baseline != null && baseline >= lo && baseline <= hi && (
-          <line
-            x1={plotLeft}
-            x2={plotRight}
-            y1={y(baseline)}
-            y2={y(baseline)}
-            stroke="var(--theme-border)"
-            strokeDasharray="4 4"
-            strokeWidth="1"
-          />
-        )}
-        {secondaryValues?.map((value, index) => {
-          const barWidth = Math.max(4, (plotRight - plotLeft) / (pointCount * 2.5));
-          const barHeight = ((H - P - plotTop) * value) / maxSecondary;
-          return (
-            <rect
-              key={`secondary-${index}`}
-              x={x(index) - barWidth / 2}
-              y={H - P - barHeight}
-              width={barWidth}
-              height={barHeight}
-              fill="var(--theme-text)"
-              opacity="0.1"
-              rx="2"
-            />
-          );
-        })}
-        {series ? (
-          series.map((item, index) => {
-            const points = item.values.map((v, i) => `${x(i)},${y(v).toFixed(1)}`).join(" ");
-            const areaPath = `${points} L ${x(item.values.length - 1)},${H - P} L ${x(0)},${H - P} Z`;
+          )}
+          {secondaryValues?.map((value, index) => {
+            const barWidth = Math.max(4, (plotRight - plotLeft) / (pointCount * 2.5));
+            const barHeight = ((H - P - plotTop) * value) / maxSecondary;
             return (
-              <g key={item.label}>
-                <path d={areaPath} fill={`url(#${gradientIdPrefix}-line-gradient-${index})`} />
-                <polyline
-                  points={points}
-                  fill="none"
-                  stroke={item.color}
-                  strokeWidth="2.5"
-                  strokeLinejoin="round"
-                />
-              </g>
+              <rect
+                key={`secondary-${index}`}
+                x={x(index) - barWidth / 2}
+                y={H - P - barHeight}
+                width={barWidth}
+                height={barHeight}
+                fill="var(--theme-text)"
+                opacity="0.1"
+                rx="2"
+              />
             );
-          })
-        ) : (
-          <>
-            <path
-              d={`${values.map((v, i) => `${x(i)},${y(v).toFixed(1)}`).join(" ")} L ${x(values.length - 1)},${H - P} L ${x(0)},${H - P} Z`}
-              fill={`url(#${gradientIdPrefix}-line-gradient-primary)`}
-            />
-            <polyline
-              points={values.map((v, i) => `${x(i)},${y(v).toFixed(1)}`).join(" ")}
-              fill="none"
-              stroke={color}
-              strokeWidth="2.5"
-              strokeLinejoin="round"
-            />
-            {values.map((v, i) => (
-              <circle
-                key={i}
-                cx={x(i)}
-                cy={y(v).toFixed(1)}
-                r="4"
-                fill={hollowIndices.includes(i) ? "var(--theme-card)" : color}
+          })}
+          {series ? (
+            series.map((item, index) => {
+              const points = item.values.map((v, i) => `${x(i)},${y(v).toFixed(1)}`).join(" ");
+              const areaPath = `${points} L ${x(item.values.length - 1)},${H - P} L ${x(0)},${H - P} Z`;
+              return (
+                <g key={item.label}>
+                  <path d={areaPath} fill={`url(#${gradientIdPrefix}-line-gradient-${index})`} />
+                  <polyline
+                    points={points}
+                    fill="none"
+                    stroke={item.color}
+                    strokeWidth="2.5"
+                    strokeLinejoin="round"
+                  />
+                </g>
+              );
+            })
+          ) : (
+            <>
+              <path
+                d={`${values.map((v, i) => `${x(i)},${y(v).toFixed(1)}`).join(" ")} L ${x(values.length - 1)},${H - P} L ${x(0)},${H - P} Z`}
+                fill={`url(#${gradientIdPrefix}-line-gradient-primary)`}
+              />
+              <polyline
+                points={values.map((v, i) => `${x(i)},${y(v).toFixed(1)}`).join(" ")}
+                fill="none"
                 stroke={color}
-                strokeWidth={hollowIndices.includes(i) ? "1.5" : "0"}
-                opacity={hollowIndices.includes(i) ? "0.65" : "1"}
+                strokeWidth="2.5"
+                strokeLinejoin="round"
+              />
+              {values.map((v, i) => (
+                <circle
+                  key={i}
+                  cx={x(i)}
+                  cy={y(v).toFixed(1)}
+                  r="4"
+                  fill={hollowIndices.includes(i) ? "var(--theme-card)" : color}
+                  stroke={color}
+                  strokeWidth={hollowIndices.includes(i) ? "1.5" : "0"}
+                  opacity={hollowIndices.includes(i) ? "0.65" : "1"}
+                >
+                  <title>{tooltips ? tooltips[i] : format(v)}</title>
+                </circle>
+              ))}
+            </>
+          )}
+          {xLabelIndices.map((index) => {
+            const label = xLabels?.[index];
+            if (label == null) return null;
+            const anchor = index === 0 ? "start" : index === pointCount - 1 ? "end" : "middle";
+            return (
+              <text
+                key={index}
+                x={x(index)}
+                y={H - 2}
+                textAnchor={anchor}
+                className="fill-lol-text text-[10px]"
               >
-                <title>{tooltips ? tooltips[i] : format(v)}</title>
-              </circle>
-            ))}
-          </>
-        )}
-        {xLabelIndices.map((index) => {
-          const label = xLabels?.[index];
-          if (label == null) return null;
-          const anchor = index === 0 ? "start" : index === pointCount - 1 ? "end" : "middle";
-          return (
-            <text
-              key={index}
-              x={x(index)}
-              y={H - 2}
-              textAnchor={anchor}
-              className="fill-lol-text text-[10px]"
-            >
-              {label}
-            </text>
-          );
-        })}
-      </svg>
+                {label}
+              </text>
+            );
+          })}
+        </svg>
+      </div>
       {showStats && statValues.length > 0 && (
         <div className="grid grid-cols-5 gap-2 border-t border-lol-border/40 px-2 pt-2 text-[10px] uppercase tracking-wider text-lol-text">
           {[
