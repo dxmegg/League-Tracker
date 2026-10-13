@@ -1,5 +1,6 @@
 import { db } from "../db";
 import { getAllPuuids } from "./summoner";
+import { getCachedOwnedItemStats, setCachedOwnedItemStats } from "./cache";
 import zlib from "zlib";
 import { NO_STATS_QUEUE_IDS } from "../../shared/queues";
 import { computeMatchScores } from "../../shared/opScore";
@@ -1810,6 +1811,10 @@ export function getOwnedItemStats(
   queue?: number,
   account?: string,
 ): OwnedItemStatsResult & OwnedItemStats[] {
+  const cacheKey = `owned-item-stats:${patch ?? "all"}:${queue ?? "all"}:${account ?? "all"}`;
+  const cached = getCachedOwnedItemStats(cacheKey);
+  if (cached) return cached;
+
   const source = statsSource(account);
   const where = ["g.is_remake = 0"];
   where.push(source.accountFilter);
@@ -1925,6 +1930,7 @@ export function getOwnedItemStats(
       enumerable: true,
     },
   });
+  setCachedOwnedItemStats(cacheKey, result);
   return result;
 }
 

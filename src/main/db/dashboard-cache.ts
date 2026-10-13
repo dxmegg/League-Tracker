@@ -1,4 +1,5 @@
 import type { HomeDashboardPayload } from "../../shared/api";
+import { invalidateOwnedItemStatsCache } from "./cache";
 
 const DASHBOARD_CACHE_TTL_MS = 60_000;
 const MAX_CACHE_ENTRIES = 20;
@@ -35,6 +36,7 @@ export function setCachedDashboard(key: string, data: HomeDashboardPayload): voi
 
 export function invalidateDashboardCache(): void {
   dashboardCache.clear();
+  invalidateOwnedItemStatsCache();
 }
 
 export function invalidateDashboardCacheForAccount(account: string): void {

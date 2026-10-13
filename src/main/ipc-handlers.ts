@@ -19,6 +19,7 @@ import {
   invalidateDashboardCacheForAccount,
   setCachedDashboard,
 } from "./db/dashboard-cache";
+import { invalidateOwnedItemStatsCache } from "./db/cache";
 import type { BackfillProgress } from "./db/timeline";
 import type {
   DashboardData,
@@ -1092,6 +1093,7 @@ export function registerIpcHandlers() {
     await backup.backupQuietly("pre-import");
     const result = db.deleteSavedSummoner(puuid);
     invalidateDashboardCacheForAccount(puuid);
+    invalidateOwnedItemStatsCache();
     senderWindow(event)?.webContents.send("lcu:games-updated");
     return result;
   });
