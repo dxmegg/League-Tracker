@@ -187,29 +187,26 @@ Cherry-pickuje commity między worktree'ami — nie używać subsessji.
 6. Co dalej
 
 - A — New feature (ask user for direction)
-- B — Payload phase D: UI surfacing new telemetry fields (challenges, pings, spell casts) in Match detail / Score tab
-- C — Payload phase E: add remaining Riot IDs in Settings + refresh existing (only current account "helupa lover#xxxx" has Match-V5 telemetry — 5 games, 7098 challenge rows, 13 ping rows, 58 cast rows)
-- D — Vision KPI bug: "Control ward share" shows 100.0% when 0 wards bought (0/0 division)
-- E — Optional: revisit Home page KPI/highlights
+- B — Champion Detail telemetry aggregates: new Score tab / panel showing challenge metrics per champion (soloKills, damagePerMinute, goldPerMinute, skillshotsHit/Dodged, epicMonsterSteals, turretPlatesTaken, killParticipation, teamDamagePercentage). Requires SQL in stats.ts + IPC + UI. ~1h.
+- C — Optional: additional challenge keys beyond top-15 (schema already stores ALL keys from Match-V5 challenges object in match_participant_challenges table — UI just needs to expose more)
+- D — Optional: revisit Home page KPI/highlights polish
 
 Completed since last handoff:
 
-- Riot Match-V5 sync end-to-end working:
-    - Account-V1 PUUID resolver (Riot API puuid vs LCU puuid — different encryption keys, was causing 400 "Exception decrypting")
-    - Regional route to proxy (europe/americas/asia/sea) for match-v5 endpoints
-    - Platform fallback chain (riot_platform → platform → riot_sync_state.platform → summoner.platform), no hardcoded na1
-    - Match-V5 ID format EUW1_xxx for detail fetches
-    - Refresh-existing mode: fetches known games previously marked ignored, backfills pings/casts/challenges via targeted UPDATE (preserves LCU-only fields like Arena augments)
-    - Global game lookup (getAllKnownGameIds) not puuid-scoped
-- Schema v28: match_participants +19 columns (11 pings, 6 spell casts, 2 teammate utility); new match_participant_challenges key-value table
-- Settings: "Riot Match-V5 sync" button + platform display + "Refresh existing (Match-V5)" button
-- Diagnostics in riotFetch (fetch/response/error/retry/parse logs) + sync (by-puuid/ids/filter logs)
+- Riot Match-V5 sync end-to-end working with progress bar + Stop button + live status events
+- Settings: "Riot Accounts" section — add/remove Riot IDs, 14 accounts pre-populated from summoner table, platform full-name labels (EUW/EUNE/NA)
+- Payload phase D: Match Detail per-participant telemetry panel (expandable, shows pings, spell casts, teammate utility, top 10 challenges). Shows "Telemetry not available" for LCU games.
+- Vision KPI: ward ratio / control ward share now use nullable numeric with "—" for zero denominators
+- Schema v28 with match_participant_challenges table (~95k rows populated)
+- Sync debug logs (riotFetch diagnostics, by-puuid/filter logs) still active — can be removed later if noisy
 
 Known working-as-designed (do NOT touch without approval):
 
 - Overview, Combat, Economy tabs (user forbids)
 - Sync button stays on LCU (Match-V5 sync is separate Settings action)
 - Historical LCU games do NOT have pings/casts/challenges (only Match-V5 imports do)
+- Old games (2+ years) 404 from Riot API — expected
+- riot-accounts.local.json is optional seed file, gitignored
 
 7. Komendy
 npm run dev          # apka (wymaga LCU jako admin)
