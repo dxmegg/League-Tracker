@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import type { ItemDetail as ItemDetailData } from "../lib/types";
 import { useIpc } from "../hooks/useIpc";
@@ -18,6 +18,7 @@ const KPI_CLASSES = {
 };
 
 type ChampionSort = "games" | "winRate" | "name";
+const CHAMPIONS_PAGE_SIZE = 50;
 
 function KpiTile({
   label,
@@ -51,12 +52,12 @@ export function ItemDetailExp() {
   const [championSearch, setChampionSearch] = useState("");
   const [championSort, setChampionSort] = useState<ChampionSort>("games");
   const [championSortDesc, setChampionSortDesc] = useState(true);
-  const [showAllChampions, setShowAllChampions] = useState(false);
+  const [championPage, setChampionPage] = useState(1);
   const { data, loading } = useIpc<ItemDetailData>(
     () => window.api.getOwnedItemDetail(id, undefined, queue),
     [id, queue],
   );
-  const visibleChampions = useMemo(() => {
+  const filteredChampions = useMemo(() => {
     if (!data) return [];
     const search = championSearch.trim().toLowerCase();
     const filtered = data.champions.filter((row) =>
@@ -75,8 +76,24 @@ export function ItemDetailExp() {
             : a.games - b.games;
       return (championSortDesc ? -1 : 1) * result || aName.localeCompare(bName);
     });
-    return showAllChampions ? filtered : filtered.slice(0, 30);
-  }, [championSearch, championSort, championSortDesc, champions, data, showAllChampions]);
+    return filtered;
+  }, [championSearch, championSort, championSortDesc, champions, data]);
+
+  const championPageCount = Math.max(1, Math.ceil(filteredChampions.length / CHAMPIONS_PAGE_SIZE));
+  const currentChampionPage = Math.min(championPage, championPageCount);
+  const championPageStart = (currentChampionPage - 1) * CHAMPIONS_PAGE_SIZE;
+  const visibleChampions = filteredChampions.slice(
+    championPageStart,
+    championPageStart + CHAMPIONS_PAGE_SIZE,
+  );
+
+  useEffect(() => {
+    setChampionPage(1);
+  }, [championSearch, championSort, championSortDesc]);
+
+  useEffect(() => {
+    if (championPage > championPageCount) setChampionPage(championPageCount);
+  }, [championPage, championPageCount]);
 
   if (loading || !data) {
     return (
@@ -270,17 +287,35 @@ export function ItemDetailExp() {
             ))
           )}
         </div>
-        {data.champions.length > 30 && (
-          <button
-            type="button"
-            onClick={() => setShowAllChampions((value) => !value)}
-            className="mt-3 w-full rounded-md border border-lol-border px-3 py-2 text-xs font-semibold text-lol-text-bright transition-colors duration-120 hover:border-lol-crimson/40 hover:bg-white/[0.025]"
-            aria-expanded={showAllChampions}
-          >
-            {showAllChampions
-              ? "Show top 30"
-              : `Show all (${data.champions.length.toLocaleString()})`}
-          </button>
+        {filteredChampions.length > 0 && (
+          <div className="mt-3 flex flex-wrap items-center justify-between gap-3 text-xs text-lol-text">
+            <span>
+              Showing {championPageStart + 1}–
+              {Math.min(championPageStart + CHAMPIONS_PAGE_SIZE, filteredChampions.length)} of{" "}
+              {filteredChampions.length.toLocaleString()} champions
+            </span>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setChampionPage((page) => Math.max(1, page - 1))}
+                disabled={currentChampionPage === 1}
+                className="rounded-md border border-lol-border px-3 py-1.5 font-semibold text-lol-text-bright transition-colors duration-120 hover:border-lol-crimson/40 hover:bg-white/[0.025] disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                Prev
+              </button>
+              <span className="tabular-nums">
+                Page {currentChampionPage} of {championPageCount}
+              </span>
+              <button
+                type="button"
+                onClick={() => setChampionPage((page) => Math.min(championPageCount, page + 1))}
+                disabled={currentChampionPage === championPageCount}
+                className="rounded-md border border-lol-border px-3 py-1.5 font-semibold text-lol-text-bright transition-colors duration-120 hover:border-lol-crimson/40 hover:bg-white/[0.025] disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                Next
+              </button>
+            </div>
+          </div>
         )}
       </div>
     </div>
