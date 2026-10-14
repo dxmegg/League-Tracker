@@ -576,8 +576,6 @@ async function riotFetch<T>(
   }`;
   const logPrefix = tag ? `[sync ${tag}] ` : "";
   for (let attempt = 0; ; attempt++) {
-    console.log(`${logPrefix}Riot API request: ${proxyUrl}`);
-    console.log("[riot] fetch", { attempt, url: proxyUrl });
     const release = await acquireRequestSlot();
     let response: Response;
     try {
@@ -586,10 +584,6 @@ async function riotFetch<T>(
         signal: AbortSignal.timeout(30_000),
       });
       lastRequestAt = Date.now();
-      console.log("[riot] response", { attempt, status: response.status, url: proxyUrl });
-    } catch (err) {
-      console.error("[riot] fetch error", { attempt, error: String(err), url: proxyUrl });
-      throw err;
     } finally {
       release();
     }
@@ -604,7 +598,6 @@ async function riotFetch<T>(
       console.warn(
         `${logPrefix}Riot API 429 on ${proxyUrl}, pausing for ${Math.round(retryAfterMs / 1000)}s (attempt ${attempt + 1}/${MAX_RATE_LIMIT_RETRIES})`,
       );
-      console.log(`[riot] retry in ${retryAfterMs}ms (attempt ${attempt})`);
       continue;
     }
     const body = await response.text();
@@ -617,9 +610,6 @@ async function riotFetch<T>(
       throw new RiotApiError(response.status, proxyUrl);
     }
     const parsed = JSON.parse(body) as T;
-    console.log(
-      "[riot] parsed response, size: " + (Array.isArray(parsed) ? parsed.length : typeof parsed),
-    );
     return parsed;
   }
 }
@@ -644,7 +634,6 @@ export async function resolveRiotPuuid(
   tagLine: string,
   platform: string,
 ): Promise<string> {
-  console.log("[riot] resolveRiotPuuid called:", { gameName, tagLine, platform });
   const route = regionalRoute(platform);
   const url = `https://${route}.api.riotgames.com/riot/account/v1/accounts/by-riot-id/${encodeURIComponent(gameName)}/${encodeURIComponent(tagLine)}`;
   const data = await riotFetch<{ puuid: string }>(url, route, undefined, `account-v1-${gameName}`);
@@ -1081,7 +1070,6 @@ async function syncRiotAccount(
   } = {},
 ): Promise<RiotSyncResult> {
   const refreshExisting = options.refreshExisting ?? false;
-  console.log("[sync-riot] refreshExisting flag:", refreshExisting);
   const route = regionalRoute(identity.platform);
   let puuid = identity.puuid;
   if (identity.gameName && identity.tagLine) {
@@ -1119,7 +1107,6 @@ async function syncRiotAccount(
       break;
     }
     let page: string[] = [];
-    console.log("[sync] calling by-puuid for puuid=" + puuid.substring(0, 12) + "...");
     try {
       page = await riotFetch<string[]>(
         `https://${route}.api.riotgames.com/lol/match/v5/matches/by-puuid/${encodeURIComponent(puuid)}/ids?start=${start}&count=${count}`,
@@ -1131,20 +1118,11 @@ async function syncRiotAccount(
       console.error("[sync] by-puuid failed:", err);
       throw new Error(friendlyRiotError(err, "match"));
     }
-    console.log("[sync] by-puuid returned " + page.length + " ids");
     for (const raw of page) {
       const id = normalizeMatchId(raw);
       if (id === null || ids.includes(id)) continue;
       if (refreshExisting || !ignored.has(id)) ids.push(id);
     }
-    console.log(
-      "[sync] ids after filter: " +
-        ids.length +
-        ", known: " +
-        known.size +
-        ", ignored: " +
-        ignored.size,
-    );
     options.onProgress?.({
       phase: "collecting",
       accountIndex,
