@@ -1,6 +1,7 @@
 import { useMemo, useState, type ReactNode } from "react";
 import type { MatchDetail, ParsedParticipant } from "../lib/types";
 import { parseParticipants, groupByTeam } from "../lib/participants";
+import { CHALLENGE_LABELS } from "../lib/challenge-labels";
 import { getChampionName, useRuneData } from "../hooks/useChampions";
 import { formatKDA, kdaRatio } from "../lib/format";
 import { isArenaQueue, isAugmentQueue } from "../../shared/queues";
@@ -781,6 +782,7 @@ function PlayerRow({
 }
 
 function TelemetryBlock({ player: p }: { player: ParsedParticipant }) {
+  const [showAllChallenges, setShowAllChallenges] = useState(false);
   const pings: [string, number | null | undefined][] = [
     ["Enemy missing", p.enemyMissingPings],
     ["Danger", p.dangerPings],
@@ -825,8 +827,10 @@ function TelemetryBlock({ player: p }: { player: ParsedParticipant }) {
   ];
   const challengeEntries = Object.entries(p.challenges ?? {})
     .filter(([, value]) => Number.isFinite(value))
-    .sort(([, a], [, b]) => b - a)
-    .slice(0, 10);
+    .sort(([, a], [, b]) => b - a);
+  const visibleChallengeEntries = showAllChallenges
+    ? challengeEntries
+    : challengeEntries.slice(0, 20);
   const hasTelemetry =
     telemetryValues.some((value) => value != null && value !== 0) || challengeEntries.length > 0;
 
@@ -854,13 +858,22 @@ function TelemetryBlock({ player: p }: { player: ParsedParticipant }) {
                   Challenges
                 </div>
                 <div className="space-y-0.5">
-                  {challengeEntries.map(([key, value]) => (
+                  {visibleChallengeEntries.map(([key, value]) => (
                     <div key={key} className="flex justify-between gap-2 tabular-nums">
-                      <span className="truncate">{key}</span>
+                      <span className="truncate">{CHALLENGE_LABELS[key] ?? key}</span>
                       <span className="text-lol-text-bright">{value}</span>
                     </div>
                   ))}
                 </div>
+                {challengeEntries.length > 20 && (
+                  <button
+                    type="button"
+                    className="mt-1 text-lol-accent hover:text-lol-text-bright"
+                    onClick={() => setShowAllChallenges((expanded) => !expanded)}
+                  >
+                    {showAllChallenges ? "Show less" : `Show all (${challengeEntries.length})`}
+                  </button>
+                )}
               </div>
             )}
           </div>
