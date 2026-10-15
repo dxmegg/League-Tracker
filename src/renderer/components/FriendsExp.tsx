@@ -7,7 +7,6 @@ import { useHistoryScopeQueue } from "../lib/historyScope";
 import { formatNumber, kdaRatio } from "../lib/format";
 import ChampionIcon from "./ChampionIcon";
 import SummonerIcon from "./SummonerIcon";
-import WinRateBar from "./WinRateBar";
 import { Panel } from "./Panel";
 import { SortableTable, type SortableColumn } from "./SortableTable";
 
@@ -29,6 +28,22 @@ function PanelKpi({
         <div
           className="h-full rounded-full"
           style={{ width: `${barWidth}%`, backgroundColor: accent }}
+        />
+      </div>
+    </div>
+  );
+}
+
+function WinRateValue({ wins, games }: { wins: number; games: number }) {
+  const rate = games > 0 ? (wins / games) * 100 : 0;
+
+  return (
+    <div className="flex min-w-0 items-center justify-end gap-2">
+      <span className="shrink-0 tabular-nums">{rate.toFixed(1)}%</span>
+      <div className="h-2 min-w-0 flex-1 overflow-hidden rounded-full bg-[#a51e1e]/20">
+        <div
+          className="h-full rounded-full bg-[#15803d] shadow-[0_0_10px_rgba(21,128,61,0.45)]"
+          style={{ width: `${rate}%` }}
         />
       </div>
     </div>
@@ -102,30 +117,35 @@ export function FriendsExp() {
       },
       {
         key: "wins",
-        label: "Win rate",
+        label: "Your win rate",
         render: (row) => (
-          <div className="flex min-w-[150px] items-center gap-2">
-            <span className="w-12 tabular-nums">
-              {row.games > 0 ? ((row.wins / row.games) * 100).toFixed(1) : "0.0"}%
-            </span>
-            <WinRateBar wins={row.wins} total={row.games} />
-          </div>
-        ),
-        sortValue: (row) => (row.games > 0 ? row.wins / row.games : 0),
-        defaultDir: "desc",
-      },
-      {
-        key: "kda",
-        label: "KDA together",
-        render: (row) => (
-          <span className="tabular-nums">{kdaRatio(row.kills, row.deaths, row.assists)}</span>
+          <WinRateValue
+            wins={relation === "enemies" ? row.games - row.wins : row.wins}
+            games={row.games}
+          />
         ),
         sortValue: (row) =>
-          row.deaths > 0 ? (row.kills + row.assists) / row.deaths : row.kills + row.assists,
+          row.games > 0
+            ? (relation === "enemies" ? row.games - row.wins : row.wins) / row.games
+            : 0,
         defaultDir: "desc",
       },
+      ...(relation === "friends"
+        ? [
+            {
+              key: "kda",
+              label: "KDA together",
+              render: (row: TeammateStats) => (
+                <span className="tabular-nums">{kdaRatio(row.kills, row.deaths, row.assists)}</span>
+              ),
+              sortValue: (row: TeammateStats) =>
+                row.deaths > 0 ? (row.kills + row.assists) / row.deaths : row.kills + row.assists,
+              defaultDir: "desc" as const,
+            },
+          ]
+        : []),
     ],
-    [],
+    [relation],
   );
 
   const championColumns = useMemo<SortableColumn<TeammateChampionStats>[]>(
@@ -158,20 +178,21 @@ export function FriendsExp() {
       },
       {
         key: "wins",
-        label: "Their win rate",
+        label: relation === "friends" ? "Your win rate with" : "Your win rate vs",
         render: (row) => (
-          <div className="flex min-w-[150px] items-center gap-2">
-            <span className="w-12 tabular-nums">
-              {row.games > 0 ? ((row.wins / row.games) * 100).toFixed(1) : "0.0"}%
-            </span>
-            <WinRateBar wins={row.wins} total={row.games} />
-          </div>
+          <WinRateValue
+            wins={relation === "enemies" ? row.games - row.wins : row.wins}
+            games={row.games}
+          />
         ),
-        sortValue: (row) => (row.games > 0 ? row.wins / row.games : 0),
+        sortValue: (row) =>
+          row.games > 0
+            ? (relation === "enemies" ? row.games - row.wins : row.wins) / row.games
+            : 0,
         defaultDir: "desc",
       },
     ],
-    [championData],
+    [championData, relation],
   );
 
   const totalPlayerGames = playerRows[0]?.totalGames ?? 0;
@@ -179,7 +200,13 @@ export function FriendsExp() {
   const playerKpi = `${formatNumber(playerRows.length)} players / ${formatNumber(totalPlayerGames)} games`;
   const championKpi = `${formatNumber(championRows.length)} champions / ${formatNumber(totalChampionGames)} games`;
   const tableClass =
-    "[&_tbody_td]:border-t-[1px] [&_tbody_td]:border-[rgba(255,255,255,0.04)] [&_tbody_td]:text-right [&_tbody_td]:tabular-nums [&_tbody_tr]:transition-colors [&_tbody_tr]:duration-[120ms] [&_tbody_tr:hover]:bg-white/[0.025]";
+    "[&_thead_tr]:grid [&_tbody_tr]:grid [&_thead_th]:min-w-0 [&_tbody_td]:min-w-0 [&_tbody_td]:border-t-[1px] [&_tbody_td]:border-[rgba(255,255,255,0.04)] [&_tbody_td]:text-right [&_tbody_td]:tabular-nums [&_tbody_tr]:transition-colors [&_tbody_tr]:duration-[120ms] [&_tbody_tr:hover]:bg-white/[0.025]";
+  const playerGridClass =
+    relation === "friends"
+      ? "[&_thead_tr]:grid-cols-[1fr_60px_90px_80px] [&_tbody_tr]:grid-cols-[1fr_60px_90px_80px]"
+      : "[&_thead_tr]:grid-cols-[1fr_60px_90px] [&_tbody_tr]:grid-cols-[1fr_60px_90px]";
+  const playerTableClass = `${tableClass} ${playerGridClass}`;
+  const championTableClass = `${tableClass} [&_thead_tr]:grid-cols-[1fr_60px_100px] [&_tbody_tr]:grid-cols-[1fr_60px_100px]`;
 
   return (
     <div className="mx-auto flex min-h-full w-full max-w-[1320px] flex-col gap-5">
@@ -227,7 +254,7 @@ export function FriendsExp() {
             <div className="py-8 text-center text-sm text-lol-text">Loading…</div>
           ) : (
             <SortableTable
-              className={tableClass}
+              className={playerTableClass}
               columns={playerColumns}
               rows={playerRows.slice(0, visiblePlayers)}
               defaultSortKey="games"
@@ -254,7 +281,7 @@ export function FriendsExp() {
             <div className="py-8 text-center text-sm text-lol-text">Loading…</div>
           ) : (
             <SortableTable
-              className={tableClass}
+              className={championTableClass}
               columns={championColumns}
               rows={championRows.slice(0, visibleChampions)}
               defaultSortKey="games"
