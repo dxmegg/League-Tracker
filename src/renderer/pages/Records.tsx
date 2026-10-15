@@ -15,6 +15,8 @@ import ChampionIcon from "../components/ChampionIcon";
 import MatchScoreboard from "../components/MatchScoreboard";
 import QueueSelect, { queueLabel } from "../components/QueueSelect";
 import { FilterSelect } from "../components/FilterSelect";
+import { Panel } from "../components/Panel";
+import { SectionHeading } from "../components/SectionHeading";
 import { type StatAccent } from "../components/StatCard";
 import {
   CoinsIcon,
@@ -79,18 +81,18 @@ function RecordCard({
     tileIndex % 3 === 0
       ? {
           border: "border-t-lol-gold",
-          glow: "bg-[radial-gradient(circle_at_top_right,rgba(201,164,92,0.08),transparent_42%),linear-gradient(145deg,#0c0e11_0%,#090b0d_48%,#060809_100%)]",
+          glow: "bg-[radial-gradient(circle_at_top_right,color-mix(in_oklab,var(--theme-gold)_8%,transparent),transparent_42%),linear-gradient(145deg,var(--theme-card)_0%,var(--theme-card-hover)_48%,var(--theme-card)_100%)]",
           dot: "bg-lol-gold shadow-[0_0_7px_rgba(201,164,92,0.55)]",
         }
       : tileIndex % 3 === 1
         ? {
             border: "border-t-lol-win",
-            glow: "bg-[radial-gradient(circle_at_top_right,rgba(74,222,128,0.08),transparent_42%),linear-gradient(145deg,#0c0e11_0%,#090b0d_48%,#060809_100%)]",
+            glow: "bg-[radial-gradient(circle_at_top_right,color-mix(in_oklab,var(--theme-win)_8%,transparent),transparent_42%),linear-gradient(145deg,var(--theme-card)_0%,var(--theme-card-hover)_48%,var(--theme-card)_100%)]",
             dot: "bg-lol-win shadow-[0_0_7px_rgba(74,222,128,0.45)]",
           }
         : {
             border: "border-t-lol-crimson",
-            glow: "bg-[radial-gradient(circle_at_top_right,rgba(165,15,21,0.08),transparent_42%),linear-gradient(145deg,#0c0e11_0%,#090b0d_48%,#060809_100%)]",
+            glow: "bg-[radial-gradient(circle_at_top_right,color-mix(in_oklab,var(--theme-crimson)_8%,transparent),transparent_42%),linear-gradient(145deg,var(--theme-card)_0%,var(--theme-card-hover)_48%,var(--theme-card)_100%)]",
             dot: "bg-lol-crimson shadow-[0_0_7px_rgba(165,15,21,0.55)]",
           };
 
@@ -160,13 +162,17 @@ function MatchModal({
   }, [onClose]);
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm p-4"
-      onClick={onClose}
-    >
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4 backdrop-blur-sm">
+      <button
+        type="button"
+        className="absolute inset-0"
+        aria-label="Close match detail"
+        onClick={onClose}
+      />
       <div
-        className="relative w-full max-w-4xl max-h-[90vh] overflow-y-auto rounded-lg border border-lol-crimson/40 bg-[linear-gradient(145deg,#0c0e11_0%,#090b0d_48%,#060809_100%)] shadow-[0_0_3px_rgba(150,30,30,0.55),0_0_10px_rgba(90,15,15,0.35),0_0_20px_rgba(60,10,10,0.20)] ring-1 ring-inset ring-white/[0.03] p-6"
-        onClick={(e) => e.stopPropagation()}
+        role="dialog"
+        aria-modal="true"
+        className="relative z-10 max-h-[90vh] w-full max-w-4xl overflow-y-auto rounded-lg border border-lol-crimson/40 bg-[linear-gradient(145deg,var(--theme-card)_0%,var(--theme-card-hover)_48%,var(--theme-card)_100%)] p-6 shadow-[0_0_3px_color-mix(in_oklab,var(--theme-crimson)_55%,transparent),0_0_10px_color-mix(in_oklab,var(--theme-crimson)_35%,transparent),0_0_20px_color-mix(in_oklab,var(--theme-crimson)_20%,transparent)] ring-1 ring-inset ring-white/[0.03]"
       >
         <div className="flex items-center gap-3 mb-3 pr-12">
           <ChampionIcon championId={match.champion_id} size={36} />
@@ -187,6 +193,7 @@ function MatchModal({
           <button
             type="button"
             onClick={onClose}
+            aria-label="Close match detail"
             className="absolute right-4 top-4 inline-flex h-8 w-8 items-center justify-center rounded-md border border-lol-border/60 bg-lol-card/40 text-lol-text transition-colors hover:border-lol-crimson/60 hover:bg-lol-crimson/15 hover:text-lol-crimson-bright focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-lol-gold/60 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--theme-bg-deep)]"
           >
             <XIcon className="w-4 h-4" />
@@ -498,7 +505,7 @@ export default function Records() {
             {accountSelect}
           </div>
         </div>
-        <div className="rounded-lg border border-lol-crimson/40 border-t-[3px] border-t-lol-crimson bg-[radial-gradient(circle_at_top_right,rgba(165,15,21,0.08),transparent_42%),linear-gradient(145deg,#0c0e11_0%,#090b0d_48%,#060809_100%)] shadow-[0_0_3px_rgba(150,30,30,0.55),0_0_10px_rgba(90,15,15,0.35),0_0_20px_rgba(60,10,10,0.20)] ring-1 ring-inset ring-white/[0.03] p-12 text-center">
+        <div className="rounded-lg border border-lol-crimson/40 border-t-[3px] border-t-lol-crimson bg-[linear-gradient(180deg,var(--theme-card-hover),var(--theme-card))] p-12 text-center shadow-[0_0_3px_color-mix(in_oklab,var(--theme-crimson)_55%,transparent),0_0_10px_color-mix(in_oklab,var(--theme-crimson)_35%,transparent),0_0_20px_color-mix(in_oklab,var(--theme-crimson)_20%,transparent)] ring-1 ring-inset ring-white/[0.03]">
           <p className="text-sm text-lol-text">Loading records…</p>
         </div>
       </div>
@@ -514,7 +521,7 @@ export default function Records() {
             {accountSelect}
           </div>
         </div>
-        <div className="rounded-lg border border-lol-crimson/40 border-t-[3px] border-t-lol-crimson bg-[radial-gradient(circle_at_top_right,rgba(165,15,21,0.08),transparent_42%),linear-gradient(145deg,#0c0e11_0%,#090b0d_48%,#060809_100%)] shadow-[0_0_3px_rgba(150,30,30,0.55),0_0_10px_rgba(90,15,15,0.35),0_0_20px_rgba(60,10,10,0.20)] ring-1 ring-inset ring-white/[0.03] p-12 text-center">
+        <div className="rounded-lg border border-lol-crimson/40 border-t-[3px] border-t-lol-crimson bg-[linear-gradient(180deg,var(--theme-card-hover),var(--theme-card))] p-12 text-center shadow-[0_0_3px_color-mix(in_oklab,var(--theme-crimson)_55%,transparent),0_0_10px_color-mix(in_oklab,var(--theme-crimson)_35%,transparent),0_0_20px_color-mix(in_oklab,var(--theme-crimson)_20%,transparent)] ring-1 ring-inset ring-white/[0.03]">
           <p className="text-sm font-semibold text-lol-text-bright">No records yet</p>
           <p className="text-xs text-lol-text mt-1">Play more matches to set personal bests.</p>
         </div>
@@ -545,20 +552,20 @@ export default function Records() {
       </div>
 
       <div>
-        <h2 className="relative mb-3 pl-4 text-xs font-bold uppercase tracking-wider text-lol-gold before:absolute before:left-0 before:top-1/2 before:h-2 before:w-2 before:-translate-y-1/2 before:rotate-45 before:bg-lol-crimson">
-          Personal bests
-        </h2>
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 items-stretch">
-          {cards.map(({ key, ...card }, tileIndex) => (
-            <RecordCard
-              key={key}
-              {...card}
-              tileIndex={tileIndex}
-              champData={champData}
-              onOpen={setOpenMatch}
-            />
-          ))}
-        </div>
+        <SectionHeading title="Personal bests" />
+        <Panel>
+          <div className="grid grid-cols-2 items-stretch gap-3 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
+            {cards.map(({ key, ...card }, tileIndex) => (
+              <RecordCard
+                key={key}
+                {...card}
+                tileIndex={tileIndex}
+                champData={champData}
+                onOpen={setOpenMatch}
+              />
+            ))}
+          </div>
+        </Panel>
       </div>
 
       {openMatch && (

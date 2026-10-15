@@ -12,6 +12,8 @@ import { RecordTile } from "./RecordTile";
 import StatCard from "./StatCard";
 import QueueSelect from "./QueueSelect";
 import { FilterSelect } from "./FilterSelect";
+import { Panel } from "./Panel";
+import { SectionHeading } from "./SectionHeading";
 
 function DecimalRecordTile({
   label,
@@ -133,7 +135,7 @@ export function RecordsExp({
   if (!data) {
     return (
       <div className="mx-auto flex min-h-full w-full max-w-[1320px] flex-col gap-5">
-        <div className="relative overflow-hidden rounded-xl border border-lol-border border-t-[3px] border-t-[#E5483F] bg-[radial-gradient(circle_at_top_right,rgba(229,72,63,0.10),transparent_46%),linear-gradient(180deg,#151012,#0b0d10)] px-5 py-4">
+        <div className="relative overflow-hidden rounded-xl border border-lol-border border-t-[3px] border-t-lol-crimson bg-[radial-gradient(circle_at_top_right,color-mix(in_oklab,var(--theme-crimson)_10%,transparent),transparent_46%),linear-gradient(180deg,var(--theme-card-hover),var(--theme-card))] px-5 py-4">
           <h1 className="font-display text-[30px] font-bold text-lol-text-bright">Records</h1>
           {controls}
         </div>
@@ -147,11 +149,11 @@ export function RecordsExp({
   if (data.totalGames === 0) {
     return (
       <div className="mx-auto flex min-h-full w-full max-w-[1320px] flex-col gap-5">
-        <div className="relative overflow-hidden rounded-xl border border-lol-border border-t-[3px] border-t-[#E5483F] bg-[radial-gradient(circle_at_top_right,rgba(229,72,63,0.10),transparent_46%),linear-gradient(180deg,#151012,#0b0d10)] px-5 py-4">
+        <div className="relative overflow-hidden rounded-xl border border-lol-border border-t-[3px] border-t-lol-crimson bg-[radial-gradient(circle_at_top_right,color-mix(in_oklab,var(--theme-crimson)_10%,transparent),transparent_46%),linear-gradient(180deg,var(--theme-card-hover),var(--theme-card))] px-5 py-4">
           <h1 className="font-display text-[30px] font-bold text-lol-text-bright">Records</h1>
           {controls}
         </div>
-        <div className="relative overflow-hidden rounded-xl border border-lol-border border-t-[3px] border-t-[#E5483F] bg-[radial-gradient(circle_at_top_right,rgba(229,72,63,0.10),transparent_46%),linear-gradient(180deg,#151012,#0b0d10)] p-12 text-center">
+        <div className="relative overflow-hidden rounded-xl border border-lol-border border-t-[3px] border-t-lol-crimson bg-[linear-gradient(180deg,var(--theme-card-hover),var(--theme-card))] p-12 text-center">
           <p className="relative text-sm font-semibold text-lol-text-bright">No records yet</p>
           <p className="relative mt-1 text-xs text-lol-text">
             Play more matches to set personal bests.
@@ -244,8 +246,8 @@ export function RecordsExp({
 
   return (
     <div className="mx-auto flex min-h-full w-full max-w-[1320px] flex-col gap-5">
-      <div className="shrink-0 overflow-hidden rounded-xl border border-lol-border border-t-[3px] border-t-[#E5483F] bg-[radial-gradient(circle_at_top_right,rgba(229,72,63,0.10),transparent_46%),linear-gradient(180deg,#151012,#0b0d10)] px-5 py-4">
-        <h1 className="relative pl-4 font-display text-[30px] font-bold leading-tight tracking-[0.2px] text-lol-text-bright before:absolute before:left-0 before:top-1/2 before:h-2.5 before:w-2.5 before:-translate-y-1/2 before:rotate-45 before:bg-[#E5483F]">
+      <div className="shrink-0 overflow-hidden rounded-xl border border-lol-border border-t-[3px] border-t-lol-crimson bg-[radial-gradient(circle_at_top_right,color-mix(in_oklab,var(--theme-crimson)_10%,transparent),transparent_46%),linear-gradient(180deg,var(--theme-card-hover),var(--theme-card))] px-5 py-4">
+        <h1 className="relative pl-4 font-display text-[30px] font-bold leading-tight tracking-[0.2px] text-lol-text-bright before:absolute before:left-0 before:top-1/2 before:h-2.5 before:w-2.5 before:-translate-y-1/2 before:rotate-45 before:bg-lol-crimson">
           Records
         </h1>
         <p className="relative mt-1.5 pl-4 text-lol-text">
@@ -268,10 +270,10 @@ export function RecordsExp({
         <StatCard label="Active Scope" value={scopeLabel} subtext="Queue · account" />
       </div>
       <div>
-        <h2 className="relative mb-3 pl-4 text-xs font-bold uppercase tracking-wider text-lol-gold before:absolute before:left-0 before:top-1/2 before:h-2 before:w-2 before:-translate-y-1/2 before:rotate-45 before:bg-lol-crimson">
-          Personal bests
-        </h2>
-        <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">{tiles}</div>
+        <SectionHeading title="Personal bests" />
+        <Panel>
+          <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">{tiles}</div>
+        </Panel>
       </div>
     </div>
   );
