@@ -10,6 +10,7 @@ import ChampionIcon from "./ChampionIcon";
 import SummonerIcon from "./SummonerIcon";
 import { Panel } from "./Panel";
 import type { SortableColumn } from "./SortableTable";
+import { FilterSelect } from "./FilterSelect";
 
 const PAGE_SIZE = 30;
 const PLAYER_GRID_FRIENDS =
@@ -21,24 +22,12 @@ const CHAMPION_GRID =
 
 type SortDirection = "asc" | "desc";
 
-function PanelKpi({
-  value,
-  barWidth,
-  accent,
-}: {
-  value: string;
-  barWidth: number;
-  accent: string;
-}) {
+function PanelKpi({ value }: { value: string }) {
   return (
-    <div className="shrink-0 rounded-md border border-lol-border/60 bg-black/10 px-3 py-2 text-right">
-      <span className="text-xs font-semibold tabular-nums text-lol-text-bright">{value}</span>
-      <div className="mt-1 h-1.5 w-full overflow-hidden rounded-full bg-white/[0.06]">
-        <div
-          className="h-full rounded-full"
-          style={{ width: `${barWidth}%`, backgroundColor: accent }}
-        />
-      </div>
+    <div className="shrink-0 rounded-md border border-lol-border/60 bg-black/10 px-2 py-1.5 text-right">
+      <span className="text-[11px] font-semibold leading-tight tabular-nums text-lol-text-bright">
+        {value}
+      </span>
     </div>
   );
 }
@@ -232,11 +221,8 @@ export function FriendsExp() {
       {
         key: "kda",
         label: "KDA",
-        render: (row) => (
-          <span className="tabular-nums">{kdaRatio(row.kills, row.deaths, row.assists)}</span>
-        ),
-        sortValue: (row) =>
-          row.deaths > 0 ? (row.kills + row.assists) / row.deaths : row.kills + row.assists,
+        render: (row) => <span className="tabular-nums">{row.kda.toFixed(2)}</span>,
+        sortValue: (row) => row.kda,
         defaultDir: "desc",
       },
     ],
@@ -256,15 +242,25 @@ export function FriendsExp() {
   return (
     <div className="mx-auto flex min-h-full w-full max-w-[1320px] flex-col gap-5">
       <div className="flex flex-wrap items-center gap-3">
-        <label className="w-56">
+        <label className="relative w-56">
           <span className="sr-only">Search players and champions</span>
           <input
             type="search"
             value={search}
             onChange={(event) => setSearch(event.target.value)}
             placeholder="Search players or champions"
-            className="h-9 w-full rounded-md border border-lol-border/60 bg-lol-card/40 px-3 text-sm text-lol-text-bright outline-none transition-colors placeholder:text-lol-text/60 focus:border-lol-crimson/70 focus:ring-1 focus:ring-lol-crimson/40"
+            className="h-9 w-full rounded-md border border-lol-border/60 bg-lol-card/40 px-3 pr-8 text-sm text-lol-text-bright outline-none transition-colors placeholder:text-lol-text/60 focus:border-lol-crimson/70 focus:ring-1 focus:ring-lol-crimson/40"
           />
+          {search && (
+            <button
+              type="button"
+              aria-label="Clear search"
+              onClick={() => setSearch("")}
+              className="absolute right-2 top-1/2 -translate-y-1/2 text-lg leading-none text-lol-text/70 transition-colors hover:text-lol-text-bright focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-lol-crimson/60"
+            >
+              ×
+            </button>
+          )}
         </label>
         <QueueFilterChips value={queue} onChange={setQueue} />
         <div className="flex items-center gap-0 rounded-md border border-lol-border/60 bg-lol-card/40 p-0.5">
@@ -288,36 +284,35 @@ export function FriendsExp() {
 
       <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
         <Panel className="border-t-[3px] border-t-lol-crimson bg-[linear-gradient(145deg,#0c0e11_0%,#090b0d_48%,#060809_100%)]">
-          <div className="mb-4 flex min-w-0 items-center justify-between gap-3">
-            <h2 className="relative min-w-0 flex-1 pl-4 font-display text-xl font-semibold text-lol-text-bright before:absolute before:left-0 before:top-1/2 before:h-2 before:w-2 before:-translate-y-1/2 before:rotate-45 before:bg-lol-crimson">
-              <span className="block min-w-0 truncate">Players you've played {relationWord}</span>
+          <div className="mb-4 flex flex-wrap items-center gap-2">
+            <h2 className="relative min-w-[14rem] flex-1 basis-[16rem] pl-4 font-display text-xl font-semibold text-lol-text-bright before:absolute before:left-0 before:top-1/2 before:h-2 before:w-2 before:-translate-y-1/2 before:rotate-45 before:bg-lol-crimson">
+              Players you've played {relationWord}
             </h2>
             <div className="flex shrink-0 items-center gap-2">
               <label className="sr-only">Sort players</label>
-              <select
+              <FilterSelect
                 value={playerSortKey}
-                onChange={(event) => setPlayerSortKey(event.target.value)}
-                className="h-8 rounded-md border border-lol-border/60 bg-lol-card/40 px-2 text-xs font-bold uppercase tracking-wider text-lol-text-bright outline-none focus:border-lol-crimson/70 focus:ring-1 focus:ring-lol-crimson/40"
-              >
-                <option value="games">Games</option>
-                <option value="wins">Your win rate</option>
-                {relation === "friends" && <option value="kda">KDA together</option>}
-                <option value="lastPlayed">Last played</option>
-              </select>
+                onChange={(value) => value && setPlayerSortKey(value)}
+                placeholder="Sort"
+                title="Sort players"
+                options={[
+                  { value: "games", label: "Games" },
+                  { value: "wins", label: "Win rate" },
+                  ...(relation === "friends" ? [{ value: "kda", label: "KDA" }] : []),
+                  { value: "lastPlayed", label: "Last played" },
+                ]}
+                className="max-w-[7.5rem]"
+              />
               <button
                 type="button"
                 aria-label={`Sort ${playerSortDir === "asc" ? "descending" : "ascending"}`}
                 onClick={() => setPlayerSortDir(playerSortDir === "asc" ? "desc" : "asc")}
-                className="h-8 min-w-8 rounded-md border border-lol-border/60 bg-lol-card/40 px-2 text-xs font-bold text-lol-text-bright transition-colors hover:border-lol-crimson/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-lol-crimson/60"
+                className="inline-flex h-8 min-w-9 items-center justify-center rounded-md border border-lol-border/50 bg-lol-card/40 px-2.5 text-sm font-bold text-lol-text transition-colors hover:border-lol-crimson/60 hover:text-lol-text-bright focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-lol-crimson/60"
               >
                 {playerSortDir === "asc" ? "↑" : "↓"}
               </button>
             </div>
-            <PanelKpi
-              value={playerKpi}
-              barWidth={Math.min(playerRows.length * 5, 100)}
-              accent="var(--theme-crimson)"
-            />
+            <PanelKpi value={playerKpi} />
           </div>
           {playersLoading ? (
             <div className="py-8 text-center text-sm text-lol-text">Loading…</div>
@@ -349,37 +344,34 @@ export function FriendsExp() {
         </Panel>
 
         <Panel className="border-t-[3px] border-t-lol-gold bg-[linear-gradient(145deg,#0c0e11_0%,#090b0d_48%,#060809_100%)]">
-          <div className="mb-4 flex min-w-0 items-center justify-between gap-3">
-            <h2 className="relative min-w-0 flex-1 pl-4 font-display text-xl font-semibold text-lol-text-bright before:absolute before:left-0 before:top-1/2 before:h-2 before:w-2 before:-translate-y-1/2 before:rotate-45 before:bg-lol-crimson">
-              <span className="block min-w-0 truncate">Champions you've played {relationWord}</span>
+          <div className="mb-4 flex flex-wrap items-center gap-2">
+            <h2 className="relative min-w-[14rem] flex-1 basis-[16rem] pl-4 font-display text-xl font-semibold text-lol-text-bright before:absolute before:left-0 before:top-1/2 before:h-2 before:w-2 before:-translate-y-1/2 before:rotate-45 before:bg-lol-crimson">
+              Champions you've played {relationWord}
             </h2>
             <div className="flex shrink-0 items-center gap-2">
               <label className="sr-only">Sort champions</label>
-              <select
+              <FilterSelect
                 value={championSortKey}
-                onChange={(event) => setChampionSortKey(event.target.value)}
-                className="h-8 rounded-md border border-lol-border/60 bg-lol-card/40 px-2 text-xs font-bold uppercase tracking-wider text-lol-text-bright outline-none focus:border-lol-crimson/70 focus:ring-1 focus:ring-lol-crimson/40"
-              >
-                <option value="games">Games</option>
-                <option value="wins">
-                  {relation === "friends" ? "Your win rate with" : "Your win rate vs"}
-                </option>
-                <option value="kda">KDA</option>
-              </select>
+                onChange={(value) => value && setChampionSortKey(value)}
+                placeholder="Sort"
+                title="Sort champions"
+                options={[
+                  { value: "games", label: "Games" },
+                  { value: "wins", label: "Win rate" },
+                  { value: "kda", label: "KDA" },
+                ]}
+                className="max-w-[7.5rem]"
+              />
               <button
                 type="button"
                 aria-label={`Sort ${championSortDir === "asc" ? "descending" : "ascending"}`}
                 onClick={() => setChampionSortDir(championSortDir === "asc" ? "desc" : "asc")}
-                className="h-8 min-w-8 rounded-md border border-lol-border/60 bg-lol-card/40 px-2 text-xs font-bold text-lol-text-bright transition-colors hover:border-lol-crimson/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-lol-crimson/60"
+                className="inline-flex h-8 min-w-9 items-center justify-center rounded-md border border-lol-border/50 bg-lol-card/40 px-2.5 text-sm font-bold text-lol-text transition-colors hover:border-lol-crimson/60 hover:text-lol-text-bright focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-lol-crimson/60"
               >
                 {championSortDir === "asc" ? "↑" : "↓"}
               </button>
             </div>
-            <PanelKpi
-              value={championKpi}
-              barWidth={Math.min(championRows.length * 5, 100)}
-              accent="var(--theme-gold)"
-            />
+            <PanelKpi value={championKpi} />
           </div>
           {championsLoading ? (
             <div className="py-8 text-center text-sm text-lol-text">Loading…</div>

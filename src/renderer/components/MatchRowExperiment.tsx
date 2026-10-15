@@ -1,5 +1,5 @@
 import type { ChampionData, MatchDetail, MatchListItem } from "../../shared/api";
-import { isAugmentQueue } from "../../shared/queues";
+import { isArenaQueue, isAugmentQueue } from "../../shared/queues";
 import { queueLabel } from "./QueueSelect";
 import { AugmentGrid, parseAugmentIds } from "./AugmentGrid";
 import ChampionIcon from "./ChampionIcon";
@@ -66,11 +66,16 @@ const STYLE = `
 .match-row .m-res b { display: block; font-family: var(--theme-font-display); font-size: 19px; line-height: 1.1; font-weight: 700; }
 .match-row .m-res span { color: var(--theme-foreground-muted); font-size: 12.5px; }
 .match-row .m-champ { grid-area: champ; display: flex; align-items: center; gap: 12px; min-width: 0; }
+.match-row .m-champ.dual { gap: 6px; }
+.match-row .m-champ-player { display: flex; align-items: center; gap: 5px; min-width: 0; flex: 1; }
 .match-row .m-champ .champ-icon-wrap {
   width: 52px; height: 52px; border-radius: 9999px; overflow: hidden; flex: none;
   box-shadow: 0 0 0 2px var(--edge), 0 0 0 4px var(--theme-card);
 }
+.match-row .m-champ.dual .champ-icon-wrap { width: 36px; height: 36px; }
 .match-row .m-champ strong { display: block; font-family: var(--theme-font-display); font-size: 16px; line-height: 1.2; font-weight: 600; }
+.match-row .m-champ.dual strong { font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.match-row .m-vs { flex: none; color: var(--theme-foreground-muted); font-size: 10px; font-weight: 700; }
 .match-row .m-kda { grid-area: kda; }
 .match-row .m-kda b { display: block; white-space: nowrap; font-family: var(--theme-font-display); font-size: 15px; font-weight: 600; }
 .match-row .m-kda span { font-size: 12.5px; color: var(--theme-foreground-muted); }
@@ -92,7 +97,17 @@ const STYLE = `
 .match-row .bar em { font-style: normal; text-align: right; font-variant-numeric: tabular-nums; }
 .match-row .m-items { grid-area: items; display: flex; align-items: center; gap: 8px; min-width: 0; }
 .match-row .m-items .itg { display: grid; grid-template-columns: repeat(3, 22px); gap: 3px; }
-.match-row .m-multi { grid-area: multi; display: flex; flex-wrap: wrap; gap: 5px; min-width: 0; padding-left: 12px; }
+.match-row .m-multi {
+  grid-area: multi;
+  display: flex;
+  flex-wrap: wrap;
+  align-content: flex-start;
+  gap: 5px;
+  min-width: 0;
+  max-width: 120px;
+  overflow: hidden;
+  padding-left: 12px;
+}
 .match-row .pill { font-family: var(--theme-font-display); font-size: 11.5px; line-height: 1; font-weight: 600; padding: 5px 10px; border-radius: 9999px; border: 1px solid; }
 .match-row .pill.d { color: var(--theme-assist); border-color: rgba(77,184,255,0.5); background: rgba(77,184,255,0.10); box-shadow: 0 0 10px rgba(77,184,255,0.12); }
 .match-row .pill.t { color: var(--theme-gold); border-color: rgba(230,188,99,0.55); background: rgba(230,188,99,0.10); box-shadow: 0 0 10px rgba(230,188,99,0.12); }
@@ -132,6 +147,7 @@ const STYLE = `
 export function MatchRowExperiment({
   match,
   championName,
+  secondaryParticipant,
   champData,
   expanded = false,
   detail = null,
@@ -143,6 +159,10 @@ export function MatchRowExperiment({
 }: {
   match: MatchListItem;
   championName: string;
+  secondaryParticipant?: {
+    championId: number;
+    championName: string;
+  };
   champData?: ChampionData;
   expanded?: boolean;
   detail?: MatchDetail | null;
@@ -184,17 +204,36 @@ export function MatchRowExperiment({
           <span>{queueLabel(match.queue_id)}</span>
         </div>
 
-        <div className="m-champ">
-          <div className="champ-icon-wrap">
-            <ChampionIcon
-              championId={match.champion_id}
-              size={52}
-              className="h-full w-full rounded-full object-cover"
-            />
+        <div className={`m-champ${secondaryParticipant ? " dual" : ""}`}>
+          <div className="m-champ-player">
+            <div className="champ-icon-wrap">
+              <ChampionIcon
+                championId={match.champion_id}
+                size={secondaryParticipant ? 36 : 52}
+                className="h-full w-full rounded-full object-cover"
+              />
+            </div>
+            <div className="min-w-0">
+              <strong>{championName}</strong>
+            </div>
           </div>
-          <div className="min-w-0">
-            <strong>{championName}</strong>
-          </div>
+          {secondaryParticipant && (
+            <>
+              <span className="m-vs">vs</span>
+              <div className="m-champ-player">
+                <div className="champ-icon-wrap">
+                  <ChampionIcon
+                    championId={secondaryParticipant.championId}
+                    size={36}
+                    className="h-full w-full rounded-full object-cover"
+                  />
+                </div>
+                <div className="min-w-0">
+                  <strong>{secondaryParticipant.championName}</strong>
+                </div>
+              </div>
+            </>
+          )}
         </div>
 
         <div className="m-kda">
@@ -209,9 +248,17 @@ export function MatchRowExperiment({
         </div>
 
         <div className="m-cs">
-          {match.cs ?? 0}
-          {!isRemake && match.game_duration > 0 && (
-            <span>{((match.cs ?? 0) / (match.game_duration / 60)).toFixed(1)}/min</span>
+          {isArenaQueue(match.queue_id) ? (
+            <>
+              —<span>N/A (no minions)</span>
+            </>
+          ) : (
+            <>
+              {match.cs ?? 0}
+              {!isRemake && match.game_duration > 0 && (
+                <span>{((match.cs ?? 0) / (match.game_duration / 60)).toFixed(1)}/min</span>
+              )}
+            </>
           )}
         </div>
 

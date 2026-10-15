@@ -1093,6 +1093,7 @@ export interface TeammateChampionStats {
   champion_id: number;
   games: number;
   wins: number;
+  kda: number;
   totalGames: number;
 }
 

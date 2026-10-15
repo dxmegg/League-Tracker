@@ -18,6 +18,7 @@ import SummonerIcon from "../components/SummonerIcon";
 import WinRateBar from "../components/WinRateBar";
 import { formatNumber, formatTimeAgo, kdaRatio, kdaColor } from "../lib/format";
 import { useHistoryScopeQueue } from "../lib/historyScope";
+import { isArenaQueue } from "../../shared/queues";
 
 export default function FriendDetail() {
   const { key = "" } = useParams();
@@ -191,15 +192,23 @@ export default function FriendDetail() {
     }),
     { double: 0, triple: 0, quadra: 0, penta: 0 },
   );
-  const totalDuration = matches.reduce((sum, match) => sum + match.game_duration, 0);
   const totalKills = matches.reduce((sum, match) => sum + match.kills, 0);
   const totalDeaths = matches.reduce((sum, match) => sum + match.deaths, 0);
   const totalAssists = matches.reduce((sum, match) => sum + match.assists, 0);
-  const csMatches = matches.filter((match) => typeof match.cs === "number");
+  const arenaMatches = matches.filter((match) => isArenaQueue(match.queue_id));
+  const isArenaOnly = matches.length > 0 && arenaMatches.length === matches.length;
+  const csMatches = matches.filter(
+    (match) => !isArenaQueue(match.queue_id) && typeof match.cs === "number",
+  );
+  const csDuration = csMatches.reduce((sum, match) => sum + match.game_duration, 0);
   const visionMatches = matches.filter((match) => match.vision_score != null);
   const avgDamage =
     matches.length > 0
-      ? matches.reduce((sum, match) => sum + match.total_damage_dealt, 0) / matches.length
+      ? matches.reduce(
+          (sum, match) =>
+            sum + (enemies ? match.total_damage_dealt : match.friend.total_damage_dealt),
+          0,
+        ) / matches.length
       : 0;
   const itemCounts = new Map<number, number>();
   for (const match of matches) {
@@ -253,15 +262,6 @@ export default function FriendDetail() {
                 {formatTimeAgo(player.lastPlayed)}
               </p>
             </div>
-          </div>
-          <div className="rounded-xl border border-lol-border bg-lol-card/70 px-4 py-3 text-right">
-            <div className="text-[10px] font-bold uppercase tracking-wider text-lol-text">
-              Record
-            </div>
-            <div className="mt-1 text-xl font-bold text-lol-text-bright">
-              {displayWins}W <span className="text-lol-text/60">{displayLosses}L</span>
-            </div>
-            <div className="text-xs text-lol-text">{displayWinRate.toFixed(1)}% win rate</div>
           </div>
         </div>
       </Panel>
@@ -360,7 +360,6 @@ export default function FriendDetail() {
         )}
       </Panel>
 
-      <SectionHeading title="Detailed statistics" source="MATCH-V5" />
       <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
         <div>
           <SectionHeading title="Queue breakdown" source="MATCH-V5" />
@@ -430,17 +429,21 @@ export default function FriendDetail() {
             <StatCard
               label="Avg CS/min"
               value={
-                csMatches.length > 0 && totalDuration > 0
-                  ? (
-                      (csMatches.reduce((sum, match) => sum + (match.cs ?? 0), 0) * 60) /
-                      totalDuration
-                    ).toFixed(1)
-                  : "—"
+                isArenaOnly
+                  ? "—"
+                  : csMatches.length > 0 && csDuration > 0
+                    ? (
+                        (csMatches.reduce((sum, match) => sum + (match.cs ?? 0), 0) * 60) /
+                        csDuration
+                      ).toFixed(1)
+                    : "—"
               }
               subtext={
-                csMatches.length > 0
-                  ? `${csMatches.length} games with CS data`
-                  : "CS data unavailable"
+                isArenaOnly
+                  ? "Not applicable (Arena)"
+                  : csMatches.length > 0
+                    ? `${csMatches.length} games with CS data`
+                    : "CS data unavailable"
               }
               accent="sky"
             />
@@ -457,7 +460,7 @@ export default function FriendDetail() {
               subtext={
                 visionMatches.length > 0
                   ? `${visionMatches.length} games with vision data`
-                  : "Vision data unavailable"
+                  : "No vision data tracked for these games."
               }
               accent="purple"
             />
@@ -501,6 +504,10 @@ export default function FriendDetail() {
                 key={m.game_id}
                 match={m}
                 championName={getChampionName(champData, m.champion_id)}
+                secondaryParticipant={{
+                  championId: m.friend.champion_id,
+                  championName: getChampionName(champData, m.friend.champion_id),
+                }}
                 champData={champData}
                 expanded={expandedId === m.game_id}
                 detail={expandedId === m.game_id ? detail : null}

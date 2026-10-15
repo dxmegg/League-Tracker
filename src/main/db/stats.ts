@@ -1687,7 +1687,7 @@ export function getTeammateChampions(
           WHERE puuid IN (${ours})
         ),
         scoped_rows AS (
-          SELECT o.game_id, o.champion_id, o.win
+          SELECT o.game_id, o.champion_id, o.win, o.kills, o.deaths, o.assists
           FROM our_teams t
           JOIN match_participants o ON o.game_id = t.game_id
           JOIN games g ON g.game_id = o.game_id
@@ -1697,6 +1697,10 @@ export function getTeammateChampions(
         SELECT champion_id,
                COUNT(DISTINCT game_id) AS games,
                SUM(CASE WHEN win = 1 THEN 1 ELSE 0 END) AS wins,
+               SUM(kills) AS kills,
+               SUM(deaths) AS deaths,
+               SUM(assists) AS assists,
+               AVG((kills + assists) * 1.0 / MAX(deaths, 1)) AS kda,
                (SELECT COUNT(DISTINCT game_id) FROM scoped_rows) AS totalGames
         FROM scoped_rows
         GROUP BY champion_id

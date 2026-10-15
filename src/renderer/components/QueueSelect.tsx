@@ -1,10 +1,10 @@
 import { useState, useEffect } from "react";
-import { QUEUE_LABELS } from "../../shared/queues";
-import { QUEUE_GROUP_ARENA } from "../../shared/queues";
+import { isArenaQueue, QUEUE_GROUP_ARENA, QUEUE_LABELS } from "../../shared/queues";
 import { FilterSelect } from "./FilterSelect";
 import { useHistoryScopeQueue } from "../lib/historyScope";
 
 export function queueLabel(queueId: number): string {
+  if (isArenaQueue(queueId)) return "Arena";
   return QUEUE_LABELS[queueId] ?? `Queue ${queueId}`;
 }
 
