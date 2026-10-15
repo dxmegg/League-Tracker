@@ -187,30 +187,31 @@ Cherry-pickuje commity między worktree'ami — nie używać subsessji.
 6. Co dalej
 
 - A — New feature (ask user for direction)
-- B — Verify Friends & Foes polish from commit 20ef782c visually (last screenshots showed unresolved: title truncation, KDA NaN, hero record duplicate, empty "Detailed statistics" heading, Arena 3x6 label, match history missing friend's secondary champion)
-- C — Optional: extract Panel + SectionHeading + StatCard + EmptyState to shared components (currently duplicated across ChampionDetailExp, FriendsExp, FriendDetail, ItemsExp)
+- B — Optional: tokenize remaining hardcoded colors across experiment pages (TrendsExp, DataExp, RecordsExp) to fully respect experiment2-5 theme variants
+- C — Optional: extract Panel + SectionHeading + StatCard + EmptyState to shared components (already done partially for SectionHeading; check RecordsExp, ChampionDetailExp, ItemsExp, FriendsExp for remaining duplicates)
 - D — Optional: Match Detail — show more than top 20 challenges per participant
-- E — Optional: tokenize remaining hardcoded colors across experiment pages
+- E — Optional: Milestone labels in Records — align wording with mockup ("Game #1 — first ever tracked win", "1 000th career kill" format) if user wants
 
 Completed since last handoff:
 
-- FriendsExp parity: search, per-panel sort dropdown, queue chips, a11y header buttons, contextual empty states, theme tokens (lol-crimson/lol-gold), neutral panels, compact header, sort in panel header row
-- FriendsExp fixes: champions panel now returns KDA (getTeammateChampions SQL), Arena queue IDs (1700/1740/1750) grouped as "Arena" via shared queueLabel helper
-- FriendsExp icons no longer shrink on narrow windows; long names truncate
-- FriendDetail: experiment shell redesign (1320px container), hero 80px avatar, StatCard KPI row, relation chips [FRIENDS][FOES], user-perspective foe winrate inversion, MatchRowExperiment used for match history (with optional secondaryParticipant prop), detailed statistics panels (Queue breakdown, Multikills, Avg performance, Top items), Arena-aware CS/vision empty states
-- MatchRowExperiment: multikill badges wrap in 120px column with overflow hidden, Arena label via shared helper
-- Settings: theme selector reflects actual selected variant
-- Champion Detail: 130 human-readable challenge labels, expandable challenges panel
+- Records full redesign (mockup-driven): thematic sections (TROPHY CABINET, COMBAT, MULTIKILLS, ECONOMY & FARMING, VISION & OBJECTIVES, SURVIVAL & GAME LENGTH, Best records by queue, Milestones, Recently Broken at bottom), 6 achievements (Pentakill Hunter, Marathon Runner, Untouchable, Hot Streak, Centurion, Thousand Club — flat, no tiers), section accent colors, per-section tile top borders
+- Records backend: 7 new aggregates (vision_score, wards_placed, damage_to_turrets, damage_to_objectives, fastest_pentakill, flawless_ace via score_raw on 0-death LOSS, multikillTotals lifetime counts), best-by-queue (GROUP BY normalized queue, Arena grouped via ARENA_QUEUE_IDS), milestones (ordered scan: first win, first penta, 1000th kill, win #1000, game #2000, longest win streak)
+- Records fixes: hook order (unconditional useHistoryScopeQueue), NaN queue guard, header scope label, compound index idx_mp_puuid_creation_game (SCHEMA_VERSION 29), accounts cache invalidation on games-updated, IPC error state with Retry, unified loss streak semantics (hide 1-game), KDA Perfect via bests.kda.perfect, totalGames includes NO_STATS queues, getRecords returns RecordsData (typed, not any), recentlyBroken excludes lifetime multikill totals, account selector can return to "All accounts" (undefined → "all" normalization)
+- Records UI: dropdowns right-aligned in header with segmented pill styling (variant="segmented" on FilterSelect/QueueSelect), removed overflow-hidden from header (dropdown clipping fix), KPI row added then removed (user decision), Top 5 damage section hidden (payload kept), clickable RecordTile navigates to /match/:gameId (streak tiles not clickable, show date range)
+- Friends & Foes + FriendDetail: full audit + fixes (search, sort dropdown, queue chips, theme tokens, a11y), relation chips [FRIENDS][FOES], user-perspective foe winrate, column alignment, icon shrink fix, header layout on narrow windows, arena queue grouping
+- SectionHeading extracted as shared component in src/renderer/components/SectionHeading.tsx
+- Theme selector in Settings reflects actual selected variant
 
 Known working-as-designed (do NOT touch without approval):
 
-- Overview, Combat, Economy tabs
-- Sync button stays on LCU (Match-V5 sync separate Settings action)
+- Overview, Combat, Economy tabs in Champion Detail
+- Sync button stays on LCU
 - Historical LCU games lack pings/casts/challenges
 - Old games (2+ years) 404 from Riot API
-- riot-accounts.local.json is optional seed, gitignored
-- Legacy `test` theme is comparison-only, will be removed; all new work targets `experiment*`
-- MatchRowExperiment secondaryParticipant prop is optional — Home/Profile unaffected when absent
+- riot-accounts.local.json is optional seed file, gitignored
+- Legacy `test` theme is comparison-only, will be removed later; all new work targets `experiment*`
+- Records: flat achievements (no tiers yet — user will define later)
+- Records: Recently Broken shows only latest state per record (no history table)
 
 7. Komendy
 npm run dev          # apka (wymaga LCU jako admin)
