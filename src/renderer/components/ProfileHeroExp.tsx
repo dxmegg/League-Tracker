@@ -70,6 +70,7 @@ export function ProfileHeroExp({
                 key={account.puuid}
                 iconId={account.profileIconId}
                 size={40}
+                title={`${account.gameName ?? "Unknown"}#${account.tagLine ?? ""}`}
                 className="rounded-lg bg-lol-card object-cover"
               />
             ))}

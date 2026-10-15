@@ -33,7 +33,7 @@ import { ALL_ACCOUNTS_SENTINEL } from "../lib/accountsEvent";
 import { NavLink } from "react-router-dom";
 import { GameRow } from "./MatchHistory";
 
-const TIME_PERIODS: HomeTimePeriod[] = ["24h", "7d", "30d", "full"];
+export const TIME_PERIODS: HomeTimePeriod[] = ["24h", "7d", "30d", "full"];
 
 const MATCH_HISTORY_LINKS = [
   { to: "/history/mayhem", label: "ARAM Mayhem History" },
@@ -401,7 +401,7 @@ function EmptyPlaceholderCard() {
   return <HomeCard className="h-full" aria-hidden="true" />;
 }
 
-function QueueFilterChips({
+export function QueueFilterChips({
   value,
   onChange,
 }: {

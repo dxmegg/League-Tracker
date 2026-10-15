@@ -14,6 +14,7 @@ import type {
   ChampionData,
   CurrentSummoner,
   HomeDashboardPayload,
+  HomeTimePeriod,
   ProfileMasteryChampion,
   ProfileRecentGame,
   QueueStat,
@@ -39,6 +40,7 @@ import { CHAMPION_ICON_URL } from "../lib/constants";
 import { dbg } from "../../shared/debug";
 import { ALL_ACCOUNTS_SENTINEL } from "../lib/accountsEvent";
 import { useActiveTheme } from "../hooks/useActiveTheme";
+import { QueueFilterChips, TIME_PERIODS } from "./Home";
 
 const EMBLEM_BASE_URL = "https://opgg-static.akamaized.net/images/medals_new";
 
@@ -671,6 +673,8 @@ export default function Profile() {
 
   const [queueStats, setQueueStats] = useState<QueueStat[]>([]);
   const [allDashboard, setAllDashboard] = useState<HomeDashboardPayload | null>(null);
+  const [timePeriod, setTimePeriod] = useState<HomeTimePeriod>("full");
+  const [queue, setQueue] = useState<number | undefined>(undefined);
   const [allMatches, setAllMatches] = useState<MatchListItem[]>([]);
   const [allOffset, setAllOffset] = useState(0);
   const [allLoading, setAllLoading] = useState(false);
@@ -926,7 +930,7 @@ export default function Profile() {
     let cancelled = false;
     setAllDashboard(null);
     window.api
-      .getHomeDashboard("all", "full", undefined)
+      .getHomeDashboard("all", timePeriod, queue)
       .then((dashboard) => {
         if (!cancelled) setAllDashboard(dashboard);
       })
@@ -936,7 +940,7 @@ export default function Profile() {
     return () => {
       cancelled = true;
     };
-  }, [isExperiment, isAllAccounts]);
+  }, [isExperiment, isAllAccounts, timePeriod, queue]);
 
   useEffect(() => {
     if (!isExperiment || !isAllAccounts) return;
@@ -1010,12 +1014,31 @@ export default function Profile() {
           refreshing={syncing}
         />
 
+        <div className="flex flex-wrap items-center justify-end gap-3">
+          <div className="inline-flex rounded-[10px] border border-lol-border bg-lol-card p-[3px]">
+            {TIME_PERIODS.map((period) => (
+              <button
+                key={period}
+                type="button"
+                onClick={() => setTimePeriod(period)}
+                className={`rounded-[7px] px-5 py-1.5 font-display text-[13px] font-semibold transition-colors ${
+                  period === timePeriod
+                    ? "bg-lol-crimson text-white"
+                    : "text-lol-text hover:text-lol-text-bright"
+                }`}
+              >
+                {period === "full" ? "Full" : period}
+              </button>
+            ))}
+          </div>
+        </div>
+
         <div className="grid grid-cols-12 gap-5">
           <Panel className="col-span-12 xl:col-span-8">
             <HomeHero
               dashboard={allDashboard}
               loading={!allDashboard}
-              timePeriod="full"
+              timePeriod={timePeriod}
               champData={championData}
             />
           </Panel>
@@ -1024,7 +1047,7 @@ export default function Profile() {
             <h2 className="mb-4 font-display text-[16px] font-semibold text-lol-text-bright">
               Most played champions
             </h2>
-            <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 md:grid-cols-4">
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4">
               {(allDashboard?.topChampions ?? []).slice(0, 8).map((champion) => (
                 <ChampCard
                   key={champion.championId}
@@ -1032,6 +1055,7 @@ export default function Profile() {
                   games={champion.games}
                   wins={champion.wins}
                   champData={championData}
+                  compact
                 />
               ))}
             </div>
@@ -1041,7 +1065,7 @@ export default function Profile() {
             <h2 className="mb-4 font-display text-[16px] font-semibold text-lol-text-bright">
               Records
             </h2>
-            <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-3 lg:grid-cols-6">
+            <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
               {(
                 [
                   { label: "Most kills", record: allDashboard?.records.mostKills },
@@ -1077,11 +1101,11 @@ export default function Profile() {
           </Panel>
 
           <Panel className="col-span-12">
-            <div className="mb-4 flex items-center justify-between">
+            <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
               <h2 className="font-display text-[16px] font-semibold text-lol-text-bright">
-                Recent matches
+                Last 20 played games
               </h2>
-              <span className="text-[13px] text-lol-text">{allMatches.length} loaded</span>
+              <QueueFilterChips value={queue} onChange={setQueue} />
             </div>
             <div
               className="match-list-exp flex flex-col gap-2.5"
@@ -1363,6 +1387,7 @@ export default function Profile() {
               <Panel>
                 <div className="mb-4 flex items-baseline justify-between gap-3">
                   <h2 className="font-display text-[16px] font-semibold text-lol-text-bright">
+                    <span className="mr-2 inline-block h-1.5 w-1.5 rotate-45 bg-lol-crimson align-middle" />
                     Last played champions
                   </h2>
                 </div>
@@ -1375,6 +1400,7 @@ export default function Profile() {
               <Panel>
                 <div className="mb-4 flex items-baseline justify-between gap-3">
                   <h2 className="font-display text-[16px] font-semibold text-lol-text-bright">
+                    <span className="mr-2 inline-block h-1.5 w-1.5 rotate-45 bg-lol-crimson align-middle" />
                     Most played queues
                   </h2>
                 </div>
@@ -1383,6 +1409,7 @@ export default function Profile() {
               <Panel>
                 <div className="mb-4 flex items-baseline justify-between gap-3">
                   <h2 className="font-display text-[16px] font-semibold text-lol-text-bright">
+                    <span className="mr-2 inline-block h-1.5 w-1.5 rotate-45 bg-lol-crimson align-middle" />
                     Champion mastery
                   </h2>
                   <span className="text-[13px] text-lol-text">
@@ -1446,16 +1473,8 @@ export default function Profile() {
 
       {isExperiment ? (
         <div className="mb-5 grid grid-cols-1 gap-5 md:grid-cols-2">
-          <RankCardExp
-            title="Ranked Solo"
-            entry={profile.rankedSolo}
-            isLive={selectedPuuid === livePuuid && livePuuid !== null}
-          />
-          <RankCardExp
-            title="Ranked Flex"
-            entry={profile.rankedFlex}
-            isLive={selectedPuuid === livePuuid && livePuuid !== null}
-          />
+          <RankCardExp title="Ranked Solo" entry={profile.rankedSolo} />
+          <RankCardExp title="Ranked Flex" entry={profile.rankedFlex} />
         </div>
       ) : (
         <div className="grid grid-cols-2 gap-5">
@@ -1478,10 +1497,10 @@ export default function Profile() {
         <Panel>
           <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
             <h2 className="font-display text-[16px] font-semibold text-lol-text-bright">
-              Recent matches
+              Last 20 played games
             </h2>
             <span className="text-[13px] text-lol-text">
-              {recentMatches?.length ?? 0} loaded
+              {recentMatches?.length ?? 0} games
               {recentMatchesAvailable ? `, up to ${recentMatchesAvailable} fetchable` : ""}
             </span>
           </div>

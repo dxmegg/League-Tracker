@@ -1,28 +1,19 @@
 import type { ProfileRankedEntry } from "../../shared/api";
 import { formatNumber } from "../lib/format";
 
-export function RankCardExp({
-  title,
-  entry,
-  isLive,
-}: {
-  title: string;
-  entry: ProfileRankedEntry | null;
-  isLive: boolean;
-}) {
+const RANKED_EMBLEM_BASE_URL = "https://ddragon.leagueoflegends.com/cdn/16.20.1/img/ranked-emblems";
+
+export function RankCardExp({ title, entry }: { title: string; entry: ProfileRankedEntry | null }) {
   const unranked = !entry || !entry.tier;
+  const emblemTier = entry?.tier?.toUpperCase() ?? "UNRANKED";
 
   return (
     <div className="flex items-center gap-4 rounded-2xl border border-lol-border bg-[linear-gradient(180deg,var(--theme-card-hover),var(--theme-card))] p-5">
-      <svg width="54" height="54" viewBox="0 0 54 54" aria-hidden="true" className="shrink-0">
-        <path
-          d="M27 3l21 12v24L27 51 6 39V15z"
-          fill="none"
-          stroke={unranked ? "var(--theme-foreground-subtle)" : "var(--theme-gold)"}
-          strokeWidth="2"
-          strokeDasharray={unranked ? "4 4" : "0"}
-        />
-      </svg>
+      <img
+        src={`${RANKED_EMBLEM_BASE_URL}/Emblem_${emblemTier}.png`}
+        alt={unranked ? "Unranked emblem" : `${entry.tier} ${entry.rank} emblem`}
+        className="h-14 w-14 shrink-0 object-contain"
+      />
       <div className="min-w-0 flex-1">
         <span className="block text-[12.5px] font-medium uppercase tracking-wider text-lol-text/60">
           {title}
@@ -33,9 +24,7 @@ export function RankCardExp({
         <span className="text-[13px] text-lol-text">
           {unranked
             ? "Your rank appears here once you play ranked."
-            : isLive
-              ? `${entry.leaguePoints ?? 0} LP · ${formatNumber(entry.wins ?? 0)}W ${formatNumber(entry.losses ?? 0)}L`
-              : "Login to sync"}
+            : `${entry.leaguePoints ?? 0} LP · ${formatNumber(entry.wins ?? 0)}W ${formatNumber(entry.losses ?? 0)}L`}
         </span>
       </div>
     </div>
