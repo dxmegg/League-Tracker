@@ -133,6 +133,22 @@ export function ItemDetailExp() {
       : null;
   }, [data]);
 
+  const averageKda = useMemo(() => {
+    const matches = data?.champions.flatMap((row) => row.matches) ?? [];
+    if (matches.length === 0) return "—";
+
+    const totals = matches.reduce(
+      (total, match) => ({
+        kills: total.kills + match.kills,
+        deaths: total.deaths + match.deaths,
+        assists: total.assists + match.assists,
+      }),
+      { kills: 0, deaths: 0, assists: 0 },
+    );
+    if (totals.deaths === 0 && totals.kills + totals.assists > 0) return "Perfect";
+    return ((totals.kills + totals.assists) / Math.max(totals.deaths, 1)).toFixed(2);
+  }, [data]);
+
   if (loading || !data) {
     return (
       <div className="mx-auto flex min-h-full w-full max-w-[1320px] items-center justify-center rounded-[14px] border border-lol-border p-12 text-sm text-lol-text">
@@ -204,7 +220,7 @@ export function ItemDetailExp() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
         <KpiTile
           label="Price"
           value={item?.price != null ? item.price.toLocaleString() : "—"}
@@ -222,8 +238,6 @@ export function ItemDetailExp() {
           caption={`${data.picks.toLocaleString()} of ${data.totalGames.toLocaleString()} games`}
           className={KPI_CLASSES.blue}
         />
-      </div>
-      <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
         <KpiTile
           label="Avg purchase"
           value={
@@ -238,6 +252,7 @@ export function ItemDetailExp() {
           }
           className={KPI_CLASSES.blue}
         />
+        <KpiTile label="Avg KDA" value={averageKda} className={KPI_CLASSES.green} />
       </div>
 
       <Panel>
