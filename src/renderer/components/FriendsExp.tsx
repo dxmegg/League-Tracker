@@ -11,6 +11,12 @@ import { Panel } from "./Panel";
 import { SortableTable, type SortableColumn } from "./SortableTable";
 
 const PAGE_SIZE = 30;
+const PLAYER_GRID_FRIENDS =
+  "[&_thead_tr]:grid-cols-[1fr_60px_90px_80px] [&_tbody_tr]:grid-cols-[1fr_60px_90px_80px]";
+const PLAYER_GRID_FOES =
+  "[&_thead_tr]:grid-cols-[1fr_60px_90px] [&_tbody_tr]:grid-cols-[1fr_60px_90px]";
+const CHAMPION_GRID =
+  "[&_thead_tr]:grid-cols-[1fr_60px_100px] [&_tbody_tr]:grid-cols-[1fr_60px_100px]";
 
 function PanelKpi({
   value,
@@ -48,6 +54,10 @@ function WinRateValue({ wins, games }: { wins: number; games: number }) {
       </div>
     </div>
   );
+}
+
+function perspectiveWins(wins: number, games: number, relation: "friends" | "enemies") {
+  return relation === "enemies" ? games - wins : wins;
 }
 
 export function FriendsExp() {
@@ -119,15 +129,10 @@ export function FriendsExp() {
         key: "wins",
         label: "Your win rate",
         render: (row) => (
-          <WinRateValue
-            wins={relation === "enemies" ? row.games - row.wins : row.wins}
-            games={row.games}
-          />
+          <WinRateValue wins={perspectiveWins(row.wins, row.games, relation)} games={row.games} />
         ),
         sortValue: (row) =>
-          row.games > 0
-            ? (relation === "enemies" ? row.games - row.wins : row.wins) / row.games
-            : 0,
+          row.games > 0 ? perspectiveWins(row.wins, row.games, relation) / row.games : 0,
         defaultDir: "desc",
       },
       ...(relation === "friends"
@@ -180,15 +185,10 @@ export function FriendsExp() {
         key: "wins",
         label: relation === "friends" ? "Your win rate with" : "Your win rate vs",
         render: (row) => (
-          <WinRateValue
-            wins={relation === "enemies" ? row.games - row.wins : row.wins}
-            games={row.games}
-          />
+          <WinRateValue wins={perspectiveWins(row.wins, row.games, relation)} games={row.games} />
         ),
         sortValue: (row) =>
-          row.games > 0
-            ? (relation === "enemies" ? row.games - row.wins : row.wins) / row.games
-            : 0,
+          row.games > 0 ? perspectiveWins(row.wins, row.games, relation) / row.games : 0,
         defaultDir: "desc",
       },
     ],
@@ -201,12 +201,9 @@ export function FriendsExp() {
   const championKpi = `${formatNumber(championRows.length)} champions / ${formatNumber(totalChampionGames)} games`;
   const tableClass =
     "[&_thead_tr]:grid [&_tbody_tr]:grid [&_thead_th]:min-w-0 [&_tbody_td]:min-w-0 [&_tbody_td]:border-t-[1px] [&_tbody_td]:border-[rgba(255,255,255,0.04)] [&_tbody_td]:text-right [&_tbody_td]:tabular-nums [&_tbody_tr]:transition-colors [&_tbody_tr]:duration-[120ms] [&_tbody_tr:hover]:bg-white/[0.025]";
-  const playerGridClass =
-    relation === "friends"
-      ? "[&_thead_tr]:grid-cols-[1fr_60px_90px_80px] [&_tbody_tr]:grid-cols-[1fr_60px_90px_80px]"
-      : "[&_thead_tr]:grid-cols-[1fr_60px_90px] [&_tbody_tr]:grid-cols-[1fr_60px_90px]";
+  const playerGridClass = relation === "friends" ? PLAYER_GRID_FRIENDS : PLAYER_GRID_FOES;
   const playerTableClass = `${tableClass} ${playerGridClass}`;
-  const championTableClass = `${tableClass} [&_thead_tr]:grid-cols-[1fr_60px_100px] [&_tbody_tr]:grid-cols-[1fr_60px_100px]`;
+  const championTableClass = `${tableClass} ${CHAMPION_GRID}`;
 
   return (
     <div className="mx-auto flex min-h-full w-full max-w-[1320px] flex-col gap-5">
