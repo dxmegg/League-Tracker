@@ -40,6 +40,7 @@ import { CHAMPION_ICON_URL } from "../lib/constants";
 import { dbg } from "../../shared/debug";
 import { ALL_ACCOUNTS_SENTINEL } from "../lib/accountsEvent";
 import { useActiveTheme } from "../hooks/useActiveTheme";
+import { useLcuStatus } from "../hooks/useLcuStatus";
 import { QueueFilterChips, TIME_PERIODS } from "./Home";
 
 const EMBLEM_BASE_URL = "https://opgg-static.akamaized.net/images/medals_new";
@@ -641,6 +642,8 @@ export default function Profile() {
   const activeTheme = useActiveTheme();
   const isExperiment = activeTheme === "experiment";
   const championData = useChampionData();
+  const lcuStatus = useLcuStatus();
+  const lcuConnected = lcuStatus === "connected" || lcuStatus === "ingame";
   const [profile, setProfile] = useState<ProfileData | null>(null);
   const [recentMatches, setRecentMatches] = useState<MatchListItem[] | null>(null);
   const [recentMatchesAvailable, setRecentMatchesAvailable] = useState(0);
@@ -1011,7 +1014,7 @@ export default function Profile() {
           profileIconId={selectedAccount?.profileIconId ?? null}
           level={null}
           platform={selectedAccount?.platform ?? null}
-          isLive={true}
+          isLive={lcuConnected && livePuuid !== null}
           accounts={accounts}
           onRefresh={handleRefresh}
           refreshing={syncing}

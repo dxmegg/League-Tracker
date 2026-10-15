@@ -38,7 +38,7 @@ export function ProfileHeroExp({
           </div>
           <div className="min-w-0">
             <div className="font-display text-[11px] font-semibold uppercase tracking-wider text-lol-text/60">
-              Currently logged in
+              {isLive ? "Currently logged in" : "Last seen"}
             </div>
             <h1 className="font-display text-[22px] font-bold leading-tight text-lol-text-bright">
               {gameName}
