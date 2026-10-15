@@ -2,7 +2,12 @@ import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { useSearchParams } from "react-router-dom";
 import { useIpc } from "../hooks/useIpc";
 import { useHistoryScopeQueue } from "../lib/historyScope";
-import { getAccountsWithData, getChampionName, useChampionData } from "../hooks/useChampions";
+import {
+  getAccountsWithData,
+  getChampionName,
+  invalidateAccountsCache,
+  useChampionData,
+} from "../hooks/useChampions";
 import type {
   ChampionData,
   MatchDetail,
@@ -440,7 +445,7 @@ export default function Records() {
   const historyScopeQueue = useHistoryScopeQueue();
   const scopedQueue = queue ?? historyScopeQueue;
   const accountForFetch = isExperiment ? (accountParam ?? account) : urlAccount;
-  const { data, refetch } = useIpc<RecordsData>(
+  const { data, error, refetch } = useIpc<RecordsData>(
     () => window.api.getRecords(scopedQueue, accountForFetch),
     [scopedQueue, accountForFetch],
   );
@@ -463,6 +468,7 @@ export default function Records() {
 
   useEffect(() => {
     const unsub = window.api.onGamesUpdated(() => {
+      invalidateAccountsCache();
       void refetch();
     });
     return unsub;
@@ -477,6 +483,8 @@ export default function Records() {
     return (
       <RecordsExp
         data={data}
+        error={error}
+        onRetry={refetch}
         accountName={accountName}
         queue={queue}
         onQueueChange={setQueue}
@@ -525,6 +533,26 @@ export default function Records() {
       </div>
     </div>
   );
+
+  if (error) {
+    const errorMessage = error;
+    return (
+      <div className="mx-auto flex min-h-full w-full max-w-[1320px] flex-col gap-5">
+        {header}
+        <div className="rounded-xl border border-lol-border bg-lol-card p-12 text-center">
+          <p className="text-sm font-semibold text-lol-text-bright">Failed to load records.</p>
+          {errorMessage && <p className="mt-1 text-xs text-lol-text">{errorMessage}</p>}
+          <button
+            type="button"
+            onClick={() => void refetch()}
+            className="mt-4 rounded-md border border-lol-border px-3 py-1.5 text-xs font-semibold text-lol-text transition-colors hover:border-lol-gold/60 hover:text-lol-text-bright"
+          >
+            Retry
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   if (!data) {
     return (

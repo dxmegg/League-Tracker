@@ -90,6 +90,8 @@ function StandardRecordTile({
 
 export function RecordsExp({
   data,
+  error,
+  onRetry,
   accountName,
   queue,
   onQueueChange,
@@ -98,6 +100,8 @@ export function RecordsExp({
   onAccountChange,
 }: {
   data: RecordsData | null;
+  error: string | null;
+  onRetry: () => Promise<void>;
   accountName?: string;
   queue: number | undefined;
   onQueueChange: (queue: number | undefined) => void;
@@ -123,6 +127,34 @@ export function RecordsExp({
       />
     </div>
   );
+
+  if (error) {
+    const errorMessage = error;
+    return (
+      <div className="mx-auto flex min-h-full w-full max-w-[1320px] flex-col gap-5">
+        <div className="relative rounded-xl border border-lol-border border-t-[3px] border-t-lol-crimson bg-[radial-gradient(circle_at_top_right,color-mix(in_oklab,var(--theme-crimson)_10%,transparent),transparent_46%),linear-gradient(180deg,var(--theme-card-hover),var(--theme-card))] px-5 py-4">
+          <div className="flex flex-wrap items-start justify-between gap-4">
+            <div>
+              <h1 className="font-display text-[30px] font-bold text-lol-text-bright">Records</h1>
+              <p className="mt-1.5 text-lol-text">Personal bests across all accounts</p>
+            </div>
+            {controls}
+          </div>
+        </div>
+        <div className="rounded-xl border border-lol-border bg-lol-card p-12 text-center">
+          <p className="text-sm font-semibold text-lol-text-bright">Failed to load records.</p>
+          {errorMessage && <p className="mt-1 text-xs text-lol-text">{errorMessage}</p>}
+          <button
+            type="button"
+            onClick={() => void onRetry()}
+            className="mt-4 rounded-md border border-lol-border px-3 py-1.5 text-xs font-semibold text-lol-text transition-colors hover:border-lol-gold/60 hover:text-lol-text-bright"
+          >
+            Retry
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   if (!data) {
     return (

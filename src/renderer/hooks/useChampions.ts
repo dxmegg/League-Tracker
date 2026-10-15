@@ -33,6 +33,10 @@ export function getAccountsWithData(): Promise<AccountListItem[]> {
   return accountsWithDataPromise;
 }
 
+export function invalidateAccountsCache(): void {
+  accountsWithDataPromise = null;
+}
+
 export function useChampionData() {
   const [data, setData] = useState<ChampionData>(champCache || {});
 
