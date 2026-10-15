@@ -1,18 +1,46 @@
 import type { ProfileRankedEntry } from "../../shared/api";
 import { formatNumber } from "../lib/format";
 
-const RANKED_EMBLEM_BASE_URL = "https://ddragon.leagueoflegends.com/cdn/16.20.1/img/ranked-emblems";
+const RANKED_EMBLEM_BASE_URL =
+  "https://raw.communitydragon.org/latest/plugins/rcp-fe-lol-shared-components/global/default/images";
+const RANK_TIERS = new Set([
+  "iron",
+  "bronze",
+  "silver",
+  "gold",
+  "platinum",
+  "emerald",
+  "diamond",
+  "master",
+  "grandmaster",
+  "challenger",
+  "unranked",
+]);
+
+function normalizeEmblemTier(tier: string | null | undefined): string {
+  const baseTier = (tier ?? "")
+    .trim()
+    .toLowerCase()
+    .split(/[_\s-]+/, 1)[0];
+  return RANK_TIERS.has(baseTier) ? baseTier : "unranked";
+}
 
 export function RankCardExp({ title, entry }: { title: string; entry: ProfileRankedEntry | null }) {
-  const unranked = !entry || !entry.tier;
-  const emblemTier = entry?.tier?.toUpperCase() ?? "UNRANKED";
+  const emblemTier = normalizeEmblemTier(entry?.tier);
+  const unranked = !entry || !entry.tier || emblemTier === "unranked";
+  const fallbackEmblemUrl = `${RANKED_EMBLEM_BASE_URL}/unranked.png`;
 
   return (
     <div className="flex items-center gap-4 rounded-2xl border border-lol-border bg-[linear-gradient(180deg,var(--theme-card-hover),var(--theme-card))] p-5">
       <img
-        src={`${RANKED_EMBLEM_BASE_URL}/Emblem_${emblemTier}.png`}
+        src={`${RANKED_EMBLEM_BASE_URL}/${emblemTier}.png`}
         alt={unranked ? "Unranked emblem" : `${entry.tier} ${entry.rank} emblem`}
-        className="h-14 w-14 shrink-0 object-contain"
+        className="h-16 w-16 shrink-0 object-contain"
+        onError={(event) => {
+          if (event.currentTarget.src !== fallbackEmblemUrl) {
+            event.currentTarget.src = fallbackEmblemUrl;
+          }
+        }}
       />
       <div className="min-w-0 flex-1">
         <span className="block text-[12.5px] font-medium uppercase tracking-wider text-lol-text/60">
