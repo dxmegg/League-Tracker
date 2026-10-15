@@ -2129,50 +2129,89 @@ export function getOwnedItemDetail(itemId: number, patch?: string, queue?: numbe
              AND g.game_version IS NOT NULL
              AND g.game_version != ''
            GROUP BY g.game_version
-           ORDER BY g.game_version DESC
+           ORDER BY
+             CAST(SUBSTR(g.game_version, 1, INSTR(g.game_version || '.', '.') - 1) AS INTEGER) DESC,
+             CAST(SUBSTR(SUBSTR(g.game_version, INSTR(g.game_version, '.') + 1), 1, INSTR(SUBSTR(g.game_version, INSTR(g.game_version, '.') + 1) || '.', '.') - 1) AS INTEGER) DESC
            LIMIT 8`,
         )
         .all(...matchingGameParams) as { patch: string; games: number; wins: number }[];
 
+      const pairingGameIds = matchingGameIds.slice(0, 500);
+      const pairingGamePlaceholders = pairingGameIds.map(() => "?").join(", ");
       topPairings = db
         .prepare(
-          `WITH paired_items AS (
-             SELECT mp.game_id, mp.item0 AS item_id FROM match_participants mp WHERE mp.game_id IN (${gamePlaceholders})
-             UNION ALL
-             SELECT mp.game_id, mp.item1 AS item_id FROM match_participants mp WHERE mp.game_id IN (${gamePlaceholders})
-             UNION ALL
-             SELECT mp.game_id, mp.item2 AS item_id FROM match_participants mp WHERE mp.game_id IN (${gamePlaceholders})
-             UNION ALL
-             SELECT mp.game_id, mp.item3 AS item_id FROM match_participants mp WHERE mp.game_id IN (${gamePlaceholders})
-             UNION ALL
-             SELECT mp.game_id, mp.item4 AS item_id FROM match_participants mp WHERE mp.game_id IN (${gamePlaceholders})
-             UNION ALL
-             SELECT mp.game_id, mp.item5 AS item_id FROM match_participants mp WHERE mp.game_id IN (${gamePlaceholders})
-             UNION ALL
-             SELECT mp.game_id, mp.item6 AS item_id FROM match_participants mp WHERE mp.game_id IN (${gamePlaceholders})
+          `WITH target_participants AS (
+               SELECT mp.game_id, mp.participant_id, mp.win
+               FROM match_participants mp
+               WHERE mp.game_id IN (${pairingGamePlaceholders})
+               AND (
+                   mp.item0 = ? OR mp.item1 = ? OR mp.item2 = ? OR mp.item3 = ? OR
+                   mp.item4 = ? OR mp.item5 = ? OR mp.item6 = ?
+               )
            ),
-           distinct_pairings AS (
-             SELECT DISTINCT game_id, item_id
-             FROM paired_items
-             WHERE item_id > 0
-               AND item_id != ?
-               AND item_id NOT IN (${TRINKET_ITEM_IDS.join(", ")})
+           paired_items AS (
+             SELECT DISTINCT game_id, participant_id, item_id
+             FROM (
+               SELECT mp.game_id, mp.participant_id, mp.item0 AS item_id
+               FROM match_participants mp
+               WHERE mp.game_id IN (${pairingGamePlaceholders})
+               UNION ALL
+               SELECT mp.game_id, mp.participant_id, mp.item1 AS item_id
+               FROM match_participants mp
+               WHERE mp.game_id IN (${pairingGamePlaceholders})
+               UNION ALL
+               SELECT mp.game_id, mp.participant_id, mp.item2 AS item_id
+               FROM match_participants mp
+               WHERE mp.game_id IN (${pairingGamePlaceholders})
+               UNION ALL
+               SELECT mp.game_id, mp.participant_id, mp.item3 AS item_id
+               FROM match_participants mp
+               WHERE mp.game_id IN (${pairingGamePlaceholders})
+               UNION ALL
+               SELECT mp.game_id, mp.participant_id, mp.item4 AS item_id
+               FROM match_participants mp
+               WHERE mp.game_id IN (${pairingGamePlaceholders})
+               UNION ALL
+               SELECT mp.game_id, mp.participant_id, mp.item5 AS item_id
+               FROM match_participants mp
+               WHERE mp.game_id IN (${pairingGamePlaceholders})
+               UNION ALL
+               SELECT mp.game_id, mp.participant_id, mp.item6 AS item_id
+               FROM match_participants mp
+               WHERE mp.game_id IN (${pairingGamePlaceholders})
+             )
            )
-           SELECT dp.item_id, COUNT(*) AS games, SUM(ps.win) AS wins
-           FROM distinct_pairings dp
-           JOIN player_stats ps ON ps.game_id = dp.game_id
-           GROUP BY dp.item_id
-           ORDER BY games DESC, dp.item_id ASC
+           SELECT paired.item_id,
+                  COUNT(DISTINCT tp.game_id || ':' || tp.participant_id) AS games,
+                  SUM(CASE WHEN tp.win = 1 THEN 1 ELSE 0 END) AS wins
+           FROM target_participants tp
+           JOIN paired_items paired
+             ON paired.game_id = tp.game_id
+            AND paired.participant_id = tp.participant_id
+           WHERE paired.item_id > 0
+             AND paired.item_id != ?
+             AND paired.item_id NOT IN (${TRINKET_ITEM_IDS.join(", ")})
+           GROUP BY paired.item_id
+           ORDER BY games DESC, paired.item_id ASC
            LIMIT 8`,
         )
         .all(
-          ...matchingGameIds,
-          ...matchingGameIds,
-          ...matchingGameIds,
-          ...matchingGameIds,
-          ...matchingGameIds,
-          ...matchingGameIds,
-          ...matchingGameIds,
+          ...pairingGameIds,
+          itemId,
+          itemId,
+          itemId,
+          itemId,
+          itemId,
+          itemId,
+          itemId,
+          ...pairingGameIds,
+          ...pairingGameIds,
+          ...pairingGameIds,
+          ...pairingGameIds,
+          ...pairingGameIds,
+          ...pairingGameIds,
+          ...pairingGameIds,
+          ...pairingGameIds,
           itemId,
         ) as { item_id: number; games: number; wins: number }[];
     }

@@ -212,7 +212,7 @@ export function ItemDetailExp() {
                   className="flex items-center gap-1 rounded-lg border border-lol-border bg-black/10 p-1 transition-colors duration-120 hover:border-lol-crimson/40 hover:bg-white/[0.025]"
                 >
                   {index > 0 && <span className="text-xs font-bold text-lol-gold">+</span>}
-                  <ItemIcon itemId={component} size={28} />
+                  <ItemIcon itemId={component} size={40} />
                 </span>
               ))}
             </div>
@@ -220,7 +220,7 @@ export function ItemDetailExp() {
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-3 xl:grid-cols-6">
         <KpiTile
           label="Price"
           value={item?.price != null ? item.price.toLocaleString() : "—"}
@@ -260,22 +260,24 @@ export function ItemDetailExp() {
         {data.patchBreakdown.length === 0 ? (
           <EmptyState text="No patch data available." />
         ) : (
-          <div className="flex flex-col gap-2 text-xs">
-            {data.patchBreakdown.map((row) => {
-              const patch = row.patch.split(".").slice(0, 2).join(".");
-              return (
-                <div
-                  key={row.patch}
-                  className="grid grid-cols-[1fr_auto_auto] items-center gap-3 border-b border-white/[0.04] py-2 last:border-b-0"
-                >
-                  <span className="font-semibold text-lol-text-bright">{patch}</span>
-                  <span className="text-right tabular-nums">{row.games}</span>
-                  <span className="text-right tabular-nums">
-                    {row.games ? `${((row.wins / row.games) * 100).toFixed(1)}%` : "—"}
-                  </span>
-                </div>
-              );
-            })}
+          <div className="max-h-[400px] overflow-y-auto">
+            <div className="flex flex-col gap-2 text-xs">
+              {data.patchBreakdown.map((row) => {
+                const patch = row.patch.split(".").slice(0, 2).join(".");
+                return (
+                  <div
+                    key={row.patch}
+                    className="grid grid-cols-[1fr_auto_auto] items-center gap-3 border-b border-white/[0.04] py-2 last:border-b-0"
+                  >
+                    <span className="font-semibold text-lol-text-bright">{patch}</span>
+                    <span className="text-right tabular-nums">{row.games}</span>
+                    <span className="text-right tabular-nums">
+                      {row.games ? `${((row.wins / row.games) * 100).toFixed(1)}%` : "—"}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
           </div>
         )}
       </Panel>
