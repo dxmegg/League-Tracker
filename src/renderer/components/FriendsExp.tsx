@@ -172,8 +172,8 @@ export function FriendsExp() {
     [championData],
   );
 
-  const totalPlayerGames = playerRows.reduce((total, row) => total + row.games, 0);
-  const totalChampionGames = championRows.reduce((total, row) => total + row.games, 0);
+  const totalPlayerGames = playerRows[0]?.totalGames ?? 0;
+  const totalChampionGames = championRows[0]?.totalGames ?? 0;
   const playerKpi = `${formatNumber(playerRows.length)} players / ${formatNumber(totalPlayerGames)} games`;
   const championKpi = `${formatNumber(championRows.length)} champions / ${formatNumber(totalChampionGames)} games`;
   const tableClass =

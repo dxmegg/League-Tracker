@@ -1521,6 +1521,7 @@ interface TeammateRow {
   kills: number;
   deaths: number;
   assists: number;
+  total_games: number;
 }
 
 // Every participant who shared a team with one of our accounts, one row per
@@ -1547,15 +1548,20 @@ export function teammateRows(
     .prepare(`
       WITH our_teams AS (
         SELECT DISTINCT game_id, team_id FROM match_participants WHERE puuid IN (${ours})
+      ),
+      scoped_rows AS (
+        SELECT o.game_id, g.game_creation, o.participant_id, o.puuid, o.game_name, o.tag_line,
+               o.profile_icon, o.champion_id, o.win, o.kills, o.deaths, o.assists
+        FROM our_teams t
+        JOIN match_participants o ON o.game_id = t.game_id
+        JOIN games g ON g.game_id = o.game_id
+        WHERE ${where.join(" AND ")}
+          AND ${relation === "enemies" ? "o.team_id != t.team_id" : "o.team_id = t.team_id"}
       )
-      SELECT o.game_id, g.game_creation, o.participant_id, o.puuid, o.game_name, o.tag_line,
-             o.profile_icon, o.champion_id, o.win, o.kills, o.deaths, o.assists
-      FROM our_teams t
-      JOIN match_participants o ON o.game_id = t.game_id
-      JOIN games g ON g.game_id = o.game_id
-      WHERE ${where.join(" AND ")}
-        AND ${relation === "enemies" ? "o.team_id != t.team_id" : "o.team_id = t.team_id"}
-      ORDER BY g.game_creation DESC
+      SELECT scoped_rows.*,
+             (SELECT COUNT(DISTINCT game_id) FROM scoped_rows) AS total_games
+      FROM scoped_rows
+      ORDER BY scoped_rows.game_creation DESC
     `)
     .all(...puuids, ...params) as TeammateRow[];
 }
@@ -1584,7 +1590,9 @@ export function getTeammateStats(
       }
     >();
 
-    for (const row of teammateRows(puuids, queue, relation)) {
+    const rows = teammateRows(puuids, queue, relation);
+    const totalGames = rows[0]?.total_games ?? 0;
+    for (const row of rows) {
       const name = teammateName(row.game_name, row.tag_line, row.participant_id);
       const key = teammateKey(row.puuid, name);
 
@@ -1647,6 +1655,7 @@ export function getTeammateStats(
           .slice(0, 5)
           .map(([champion_id, games]) => ({ champion_id, games })),
         lastPlayed: p.lastPlayed,
+        totalGames,
       }))
       .sort((a, b) => b.games - a.games);
   });
@@ -1676,17 +1685,22 @@ export function getTeammateChampions(
           SELECT DISTINCT game_id, team_id
           FROM match_participants
           WHERE puuid IN (${ours})
+        ),
+        scoped_rows AS (
+          SELECT o.game_id, o.champion_id, o.win
+          FROM our_teams t
+          JOIN match_participants o ON o.game_id = t.game_id
+          JOIN games g ON g.game_id = o.game_id
+          WHERE ${where.join(" AND ")}
+            AND ${relation === "enemies" ? "o.team_id != t.team_id" : "o.team_id = t.team_id"}
         )
-        SELECT o.champion_id,
-               COUNT(*) AS games,
-               SUM(CASE WHEN o.win = 1 THEN 1 ELSE 0 END) AS wins
-        FROM our_teams t
-        JOIN match_participants o ON o.game_id = t.game_id
-        JOIN games g ON g.game_id = o.game_id
-        WHERE ${where.join(" AND ")}
-          AND ${relation === "enemies" ? "o.team_id != t.team_id" : "o.team_id = t.team_id"}
-        GROUP BY o.champion_id
-        ORDER BY games DESC, o.champion_id ASC
+        SELECT champion_id,
+               COUNT(DISTINCT game_id) AS games,
+               SUM(CASE WHEN win = 1 THEN 1 ELSE 0 END) AS wins,
+               (SELECT COUNT(DISTINCT game_id) FROM scoped_rows) AS totalGames
+        FROM scoped_rows
+        GROUP BY champion_id
+        ORDER BY games DESC, champion_id ASC
       `)
       .all(...puuids, ...params) as TeammateChampionStats[];
   });

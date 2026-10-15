@@ -1086,12 +1086,14 @@ export interface TeammateStats {
   assists: number;
   champions: { champion_id: number; games: number }[];
   lastPlayed: number;
+  totalGames: number;
 }
 
 export interface TeammateChampionStats {
   champion_id: number;
   games: number;
   wins: number;
+  totalGames: number;
 }
 
 // A shared game, seen from both sides: our stats on the row itself, theirs
