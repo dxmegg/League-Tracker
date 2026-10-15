@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 
-export function useActiveTheme(): string {
+export function useActiveTheme({ exact = false }: { exact?: boolean } = {}): string {
   const [theme, setTheme] = useState<string>(() => {
     return document.documentElement.getAttribute("data-theme") ?? "";
   });
@@ -15,6 +15,8 @@ export function useActiveTheme(): string {
     });
     return () => observer.disconnect();
   }, []);
+
+  if (exact) return theme;
 
   return theme === "experiment2" ||
     theme === "experiment3" ||

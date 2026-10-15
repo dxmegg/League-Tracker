@@ -11,6 +11,7 @@ import { useTimelineBackfill } from "../hooks/useTimelineBackfill";
 import { queueLabel } from "../components/QueueSelect";
 import { FilterSelect } from "../components/FilterSelect";
 import { setRemembering } from "../lib/viewState";
+import { useActiveTheme } from "../hooks/useActiveTheme";
 import type { BackupInfo } from "../lib/types";
 import {
   RIOT_ACCOUNT_PLATFORMS,
@@ -47,6 +48,15 @@ const PLATFORM_LABELS: Record<string, string> = {
   tw2: "TW",
   vn2: "VN",
 };
+
+const THEME_OPTIONS = [
+  { value: "experiment", label: "First Theme" },
+  { value: "test", label: "Second Theme" },
+  { value: "experiment2", label: "Third Theme" },
+  { value: "experiment3", label: "Fourth Theme" },
+  { value: "experiment4", label: "Fifth Theme" },
+  { value: "experiment5", label: "Sixth Theme" },
+] as const;
 
 function formatSize(bytes: number): string {
   return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
@@ -362,9 +372,7 @@ export function SettingsExp() {
     stop: stopTimelineBackfill,
   } = useTimelineBackfill();
   const anyRunning = backfilling || timelineBackfilling;
-  const [theme, setTheme] = useState<string>(
-    () => document.documentElement.getAttribute("data-theme") ?? "experiment",
-  );
+  const activeTheme = useActiveTheme({ exact: true }) || "experiment";
   const [autoStart, setAutoStart] = useState(false);
   // Only the packaged program has a path worth registering, so the switch says
   // so instead of pretending in a dev build
@@ -434,7 +442,9 @@ export function SettingsExp() {
       window.api.getSetting("remember_filters"),
       window.api.getSetting("theme"),
     ]).then(([startup, startupSupported, tray, hidden, remakes, backup, remember, storedTheme]) => {
-      setTheme(storedTheme === "test" || storedTheme === "experiment" ? storedTheme : "experiment");
+      const persistedTheme =
+        THEME_OPTIONS.find((option) => option.value === storedTheme)?.value ?? "experiment";
+      document.documentElement.setAttribute("data-theme", persistedTheme);
       setAutoStart(startup === "true");
       setAutoStartSupported(startupSupported);
       setMinimizeToTray(tray !== "false");
@@ -942,32 +952,16 @@ export function SettingsExp() {
             Theme
           </label>
           <FilterSelect
-            value={theme}
+            value={activeTheme}
             onChange={(value) => {
-              if (
-                value !== "test" &&
-                value !== "experiment" &&
-                value !== "experiment2" &&
-                value !== "experiment3" &&
-                value !== "experiment4" &&
-                value !== "experiment5"
-              )
-                return;
-              setTheme(value);
+              if (!value || !THEME_OPTIONS.some((option) => option.value === value)) return;
               void window.api.setSetting("theme", value);
               document.documentElement.setAttribute("data-theme", value);
             }}
             placeholder="First Theme"
             title="Theme"
             className="w-48"
-            options={[
-              { value: "experiment", label: "First Theme" },
-              { value: "test", label: "Second Theme" },
-              { value: "experiment2", label: "Third Theme" },
-              { value: "experiment3", label: "Fourth Theme" },
-              { value: "experiment4", label: "Fifth Theme" },
-              { value: "experiment5", label: "Sixth Theme" },
-            ]}
+            options={[...THEME_OPTIONS]}
           />
         </div>
       </Section>
