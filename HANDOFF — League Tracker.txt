@@ -187,22 +187,22 @@ Cherry-pickuje commity między worktree'ami — nie używać subsessji.
 6. Co dalej
 
 - A — New feature (ask user for direction)
-- B — Optional: Home page KPI/highlights polish
-- C — Optional: Match Detail — show MORE than top 10 challenges (schema has ~130 per game, currently UI caps at 10)
-- D — Optional: Riot sync cleanup — remove verbose diagnostic logs (riotFetch/response/parsed, by-puuid/filter)
-- E — Optional: pagination or virtual scroll on Champions list in Item Detail (164 items currently paginated at 30/top)
+- B — Optional: Home/Local Account — add period selector to selected-account mode (requires period-scoped IPC for profile/queue-stats; currently only all-account mode has it)
+- C — Optional: Match Detail telemetry — show raw challenge values as a table instead of tiles for deep data inspection
+- D — Optional: Items — sortable column headers in Item Detail champions list (currently only Games/Win rate/Name sort buttons)
+- E — Optional cleanup: any remaining "verbose log" cleanup in backfill handlers
 
 Completed since last handoff:
 
-- Riot Match-V5 sync end-to-end: Account-V1 PUUID resolver, regional routes, platform fallback chain, refresh-existing mode (bypasses ignored), progress bar + Stop button + live status events
-- Settings: Riot Accounts UI (add/remove/list), 14 accounts seeded from summoner table, platform full-name labels (EUW/EUNE/NA), platform display near sync button
-- Settings: Stored Data / Payload Information panel (148 fields across 7 schema categories)
-- Schema v28: match_participants +19 telemetry columns (11 pings, 6 spell casts, 2 teammate utility) + match_participant_challenges key-value table (1.7M+ rows populated)
-- Match Detail: per-participant expandable telemetry panel (pings, casts, utility, top 10 challenges) — shared MatchScoreboard so appears in History/Home/Profile/Records
-- Champion Detail Overview: Challenges panel with per-champion challenge aggregates, top 15 default, Show all toggle, 130 human-readable challenge labels
-- Item Detail: migrated to experiment shell (ItemDetailExp.tsx) — compact header, component items under description, champion search/sort/direction, top 30 + Show all
-- Vision KPI: ward ratio / control ward share now use nullable numeric with "—" for zero denominators
-- Handoff document updated
+- Riot Match-V5 sync end-to-end with progress bar + Stop button + live status events (verbose diagnostic logs removed post-verification)
+- Settings: Riot Accounts UI (add/remove/list), 14 accounts seeded from summoner table, platform full-name labels (EUW/EUNE/NA)
+- Settings: Stored Data / Payload Information panel
+- Schema v28: match_participants +19 telemetry columns + match_participant_challenges (1.7M+ rows)
+- Match Detail: per-participant telemetry (pings, spell casts, teammate utility, top 20 challenges with show-all toggle), shared challenge-labels map used by both Match Detail and Champion Detail
+- Champion Detail Overview: Challenges panel with aggregates, top 15 / show all toggle
+- Item Detail: migrated to experiment shell + polished (compact header, component items under description, champion search/sort/direction, pagination 50/page)
+- Home page: 4 new KPI tiles (avg damage/gold/CS/duration), streak pill, total playtime, Roles panel with No-position bucket for ARAM/Arena, records period scope, top champions sort/show-all, live-game collapse when no session
+- Local Account page: paritied with Home (period selector, queue filter chips, panel header ◆ prefix, champion grid 4-col/8 items, records 2-col grid), rank emblems switched from Data Dragon to CommunityDragon shared-components path with unranked fallback, hero "Currently logged in" gated on live LCU status (no more stale "logged in" when client is off)
 
 Known working-as-designed (do NOT touch without approval):
 
@@ -211,7 +211,7 @@ Known working-as-designed (do NOT touch without approval):
 - Historical LCU games do NOT have pings/casts/challenges (only Match-V5 imports do)
 - Old games (2+ years) 404 from Riot API — expected
 - riot-accounts.local.json is optional seed file, gitignored
-- MatchScoreboard telemetry toggle shows in all callers (History/Home/Profile/Records/FriendDetail) — intentional
+- MatchScoreboard telemetry toggle shows in all callers (History/Home/Profile/Records/FriendDetail)
 
 7. Komendy
 npm run dev          # apka (wymaga LCU jako admin)
