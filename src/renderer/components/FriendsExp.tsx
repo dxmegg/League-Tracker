@@ -12,11 +12,11 @@ import { SortableTable, type SortableColumn } from "./SortableTable";
 
 const PAGE_SIZE = 30;
 const PLAYER_GRID_FRIENDS =
-  "[&_thead_tr]:grid-cols-[1fr_60px_90px_80px] [&_tbody_tr]:grid-cols-[1fr_60px_90px_80px]";
+  "[&_thead_tr]:grid-cols-[minmax(0,1fr)_60px_130px_70px] [&_tbody_tr]:grid-cols-[minmax(0,1fr)_60px_130px_70px]";
 const PLAYER_GRID_FOES =
-  "[&_thead_tr]:grid-cols-[1fr_60px_90px] [&_tbody_tr]:grid-cols-[1fr_60px_90px]";
+  "[&_thead_tr]:grid-cols-[minmax(0,1fr)_60px_150px] [&_tbody_tr]:grid-cols-[minmax(0,1fr)_60px_150px]";
 const CHAMPION_GRID =
-  "[&_thead_tr]:grid-cols-[1fr_60px_100px] [&_tbody_tr]:grid-cols-[1fr_60px_100px]";
+  "[&_thead_tr]:grid-cols-[minmax(0,1fr)_60px_150px] [&_tbody_tr]:grid-cols-[minmax(0,1fr)_60px_150px]";
 
 function PanelKpi({
   value,
@@ -46,7 +46,7 @@ function WinRateValue({ wins, games }: { wins: number; games: number }) {
   return (
     <div className="flex min-w-0 items-center justify-end gap-2">
       <span className="shrink-0 tabular-nums">{rate.toFixed(1)}%</span>
-      <div className="h-2 min-w-0 flex-1 overflow-hidden rounded-full bg-[#a51e1e]/20">
+      <div className="h-2 w-16 shrink-0 overflow-hidden rounded-full bg-[#a51e1e]/20">
         <div
           className="h-full rounded-full bg-[#15803d] shadow-[0_0_10px_rgba(21,128,61,0.45)]"
           style={{ width: `${rate}%` }}
