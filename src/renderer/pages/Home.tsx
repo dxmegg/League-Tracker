@@ -576,7 +576,22 @@ export default function Home() {
   const [dashboard, setDashboard] = useState<HomeDashboardPayload | null>(null);
   const [loading, setLoading] = useState(false);
   const [savedAccounts, setSavedAccounts] = useState<AccountListItem[]>([]);
+  const [championSort, setChampionSort] = useState<"games" | "winRate">("games");
+  const [showAllChampions, setShowAllChampions] = useState(false);
   const champData = useChampionData();
+  const hasLiveActivity = Boolean(live.game || (live.session && live.session.phase !== "None"));
+  const sortedTopChampions = useMemo(
+    () =>
+      [...(dashboard?.topChampions ?? [])].sort((a, b) =>
+        championSort === "winRate"
+          ? b.winRate - a.winRate || b.games - a.games
+          : b.games - a.games || b.winRate - a.winRate,
+      ),
+    [championSort, dashboard?.topChampions],
+  );
+  const visibleTopChampions = showAllChampions
+    ? sortedTopChampions
+    : sortedTopChampions.slice(0, 20);
 
   useEffect(() => {
     getAccountsWithData()
@@ -634,6 +649,12 @@ export default function Home() {
               </button>
             ))}
           </div>
+          {!hasLiveActivity && (
+            <div className="flex items-center gap-2 rounded-md border border-lol-border/60 bg-lol-card/60 px-3 py-1.5 text-xs text-lol-text">
+              <span className="h-2 w-2 rounded-full bg-lol-text/40" />
+              Not in a match
+            </div>
+          )}
         </div>
 
         {/* 12-column grid */}
@@ -649,9 +670,11 @@ export default function Home() {
           </Panel>
 
           {/* Live game: 4 columns */}
-          <Panel className="col-span-12 border-l-[3px] border-l-lol-win bg-[radial-gradient(circle_at_top_right,rgba(34,197,94,0.08),transparent_55%)] 2xl:col-span-4">
-            <LiveGameTile game={live.game} session={live.session} />
-          </Panel>
+          {hasLiveActivity && (
+            <Panel className="col-span-12 border-l-[3px] border-l-lol-win bg-[radial-gradient(circle_at_top_right,rgba(34,197,94,0.08),transparent_55%)] 2xl:col-span-4">
+              <LiveGameTile game={live.game} session={live.session} />
+            </Panel>
+          )}
 
           {/* Most played champions: 7 columns */}
           <Panel className="col-span-12 2xl:col-span-7">
@@ -660,12 +683,33 @@ export default function Home() {
                 <span className="mr-2 inline-block h-1.5 w-1.5 rotate-45 bg-lol-crimson align-middle" />
                 Most played champions
               </h2>
-              <span className="text-[13px] text-lol-text">
-                {timePeriod === "full" ? "All time" : `Last ${timePeriod}`}
-              </span>
+              <div className="flex flex-wrap items-center justify-end gap-2">
+                <div className="inline-flex rounded-md border border-lol-border/60 bg-lol-card/50 p-0.5">
+                  {(["games", "winRate"] as const).map((sort) => (
+                    <button
+                      key={sort}
+                      type="button"
+                      onClick={() => {
+                        setChampionSort(sort);
+                        setShowAllChampions(false);
+                      }}
+                      className={`rounded px-2 py-1 text-[11px] font-semibold transition-colors ${
+                        championSort === sort
+                          ? "bg-lol-crimson/25 text-lol-text-bright"
+                          : "text-lol-text hover:text-lol-text-bright"
+                      }`}
+                    >
+                      {sort === "games" ? "Games" : "Win rate"}
+                    </button>
+                  ))}
+                </div>
+                <span className="text-[13px] text-lol-text">
+                  {timePeriod === "full" ? "All time" : `Last ${timePeriod}`}
+                </span>
+              </div>
             </div>
             <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 md:grid-cols-5">
-              {(dashboard?.topChampions ?? []).slice(0, 10).map((champion) => (
+              {visibleTopChampions.map((champion) => (
                 <ChampCard
                   key={champion.championId}
                   championId={champion.championId}
@@ -676,6 +720,18 @@ export default function Home() {
                 />
               ))}
             </div>
+            {sortedTopChampions.length > 20 && (
+              <button
+                type="button"
+                onClick={() => setShowAllChampions((expanded) => !expanded)}
+                className="mt-3 w-full rounded-md border border-lol-border px-3 py-2 text-xs font-semibold text-lol-text-bright transition-colors hover:border-lol-crimson/40 hover:bg-white/[0.025]"
+                aria-expanded={showAllChampions}
+              >
+                {showAllChampions
+                  ? "Show top 20"
+                  : `Show all (${sortedTopChampions.length.toLocaleString()})`}
+              </button>
+            )}
           </Panel>
 
           {/* Records: 5 columns */}
@@ -685,7 +741,9 @@ export default function Home() {
                 <span className="mr-2 inline-block h-1.5 w-1.5 rotate-45 bg-lol-crimson align-middle" />
                 Records
               </h2>
-              <span className="text-[13px] text-lol-text">All time</span>
+              <span className="text-[13px] text-lol-text">
+                {timePeriod === "full" ? "All time" : `Last ${timePeriod}`}
+              </span>
             </div>
             <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
               {(

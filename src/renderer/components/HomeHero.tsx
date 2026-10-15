@@ -2,12 +2,19 @@ import type { ChampionData, HomeDashboardPayload, HomeTimePeriod } from "../../s
 import ChampionIcon from "./ChampionIcon";
 import { getChampionName } from "../hooks/useChampions";
 import { formatNumber } from "../lib/format";
+import StatCard from "./StatCard";
 
 function periodLabel(period: HomeTimePeriod): string {
   if (period === "24h") return "Last 24 hours";
   if (period === "30d") return "Last 30 days";
   if (period === "full") return "All time";
   return "Last 7 days";
+}
+
+function formatDuration(seconds: number): string {
+  const totalSeconds = Math.max(0, Math.round(seconds));
+  const minutes = Math.floor(totalSeconds / 60);
+  return `${minutes}:${(totalSeconds % 60).toString().padStart(2, "0")}`;
 }
 
 export function HomeHero({
@@ -147,6 +154,52 @@ export function HomeHero({
             Average K/D/A
           </span>
         </div>
+      </div>
+      <div className="mt-4 grid grid-cols-2 gap-3 border-t border-lol-border/40 pt-4 xl:grid-cols-4">
+        <StatCard
+          label="Avg damage"
+          value={
+            dashboard?.summary.statsEligibleGames
+              ? formatNumber(Math.round(dashboard.summary.avgDamageDealt))
+              : "—"
+          }
+          subtext="per game"
+          accent="gold"
+          className="p-3 xl:p-3 2xl:p-3"
+        />
+        <StatCard
+          label="Avg gold"
+          value={
+            dashboard?.summary.statsEligibleGames
+              ? formatNumber(Math.round(dashboard.summary.avgGold))
+              : "—"
+          }
+          subtext="per game"
+          accent="sky"
+          className="p-3 xl:p-3 2xl:p-3"
+        />
+        <StatCard
+          label="Avg CS"
+          value={
+            dashboard?.summary.statsEligibleGames
+              ? formatNumber(Math.round(dashboard.summary.avgCs))
+              : "—"
+          }
+          subtext="per game"
+          accent="purple"
+          className="p-3 xl:p-3 2xl:p-3"
+        />
+        <StatCard
+          label="Avg game duration"
+          value={
+            dashboard?.summary.statsEligibleGames
+              ? formatDuration(dashboard.summary.avgGameLength)
+              : "—"
+          }
+          subtext="MM:SS"
+          accent="win"
+          className="p-3 xl:p-3 2xl:p-3"
+        />
       </div>
     </div>
   );
