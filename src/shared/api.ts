@@ -1260,6 +1260,19 @@ export interface RecordsData {
     longestGame: StatRecord | null;
     criticalStrike: StatRecord | null;
   };
+  multikillTotals?: {
+    doubles: number;
+    triples: number;
+    quadras: number;
+    pentakills: number;
+  };
+  recentlyBroken?: Array<{
+    key: string;
+    label: string;
+    value: number;
+    gameCreation: number;
+    gameId?: string;
+  }>;
   winStreak: StreakRecord | null;
   lossStreak: StreakRecord | null;
   visionScore?: StatRecord;

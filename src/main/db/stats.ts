@@ -4033,7 +4033,7 @@ export function getRecords(
              ps.total_damage_dealt, ps.total_damage_taken,
              ps.gold_earned, ps.total_heal, ps.largest_killing_spree, ps.score, ps.score_raw,
              ps.total_damage_dealt_all, ps.true_damage_dealt, ps.cs, ps.largest_critical_strike,
-             ps.penta_kills,
+             ps.double_kills, ps.triple_kills, ps.quadra_kills, ps.penta_kills,
              mp.vision_score, mp.wards_placed, mp.damage_to_turrets, mp.damage_to_objectives
       FROM games g
       JOIN ${source.table} ps ON g.game_id = ps.game_id
@@ -4108,6 +4108,21 @@ export function getRecords(
       let objectiveDamage: StatRecord | undefined;
       let fastestPentakill: StatRecord | undefined;
       let flawlessAce: StatRecord | undefined;
+      const multikillTotals = {
+        doubles: 0,
+        triples: 0,
+        quadras: 0,
+        pentakills: 0,
+      };
+      const multikillLastGames: Record<
+        keyof typeof multikillTotals,
+        { gameCreation: number; gameId: string } | undefined
+      > = {
+        doubles: undefined,
+        triples: undefined,
+        quadras: undefined,
+        pentakills: undefined,
+      };
       const topDamageGames: NonNullable<RecordsData["topDamageGames"]> = [];
       type QueueRecord = NonNullable<RecordsData["bestByQueue"]>[number];
       interface QueueState {
@@ -4177,6 +4192,26 @@ export function getRecords(
         if (r.win) track("fastestWin", r.game_duration, r, lower);
         else track("fastestLoss", r.game_duration, r, lower);
         track("longestGame", r.game_duration, r);
+        multikillTotals.doubles += r.double_kills ?? 0;
+        multikillTotals.triples += r.triple_kills ?? 0;
+        multikillTotals.quadras += r.quadra_kills ?? 0;
+        multikillTotals.pentakills += r.penta_kills ?? 0;
+        for (const [key, count] of [
+          ["doubles", r.double_kills],
+          ["triples", r.triple_kills],
+          ["quadras", r.quadra_kills],
+          ["pentakills", r.penta_kills],
+        ] as const) {
+          if (
+            count > 0 &&
+            (!multikillLastGames[key] || r.game_creation > multikillLastGames[key].gameCreation)
+          ) {
+            multikillLastGames[key] = {
+              gameCreation: r.game_creation,
+              gameId: String(r.game_id),
+            };
+          }
+        }
         visionScore = trackExtra(visionScore, r.vision_score, r);
         wardsPlaced = trackExtra(wardsPlaced, r.wards_placed, r);
         turretDamage = trackExtra(turretDamage, r.damage_to_turrets, r);
@@ -4329,9 +4364,82 @@ export function getRecords(
             bestWinStreak: state.bestWinStreak,
           }),
         );
+      const recentlyBrokenCandidates: NonNullable<RecordsData["recentlyBroken"]> = [];
+      const addRecent = (key: string, label: string, record: StatRecord | null | undefined) => {
+        if (record) {
+          recentlyBrokenCandidates.push({
+            key,
+            label,
+            value: record.value,
+            gameCreation: record.match.game_creation,
+            gameId: String(record.match.game_id),
+          });
+        }
+      };
+      addRecent("kills", "Most kills", bests.kills);
+      addRecent("deaths", "Most deaths", bests.deaths);
+      addRecent("assists", "Most assists", bests.assists);
+      addRecent("kda", "Best KDA", bests.kda);
+      addRecent("score", "Highest score", bests.score);
+      addRecent("killingSpree", "Longest killing spree", bests.killingSpree);
+      addRecent("damage", "Most damage dealt", bests.damage);
+      addRecent("damageTaken", "Most damage taken", bests.damageTaken);
+      addRecent("totalDamage", "Most total damage", bests.totalDamage);
+      addRecent("trueDamage", "Most true damage", bests.trueDamage);
+      addRecent("cs", "Most CS", bests.cs);
+      addRecent("csPerMinute", "Best CS/min", bests.csPerMinute);
+      addRecent("healing", "Most healing", bests.healing);
+      addRecent("gold", "Most gold earned", bests.gold);
+      addRecent("fastestWin", "Fastest win", bests.fastestWin);
+      addRecent("fastestLoss", "Fastest loss", bests.fastestLoss);
+      addRecent("longestGame", "Longest game", bests.longestGame);
+      addRecent("criticalStrike", "Biggest crit", bests.criticalStrike);
+      addRecent("visionScore", "Highest vision score", visionScore);
+      addRecent("wardsPlaced", "Most wards placed", wardsPlaced);
+      addRecent("turretDamage", "Most turret damage", turretDamage);
+      addRecent("objectiveDamage", "Most objective damage", objectiveDamage);
+      addRecent("fastestPentakill", "Fastest pentakill", fastestPentakill);
+      addRecent("flawlessAce", "Flawless ace", flawlessAce);
+      if (winStreak) {
+        recentlyBrokenCandidates.push({
+          key: "winStreak",
+          label: "Longest win streak",
+          value: winStreak.length,
+          gameCreation: winStreak.end,
+          gameId: String(winStreak.match.game_id),
+        });
+      }
+      if (lossStreak && lossStreak.length > 1) {
+        recentlyBrokenCandidates.push({
+          key: "lossStreak",
+          label: "Longest loss streak",
+          value: lossStreak.length,
+          gameCreation: lossStreak.end,
+          gameId: String(lossStreak.match.game_id),
+        });
+      }
+      for (const [key, label] of [
+        ["doubles", "Lifetime doubles"],
+        ["triples", "Lifetime triples"],
+        ["quadras", "Lifetime quadras"],
+        ["pentakills", "Lifetime pentakills"],
+      ] as const) {
+        const lastGame = multikillLastGames[key];
+        if (lastGame && multikillTotals[key] > 0) {
+          recentlyBrokenCandidates.push({
+            key: `multikill-${key}`,
+            label,
+            value: multikillTotals[key],
+            ...lastGame,
+          });
+        }
+      }
+      recentlyBrokenCandidates.sort((a, b) => b.gameCreation - a.gameCreation);
       return {
         totalGames: rows.length,
         bests,
+        multikillTotals,
+        recentlyBroken: recentlyBrokenCandidates.slice(0, 5),
         winStreak,
         lossStreak,
         visionScore,

@@ -191,6 +191,47 @@ function MilestonesList({ milestones }: { milestones: NonNullable<RecordsData["m
   );
 }
 
+function RecentlyBrokenPanel({ records }: { records: NonNullable<RecordsData["recentlyBroken"]> }) {
+  return (
+    <Panel>
+      <div className="overflow-x-auto">
+        <table className="w-full min-w-[520px] text-left text-xs">
+          <thead className="border-b border-lol-border/60 text-[11px] uppercase tracking-wider text-lol-text">
+            <tr>
+              <th className="px-3.5 py-3 font-semibold">Record</th>
+              <th className="px-3.5 py-3 font-semibold">Value</th>
+              <th className="px-3.5 py-3 text-right font-semibold">Date broken</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-lol-border/50">
+            {records.map((record) => (
+              <tr key={record.key} className="text-lol-text">
+                <th className="px-3.5 py-3 font-semibold text-lol-text-bright">{record.label}</th>
+                <td className="px-3.5 py-3 tabular-nums text-lol-text-bright">
+                  {["fastestWin", "fastestLoss", "longestGame", "fastestPentakill"].includes(
+                    record.key,
+                  )
+                    ? formatDuration(record.value)
+                    : record.value.toLocaleString()}
+                </td>
+                <td className="px-3.5 py-3 text-right">{recordDate(record.gameCreation)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </Panel>
+  );
+}
+
+function SectionCount({ count }: { count: number }) {
+  return (
+    <span className="rounded-full border border-lol-border/70 px-2 py-0.5 text-[10px] font-semibold tracking-normal text-lol-text">
+      {count} records
+    </span>
+  );
+}
+
 export function RecordsExp({
   data,
   error,
@@ -301,7 +342,7 @@ export function RecordsExp({
   }
 
   const { bests } = data;
-  const tiles = [
+  const combatTiles = [
     bests.kills && <StandardRecordTile key="kills" label="Most kills" record={bests.kills} />,
     bests.deaths && <StandardRecordTile key="deaths" label="Most deaths" record={bests.deaths} />,
     bests.assists && (
@@ -327,6 +368,18 @@ export function RecordsExp({
     bests.trueDamage && (
       <StandardRecordTile key="trueDamage" label="Most true damage" record={bests.trueDamage} />
     ),
+    bests.killingSpree && (
+      <StandardRecordTile
+        key="killingSpree"
+        label="Longest killing spree"
+        record={bests.killingSpree}
+      />
+    ),
+    bests.criticalStrike && (
+      <StandardRecordTile key="criticalStrike" label="Biggest crit" record={bests.criticalStrike} />
+    ),
+  ].filter((tile): tile is React.ReactElement => Boolean(tile));
+  const economyTiles = [
     bests.cs && <StandardRecordTile key="cs" label="Most CS" record={bests.cs} />,
     bests.csPerMinute && (
       <DecimalRecordTile
@@ -340,16 +393,34 @@ export function RecordsExp({
     bests.healing && (
       <StandardRecordTile key="healing" label="Most healing" record={bests.healing} />
     ),
-    bests.killingSpree && (
+  ].filter((tile): tile is React.ReactElement => Boolean(tile));
+  const visionTiles = [
+    data.visionScore && (
       <StandardRecordTile
-        key="killingSpree"
-        label="Longest killing spree"
-        record={bests.killingSpree}
+        key="visionScore"
+        label="Highest vision score"
+        record={data.visionScore}
       />
     ),
-    bests.criticalStrike && (
-      <StandardRecordTile key="criticalStrike" label="Biggest crit" record={bests.criticalStrike} />
+    data.wardsPlaced && (
+      <StandardRecordTile key="wardsPlaced" label="Most wards placed" record={data.wardsPlaced} />
     ),
+    data.turretDamage && (
+      <StandardRecordTile
+        key="turretDamage"
+        label="Most turret damage"
+        record={data.turretDamage}
+      />
+    ),
+    data.objectiveDamage && (
+      <StandardRecordTile
+        key="objectiveDamage"
+        label="Most objective damage"
+        record={data.objectiveDamage}
+      />
+    ),
+  ].filter((tile): tile is React.ReactElement => Boolean(tile));
+  const survivalTiles = [
     bests.longestGame && (
       <StandardRecordTile
         key="longestGame"
@@ -381,6 +452,11 @@ export function RecordsExp({
       <StreakTile key="lossStreak" label="Longest loss streak" streak={data.lossStreak} />
     ),
   ].filter((tile): tile is React.ReactElement => Boolean(tile));
+  const combatCount = combatTiles.length;
+  const economyCount = economyTiles.length;
+  const visionCount = visionTiles.length;
+  const survivalCount =
+    survivalTiles.length + (data.fastestPentakill ? 1 : 0) + (data.flawlessAce ? 1 : 0);
 
   return (
     <div className="mx-auto flex min-h-full w-full max-w-[1320px] flex-col gap-5">
@@ -399,53 +475,91 @@ export function RecordsExp({
           {controls}
         </div>
       </div>
-      <div>
-        <SectionHeading title="Personal bests" />
-        <Panel>
-          <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">{tiles}</div>
-        </Panel>
-      </div>
-      {(data.visionScore ||
-        data.wardsPlaced ||
-        data.turretDamage ||
-        data.objectiveDamage ||
-        data.fastestPentakill ||
-        data.flawlessAce) && (
-        <div className="grid grid-cols-1 gap-5 lg:grid-cols-3">
-          <div className="lg:col-span-2">
-            <SectionHeading title="Vision" />
-            <Panel>
-              <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
-                {data.visionScore && (
-                  <StandardRecordTile label="Highest vision score" record={data.visionScore} />
-                )}
-                {data.wardsPlaced && (
-                  <StandardRecordTile label="Most wards placed" record={data.wardsPlaced} />
-                )}
-                {data.turretDamage && (
-                  <StandardRecordTile label="Most turret damage" record={data.turretDamage} />
-                )}
-                {data.objectiveDamage && (
-                  <StandardRecordTile label="Most objective damage" record={data.objectiveDamage} />
-                )}
-              </div>
-            </Panel>
-          </div>
-          <div>
-            <SectionHeading title="Survival" />
-            <Panel>
-              <div className="grid grid-cols-1 gap-5">
-                {data.fastestPentakill && (
-                  <StandardRecordTile
-                    label="Fastest pentakill"
-                    record={data.fastestPentakill}
-                    formatValue={formatDuration}
-                  />
-                )}
-                {data.flawlessAce && <FlawlessAceTile record={data.flawlessAce} />}
-              </div>
-            </Panel>
-          </div>
+      {data.recentlyBroken && data.recentlyBroken.length > 0 && (
+        <div>
+          <SectionHeading
+            title="RECENTLY BROKEN"
+            aside={<SectionCount count={data.recentlyBroken.length} />}
+          />
+          <RecentlyBrokenPanel records={data.recentlyBroken} />
+        </div>
+      )}
+      {combatTiles.length > 0 && (
+        <div>
+          <SectionHeading title="COMBAT" aside={<SectionCount count={combatCount} />} />
+          <Panel>
+            <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
+              {combatTiles}
+            </div>
+          </Panel>
+        </div>
+      )}
+      {data.multikillTotals && (
+        <div>
+          <SectionHeading title="MULTIKILLS" aside={<SectionCount count={4} />} />
+          <Panel>
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+              {[
+                ["Lifetime doubles", data.multikillTotals.doubles],
+                ["Lifetime triples", data.multikillTotals.triples],
+                ["Lifetime quadras", data.multikillTotals.quadras],
+                ["Lifetime pentakills", data.multikillTotals.pentakills],
+              ].map(([label, value]) => (
+                <div key={label} className="rounded-lg border border-lol-border/60 bg-black/10 p-3">
+                  <div className="text-[10px] font-bold uppercase tracking-wider text-lol-text">
+                    {label}
+                  </div>
+                  <div className="mt-1 font-display text-2xl font-bold tabular-nums text-lol-text-bright">
+                    {Number(value).toLocaleString()}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </Panel>
+        </div>
+      )}
+      {economyTiles.length > 0 && (
+        <div>
+          <SectionHeading title="ECONOMY & FARMING" aside={<SectionCount count={economyCount} />} />
+          <Panel>
+            <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
+              {economyTiles}
+            </div>
+          </Panel>
+        </div>
+      )}
+      {visionTiles.length > 0 && (
+        <div>
+          <SectionHeading
+            title="VISION & OBJECTIVES"
+            aside={<SectionCount count={visionCount} />}
+          />
+          <Panel>
+            <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
+              {visionTiles}
+            </div>
+          </Panel>
+        </div>
+      )}
+      {(survivalTiles.length > 0 || data.fastestPentakill || data.flawlessAce) && (
+        <div>
+          <SectionHeading
+            title="SURVIVAL & GAME LENGTH"
+            aside={<SectionCount count={survivalCount} />}
+          />
+          <Panel>
+            <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
+              {data.fastestPentakill && (
+                <StandardRecordTile
+                  label="Fastest pentakill"
+                  record={data.fastestPentakill}
+                  formatValue={formatDuration}
+                />
+              )}
+              {data.flawlessAce && <FlawlessAceTile record={data.flawlessAce} />}
+              {survivalTiles}
+            </div>
+          </Panel>
         </div>
       )}
       {data.bestByQueue && data.bestByQueue.length > 0 && (
