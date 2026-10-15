@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { useSearchParams } from "react-router-dom";
 import { useIpc } from "../hooks/useIpc";
 import { useHistoryScopeQueue } from "../lib/historyScope";
@@ -398,32 +398,44 @@ export default function Records() {
   const [activeAccountRaw] = useActiveAccount();
   const account = activeAccountRaw === ALL_ACCOUNTS_SENTINEL ? "all" : activeAccountRaw;
   const queueParam = searchParams.get("queue");
-  const q = Number(queueParam);
-  const queue = Number.isFinite(q) ? q : undefined;
+  const q = queueParam == null ? undefined : Number(queueParam);
+  const queue = q !== undefined && Number.isFinite(q) ? q : undefined;
   const accountParam = searchParams.get("account") || undefined;
   const urlAccount = accountParam || "all";
-  const setQueue = (q: number | undefined) => {
-    setSearchParams(
-      (prev) => {
-        const next = new URLSearchParams(prev);
-        if (q == null) next.delete("queue");
-        else next.set("queue", String(q));
-        return next;
-      },
-      { replace: true },
-    );
-  };
-  const setAccount = (puuid: string | undefined) => {
-    setSearchParams(
-      (prev) => {
-        const next = new URLSearchParams(prev);
-        if (puuid == null) next.delete("account");
-        else next.set("account", puuid);
-        return next;
-      },
-      { replace: true },
-    );
-  };
+  const setQueue = useCallback(
+    (q: number | undefined) => {
+      setSearchParams(
+        (prev) => {
+          const current = prev.get("queue");
+          const nextValue = q == null ? null : String(q);
+          if (current === nextValue) return prev;
+          const next = new URLSearchParams(prev);
+          if (q == null) next.delete("queue");
+          else next.set("queue", String(q));
+          return next;
+        },
+        { replace: true },
+      );
+    },
+    [setSearchParams],
+  );
+  const setAccount = useCallback(
+    (puuid: string | undefined) => {
+      setSearchParams(
+        (prev) => {
+          const current = prev.get("account");
+          const nextValue = puuid == null ? null : puuid;
+          if (current === nextValue) return prev;
+          const next = new URLSearchParams(prev);
+          if (puuid == null) next.delete("account");
+          else next.set("account", puuid);
+          return next;
+        },
+        { replace: true },
+      );
+    },
+    [setSearchParams],
+  );
 
   const historyScopeQueue = useHistoryScopeQueue();
   const scopedQueue = queue ?? historyScopeQueue;
@@ -486,7 +498,7 @@ export default function Records() {
   const accountSelect = (
     <FilterSelect
       value={accountParam}
-      onChange={(value) => setAccount(value)}
+      onChange={setAccount}
       placeholder="All Accounts"
       title="Account"
       options={accounts.map((item) => ({
@@ -496,16 +508,36 @@ export default function Records() {
     />
   );
 
+  const summary = dashboard?.summary;
+  const winRate =
+    summary && summary.totalGames > 0 ? Math.round((summary.wins / summary.totalGames) * 100) : 0;
+  const activeAccount = accounts.find((item) => item.puuid === accountForFetch);
+  const activeAccountName = activeAccount
+    ? `${activeAccount.gameName ?? "Unknown account"}${activeAccount.tagLine ? `#${activeAccount.tagLine}` : ""}`
+    : "All accounts";
+  const activeScope = `${scopedQueue == null ? "All queues" : queueLabel(scopedQueue)} · ${activeAccountName}`;
+  const header = (
+    <div className="shrink-0 overflow-hidden rounded-xl border border-lol-border border-t-[3px] border-t-lol-crimson bg-[radial-gradient(circle_at_top_right,color-mix(in_oklab,var(--theme-crimson)_10%,transparent),transparent_46%),linear-gradient(180deg,var(--theme-card-hover),var(--theme-card))] px-5 py-4">
+      <h1 className="relative pl-4 font-display text-[30px] font-bold leading-tight tracking-[0.2px] text-lol-text-bright before:absolute before:left-0 before:top-1/2 before:h-2.5 before:w-2.5 before:-translate-y-1/2 before:rotate-45 before:bg-lol-crimson">
+        Records
+      </h1>
+      <p className="relative mt-1.5 pl-4 text-lol-text">
+        {activeAccountName === "All accounts"
+          ? "Personal bests across all accounts"
+          : `Personal bests for ${activeAccountName}`}
+      </p>
+      <div className="mt-4 flex flex-wrap items-center gap-2">
+        {accountSelect}
+        <QueueSelect value={queue} onChange={setQueue} />
+      </div>
+    </div>
+  );
+
   if (!data) {
     return (
-      <div className="flex flex-col gap-4">
-        <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
-          <div className="flex items-center gap-3">
-            <span className="text-xs text-lol-text">Personal bests</span>
-            {accountSelect}
-          </div>
-        </div>
-        <div className="rounded-lg border border-lol-crimson/40 border-t-[3px] border-t-lol-crimson bg-[linear-gradient(180deg,var(--theme-card-hover),var(--theme-card))] p-12 text-center shadow-[0_0_3px_color-mix(in_oklab,var(--theme-crimson)_55%,transparent),0_0_10px_color-mix(in_oklab,var(--theme-crimson)_35%,transparent),0_0_20px_color-mix(in_oklab,var(--theme-crimson)_20%,transparent)] ring-1 ring-inset ring-white/[0.03]">
+      <div className="mx-auto flex min-h-full w-full max-w-[1320px] flex-col gap-5">
+        {header}
+        <div className="rounded-xl border border-lol-border bg-lol-card p-12 text-center">
           <p className="text-sm text-lol-text">Loading records…</p>
         </div>
       </div>
@@ -514,16 +546,11 @@ export default function Records() {
 
   if (data.totalGames === 0) {
     return (
-      <div className="flex flex-col gap-4">
-        <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
-          <div className="flex items-center gap-3">
-            <span className="text-xs text-lol-text">Personal bests</span>
-            {accountSelect}
-          </div>
-        </div>
-        <div className="rounded-lg border border-lol-crimson/40 border-t-[3px] border-t-lol-crimson bg-[linear-gradient(180deg,var(--theme-card-hover),var(--theme-card))] p-12 text-center shadow-[0_0_3px_color-mix(in_oklab,var(--theme-crimson)_55%,transparent),0_0_10px_color-mix(in_oklab,var(--theme-crimson)_35%,transparent),0_0_20px_color-mix(in_oklab,var(--theme-crimson)_20%,transparent)] ring-1 ring-inset ring-white/[0.03]">
+      <div className="mx-auto flex min-h-full w-full max-w-[1320px] flex-col gap-5">
+        {header}
+        <div className="relative overflow-hidden rounded-xl border border-lol-border border-t-[3px] border-t-lol-crimson bg-[linear-gradient(180deg,var(--theme-card-hover),var(--theme-card))] p-12 text-center">
           <p className="text-sm font-semibold text-lol-text-bright">No records yet</p>
-          <p className="text-xs text-lol-text mt-1">Play more matches to set personal bests.</p>
+          <p className="mt-1 text-xs text-lol-text">Play more matches to set personal bests.</p>
         </div>
       </div>
     );
@@ -536,29 +563,9 @@ export default function Records() {
     // memorializing at two.
     cards.push(streakCard(data.lossStreak, false));
   }
-  const summary = dashboard?.summary;
-  const winRate =
-    summary && summary.totalGames > 0 ? Math.round((summary.wins / summary.totalGames) * 100) : 0;
-  const activeAccount = accounts.find((item) => item.puuid === accountForFetch);
-  const activeAccountName = activeAccount
-    ? `${activeAccount.gameName ?? "Unknown account"}${activeAccount.tagLine ? `#${activeAccount.tagLine}` : ""}`
-    : "All accounts";
-  const activeScope = `${scopedQueue == null ? "All queues" : queueLabel(scopedQueue)} · ${activeAccountName}`;
-
   return (
-    <div className="flex flex-col gap-4">
-      <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
-        <div className="flex items-center gap-3">
-          <span className="text-xs text-lol-text">
-            personal bests across {data.totalGames} {data.totalGames === 1 ? "game" : "games"}
-          </span>
-          {accountSelect}
-          <div className="[&_select]:h-9 [&_select]:rounded-md [&_select]:border [&_select]:border-lol-border/60 [&_select]:bg-lol-card/40 [&_select]:px-3 [&_select]:text-xs [&_select]:text-lol-text-bright [&_select]:focus-visible:outline-none [&_select]:focus-visible:border-lol-gold/60 [&_select]:focus-visible:ring-1 [&_select]:focus-visible:ring-lol-gold/40 [&_select]:transition-colors">
-            <QueueSelect value={queue} onChange={setQueue} />
-          </div>
-        </div>
-      </div>
-
+    <div className="mx-auto flex min-h-full w-full max-w-[1320px] flex-col gap-5">
+      {header}
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <StatCard
           label="Total Games"
