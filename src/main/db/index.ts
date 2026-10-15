@@ -169,6 +169,7 @@ export {
   backfillGamePuuids,
   backfillGameVersions,
   backfillAugmentSlots,
+  migrateToV29,
   runMigrations,
 } from "./schema";
 export { writeExportTo, importData, repairPuuids, reconcileOwnerPuuids } from "./transfer";

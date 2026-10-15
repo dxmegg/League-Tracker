@@ -391,7 +391,8 @@ export default function Records() {
   const [activeAccountRaw] = useActiveAccount();
   const account = activeAccountRaw === ALL_ACCOUNTS_SENTINEL ? "all" : activeAccountRaw;
   const queueParam = searchParams.get("queue");
-  const queue = queueParam ? Number(queueParam) : undefined;
+  const q = Number(queueParam);
+  const queue = Number.isFinite(q) ? q : undefined;
   const accountParam = searchParams.get("account") || undefined;
   const urlAccount = accountParam || "all";
   const setQueue = (q: number | undefined) => {
@@ -417,7 +418,8 @@ export default function Records() {
     );
   };
 
-  const scopedQueue = queue ?? useHistoryScopeQueue();
+  const historyScopeQueue = useHistoryScopeQueue();
+  const scopedQueue = queue ?? historyScopeQueue;
   const accountForFetch = isExperiment ? account : urlAccount;
   const { data, refetch } = useIpc<RecordsData>(
     () => window.api.getRecords(scopedQueue, accountForFetch),
@@ -446,7 +448,11 @@ export default function Records() {
   }, [refetch]);
 
   if (isExperiment) {
-    return <RecordsExp data={data} />;
+    const activeAccount = accounts.find((item) => item.puuid === account);
+    const accountName = activeAccount
+      ? `${activeAccount.gameName ?? "Unknown account"}${activeAccount.tagLine ? `#${activeAccount.tagLine}` : ""}`
+      : undefined;
+    return <RecordsExp data={data} accountName={accountName} />;
   }
 
   const accountSelect = (

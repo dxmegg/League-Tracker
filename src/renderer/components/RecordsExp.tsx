@@ -22,7 +22,7 @@ function DecimalRecordTile({
     <div className="flex flex-col rounded-xl border border-lol-border border-t-[3px] border-t-lol-gold bg-[radial-gradient(circle_at_top_right,rgba(201,164,92,0.08),transparent_55%),linear-gradient(180deg,var(--theme-card-hover),var(--theme-card))] px-3.5 py-3 transition-colors duration-[120ms] hover:bg-white/[0.02]">
       <span className="text-[12.5px] uppercase tracking-wider text-lol-text">{label}</span>
       <b className="my-0.5 font-display text-[28px] font-bold leading-tight text-lol-text-bright">
-        {value.toFixed(2)}
+        {Number.isFinite(value) ? value.toFixed(2) : "—"}
       </b>
       <div className="flex items-center gap-2 text-[12.5px] text-lol-text">
         <ChampionIcon championId={match.champion_id} size={26} className="rounded-full" />
@@ -77,7 +77,13 @@ function StandardRecordTile({
   );
 }
 
-export function RecordsExp({ data }: { data: RecordsData | null }) {
+export function RecordsExp({
+  data,
+  accountName,
+}: {
+  data: RecordsData | null;
+  accountName?: string;
+}) {
   if (!data) {
     return (
       <div className="relative overflow-hidden rounded-xl border border-lol-border border-t-[3px] border-t-[#E5483F] bg-[radial-gradient(circle_at_top_right,rgba(229,72,63,0.10),transparent_46%),linear-gradient(180deg,#151012,#0b0d10)] p-12 text-center">
@@ -184,7 +190,9 @@ export function RecordsExp({ data }: { data: RecordsData | null }) {
         <h1 className="relative pl-4 font-display text-[30px] font-bold leading-tight tracking-[0.2px] text-lol-text-bright before:absolute before:left-0 before:top-1/2 before:h-2.5 before:w-2.5 before:-translate-y-1/2 before:rotate-45 before:bg-[#E5483F]">
           Records
         </h1>
-        <p className="relative mt-1.5 pl-4 text-lol-text">Personal bests across all accounts</p>
+        <p className="relative mt-1.5 pl-4 text-lol-text">
+          {accountName ? `Personal bests for ${accountName}` : "Personal bests across all accounts"}
+        </p>
       </div>
       <div>
         <h2 className="relative mb-3 pl-4 text-xs font-bold uppercase tracking-wider text-lol-gold before:absolute before:left-0 before:top-1/2 before:h-2 before:w-2 before:-translate-y-1/2 before:rotate-45 before:bg-lol-crimson">

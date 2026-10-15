@@ -372,6 +372,8 @@ export function createIndexes() {
       ON match_participants(game_id, puuid);
     CREATE INDEX IF NOT EXISTS idx_match_participants_puuid_champion
       ON match_participants(puuid, champion_id);
+    CREATE INDEX IF NOT EXISTS idx_mp_puuid_creation_game
+      ON match_participants(puuid, game_id);
     CREATE INDEX IF NOT EXISTS idx_games_game_creation_queue
       ON games(game_creation DESC, queue_id);
     CREATE INDEX IF NOT EXISTS idx_mpa_augment
@@ -401,7 +403,7 @@ export function createIndexes() {
 // versioning, so it could be missing any subset of the columns v1 adds — which
 // is why each step checks for its column rather than assuming. A database that
 // createTables just built is also version 0, and lands on the same no-op path.
-export const SCHEMA_VERSION = 28;
+export const SCHEMA_VERSION = 29;
 
 export function tableColumns(table: string): Set<string> {
   const rows = db.pragma(`table_info(${table})`) as { name: string }[];
@@ -1337,6 +1339,14 @@ export function migrateToV28(): void {
   console.log("[db] v28 added participant telemetry fields and challenges");
 }
 
+export function migrateToV29(): void {
+  db.exec(`
+    CREATE INDEX IF NOT EXISTS idx_mp_puuid_creation_game
+      ON match_participants(puuid, game_id);
+  `);
+  console.log("[db] v29 added records ordering index");
+}
+
 export async function runMigrations() {
   const current = db.pragma("user_version", { simple: true }) as number;
   function timelineTablesPresent(): boolean {
@@ -1550,6 +1560,7 @@ export async function runMigrations() {
   if (current < 26) migrateToV26();
   if (current < 27) migrateToV27();
   if (current < 28) migrateToV28();
+  if (current < 29) migrateToV29();
 
   db.pragma(`user_version = ${SCHEMA_VERSION}`);
 }
