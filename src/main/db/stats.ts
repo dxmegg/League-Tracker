@@ -4139,6 +4139,10 @@ export function getRecords(
       let cumulativeKills = 0;
       let cumulativeWins = 0;
       let trackedGames = 0;
+      let pentakillCount = 0;
+      let hasMarathonGame = false;
+      let untouchableWins = 0;
+      const championWins = new Map<number, number>();
       const queueKey = (queueId: number) =>
         ARENA_QUEUE_IDS.includes(queueId) ? "arena" : String(queueId);
       const queueStateFor = (row: any): QueueState => {
@@ -4192,6 +4196,10 @@ export function getRecords(
         if (r.win) track("fastestWin", r.game_duration, r, lower);
         else track("fastestLoss", r.game_duration, r, lower);
         track("longestGame", r.game_duration, r);
+        pentakillCount += r.penta_kills ?? 0;
+        hasMarathonGame ||= r.game_duration >= 55 * 60;
+        if (r.win && r.deaths === 0) untouchableWins++;
+        if (r.win) championWins.set(r.champion_id, (championWins.get(r.champion_id) ?? 0) + 1);
         multikillTotals.doubles += r.double_kills ?? 0;
         multikillTotals.triples += r.triple_kills ?? 0;
         multikillTotals.quadras += r.quadra_kills ?? 0;
@@ -4435,11 +4443,63 @@ export function getRecords(
         }
       }
       recentlyBrokenCandidates.sort((a, b) => b.gameCreation - a.gameCreation);
+      const longestChampionWinCount = Math.max(0, ...championWins.values());
+      const achievements: NonNullable<RecordsData["achievements"]> = [
+        {
+          key: "pentakillHunter",
+          label: "Pentakill Hunter",
+          description: "Score 10 pentakills",
+          current: pentakillCount,
+          target: 10,
+          unlocked: pentakillCount >= 10,
+        },
+        {
+          key: "marathonRunner",
+          label: "Marathon Runner",
+          description: "Play a game lasting 55+ minutes",
+          current: hasMarathonGame ? 1 : 0,
+          target: 1,
+          unlocked: hasMarathonGame,
+        },
+        {
+          key: "untouchable",
+          label: "Untouchable",
+          description: "Win 25 games without dying",
+          current: untouchableWins,
+          target: 25,
+          unlocked: untouchableWins >= 25,
+        },
+        {
+          key: "hotStreak",
+          label: "Hot Streak",
+          description: "Win 12 games in a row",
+          current: winStreak?.length ?? 0,
+          target: 12,
+          unlocked: (winStreak?.length ?? 0) >= 12,
+        },
+        {
+          key: "centurion",
+          label: "Centurion",
+          description: "Win 100 games with one champion",
+          current: longestChampionWinCount,
+          target: 100,
+          unlocked: longestChampionWinCount >= 100,
+        },
+        {
+          key: "thousandClub",
+          label: "Thousand Club",
+          description: "Record 1,000 games",
+          current: rows.length,
+          target: 1000,
+          unlocked: rows.length >= 1000,
+        },
+      ];
       return {
         totalGames: rows.length,
         bests,
         multikillTotals,
         recentlyBroken: recentlyBrokenCandidates.slice(0, 5),
+        achievements,
         winStreak,
         lossStreak,
         visionScore,

@@ -1273,6 +1273,14 @@ export interface RecordsData {
     gameCreation: number;
     gameId?: string;
   }>;
+  achievements?: Array<{
+    key: string;
+    label: string;
+    description: string;
+    current: number;
+    target: number;
+    unlocked: boolean;
+  }>;
   winStreak: StreakRecord | null;
   lossStreak: StreakRecord | null;
   visionScore?: StatRecord;

@@ -12,6 +12,7 @@ import QueueSelect from "./QueueSelect";
 import { FilterSelect } from "./FilterSelect";
 import { Panel } from "./Panel";
 import { SectionHeading } from "./SectionHeading";
+import { FlameIcon, HourglassIcon, ShieldIcon, StarIcon, TimerIcon, TrophyIcon } from "./icons";
 
 function DecimalRecordTile({
   label,
@@ -229,6 +230,74 @@ function SectionCount({ count }: { count: number }) {
     <span className="rounded-full border border-lol-border/70 px-2 py-0.5 text-[10px] font-semibold tracking-normal text-lol-text">
       {count} records
     </span>
+  );
+}
+
+function AchievementCabinet({
+  achievements,
+}: {
+  achievements: NonNullable<RecordsData["achievements"]>;
+}) {
+  const icons = [TrophyIcon, HourglassIcon, ShieldIcon, FlameIcon, StarIcon, TimerIcon];
+  return (
+    <Panel>
+      <div className="grid grid-cols-3 gap-2.5 2xl:grid-cols-6">
+        {achievements.map((achievement, index) => {
+          const Icon = icons[index] ?? TrophyIcon;
+          const progress = Math.min(100, (achievement.current / achievement.target) * 100);
+          return (
+            <div
+              key={achievement.key}
+              className={`flex min-w-0 flex-col rounded-lg border p-3 transition-colors ${
+                achievement.unlocked
+                  ? "border-lol-gold/60 bg-lol-gold/10"
+                  : "border-lol-border/60 bg-black/10"
+              }`}
+            >
+              <div
+                className={`mb-2 flex h-8 w-8 items-center justify-center rounded-full border ${
+                  achievement.unlocked
+                    ? "border-lol-gold/70 bg-lol-gold/15 text-lol-gold"
+                    : "border-lol-border/70 bg-lol-border/20 text-lol-text"
+                }`}
+              >
+                <Icon className="h-4 w-4" />
+              </div>
+              <div
+                className={`truncate text-xs font-bold ${
+                  achievement.unlocked ? "text-lol-text-bright" : "text-lol-text"
+                }`}
+                title={achievement.label}
+              >
+                {achievement.label}
+              </div>
+              <div className="mt-1 min-h-[2rem] text-[10px] leading-snug text-lol-text">
+                {achievement.description}
+              </div>
+              <div className="mt-auto pt-2">
+                <div className="h-1.5 overflow-hidden rounded-full bg-lol-border/60">
+                  <div
+                    className={`h-full transition-all ${
+                      achievement.unlocked ? "bg-lol-gold" : "bg-lol-crimson/70"
+                    }`}
+                    style={{ width: `${progress}%` }}
+                  />
+                </div>
+                <div
+                  className={`mt-1 text-[10px] font-semibold tabular-nums ${
+                    achievement.unlocked ? "text-lol-gold" : "text-lol-text"
+                  }`}
+                >
+                  {achievement.unlocked
+                    ? "Unlocked"
+                    : `${achievement.current.toLocaleString()} / ${achievement.target.toLocaleString()}`}
+                </div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </Panel>
   );
 }
 
@@ -482,6 +551,12 @@ export function RecordsExp({
             aside={<SectionCount count={data.recentlyBroken.length} />}
           />
           <RecentlyBrokenPanel records={data.recentlyBroken} />
+        </div>
+      )}
+      {data.achievements && data.achievements.length > 0 && (
+        <div>
+          <SectionHeading title="TROPHY CABINET" aside={<SectionCount count={6} />} />
+          <AchievementCabinet achievements={data.achievements} />
         </div>
       )}
       {combatTiles.length > 0 && (
