@@ -2211,7 +2211,6 @@ export function getOwnedItemDetail(itemId: number, patch?: string, queue?: numbe
           ...pairingGameIds,
           ...pairingGameIds,
           ...pairingGameIds,
-          ...pairingGameIds,
           itemId,
         ) as { item_id: number; games: number; wins: number }[];
     }
