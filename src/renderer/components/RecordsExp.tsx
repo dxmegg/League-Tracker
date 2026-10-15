@@ -104,36 +104,6 @@ function FlawlessAceTile({ record }: { record: StatRecord }) {
   );
 }
 
-function TopDamageGames({ games }: { games: NonNullable<RecordsData["topDamageGames"]> }) {
-  if (games.length === 0) return null;
-  return (
-    <Panel>
-      <div className="divide-y divide-lol-border/60">
-        {games.map((game, index) => (
-          <div key={game.gameId} className="flex items-center gap-3 px-3.5 py-3">
-            <span className="w-5 text-center font-display text-lg font-bold text-lol-gold">
-              {index + 1}
-            </span>
-            <ChampionIcon championId={game.championId} size={30} className="rounded-full" />
-            <div className="min-w-0 flex-1">
-              <div className="text-sm font-semibold text-lol-text-bright">
-                {game.damage.toLocaleString()} total damage
-              </div>
-              <div className="text-xs text-lol-text">
-                <span className={game.win ? "text-lol-win" : "text-lol-loss"}>
-                  {game.win ? "WIN" : "LOSS"}
-                </span>
-                {" · "}
-                {recordDate(game.gameCreation)}
-              </div>
-            </div>
-          </div>
-        ))}
-      </div>
-    </Panel>
-  );
-}
-
 export function RecordsExp({
   data,
   error,
@@ -389,12 +359,6 @@ export function RecordsExp({
               </div>
             </Panel>
           </div>
-        </div>
-      )}
-      {data.topDamageGames && data.topDamageGames.length > 0 && (
-        <div>
-          <SectionHeading title="Top 5 damage" />
-          <TopDamageGames games={data.topDamageGames} />
         </div>
       )}
     </div>
