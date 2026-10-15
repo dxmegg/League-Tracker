@@ -194,7 +194,7 @@ function MilestonesList({ milestones }: { milestones: NonNullable<RecordsData["m
 
 function RecentlyBrokenPanel({ records }: { records: NonNullable<RecordsData["recentlyBroken"]> }) {
   return (
-    <Panel>
+    <Panel className="border-t-[3px] border-t-lol-gold">
       <div className="overflow-x-auto">
         <table className="w-full min-w-[520px] text-left text-xs">
           <thead className="border-b border-lol-border/60 text-[11px] uppercase tracking-wider text-lol-text">
@@ -544,15 +544,6 @@ export function RecordsExp({
           {controls}
         </div>
       </div>
-      {data.recentlyBroken && data.recentlyBroken.length > 0 && (
-        <div>
-          <SectionHeading
-            title="RECENTLY BROKEN"
-            aside={<SectionCount count={data.recentlyBroken.length} />}
-          />
-          <RecentlyBrokenPanel records={data.recentlyBroken} />
-        </div>
-      )}
       {data.achievements && data.achievements.length > 0 && (
         <div>
           <SectionHeading title="TROPHY CABINET" aside={<SectionCount count={6} />} />
@@ -563,7 +554,7 @@ export function RecordsExp({
         <div>
           <SectionHeading title="COMBAT" aside={<SectionCount count={combatCount} />} />
           <Panel>
-            <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
+            <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 [&>*]:!border-t-lol-crimson">
               {combatTiles}
             </div>
           </Panel>
@@ -575,16 +566,19 @@ export function RecordsExp({
           <Panel>
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
               {[
-                ["Lifetime doubles", data.multikillTotals.doubles],
-                ["Lifetime triples", data.multikillTotals.triples],
-                ["Lifetime quadras", data.multikillTotals.quadras],
-                ["Lifetime pentakills", data.multikillTotals.pentakills],
-              ].map(([label, value]) => (
-                <div key={label} className="rounded-lg border border-lol-border/60 bg-black/10 p-3">
+                ["Lifetime doubles", data.multikillTotals.doubles, "text-cyan-400"],
+                ["Lifetime triples", data.multikillTotals.triples, "text-amber-400"],
+                ["Lifetime quadras", data.multikillTotals.quadras, "text-orange-400"],
+                ["Lifetime pentakills", data.multikillTotals.pentakills, "text-red-400"],
+              ].map(([label, value, color]) => (
+                <div
+                  key={label}
+                  className="rounded-lg border border-lol-border/60 border-t-[3px] border-t-orange-500 bg-black/10 p-3"
+                >
                   <div className="text-[10px] font-bold uppercase tracking-wider text-lol-text">
                     {label}
                   </div>
-                  <div className="mt-1 font-display text-2xl font-bold tabular-nums text-lol-text-bright">
+                  <div className={`mt-1 font-display text-2xl font-bold tabular-nums ${color}`}>
                     {Number(value).toLocaleString()}
                   </div>
                 </div>
@@ -597,7 +591,7 @@ export function RecordsExp({
         <div>
           <SectionHeading title="ECONOMY & FARMING" aside={<SectionCount count={economyCount} />} />
           <Panel>
-            <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
+            <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 [&>*]:!border-t-emerald-500">
               {economyTiles}
             </div>
           </Panel>
@@ -610,7 +604,7 @@ export function RecordsExp({
             aside={<SectionCount count={visionCount} />}
           />
           <Panel>
-            <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
+            <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 [&>*]:!border-t-cyan-500">
               {visionTiles}
             </div>
           </Panel>
@@ -623,7 +617,7 @@ export function RecordsExp({
             aside={<SectionCount count={survivalCount} />}
           />
           <Panel>
-            <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
+            <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 [&>*]:!border-t-purple-500">
               {data.fastestPentakill && (
                 <StandardRecordTile
                   label="Fastest pentakill"
@@ -647,6 +641,15 @@ export function RecordsExp({
         <div>
           <SectionHeading title="Milestones" />
           <MilestonesList milestones={data.milestones} />
+        </div>
+      )}
+      {data.recentlyBroken && data.recentlyBroken.length > 0 && (
+        <div>
+          <SectionHeading
+            title="RECENTLY BROKEN"
+            aside={<SectionCount count={data.recentlyBroken.length} />}
+          />
+          <RecentlyBrokenPanel records={data.recentlyBroken} />
         </div>
       )}
     </div>
