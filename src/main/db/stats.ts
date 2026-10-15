@@ -4114,15 +4114,6 @@ export function getRecords(
         quadras: 0,
         pentakills: 0,
       };
-      const multikillLastGames: Record<
-        keyof typeof multikillTotals,
-        { gameCreation: number; gameId: string } | undefined
-      > = {
-        doubles: undefined,
-        triples: undefined,
-        quadras: undefined,
-        pentakills: undefined,
-      };
       const topDamageGames: NonNullable<RecordsData["topDamageGames"]> = [];
       type QueueRecord = NonNullable<RecordsData["bestByQueue"]>[number];
       interface QueueState {
@@ -4204,22 +4195,6 @@ export function getRecords(
         multikillTotals.triples += r.triple_kills ?? 0;
         multikillTotals.quadras += r.quadra_kills ?? 0;
         multikillTotals.pentakills += r.penta_kills ?? 0;
-        for (const [key, count] of [
-          ["doubles", r.double_kills],
-          ["triples", r.triple_kills],
-          ["quadras", r.quadra_kills],
-          ["pentakills", r.penta_kills],
-        ] as const) {
-          if (
-            count > 0 &&
-            (!multikillLastGames[key] || r.game_creation > multikillLastGames[key].gameCreation)
-          ) {
-            multikillLastGames[key] = {
-              gameCreation: r.game_creation,
-              gameId: String(r.game_id),
-            };
-          }
-        }
         visionScore = trackExtra(visionScore, r.vision_score, r);
         wardsPlaced = trackExtra(wardsPlaced, r.wards_placed, r);
         turretDamage = trackExtra(turretDamage, r.damage_to_turrets, r);
@@ -4425,22 +4400,6 @@ export function getRecords(
           gameCreation: lossStreak.end,
           gameId: String(lossStreak.match.game_id),
         });
-      }
-      for (const [key, label] of [
-        ["doubles", "Lifetime doubles"],
-        ["triples", "Lifetime triples"],
-        ["quadras", "Lifetime quadras"],
-        ["pentakills", "Lifetime pentakills"],
-      ] as const) {
-        const lastGame = multikillLastGames[key];
-        if (lastGame && multikillTotals[key] > 0) {
-          recentlyBrokenCandidates.push({
-            key: `multikill-${key}`,
-            label,
-            value: multikillTotals[key],
-            ...lastGame,
-          });
-        }
       }
       recentlyBrokenCandidates.sort((a, b) => b.gameCreation - a.gameCreation);
       const longestChampionWinCount = Math.max(0, ...championWins.values());
