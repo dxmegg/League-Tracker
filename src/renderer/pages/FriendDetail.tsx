@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { useParams, Link, useNavigate } from "react-router-dom";
+import { useParams, Link, useNavigate, useSearchParams } from "react-router-dom";
 import { useIpc } from "../hooks/useIpc";
 import { useChampionData, getChampionName } from "../hooks/useChampions";
 import type {
@@ -9,7 +9,8 @@ import type {
   MatchDetail,
 } from "../lib/types";
 import ChampionIcon from "../components/ChampionIcon";
-import { HomeCard } from "../components/HomeCard";
+import { Panel } from "../components/Panel";
+import StatCard from "../components/StatCard";
 import SummonerIcon from "../components/SummonerIcon";
 import MatchScoreboard from "../components/MatchScoreboard";
 import StatBars from "../components/StatBars";
@@ -21,7 +22,8 @@ import { useHistoryScopeQueue } from "../lib/historyScope";
 export default function FriendDetail() {
   const { key = "" } = useParams();
   const { section } = useParams<{ section?: string }>();
-  const enemies = section === "enemies";
+  const [searchParams] = useSearchParams();
+  const enemies = section === "enemies" || searchParams.get("relation") === "enemies";
   const navigate = useNavigate();
   const scope = useParams<{ scope?: string }>().scope;
   const scopedQueue = useHistoryScopeQueue(scope);
@@ -35,19 +37,23 @@ export default function FriendDetail() {
   const [detail, setDetail] = useState<MatchDetail | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
   const [switchMessage, setSwitchMessage] = useState<string | null>(null);
+  const [championSort, setChampionSort] = useState<"games" | "winRate" | "kda">("games");
+  const [showAllChampions, setShowAllChampions] = useState(false);
 
   const switchRelation = useCallback(async () => {
     const target = enemies ? "friends" : "enemies";
     const result = await window.api.getTeammateDetail(key, scopedQueue, target);
     if (!result) {
-      setSwitchMessage("Not enough data");
+      setSwitchMessage("This player has no games in the other relation.");
       window.setTimeout(() => setSwitchMessage(null), 2200);
       return;
     }
     navigate(
       scope
         ? `/history/${scope}/${target}/${encodeURIComponent(key)}`
-        : `/friends/${encodeURIComponent(key)}`,
+        : target === "enemies"
+          ? `/friends/${encodeURIComponent(key)}?relation=enemies`
+          : `/friends/${encodeURIComponent(key)}`,
     );
   }, [enemies, key, navigate, scope, scopedQueue]);
 
@@ -84,25 +90,25 @@ export default function FriendDetail() {
 
   if (!data) {
     return (
-      <div className="max-w-6xl space-y-4">
-        <div className="flex items-center gap-3">
+      <div className="mx-auto flex min-h-full w-full max-w-[1320px] flex-col gap-5">
+        <div className="flex flex-wrap items-center gap-2">
           <Link
             to={scope ? `/history/${scope}/${enemies ? "enemies" : "friends"}` : "/friends"}
-            className="text-xs text-lol-text hover:text-lol-gold"
+            className="rounded-lg border border-lol-border bg-lol-card px-3 py-1.5 text-sm font-medium text-lol-text-bright transition-colors hover:border-lol-crimson"
           >
             ← {enemies ? "Enemies" : "Friends"}
           </Link>
           <button
             type="button"
             onClick={switchRelation}
-            className="rounded border border-lol-border px-2 py-1 text-[11px] text-lol-text hover:border-lol-gold/60 hover:text-lol-gold"
+            className="rounded-lg border border-lol-border bg-lol-card px-3 py-1.5 text-sm font-medium text-lol-text transition-colors hover:border-lol-gold/60 hover:text-lol-text-bright"
           >
             Switch
           </button>
         </div>
-        <HomeCard className="p-8 text-center text-lol-text">
-          No games found with this player.
-        </HomeCard>
+        <Panel>
+          <EmptyState text="No games found with this player." />
+        </Panel>
       </div>
     );
   }
@@ -123,119 +129,206 @@ export default function FriendDetail() {
     : null;
   const mvps = matches.filter((m) => selectedBadge(m) === "MVP").length;
   const aces = matches.filter((m) => selectedBadge(m) === "ACE").length;
+  const winRate = player.games > 0 ? (player.wins / player.games) * 100 : 0;
+  const yourWins = matches.filter((m) => !!m.win).length;
+  const yourWinRate = matches.length > 0 ? (yourWins / matches.length) * 100 : 0;
+  const sortedChampions = [...player.champions].sort((a, b) => {
+    if (championSort === "winRate") {
+      return b.wins / Math.max(b.games, 1) - a.wins / Math.max(a.games, 1);
+    }
+    if (championSort === "kda") {
+      const aKda = a.deaths > 0 ? (a.kills + a.assists) / a.deaths : a.kills + a.assists;
+      const bKda = b.deaths > 0 ? (b.kills + b.assists) / b.deaths : b.kills + b.assists;
+      return bKda - aKda;
+    }
+    return b.games - a.games;
+  });
+  const visibleChampions = showAllChampions ? sortedChampions : sortedChampions.slice(0, 20);
 
   return (
-    <div className="max-w-6xl space-y-4">
-      <Link
-        to={scope ? `/history/${scope}/${enemies ? "enemies" : "friends"}` : "/friends"}
-        className="inline-flex items-center gap-1.5 text-xs text-lol-text hover:text-lol-text-bright transition-colors"
-      >
-        <span aria-hidden>←</span> {enemies ? "Enemies" : "Friends"}
-      </Link>
-      <button
-        type="button"
-        onClick={switchRelation}
-        className="ml-3 rounded border border-lol-border px-2 py-1 text-[11px] text-lol-text hover:border-lol-gold/60 hover:text-lol-gold"
-      >
-        Switch
-      </button>
-      {switchMessage && (
-        <span className="ml-2 rounded bg-lol-card px-2 py-1 text-[11px] text-lol-text">
-          {switchMessage}
-        </span>
-      )}
+    <div className="mx-auto flex min-h-full w-full max-w-[1320px] flex-col gap-5">
+      <div className="flex flex-wrap items-center gap-2">
+        <Link
+          to={scope ? `/history/${scope}/${enemies ? "enemies" : "friends"}` : "/friends"}
+          className="rounded-lg border border-lol-border bg-lol-card px-3 py-1.5 text-sm font-medium text-lol-text-bright transition-colors hover:border-lol-crimson"
+        >
+          ← {enemies ? "Enemies" : "Friends"}
+        </Link>
+        <button
+          type="button"
+          onClick={switchRelation}
+          className="rounded-lg border border-lol-border bg-lol-card px-3 py-1.5 text-sm font-medium text-lol-text transition-colors hover:border-lol-gold/60 hover:text-lol-text-bright"
+        >
+          Switch relation
+        </button>
+        {switchMessage && (
+          <span className="rounded-lg border border-lol-gold/30 bg-lol-gold/10 px-3 py-1.5 text-xs text-lol-gold">
+            {switchMessage}
+          </span>
+        )}
+      </div>
 
-      <div className="grid grid-cols-[1fr_22rem] gap-4 items-stretch">
-        <div className="flex flex-col gap-3">
-          <div className="relative flex items-center gap-3 overflow-hidden rounded-lg border border-lol-border/60 border-l-[3px] border-l-[#E5483F] bg-[radial-gradient(circle_at_top_right,rgba(229,72,63,0.10),transparent_55%),linear-gradient(180deg,rgba(255,255,255,0.03),transparent_45%)] p-3">
-            <SummonerIcon iconId={player.profileIcon} size={56} />
+      <Panel className="border-l-2 border-l-[#E5483F] bg-[radial-gradient(circle_at_top_right,rgba(229,72,63,0.18),transparent_60%),linear-gradient(to_bottom,rgba(229,72,63,0.10),transparent_40%),linear-gradient(180deg,var(--theme-card-hover),var(--theme-card))]">
+        <div className="flex flex-wrap items-center justify-between gap-5">
+          <div className="flex min-w-0 items-center gap-4">
+            <SummonerIcon iconId={player.profileIcon} size={80} />
             <div className="min-w-0">
-              <h1 className="text-xl font-bold text-lol-text-bright truncate">{player.name}</h1>
-              <span className="text-sm text-lol-text">
+              <h1 className="font-display truncate text-[28px] font-bold leading-tight text-lol-text-bright">
+                {player.name}
+              </h1>
+              <p className="mt-1 text-lol-text">
                 {player.games} {enemies ? "games against" : "games together"} · last played{" "}
                 {formatTimeAgo(player.lastPlayed)}
-              </span>
+              </p>
             </div>
           </div>
-
-          {/* items-center keeps the columns at content height, so the dividers
-              stop short of the card's top and bottom edges */}
-          <HomeCard className="flex-1 flex items-center divide-x divide-lol-border/60">
-            <div className="relative flex-1 border-t-[3px] border-t-[#E5483F] bg-[radial-gradient(circle_at_top_right,rgba(229,72,63,0.08),transparent_70%)] px-4 py-2.5 transition-colors duration-[120ms] hover:bg-white/[0.02]">
-              <div className="text-[11px] text-lol-text uppercase tracking-wider before:mr-2 before:inline-block before:h-1.5 before:w-1.5 before:rounded-full before:bg-[#E5483F]">
-                Record
-              </div>
-              <div className="text-xl font-bold text-lol-text-bright">
-                {player.wins}W <span className="text-lol-text/60">{losses}L</span>
-              </div>
-              <div className="mt-1">
-                <WinRateBar wins={player.wins} total={player.games} />
-              </div>
+          <div className="rounded-xl border border-lol-border bg-lol-card/70 px-4 py-3 text-right">
+            <div className="text-[10px] font-bold uppercase tracking-wider text-lol-text">
+              Record
             </div>
-            <div className="relative flex-1 border-t-[3px] border-t-[#C9A45C] bg-[radial-gradient(circle_at_top_right,rgba(201,164,92,0.08),transparent_70%)] px-4 py-2.5 transition-colors duration-[120ms] hover:bg-white/[0.02]">
-              <div className="text-[11px] text-lol-text uppercase tracking-wider before:mr-2 before:inline-block before:h-1.5 before:w-1.5 before:rounded-full before:bg-[#C9A45C]">
-                Their KDA
-              </div>
-              <div className={`text-xl font-bold ${kdaColor(ratio)}`}>
-                {kdaRatio(player.kills, player.deaths, player.assists)}
-              </div>
-              <div className="text-xs text-lol-text mt-1">
-                {avg(player.kills)} / {avg(player.deaths)} / {avg(player.assists)} per game
-              </div>
+            <div className="mt-1 text-xl font-bold text-lol-text-bright">
+              {player.wins}W <span className="text-lol-text/60">{losses}L</span>
             </div>
-            <div className="relative flex-1 border-t-[3px] border-t-[#22C55E] bg-[radial-gradient(circle_at_top_right,rgba(34,197,94,0.08),transparent_70%)] px-4 py-2.5 transition-colors duration-[120ms] hover:bg-white/[0.02]">
-              <div className="text-[11px] text-lol-text uppercase tracking-wider before:mr-2 before:inline-block before:h-1.5 before:w-1.5 before:rounded-full before:bg-[#22C55E]">
-                Their Avg Score
-              </div>
-              <div
-                className={`text-xl font-bold ${avgScore != null ? scoreColor(avgScore) : "text-lol-text"}`}
-              >
-                {avgScore != null ? avgScore.toFixed(1) : "—"}
-              </div>
-              <div className="text-xs text-lol-text mt-1">
-                {mvps} MVP · {aces} ACE
-              </div>
-            </div>
-          </HomeCard>
+            <div className="text-xs text-lol-text">{winRate.toFixed(1)}% win rate</div>
+          </div>
         </div>
+      </Panel>
 
-        <HomeCard className="flex flex-col overflow-hidden border-t-[3px] border-t-[#3B82F6] bg-[radial-gradient(circle_at_top_right,rgba(59,130,246,0.08),transparent_60%)]">
-          <div className="px-3 py-2 border-b border-lol-border/60 flex items-center justify-between">
-            <span className="text-[11px] text-lol-text uppercase tracking-wider">
-              Their Champions
+      <SectionHeading title="Key metrics" />
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-5">
+        <StatCard
+          label="Record"
+          value={`${player.wins}W / ${losses}L`}
+          subtext={`${winRate.toFixed(1)}% win rate`}
+          accent="win"
+        />
+        <StatCard
+          label="Their KDA"
+          value={
+            <span className={kdaColor(ratio)}>
+              {kdaRatio(player.kills, player.deaths, player.assists)}
             </span>
-            <span className="text-[11px] text-lol-text">{player.champions.length}</span>
+          }
+          subtext={`${avg(player.kills)} / ${avg(player.deaths)} / ${avg(player.assists)} per game`}
+          accent="gold"
+        />
+        <StatCard
+          label="Avg score"
+          value={avgScore != null ? avgScore.toFixed(1) : "—"}
+          subtext={`${mvps} MVP · ${aces} ACE`}
+          accent="sky"
+        />
+        <StatCard
+          label={enemies ? "Games against" : "Games together"}
+          value={player.games}
+          subtext={enemies ? "Shared match history" : "Shared team history"}
+          accent="purple"
+        />
+        <StatCard
+          label="Last played"
+          value={formatTimeAgo(player.lastPlayed)}
+          subtext="Most recent shared game"
+          accent="sky"
+        />
+        {enemies && (
+          <StatCard
+            label="Your win rate"
+            value={`${yourWinRate.toFixed(1)}%`}
+            subtext={`${yourWins} wins in ${matches.length} games`}
+            accent="win"
+          />
+        )}
+      </div>
+
+      <SectionHeading title="Their champions" aside={`${player.champions.length} champions`} />
+      <Panel className="border-t-[3px] border-t-[#3B82F6]">
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
+          <div className="text-xs text-lol-text">
+            Showing {visibleChampions.length} of {player.champions.length}
           </div>
-          {/* Sets the height of the whole top block — the stat card stretches
-              to match it — then scrolls */}
-          <div className="max-h-44 overflow-y-auto divide-y divide-white/[0.04]">
-            {player.champions.map((c) => (
+          <div className="flex flex-wrap gap-1.5">
+            {(["games", "winRate", "kda"] as const).map((sort) => (
+              <button
+                key={sort}
+                type="button"
+                onClick={() => setChampionSort(sort)}
+                className={`rounded-md border px-2.5 py-1 text-[11px] transition-colors ${
+                  championSort === sort
+                    ? "border-lol-gold/60 bg-lol-gold/10 text-lol-gold"
+                    : "border-lol-border bg-lol-card text-lol-text hover:text-lol-text-bright"
+                }`}
+              >
+                {sort === "winRate" ? "Win rate" : sort === "kda" ? "KDA" : "Games"}
+              </button>
+            ))}
+          </div>
+        </div>
+        {visibleChampions.length > 0 ? (
+          <div className="grid gap-2 md:grid-cols-2">
+            {visibleChampions.map((c) => (
               <ChampionRow key={c.champion_id} champ={c} champData={champData} />
             ))}
           </div>
-        </HomeCard>
-      </div>
+        ) : (
+          <EmptyState text="No champion data available." />
+        )}
+        {player.champions.length > 20 && (
+          <button
+            type="button"
+            onClick={() => setShowAllChampions((value) => !value)}
+            className="mt-4 rounded-md border border-lol-border bg-lol-card px-3 py-1.5 text-xs text-lol-text transition-colors hover:border-lol-gold/60 hover:text-lol-gold"
+          >
+            {showAllChampions ? "Show top 20" : `Show all ${player.champions.length}`}
+          </button>
+        )}
+      </Panel>
 
-      <h2 className="relative flex items-center gap-3 pb-2 text-sm font-semibold text-lol-text-bright uppercase tracking-wider pt-1 after:absolute after:bottom-0 after:left-0 after:h-px after:w-2/5 after:bg-gradient-to-r after:from-[#E5483F]/50 after:to-transparent before:h-2 before:w-2 before:rotate-45 before:bg-[#E5483F]">
-        {enemies ? "Games Played By Him" : "Games Played Together"}
-      </h2>
+      <SectionHeading title="Detailed statistics" />
+      <SectionHeading title={enemies ? "Match history against them" : "Match history together"} />
+      <Panel className="border-t-[3px] border-t-[#22C55E]">
+        {matches.length > 0 ? (
+          <div className="space-y-1">
+            {matches.map((m) => (
+              <SharedGameRow
+                key={m.game_id}
+                match={m}
+                champData={champData}
+                friendName={player.name}
+                enemies={enemies}
+                expanded={expandedId === m.game_id}
+                detail={expandedId === m.game_id ? detail : null}
+                detailLoading={expandedId === m.game_id && detailLoading}
+                puuids={puuids}
+                onToggle={() => toggleExpand(m.game_id)}
+              />
+            ))}
+          </div>
+        ) : (
+          <EmptyState text="No shared matches found." />
+        )}
+      </Panel>
+    </div>
+  );
+}
 
-      <div className="space-y-1">
-        {matches.map((m) => (
-          <SharedGameRow
-            key={m.game_id}
-            match={m}
-            champData={champData}
-            friendName={player.name}
-            enemies={enemies}
-            expanded={expandedId === m.game_id}
-            detail={expandedId === m.game_id ? detail : null}
-            detailLoading={expandedId === m.game_id && detailLoading}
-            puuids={puuids}
-            onToggle={() => toggleExpand(m.game_id)}
-          />
-        ))}
-      </div>
+function SectionHeading({ title, aside }: { title: string; aside?: string }) {
+  return (
+    <div className="relative flex items-center gap-3 pb-2 pt-1 text-sm font-semibold uppercase tracking-wider text-lol-text-bright after:absolute after:bottom-0 after:left-0 after:h-px after:w-2/5 after:bg-gradient-to-r after:from-[#E5483F]/50 after:to-transparent">
+      <span className="h-2 w-2 rotate-45 bg-[#E5483F]" />
+      <span>{title}</span>
+      {aside && (
+        <span className="ml-auto text-[10px] font-normal tracking-normal text-lol-text">
+          {aside}
+        </span>
+      )}
+    </div>
+  );
+}
+
+function EmptyState({ text }: { text: string }) {
+  return (
+    <div className="rounded-md border border-dashed border-white/[0.08] bg-white/[0.02] px-4 py-6 text-center text-sm text-lol-text/70">
+      {text}
     </div>
   );
 }
