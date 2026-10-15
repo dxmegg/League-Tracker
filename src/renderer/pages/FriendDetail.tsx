@@ -9,14 +9,12 @@ import type {
   MatchDetail,
 } from "../lib/types";
 import ChampionIcon from "../components/ChampionIcon";
+import { MatchRowExperiment } from "../components/MatchRowExperiment";
 import { Panel } from "../components/Panel";
 import StatCard from "../components/StatCard";
 import SummonerIcon from "../components/SummonerIcon";
-import MatchScoreboard from "../components/MatchScoreboard";
-import StatBars from "../components/StatBars";
 import WinRateBar from "../components/WinRateBar";
-import { formatDuration, formatTimeAgo, formatKDA, kdaRatio, kdaColor } from "../lib/format";
-import { scoreColor } from "../../shared/opScore";
+import { formatTimeAgo, kdaRatio, kdaColor } from "../lib/format";
 import { useHistoryScopeQueue } from "../lib/historyScope";
 
 export default function FriendDetail() {
@@ -295,17 +293,25 @@ export default function FriendDetail() {
         {matches.length > 0 ? (
           <div className="space-y-1">
             {matches.map((m) => (
-              <SharedGameRow
+              <MatchRowExperiment
                 key={m.game_id}
                 match={m}
+                championName={getChampionName(champData, m.champion_id)}
                 champData={champData}
-                friendName={player.name}
-                enemies={enemies}
                 expanded={expandedId === m.game_id}
                 detail={expandedId === m.game_id ? detail : null}
                 detailLoading={expandedId === m.game_id && detailLoading}
                 puuids={puuids}
                 onToggle={() => toggleExpand(m.game_id)}
+                onPlayerClick={(clickedPlayer) => {
+                  if (!clickedPlayer.puuid) return;
+                  const encodedPuuid = encodeURIComponent(clickedPlayer.puuid);
+                  navigate(
+                    scope
+                      ? `/history/${scope}/${enemies ? "enemies" : "friends"}/${encodedPuuid}`
+                      : `/friends/${encodedPuuid}${enemies ? "?relation=enemies" : ""}`,
+                  );
+                }}
               />
             ))}
           </div>
@@ -405,180 +411,6 @@ function ChampionRow({
       <div className="w-28 shrink-0">
         <WinRateBar wins={wins} total={champ.games} />
       </div>
-    </div>
-  );
-}
-
-function PlayerBlock({
-  label,
-  championId,
-  champData,
-  kills,
-  deaths,
-  assists,
-  score,
-  badge,
-  damage,
-  taken,
-  heal,
-  max,
-}: {
-  label: string;
-  championId: number;
-  champData: any;
-  kills: number;
-  deaths: number;
-  assists: number;
-  score: number | null;
-  badge: "MVP" | "ACE" | null;
-  damage: number;
-  taken: number;
-  heal: number;
-  max: { dmg: number; taken: number; heal: number };
-}) {
-  const kda = kdaRatio(kills, deaths, assists);
-
-  return (
-    <div className="flex items-center gap-2 min-w-0">
-      <ChampionIcon championId={championId} size={32} />
-      <div className="min-w-0 w-24">
-        <div className="text-[10px] text-lol-text uppercase tracking-wider truncate" title={label}>
-          {label}
-        </div>
-        <div className="text-xs text-lol-text-bright truncate">
-          {getChampionName(champData, championId)}
-        </div>
-      </div>
-      <div className="w-20 shrink-0">
-        <div className="text-xs text-lol-text-bright">{formatKDA(kills, deaths, assists)}</div>
-        <div
-          className={`text-[10px] ${parseFloat(kda) >= 3 || kda === "Perfect" ? "text-lol-gold" : "text-lol-text"}`}
-        >
-          {kda} KDA
-        </div>
-      </div>
-      <div className="w-10 shrink-0 text-center">
-        {score != null && (
-          <>
-            <div className={`text-sm font-semibold ${scoreColor(score)}`}>{score.toFixed(1)}</div>
-            {badge ? (
-              <div
-                className={`text-[9px] font-bold leading-[15px] px-1 rounded w-fit mx-auto ${
-                  badge === "MVP"
-                    ? "bg-amber-400/20 text-amber-300"
-                    : "bg-purple-500/20 text-purple-400"
-                }`}
-              >
-                {badge}
-              </div>
-            ) : (
-              <div className="text-[10px] text-lol-text uppercase tracking-wider">score</div>
-            )}
-          </>
-        )}
-      </div>
-      <StatBars damage={damage} taken={taken} heal={heal} max={max} className="w-32" />
-    </div>
-  );
-}
-
-function SharedGameRow({
-  match,
-  champData,
-  friendName,
-  expanded,
-  detail,
-  detailLoading,
-  puuids,
-  onToggle,
-  enemies,
-}: {
-  match: TeammateMatch;
-  champData: any;
-  friendName: string;
-  expanded: boolean;
-  detail: MatchDetail | null;
-  detailLoading: boolean;
-  puuids: string[] | null;
-  onToggle: () => void;
-  enemies: boolean;
-}) {
-  const isWin = enemies ? !match.win : !!match.win;
-  const accent = isWin ? "bg-lol-win" : "bg-lol-loss";
-  const tint = isWin ? "from-lol-win/12 to-lol-win/[0.04]" : "from-lol-loss/12 to-lol-loss/[0.04]";
-  // Both bars scale off the same game bests, so the two sides are comparable
-  const max = {
-    dmg: match.game_max_dmg,
-    taken: match.game_max_taken,
-    heal: match.game_max_heal,
-  };
-
-  return (
-    <div>
-      <button
-        onClick={onToggle}
-        className={`group relative overflow-hidden w-full flex items-center gap-4 pl-4 pr-3 py-2.5 border border-b-white/[0.04] border-lol-border/60 bg-lol-card hover:bg-white/[0.02] transition-colors duration-[120ms] text-left ${
-          expanded ? "rounded-t-lg" : "rounded-lg"
-        }`}
-      >
-        <span
-          className={`absolute left-0 inset-y-0 w-[2px] transition-[width] duration-[120ms] group-hover:w-[3px] ${accent}`}
-        />
-        <span className={`absolute inset-0 pointer-events-none bg-gradient-to-r ${tint}`} />
-        <div
-          className={`text-xs font-bold shrink-0 w-8 ${isWin ? "text-lol-win" : "text-lol-loss"}`}
-        >
-          {isWin ? "WIN" : "LOSS"}
-        </div>
-
-        <PlayerBlock
-          label={enemies ? friendName : "You"}
-          championId={match.champion_id}
-          champData={champData}
-          kills={match.kills}
-          deaths={match.deaths}
-          assists={match.assists}
-          score={match.score}
-          badge={match.score_badge}
-          damage={match.total_damage_dealt}
-          taken={match.total_damage_taken}
-          heal={match.total_heal}
-          max={max}
-        />
-
-        <span className="w-px self-stretch bg-lol-border/60 shrink-0" />
-
-        <PlayerBlock
-          label={enemies ? "You" : friendName}
-          championId={match.friend.champion_id}
-          champData={champData}
-          kills={match.friend.kills}
-          deaths={match.friend.deaths}
-          assists={match.friend.assists}
-          score={match.friend.score}
-          badge={match.friend.score_badge}
-          damage={match.friend.total_damage_dealt}
-          taken={match.friend.total_damage_taken}
-          heal={match.friend.total_heal}
-          max={max}
-        />
-
-        <div className="flex-1" />
-        <div className="text-xs text-lol-text text-right shrink-0">
-          <div>{formatDuration(match.game_duration)}</div>
-          <div>{formatTimeAgo(match.game_creation)}</div>
-        </div>
-      </button>
-
-      {expanded && (
-        <div className="mb-1 bg-lol-card rounded-b-lg border border-t-0 border-lol-border/60 p-3">
-          {detailLoading ? (
-            <div className="text-sm text-lol-text text-center py-4">Loading...</div>
-          ) : detail ? (
-            <MatchScoreboard detail={detail} champData={champData} puuids={puuids} />
-          ) : null}
-        </div>
-      )}
     </div>
   );
 }
