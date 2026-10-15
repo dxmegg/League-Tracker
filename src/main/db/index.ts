@@ -119,6 +119,7 @@ export {
   getTrendsData,
   getRecords,
   getTeammateStats,
+  getTeammateChampions,
   getTeammateDetail,
   teammateKey,
   teammateName,

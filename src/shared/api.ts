@@ -1088,6 +1088,12 @@ export interface TeammateStats {
   lastPlayed: number;
 }
 
+export interface TeammateChampionStats {
+  champion_id: number;
+  games: number;
+  wins: number;
+}
+
 // A shared game, seen from both sides: our stats on the row itself, theirs
 // under `friend`.
 export interface TeammateMatch extends MatchListItem {
@@ -1842,6 +1848,10 @@ export interface ElectronAPI {
     account?: string,
   ) => Promise<ChampionSkillOrdersResult>;
   getTeammateStats: (queue?: number, relation?: "friends" | "enemies") => Promise<TeammateStats[]>;
+  getTeammateChampions: (
+    queue?: number,
+    relation?: "friends" | "enemies",
+  ) => Promise<TeammateChampionStats[]>;
   getTeammateDetail: (
     key: string,
     queue?: number,

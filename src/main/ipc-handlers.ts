@@ -1115,6 +1115,13 @@ export function registerIpcHandlers() {
   );
 
   ipcMain.handle(
+    "db:get-teammate-champions",
+    (_event, queue?: number, relation?: "friends" | "enemies") => {
+      return db.getTeammateChampions(queue, relation);
+    },
+  );
+
+  ipcMain.handle(
     "db:teammate-detail",
     async (_event, key: string, queue?: number, relation?: "friends" | "enemies") => {
       // Teammate scores are computed on the fly and need champion classes

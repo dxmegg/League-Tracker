@@ -9,6 +9,7 @@ import type {
   ChampionSkillOrder,
   ChampionSkillOrdersResult,
   ChampionTeammateRow,
+  TeammateChampionStats,
   ChampionQueueStat,
   OwnedItemStats,
   OwnedItemStatsResult,
@@ -1649,6 +1650,48 @@ export function getTeammateStats(
       }))
       .sort((a, b) => b.games - a.games);
   });
+}
+
+export function getTeammateChampions(
+  queue?: number,
+  relation: "friends" | "enemies" = "friends",
+): TeammateChampionStats[] {
+  console.log("[db] getTeammateChampions called:", { queue, relation });
+  const result = cachedQuery("getTeammateChampions", [queue, relation], 60_000, () => {
+    const puuids = getAllPuuids();
+    if (puuids.length === 0) {
+      console.warn("[db] getTeammateChampions empty:", { reason: "no owned accounts" });
+      return [];
+    }
+
+    const ours = puuids.map(() => "?").join(", ");
+    const where = ["o.is_remake = 0", `(o.puuid IS NULL OR o.puuid NOT IN (${ours}))`];
+    const params: any[] = [...puuids];
+    applyQueueFilter(where, params, queue, "o");
+    where.push(`g.queue_id NOT IN (${EXCLUDED_STATS_SQL})`, "o.champion_id > 0");
+
+    return db
+      .prepare(`
+        WITH our_teams AS (
+          SELECT DISTINCT game_id, team_id
+          FROM match_participants
+          WHERE puuid IN (${ours})
+        )
+        SELECT o.champion_id,
+               COUNT(*) AS games,
+               SUM(CASE WHEN o.win = 1 THEN 1 ELSE 0 END) AS wins
+        FROM our_teams t
+        JOIN match_participants o ON o.game_id = t.game_id
+        JOIN games g ON g.game_id = o.game_id
+        WHERE ${where.join(" AND ")}
+          AND ${relation === "enemies" ? "o.team_id != t.team_id" : "o.team_id = t.team_id"}
+        GROUP BY o.champion_id
+        ORDER BY games DESC, o.champion_id ASC
+      `)
+      .all(...puuids, ...params) as TeammateChampionStats[];
+  });
+  console.log("[db] getTeammateChampions done:", { count: result.length });
+  return result;
 }
 
 // Every game we played alongside one teammate, from both sides: our stored
