@@ -627,10 +627,12 @@ function RecentRiotMatchesSection({
 async function readRecentHistoryFromDb(
   puuid: string,
   count: number,
+  queue?: number,
 ): Promise<{ matches: MatchListItem[]; total: number }> {
   return window.api.getMatchHistory(count, 0, {
     account: puuid,
     ignoreHiddenQueues: true,
+    queue,
   });
 }
 
@@ -823,7 +825,7 @@ export default function Profile() {
             profileData = profileDataFromSnapshot(snapshot, dataDragonVersion);
           }
 
-          const localRecentMatches = await readRecentHistoryFromDb(puuid, 20);
+          const localRecentMatches = await readRecentHistoryFromDb(puuid, 20, queue);
           if (requestId !== loadRequestIdRef.current) return;
           const queueStatsData = await window.api.getQueueStatsForAccount(puuid);
           if (requestId !== loadRequestIdRef.current) return;
@@ -855,7 +857,7 @@ export default function Profile() {
           }
         }
       }),
-    [livePuuid, log],
+    [livePuuid, log, queue],
   );
 
   const handleRefresh = useCallback(async () => {
@@ -884,6 +886,7 @@ export default function Profile() {
       const result = await window.api.getMatchHistory(20, recentOffsetRef.current, {
         account: puuid,
         ignoreHiddenQueues: true,
+        queue,
       });
       if (selectedPuuidRef.current !== puuid) return;
       setRecentMatches((prev) => [...(prev ?? []), ...result.matches]);
@@ -892,7 +895,7 @@ export default function Profile() {
     } finally {
       setRecentMatchesLoadingMore(false);
     }
-  }, [canLoadMore, recentMatchesLoadingMore]);
+  }, [canLoadMore, recentMatchesLoadingMore, queue]);
 
   const handleToggleRecentMatch = useCallback(
     async (gameId: number) => {
@@ -923,7 +926,7 @@ export default function Profile() {
       setRecentMatches(null);
     }
     void loadLocalProfile(selectedPuuid, { silent: sameAccount });
-  }, [selectedPuuid, loadLocalProfile, livePuuid]);
+  }, [selectedPuuid, loadLocalProfile, livePuuid, queue]);
 
   useEffect(() => {
     if (!isExperiment || !isAllAccounts) return;
@@ -1497,8 +1500,10 @@ export default function Profile() {
         <Panel>
           <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
             <h2 className="font-display text-[16px] font-semibold text-lol-text-bright">
+              <span className="mr-2 inline-block h-1.5 w-1.5 rotate-45 bg-lol-crimson align-middle" />
               Last 20 played games
             </h2>
+            <QueueFilterChips value={queue} onChange={setQueue} />
             <span className="text-[13px] text-lol-text">
               {recentMatches?.length ?? 0} games
               {recentMatchesAvailable ? `, up to ${recentMatchesAvailable} fetchable` : ""}
