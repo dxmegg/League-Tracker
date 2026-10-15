@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { Link } from "react-router-dom";
 import type { TeammateStats } from "../lib/types";
 import { useIpc } from "../hooks/useIpc";
 import { useChampionData, getChampionName } from "../hooks/useChampions";
@@ -44,14 +45,16 @@ function KpiTile({
 export function FriendsExp() {
   const queue = useHistoryScopeQueue();
   const championData = useChampionData();
-  const { data: friends, loading: friendsLoading } = useIpc<TeammateStats[]>(
-    () => window.api.getTeammateStats(queue, "friends"),
-    [queue],
-  );
-  const { data: enemies, loading: enemiesLoading } = useIpc<TeammateStats[]>(
-    () => window.api.getTeammateStats(queue, "enemies"),
-    [queue],
-  );
+  const {
+    data: friends,
+    loading: friendsLoading,
+    refetch: refetchFriends,
+  } = useIpc<TeammateStats[]>(() => window.api.getTeammateStats(queue, "friends"), [queue]);
+  const {
+    data: enemies,
+    loading: enemiesLoading,
+    refetch: refetchEnemies,
+  } = useIpc<TeammateStats[]>(() => window.api.getTeammateStats(queue, "enemies"), [queue]);
   const PAGE_SIZE = 30;
   const [visibleFriends, setVisibleFriends] = useState(PAGE_SIZE);
   const [visibleFoes, setVisibleFoes] = useState(PAGE_SIZE);
@@ -66,18 +69,30 @@ export function FriendsExp() {
     setVisibleFoes(PAGE_SIZE);
   }, [enemyRows.length]);
 
+  useEffect(() => {
+    const unsub = window.api.onGamesUpdated(() => {
+      refetchFriends();
+      refetchEnemies();
+    });
+    return unsub;
+  }, [refetchEnemies, refetchFriends]);
+
   const friendColumns = useMemo<SortableColumn<TeammateStats>[]>(
     () => [
       {
         key: "name",
         label: "Player",
         render: (row) => (
-          <div className="nm">
+          <Link
+            to={`/friends/${encodeURIComponent(row.key)}`}
+            className="nm"
+            onClick={(event) => event.stopPropagation()}
+          >
             <span className="rounded-full border border-[#E5483F]/60 p-0.5 shadow-[0_0_8px_rgba(229,72,63,0.28)]">
               <SummonerIcon iconId={row.profileIcon} size={30} />
             </span>
             <span>{row.name}</span>
-          </div>
+          </Link>
         ),
         defaultDir: "asc",
       },
@@ -123,7 +138,11 @@ export function FriendsExp() {
         render: (row) => {
           const championId = row.champions[0]?.champion_id;
           return (
-            <div className="nm">
+            <Link
+              to={`/friends/${encodeURIComponent(row.key)}`}
+              className="nm"
+              onClick={(event) => event.stopPropagation()}
+            >
               {championId ? (
                 <span className="rounded-full border border-[#C9A45C]/60 p-0.5 shadow-[0_0_8px_rgba(201,164,92,0.28)]">
                   <ChampionIcon championId={championId} size={30} />
@@ -132,7 +151,7 @@ export function FriendsExp() {
                 <span className="h-[30px] w-[30px] rounded-full bg-white/[0.04]" />
               )}
               <span>{championId ? getChampionName(championData, championId) : row.name}</span>
-            </div>
+            </Link>
           );
         },
         sortValue: (row) => {
@@ -149,7 +168,7 @@ export function FriendsExp() {
       },
       {
         key: "wins",
-        label: "Your win rate",
+        label: "Their win rate",
         render: (row) => (
           <div className="flex min-w-[150px] items-center gap-2">
             <span className="w-12 tabular-nums">
@@ -239,7 +258,7 @@ export function FriendsExp() {
               accent="#C9A45C"
             />
             <KpiTile
-              label="Best win rate"
+              label="Toughest matchup"
               value={`${bestEnemyWinRate.toFixed(1)}%`}
               barWidth={bestEnemyWinRate}
               accent="#22C55E"
