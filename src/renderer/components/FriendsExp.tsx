@@ -211,9 +211,9 @@ export function FriendsExp() {
 
       <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
         <Panel className="border-t-[3px] border-t-[#E5483F] bg-[radial-gradient(circle_at_top_right,rgba(229,72,63,0.08),transparent_48%),linear-gradient(180deg,var(--theme-card-hover),var(--theme-card))]">
-          <div className="mb-4 flex items-start justify-between gap-3">
-            <h2 className="relative pl-4 font-display text-xl font-semibold text-lol-text-bright before:absolute before:left-0 before:top-1/2 before:h-2 before:w-2 before:-translate-y-1/2 before:rotate-45 before:bg-lol-crimson">
-              Players you've played {relationWord}
+          <div className="mb-4 flex min-w-0 items-center justify-between gap-3">
+            <h2 className="relative min-w-0 flex-1 pl-4 font-display text-xl font-semibold text-lol-text-bright before:absolute before:left-0 before:top-1/2 before:h-2 before:w-2 before:-translate-y-1/2 before:rotate-45 before:bg-lol-crimson">
+              <span className="block min-w-0 truncate">Players you've played {relationWord}</span>
             </h2>
             <PanelKpi
               value={playerKpi}
@@ -238,9 +238,9 @@ export function FriendsExp() {
         </Panel>
 
         <Panel className="border-t-[3px] border-t-[#C9A45C] bg-[radial-gradient(circle_at_top_right,rgba(201,164,92,0.08),transparent_48%),linear-gradient(180deg,var(--theme-card-hover),var(--theme-card))]">
-          <div className="mb-4 flex items-start justify-between gap-3">
-            <h2 className="relative pl-4 font-display text-xl font-semibold text-lol-text-bright before:absolute before:left-0 before:top-1/2 before:h-2 before:w-2 before:-translate-y-1/2 before:rotate-45 before:bg-lol-crimson">
-              Champions you've played {relationWord}
+          <div className="mb-4 flex min-w-0 items-center justify-between gap-3">
+            <h2 className="relative min-w-0 flex-1 pl-4 font-display text-xl font-semibold text-lol-text-bright before:absolute before:left-0 before:top-1/2 before:h-2 before:w-2 before:-translate-y-1/2 before:rotate-45 before:bg-lol-crimson">
+              <span className="block min-w-0 truncate">Champions you've played {relationWord}</span>
             </h2>
             <PanelKpi
               value={championKpi}
