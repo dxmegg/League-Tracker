@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { useParams, Link, useNavigate, useSearchParams } from "react-router-dom";
 import { useIpc } from "../hooks/useIpc";
-import { useChampionData, getChampionName } from "../hooks/useChampions";
+import { useChampionData, getChampionName, useItemData } from "../hooks/useChampions";
 import type {
   TeammateChampionStats,
   TeammateDetail,
@@ -9,12 +9,14 @@ import type {
   MatchDetail,
 } from "../lib/types";
 import ChampionIcon from "../components/ChampionIcon";
+import ItemIcon from "../components/ItemIcon";
 import { MatchRowExperiment } from "../components/MatchRowExperiment";
 import { Panel } from "../components/Panel";
+import { queueLabel } from "../components/QueueSelect";
 import StatCard from "../components/StatCard";
 import SummonerIcon from "../components/SummonerIcon";
 import WinRateBar from "../components/WinRateBar";
-import { formatTimeAgo, kdaRatio, kdaColor } from "../lib/format";
+import { formatNumber, formatTimeAgo, kdaRatio, kdaColor } from "../lib/format";
 import { useHistoryScopeQueue } from "../lib/historyScope";
 
 export default function FriendDetail() {
@@ -26,6 +28,7 @@ export default function FriendDetail() {
   const scope = useParams<{ scope?: string }>().scope;
   const scopedQueue = useHistoryScopeQueue(scope);
   const champData = useChampionData();
+  const itemData = useItemData();
   const { data, loading, refetch } = useIpc<TeammateDetail | null>(
     () => window.api.getTeammateDetail(key, scopedQueue, enemies ? "enemies" : "friends"),
     [key, scopedQueue, enemies],
@@ -145,6 +148,76 @@ export default function FriendDetail() {
     return b.games - a.games;
   });
   const visibleChampions = showAllChampions ? sortedChampions : sortedChampions.slice(0, 20);
+  const queueBreakdown = Array.from(
+    matches
+      .reduce(
+        (groups, match) => {
+          const current = groups.get(match.queue_id) ?? {
+            queueId: match.queue_id,
+            games: 0,
+            wins: 0,
+            kills: 0,
+            deaths: 0,
+            assists: 0,
+          };
+          current.games += 1;
+          current.wins += match.win ? 1 : 0;
+          current.kills += match.kills;
+          current.deaths += match.deaths;
+          current.assists += match.assists;
+          groups.set(match.queue_id, current);
+          return groups;
+        },
+        new Map<
+          number,
+          {
+            queueId: number;
+            games: number;
+            wins: number;
+            kills: number;
+            deaths: number;
+            assists: number;
+          }
+        >(),
+      )
+      .values(),
+  ).sort((a, b) => b.games - a.games);
+  const multikills = matches.reduce(
+    (totals, match) => ({
+      double: totals.double + match.double_kills,
+      triple: totals.triple + match.triple_kills,
+      quadra: totals.quadra + match.quadra_kills,
+      penta: totals.penta + match.penta_kills,
+    }),
+    { double: 0, triple: 0, quadra: 0, penta: 0 },
+  );
+  const totalDuration = matches.reduce((sum, match) => sum + match.game_duration, 0);
+  const totalKills = matches.reduce((sum, match) => sum + match.kills, 0);
+  const totalDeaths = matches.reduce((sum, match) => sum + match.deaths, 0);
+  const totalAssists = matches.reduce((sum, match) => sum + match.assists, 0);
+  const csMatches = matches.filter((match) => typeof match.cs === "number");
+  const visionMatches = matches.filter((match) => match.vision_score != null);
+  const avgDamage =
+    matches.length > 0
+      ? matches.reduce((sum, match) => sum + match.total_damage_dealt, 0) / matches.length
+      : 0;
+  const itemCounts = new Map<number, number>();
+  for (const match of matches) {
+    for (const itemId of [
+      match.item0,
+      match.item1,
+      match.item2,
+      match.item3,
+      match.item4,
+      match.item5,
+      match.item6,
+    ]) {
+      if (itemId && itemId > 0) itemCounts.set(itemId, (itemCounts.get(itemId) ?? 0) + 1);
+    }
+  }
+  const topItems = Array.from(itemCounts.entries())
+    .sort(([, a], [, b]) => b - a)
+    .slice(0, 8);
 
   return (
     <div className="mx-auto flex min-h-full w-full max-w-[1320px] flex-col gap-5">
@@ -287,7 +360,138 @@ export default function FriendDetail() {
         )}
       </Panel>
 
-      <SectionHeading title="Detailed statistics" />
+      <SectionHeading title="Detailed statistics" source="MATCH-V5" />
+      <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
+        <div>
+          <SectionHeading title="Queue breakdown" source="MATCH-V5" />
+          <Panel>
+            <div className="space-y-2">
+              {queueBreakdown.map((queue) => {
+                const relationWins = enemies ? queue.games - queue.wins : queue.wins;
+                return (
+                  <div
+                    key={queue.queueId}
+                    className="grid grid-cols-[minmax(0,1fr)_48px_72px_72px] items-center gap-2 border-b border-white/[0.04] py-2 last:border-b-0"
+                  >
+                    <span className="truncate text-xs font-semibold text-lol-text-bright">
+                      {queueLabel(queue.queueId)}
+                    </span>
+                    <span className="text-right text-xs tabular-nums text-lol-text">
+                      {queue.games}
+                    </span>
+                    <span className="text-right text-xs tabular-nums text-lol-text">
+                      {((relationWins / queue.games) * 100).toFixed(1)}%
+                    </span>
+                    <span className="text-right text-xs tabular-nums text-lol-text">
+                      {kdaRatio(queue.kills, queue.deaths, queue.assists)}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          </Panel>
+        </div>
+
+        <div>
+          <SectionHeading title="Multikills" source="MATCH-V5" />
+          <Panel>
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+              {[
+                ["Double", multikills.double],
+                ["Triple", multikills.triple],
+                ["Quadra", multikills.quadra],
+                ["Penta", multikills.penta],
+              ].map(([label, value]) => (
+                <div key={label} className="rounded-lg border border-lol-border/60 bg-black/10 p-3">
+                  <div className="text-[10px] font-bold uppercase tracking-wider text-lol-text">
+                    {label}
+                  </div>
+                  <div className="mt-1 text-xl font-bold tabular-nums text-lol-text-bright">
+                    {value}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </Panel>
+        </div>
+
+        <div>
+          <SectionHeading
+            title={enemies ? "Avg performance against" : "Avg performance together"}
+            source="MATCH-V5"
+          />
+          <div className="grid grid-cols-2 gap-3">
+            <StatCard
+              label="Avg KDA"
+              value={kdaRatio(totalKills, totalDeaths, totalAssists)}
+              subtext={`${(totalKills / matches.length).toFixed(1)} / ${(totalDeaths / matches.length).toFixed(1)} / ${(totalAssists / matches.length).toFixed(1)} per game`}
+              accent="gold"
+            />
+            <StatCard
+              label="Avg CS/min"
+              value={
+                csMatches.length > 0 && totalDuration > 0
+                  ? (
+                      (csMatches.reduce((sum, match) => sum + (match.cs ?? 0), 0) * 60) /
+                      totalDuration
+                    ).toFixed(1)
+                  : "—"
+              }
+              subtext={
+                csMatches.length > 0
+                  ? `${csMatches.length} games with CS data`
+                  : "CS data unavailable"
+              }
+              accent="sky"
+            />
+            <StatCard
+              label="Avg vision"
+              value={
+                visionMatches.length > 0
+                  ? (
+                      visionMatches.reduce((sum, match) => sum + (match.vision_score ?? 0), 0) /
+                      visionMatches.length
+                    ).toFixed(1)
+                  : "—"
+              }
+              subtext={
+                visionMatches.length > 0
+                  ? `${visionMatches.length} games with vision data`
+                  : "Vision data unavailable"
+              }
+              accent="purple"
+            />
+            <StatCard
+              label="Avg damage"
+              value={formatNumber(Math.round(avgDamage))}
+              subtext="Damage dealt per game"
+              accent="win"
+            />
+          </div>
+        </div>
+
+        {topItems.length > 0 && (
+          <div>
+            <SectionHeading title="Top items built" source="MATCH-V5" />
+            <Panel>
+              <div className="space-y-2">
+                {topItems.map(([itemId, picks]) => (
+                  <div
+                    key={itemId}
+                    className="flex items-center gap-3 border-b border-white/[0.04] py-2 last:border-b-0"
+                  >
+                    <ItemIcon itemId={itemId} size={28} />
+                    <span className="min-w-0 flex-1 truncate text-xs font-semibold text-lol-text-bright">
+                      {itemData[itemId]?.name ?? `Item ${itemId}`}
+                    </span>
+                    <span className="text-xs tabular-nums text-lol-text">{picks}x</span>
+                  </div>
+                ))}
+              </div>
+            </Panel>
+          </div>
+        )}
+      </div>
       <SectionHeading title={enemies ? "Match history against them" : "Match history together"} />
       <Panel className="border-t-[3px] border-t-[#22C55E]">
         {matches.length > 0 ? (
@@ -323,11 +527,24 @@ export default function FriendDetail() {
   );
 }
 
-function SectionHeading({ title, aside }: { title: string; aside?: string }) {
+function SectionHeading({
+  title,
+  aside,
+  source,
+}: {
+  title: string;
+  aside?: string;
+  source?: string;
+}) {
   return (
     <div className="relative flex items-center gap-3 pb-2 pt-1 text-sm font-semibold uppercase tracking-wider text-lol-text-bright after:absolute after:bottom-0 after:left-0 after:h-px after:w-2/5 after:bg-gradient-to-r after:from-[#E5483F]/50 after:to-transparent">
       <span className="h-2 w-2 rotate-45 bg-[#E5483F]" />
       <span>{title}</span>
+      {source && (
+        <span className="rounded border border-lol-border/60 px-2 py-0.5 text-[10px] font-semibold tracking-wider text-lol-text">
+          {source}
+        </span>
+      )}
       {aside && (
         <span className="ml-auto text-[10px] font-normal tracking-normal text-lol-text">
           {aside}
