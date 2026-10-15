@@ -13,6 +13,7 @@ import type {
   ChampionQueueStat,
   OwnedItemStats,
   OwnedItemStatsResult,
+  RecordsData,
   RoleBreakdown,
 } from "../../shared/api";
 import { getChampionClasses } from "../dragon";
@@ -4008,7 +4009,7 @@ export function getRecords(
   queue?: number | number[],
   account?: string,
   timePeriod?: "24h" | "7d" | "30d" | "full",
-): any {
+): RecordsData {
   return cachedQuery(
     "getRecords",
     [Array.isArray(queue) ? queue.join(",") : queue, account, timePeriod],
@@ -4021,7 +4022,6 @@ export function getRecords(
       const params: any[] = account && account !== "all" ? [account] : [];
       applyQueueFilter(where, params, queue);
       const timeFilter = applyTimeFilter(timePeriod);
-      const statsPlaceholders = NO_STATS_QUEUE_IDS.map(() => "?").join(",");
 
       const rows = db
         .prepare(`
@@ -4034,10 +4034,9 @@ export function getRecords(
       FROM games g
       JOIN ${source.table} ps ON g.game_id = ps.game_id
       WHERE ${where.join(" AND ")} ${timeFilter.sql}
-        AND g.queue_id NOT IN (${statsPlaceholders})
       ORDER BY ps.puuid ASC, g.game_creation ASC, g.game_id ASC
     `)
-        .all(...params, ...timeFilter.params, ...NO_STATS_QUEUE_IDS) as any[];
+        .all(...params, ...timeFilter.params) as any[];
 
       // Just enough of the game to render a record's context and open its match
       const matchOf = (r: any) => ({
@@ -4052,7 +4051,7 @@ export function getRecords(
         assists: r.assists,
       });
 
-      const bests: Record<string, { value: number; match: any } | null> = {
+      const bests: RecordsData["bests"] = {
         kills: null,
         deaths: null,
         assists: null,
@@ -4074,10 +4073,18 @@ export function getRecords(
       };
       const higher = (a: number, b: number) => a > b;
       const lower = (a: number, b: number) => a < b;
-      const track = (key: string, value: number | null, row: any, better = higher) => {
+      const track = (
+        key: keyof RecordsData["bests"],
+        value: number | null,
+        row: any,
+        better = higher,
+        perfect = false,
+      ) => {
         if (value == null) return;
         const current = bests[key];
-        if (!current || better(value, current.value)) bests[key] = { value, match: matchOf(row) };
+        if (!current || better(value, current.value)) {
+          bests[key] = { value, match: matchOf(row), ...(perfect ? { perfect: true } : {}) };
+        }
       };
 
       interface Streak {
@@ -4092,12 +4099,13 @@ export function getRecords(
       let lastPuuid: string | null = null;
 
       for (const r of rows) {
+        if (NO_STATS_QUEUE_IDS.includes(r.queue_id)) continue;
         track("kills", r.kills, r);
         track("deaths", r.deaths, r);
         track("assists", r.assists, r);
         // Deathless games rank by kills+assists rather than dividing by zero; the
         // renderer still labels them "Perfect"
-        track("kda", (r.kills + r.assists) / Math.max(r.deaths, 1), r);
+        track("kda", (r.kills + r.assists) / Math.max(r.deaths, 1), r, higher, r.deaths === 0);
         track("score", r.score_raw, r);
         track("killingSpree", r.largest_killing_spree, r);
         track("damage", r.total_damage_dealt, r);

@@ -1227,6 +1227,7 @@ export interface RecordMatchRef {
 export interface StatRecord {
   value: number;
   match: RecordMatchRef;
+  perfect?: boolean;
 }
 
 export interface StreakRecord {

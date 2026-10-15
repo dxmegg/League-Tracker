@@ -17,10 +17,12 @@ function DecimalRecordTile({
   label,
   value,
   match,
+  perfect = false,
 }: {
   label: string;
   value: number;
   match: RecordMatchRef;
+  perfect?: boolean;
 }) {
   return (
     <RecordTile
@@ -30,7 +32,7 @@ function DecimalRecordTile({
       win={match.win}
       gameCreation={match.game_creation}
       gameId={String(match.game_id)}
-      formatValue={(raw) => (Number.isFinite(raw) ? raw.toFixed(2) : "—")}
+      formatValue={(raw) => (perfect ? "Perfect" : Number.isFinite(raw) ? raw.toFixed(2) : "—")}
     />
   );
 }
@@ -210,6 +212,7 @@ export function RecordsExp({
         label="Best KDA"
         value={bests.kda.value}
         match={bests.kda.match}
+        perfect={bests.kda.perfect}
       />
     ),
     bests.score && <StandardRecordTile key="score" label="Highest score" record={bests.score} />,
@@ -273,7 +276,7 @@ export function RecordsExp({
     data.winStreak && (
       <StreakTile key="winStreak" label="Longest win streak" streak={data.winStreak} />
     ),
-    data.lossStreak && (
+    data.lossStreak && data.lossStreak.length > 1 && (
       <StreakTile key="lossStreak" label="Longest loss streak" streak={data.lossStreak} />
     ),
   ].filter((tile): tile is React.ReactElement => Boolean(tile));
