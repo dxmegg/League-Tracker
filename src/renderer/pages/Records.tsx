@@ -17,7 +17,7 @@ import QueueSelect, { queueLabel } from "../components/QueueSelect";
 import { FilterSelect } from "../components/FilterSelect";
 import { Panel } from "../components/Panel";
 import { SectionHeading } from "../components/SectionHeading";
-import { type StatAccent } from "../components/StatCard";
+import StatCard, { type StatAccent } from "../components/StatCard";
 import {
   CoinsIcon,
   CrosshairIcon,
@@ -536,6 +536,14 @@ export default function Records() {
     // memorializing at two.
     cards.push(streakCard(data.lossStreak, false));
   }
+  const summary = dashboard?.summary;
+  const winRate =
+    summary && summary.totalGames > 0 ? Math.round((summary.wins / summary.totalGames) * 100) : 0;
+  const activeAccount = accounts.find((item) => item.puuid === accountForFetch);
+  const activeAccountName = activeAccount
+    ? `${activeAccount.gameName ?? "Unknown account"}${activeAccount.tagLine ? `#${activeAccount.tagLine}` : ""}`
+    : "All accounts";
+  const activeScope = `${scopedQueue == null ? "All queues" : queueLabel(scopedQueue)} · ${activeAccountName}`;
 
   return (
     <div className="flex flex-col gap-4">
@@ -549,6 +557,21 @@ export default function Records() {
             <QueueSelect value={queue} onChange={setQueue} />
           </div>
         </div>
+      </div>
+
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+        <StatCard
+          label="Total Games"
+          value={(summary?.totalGames ?? data.totalGames).toLocaleString()}
+          subtext="In current scope"
+        />
+        <StatCard label="Win Rate" value={`${winRate}%`} subtext={`${summary?.wins ?? 0} wins`} />
+        <StatCard
+          label="Accounts"
+          value={(summary?.accounts ?? accounts.length).toLocaleString()}
+          subtext="With recorded games"
+        />
+        <StatCard label="Active Scope" value={activeScope} subtext="Queue · account" />
       </div>
 
       <div>

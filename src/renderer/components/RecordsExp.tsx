@@ -84,6 +84,7 @@ function StandardRecordTile({
       championId={record.match.champion_id}
       win={record.match.win}
       gameCreation={record.match.game_creation}
+      gameId={String(record.match.game_id)}
       formatValue={formatValue}
     />
   );
