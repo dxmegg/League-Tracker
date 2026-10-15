@@ -187,27 +187,30 @@ Cherry-pickuje commity między worktree'ami — nie używać subsessji.
 6. Co dalej
 
 - A — New feature (ask user for direction)
-- B — Optional: tokenize remaining hardcoded colors across experiment pages (FriendsExp, FriendDetail hero borders) to fully respect experiment2-5 theme variants
+- B — Verify Friends & Foes polish from commit 20ef782c visually (last screenshots showed unresolved: title truncation, KDA NaN, hero record duplicate, empty "Detailed statistics" heading, Arena 3x6 label, match history missing friend's secondary champion)
 - C — Optional: extract Panel + SectionHeading + StatCard + EmptyState to shared components (currently duplicated across ChampionDetailExp, FriendsExp, FriendDetail, ItemsExp)
 - D — Optional: Match Detail — show more than top 20 challenges per participant
-- E — Optional: a11y pass on SortableTable headers (button + aria-label) if not done
+- E — Optional: tokenize remaining hardcoded colors across experiment pages
 
 Completed since last handoff:
 
-- Items page: trinket classification (Arcane Sweeper 3348 at end of list), pagination 50/page in Item Detail champions, enriched Item Detail (5 KPIs + Avg KDA, Win rate by patch, Top pairings owned-participant-only, CommunityDragon zoom icon, compact header)
-- Friends & Foes redesign: single FRIENDS/FOES toggle in header, dual panels (Players / Champions) with dynamic titles, unique game count in KPIs (COUNT DISTINCT game_id), refetch on onGamesUpdated, row navigation to FriendDetail, foes win rate semantics (Your win rate / inverted perspective), wider win rate bar, no header truncation, icon shrink fix
-- FriendDetail redesign: experiment shell container, hero 80px avatar + record pill, StatCard KPI row, sortable champion panel, relation chips [FRIENDS][FOES], user-perspective foe winrate inversion across hero + KPI + champion bars + match rows, crimson/gold border per relation
-- Settings: theme selector reflects actual selected variant (was always showing First Theme)
-- Champion Detail: full human-readable challenge labels (130 keys), expandable challenges panel (top 15 / show all)
+- FriendsExp parity: search, per-panel sort dropdown, queue chips, a11y header buttons, contextual empty states, theme tokens (lol-crimson/lol-gold), neutral panels, compact header, sort in panel header row
+- FriendsExp fixes: champions panel now returns KDA (getTeammateChampions SQL), Arena queue IDs (1700/1740/1750) grouped as "Arena" via shared queueLabel helper
+- FriendsExp icons no longer shrink on narrow windows; long names truncate
+- FriendDetail: experiment shell redesign (1320px container), hero 80px avatar, StatCard KPI row, relation chips [FRIENDS][FOES], user-perspective foe winrate inversion, MatchRowExperiment used for match history (with optional secondaryParticipant prop), detailed statistics panels (Queue breakdown, Multikills, Avg performance, Top items), Arena-aware CS/vision empty states
+- MatchRowExperiment: multikill badges wrap in 120px column with overflow hidden, Arena label via shared helper
+- Settings: theme selector reflects actual selected variant
+- Champion Detail: 130 human-readable challenge labels, expandable challenges panel
 
 Known working-as-designed (do NOT touch without approval):
 
 - Overview, Combat, Economy tabs
-- Sync button stays on LCU
+- Sync button stays on LCU (Match-V5 sync separate Settings action)
 - Historical LCU games lack pings/casts/challenges
 - Old games (2+ years) 404 from Riot API
-- riot-accounts.local.json is optional seed file, gitignored
-- Legacy `test` theme is comparison-only, will be removed later; all new work targets `experiment*`
+- riot-accounts.local.json is optional seed, gitignored
+- Legacy `test` theme is comparison-only, will be removed; all new work targets `experiment*`
+- MatchRowExperiment secondaryParticipant prop is optional — Home/Profile unaffected when absent
 
 7. Komendy
 npm run dev          # apka (wymaga LCU jako admin)
