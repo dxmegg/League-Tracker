@@ -633,28 +633,30 @@ export default function Home() {
                 : "Detailed stats for the selected account"}
             </p>
           </div>
-          <div className="inline-flex rounded-[10px] border border-lol-border bg-lol-card p-[3px]">
-            {TIME_PERIODS.map((period) => (
-              <button
-                key={period}
-                type="button"
-                onClick={() => setTimePeriod(period)}
-                className={`rounded-[7px] px-5 py-1.5 font-display text-[13px] font-semibold transition-colors ${
-                  period === timePeriod
-                    ? "bg-lol-crimson text-white"
-                    : "text-lol-text hover:text-lol-text-bright"
-                }`}
-              >
-                {period === "full" ? "Full" : period}
-              </button>
-            ))}
-          </div>
-          {!hasLiveActivity && (
-            <div className="flex items-center gap-2 rounded-md border border-lol-border/60 bg-lol-card/60 px-3 py-1.5 text-xs text-lol-text">
-              <span className="h-2 w-2 rounded-full bg-lol-text/40" />
-              Not in a match
+          <div className="flex items-center gap-3">
+            <div className="inline-flex rounded-[10px] border border-lol-border bg-lol-card p-[3px]">
+              {TIME_PERIODS.map((period) => (
+                <button
+                  key={period}
+                  type="button"
+                  onClick={() => setTimePeriod(period)}
+                  className={`rounded-[7px] px-5 py-1.5 font-display text-[13px] font-semibold transition-colors ${
+                    period === timePeriod
+                      ? "bg-lol-crimson text-white"
+                      : "text-lol-text hover:text-lol-text-bright"
+                  }`}
+                >
+                  {period === "full" ? "Full" : period}
+                </button>
+              ))}
             </div>
-          )}
+            {!hasLiveActivity && (
+              <div className="flex items-center gap-2 rounded-md border border-lol-border/60 bg-lol-card/60 px-3 py-1.5 text-xs text-lol-text">
+                <span className="h-2 w-2 rounded-full bg-lol-text/40" />
+                Not in a match
+              </div>
+            )}
+          </div>
         </div>
 
         {/* 12-column grid */}

@@ -1131,7 +1131,7 @@ export function getDashboardData(
     ${whereSql} AND g.queue_id NOT IN (${EXCLUDED_STATS_SQL})
     GROUP BY ps.champion_id
     ORDER BY games DESC
-    LIMIT 10
+    LIMIT 20
   `)
     .all(...queryParams);
 
@@ -1181,6 +1181,8 @@ export function getDashboardData(
   return {
     totalGames: totals.totalGames ?? 0,
     totalDuration: totals.totalDuration ?? 0,
+    statsEligibleDuration: totals.statsEligibleDuration ?? 0,
+    statsEligibleGames: totals.statsEligibleGames ?? 0,
     wins: totals.wins ?? 0,
     totalKills: totals.totalKills ?? 0,
     totalDeaths: totals.totalDeaths ?? 0,
