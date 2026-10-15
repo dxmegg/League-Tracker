@@ -1275,6 +1275,22 @@ export interface RecordsData {
     win: boolean;
     gameCreation: number;
   }>;
+  bestByQueue?: Array<{
+    queueLabel: string;
+    queueIds: number[];
+    mostKills: StatRecord;
+    highestKda: StatRecord;
+    mostDamage: StatRecord;
+    bestWinStreak: { count: number; start: number; end: number };
+  }>;
+  milestones?: Array<{
+    key: "firstWin" | "firstPentakill" | "kill1000" | "longestWinStreak" | "win1000" | "game2000";
+    label: string;
+    championId?: number;
+    gameCreation: number;
+    gameId?: string;
+    value?: number;
+  }>;
 }
 
 export interface ChampionRecord {

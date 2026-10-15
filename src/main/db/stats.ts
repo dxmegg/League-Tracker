@@ -18,6 +18,7 @@ import type {
   StatRecord,
 } from "../../shared/api";
 import { getChampionClasses } from "../dragon";
+import { ARENA_QUEUE_IDS, QUEUE_LABELS } from "../../shared/queues";
 import {
   applyQueueFilter,
   applyTimeFilter,
@@ -4108,6 +4109,40 @@ export function getRecords(
       let fastestPentakill: StatRecord | undefined;
       let flawlessAce: StatRecord | undefined;
       const topDamageGames: NonNullable<RecordsData["topDamageGames"]> = [];
+      type QueueRecord = NonNullable<RecordsData["bestByQueue"]>[number];
+      interface QueueState {
+        queueLabel: string;
+        queueIds: number[];
+        mostKills: StatRecord | null;
+        highestKda: StatRecord | null;
+        mostDamage: StatRecord | null;
+        currentWinStreak: { count: number; start: number; end: number; puuid: string } | null;
+        bestWinStreak: { count: number; start: number; end: number };
+      }
+      const queueStates = new Map<string, QueueState>();
+      const milestones: NonNullable<RecordsData["milestones"]> = [];
+      let cumulativeKills = 0;
+      let cumulativeWins = 0;
+      let trackedGames = 0;
+      const queueKey = (queueId: number) =>
+        ARENA_QUEUE_IDS.includes(queueId) ? "arena" : String(queueId);
+      const queueStateFor = (row: any): QueueState => {
+        const key = queueKey(row.queue_id);
+        const current = queueStates.get(key);
+        if (current) return current;
+        const state: QueueState = {
+          queueLabel:
+            key === "arena" ? "Arena" : (QUEUE_LABELS[row.queue_id] ?? `Queue ${row.queue_id}`),
+          queueIds: key === "arena" ? [...ARENA_QUEUE_IDS] : [row.queue_id],
+          mostKills: null,
+          highestKda: null,
+          mostDamage: null,
+          currentWinStreak: null,
+          bestWinStreak: { count: 0, start: 0, end: 0 },
+        };
+        queueStates.set(key, state);
+        return state;
+      };
       const trackExtra = (
         current: StatRecord | undefined,
         value: number | null,
@@ -4160,6 +4195,90 @@ export function getRecords(
           gameCreation: r.game_creation,
         });
 
+        const queueState = queueStateFor(r);
+        queueState.mostKills = trackExtra(queueState.mostKills ?? undefined, r.kills, r) ?? null;
+        queueState.highestKda =
+          trackExtra(
+            queueState.highestKda ?? undefined,
+            (r.kills + r.assists) / Math.max(r.deaths, 1),
+            r,
+          ) ?? null;
+        queueState.mostDamage =
+          trackExtra(queueState.mostDamage ?? undefined, r.total_damage_dealt, r) ?? null;
+        if (
+          !queueState.currentWinStreak ||
+          queueState.currentWinStreak.puuid !== r.puuid ||
+          !r.win
+        ) {
+          queueState.currentWinStreak = r.win
+            ? { count: 1, start: r.game_creation, end: r.game_creation, puuid: r.puuid }
+            : null;
+        } else {
+          queueState.currentWinStreak.count++;
+          queueState.currentWinStreak.end = r.game_creation;
+        }
+        if (
+          queueState.currentWinStreak &&
+          queueState.currentWinStreak.count > queueState.bestWinStreak.count
+        ) {
+          queueState.bestWinStreak = {
+            count: queueState.currentWinStreak.count,
+            start: queueState.currentWinStreak.start,
+            end: queueState.currentWinStreak.end,
+          };
+        }
+
+        trackedGames++;
+        cumulativeKills += r.kills;
+        cumulativeWins += Number(r.win);
+        const milestoneContext = {
+          championId: r.champion_id,
+          gameCreation: r.game_creation,
+          gameId: String(r.game_id),
+        };
+        if (r.win && !milestones.some((milestone) => milestone.key === "firstWin")) {
+          milestones.push({ key: "firstWin", label: "First win", ...milestoneContext });
+        }
+        if (
+          r.penta_kills >= 1 &&
+          !milestones.some((milestone) => milestone.key === "firstPentakill")
+        ) {
+          milestones.push({
+            key: "firstPentakill",
+            label: "First pentakill",
+            ...milestoneContext,
+          });
+        }
+        if (
+          cumulativeKills >= 1000 &&
+          !milestones.some((milestone) => milestone.key === "kill1000")
+        ) {
+          milestones.push({
+            key: "kill1000",
+            label: "1,000th kill",
+            value: cumulativeKills,
+            ...milestoneContext,
+          });
+        }
+        if (
+          cumulativeWins >= 1000 &&
+          !milestones.some((milestone) => milestone.key === "win1000")
+        ) {
+          milestones.push({
+            key: "win1000",
+            label: "Win #1,000",
+            value: cumulativeWins,
+            ...milestoneContext,
+          });
+        }
+        if (trackedGames === 2000) {
+          milestones.push({
+            key: "game2000",
+            label: "Game #2,000",
+            ...milestoneContext,
+          });
+        }
+
         // Remakes never make it into rows, so they can't break a streak
         if (!run || run.win !== r.win || lastPuuid !== r.puuid) {
           run = { win: r.win, length: 0, start: r.game_creation };
@@ -4180,6 +4299,36 @@ export function getRecords(
       }
 
       topDamageGames.sort((a, b) => b.damage - a.damage);
+      if (winStreak) {
+        milestones.push({
+          key: "longestWinStreak",
+          label: "Longest win streak",
+          championId: winStreak.match.champion_id,
+          gameCreation: winStreak.end,
+          gameId: String(winStreak.match.game_id),
+          value: winStreak.length,
+        });
+      }
+      const bestByQueue: NonNullable<RecordsData["bestByQueue"]> = [...queueStates.values()]
+        .filter(
+          (
+            state,
+          ): state is QueueState & {
+            mostKills: StatRecord;
+            highestKda: StatRecord;
+            mostDamage: StatRecord;
+          } => state.mostKills !== null && state.highestKda !== null && state.mostDamage !== null,
+        )
+        .map(
+          (state): QueueRecord => ({
+            queueLabel: state.queueLabel,
+            queueIds: state.queueIds,
+            mostKills: state.mostKills,
+            highestKda: state.highestKda,
+            mostDamage: state.mostDamage,
+            bestWinStreak: state.bestWinStreak,
+          }),
+        );
       return {
         totalGames: rows.length,
         bests,
@@ -4192,6 +4341,8 @@ export function getRecords(
         fastestPentakill,
         flawlessAce,
         topDamageGames: topDamageGames.slice(0, 5),
+        bestByQueue,
+        milestones,
       };
     },
   );

@@ -104,6 +104,93 @@ function FlawlessAceTile({ record }: { record: StatRecord }) {
   );
 }
 
+function QueueRecordCell({
+  record,
+  formatValue,
+}: {
+  record: StatRecord;
+  formatValue: (record: StatRecord) => string;
+}) {
+  return (
+    <div className="flex min-w-[100px] items-center gap-2">
+      <ChampionIcon championId={record.match.champion_id} size={26} className="rounded-full" />
+      <span className="tabular-nums text-lol-text-bright">{formatValue(record)}</span>
+    </div>
+  );
+}
+
+function BestByQueueTable({ records }: { records: NonNullable<RecordsData["bestByQueue"]> }) {
+  const numberValue = (record: StatRecord) => record.value.toLocaleString();
+  const kdaValue = (record: StatRecord) =>
+    record.match.deaths === 0 ? "Perfect" : record.value.toFixed(2);
+  return (
+    <Panel>
+      <div className="overflow-x-auto">
+        <table className="w-full min-w-[720px] text-left text-xs">
+          <thead className="border-b border-lol-border/60 text-[11px] uppercase tracking-wider text-lol-text">
+            <tr>
+              <th className="px-3.5 py-3 font-semibold">Queue</th>
+              <th className="px-3.5 py-3 font-semibold">Most kills</th>
+              <th className="px-3.5 py-3 font-semibold">Highest KDA</th>
+              <th className="px-3.5 py-3 font-semibold">Most damage</th>
+              <th className="px-3.5 py-3 text-right font-semibold">Best win streak</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-lol-border/50">
+            {records.map((record) => (
+              <tr key={record.queueLabel} className="text-lol-text">
+                <th className="px-3.5 py-3 font-semibold text-lol-text-bright">
+                  {record.queueLabel}
+                </th>
+                <td className="px-3.5 py-3">
+                  <QueueRecordCell record={record.mostKills} formatValue={numberValue} />
+                </td>
+                <td className="px-3.5 py-3">
+                  <QueueRecordCell record={record.highestKda} formatValue={kdaValue} />
+                </td>
+                <td className="px-3.5 py-3">
+                  <QueueRecordCell record={record.mostDamage} formatValue={numberValue} />
+                </td>
+                <td className="px-3.5 py-3 text-right tabular-nums text-lol-text-bright">
+                  {record.bestWinStreak.count} games
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </Panel>
+  );
+}
+
+function MilestonesList({ milestones }: { milestones: NonNullable<RecordsData["milestones"]> }) {
+  return (
+    <Panel>
+      <div className="divide-y divide-lol-border/50">
+        {milestones.map((milestone) => (
+          <div key={milestone.key} className="flex items-center gap-3 px-3.5 py-3">
+            <span aria-hidden="true" className="text-lol-crimson">
+              ◆
+            </span>
+            {milestone.championId !== undefined ? (
+              <ChampionIcon championId={milestone.championId} size={30} className="rounded-full" />
+            ) : (
+              <span className="h-[30px] w-[30px] rounded-full border border-lol-border/60" />
+            )}
+            <div className="min-w-0 flex-1">
+              <div className="font-semibold text-lol-text-bright">{milestone.label}</div>
+              <div className="text-xs text-lol-text">
+                {recordDate(milestone.gameCreation)}
+                {milestone.value !== undefined && ` · ${milestone.value.toLocaleString()}`}
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+    </Panel>
+  );
+}
+
 export function RecordsExp({
   data,
   error,
@@ -359,6 +446,18 @@ export function RecordsExp({
               </div>
             </Panel>
           </div>
+        </div>
+      )}
+      {data.bestByQueue && data.bestByQueue.length > 0 && (
+        <div>
+          <SectionHeading title="Best records by queue" />
+          <BestByQueueTable records={data.bestByQueue} />
+        </div>
+      )}
+      {data.milestones && data.milestones.length > 0 && (
+        <div>
+          <SectionHeading title="Milestones" />
+          <MilestonesList milestones={data.milestones} />
         </div>
       )}
     </div>
