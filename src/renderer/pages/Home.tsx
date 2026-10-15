@@ -6,6 +6,7 @@ import type {
   MatchDetail,
   HomeTimePeriod,
   MatchListItem,
+  RoleBreakdown,
 } from "../../shared/api";
 import {
   QUEUE_SCOPE_RANKED,
@@ -59,6 +60,14 @@ function timePeriodLabel(timePeriod: HomeTimePeriod): string {
 }
 
 const periodLabel = (period: HomeTimePeriod): string => (period === "full" ? "FULL" : period);
+const ROLE_LABELS: Record<RoleBreakdown["role"], string> = {
+  TOP: "Top",
+  JUNGLE: "Jungle",
+  MIDDLE: "Mid",
+  BOTTOM: "ADC",
+  UTILITY: "Support",
+};
+const ROLE_ORDER: RoleBreakdown["role"][] = ["TOP", "JUNGLE", "MIDDLE", "BOTTOM", "UTILITY"];
 
 function StatValue({
   label,
@@ -574,6 +583,7 @@ export default function Home() {
   const [timePeriod, setTimePeriod] = useViewState<HomeTimePeriod>("home.timePeriod", "7d");
   const [queue, setQueue] = useViewState<number | undefined>("home.queue", undefined);
   const [dashboard, setDashboard] = useState<HomeDashboardPayload | null>(null);
+  const [roleBreakdown, setRoleBreakdown] = useState<RoleBreakdown[]>([]);
   const [loading, setLoading] = useState(false);
   const [savedAccounts, setSavedAccounts] = useState<AccountListItem[]>([]);
   const [championSort, setChampionSort] = useState<"games" | "winRate">("games");
@@ -612,6 +622,21 @@ export default function Home() {
       })
       .finally(() => {
         if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [account, timePeriod, queue]);
+
+  useEffect(() => {
+    let cancelled = false;
+    window.api
+      .getRoleBreakdown(account, queue, timePeriod)
+      .then((roles) => {
+        if (!cancelled) setRoleBreakdown(roles);
+      })
+      .catch(() => {
+        if (!cancelled) setRoleBreakdown([]);
       });
     return () => {
       cancelled = true;
@@ -780,6 +805,49 @@ export default function Home() {
                   </div>
                 ),
               )}
+            </div>
+          </Panel>
+
+          <Panel className="col-span-12">
+            <div className="mb-4 flex items-baseline justify-between gap-3">
+              <div>
+                <h2 className="font-display text-[16px] font-semibold text-lol-text-bright">
+                  <span className="mr-2 inline-block h-1.5 w-1.5 rotate-45 bg-lol-crimson align-middle" />
+                  Roles
+                </h2>
+                <p className="mt-1 text-[12px] text-lol-text">By position (Ranked + Normal only)</p>
+              </div>
+              <span className="text-[13px] text-lol-text">
+                {timePeriod === "full" ? "All time" : `Last ${timePeriod}`}
+              </span>
+            </div>
+            <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 xl:grid-cols-5">
+              {ROLE_ORDER.map((role) => {
+                const stats = roleBreakdown.find((entry) => entry.role === role);
+                return (
+                  <div
+                    key={role}
+                    className={`rounded-xl border border-lol-border border-t-[3px] border-t-lol-crimson/50 bg-black/10 px-3.5 py-3 ${
+                      stats ? "" : "opacity-45"
+                    }`}
+                  >
+                    <div className="mb-2 flex items-center gap-2">
+                      <span className="flex h-7 w-7 items-center justify-center rounded-md bg-lol-crimson/15 font-display text-xs font-bold text-lol-crimson">
+                        {role === "MIDDLE" ? "M" : role === "UTILITY" ? "S" : role[0]}
+                      </span>
+                      <span className="font-display text-sm font-semibold text-lol-text-bright">
+                        {ROLE_LABELS[role]}
+                      </span>
+                    </div>
+                    <div className="font-display text-xl font-bold text-lol-text-bright">
+                      {stats?.games ?? 0} games
+                    </div>
+                    <div className="mt-1 text-xs text-lol-text">
+                      {stats ? `${Math.round(stats.winRate)}% win` : "No games"}
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           </Panel>
 

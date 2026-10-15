@@ -17,6 +17,13 @@ function formatDuration(seconds: number): string {
   return `${minutes}:${(totalSeconds % 60).toString().padStart(2, "0")}`;
 }
 
+function formatPlayTime(seconds: number): string {
+  if (seconds < 60) return "less than a minute";
+  const minutes = Math.floor(seconds / 60);
+  if (seconds < 3600) return `${minutes}m`;
+  return `${Math.floor(minutes / 60)}h ${minutes % 60}m`;
+}
+
 export function HomeHero({
   dashboard,
   loading,
@@ -32,6 +39,9 @@ export function HomeHero({
   const wins = dashboard?.summary.wins ?? 0;
   const losses = dashboard?.summary.losses ?? 0;
   const winRate = totalGames > 0 ? Math.round((wins / totalGames) * 100) : 0;
+  const recentStreak = dashboard?.summary.recentStreak ?? 0;
+  const totalTimeSeconds =
+    dashboard?.summary.totalTimeSeconds || dashboard?.summary.totalDuration || 0;
 
   const recentForm = dashboard?.summary.recentForm ?? [];
   const ribbonData = [...recentForm].reverse();
@@ -50,13 +60,27 @@ export function HomeHero({
             <span className="font-medium text-lol-text/60">–</span>
             <span className="text-lol-loss">{formatNumber(losses)}</span>
           </div>
-          <div className="mt-2 text-lol-text">{formatNumber(totalGames)} games played</div>
+          <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-lol-text">
+            <span>{formatNumber(totalGames)} games played</span>
+            {totalGames > 0 && <span>{formatPlayTime(totalTimeSeconds)} played</span>}
+          </div>
         </div>
-        <div className="text-right">
-          <b className="block font-display text-[40px] font-bold leading-none text-lol-gold">
-            {winRate}%
-          </b>
-          <span className="text-[13px] text-lol-text">win rate</span>
+        <div className="flex items-end gap-3">
+          <div className="text-right">
+            <b className="block font-display text-[40px] font-bold leading-none text-lol-gold">
+              {winRate}%
+            </b>
+            <span className="text-[13px] text-lol-text">win rate</span>
+          </div>
+          {recentStreak !== 0 && (
+            <span
+              className={`rounded-full px-2.5 py-1 font-display text-sm font-bold ${
+                recentStreak > 0 ? "bg-lol-win/15 text-lol-win" : "bg-lol-loss/15 text-lol-loss"
+              }`}
+            >
+              {recentStreak > 0 ? `W${recentStreak}` : `L${Math.abs(recentStreak)}`}
+            </span>
+          )}
         </div>
       </div>
 

@@ -12,6 +12,7 @@ import type {
   ChampionQueueStat,
   OwnedItemStats,
   OwnedItemStatsResult,
+  RoleBreakdown,
 } from "../../shared/api";
 import { getChampionClasses } from "../dragon";
 import {
@@ -1067,6 +1068,7 @@ export function getDashboardData(
     .prepare(`
     SELECT COUNT(*) as totalGames,
            SUM(g.game_duration) as totalDuration,
+           SUM(g.game_duration) as totalTimeSeconds,
            SUM(CASE WHEN g.queue_id NOT IN (${EXCLUDED_STATS_SQL}) THEN g.game_duration ELSE 0 END) as statsEligibleDuration,
            SUM(ps.win) as wins,
            COUNT(CASE WHEN g.queue_id NOT IN (${EXCLUDED_STATS_SQL}) THEN 1 END) as statsEligibleGames,
@@ -1116,6 +1118,27 @@ export function getDashboardData(
     LIMIT 250
   `)
     .all(...queryParams);
+
+  const recentStreakRows = db
+    .prepare(`
+    SELECT ps.win
+    FROM games g
+    JOIN ${source.table} ${source.alias} ON g.game_id = ${source.alias}.game_id
+    ${whereSql}
+    ORDER BY g.game_creation DESC
+    LIMIT 10
+  `)
+    .all(...queryParams) as Array<{ win: number }>;
+  let recentStreak = 0;
+  if (recentStreakRows.length > 0) {
+    const direction = recentStreakRows[0].win === 1 ? 1 : -1;
+    let count = 0;
+    for (const row of recentStreakRows) {
+      if ((row.win === 1 ? 1 : -1) !== direction) break;
+      count++;
+    }
+    recentStreak = direction * count;
+  }
 
   const topChampions = db
     .prepare(`
@@ -1181,6 +1204,8 @@ export function getDashboardData(
   return {
     totalGames: totals.totalGames ?? 0,
     totalDuration: totals.totalDuration ?? 0,
+    totalTimeSeconds: totals.totalTimeSeconds ?? 0,
+    recentStreak,
     statsEligibleDuration: totals.statsEligibleDuration ?? 0,
     statsEligibleGames: totals.statsEligibleGames ?? 0,
     wins: totals.wins ?? 0,
@@ -1229,6 +1254,49 @@ export function getDashboardData(
     },
     topAugments,
   };
+}
+
+export function getRoleBreakdown(
+  account: string | "all" | undefined,
+  queue: number | number[] | undefined,
+  timePeriod: "24h" | "7d" | "30d" | "full",
+): RoleBreakdown[] {
+  console.log("[db] getRoleBreakdown called:", { account, queue, timePeriod });
+  const source = statsSource(account);
+  const where: string[] = [
+    "g.is_remake = 0",
+    source.accountFilter,
+    "mp.team_position IN ('TOP', 'JUNGLE', 'MIDDLE', 'BOTTOM', 'UTILITY')",
+  ];
+  const params: any[] = account && account !== "all" ? [account] : [];
+  applyQueueFilter(where, params, queue);
+  const timeFilter = applyTimeFilter(timePeriod);
+  const rows = db
+    .prepare(`
+      SELECT
+        mp.team_position AS role,
+        COUNT(*) AS games,
+        SUM(CASE WHEN ps.win = 1 THEN 1 ELSE 0 END) AS wins
+      FROM ${source.table} ps
+      JOIN games g ON g.game_id = ps.game_id
+      JOIN match_participants mp
+        ON mp.game_id = ps.game_id
+       AND mp.puuid = ps.puuid
+      WHERE ${where.join(" AND ")} ${timeFilter.sql}
+      GROUP BY mp.team_position
+      ORDER BY games DESC
+    `)
+    .all(...params, ...timeFilter.params) as Array<{
+    role: RoleBreakdown["role"];
+    games: number;
+    wins: number;
+  }>;
+  const result = rows.map((row) => ({
+    ...row,
+    winRate: row.games > 0 ? (row.wins / row.games) * 100 : 0,
+  }));
+  console.log("[db] getRoleBreakdown done:", { count: result.length });
+  return result;
 }
 
 export function getAugmentStatsWithChampions(

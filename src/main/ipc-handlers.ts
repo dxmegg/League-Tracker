@@ -495,6 +495,35 @@ export function registerIpcHandlers() {
   );
 
   ipcMain.handle(
+    "db:get-role-breakdown",
+    (
+      _event,
+      account: HomeAccountFilter,
+      queue: number | number[] | undefined,
+      timePeriod: HomeTimePeriod,
+    ) => {
+      console.log("[db] get-role-breakdown handler called:", { account, queue, timePeriod });
+      if (account !== undefined && typeof account !== "string") {
+        throw new TypeError("account must be a string or undefined");
+      }
+      if (!["24h", "7d", "30d", "full"].includes(timePeriod)) {
+        throw new TypeError("timePeriod must be 24h, 7d, 30d, or full");
+      }
+      if (queue !== undefined) {
+        const values = Array.isArray(queue) ? queue : [queue];
+        if (!values.every((id) => typeof id === "number" && Number.isFinite(id))) {
+          throw new TypeError(
+            "queue must be a finite number, an array of finite numbers, or undefined",
+          );
+        }
+      }
+      const result = db.getRoleBreakdown(account, queue, timePeriod);
+      console.log("[db] get-role-breakdown handler done:", { count: result.length });
+      return result;
+    },
+  );
+
+  ipcMain.handle(
     "db:home-dashboard",
     (
       _event,
@@ -527,6 +556,8 @@ export function registerIpcHandlers() {
         csTotal: number;
         statsEligibleGames: number;
         statsEligibleDuration: number;
+        totalTimeSeconds: number;
+        recentStreak: number;
         avgGold: number;
         goldTotal: number;
         teamAvgScore: number;
@@ -572,6 +603,8 @@ export function registerIpcHandlers() {
               ? (dashboard.totalKills + dashboard.totalAssists) / Math.max(dashboard.totalDeaths, 1)
               : 0,
           totalDuration: dashboard.totalDuration,
+          totalTimeSeconds: dashboard.totalTimeSeconds,
+          recentStreak: dashboard.recentStreak,
           statsEligibleDuration: dashboard.statsEligibleDuration,
           statsEligibleGames: dashboard.statsEligibleGames,
           accounts: dashboard.accounts,

@@ -101,6 +101,7 @@ export {
   getChampionMatchupList,
   getAugmentStatsAll,
   getDashboardData,
+  getRoleBreakdown,
   getAugmentStatsWithChampions,
   getChampionItemStats,
   getGlobalStats,

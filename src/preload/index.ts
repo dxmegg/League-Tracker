@@ -31,6 +31,7 @@ import type {
   ImportProgress,
   OwnedItemStats,
   OwnedItemStatsResult,
+  RoleBreakdown,
   BackfillTeamsLocalResult,
   BackfillTimelineLocalResult,
   ChampionTeamObjectives,
@@ -251,6 +252,12 @@ const api: ElectronAPI = {
     timePeriod: HomeTimePeriod,
     queue: number | number[] | undefined,
   ) => ipcRenderer.invoke("db:home-dashboard", account, timePeriod, queue),
+  getRoleBreakdown: (
+    account: HomeAccountFilter,
+    queue: number | number[] | undefined,
+    timePeriod: HomeTimePeriod,
+  ): Promise<RoleBreakdown[]> =>
+    ipcRenderer.invoke("db:get-role-breakdown", account, queue, timePeriod),
 
   getHomeMatchList: (
     account: HomeAccountFilter,

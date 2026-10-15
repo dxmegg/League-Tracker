@@ -836,6 +836,8 @@ export interface DashboardData {
   totalGames: number;
   // Seconds of game time across every counted game
   totalDuration: number;
+  totalTimeSeconds: number;
+  recentStreak: number;
   statsEligibleDuration: number;
   wins: number;
   statsEligibleGames: number;
@@ -896,6 +898,13 @@ export type HomeTimePeriod = "24h" | "7d" | "30d" | "full";
 
 export type HomeAccountFilter = string | "all" | undefined;
 
+export interface RoleBreakdown {
+  role: "TOP" | "JUNGLE" | "MIDDLE" | "BOTTOM" | "UTILITY";
+  games: number;
+  wins: number;
+  winRate: number;
+}
+
 export interface HomeDashboardPayload {
   summary: {
     totalGames: number;
@@ -909,6 +918,8 @@ export interface HomeDashboardPayload {
     avgAssists: number;
     avgKda: number;
     totalDuration: number;
+    totalTimeSeconds: number;
+    recentStreak: number;
     statsEligibleDuration: number;
     statsEligibleGames: number;
     accounts: number;
@@ -1754,6 +1765,11 @@ export interface ElectronAPI {
     timePeriod: HomeTimePeriod,
     queue: number | number[] | undefined,
   ) => Promise<HomeDashboardPayload>;
+  getRoleBreakdown: (
+    account: HomeAccountFilter,
+    queue: number | number[] | undefined,
+    timePeriod: HomeTimePeriod,
+  ) => Promise<RoleBreakdown[]>;
   getHomeMatchList: (
     account: HomeAccountFilter,
     queue: number | number[] | undefined,
