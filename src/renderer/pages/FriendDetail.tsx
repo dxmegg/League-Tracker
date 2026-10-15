@@ -40,22 +40,25 @@ export default function FriendDetail() {
   const [championSort, setChampionSort] = useState<"games" | "winRate" | "kda">("games");
   const [showAllChampions, setShowAllChampions] = useState(false);
 
-  const switchRelation = useCallback(async () => {
-    const target = enemies ? "friends" : "enemies";
-    const result = await window.api.getTeammateDetail(key, scopedQueue, target);
-    if (!result) {
-      setSwitchMessage("This player has no games in the other relation.");
-      window.setTimeout(() => setSwitchMessage(null), 2200);
-      return;
-    }
-    navigate(
-      scope
-        ? `/history/${scope}/${target}/${encodeURIComponent(key)}`
-        : target === "enemies"
-          ? `/friends/${encodeURIComponent(key)}?relation=enemies`
-          : `/friends/${encodeURIComponent(key)}`,
-    );
-  }, [enemies, key, navigate, scope, scopedQueue]);
+  const switchRelation = useCallback(
+    async (target: "friends" | "enemies") => {
+      if ((enemies && target === "enemies") || (!enemies && target === "friends")) return;
+      const result = await window.api.getTeammateDetail(key, scopedQueue, target);
+      if (!result) {
+        setSwitchMessage("This player has no games in the other relation.");
+        window.setTimeout(() => setSwitchMessage(null), 2200);
+        return;
+      }
+      navigate(
+        scope
+          ? `/history/${scope}/${target}/${encodeURIComponent(key)}`
+          : target === "enemies"
+            ? `/friends/${encodeURIComponent(key)}?relation=enemies`
+            : `/friends/${encodeURIComponent(key)}`,
+      );
+    },
+    [enemies, key, navigate, scope, scopedQueue],
+  );
 
   useEffect(() => {
     window.api.getAllSummonerPuuids().then(setPuuids);
@@ -98,13 +101,12 @@ export default function FriendDetail() {
           >
             ← {enemies ? "Enemies" : "Friends"}
           </Link>
-          <button
-            type="button"
-            onClick={switchRelation}
-            className="rounded-lg border border-lol-border bg-lol-card px-3 py-1.5 text-sm font-medium text-lol-text transition-colors hover:border-lol-gold/60 hover:text-lol-text-bright"
-          >
-            Switch
-          </button>
+          <RelationChips enemies={enemies} onSelect={switchRelation} />
+          {switchMessage && (
+            <span className="rounded-lg border border-lol-gold/30 bg-lol-gold/10 px-3 py-1.5 text-xs text-lol-gold">
+              {switchMessage}
+            </span>
+          )}
         </div>
         <Panel>
           <EmptyState text="No games found with this player." />
@@ -114,7 +116,8 @@ export default function FriendDetail() {
   }
 
   const { player, matches } = data;
-  const losses = player.games - player.wins;
+  const displayWins = enemies ? player.games - player.wins : player.wins;
+  const displayLosses = enemies ? player.wins : player.games - player.wins;
   const avg = (total: number) => (player.games > 0 ? (total / player.games).toFixed(1) : "0.0");
   const ratio =
     player.deaths > 0
@@ -129,12 +132,12 @@ export default function FriendDetail() {
     : null;
   const mvps = matches.filter((m) => selectedBadge(m) === "MVP").length;
   const aces = matches.filter((m) => selectedBadge(m) === "ACE").length;
-  const winRate = player.games > 0 ? (player.wins / player.games) * 100 : 0;
-  const yourWins = matches.filter((m) => !!m.win).length;
-  const yourWinRate = matches.length > 0 ? (yourWins / matches.length) * 100 : 0;
+  const displayWinRate = player.games > 0 ? (displayWins / player.games) * 100 : 0;
   const sortedChampions = [...player.champions].sort((a, b) => {
     if (championSort === "winRate") {
-      return b.wins / Math.max(b.games, 1) - a.wins / Math.max(a.games, 1);
+      const aWins = enemies ? a.games - a.wins : a.wins;
+      const bWins = enemies ? b.games - b.wins : b.wins;
+      return bWins / Math.max(b.games, 1) - aWins / Math.max(a.games, 1);
     }
     if (championSort === "kda") {
       const aKda = a.deaths > 0 ? (a.kills + a.assists) / a.deaths : a.kills + a.assists;
@@ -154,13 +157,7 @@ export default function FriendDetail() {
         >
           ← {enemies ? "Enemies" : "Friends"}
         </Link>
-        <button
-          type="button"
-          onClick={switchRelation}
-          className="rounded-lg border border-lol-border bg-lol-card px-3 py-1.5 text-sm font-medium text-lol-text transition-colors hover:border-lol-gold/60 hover:text-lol-text-bright"
-        >
-          Switch relation
-        </button>
+        <RelationChips enemies={enemies} onSelect={switchRelation} />
         {switchMessage && (
           <span className="rounded-lg border border-lol-gold/30 bg-lol-gold/10 px-3 py-1.5 text-xs text-lol-gold">
             {switchMessage}
@@ -168,7 +165,11 @@ export default function FriendDetail() {
         )}
       </div>
 
-      <Panel className="border-l-2 border-l-[#E5483F] bg-[radial-gradient(circle_at_top_right,rgba(229,72,63,0.18),transparent_60%),linear-gradient(to_bottom,rgba(229,72,63,0.10),transparent_40%),linear-gradient(180deg,var(--theme-card-hover),var(--theme-card))]">
+      <Panel
+        className={`border-l-2 ${
+          enemies ? "border-l-[#C9A45C]" : "border-l-[#E5483F]"
+        } bg-[radial-gradient(circle_at_top_right,rgba(229,72,63,0.18),transparent_60%),linear-gradient(to_bottom,rgba(229,72,63,0.10),transparent_40%),linear-gradient(180deg,var(--theme-card-hover),var(--theme-card))]`}
+      >
         <div className="flex flex-wrap items-center justify-between gap-5">
           <div className="flex min-w-0 items-center gap-4">
             <SummonerIcon iconId={player.profileIcon} size={80} />
@@ -187,9 +188,9 @@ export default function FriendDetail() {
               Record
             </div>
             <div className="mt-1 text-xl font-bold text-lol-text-bright">
-              {player.wins}W <span className="text-lol-text/60">{losses}L</span>
+              {displayWins}W <span className="text-lol-text/60">{displayLosses}L</span>
             </div>
-            <div className="text-xs text-lol-text">{winRate.toFixed(1)}% win rate</div>
+            <div className="text-xs text-lol-text">{displayWinRate.toFixed(1)}% win rate</div>
           </div>
         </div>
       </Panel>
@@ -198,8 +199,8 @@ export default function FriendDetail() {
       <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-5">
         <StatCard
           label="Record"
-          value={`${player.wins}W / ${losses}L`}
-          subtext={`${winRate.toFixed(1)}% win rate`}
+          value={`${displayWins}W / ${displayLosses}L`}
+          subtext={`${displayWinRate.toFixed(1)}% win rate`}
           accent="win"
         />
         <StatCard
@@ -233,8 +234,8 @@ export default function FriendDetail() {
         {enemies && (
           <StatCard
             label="Your win rate"
-            value={`${yourWinRate.toFixed(1)}%`}
-            subtext={`${yourWins} wins in ${matches.length} games`}
+            value={`${displayWinRate.toFixed(1)}%`}
+            subtext={`${displayWins} wins in ${matches.length} games`}
             accent="win"
           />
         )}
@@ -266,7 +267,12 @@ export default function FriendDetail() {
         {visibleChampions.length > 0 ? (
           <div className="grid gap-2 md:grid-cols-2">
             {visibleChampions.map((c) => (
-              <ChampionRow key={c.champion_id} champ={c} champData={champData} />
+              <ChampionRow
+                key={c.champion_id}
+                champ={c}
+                champData={champData}
+                invertWinRate={enemies}
+              />
             ))}
           </div>
         ) : (
@@ -333,9 +339,50 @@ function EmptyState({ text }: { text: string }) {
   );
 }
 
-function ChampionRow({ champ, champData }: { champ: TeammateChampionStats; champData: any }) {
+function RelationChips({
+  enemies,
+  onSelect,
+}: {
+  enemies: boolean;
+  onSelect: (relation: "friends" | "enemies") => void;
+}) {
+  return (
+    <div className="flex items-center gap-1 rounded-lg border border-lol-border bg-lol-card p-1">
+      {(["friends", "enemies"] as const).map((relation) => {
+        const active = relation === (enemies ? "enemies" : "friends");
+        return (
+          <button
+            key={relation}
+            type="button"
+            onClick={() => onSelect(relation)}
+            className={`rounded-md px-2.5 py-1 text-[11px] font-bold tracking-wider transition-colors ${
+              active
+                ? relation === "enemies"
+                  ? "bg-lol-gold/15 text-lol-gold"
+                  : "bg-lol-crimson/15 text-lol-crimson"
+                : "text-lol-text hover:text-lol-text-bright"
+            }`}
+          >
+            {relation === "friends" ? "FRIENDS" : "FOES"}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+function ChampionRow({
+  champ,
+  champData,
+  invertWinRate = false,
+}: {
+  champ: TeammateChampionStats;
+  champData: any;
+  invertWinRate?: boolean;
+}) {
   const ratio =
     champ.deaths > 0 ? (champ.kills + champ.assists) / champ.deaths : champ.kills + champ.assists;
+  const wins = invertWinRate ? champ.games - champ.wins : champ.wins;
 
   return (
     <div className="flex items-center gap-2 border-b border-white/[0.04] px-3 py-2 transition-colors duration-[120ms] hover:bg-white/[0.03]">
@@ -356,7 +403,7 @@ function ChampionRow({ champ, champData }: { champ: TeammateChampionStats; champ
         </div>
       </div>
       <div className="w-28 shrink-0">
-        <WinRateBar wins={champ.wins} total={champ.games} />
+        <WinRateBar wins={wins} total={champ.games} />
       </div>
     </div>
   );
@@ -456,7 +503,7 @@ function SharedGameRow({
   onToggle: () => void;
   enemies: boolean;
 }) {
-  const isWin = !!match.win;
+  const isWin = enemies ? !match.win : !!match.win;
   const accent = isWin ? "bg-lol-win" : "bg-lol-loss";
   const tint = isWin ? "from-lol-win/12 to-lol-win/[0.04]" : "from-lol-loss/12 to-lol-loss/[0.04]";
   // Both bars scale off the same game bests, so the two sides are comparable
