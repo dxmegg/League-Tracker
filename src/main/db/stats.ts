@@ -2143,8 +2143,9 @@ export function getOwnedItemDetail(itemId: number, patch?: string, queue?: numbe
           `WITH target_participants AS (
                SELECT mp.game_id, mp.participant_id, mp.win
                FROM match_participants mp
-               WHERE mp.game_id IN (${pairingGamePlaceholders})
-               AND (
+              JOIN games g ON g.game_id = mp.game_id AND g.puuid = mp.puuid
+              WHERE mp.game_id IN (${pairingGamePlaceholders})
+              AND (
                    mp.item0 = ? OR mp.item1 = ? OR mp.item2 = ? OR mp.item3 = ? OR
                    mp.item4 = ? OR mp.item5 = ? OR mp.item6 = ?
                )

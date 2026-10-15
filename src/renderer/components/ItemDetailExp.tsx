@@ -84,6 +84,7 @@ export function ItemDetailExp() {
   const [championSort, setChampionSort] = useState<ChampionSort>("games");
   const [championSortDesc, setChampionSortDesc] = useState(true);
   const [championPage, setChampionPage] = useState(1);
+  const [zoomOpen, setZoomOpen] = useState(false);
   const { data, loading } = useIpc<ItemDetailData>(
     () => window.api.getOwnedItemDetail(id, undefined, queue),
     [id, queue],
@@ -171,52 +172,56 @@ export function ItemDetailExp() {
         ← Items
       </Link>
 
-      <div className="grid grid-cols-1 items-start gap-4 xl:grid-cols-[5rem_minmax(0,1fr)]">
-        <div className="min-w-0">
-          <div className="relative overflow-hidden rounded-[12px] border border-lol-border border-l-[#C9A45C] bg-black/10 p-1 shadow-[0_0_14px_rgba(201,164,92,0.12)]">
-            <ItemIcon itemId={id} size={64} />
-          </div>
-        </div>
-
-        <div className="min-w-0 rounded-[12px] border border-lol-border border-t-[#E5483F] border-t-[3px] bg-[radial-gradient(circle_at_top_right,rgba(229,72,63,0.08),transparent_55%),linear-gradient(180deg,var(--theme-card-hover),var(--theme-card))] p-4">
-          <div className="flex flex-wrap items-start justify-between gap-4">
-            <div>
-              <div className="text-[10px] font-bold uppercase tracking-wider text-lol-text">
-                Item detail
+      <div className="w-full">
+        <div className="flex flex-col gap-5 rounded-[12px] border border-lol-border border-t-[#E5483F] border-t-[3px] bg-[radial-gradient(circle_at_top_right,rgba(229,72,63,0.08),transparent_55%),linear-gradient(180deg,var(--theme-card-hover),var(--theme-card))] p-5 md:flex-row">
+          <button
+            type="button"
+            className="h-20 w-20 shrink-0 cursor-zoom-in self-start rounded-md border border-lol-border bg-black/10 p-1 text-left shadow-[0_0_14px_rgba(201,164,92,0.12)]"
+            onClick={() => setZoomOpen(true)}
+            aria-label={`Enlarge ${getItemName(items, id)} icon`}
+          >
+            <ItemIcon itemId={id} size={80} />
+          </button>
+          <div className="min-w-0 flex-1">
+            <div className="flex flex-wrap items-start justify-between gap-4">
+              <div>
+                <div className="text-[10px] font-bold uppercase tracking-wider text-lol-text">
+                  Item detail
+                </div>
+                <h1 className="mt-1 font-display text-[28px] font-bold leading-tight text-lol-text-bright">
+                  {getItemName(items, id)}
+                </h1>
               </div>
-              <h1 className="mt-1 font-display text-[28px] font-bold leading-tight text-lol-text-bright">
-                {getItemName(items, id)}
-              </h1>
+              <div className="rounded-lg border border-lol-border bg-black/10 px-3 py-2 text-right">
+                <div className="text-[10px] font-bold uppercase tracking-wider text-lol-text">
+                  Built
+                </div>
+                <div className="mt-1 text-lg font-bold tabular-nums text-lol-text-bright">
+                  {data.picks.toLocaleString()}
+                </div>
+                <div className="text-[11px] text-lol-text">games</div>
+              </div>
             </div>
-            <div className="rounded-lg border border-lol-border bg-black/10 px-3 py-2 text-right">
-              <div className="text-[10px] font-bold uppercase tracking-wider text-lol-text">
-                Built
-              </div>
-              <div className="mt-1 text-lg font-bold tabular-nums text-lol-text-bright">
-                {data.picks.toLocaleString()}
-              </div>
-              <div className="text-[11px] text-lol-text">games</div>
+            <div className="mt-5 text-sm leading-relaxed text-lol-text">
+              <RiotText markup={item?.description ?? "No item description available."} />
             </div>
-          </div>
-          <div className="mt-5 text-sm leading-relaxed text-lol-text">
-            <RiotText markup={item?.description ?? "No item description available."} />
-          </div>
-          {item?.from && item.from.length > 0 && (
-            <div className="mt-4 flex flex-wrap items-center gap-1.5">
-              <span className="mr-1 text-[10px] font-bold uppercase tracking-wider text-lol-text">
-                Components
-              </span>
-              {item.from.map((component, index) => (
-                <span
-                  key={component}
-                  className="flex items-center gap-1 rounded-lg border border-lol-border bg-black/10 p-1 transition-colors duration-120 hover:border-lol-crimson/40 hover:bg-white/[0.025]"
-                >
-                  {index > 0 && <span className="text-xs font-bold text-lol-gold">+</span>}
-                  <ItemIcon itemId={component} size={40} />
+            {item?.from && item.from.length > 0 && (
+              <div className="mt-4 flex flex-wrap items-center gap-1.5">
+                <span className="mr-1 text-[10px] font-bold uppercase tracking-wider text-lol-text">
+                  Components
                 </span>
-              ))}
-            </div>
-          )}
+                {item.from.map((component, index) => (
+                  <span
+                    key={component}
+                    className="flex items-center gap-1 rounded-lg border border-lol-border bg-black/10 p-1 transition-colors duration-120 hover:border-lol-crimson/40 hover:bg-white/[0.025]"
+                  >
+                    {index > 0 && <span className="text-xs font-bold text-lol-gold">+</span>}
+                    <ItemIcon itemId={component} size={40} />
+                  </span>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
@@ -307,6 +312,35 @@ export function ItemDetailExp() {
           </div>
         )}
       </Panel>
+
+      {zoomOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-6"
+          role="dialog"
+          aria-modal="true"
+          aria-label={`${getItemName(items, id)} enlarged icon`}
+          onClick={() => setZoomOpen(false)}
+        >
+          <div
+            className="relative rounded-xl border border-lol-border bg-lol-card p-5 shadow-2xl"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <button
+              type="button"
+              className="absolute right-2 top-2 rounded px-2 py-1 text-xs text-lol-text hover:bg-white/10 hover:text-lol-text-bright"
+              onClick={() => setZoomOpen(false)}
+              aria-label="Close enlarged icon"
+            >
+              ×
+            </button>
+            <img
+              src={`https://raw.communitydragon.org/latest/plugins/rcp-be-lol-game-data/global/default/assets/items/icons2d/${id}.png`}
+              alt={getItemName(items, id)}
+              className="h-64 w-64 object-contain"
+            />
+          </div>
+        </div>
+      )}
 
       <div>
         <div className="mb-3 flex flex-wrap items-end justify-between gap-3">
