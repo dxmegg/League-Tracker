@@ -1,6 +1,5 @@
 import type {
   AccountListItem,
-  HomeDashboardPayload,
   RecordMatchRef,
   RecordsData,
   StatRecord,
@@ -9,7 +8,6 @@ import type {
 import { formatDuration } from "../lib/format";
 import ChampionIcon from "./ChampionIcon";
 import { RecordTile } from "./RecordTile";
-import StatCard from "./StatCard";
 import QueueSelect from "./QueueSelect";
 import { FilterSelect } from "./FilterSelect";
 import { Panel } from "./Panel";
@@ -93,28 +91,20 @@ function StandardRecordTile({
 export function RecordsExp({
   data,
   accountName,
-  dashboard,
   queue,
   onQueueChange,
   account,
   accounts,
   onAccountChange,
-  scopeLabel,
 }: {
   data: RecordsData | null;
   accountName?: string;
-  dashboard: HomeDashboardPayload | null;
   queue: number | undefined;
   onQueueChange: (queue: number | undefined) => void;
   account: string | undefined;
   accounts: AccountListItem[];
   onAccountChange: (account: string | undefined) => void;
-  scopeLabel: string;
 }) {
-  const summary = dashboard?.summary;
-  const totalGames = summary?.totalGames ?? data?.totalGames ?? 0;
-  const winRate =
-    summary && summary.totalGames > 0 ? Math.round((summary.wins / summary.totalGames) * 100) : 0;
   const accountOptions = accounts.map((item) => ({
     value: item.puuid,
     label: `${item.gameName ?? "Unknown account"}${item.tagLine ? `#${item.tagLine}` : ""}`,
@@ -272,20 +262,6 @@ export function RecordsExp({
           </div>
           {controls}
         </div>
-      </div>
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <StatCard
-          label="Total Games"
-          value={totalGames.toLocaleString()}
-          subtext="In current scope"
-        />
-        <StatCard label="Win Rate" value={`${winRate}%`} subtext={`${summary?.wins ?? 0} wins`} />
-        <StatCard
-          label="Accounts"
-          value={(summary?.accounts ?? accounts.length).toLocaleString()}
-          subtext="With recorded games"
-        />
-        <StatCard label="Active Scope" value={scopeLabel} subtext="Queue · account" />
       </div>
       <div>
         <SectionHeading title="Personal bests" />

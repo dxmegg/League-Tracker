@@ -17,7 +17,7 @@ import QueueSelect, { queueLabel } from "../components/QueueSelect";
 import { FilterSelect } from "../components/FilterSelect";
 import { Panel } from "../components/Panel";
 import { SectionHeading } from "../components/SectionHeading";
-import StatCard, { type StatAccent } from "../components/StatCard";
+import { type StatAccent } from "../components/StatCard";
 import {
   CoinsIcon,
   CrosshairIcon,
@@ -38,7 +38,7 @@ import {
 } from "../components/icons";
 import { formatDuration, formatKDA, kdaRatio } from "../lib/format";
 import { scoreColor } from "../../shared/opScore";
-import type { AccountListItem, HomeDashboardPayload } from "../lib/types";
+import type { AccountListItem } from "../lib/types";
 import { useActiveTheme } from "../hooks/useActiveTheme";
 import { useActiveAccount } from "../hooks/useActiveAccount";
 import { RecordsExp } from "../components/RecordsExp";
@@ -444,10 +444,6 @@ export default function Records() {
     () => window.api.getRecords(scopedQueue, accountForFetch),
     [scopedQueue, accountForFetch],
   );
-  const { data: dashboard, refetch: refetchDashboard } = useIpc<HomeDashboardPayload>(
-    () => window.api.getHomeDashboard(accountForFetch, "full", scopedQueue),
-    [scopedQueue, accountForFetch],
-  );
   const champData = useChampionData();
   const [puuids, setPuuids] = useState<string[] | null>(null);
   const [openMatch, setOpenMatch] = useState<RecordMatchRef | null>(null);
@@ -468,10 +464,9 @@ export default function Records() {
   useEffect(() => {
     const unsub = window.api.onGamesUpdated(() => {
       void refetch();
-      void refetchDashboard();
     });
     return unsub;
-  }, [refetch, refetchDashboard]);
+  }, [refetch]);
 
   if (isExperiment) {
     const activeAccount = accounts.find((item) => item.puuid === accountForFetch);
@@ -479,18 +474,15 @@ export default function Records() {
       ? `${activeAccount.gameName ?? "Unknown account"}${activeAccount.tagLine ? `#${activeAccount.tagLine}` : ""}`
       : undefined;
     const accountValue = accountForFetch === "all" ? undefined : accountForFetch;
-    const scopeLabel = `${scopedQueue == null ? "All queues" : queueLabel(scopedQueue)} · ${accountName ?? "All accounts"}`;
     return (
       <RecordsExp
         data={data}
         accountName={accountName}
-        dashboard={dashboard}
         queue={queue}
         onQueueChange={setQueue}
         account={accountValue}
         accounts={accounts}
         onAccountChange={setAccount}
-        scopeLabel={scopeLabel}
       />
     );
   }
@@ -509,14 +501,10 @@ export default function Records() {
     />
   );
 
-  const summary = dashboard?.summary;
-  const winRate =
-    summary && summary.totalGames > 0 ? Math.round((summary.wins / summary.totalGames) * 100) : 0;
   const activeAccount = accounts.find((item) => item.puuid === accountForFetch);
   const activeAccountName = activeAccount
     ? `${activeAccount.gameName ?? "Unknown account"}${activeAccount.tagLine ? `#${activeAccount.tagLine}` : ""}`
     : "All accounts";
-  const activeScope = `${scopedQueue == null ? "All queues" : queueLabel(scopedQueue)} · ${activeAccountName}`;
   const header = (
     <div className="shrink-0 rounded-xl border border-lol-border border-t-[3px] border-t-lol-crimson bg-[radial-gradient(circle_at_top_right,color-mix(in_oklab,var(--theme-crimson)_10%,transparent),transparent_46%),linear-gradient(180deg,var(--theme-card-hover),var(--theme-card))] px-5 py-4">
       <div className="flex flex-wrap items-start justify-between gap-4">
@@ -571,21 +559,6 @@ export default function Records() {
   return (
     <div className="mx-auto flex min-h-full w-full max-w-[1320px] flex-col gap-5">
       {header}
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <StatCard
-          label="Total Games"
-          value={(summary?.totalGames ?? data.totalGames).toLocaleString()}
-          subtext="In current scope"
-        />
-        <StatCard label="Win Rate" value={`${winRate}%`} subtext={`${summary?.wins ?? 0} wins`} />
-        <StatCard
-          label="Accounts"
-          value={(summary?.accounts ?? accounts.length).toLocaleString()}
-          subtext="With recorded games"
-        />
-        <StatCard label="Active Scope" value={activeScope} subtext="Queue · account" />
-      </div>
-
       <div>
         <SectionHeading title="Personal bests" />
         <Panel>
