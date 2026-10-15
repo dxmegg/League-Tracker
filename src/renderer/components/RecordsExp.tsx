@@ -90,6 +90,50 @@ function StandardRecordTile({
   );
 }
 
+function FlawlessAceTile({ record }: { record: StatRecord }) {
+  return (
+    <RecordTile
+      label="Flawless Ace"
+      value={record.value}
+      championId={record.match.champion_id}
+      win={record.match.win}
+      gameCreation={record.match.game_creation}
+      gameId={String(record.match.game_id)}
+      formatValue={(value) => value.toFixed(2)}
+    />
+  );
+}
+
+function TopDamageGames({ games }: { games: NonNullable<RecordsData["topDamageGames"]> }) {
+  if (games.length === 0) return null;
+  return (
+    <Panel>
+      <div className="divide-y divide-lol-border/60">
+        {games.map((game, index) => (
+          <div key={game.gameId} className="flex items-center gap-3 px-3.5 py-3">
+            <span className="w-5 text-center font-display text-lg font-bold text-lol-gold">
+              {index + 1}
+            </span>
+            <ChampionIcon championId={game.championId} size={30} className="rounded-full" />
+            <div className="min-w-0 flex-1">
+              <div className="text-sm font-semibold text-lol-text-bright">
+                {game.damage.toLocaleString()} total damage
+              </div>
+              <div className="text-xs text-lol-text">
+                <span className={game.win ? "text-lol-win" : "text-lol-loss"}>
+                  {game.win ? "WIN" : "LOSS"}
+                </span>
+                {" · "}
+                {recordDate(game.gameCreation)}
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+    </Panel>
+  );
+}
+
 export function RecordsExp({
   data,
   error,
@@ -304,6 +348,55 @@ export function RecordsExp({
           <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">{tiles}</div>
         </Panel>
       </div>
+      {(data.visionScore ||
+        data.wardsPlaced ||
+        data.turretDamage ||
+        data.objectiveDamage ||
+        data.fastestPentakill ||
+        data.flawlessAce) && (
+        <div className="grid grid-cols-1 gap-5 lg:grid-cols-3">
+          <div className="lg:col-span-2">
+            <SectionHeading title="Vision" />
+            <Panel>
+              <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
+                {data.visionScore && (
+                  <StandardRecordTile label="Highest vision score" record={data.visionScore} />
+                )}
+                {data.wardsPlaced && (
+                  <StandardRecordTile label="Most wards placed" record={data.wardsPlaced} />
+                )}
+                {data.turretDamage && (
+                  <StandardRecordTile label="Most turret damage" record={data.turretDamage} />
+                )}
+                {data.objectiveDamage && (
+                  <StandardRecordTile label="Most objective damage" record={data.objectiveDamage} />
+                )}
+              </div>
+            </Panel>
+          </div>
+          <div>
+            <SectionHeading title="Survival" />
+            <Panel>
+              <div className="grid grid-cols-1 gap-5">
+                {data.fastestPentakill && (
+                  <StandardRecordTile
+                    label="Fastest pentakill"
+                    record={data.fastestPentakill}
+                    formatValue={formatDuration}
+                  />
+                )}
+                {data.flawlessAce && <FlawlessAceTile record={data.flawlessAce} />}
+              </div>
+            </Panel>
+          </div>
+        </div>
+      )}
+      {data.topDamageGames && data.topDamageGames.length > 0 && (
+        <div>
+          <SectionHeading title="Top 5 damage" />
+          <TopDamageGames games={data.topDamageGames} />
+        </div>
+      )}
     </div>
   );
 }

@@ -15,6 +15,7 @@ import type {
   OwnedItemStatsResult,
   RecordsData,
   RoleBreakdown,
+  StatRecord,
 } from "../../shared/api";
 import { getChampionClasses } from "../dragon";
 import {
@@ -4030,9 +4031,12 @@ export function getRecords(
              ps.champion_id, ps.win, ps.kills, ps.deaths, ps.assists,
              ps.total_damage_dealt, ps.total_damage_taken,
              ps.gold_earned, ps.total_heal, ps.largest_killing_spree, ps.score, ps.score_raw,
-             ps.total_damage_dealt_all, ps.true_damage_dealt, ps.cs, ps.largest_critical_strike
+             ps.total_damage_dealt_all, ps.true_damage_dealt, ps.cs, ps.largest_critical_strike,
+             ps.penta_kills,
+             mp.vision_score, mp.wards_placed, mp.damage_to_turrets, mp.damage_to_objectives
       FROM games g
       JOIN ${source.table} ps ON g.game_id = ps.game_id
+      LEFT JOIN match_participants mp ON mp.game_id = ps.game_id AND mp.puuid = ps.puuid
       WHERE ${where.join(" AND ")} ${timeFilter.sql}
       ORDER BY ps.puuid ASC, g.game_creation ASC, g.game_id ASC
     `)
@@ -4097,6 +4101,22 @@ export function getRecords(
       let lossStreak: Streak | null = null;
       let run: { win: number; length: number; start: number } | null = null;
       let lastPuuid: string | null = null;
+      let visionScore: StatRecord | undefined;
+      let wardsPlaced: StatRecord | undefined;
+      let turretDamage: StatRecord | undefined;
+      let objectiveDamage: StatRecord | undefined;
+      let fastestPentakill: StatRecord | undefined;
+      let flawlessAce: StatRecord | undefined;
+      const topDamageGames: NonNullable<RecordsData["topDamageGames"]> = [];
+      const trackExtra = (
+        current: StatRecord | undefined,
+        value: number | null,
+        row: any,
+        better = higher,
+      ): StatRecord | undefined => {
+        if (value == null || (current && !better(value, current.value))) return current;
+        return { value, match: matchOf(row) };
+      };
 
       for (const r of rows) {
         if (NO_STATS_QUEUE_IDS.includes(r.queue_id)) continue;
@@ -4122,6 +4142,23 @@ export function getRecords(
         if (r.win) track("fastestWin", r.game_duration, r, lower);
         else track("fastestLoss", r.game_duration, r, lower);
         track("longestGame", r.game_duration, r);
+        visionScore = trackExtra(visionScore, r.vision_score, r);
+        wardsPlaced = trackExtra(wardsPlaced, r.wards_placed, r);
+        turretDamage = trackExtra(turretDamage, r.damage_to_turrets, r);
+        objectiveDamage = trackExtra(objectiveDamage, r.damage_to_objectives, r);
+        if (r.penta_kills >= 1) {
+          fastestPentakill = trackExtra(fastestPentakill, r.game_duration, r, lower);
+        }
+        if (!r.win && r.deaths === 0) {
+          flawlessAce = trackExtra(flawlessAce, r.score_raw, r);
+        }
+        topDamageGames.push({
+          gameId: String(r.game_id),
+          championId: r.champion_id,
+          damage: r.total_damage_dealt,
+          win: Boolean(r.win),
+          gameCreation: r.game_creation,
+        });
 
         // Remakes never make it into rows, so they can't break a streak
         if (!run || run.win !== r.win || lastPuuid !== r.puuid) {
@@ -4142,7 +4179,20 @@ export function getRecords(
         }
       }
 
-      return { totalGames: rows.length, bests, winStreak, lossStreak };
+      topDamageGames.sort((a, b) => b.damage - a.damage);
+      return {
+        totalGames: rows.length,
+        bests,
+        winStreak,
+        lossStreak,
+        visionScore,
+        wardsPlaced,
+        turretDamage,
+        objectiveDamage,
+        fastestPentakill,
+        flawlessAce,
+        topDamageGames: topDamageGames.slice(0, 5),
+      };
     },
   );
 }

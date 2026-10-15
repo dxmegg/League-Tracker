@@ -1262,6 +1262,19 @@ export interface RecordsData {
   };
   winStreak: StreakRecord | null;
   lossStreak: StreakRecord | null;
+  visionScore?: StatRecord;
+  wardsPlaced?: StatRecord;
+  turretDamage?: StatRecord;
+  objectiveDamage?: StatRecord;
+  fastestPentakill?: StatRecord;
+  flawlessAce?: StatRecord;
+  topDamageGames?: Array<{
+    gameId: string;
+    championId: number;
+    damage: number;
+    win: boolean;
+    gameCreation: number;
+  }>;
 }
 
 export interface ChampionRecord {
