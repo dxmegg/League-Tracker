@@ -1263,18 +1263,18 @@ export function getRoleBreakdown(
 ): RoleBreakdown[] {
   console.log("[db] getRoleBreakdown called:", { account, queue, timePeriod });
   const source = statsSource(account);
-  const where: string[] = [
-    "g.is_remake = 0",
-    source.accountFilter,
-    "mp.team_position IN ('TOP', 'JUNGLE', 'MIDDLE', 'BOTTOM', 'UTILITY')",
-  ];
+  const where: string[] = ["g.is_remake = 0", source.accountFilter];
   const params: any[] = account && account !== "all" ? [account] : [];
   applyQueueFilter(where, params, queue);
   const timeFilter = applyTimeFilter(timePeriod);
   const rows = db
     .prepare(`
       SELECT
-        mp.team_position AS role,
+        CASE
+          WHEN mp.team_position IN ('TOP', 'JUNGLE', 'MIDDLE', 'BOTTOM', 'UTILITY')
+            THEN mp.team_position
+          ELSE 'NO_POSITION'
+        END AS role,
         COUNT(*) AS games,
         SUM(CASE WHEN ps.win = 1 THEN 1 ELSE 0 END) AS wins
       FROM ${source.table} ps
@@ -1283,18 +1283,27 @@ export function getRoleBreakdown(
         ON mp.game_id = ps.game_id
        AND mp.puuid = ps.puuid
       WHERE ${where.join(" AND ")} ${timeFilter.sql}
-      GROUP BY mp.team_position
-      ORDER BY games DESC
+      GROUP BY role
+      ORDER BY CASE role
+        WHEN 'TOP' THEN 1
+        WHEN 'JUNGLE' THEN 2
+        WHEN 'MIDDLE' THEN 3
+        WHEN 'BOTTOM' THEN 4
+        WHEN 'UTILITY' THEN 5
+        ELSE 6
+      END
     `)
     .all(...params, ...timeFilter.params) as Array<{
     role: RoleBreakdown["role"];
     games: number;
     wins: number;
   }>;
-  const result = rows.map((row) => ({
-    ...row,
-    winRate: row.games > 0 ? (row.wins / row.games) * 100 : 0,
-  }));
+  const result = rows
+    .map((row) => ({
+      ...row,
+      winRate: row.games > 0 ? (row.wins / row.games) * 100 : 0,
+    }))
+    .filter((row) => row.games > 0);
   console.log("[db] getRoleBreakdown done:", { count: result.length });
   return result;
 }

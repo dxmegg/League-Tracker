@@ -66,8 +66,19 @@ const ROLE_LABELS: Record<RoleBreakdown["role"], string> = {
   MIDDLE: "Mid",
   BOTTOM: "ADC",
   UTILITY: "Support",
+  NO_POSITION: "No position",
 };
-const ROLE_ORDER: RoleBreakdown["role"][] = ["TOP", "JUNGLE", "MIDDLE", "BOTTOM", "UTILITY"];
+
+function EmptyState({ text }: { text: string }) {
+  return (
+    <div className="rounded-md border border-dashed border-white/[0.08] bg-white/[0.02] px-4 py-3 text-lol-text/70">
+      <span className="mr-2" aria-hidden="true">
+        ⓘ
+      </span>
+      {text}
+    </div>
+  );
+}
 
 function StatValue({
   label,
@@ -602,6 +613,17 @@ export default function Home() {
   const visibleTopChampions = showAllChampions
     ? sortedTopChampions
     : sortedTopChampions.slice(0, 20);
+  const visibleRoles = roleBreakdown.filter((role) => role.games > 0);
+  const roleGridClass =
+    visibleRoles.length <= 1
+      ? "grid-cols-1"
+      : visibleRoles.length === 2
+        ? "grid-cols-2"
+        : visibleRoles.length === 3
+          ? "grid-cols-2 sm:grid-cols-3"
+          : visibleRoles.length === 4
+            ? "grid-cols-2 sm:grid-cols-4"
+            : "grid-cols-2 sm:grid-cols-3 xl:grid-cols-6";
 
   useEffect(() => {
     getAccountsWithData()
@@ -815,40 +837,59 @@ export default function Home() {
                   <span className="mr-2 inline-block h-1.5 w-1.5 rotate-45 bg-lol-crimson align-middle" />
                   Roles
                 </h2>
-                <p className="mt-1 text-[12px] text-lol-text">By position (Ranked + Normal only)</p>
+                <p className="mt-1 text-[12px] text-lol-text">By position and queue type</p>
               </div>
               <span className="text-[13px] text-lol-text">
                 {timePeriod === "full" ? "All time" : `Last ${timePeriod}`}
               </span>
             </div>
-            <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 xl:grid-cols-5">
-              {ROLE_ORDER.map((role) => {
-                const stats = roleBreakdown.find((entry) => entry.role === role);
-                return (
-                  <div
-                    key={role}
-                    className={`rounded-xl border border-lol-border border-t-[3px] border-t-lol-crimson/50 bg-black/10 px-3.5 py-3 ${
-                      stats ? "" : "opacity-45"
-                    }`}
-                  >
-                    <div className="mb-2 flex items-center gap-2">
-                      <span className="flex h-7 w-7 items-center justify-center rounded-md bg-lol-crimson/15 font-display text-xs font-bold text-lol-crimson">
-                        {role === "MIDDLE" ? "M" : role === "UTILITY" ? "S" : role[0]}
-                      </span>
-                      <span className="font-display text-sm font-semibold text-lol-text-bright">
-                        {ROLE_LABELS[role]}
-                      </span>
+            {visibleRoles.length === 0 ? (
+              <EmptyState text="No role data for this period. Roles require Ranked or Normal games with a stored position." />
+            ) : (
+              <div className={`grid gap-2.5 ${roleGridClass}`}>
+                {visibleRoles.map((stats) => {
+                  const noPosition = stats.role === "NO_POSITION";
+                  return (
+                    <div
+                      key={stats.role}
+                      className="rounded-xl border border-lol-border border-t-[3px] border-t-lol-crimson/50 bg-black/10 px-3.5 py-3"
+                    >
+                      <div className="mb-2 flex items-center gap-2">
+                        <span
+                          className={`flex h-7 w-7 items-center justify-center rounded-md font-display text-xs font-bold ${
+                            noPosition
+                              ? "bg-lol-text/10 text-lol-text"
+                              : "bg-lol-crimson/15 text-lol-crimson"
+                          }`}
+                        >
+                          {noPosition
+                            ? "—"
+                            : stats.role === "MIDDLE"
+                              ? "M"
+                              : stats.role === "UTILITY"
+                                ? "S"
+                                : stats.role[0]}
+                        </span>
+                        <div>
+                          <span className="block font-display text-sm font-semibold text-lol-text-bright">
+                            {ROLE_LABELS[stats.role]}
+                          </span>
+                          <span className="block text-[11px] text-lol-text">
+                            {noPosition ? "ARAM / Arena / Other" : "Ranked / Normal"}
+                          </span>
+                        </div>
+                      </div>
+                      <div className="font-display text-xl font-bold text-lol-text-bright">
+                        {stats.games} games
+                      </div>
+                      <div className="mt-1 text-xs text-lol-text">
+                        {Math.round(stats.winRate)}% win
+                      </div>
                     </div>
-                    <div className="font-display text-xl font-bold text-lol-text-bright">
-                      {stats?.games ?? 0} games
-                    </div>
-                    <div className="mt-1 text-xs text-lol-text">
-                      {stats ? `${Math.round(stats.winRate)}% win` : "No games"}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
+                  );
+                })}
+              </div>
+            )}
           </Panel>
 
           {/* Last 20 played games: 12 columns */}

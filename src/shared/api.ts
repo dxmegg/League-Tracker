@@ -899,7 +899,7 @@ export type HomeTimePeriod = "24h" | "7d" | "30d" | "full";
 export type HomeAccountFilter = string | "all" | undefined;
 
 export interface RoleBreakdown {
-  role: "TOP" | "JUNGLE" | "MIDDLE" | "BOTTOM" | "UTILITY";
+  role: "TOP" | "JUNGLE" | "MIDDLE" | "BOTTOM" | "UTILITY" | "NO_POSITION";
   games: number;
   wins: number;
   winRate: number;
