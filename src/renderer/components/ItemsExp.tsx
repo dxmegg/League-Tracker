@@ -307,6 +307,9 @@ export function ItemsExp() {
   const sorted = useMemo(() => {
     const copy = [...visibleRows];
     copy.sort((a, b) => {
+      if (a.isTrinket !== b.isTrinket) {
+        return a.isTrinket ? 1 : -1;
+      }
       const wrA = a.picks > 0 ? (a.wins / a.picks) * 100 : 0;
       const wrB = b.picks > 0 ? (b.wins / b.picks) * 100 : 0;
       const deltaA = wrA - avgWinRate;
@@ -331,10 +334,12 @@ export function ItemsExp() {
   }, [avgWinRate, risingDeltaByItem, sortMode, visibleRows]);
 
   const highlights = useMemo(() => {
-    const mostBuilt = rows.reduce<OwnedItemStats | null>(
-      (best, row) => (!best || row.picks > best.picks ? row : best),
-      null,
-    );
+    const mostBuilt = rows
+      .filter((row) => !row.isTrinket)
+      .reduce<OwnedItemStats | null>(
+        (best, row) => (!best || row.picks > best.picks ? row : best),
+        null,
+      );
     const bestWinRate =
       rows
         .filter((row) => row.picks >= 25)
@@ -625,6 +630,11 @@ export function ItemsExp() {
                             <span className="flex items-center gap-3 text-sm font-bold text-lol-text-bright">
                               <ItemIcon itemId={row.item_id} size={28} patch={patch} />
                               {getItemName(itemData, row.item_id)}
+                              {row.isTrinket && (
+                                <span className="rounded border border-lol-border/60 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wider text-lol-text">
+                                  Trinket
+                                </span>
+                              )}
                             </span>
                           </td>
                           <td className="px-3 py-2 text-left text-xs text-lol-text">
@@ -684,6 +694,11 @@ export function ItemsExp() {
                         <span className="truncate text-sm font-bold text-lol-text-bright">
                           {getItemName(itemData, row.item_id)}
                         </span>
+                        {row.isTrinket && (
+                          <span className="w-fit rounded border border-lol-border/60 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wider text-lol-text">
+                            Trinket
+                          </span>
+                        )}
                       </div>
                       <div className="text-[11px] text-lol-text">
                         {item?.branch && item.price != null

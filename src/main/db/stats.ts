@@ -29,6 +29,8 @@ import {
 import { displayName, participantRowsFromRaw } from "./payloads";
 import { groupByGame, scoreInputsFromRows, SCORE_ROW_COLUMNS, type ScoreRow } from "./scoring";
 
+const TRINKET_ITEM_IDS = [3340, 3363, 3364, 3348] as const;
+
 export interface ChampionRoleStat {
   role: string;
   games: number;
@@ -1403,6 +1405,7 @@ export function getChampionItemStats(
   item_id: number;
   picks: number;
   wins: number;
+  isTrinket: boolean;
   avgBuyTime: number | null;
   commonPurchaseSlot: number | null;
 }> {
@@ -1431,8 +1434,9 @@ export function getChampionItemStats(
     ...(championId !== null ? [championId] : []),
     ...extraParams,
   ]);
-  return db
-    .prepare(`
+  return (
+    db
+      .prepare(`
     WITH item_occurrences AS (
       ${itemCols.map(subquery).join("\n      UNION ALL\n      ")}
     ),
@@ -1476,13 +1480,17 @@ export function getChampionItemStats(
     GROUP BY io.item_id
     ORDER BY picks DESC
   `)
-    .all(...params) as Array<{
-    item_id: number;
-    picks: number;
-    wins: number;
-    avgBuyTime: number | null;
-    commonPurchaseSlot: number | null;
-  }>;
+      .all(...params) as Array<{
+      item_id: number;
+      picks: number;
+      wins: number;
+      avgBuyTime: number | null;
+      commonPurchaseSlot: number | null;
+    }>
+  ).map((row) => ({
+    ...row,
+    isTrinket: TRINKET_ITEM_IDS.includes(row.item_id as (typeof TRINKET_ITEM_IDS)[number]),
+  }));
 }
 
 // The id the Friends list keys a teammate on — puuid when we know it, so name
@@ -1988,6 +1996,7 @@ export function getOwnedItemStats(
       SELECT summary.item_id,
              summary.picks,
              summary.wins,
+             summary.item_id IN (${TRINKET_ITEM_IDS.join(", ")}) AS isTrinket,
              averages.avg_buy_time_ms AS avgBuyTimeMs,
              cs.purchase_slot AS commonPurchaseSlot
       FROM item_summary summary
@@ -1995,7 +2004,13 @@ export function getOwnedItemStats(
       LEFT JOIN common_slots cs ON cs.item_id = summary.item_id
       ORDER BY picks DESC
     `)
-    .all(...columns.flatMap(() => params)) as OwnedItemStats[];
+    .all(...columns.flatMap(() => params)) as Array<
+    Omit<OwnedItemStats, "isTrinket"> & { isTrinket: number }
+  >;
+  const normalizedRows: OwnedItemStats[] = rows.map((row) => ({
+    ...row,
+    isTrinket: Boolean(row.isTrinket),
+  }));
   const scope = db
     .prepare(
       `SELECT COUNT(DISTINCT ps.game_id) AS totalGames
@@ -2003,10 +2018,10 @@ export function getOwnedItemStats(
        WHERE ${where.join(" AND ")}`,
     )
     .get(...params) as { totalGames: number };
-  const totalBuilds = rows.reduce((sum, row) => sum + row.picks, 0);
-  const totalWins = rows.reduce((sum, row) => sum + row.wins, 0);
-  const result = rows as OwnedItemStatsResult & OwnedItemStats[];
-  for (const row of rows) {
+  const totalBuilds = normalizedRows.reduce((sum, row) => sum + row.picks, 0);
+  const totalWins = normalizedRows.reduce((sum, row) => sum + row.wins, 0);
+  const result = normalizedRows as OwnedItemStatsResult & OwnedItemStats[];
+  for (const row of normalizedRows) {
     row.scopeTotalGames = scope.totalGames;
     row.scopeTotalBuilds = totalBuilds;
     row.scopeAvgWinRate = totalBuilds > 0 ? (totalWins / totalBuilds) * 100 : 0;
@@ -2084,11 +2099,92 @@ export function getOwnedItemDetail(itemId: number, patch?: string, queue?: numbe
       )
       .all(...totalParams) as { champion_id: number; games: number }[];
     const totalByChampion = new Map(championTotals.map((row) => [row.champion_id, row.games]));
+    const matchingGameIds = [...new Set(rows.map((row) => row.game_id))];
+    let avgBuyTimeMs: number | null = null;
+    let patchBreakdown: { patch: string; games: number; wins: number }[] = [];
+    let topPairings: { item_id: number; games: number; wins: number }[] = [];
+
+    if (matchingGameIds.length > 0) {
+      const gamePlaceholders = matchingGameIds.map(() => "?").join(", ");
+      const matchingGameParams = [...matchingGameIds];
+      avgBuyTimeMs =
+        (
+          db
+            .prepare(
+              `SELECT AVG(e.timestamp_ms) AS avgBuyTimeMs
+               FROM match_timeline_events e
+               WHERE e.event_type = 'ITEM_PURCHASED'
+                 AND e.item_id = ?
+                 AND e.game_id IN (${gamePlaceholders})`,
+            )
+            .get(itemId, ...matchingGameParams) as { avgBuyTimeMs: number | null }
+        ).avgBuyTimeMs ?? null;
+
+      patchBreakdown = db
+        .prepare(
+          `SELECT g.game_version AS patch, COUNT(*) AS games, SUM(ps.win) AS wins
+           FROM games g
+           JOIN player_stats ps ON ps.game_id = g.game_id
+           WHERE g.game_id IN (${gamePlaceholders})
+             AND g.game_version IS NOT NULL
+             AND g.game_version != ''
+           GROUP BY g.game_version
+           ORDER BY g.game_version DESC
+           LIMIT 8`,
+        )
+        .all(...matchingGameParams) as { patch: string; games: number; wins: number }[];
+
+      topPairings = db
+        .prepare(
+          `WITH paired_items AS (
+             SELECT mp.game_id, mp.item0 AS item_id FROM match_participants mp WHERE mp.game_id IN (${gamePlaceholders})
+             UNION ALL
+             SELECT mp.game_id, mp.item1 AS item_id FROM match_participants mp WHERE mp.game_id IN (${gamePlaceholders})
+             UNION ALL
+             SELECT mp.game_id, mp.item2 AS item_id FROM match_participants mp WHERE mp.game_id IN (${gamePlaceholders})
+             UNION ALL
+             SELECT mp.game_id, mp.item3 AS item_id FROM match_participants mp WHERE mp.game_id IN (${gamePlaceholders})
+             UNION ALL
+             SELECT mp.game_id, mp.item4 AS item_id FROM match_participants mp WHERE mp.game_id IN (${gamePlaceholders})
+             UNION ALL
+             SELECT mp.game_id, mp.item5 AS item_id FROM match_participants mp WHERE mp.game_id IN (${gamePlaceholders})
+             UNION ALL
+             SELECT mp.game_id, mp.item6 AS item_id FROM match_participants mp WHERE mp.game_id IN (${gamePlaceholders})
+           ),
+           distinct_pairings AS (
+             SELECT DISTINCT game_id, item_id
+             FROM paired_items
+             WHERE item_id > 0
+               AND item_id != ?
+               AND item_id NOT IN (${TRINKET_ITEM_IDS.join(", ")})
+           )
+           SELECT dp.item_id, COUNT(*) AS games, SUM(ps.win) AS wins
+           FROM distinct_pairings dp
+           JOIN player_stats ps ON ps.game_id = dp.game_id
+           GROUP BY dp.item_id
+           ORDER BY games DESC, dp.item_id ASC
+           LIMIT 8`,
+        )
+        .all(
+          ...matchingGameIds,
+          ...matchingGameIds,
+          ...matchingGameIds,
+          ...matchingGameIds,
+          ...matchingGameIds,
+          ...matchingGameIds,
+          ...matchingGameIds,
+          itemId,
+        ) as { item_id: number; games: number; wins: number }[];
+    }
+
     return {
       item_id: itemId,
       picks: rows.length,
       wins: rows.reduce((sum, row) => sum + row.win, 0),
       totalGames,
+      avgBuyTimeMs,
+      patchBreakdown,
+      topPairings,
       champions: [...champions.entries()]
         .map(([champion_id, value]) => ({
           champion_id,

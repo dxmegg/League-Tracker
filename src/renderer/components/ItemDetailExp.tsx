@@ -9,6 +9,8 @@ import ChampionIcon from "./ChampionIcon";
 import WinRateBar from "./WinRateBar";
 import RiotText from "./RiotText";
 import { SearchInput } from "./SearchInput";
+import { Panel } from "./Panel";
+import { formatDuration } from "../lib/format";
 
 const KPI_CLASSES = {
   gold: "border-t-[#C9A45C] bg-[radial-gradient(circle_at_top_right,rgba(201,164,92,0.10),transparent_70%)]",
@@ -38,6 +40,35 @@ function KpiTile({
       <div className="text-[10px] font-bold uppercase tracking-wider text-lol-text">{label}</div>
       <div className="mt-2 text-[26px] font-bold leading-none text-lol-text-bright">{value}</div>
       {caption && <div className="mt-1 text-xs text-lol-text">{caption}</div>}
+    </div>
+  );
+}
+
+function PanelHeading({ title }: { title: string }) {
+  return (
+    <div className="relative mb-4 flex items-baseline justify-between gap-3">
+      <h2 className="flex items-center gap-2 font-display text-[16px] font-semibold text-lol-text-bright">
+        <span
+          className="h-2 w-2 shrink-0 rotate-45 bg-[#E5483F] shadow-[0_0_6px_0_rgba(229,72,63,0.45)]"
+          aria-hidden="true"
+        />
+        <span>{title}</span>
+        <span className="rounded border border-lol-border/60 px-2 py-0.5 font-display text-[10px] font-semibold uppercase tracking-wider text-lol-text">
+          MATCH-V5
+        </span>
+      </h2>
+      <span
+        className="pointer-events-none absolute bottom-[-6px] left-0 h-px w-2/5 bg-gradient-to-r from-[#E5483F]/35 to-transparent"
+        aria-hidden="true"
+      />
+    </div>
+  );
+}
+
+function EmptyState({ text }: { text: string }) {
+  return (
+    <div className="rounded-md border border-dashed border-white/[0.08] bg-white/[0.02] px-4 py-3 text-lol-text/70">
+      {text}
     </div>
   );
 }
@@ -95,6 +126,13 @@ export function ItemDetailExp() {
     if (championPage > championPageCount) setChampionPage(championPageCount);
   }, [championPage, championPageCount]);
 
+  const averageGameDuration = useMemo(() => {
+    const matches = data?.champions.flatMap((row) => row.matches) ?? [];
+    return matches.length > 0
+      ? matches.reduce((total, match) => total + match.game_duration, 0) / matches.length
+      : null;
+  }, [data]);
+
   if (loading || !data) {
     return (
       <div className="mx-auto flex min-h-full w-full max-w-[1320px] items-center justify-center rounded-[14px] border border-lol-border p-12 text-sm text-lol-text">
@@ -117,7 +155,7 @@ export function ItemDetailExp() {
         ← Items
       </Link>
 
-      <div className="grid grid-cols-1 items-start gap-4 xl:grid-cols-[5rem_minmax(0,1fr)_14rem]">
+      <div className="grid grid-cols-1 items-start gap-4 xl:grid-cols-[5rem_minmax(0,1fr)]">
         <div className="min-w-0">
           <div className="relative overflow-hidden rounded-[12px] border border-lol-border border-l-[#C9A45C] bg-black/10 p-1 shadow-[0_0_14px_rgba(201,164,92,0.12)]">
             <ItemIcon itemId={id} size={64} />
@@ -164,27 +202,94 @@ export function ItemDetailExp() {
             </div>
           )}
         </div>
-
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3 xl:grid-cols-1">
-          <KpiTile
-            label="Price"
-            value={item?.price != null ? item.price.toLocaleString() : "—"}
-            className={KPI_CLASSES.gold}
-          />
-          <KpiTile
-            label="Win rate"
-            value={`${winRate.toFixed(1)}%`}
-            caption={`${data.wins}W ${data.picks - data.wins}L`}
-            className={KPI_CLASSES.green}
-          />
-          <KpiTile
-            label="Build rate"
-            value={`${buildRate.toFixed(1)}%`}
-            caption={`${data.picks.toLocaleString()} of ${data.totalGames.toLocaleString()} games`}
-            className={KPI_CLASSES.blue}
-          />
-        </div>
       </div>
+
+      <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+        <KpiTile
+          label="Price"
+          value={item?.price != null ? item.price.toLocaleString() : "—"}
+          className={KPI_CLASSES.gold}
+        />
+        <KpiTile
+          label="Win rate"
+          value={`${winRate.toFixed(1)}%`}
+          caption={`${data.wins}W ${data.picks - data.wins}L`}
+          className={KPI_CLASSES.green}
+        />
+        <KpiTile
+          label="Build rate"
+          value={`${buildRate.toFixed(1)}%`}
+          caption={`${data.picks.toLocaleString()} of ${data.totalGames.toLocaleString()} games`}
+          className={KPI_CLASSES.blue}
+        />
+      </div>
+      <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+        <KpiTile
+          label="Avg purchase"
+          value={
+            data.avgBuyTimeMs != null ? formatDuration(Math.floor(data.avgBuyTimeMs / 1000)) : "—"
+          }
+          className={KPI_CLASSES.gold}
+        />
+        <KpiTile
+          label="Avg duration"
+          value={
+            averageGameDuration != null ? formatDuration(Math.round(averageGameDuration)) : "—"
+          }
+          className={KPI_CLASSES.blue}
+        />
+      </div>
+
+      <Panel>
+        <PanelHeading title="Win rate by patch" />
+        {data.patchBreakdown.length === 0 ? (
+          <EmptyState text="No patch data available." />
+        ) : (
+          <div className="flex flex-col gap-2 text-xs">
+            {data.patchBreakdown.map((row) => {
+              const patch = row.patch.split(".").slice(0, 2).join(".");
+              return (
+                <div
+                  key={row.patch}
+                  className="grid grid-cols-[1fr_auto_auto] items-center gap-3 border-b border-white/[0.04] py-2 last:border-b-0"
+                >
+                  <span className="font-semibold text-lol-text-bright">{patch}</span>
+                  <span className="text-right tabular-nums">{row.games}</span>
+                  <span className="text-right tabular-nums">
+                    {row.games ? `${((row.wins / row.games) * 100).toFixed(1)}%` : "—"}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </Panel>
+
+      <Panel>
+        <PanelHeading title="Top pairings" />
+        {data.topPairings.length === 0 ? (
+          <EmptyState text="No pairing data." />
+        ) : (
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 xl:grid-cols-8">
+            {data.topPairings.map((pairing) => (
+              <Link
+                key={pairing.item_id}
+                to={`/history/${scope}/items/${pairing.item_id}`}
+                className="min-w-0 rounded-lg border border-lol-border bg-black/10 p-2 transition-colors duration-120 hover:border-lol-crimson/40 hover:bg-white/[0.025]"
+              >
+                <ItemIcon itemId={pairing.item_id} size={32} />
+                <div className="mt-2 truncate text-xs font-semibold text-lol-text-bright">
+                  {getItemName(items, pairing.item_id)}
+                </div>
+                <div className="mt-1 text-[10px] text-lol-text">
+                  {pairing.games} games,{" "}
+                  {pairing.games ? ((pairing.wins / pairing.games) * 100).toFixed(1) : "—"}% win
+                </div>
+              </Link>
+            ))}
+          </div>
+        )}
+      </Panel>
 
       <div>
         <div className="mb-3 flex flex-wrap items-end justify-between gap-3">

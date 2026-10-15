@@ -744,6 +744,7 @@ export interface ItemStats {
   item_id: number;
   picks: number;
   wins: number;
+  isTrinket: boolean;
   avgBuyTime?: number | null;
   commonPurchaseSlot?: number | null;
 }
@@ -802,6 +803,9 @@ export interface ItemDetail {
   picks: number;
   wins: number;
   totalGames: number;
+  avgBuyTimeMs: number | null;
+  patchBreakdown: { patch: string; games: number; wins: number }[];
+  topPairings: { item_id: number; games: number; wins: number }[];
   champions: {
     champion_id: number;
     games: number;
