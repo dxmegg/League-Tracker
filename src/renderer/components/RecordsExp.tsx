@@ -120,7 +120,8 @@ export function RecordsExp({
     label: `${item.gameName ?? "Unknown account"}${item.tagLine ? `#${item.tagLine}` : ""}`,
   }));
   const controls = (
-    <div className="mt-4 flex flex-wrap items-center gap-2">
+    <div className="flex shrink-0 flex-wrap items-center justify-end gap-2">
+      <QueueSelect value={queue} onChange={onQueueChange} variant="segmented" />
       <FilterSelect
         value={account}
         onChange={onAccountChange}
@@ -128,8 +129,8 @@ export function RecordsExp({
         title="Account"
         options={accountOptions}
         allowClear
+        variant="segmented"
       />
-      <QueueSelect value={queue} onChange={onQueueChange} />
     </div>
   );
 
@@ -137,8 +138,13 @@ export function RecordsExp({
     return (
       <div className="mx-auto flex min-h-full w-full max-w-[1320px] flex-col gap-5">
         <div className="relative overflow-hidden rounded-xl border border-lol-border border-t-[3px] border-t-lol-crimson bg-[radial-gradient(circle_at_top_right,color-mix(in_oklab,var(--theme-crimson)_10%,transparent),transparent_46%),linear-gradient(180deg,var(--theme-card-hover),var(--theme-card))] px-5 py-4">
-          <h1 className="font-display text-[30px] font-bold text-lol-text-bright">Records</h1>
-          {controls}
+          <div className="flex flex-wrap items-start justify-between gap-4">
+            <div>
+              <h1 className="font-display text-[30px] font-bold text-lol-text-bright">Records</h1>
+              <p className="mt-1.5 text-lol-text">Personal bests across all accounts</p>
+            </div>
+            {controls}
+          </div>
         </div>
         <div className="rounded-xl border border-lol-border bg-lol-card p-12 text-center">
           <p className="relative text-sm text-lol-text">Loading records…</p>
@@ -151,8 +157,13 @@ export function RecordsExp({
     return (
       <div className="mx-auto flex min-h-full w-full max-w-[1320px] flex-col gap-5">
         <div className="relative overflow-hidden rounded-xl border border-lol-border border-t-[3px] border-t-lol-crimson bg-[radial-gradient(circle_at_top_right,color-mix(in_oklab,var(--theme-crimson)_10%,transparent),transparent_46%),linear-gradient(180deg,var(--theme-card-hover),var(--theme-card))] px-5 py-4">
-          <h1 className="font-display text-[30px] font-bold text-lol-text-bright">Records</h1>
-          {controls}
+          <div className="flex flex-wrap items-start justify-between gap-4">
+            <div>
+              <h1 className="font-display text-[30px] font-bold text-lol-text-bright">Records</h1>
+              <p className="mt-1.5 text-lol-text">Personal bests across all accounts</p>
+            </div>
+            {controls}
+          </div>
         </div>
         <div className="relative overflow-hidden rounded-xl border border-lol-border border-t-[3px] border-t-lol-crimson bg-[linear-gradient(180deg,var(--theme-card-hover),var(--theme-card))] p-12 text-center">
           <p className="relative text-sm font-semibold text-lol-text-bright">No records yet</p>
@@ -248,13 +259,19 @@ export function RecordsExp({
   return (
     <div className="mx-auto flex min-h-full w-full max-w-[1320px] flex-col gap-5">
       <div className="shrink-0 overflow-hidden rounded-xl border border-lol-border border-t-[3px] border-t-lol-crimson bg-[radial-gradient(circle_at_top_right,color-mix(in_oklab,var(--theme-crimson)_10%,transparent),transparent_46%),linear-gradient(180deg,var(--theme-card-hover),var(--theme-card))] px-5 py-4">
-        <h1 className="relative pl-4 font-display text-[30px] font-bold leading-tight tracking-[0.2px] text-lol-text-bright before:absolute before:left-0 before:top-1/2 before:h-2.5 before:w-2.5 before:-translate-y-1/2 before:rotate-45 before:bg-lol-crimson">
-          Records
-        </h1>
-        <p className="relative mt-1.5 pl-4 text-lol-text">
-          {accountName ? `Personal bests for ${accountName}` : "Personal bests across all accounts"}
-        </p>
-        {controls}
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div>
+            <h1 className="relative pl-4 font-display text-[30px] font-bold leading-tight tracking-[0.2px] text-lol-text-bright before:absolute before:left-0 before:top-1/2 before:h-2.5 before:w-2.5 before:-translate-y-1/2 before:rotate-45 before:bg-lol-crimson">
+              Records
+            </h1>
+            <p className="relative mt-1.5 pl-4 text-lol-text">
+              {accountName
+                ? `Personal bests for ${accountName}`
+                : "Personal bests across all accounts"}
+            </p>
+          </div>
+          {controls}
+        </div>
       </div>
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <StatCard

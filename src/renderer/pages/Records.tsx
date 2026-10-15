@@ -505,6 +505,7 @@ export default function Records() {
         value: item.puuid,
         label: `${item.gameName ?? "Unknown account"}${item.tagLine ? `#${item.tagLine}` : ""}`,
       }))}
+      variant="segmented"
     />
   );
 
@@ -518,17 +519,21 @@ export default function Records() {
   const activeScope = `${scopedQueue == null ? "All queues" : queueLabel(scopedQueue)} · ${activeAccountName}`;
   const header = (
     <div className="shrink-0 overflow-hidden rounded-xl border border-lol-border border-t-[3px] border-t-lol-crimson bg-[radial-gradient(circle_at_top_right,color-mix(in_oklab,var(--theme-crimson)_10%,transparent),transparent_46%),linear-gradient(180deg,var(--theme-card-hover),var(--theme-card))] px-5 py-4">
-      <h1 className="relative pl-4 font-display text-[30px] font-bold leading-tight tracking-[0.2px] text-lol-text-bright before:absolute before:left-0 before:top-1/2 before:h-2.5 before:w-2.5 before:-translate-y-1/2 before:rotate-45 before:bg-lol-crimson">
-        Records
-      </h1>
-      <p className="relative mt-1.5 pl-4 text-lol-text">
-        {activeAccountName === "All accounts"
-          ? "Personal bests across all accounts"
-          : `Personal bests for ${activeAccountName}`}
-      </p>
-      <div className="mt-4 flex flex-wrap items-center gap-2">
-        {accountSelect}
-        <QueueSelect value={queue} onChange={setQueue} />
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <h1 className="relative pl-4 font-display text-[30px] font-bold leading-tight tracking-[0.2px] text-lol-text-bright before:absolute before:left-0 before:top-1/2 before:h-2.5 before:w-2.5 before:-translate-y-1/2 before:rotate-45 before:bg-lol-crimson">
+            Records
+          </h1>
+          <p className="relative mt-1.5 pl-4 text-lol-text">
+            {activeAccountName === "All accounts"
+              ? "Personal bests across all accounts"
+              : `Personal bests for ${activeAccountName}`}
+          </p>
+        </div>
+        <div className="flex shrink-0 flex-wrap items-center justify-end gap-2">
+          <QueueSelect value={queue} onChange={setQueue} variant="segmented" />
+          {accountSelect}
+        </div>
       </div>
     </div>
   );

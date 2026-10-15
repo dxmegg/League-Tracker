@@ -12,10 +12,14 @@ export default function QueueSelect({
   value,
   onChange,
   filter,
+  className,
+  variant,
 }: {
   value: number | undefined;
   onChange: (queue: number | undefined) => void;
   filter?: (queueId: number) => boolean;
+  className?: string;
+  variant?: "default" | "segmented";
 }) {
   const [queues, setQueues] = useState<number[]>([]);
   const scopedQueue = useHistoryScopeQueue();
@@ -44,6 +48,8 @@ export default function QueueSelect({
       onChange={(v) => onChange(v)}
       placeholder="All Queues"
       title="Queue"
+      className={className}
+      variant={variant}
       options={visibleQueues.map((q) => ({
         value: q,
         label: q === QUEUE_GROUP_ARENA ? "Arena" : queueLabel(q),
