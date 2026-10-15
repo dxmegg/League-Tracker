@@ -83,13 +83,13 @@ export function FriendsExp() {
         render: (row) => (
           <Link
             to={`/friends/${encodeURIComponent(row.key)}`}
-            className="nm"
+            className="nm min-w-0"
             onClick={(event) => event.stopPropagation()}
           >
-            <span className="rounded-full border border-[#E5483F]/60 p-0.5 shadow-[0_0_8px_rgba(229,72,63,0.28)]">
+            <span className="shrink-0 rounded-full border border-[#E5483F]/60 p-0.5 shadow-[0_0_8px_rgba(229,72,63,0.28)]">
               <SummonerIcon iconId={row.profileIcon} size={30} />
             </span>
-            <span>{row.name}</span>
+            <span className="min-w-0 truncate">{row.name}</span>
           </Link>
         ),
         defaultDir: "asc",
@@ -136,13 +136,15 @@ export function FriendsExp() {
         render: (row) => (
           <Link
             to={`/champions/${row.champion_id}`}
-            className="nm"
+            className="nm min-w-0"
             onClick={(event) => event.stopPropagation()}
           >
-            <span className="rounded-full border border-[#C9A45C]/60 p-0.5 shadow-[0_0_8px_rgba(201,164,92,0.28)]">
+            <span className="shrink-0 rounded-full border border-[#C9A45C]/60 p-0.5 shadow-[0_0_8px_rgba(201,164,92,0.28)]">
               <ChampionIcon championId={row.champion_id} size={30} />
             </span>
-            <span>{getChampionName(championData, row.champion_id)}</span>
+            <span className="min-w-0 truncate">
+              {getChampionName(championData, row.champion_id)}
+            </span>
           </Link>
         ),
         sortValue: (row) => getChampionName(championData, row.champion_id),
