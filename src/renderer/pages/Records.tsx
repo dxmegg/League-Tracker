@@ -45,7 +45,6 @@ import { formatDuration, formatKDA, kdaRatio } from "../lib/format";
 import { scoreColor } from "../../shared/opScore";
 import type { AccountListItem } from "../lib/types";
 import { useActiveTheme } from "../hooks/useActiveTheme";
-import { useActiveAccount } from "../hooks/useActiveAccount";
 import { RecordsExp } from "../components/RecordsExp";
 import { ALL_ACCOUNTS_SENTINEL } from "../lib/accountsEvent";
 
@@ -400,8 +399,6 @@ export default function Records() {
   const [searchParams, setSearchParams] = useSearchParams();
   const activeTheme = useActiveTheme();
   const isExperiment = activeTheme === "experiment";
-  const [activeAccountRaw] = useActiveAccount();
-  const account = activeAccountRaw === ALL_ACCOUNTS_SENTINEL ? "all" : activeAccountRaw;
   const queueParam = searchParams.get("queue");
   const q = queueParam == null ? undefined : Number(queueParam);
   const queue = q !== undefined && Number.isFinite(q) ? q : undefined;
@@ -428,12 +425,12 @@ export default function Records() {
     (puuid: string | undefined) => {
       setSearchParams(
         (prev) => {
-          const current = prev.get("account");
-          const nextValue = puuid == null ? null : puuid;
+          const current = prev.get("account") ?? ALL_ACCOUNTS_SENTINEL;
+          const nextValue = puuid ?? ALL_ACCOUNTS_SENTINEL;
           if (current === nextValue) return prev;
           const next = new URLSearchParams(prev);
-          if (puuid == null) next.delete("account");
-          else next.set("account", puuid);
+          if (nextValue === ALL_ACCOUNTS_SENTINEL) next.delete("account");
+          else next.set("account", nextValue);
           return next;
         },
         { replace: true },
@@ -444,7 +441,7 @@ export default function Records() {
 
   const historyScopeQueue = useHistoryScopeQueue();
   const scopedQueue = queue ?? historyScopeQueue;
-  const accountForFetch = isExperiment ? (accountParam ?? account) : urlAccount;
+  const accountForFetch = urlAccount;
   const { data, error, refetch } = useIpc<RecordsData>(
     () => window.api.getRecords(scopedQueue, accountForFetch),
     [scopedQueue, accountForFetch],
