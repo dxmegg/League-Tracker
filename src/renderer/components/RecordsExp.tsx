@@ -1,7 +1,17 @@
-import type { RecordMatchRef, RecordsData, StatRecord, StreakRecord } from "../lib/types";
+import type {
+  AccountListItem,
+  HomeDashboardPayload,
+  RecordMatchRef,
+  RecordsData,
+  StatRecord,
+  StreakRecord,
+} from "../lib/types";
 import { formatDuration } from "../lib/format";
 import ChampionIcon from "./ChampionIcon";
 import { RecordTile } from "./RecordTile";
+import StatCard from "./StatCard";
+import QueueSelect from "./QueueSelect";
+import { FilterSelect } from "./FilterSelect";
 
 function DecimalRecordTile({
   label,
@@ -12,32 +22,31 @@ function DecimalRecordTile({
   value: number;
   match: RecordMatchRef;
 }) {
-  const date = new Date(match.game_creation).toLocaleDateString("en-GB", {
+  return (
+    <RecordTile
+      label={label}
+      value={value}
+      championId={match.champion_id}
+      win={match.win}
+      gameCreation={match.game_creation}
+      gameId={String(match.game_id)}
+      formatValue={(raw) => (Number.isFinite(raw) ? raw.toFixed(2) : "—")}
+    />
+  );
+}
+
+function recordDate(ts: number): string {
+  return new Date(ts).toLocaleDateString("en-GB", {
     day: "2-digit",
     month: "short",
     year: "numeric",
   });
-
-  return (
-    <div className="flex flex-col rounded-xl border border-lol-border border-t-[3px] border-t-lol-gold bg-[radial-gradient(circle_at_top_right,rgba(201,164,92,0.08),transparent_55%),linear-gradient(180deg,var(--theme-card-hover),var(--theme-card))] px-3.5 py-3 transition-colors duration-[120ms] hover:bg-white/[0.02]">
-      <span className="text-[12.5px] uppercase tracking-wider text-lol-text">{label}</span>
-      <b className="my-0.5 font-display text-[28px] font-bold leading-tight text-lol-text-bright">
-        {Number.isFinite(value) ? value.toFixed(2) : "—"}
-      </b>
-      <div className="flex items-center gap-2 text-[12.5px] text-lol-text">
-        <ChampionIcon championId={match.champion_id} size={26} className="rounded-full" />
-        <i className={`font-semibold not-italic ${match.win ? "text-lol-win" : "text-lol-loss"}`}>
-          {match.win ? "WIN" : "LOSS"}
-        </i>
-        <span>{date}</span>
-      </div>
-    </div>
-  );
 }
 
 function StreakTile({ label, streak }: { label: string; streak: StreakRecord }) {
+  const range = `${recordDate(streak.start)} → ${recordDate(streak.end)}`;
   return (
-    <div className="flex flex-col rounded-xl border border-lol-border border-t-[3px] border-t-lol-violet bg-[radial-gradient(circle_at_top_right,rgba(168,85,247,0.08),transparent_55%),linear-gradient(180deg,var(--theme-card-hover),var(--theme-card))] px-3.5 py-3 transition-colors duration-[120ms] hover:bg-white/[0.02]">
+    <div className="flex flex-col rounded-xl border border-lol-border border-t-[3px] border-t-lol-violet bg-[radial-gradient(circle_at_top_right,rgba(168,85,247,0.08),transparent_55%),linear-gradient(180deg,var(--theme-card-hover),var(--theme-card))] px-3.5 py-3 transition-colors duration-[120ms]">
       <span className="text-[12.5px] uppercase tracking-wider text-lol-text">{label}</span>
       <b className="my-0.5 font-display text-[28px] font-bold leading-tight text-lol-text-bright">
         {streak.length} games
@@ -51,6 +60,7 @@ function StreakTile({ label, streak }: { label: string; streak: StreakRecord }) 
         >
           {streak.match.win ? "WIN" : "LOSS"}
         </i>
+        <span>{range}</span>
       </div>
     </div>
   );
@@ -80,25 +90,73 @@ function StandardRecordTile({
 export function RecordsExp({
   data,
   accountName,
+  dashboard,
+  queue,
+  onQueueChange,
+  account,
+  accounts,
+  onAccountChange,
+  scopeLabel,
 }: {
   data: RecordsData | null;
   accountName?: string;
+  dashboard: HomeDashboardPayload | null;
+  queue: number | undefined;
+  onQueueChange: (queue: number | undefined) => void;
+  account: string | undefined;
+  accounts: AccountListItem[];
+  onAccountChange: (account: string | undefined) => void;
+  scopeLabel: string;
 }) {
+  const summary = dashboard?.summary;
+  const totalGames = summary?.totalGames ?? data?.totalGames ?? 0;
+  const winRate =
+    summary && summary.totalGames > 0 ? Math.round((summary.wins / summary.totalGames) * 100) : 0;
+  const accountOptions = accounts.map((item) => ({
+    value: item.puuid,
+    label: `${item.gameName ?? "Unknown account"}${item.tagLine ? `#${item.tagLine}` : ""}`,
+  }));
+  const controls = (
+    <div className="mt-4 flex flex-wrap items-center gap-2">
+      <FilterSelect
+        value={account}
+        onChange={onAccountChange}
+        placeholder="All Accounts"
+        title="Account"
+        options={accountOptions}
+        allowClear
+      />
+      <QueueSelect value={queue} onChange={onQueueChange} />
+    </div>
+  );
+
   if (!data) {
     return (
-      <div className="relative overflow-hidden rounded-xl border border-lol-border border-t-[3px] border-t-[#E5483F] bg-[radial-gradient(circle_at_top_right,rgba(229,72,63,0.10),transparent_46%),linear-gradient(180deg,#151012,#0b0d10)] p-12 text-center">
-        <p className="relative text-sm text-lol-text">Loading records…</p>
+      <div className="mx-auto flex min-h-full w-full max-w-[1320px] flex-col gap-5">
+        <div className="relative overflow-hidden rounded-xl border border-lol-border border-t-[3px] border-t-[#E5483F] bg-[radial-gradient(circle_at_top_right,rgba(229,72,63,0.10),transparent_46%),linear-gradient(180deg,#151012,#0b0d10)] px-5 py-4">
+          <h1 className="font-display text-[30px] font-bold text-lol-text-bright">Records</h1>
+          {controls}
+        </div>
+        <div className="rounded-xl border border-lol-border bg-lol-card p-12 text-center">
+          <p className="relative text-sm text-lol-text">Loading records…</p>
+        </div>
       </div>
     );
   }
 
   if (data.totalGames === 0) {
     return (
-      <div className="relative overflow-hidden rounded-xl border border-lol-border border-t-[3px] border-t-[#E5483F] bg-[radial-gradient(circle_at_top_right,rgba(229,72,63,0.10),transparent_46%),linear-gradient(180deg,#151012,#0b0d10)] p-12 text-center">
-        <p className="relative text-sm font-semibold text-lol-text-bright">No records yet</p>
-        <p className="relative mt-1 text-xs text-lol-text">
-          Play more matches to set personal bests.
-        </p>
+      <div className="mx-auto flex min-h-full w-full max-w-[1320px] flex-col gap-5">
+        <div className="relative overflow-hidden rounded-xl border border-lol-border border-t-[3px] border-t-[#E5483F] bg-[radial-gradient(circle_at_top_right,rgba(229,72,63,0.10),transparent_46%),linear-gradient(180deg,#151012,#0b0d10)] px-5 py-4">
+          <h1 className="font-display text-[30px] font-bold text-lol-text-bright">Records</h1>
+          {controls}
+        </div>
+        <div className="relative overflow-hidden rounded-xl border border-lol-border border-t-[3px] border-t-[#E5483F] bg-[radial-gradient(circle_at_top_right,rgba(229,72,63,0.10),transparent_46%),linear-gradient(180deg,#151012,#0b0d10)] p-12 text-center">
+          <p className="relative text-sm font-semibold text-lol-text-bright">No records yet</p>
+          <p className="relative mt-1 text-xs text-lol-text">
+            Play more matches to set personal bests.
+          </p>
+        </div>
       </div>
     );
   }
@@ -193,6 +251,21 @@ export function RecordsExp({
         <p className="relative mt-1.5 pl-4 text-lol-text">
           {accountName ? `Personal bests for ${accountName}` : "Personal bests across all accounts"}
         </p>
+        {controls}
+      </div>
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+        <StatCard
+          label="Total Games"
+          value={totalGames.toLocaleString()}
+          subtext="In current scope"
+        />
+        <StatCard label="Win Rate" value={`${winRate}%`} subtext={`${summary?.wins ?? 0} wins`} />
+        <StatCard
+          label="Accounts"
+          value={(summary?.accounts ?? accounts.length).toLocaleString()}
+          subtext="With recorded games"
+        />
+        <StatCard label="Active Scope" value={scopeLabel} subtext="Queue · account" />
       </div>
       <div>
         <h2 className="relative mb-3 pl-4 text-xs font-bold uppercase tracking-wider text-lol-gold before:absolute before:left-0 before:top-1/2 before:h-2 before:w-2 before:-translate-y-1/2 before:rotate-45 before:bg-lol-crimson">

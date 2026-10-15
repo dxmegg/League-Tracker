@@ -18,6 +18,7 @@ import Runes from "./pages/Runes";
 import Friends from "./pages/Friends";
 import Trends from "./pages/Trends";
 import Records from "./pages/Records";
+import MatchDetailPage from "./pages/MatchDetailPage";
 import GlobalStats from "./pages/GlobalStats";
 import { useActiveTheme } from "./hooks/useActiveTheme";
 
@@ -111,6 +112,7 @@ export default function App() {
         <Route element={<FullHistoryShell />}>
           <Route path="/" element={<Navigate to="/home" replace />} />
           <Route path="/history" element={<MatchHistory />} />
+          <Route path="/match/:gameId" element={<MatchDetailPage />} />
           <Route path="/history/full/:section" element={<HistorySection />} />
           <Route path="/history/:scope/:section" element={<HistorySection />} />
           <Route

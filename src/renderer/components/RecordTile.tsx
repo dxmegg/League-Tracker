@@ -1,5 +1,6 @@
 import ChampionIcon from "./ChampionIcon";
 import { formatNumber } from "../lib/format";
+import { useNavigate } from "react-router-dom";
 
 export function RecordTile({
   label,
@@ -9,6 +10,8 @@ export function RecordTile({
   gameCreation,
   formatValue,
   accentIndex = 0,
+  gameId,
+  onClick,
 }: {
   label: string;
   value: number;
@@ -17,7 +20,10 @@ export function RecordTile({
   gameCreation: number;
   formatValue?: (value: number) => string;
   accentIndex?: number;
+  gameId?: string | null;
+  onClick?: () => void;
 }) {
+  const navigate = useNavigate();
   const date = new Date(gameCreation).toLocaleDateString("en-GB", {
     day: "2-digit",
     month: "short",
@@ -30,11 +36,15 @@ export function RecordTile({
     "border-t-emerald-400",
     "border-t-rose-400",
   ];
-
-  return (
-    <div
-      className={`flex flex-col rounded-xl border border-lol-border border-t-[3px] bg-black/10 px-3.5 py-3 transition-colors duration-[120ms] hover:bg-white/[0.02] ${accents[accentIndex % accents.length]}`}
-    >
+  const clickable = gameId != null;
+  const handleClick = onClick ?? (clickable ? () => navigate(`/match/${gameId}`) : undefined);
+  const className = `flex flex-col rounded-xl border border-lol-border border-t-[3px] bg-black/10 px-3.5 py-3 transition-colors duration-[120ms] ${accents[accentIndex % accents.length]} ${
+    clickable
+      ? "hover:border-lol-gold/60 hover:bg-[color-mix(in_oklab,var(--theme-card)_96%,var(--theme-gold)_4%)] cursor-pointer"
+      : ""
+  }`;
+  const content = (
+    <>
       <span className="text-[12.5px] uppercase tracking-wider text-lol-text">{label}</span>
       <b className="my-0.5 font-display text-[28px] font-bold leading-tight text-lol-text-bright">
         {display}
@@ -46,6 +56,16 @@ export function RecordTile({
         </i>
         <span>{date}</span>
       </div>
-    </div>
+    </>
   );
+
+  if (clickable) {
+    return (
+      <button type="button" onClick={handleClick} className={className} title="View match">
+        {content}
+      </button>
+    );
+  }
+
+  return <div className={className}>{content}</div>;
 }

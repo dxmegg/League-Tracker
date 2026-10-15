@@ -36,7 +36,7 @@ import {
 } from "../components/icons";
 import { formatDuration, formatKDA, kdaRatio } from "../lib/format";
 import { scoreColor } from "../../shared/opScore";
-import type { AccountListItem } from "../lib/types";
+import type { AccountListItem, HomeDashboardPayload } from "../lib/types";
 import { useActiveTheme } from "../hooks/useActiveTheme";
 import { useActiveAccount } from "../hooks/useActiveAccount";
 import { RecordsExp } from "../components/RecordsExp";
@@ -420,9 +420,13 @@ export default function Records() {
 
   const historyScopeQueue = useHistoryScopeQueue();
   const scopedQueue = queue ?? historyScopeQueue;
-  const accountForFetch = isExperiment ? account : urlAccount;
+  const accountForFetch = isExperiment ? (accountParam ?? account) : urlAccount;
   const { data, refetch } = useIpc<RecordsData>(
     () => window.api.getRecords(scopedQueue, accountForFetch),
+    [scopedQueue, accountForFetch],
+  );
+  const { data: dashboard, refetch: refetchDashboard } = useIpc<HomeDashboardPayload>(
+    () => window.api.getHomeDashboard(accountForFetch, "full", scopedQueue),
     [scopedQueue, accountForFetch],
   );
   const champData = useChampionData();
@@ -443,16 +447,33 @@ export default function Records() {
   }, []);
 
   useEffect(() => {
-    const unsub = window.api.onGamesUpdated(() => refetch());
+    const unsub = window.api.onGamesUpdated(() => {
+      void refetch();
+      void refetchDashboard();
+    });
     return unsub;
-  }, [refetch]);
+  }, [refetch, refetchDashboard]);
 
   if (isExperiment) {
-    const activeAccount = accounts.find((item) => item.puuid === account);
+    const activeAccount = accounts.find((item) => item.puuid === accountForFetch);
     const accountName = activeAccount
       ? `${activeAccount.gameName ?? "Unknown account"}${activeAccount.tagLine ? `#${activeAccount.tagLine}` : ""}`
       : undefined;
-    return <RecordsExp data={data} accountName={accountName} />;
+    const accountValue = accountForFetch === "all" ? undefined : accountForFetch;
+    const scopeLabel = `${scopedQueue == null ? "All queues" : queueLabel(scopedQueue)} · ${accountName ?? "All accounts"}`;
+    return (
+      <RecordsExp
+        data={data}
+        accountName={accountName}
+        dashboard={dashboard}
+        queue={queue}
+        onQueueChange={setQueue}
+        account={accountValue}
+        accounts={accounts}
+        onAccountChange={setAccount}
+        scopeLabel={scopeLabel}
+      />
+    );
   }
 
   const accountSelect = (
