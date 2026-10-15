@@ -12,7 +12,7 @@ import { SortableTable, type SortableColumn } from "./SortableTable";
 
 const PAGE_SIZE = 30;
 const PLAYER_GRID_FRIENDS =
-  "[&_thead_tr]:grid-cols-[minmax(0,1fr)_60px_130px_70px] [&_tbody_tr]:grid-cols-[minmax(0,1fr)_60px_130px_70px]";
+  "[&_thead_tr]:grid-cols-[minmax(0,1fr)_60px_130px_90px] [&_tbody_tr]:grid-cols-[minmax(0,1fr)_60px_130px_90px]";
 const PLAYER_GRID_FOES =
   "[&_thead_tr]:grid-cols-[minmax(0,1fr)_60px_150px] [&_tbody_tr]:grid-cols-[minmax(0,1fr)_60px_150px]";
 const CHAMPION_GRID =
