@@ -5,7 +5,12 @@ import type { MasteryChampion, RankEntry } from "../../shared/api";
 
 export type SummonerUpsertSource = "lcu" | "riot" | "import";
 
-function duplicateSummonerRows(gameName: string | null, tagLine: string | null, puuid: string) {
+function duplicateSummonerRows(
+  gameName: string | null,
+  tagLine: string | null,
+  platform: string | null,
+  puuid: string,
+) {
   if (!gameName || !tagLine) return [];
   return db
     .prepare(
@@ -25,6 +30,11 @@ function duplicateSummonerRows(gameName: string | null, tagLine: string | null, 
        WHERE s.puuid != ?
          AND LOWER(TRIM(s.game_name)) = LOWER(TRIM(?))
          AND LOWER(TRIM(s.tag_line)) = LOWER(TRIM(?))
+         AND (
+           ? IS NULL
+           OR s.platform IS NULL
+           OR LOWER(TRIM(s.platform)) = LOWER(TRIM(?))
+         )
        ORDER BY
          CASE
            WHEN length(s.puuid) = 36
@@ -38,7 +48,7 @@ function duplicateSummonerRows(gameName: string | null, tagLine: string | null, 
          tracked_count DESC,
          s.updated_at DESC`,
     )
-    .all(puuid, gameName, tagLine) as {
+    .all(puuid, gameName, tagLine, platform, platform) as {
     puuid: string;
     games_count: number;
     tracked_count: number;
@@ -76,12 +86,46 @@ function mergeSummonerReferences(
       const selectColumns = columns
         .map((column) => (column === "puuid" ? "?" : `"${column}"`))
         .join(", ");
+      const sourceCount = (
+        db.prepare(`SELECT COUNT(*) AS count FROM ${table} WHERE puuid = ?`).get(stalePuuid) as {
+          count: number;
+        }
+      ).count;
       const inserted = db
         .prepare(
           `INSERT OR IGNORE INTO ${table} (${quotedColumns})
            SELECT ${selectColumns} FROM ${table} WHERE puuid = ?`,
         )
         .run(canonicalPuuid, stalePuuid).changes;
+      const overlap = columns.includes("participant_id")
+        ? (
+            db
+              .prepare(
+                `SELECT COUNT(*) AS count
+                 FROM ${table} a
+                 JOIN ${table} b
+                   ON a.game_id = b.game_id
+                  AND a.participant_id = b.participant_id
+                 WHERE a.puuid = ? AND b.puuid = ?`,
+              )
+              .get(stalePuuid, canonicalPuuid) as { count: number }
+          ).count
+        : 0;
+      const deleteSafe = inserted + overlap === sourceCount;
+      console.log(
+        `[merge] table=${table} source=${sourceCount} inserted=${inserted} overlap=${overlap} delete_safe=${deleteSafe}${deleteSafe ? "" : " SKIPPED_DELETE"}`,
+      );
+      if (!deleteSafe) {
+        console.error("[merge] refusing destructive PUUID merge:", {
+          table,
+          stalePuuid,
+          canonicalPuuid,
+          sourceCount,
+          inserted,
+          overlap,
+        });
+        throw new Error(`Unsafe PUUID merge for ${table}: source rows were not preserved`);
+      }
       if (table === "tracked_game_stats") trackedRowsMoved += inserted;
       const deleted = db.prepare(`DELETE FROM ${table} WHERE puuid = ?`).run(stalePuuid);
       console.log("[db] merged rows:", {
@@ -192,7 +236,8 @@ export function upsertSummoner(
   const profileIconId = summoner.profileIconId ?? summoner.profile_icon ?? null;
   const summonerLevel = summoner.summonerLevel ?? summoner.summoner_level ?? null;
 
-  const duplicates = duplicateSummonerRows(gameName, tagLine, summoner.puuid);
+  const platform = summoner.platform?.trim() || null;
+  const duplicates = duplicateSummonerRows(gameName, tagLine, platform, summoner.puuid);
   if (duplicates.length > 0 && source === "lcu") {
     console.log("[db] upsertSummoner reused existing PUUID:", {
       requestedPuuid: summoner.puuid,

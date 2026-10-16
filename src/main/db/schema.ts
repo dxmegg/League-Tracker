@@ -1389,7 +1389,10 @@ export function mergeDuplicateAccounts(): MergeDuplicateAccountsResult {
          WHERE TRIM(COALESCE(game_name, '')) <> ''
            AND TRIM(COALESCE(tag_line, '')) <> ''
          GROUP BY LOWER(TRIM(game_name)), LOWER(TRIM(tag_line))
-         HAVING COUNT(*) > 1`,
+         HAVING COUNT(*) > 1
+            AND COUNT(DISTINCT CASE
+              WHEN NULLIF(TRIM(platform), '') IS NOT NULL THEN LOWER(TRIM(platform))
+            END) <= 1`,
       )
       .all() as IdentityGroup[];
     const details: MergeDuplicateAccountDetail[] = [];
@@ -1402,12 +1405,46 @@ export function mergeDuplicateAccounts(): MergeDuplicateAccountsResult {
       const selectColumns = columns
         .map((column) => (column === "puuid" ? "?" : `"${column}"`))
         .join(", ");
+      const sourceCount = (
+        db.prepare(`SELECT COUNT(*) AS count FROM ${table} WHERE puuid = ?`).get(stalePuuid) as {
+          count: number;
+        }
+      ).count;
       const inserted = db
         .prepare(
           `INSERT OR IGNORE INTO ${table} (${quotedColumns})
            SELECT ${selectColumns} FROM ${table} WHERE puuid = ?`,
         )
         .run(canonicalPuuid, stalePuuid).changes;
+      const overlap = columns.includes("participant_id")
+        ? (
+            db
+              .prepare(
+                `SELECT COUNT(*) AS count
+                 FROM ${table} a
+                 JOIN ${table} b
+                   ON a.game_id = b.game_id
+                  AND a.participant_id = b.participant_id
+                 WHERE a.puuid = ? AND b.puuid = ?`,
+              )
+              .get(stalePuuid, canonicalPuuid) as { count: number }
+          ).count
+        : 0;
+      const deleteSafe = inserted + overlap === sourceCount;
+      console.log(
+        `[merge] table=${table} source=${sourceCount} inserted=${inserted} overlap=${overlap} delete_safe=${deleteSafe}${deleteSafe ? "" : " SKIPPED_DELETE"}`,
+      );
+      if (!deleteSafe) {
+        console.error("[merge] refusing destructive PUUID merge:", {
+          table,
+          stalePuuid,
+          canonicalPuuid,
+          sourceCount,
+          inserted,
+          overlap,
+        });
+        throw new Error(`Unsafe PUUID merge for ${table}: source rows were not preserved`);
+      }
       const deleted = db.prepare(`DELETE FROM ${table} WHERE puuid = ?`).run(stalePuuid).changes;
       return { inserted, deleted };
     };
