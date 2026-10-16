@@ -1,6 +1,6 @@
 {
   "name": "league-tracker",
-  "version": "1.0.6",
+  "version": "1.0.7",
   "description": "League of Legends match history tracker",
   "license": "MIT",
   "main": "./out/main/index.js",
