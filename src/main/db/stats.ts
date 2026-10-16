@@ -4255,7 +4255,11 @@ export function getRecords(
           gameId: String(r.game_id),
         };
         if (r.win && !milestones.some((milestone) => milestone.key === "firstWin")) {
-          milestones.push({ key: "firstWin", label: "First win", ...milestoneContext });
+          milestones.push({
+            key: "firstWin",
+            label: "Game #1 — first ever tracked win",
+            ...milestoneContext,
+          });
         }
         if (
           r.penta_kills >= 1 &&
@@ -4273,7 +4277,7 @@ export function getRecords(
         ) {
           milestones.push({
             key: "kill1000",
-            label: "1,000th kill",
+            label: "1 000th career kill",
             value: cumulativeKills,
             ...milestoneContext,
           });
@@ -4284,7 +4288,7 @@ export function getRecords(
         ) {
           milestones.push({
             key: "win1000",
-            label: "Win #1,000",
+            label: "Win #1 000",
             value: cumulativeWins,
             ...milestoneContext,
           });
@@ -4292,7 +4296,7 @@ export function getRecords(
         if (trackedGames === 2000) {
           milestones.push({
             key: "game2000",
-            label: "Game #2,000",
+            label: "Game #2 000",
             ...milestoneContext,
           });
         }
@@ -4320,7 +4324,7 @@ export function getRecords(
       if (winStreak) {
         milestones.push({
           key: "longestWinStreak",
-          label: "Longest win streak",
+          label: `Longest win streak — ${winStreak.length} games`,
           championId: winStreak.match.champion_id,
           gameCreation: winStreak.end,
           gameId: String(winStreak.match.game_id),

@@ -180,10 +180,7 @@ function MilestonesList({ milestones }: { milestones: NonNullable<RecordsData["m
             )}
             <div className="min-w-0 flex-1">
               <div className="font-semibold text-lol-text-bright">{milestone.label}</div>
-              <div className="text-xs text-lol-text">
-                {recordDate(milestone.gameCreation)}
-                {milestone.value !== undefined && ` · ${milestone.value.toLocaleString()}`}
-              </div>
+              <div className="text-xs text-lol-text">{recordDate(milestone.gameCreation)}</div>
             </div>
           </div>
         ))}
