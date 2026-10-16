@@ -566,10 +566,10 @@ export function RecordsExp({
           <Panel>
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
               {[
-                ["Lifetime doubles", data.multikillTotals.doubles, "text-cyan-400"],
-                ["Lifetime triples", data.multikillTotals.triples, "text-amber-400"],
+                ["Lifetime doubles", data.multikillTotals.doubles, "text-lol-assist"],
+                ["Lifetime triples", data.multikillTotals.triples, "text-[var(--theme-gold)]"],
                 ["Lifetime quadras", data.multikillTotals.quadras, "text-orange-400"],
-                ["Lifetime pentakills", data.multikillTotals.pentakills, "text-red-400"],
+                ["Lifetime pentakills", data.multikillTotals.pentakills, "text-lol-crimson"],
               ].map(([label, value, color]) => (
                 <div
                   key={label}
@@ -591,7 +591,7 @@ export function RecordsExp({
         <div>
           <SectionHeading title="ECONOMY & FARMING" aside={<SectionCount count={economyCount} />} />
           <Panel>
-            <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 [&>*]:!border-t-emerald-500">
+            <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 [&>*]:!border-t-[var(--theme-win)]">
               {economyTiles}
             </div>
           </Panel>
@@ -604,7 +604,7 @@ export function RecordsExp({
             aside={<SectionCount count={visionCount} />}
           />
           <Panel>
-            <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 [&>*]:!border-t-cyan-500">
+            <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 [&>*]:!border-t-lol-assist">
               {visionTiles}
             </div>
           </Panel>
@@ -617,7 +617,7 @@ export function RecordsExp({
             aside={<SectionCount count={survivalCount} />}
           />
           <Panel>
-            <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 [&>*]:!border-t-purple-500">
+            <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 [&>*]:!border-t-lol-violet">
               {data.fastestPentakill && (
                 <StandardRecordTile
                   label="Fastest pentakill"

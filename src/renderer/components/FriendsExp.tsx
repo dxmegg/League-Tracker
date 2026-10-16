@@ -283,7 +283,7 @@ export function FriendsExp() {
       </div>
 
       <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
-        <Panel className="border-t-[3px] border-t-lol-crimson bg-[linear-gradient(145deg,#0c0e11_0%,#090b0d_48%,#060809_100%)]">
+        <Panel className="border-t-[3px] border-t-lol-crimson bg-[linear-gradient(145deg,var(--theme-card)_0%,var(--theme-card-hover)_48%,var(--theme-card)_100%)]">
           <div className="mb-4 flex flex-wrap items-center gap-2">
             <h2 className="relative min-w-[14rem] flex-1 basis-[16rem] pl-4 font-display text-xl font-semibold text-lol-text-bright before:absolute before:left-0 before:top-1/2 before:h-2 before:w-2 before:-translate-y-1/2 before:rotate-45 before:bg-lol-crimson">
               Players you've played {relationWord}
@@ -343,7 +343,7 @@ export function FriendsExp() {
           )}
         </Panel>
 
-        <Panel className="border-t-[3px] border-t-lol-gold bg-[linear-gradient(145deg,#0c0e11_0%,#090b0d_48%,#060809_100%)]">
+        <Panel className="border-t-[3px] border-t-lol-gold bg-[linear-gradient(145deg,var(--theme-card)_0%,var(--theme-card-hover)_48%,var(--theme-card)_100%)]">
           <div className="mb-4 flex flex-wrap items-center gap-2">
             <h2 className="relative min-w-[14rem] flex-1 basis-[16rem] pl-4 font-display text-xl font-semibold text-lol-text-bright before:absolute before:left-0 before:top-1/2 before:h-2 before:w-2 before:-translate-y-1/2 before:rotate-45 before:bg-lol-crimson">
               Champions you've played {relationWord}

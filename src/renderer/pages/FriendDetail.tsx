@@ -247,7 +247,7 @@ export default function FriendDetail() {
 
       <Panel
         className={`border-l-2 ${
-          enemies ? "border-l-[#C9A45C]" : "border-l-[#E5483F]"
+          enemies ? "border-l-[var(--theme-gold)]" : "border-l-[var(--theme-crimson)]"
         } bg-[radial-gradient(circle_at_top_right,rgba(229,72,63,0.18),transparent_60%),linear-gradient(to_bottom,rgba(229,72,63,0.10),transparent_40%),linear-gradient(180deg,var(--theme-card-hover),var(--theme-card))]`}
       >
         <div className="flex flex-wrap items-center justify-between gap-5">
@@ -313,7 +313,7 @@ export default function FriendDetail() {
       </div>
 
       <SectionHeading title="Their champions" aside={`${player.champions.length} champions`} />
-      <Panel className="border-t-[3px] border-t-[#3B82F6]">
+      <Panel className="border-t-[3px] border-t-[var(--theme-assist)]">
         <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
           <div className="text-xs text-lol-text">
             Showing {visibleChampions.length} of {player.champions.length}
@@ -496,7 +496,7 @@ export default function FriendDetail() {
         )}
       </div>
       <SectionHeading title={enemies ? "Match history against them" : "Match history together"} />
-      <Panel className="border-t-[3px] border-t-[#22C55E]">
+      <Panel className="border-t-[3px] border-t-[var(--theme-win)]">
         {matches.length > 0 ? (
           <div className="space-y-1">
             {matches.map((m) => (
@@ -544,8 +544,8 @@ function SectionHeading({
   source?: string;
 }) {
   return (
-    <div className="relative flex items-center gap-3 pb-2 pt-1 text-sm font-semibold uppercase tracking-wider text-lol-text-bright after:absolute after:bottom-0 after:left-0 after:h-px after:w-2/5 after:bg-gradient-to-r after:from-[#E5483F]/50 after:to-transparent">
-      <span className="h-2 w-2 rotate-45 bg-[#E5483F]" />
+    <div className="relative flex items-center gap-3 pb-2 pt-1 text-sm font-semibold uppercase tracking-wider text-lol-text-bright after:absolute after:bottom-0 after:left-0 after:h-px after:w-2/5 after:bg-gradient-to-r after:from-[var(--theme-crimson)]/50 after:to-transparent">
+      <span className="h-2 w-2 rotate-45 bg-[var(--theme-crimson)]" />
       <span>{title}</span>
       {source && (
         <span className="rounded border border-lol-border/60 px-2 py-0.5 text-[10px] font-semibold tracking-wider text-lol-text">
@@ -619,7 +619,7 @@ function ChampionRow({
       <ChampionIcon
         championId={champ.champion_id}
         size={26}
-        className="rounded-md border-l-2 border-l-[#E5483F] shadow-[0_0_10px_rgba(229,72,63,0.12)]"
+        className="rounded-md border-l-2 border-l-[var(--theme-crimson)] shadow-[0_0_10px_color-mix(in_oklab,var(--theme-crimson)_12%,transparent)]"
       />
       <div className="min-w-0 flex-1">
         <div className="text-xs text-lol-text-bright truncate">
