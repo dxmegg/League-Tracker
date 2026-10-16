@@ -343,10 +343,12 @@ function Section({
   title,
   children,
   className = "",
+  action,
 }: {
   title: string;
   children: ReactNode;
   className?: string;
+  action?: ReactNode;
 }) {
   return (
     <Panel
@@ -355,6 +357,7 @@ function Section({
       <h2 className="relative z-10 mb-4 font-display text-[16px] font-semibold text-lol-text-bright before:mr-2 before:inline-block before:h-1.5 before:w-1.5 before:rounded-full before:bg-lol-crimson after:mt-2 after:block after:h-px after:w-24 after:bg-gradient-to-r after:from-lol-crimson/70 after:to-transparent">
         {title}
       </h2>
+      {action && <div className="absolute right-4 top-4 z-10">{action}</div>}
       <div className="flex flex-col gap-3">{children}</div>
     </Panel>
   );
@@ -428,6 +431,7 @@ export function SettingsExp() {
   >([]);
   const [confirmDeleteSummoner, setConfirmDeleteSummoner] = useState<string | null>(null);
   const [summonerStatus, setSummonerStatus] = useState<string | null>(null);
+  const [mergingDuplicates, setMergingDuplicates] = useState(false);
   const [timelineLimit, setTimelineLimit] = useState(100);
   const [timelineMessage, setTimelineMessage] = useState<string | null>(null);
 
@@ -543,6 +547,26 @@ export function SettingsExp() {
     },
     [refreshSavedSummoners],
   );
+
+  const handleMergeDuplicateAccounts = useCallback(async () => {
+    setMergingDuplicates(true);
+    setSummonerStatus(null);
+    try {
+      if (typeof window.api.mergeDuplicateAccounts !== "function") {
+        throw new Error("Merge duplicate accounts is not available yet — restart the application.");
+      }
+      const result = await window.api.mergeDuplicateAccounts();
+      await refreshSavedSummoners();
+      setSummonerStatus(
+        result.merged === 0 ? "No duplicates found" : `Merged ${result.merged} accounts`,
+      );
+    } catch (err) {
+      console.error("[settings] merge duplicate accounts failed:", err);
+      setSummonerStatus(`Error: ${err instanceof Error ? err.message : String(err)}`);
+    } finally {
+      setMergingDuplicates(false);
+    }
+  }, [refreshSavedSummoners]);
 
   const handleRiotSync = useCallback(async () => {
     setRiotSyncing(true);
@@ -1330,6 +1354,15 @@ export function SettingsExp() {
 
       <Section
         title="Saved accounts"
+        action={
+          <Button
+            variant="neutral"
+            onClick={() => void handleMergeDuplicateAccounts()}
+            disabled={mergingDuplicates}
+          >
+            {mergingDuplicates ? "Merging..." : "Merge duplicate accounts"}
+          </Button>
+        }
         className="[&>h2]:before:bg-lol-violet border-t-lol-violet before:bg-[radial-gradient(circle_at_top_right,rgba(139,92,246,0.08),transparent_70%)]"
       >
         <p className="text-[12.5px] text-lol-text mb-4">

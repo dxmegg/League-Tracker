@@ -63,6 +63,20 @@ export interface RestoreOlderGamesResult {
   remaining: number;
 }
 
+export interface MergeDuplicateAccountDetail {
+  gameName: string;
+  tagLine: string;
+  stalePuuid: string;
+  canonicalPuuid: string;
+  movedGames: number;
+  movedTrackedRows: number;
+}
+
+export interface MergeDuplicateAccountsResult {
+  merged: number;
+  details: MergeDuplicateAccountDetail[];
+}
+
 export interface GameAugment {
   game_id: number;
   slot: number;
@@ -1945,6 +1959,7 @@ export interface ElectronAPI {
       games: number;
     }>
   >;
+  mergeDuplicateAccounts: () => Promise<MergeDuplicateAccountsResult>;
   deleteSearchedSummoners: () => Promise<{ removed: number; games: number }>;
   deleteSummoner: (puuid: string) => Promise<{ deletedGames: number; deletedTrackedRows: number }>;
   getProfile: () => Promise<LocalProfile>;

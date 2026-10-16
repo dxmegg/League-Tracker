@@ -172,6 +172,7 @@ export {
   migrateToV29,
   migrateToV30,
   migrateToV31,
+  mergeDuplicateAccounts,
   runMigrations,
 } from "./schema";
 export { writeExportTo, importData, repairPuuids, reconcileOwnerPuuids } from "./transfer";

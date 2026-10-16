@@ -1347,130 +1347,27 @@ export function migrateToV29(): void {
   console.log("[db] v29 added records ordering index");
 }
 
-export function migrateToV30(): void {
-  type SummonerDuplicate = {
-    puuid: string;
-    game_name: string;
-    tag_line: string;
-    tracked_count: number;
-    games_count: number;
-    updated_at: number;
-  };
-  type IdentityGroup = {
-    identity_name: string;
-    identity_tag: string;
-  };
-
-  const groups = db
-    .prepare(
-      `SELECT LOWER(TRIM(game_name)) AS identity_name,
-              LOWER(TRIM(tag_line)) AS identity_tag
-       FROM summoner
-       WHERE TRIM(COALESCE(game_name, '')) <> ''
-         AND TRIM(COALESCE(tag_line, '')) <> ''
-       GROUP BY LOWER(TRIM(game_name)), LOWER(TRIM(tag_line))
-       HAVING COUNT(*) > 1`,
-    )
-    .all() as IdentityGroup[];
-
-  const mergeReferences = db.transaction(
-    (stalePuuid: string, canonicalPuuid: string, gameName: string, tagLine: string) => {
-      for (const table of ["games", "tracked_game_stats", "match_participants"]) {
-        const result = db
-          .prepare(`UPDATE ${table} SET puuid = ? WHERE puuid = ?`)
-          .run(canonicalPuuid, stalePuuid);
-        if (result.changes > 0) {
-          console.log("[migrate] updated references", {
-            table,
-            count: result.changes,
-            stalePuuid,
-            canonicalPuuid,
-          });
-        }
-      }
-
-      const staleSync = db.prepare("SELECT 1 FROM riot_sync_state WHERE puuid = ?").get(stalePuuid);
-      const canonicalSync = db
-        .prepare("SELECT 1 FROM riot_sync_state WHERE puuid = ?")
-        .get(canonicalPuuid);
-      if (staleSync && !canonicalSync) {
-        db.prepare("UPDATE riot_sync_state SET puuid = ? WHERE puuid = ?").run(
-          canonicalPuuid,
-          stalePuuid,
-        );
-      } else if (staleSync) {
-        db.prepare("DELETE FROM riot_sync_state WHERE puuid = ?").run(stalePuuid);
-      }
-
-      const staleSetting = `backfill_complete_${stalePuuid}`;
-      const canonicalSetting = `backfill_complete_${canonicalPuuid}`;
-      const staleComplete = db
-        .prepare("SELECT value FROM settings WHERE key = ?")
-        .get(staleSetting) as { value: string } | undefined;
-      if (staleComplete) {
-        if (!db.prepare("SELECT 1 FROM settings WHERE key = ?").get(canonicalSetting)) {
-          db.prepare("INSERT INTO settings (key, value) VALUES (?, ?)").run(
-            canonicalSetting,
-            staleComplete.value,
-          );
-        }
-        db.prepare("DELETE FROM settings WHERE key = ?").run(staleSetting);
-      }
-
-      const deleted = db.prepare("DELETE FROM summoner WHERE puuid = ?").run(stalePuuid);
-      if (deleted.changes !== 1) {
-        throw new Error(`Expected one stale summoner row for ${stalePuuid}`);
-      }
-      console.log(`[migrate] merged ${stalePuuid} into ${canonicalPuuid} (${gameName}#${tagLine})`);
-    },
-  );
-
-  for (const group of groups) {
-    const rows = db
-      .prepare(
-        `SELECT s.puuid, s.game_name, s.tag_line, s.updated_at,
-                (SELECT COUNT(*)
-                 FROM tracked_game_stats t
-                 WHERE t.puuid = s.puuid) AS tracked_count,
-                (SELECT COUNT(*)
-                 FROM tracked_game_stats t
-                 JOIN games g ON g.game_id = t.game_id
-                 WHERE t.puuid = s.puuid AND g.source != 'search-import') AS games_count
-         FROM summoner s
-         WHERE LOWER(TRIM(s.game_name)) = ?
-           AND LOWER(TRIM(s.tag_line)) = ?
-         ORDER BY tracked_count DESC, games_count DESC, s.updated_at DESC`,
-      )
-      .all(group.identity_name, group.identity_tag) as SummonerDuplicate[];
-    const emptyRows = rows.filter((row) => row.tracked_count === 0);
-    const dataRows = rows.filter((row) => row.tracked_count > 0);
-
-    if (emptyRows.length === 1 && dataRows.length === 1) {
-      mergeReferences(
-        emptyRows[0].puuid,
-        dataRows[0].puuid,
-        dataRows[0].game_name,
-        dataRows[0].tag_line,
-      );
-      continue;
-    }
-
-    if (dataRows.length >= 2) {
-      console.log("[migrate] Category B duplicate deferred to v31:", {
-        gameName: rows[0].game_name,
-        tagLine: rows[0].tag_line,
-        puuids: rows.map((row) => row.puuid),
-      });
-    }
-  }
+export interface MergeDuplicateAccountDetail {
+  gameName: string;
+  tagLine: string;
+  stalePuuid: string;
+  canonicalPuuid: string;
+  movedGames: number;
+  movedTrackedRows: number;
 }
 
-export function migrateToV31(): void {
+export interface MergeDuplicateAccountsResult {
+  merged: number;
+  details: MergeDuplicateAccountDetail[];
+}
+
+export function mergeDuplicateAccounts(): MergeDuplicateAccountsResult {
   type DuplicateRow = {
     puuid: string;
     game_name: string;
     tag_line: string;
     tracked_count: number;
+    updated_at: number;
   };
   type IdentityGroup = {
     identity_name: string;
@@ -1483,19 +1380,20 @@ export function migrateToV31(): void {
     puuid[13] === "-" &&
     puuid[18] === "-" &&
     puuid[23] === "-";
-  const groups = db
-    .prepare(
-      `SELECT LOWER(TRIM(game_name)) AS identity_name,
-              LOWER(TRIM(tag_line)) AS identity_tag
-       FROM summoner
-       WHERE TRIM(COALESCE(game_name, '')) <> ''
-         AND TRIM(COALESCE(tag_line, '')) <> ''
-       GROUP BY LOWER(TRIM(game_name)), LOWER(TRIM(tag_line))
-       HAVING COUNT(*) > 1`,
-    )
-    .all() as IdentityGroup[];
+  const merge = db.transaction(() => {
+    const groups = db
+      .prepare(
+        `SELECT LOWER(TRIM(game_name)) AS identity_name,
+                LOWER(TRIM(tag_line)) AS identity_tag
+         FROM summoner
+         WHERE TRIM(COALESCE(game_name, '')) <> ''
+           AND TRIM(COALESCE(tag_line, '')) <> ''
+         GROUP BY LOWER(TRIM(game_name)), LOWER(TRIM(tag_line))
+         HAVING COUNT(*) > 1`,
+      )
+      .all() as IdentityGroup[];
+    const details: MergeDuplicateAccountDetail[] = [];
 
-  const migrate = db.transaction(() => {
     const copyPuuidRows = (table: string, stalePuuid: string, canonicalPuuid: string) => {
       const columns = (db.pragma(`table_info(${table})`) as { name: string }[]).map(
         (column) => column.name,
@@ -1519,7 +1417,7 @@ export function migrateToV31(): void {
       canonicalPuuid: string,
       gameName: string,
       tagLine: string,
-    ) => {
+    ): MergeDuplicateAccountDetail => {
       const staleGames = db
         .prepare("SELECT game_id FROM games WHERE puuid = ?")
         .all(stalePuuid) as { game_id: number }[];
@@ -1601,19 +1499,28 @@ export function migrateToV31(): void {
       if (deletedSummoner.changes !== 1) {
         throw new Error(`Expected one stale summoner row for ${stalePuuid}`);
       }
-      console.log(
-        `[migrate v31] merged ${stalePuuid} into ${canonicalPuuid} (${gameName}#${tagLine}) — moved ${gamesMoved} games, ${tracked.inserted} tracked rows`,
-      );
-      console.log("[migrate v31] participant rows:", {
+      console.log(`[migrate] merged ${stalePuuid} into ${canonicalPuuid} (${gameName}#${tagLine})`);
+      console.log("[migrate] moved rows:", {
+        games: gamesMoved,
+        tracked: tracked.inserted,
         inserted: participants.inserted,
         deleted: participants.deleted,
       });
+      return {
+        gameName,
+        tagLine,
+        stalePuuid,
+        canonicalPuuid,
+        movedGames: gamesMoved,
+        movedTrackedRows: tracked.inserted,
+      };
     };
 
     for (const group of groups) {
       const rows = db
         .prepare(
           `SELECT s.puuid, s.game_name, s.tag_line,
+                  s.updated_at,
                   (SELECT COUNT(*) FROM tracked_game_stats t WHERE t.puuid = s.puuid) AS tracked_count
            FROM summoner s
            WHERE LOWER(TRIM(s.game_name)) = ?
@@ -1621,26 +1528,39 @@ export function migrateToV31(): void {
            ORDER BY tracked_count DESC`,
         )
         .all(group.identity_name, group.identity_tag) as DuplicateRow[];
-      if (rows.length < 2 || rows.some((row) => row.tracked_count === 0)) continue;
+      if (rows.length < 2) continue;
 
       const canonical = [...rows].sort((a, b) => {
         const uuidOrder = Number(isUuidPuuid(b.puuid)) - Number(isUuidPuuid(a.puuid));
-        return uuidOrder || b.tracked_count - a.tracked_count;
+        return uuidOrder || b.tracked_count - a.tracked_count || b.updated_at - a.updated_at;
       })[0];
       for (const stale of rows) {
         if (stale.puuid !== canonical.puuid) {
-          mergeOne(stale.puuid, canonical.puuid, canonical.game_name, canonical.tag_line);
+          details.push(
+            mergeOne(stale.puuid, canonical.puuid, canonical.game_name, canonical.tag_line),
+          );
         }
       }
     }
+    return { merged: details.length, details };
   });
 
   try {
-    migrate();
+    const result = merge();
+    console.log("[db] mergeDuplicateAccounts done:", { merged: result.merged });
+    return result;
   } catch (error) {
-    console.error("[migrate v31] failed; transaction rolled back:", error);
+    console.error("[db] mergeDuplicateAccounts failed; transaction rolled back:", error);
     throw error;
   }
+}
+
+export function migrateToV30(): void {
+  mergeDuplicateAccounts();
+}
+
+export function migrateToV31(): void {
+  mergeDuplicateAccounts();
 }
 
 export async function runMigrations() {

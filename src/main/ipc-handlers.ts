@@ -1211,6 +1211,16 @@ export function registerIpcHandlers() {
     return db.listSavedSummoners();
   });
 
+  ipcMain.handle("db:merge-duplicate-accounts", (event) => {
+    console.log("[db] merge duplicate accounts handler called");
+    const result = db.mergeDuplicateAccounts();
+    invalidateDashboardCache();
+    invalidateAllCaches();
+    senderWindow(event)?.webContents.send("lcu:games-updated");
+    console.log("[db] merge duplicate accounts handler done:", { merged: result.merged });
+    return result;
+  });
+
   ipcMain.handle("db:backfill-participant-scores", async (event) => {
     const missing = db.getMissingScoreCount();
     if (missing === 0) {

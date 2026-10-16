@@ -459,6 +459,7 @@ const api: ElectronAPI = {
   getCurrentPuuid: () => ipcRenderer.invoke("lcu:current-puuid"),
 
   getSavedSummoners: () => ipcRenderer.invoke("db:saved-summoners"),
+  mergeDuplicateAccounts: () => ipcRenderer.invoke("db:merge-duplicate-accounts"),
   deleteSummoner: (puuid: string) => ipcRenderer.invoke("db:delete-summoner", puuid),
   deleteSearchedSummoners: () => ipcRenderer.invoke("db:delete-searched-summoners"),
 
