@@ -1233,6 +1233,7 @@ export function registerIpcHandlers() {
   });
 
   ipcMain.handle("db:delete-summoner", async (event, puuid: string) => {
+    console.log("[ipc] deleteSummoner called", puuid);
     await backup.backupQuietly("pre-import");
     const result = db.deleteSavedSummoner(puuid);
     invalidateDashboardCacheForAccount(puuid);

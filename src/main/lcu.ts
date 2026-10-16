@@ -221,7 +221,10 @@ export async function getCurrentSummoner(): Promise<CurrentSummoner> {
     summonerLevel: numberField(rawSummoner.summonerLevel),
   };
   if (summoner.puuid) {
-    db.upsertSummoner({ ...rawSummoner, ...summoner });
+    const savedPuuid = db.upsertSummoner({ ...rawSummoner, ...summoner }, "lcu");
+    if (savedPuuid !== summoner.puuid) {
+      summoner.puuid = savedPuuid;
+    }
     if (summoner.platform) {
       db.setRiotSyncState(summoner.puuid, summoner.platform, null, false);
     }
@@ -613,7 +616,10 @@ async function runBackfillForAccount(
     platform: account.platform,
     forceFull,
   });
-  db.upsertSummoner(account);
+  const savedPuuid = db.upsertSummoner(account, "lcu");
+  if (savedPuuid !== account.puuid) {
+    account = { ...account, puuid: savedPuuid };
+  }
 
   const { gameName, tagLine, platform } = account;
   let realPuuid = account.puuid;
@@ -854,13 +860,15 @@ export async function fetchNewGames(
   await connect();
 
   const summoner = knownSummoner ?? (await getCurrentSummoner());
-  db.upsertSummoner(summoner);
+  const savedPuuid = db.upsertSummoner(summoner, "lcu");
+  const trackedSummoner =
+    savedPuuid === summoner.puuid ? summoner : { ...summoner, puuid: savedPuuid };
 
   let newGamesCount = 0;
 
   let historyResponse: any;
   try {
-    historyResponse = await fetchMatchHistoryByPuuid(summoner.puuid, 0, 19);
+    historyResponse = await fetchMatchHistoryByPuuid(trackedSummoner.puuid, 0, 19);
   } catch {
     try {
       historyResponse = await fetchMatchHistory(0, 19);
@@ -880,7 +888,7 @@ export async function fetchNewGames(
       fullGame = game;
     }
 
-    const inserted = db.insertGameFull(fullGame, summoner.puuid, "lcu");
+    const inserted = db.insertGameFull(fullGame, trackedSummoner.puuid, "lcu");
     if (inserted) {
       newGamesCount++;
       console.log(`Stored League game ${fullGame.gameId}`);
@@ -985,11 +993,13 @@ async function captureEogGame(
     // Cheap, and it keeps the stored identity current the same way the poll
     // does — the capture may well be the first thing to run after a switch.
     const summoner = await getCurrentSummoner();
-    db.upsertSummoner(summoner);
+    const savedPuuid = db.upsertSummoner(summoner, "lcu");
+    const trackedSummoner =
+      savedPuuid === summoner.puuid ? summoner : { ...summoner, puuid: savedPuuid };
 
     const game = await fetchGameDetails(gameId);
 
-    if (db.insertGameFull(game, summoner.puuid, "lcu")) {
+    if (db.insertGameFull(game, trackedSummoner.puuid, "lcu")) {
       console.log(`Stored League game ${gameId} from the post-game screen`);
       notifyGamesUpdated(win);
       db.runScoreBackfillIfNeeded((done, total) => {

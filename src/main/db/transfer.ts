@@ -307,7 +307,7 @@ function importLegacyData(data: any): ImportResult {
 
   if (data.version >= 3) {
     for (const s of data.summoners ?? []) {
-      upsertSummoner(s);
+      upsertSummoner(s, "import");
     }
     let imported = 0;
     let total = 0;
@@ -323,7 +323,7 @@ function importLegacyData(data: any): ImportResult {
   const puuid = data.summoner?.puuid;
   const games = data.games ?? [];
   if (!puuid) return { imported: 0, total: games.length, skipped: games.length };
-  upsertSummoner(data.summoner);
+  upsertSummoner(data.summoner, "import");
   let imported = 0;
   let total = 0;
   for (const game of games) {

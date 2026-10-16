@@ -960,7 +960,7 @@ async function configuredIdentity(
           "No platform configured. Set a Riot ID in Settings or start the League client once.",
         );
       }
-      db.upsertSummoner({ ...current, gameName, tagLine });
+      db.upsertSummoner({ ...current, gameName, tagLine }, "riot");
       return { puuid: current.puuid, gameName, tagLine, platform };
     }
   } catch {
@@ -992,7 +992,10 @@ async function configuredIdentity(
     throw new Error(friendlyRiotError(err, "account"));
   }
   db.setSetting("riot_puuid", account.puuid);
-  db.upsertSummoner({ puuid: account.puuid, gameName: account.gameName, tagLine: account.tagLine });
+  db.upsertSummoner(
+    { puuid: account.puuid, gameName: account.gameName, tagLine: account.tagLine },
+    "riot",
+  );
   return { puuid: account.puuid, gameName: account.gameName, tagLine: account.tagLine, platform };
 }
 

@@ -403,7 +403,7 @@ export function createIndexes() {
 // versioning, so it could be missing any subset of the columns v1 adds — which
 // is why each step checks for its column rather than assuming. A database that
 // createTables just built is also version 0, and lands on the same no-op path.
-export const SCHEMA_VERSION = 29;
+export const SCHEMA_VERSION = 30;
 
 export function tableColumns(table: string): Set<string> {
   const rows = db.pragma(`table_info(${table})`) as { name: string }[];
@@ -1347,6 +1347,126 @@ export function migrateToV29(): void {
   console.log("[db] v29 added records ordering index");
 }
 
+export function migrateToV30(): void {
+  type SummonerDuplicate = {
+    puuid: string;
+    game_name: string;
+    tag_line: string;
+    tracked_count: number;
+    games_count: number;
+    updated_at: number;
+  };
+  type IdentityGroup = {
+    identity_name: string;
+    identity_tag: string;
+  };
+
+  const groups = db
+    .prepare(
+      `SELECT LOWER(TRIM(game_name)) AS identity_name,
+              LOWER(TRIM(tag_line)) AS identity_tag
+       FROM summoner
+       WHERE TRIM(COALESCE(game_name, '')) <> ''
+         AND TRIM(COALESCE(tag_line, '')) <> ''
+       GROUP BY LOWER(TRIM(game_name)), LOWER(TRIM(tag_line))
+       HAVING COUNT(*) > 1`,
+    )
+    .all() as IdentityGroup[];
+
+  const mergeReferences = db.transaction(
+    (stalePuuid: string, canonicalPuuid: string, gameName: string, tagLine: string) => {
+      for (const table of ["games", "tracked_game_stats", "match_participants"]) {
+        const result = db
+          .prepare(`UPDATE ${table} SET puuid = ? WHERE puuid = ?`)
+          .run(canonicalPuuid, stalePuuid);
+        if (result.changes > 0) {
+          console.log("[migrate] updated references", {
+            table,
+            count: result.changes,
+            stalePuuid,
+            canonicalPuuid,
+          });
+        }
+      }
+
+      const staleSync = db.prepare("SELECT 1 FROM riot_sync_state WHERE puuid = ?").get(stalePuuid);
+      const canonicalSync = db
+        .prepare("SELECT 1 FROM riot_sync_state WHERE puuid = ?")
+        .get(canonicalPuuid);
+      if (staleSync && !canonicalSync) {
+        db.prepare("UPDATE riot_sync_state SET puuid = ? WHERE puuid = ?").run(
+          canonicalPuuid,
+          stalePuuid,
+        );
+      } else if (staleSync) {
+        db.prepare("DELETE FROM riot_sync_state WHERE puuid = ?").run(stalePuuid);
+      }
+
+      const staleSetting = `backfill_complete_${stalePuuid}`;
+      const canonicalSetting = `backfill_complete_${canonicalPuuid}`;
+      const staleComplete = db
+        .prepare("SELECT value FROM settings WHERE key = ?")
+        .get(staleSetting) as { value: string } | undefined;
+      if (staleComplete) {
+        if (!db.prepare("SELECT 1 FROM settings WHERE key = ?").get(canonicalSetting)) {
+          db.prepare("INSERT INTO settings (key, value) VALUES (?, ?)").run(
+            canonicalSetting,
+            staleComplete.value,
+          );
+        }
+        db.prepare("DELETE FROM settings WHERE key = ?").run(staleSetting);
+      }
+
+      const deleted = db.prepare("DELETE FROM summoner WHERE puuid = ?").run(stalePuuid);
+      if (deleted.changes !== 1) {
+        throw new Error(`Expected one stale summoner row for ${stalePuuid}`);
+      }
+      console.log(`[migrate] merged ${stalePuuid} into ${canonicalPuuid} (${gameName}#${tagLine})`);
+    },
+  );
+
+  for (const group of groups) {
+    const rows = db
+      .prepare(
+        `SELECT s.puuid, s.game_name, s.tag_line, s.updated_at,
+                (SELECT COUNT(*)
+                 FROM tracked_game_stats t
+                 WHERE t.puuid = s.puuid) AS tracked_count,
+                (SELECT COUNT(*)
+                 FROM tracked_game_stats t
+                 JOIN games g ON g.game_id = t.game_id
+                 WHERE t.puuid = s.puuid AND g.source != 'search-import') AS games_count
+         FROM summoner s
+         WHERE LOWER(TRIM(s.game_name)) = ?
+           AND LOWER(TRIM(s.tag_line)) = ?
+         ORDER BY tracked_count DESC, games_count DESC, s.updated_at DESC`,
+      )
+      .all(group.identity_name, group.identity_tag) as SummonerDuplicate[];
+    const emptyRows = rows.filter((row) => row.tracked_count === 0);
+    const dataRows = rows.filter((row) => row.tracked_count > 0);
+
+    if (emptyRows.length === 1 && dataRows.length === 1) {
+      mergeReferences(
+        emptyRows[0].puuid,
+        dataRows[0].puuid,
+        dataRows[0].game_name,
+        dataRows[0].tag_line,
+      );
+      continue;
+    }
+
+    if (dataRows.length >= 2) {
+      // TODO: Category B duplicate identities require a user decision; never
+      // merge accounts when both PUUIDs contain tracked games automatically.
+      console.warn("[migrate] TODO manual duplicate decision:", {
+        gameName: rows[0].game_name,
+        tagLine: rows[0].tag_line,
+        puuids: rows.map((row) => row.puuid),
+      });
+    }
+  }
+}
+
 export async function runMigrations() {
   const current = db.pragma("user_version", { simple: true }) as number;
   function timelineTablesPresent(): boolean {
@@ -1561,6 +1681,7 @@ export async function runMigrations() {
   if (current < 27) migrateToV27();
   if (current < 28) migrateToV28();
   if (current < 29) migrateToV29();
+  if (current < 30) migrateToV30();
 
   db.pragma(`user_version = ${SCHEMA_VERSION}`);
 }

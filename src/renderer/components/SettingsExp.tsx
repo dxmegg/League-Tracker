@@ -496,7 +496,7 @@ export function SettingsExp() {
     };
   }, []);
 
-  const refreshSavedSummoners = useCallback(() => {
+  const refreshSavedSummoners = useCallback(async () => {
     if (typeof window.api.getSavedSummoners !== "function") {
       console.warn(
         "[settings] getSavedSummoners is not available yet — restart the app so the new preload loads",
@@ -504,20 +504,23 @@ export function SettingsExp() {
       setSummonerStatus(
         "Saved accounts is a new feature — restart the application for it to become available.",
       );
-      return;
+      return [];
     }
-    window.api
-      .getSavedSummoners()
-      .then(setSavedSummoners)
-      .catch((err: unknown) => {
-        console.error("Failed to load saved accounts:", err);
-      });
+    const list = await window.api.getSavedSummoners();
+    setSavedSummoners(list);
+    return list;
   }, []);
 
-  useEffect(refreshSavedSummoners, [refreshSavedSummoners]);
+  useEffect(() => {
+    void refreshSavedSummoners().catch((err: unknown) => {
+      console.error("Failed to load saved accounts:", err);
+      setSummonerStatus(`Error: ${err instanceof Error ? err.message : String(err)}`);
+    });
+  }, [refreshSavedSummoners]);
 
   const handleDeleteSummoner = useCallback(
     async (puuid: string) => {
+      console.log("[delete] start", puuid);
       setConfirmDeleteSummoner(null);
       setSummonerStatus(null);
       if (typeof window.api.deleteSummoner !== "function") {
@@ -525,12 +528,16 @@ export function SettingsExp() {
         return;
       }
       try {
+        console.log("[delete] calling api", puuid);
         const result = await window.api.deleteSummoner(puuid);
+        console.log("[delete] result", result);
         setSummonerStatus(
           `Deleted account: ${result.deletedGames} game(s) removed, ${result.deletedTrackedRows} tracked row(s) removed`,
         );
-        refreshSavedSummoners();
+        const list = await refreshSavedSummoners();
+        console.log("[delete] list refreshed", list.length);
       } catch (err) {
+        console.error("[delete] error", err);
         setSummonerStatus(`Error: ${err instanceof Error ? err.message : String(err)}`);
       }
     },
@@ -1356,7 +1363,9 @@ export function SettingsExp() {
                       <span className="text-[11px] text-lol-text">Delete all data?</span>
                       <Button
                         variant="destructive"
-                        onClick={() => handleDeleteSummoner(summoner.puuid)}
+                        onClick={async () => {
+                          await handleDeleteSummoner(summoner.puuid);
+                        }}
                       >
                         Delete
                       </Button>
@@ -1388,7 +1397,7 @@ export function SettingsExp() {
                 ? `Removed ${removed.removed} searched account(s) and ${removed.games} game(s)`
                 : "No searched accounts to remove",
             );
-            refreshSavedSummoners();
+            await refreshSavedSummoners();
           }}
           className="mt-3"
         >

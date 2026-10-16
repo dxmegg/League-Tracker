@@ -3,24 +3,100 @@ import { getSetting } from "./settings";
 import { identityFromGame } from "./matches";
 import type { MasteryChampion, RankEntry } from "../../shared/api";
 
-export function upsertSummoner(summoner: {
-  puuid: string;
-  gameName?: string | null;
-  tagLine?: string | null;
-  summonerId?: number | null;
-  accountId?: number | null;
-  profileIconId?: number | null;
-  platform?: string | null;
-  summonerLevel?: number | null;
-  displayName?: string | null;
-  internalName?: string | null;
-  game_name?: string | null;
-  tag_line?: string | null;
-  summoner_id?: number | null;
-  account_id?: number | null;
-  profile_icon?: number | null;
-  summoner_level?: number | null;
-}): void {
+export type SummonerUpsertSource = "lcu" | "riot" | "import";
+
+function duplicateSummonerRows(gameName: string | null, tagLine: string | null, puuid: string) {
+  if (!gameName || !tagLine) return [];
+  return db
+    .prepare(
+      `SELECT s.puuid,
+              COALESCE((
+                SELECT COUNT(*)
+                FROM tracked_game_stats t
+                JOIN games g ON g.game_id = t.game_id
+                WHERE t.puuid = s.puuid AND g.source != 'search-import'
+              ), 0) AS games_count,
+              COALESCE((
+                SELECT COUNT(*)
+                FROM tracked_game_stats t
+                WHERE t.puuid = s.puuid
+              ), 0) AS tracked_count
+       FROM summoner s
+       WHERE s.puuid != ?
+         AND LOWER(TRIM(s.game_name)) = LOWER(TRIM(?))
+         AND LOWER(TRIM(s.tag_line)) = LOWER(TRIM(?))
+       ORDER BY games_count DESC, tracked_count DESC, length(s.puuid) DESC, s.updated_at DESC`,
+    )
+    .all(puuid, gameName, tagLine) as {
+    puuid: string;
+    games_count: number;
+    tracked_count: number;
+  }[];
+}
+
+function mergeSummonerReferences(stalePuuid: string, canonicalPuuid: string): void {
+  const merge = db.transaction(() => {
+    for (const table of ["games", "tracked_game_stats", "match_participants"]) {
+      const result = db
+        .prepare(`UPDATE ${table} SET puuid = ? WHERE puuid = ?`)
+        .run(canonicalPuuid, stalePuuid);
+      console.log("[db] merged rows:", { table, count: result.changes });
+    }
+
+    const staleSync = db.prepare("SELECT 1 FROM riot_sync_state WHERE puuid = ?").get(stalePuuid);
+    const canonicalSync = db
+      .prepare("SELECT 1 FROM riot_sync_state WHERE puuid = ?")
+      .get(canonicalPuuid);
+    if (staleSync && !canonicalSync) {
+      db.prepare("UPDATE riot_sync_state SET puuid = ? WHERE puuid = ?").run(
+        canonicalPuuid,
+        stalePuuid,
+      );
+    } else if (staleSync) {
+      const result = db.prepare("DELETE FROM riot_sync_state WHERE puuid = ?").run(stalePuuid);
+      console.log("[db] merged rows:", { table: "riot_sync_state", count: result.changes });
+    }
+
+    const staleSetting = `backfill_complete_${stalePuuid}`;
+    const canonicalSetting = `backfill_complete_${canonicalPuuid}`;
+    const staleComplete = db
+      .prepare("SELECT value FROM settings WHERE key = ?")
+      .get(staleSetting) as { value: string } | undefined;
+    if (staleComplete) {
+      if (!db.prepare("SELECT 1 FROM settings WHERE key = ?").get(canonicalSetting)) {
+        db.prepare("INSERT INTO settings (key, value) VALUES (?, ?)").run(
+          canonicalSetting,
+          staleComplete.value,
+        );
+      }
+      db.prepare("DELETE FROM settings WHERE key = ?").run(staleSetting);
+    }
+  });
+  merge();
+}
+
+export function upsertSummoner(
+  summoner: {
+    puuid: string;
+    gameName?: string | null;
+    tagLine?: string | null;
+    summonerId?: number | null;
+    accountId?: number | null;
+    profileIconId?: number | null;
+    platform?: string | null;
+    summonerLevel?: number | null;
+    displayName?: string | null;
+    internalName?: string | null;
+    game_name?: string | null;
+    tag_line?: string | null;
+    summoner_id?: number | null;
+    account_id?: number | null;
+    profile_icon?: number | null;
+    summoner_level?: number | null;
+  },
+  source: SummonerUpsertSource = "import",
+): string {
+  console.log("[db] upsertSummoner called:", { puuid: summoner.puuid, source });
   const now = Date.now();
   const gameName =
     summoner.gameName ??
@@ -33,6 +109,28 @@ export function upsertSummoner(summoner: {
   const accountId = summoner.accountId ?? summoner.account_id ?? null;
   const profileIconId = summoner.profileIconId ?? summoner.profile_icon ?? null;
   const summonerLevel = summoner.summonerLevel ?? summoner.summoner_level ?? null;
+
+  const duplicates = duplicateSummonerRows(gameName, tagLine, summoner.puuid);
+  if (duplicates.length > 0 && source === "lcu") {
+    console.log("[db] upsertSummoner reused existing PUUID:", {
+      requestedPuuid: summoner.puuid,
+      existingPuuid: duplicates[0].puuid,
+    });
+    return duplicates[0].puuid;
+  }
+  if (duplicates.length > 0 && source === "riot") {
+    for (const duplicate of duplicates) {
+      if (duplicate.tracked_count === 0) {
+        mergeSummonerReferences(duplicate.puuid, summoner.puuid);
+        const result = db.prepare("DELETE FROM summoner WHERE puuid = ?").run(duplicate.puuid);
+        console.log("[db] merged duplicate summoner:", {
+          stalePuuid: duplicate.puuid,
+          canonicalPuuid: summoner.puuid,
+          deleted: result.changes,
+        });
+      }
+    }
+  }
 
   db.prepare(`
     INSERT INTO summoner (
@@ -70,6 +168,8 @@ export function upsertSummoner(summoner: {
     summonerLevel,
     now,
   );
+  console.log("[db] upsertSummoner done:", { puuid: summoner.puuid });
+  return summoner.puuid;
 }
 
 export function getResolvedPlatform(): string | null {
@@ -160,14 +260,17 @@ export function saveAccountSnapshot(snapshot: {
 }): void {
   console.log("[db] saveAccountSnapshot called:", { puuid: snapshot.puuid });
   const tx = db.transaction(() => {
-    upsertSummoner({
-      puuid: snapshot.puuid,
-      gameName: snapshot.gameName,
-      tagLine: snapshot.tagLine,
-      profileIconId: snapshot.profileIconId,
-      platform: snapshot.platform,
-      summonerLevel: snapshot.summonerLevel,
-    });
+    upsertSummoner(
+      {
+        puuid: snapshot.puuid,
+        gameName: snapshot.gameName,
+        tagLine: snapshot.tagLine,
+        profileIconId: snapshot.profileIconId,
+        platform: snapshot.platform,
+        summonerLevel: snapshot.summonerLevel,
+      },
+      "lcu",
+    );
 
     const rankedSoloJson = snapshot.rankedSolo == null ? null : JSON.stringify(snapshot.rankedSolo);
     const rankedFlexJson = snapshot.rankedFlex == null ? null : JSON.stringify(snapshot.rankedFlex);
@@ -465,6 +568,7 @@ export function deleteSavedSummoner(puuid: string): {
   deletedGames: number;
   deletedTrackedRows: number;
 } {
+  console.log("[db] deleteSummoner", puuid);
   // A game is tied to an account two ways: through its own puuid column (the
   // owner), or through a tracked_game_stats row (a tracked participant).
   // An older Repair pass wrote games.puuid without creating a tracked row, so
@@ -485,6 +589,7 @@ export function deleteSavedSummoner(puuid: string): {
     deletedTrackedRows = db
       .prepare("DELETE FROM tracked_game_stats WHERE puuid = ?")
       .run(puuid).changes;
+    console.log("[db] delete tracked_game_stats", deletedTrackedRows);
 
     if (ids.length > 0) {
       const placeholders = ids.map(() => "?").join(", ");
@@ -503,24 +608,36 @@ export function deleteSavedSummoner(puuid: string): {
 
       if (orphanIds.length > 0) {
         const orphanPlaceholders = orphanIds.map(() => "?").join(", ");
-        db.prepare(`DELETE FROM player_stats WHERE game_id IN (${orphanPlaceholders})`).run(
-          ...orphanIds,
-        );
-        db.prepare(`DELETE FROM game_augments WHERE game_id IN (${orphanPlaceholders})`).run(
-          ...orphanIds,
-        );
-        db.prepare(
-          `DELETE FROM match_participant_augments WHERE game_id IN (${orphanPlaceholders})`,
-        ).run(...orphanIds);
-        db.prepare(`DELETE FROM match_participants WHERE game_id IN (${orphanPlaceholders})`).run(
-          ...orphanIds,
-        );
-        db.prepare(`DELETE FROM games WHERE game_id IN (${orphanPlaceholders})`).run(...orphanIds);
+        const deletedPlayerStats = db
+          .prepare(`DELETE FROM player_stats WHERE game_id IN (${orphanPlaceholders})`)
+          .run(...orphanIds).changes;
+        console.log("[db] delete player_stats", deletedPlayerStats);
+        const deletedGameAugments = db
+          .prepare(`DELETE FROM game_augments WHERE game_id IN (${orphanPlaceholders})`)
+          .run(...orphanIds).changes;
+        console.log("[db] delete game_augments", deletedGameAugments);
+        const deletedParticipantAugments = db
+          .prepare(
+            `DELETE FROM match_participant_augments WHERE game_id IN (${orphanPlaceholders})`,
+          )
+          .run(...orphanIds).changes;
+        console.log("[db] delete match_participant_augments", deletedParticipantAugments);
+        const deletedParticipants = db
+          .prepare(`DELETE FROM match_participants WHERE game_id IN (${orphanPlaceholders})`)
+          .run(...orphanIds).changes;
+        console.log("[db] delete match_participants", deletedParticipants);
+        const deletedGameRows = db
+          .prepare(`DELETE FROM games WHERE game_id IN (${orphanPlaceholders})`)
+          .run(...orphanIds).changes;
+        console.log("[db] delete games", deletedGameRows);
       }
       deletedGames = orphanIds.length;
     }
 
-    db.prepare("DELETE FROM summoner WHERE puuid = ?").run(puuid);
+    const deletedSummonerRows = db
+      .prepare("DELETE FROM summoner WHERE puuid = ?")
+      .run(puuid).changes;
+    console.log("[db] delete summoner", deletedSummonerRows);
   });
   tx();
 
