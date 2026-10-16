@@ -25,7 +25,18 @@ function duplicateSummonerRows(gameName: string | null, tagLine: string | null, 
        WHERE s.puuid != ?
          AND LOWER(TRIM(s.game_name)) = LOWER(TRIM(?))
          AND LOWER(TRIM(s.tag_line)) = LOWER(TRIM(?))
-       ORDER BY games_count DESC, tracked_count DESC, length(s.puuid) DESC, s.updated_at DESC`,
+       ORDER BY
+         CASE
+           WHEN length(s.puuid) = 36
+            AND substr(s.puuid, 9, 1) = '-'
+            AND substr(s.puuid, 14, 1) = '-'
+            AND substr(s.puuid, 19, 1) = '-'
+            AND substr(s.puuid, 24, 1) = '-'
+           THEN 0 ELSE 1
+         END,
+         games_count DESC,
+         tracked_count DESC,
+         s.updated_at DESC`,
     )
     .all(puuid, gameName, tagLine) as {
     puuid: string;
@@ -34,18 +45,68 @@ function duplicateSummonerRows(gameName: string | null, tagLine: string | null, 
   }[];
 }
 
-function mergeSummonerReferences(stalePuuid: string, canonicalPuuid: string): void {
+function quotedTableColumns(table: string): string[] {
+  return (db.pragma(`table_info(${table})`) as { name: string }[]).map((column) => column.name);
+}
+
+function mergeSummonerReferences(
+  stalePuuid: string,
+  canonicalPuuid: string,
+): { gamesMoved: number; trackedRowsMoved: number } {
   const merge = db.transaction(() => {
-    for (const table of ["games", "tracked_game_stats", "match_participants"]) {
-      const result = db
-        .prepare(`UPDATE ${table} SET puuid = ? WHERE puuid = ?`)
-        .run(canonicalPuuid, stalePuuid);
-      console.log("[db] merged rows:", { table, count: result.changes });
+    const staleGames = db.prepare("SELECT game_id FROM games WHERE puuid = ?").all(stalePuuid) as {
+      game_id: number;
+    }[];
+    let gamesMoved = 0;
+    for (const game of staleGames) {
+      const ownedByCanonical = db
+        .prepare("SELECT 1 FROM games WHERE game_id = ? AND puuid = ?")
+        .get(game.game_id, canonicalPuuid);
+      if (!ownedByCanonical) {
+        gamesMoved += db
+          .prepare("UPDATE games SET puuid = ? WHERE game_id = ? AND puuid = ?")
+          .run(canonicalPuuid, game.game_id, stalePuuid).changes;
+      }
     }
 
-    const staleSync = db.prepare("SELECT 1 FROM riot_sync_state WHERE puuid = ?").get(stalePuuid);
+    let trackedRowsMoved = 0;
+    for (const table of ["tracked_game_stats", "match_participants"]) {
+      const columns = quotedTableColumns(table);
+      const quotedColumns = columns.map((column) => `"${column}"`).join(", ");
+      const selectColumns = columns
+        .map((column) => (column === "puuid" ? "?" : `"${column}"`))
+        .join(", ");
+      const inserted = db
+        .prepare(
+          `INSERT OR IGNORE INTO ${table} (${quotedColumns})
+           SELECT ${selectColumns} FROM ${table} WHERE puuid = ?`,
+        )
+        .run(canonicalPuuid, stalePuuid).changes;
+      if (table === "tracked_game_stats") trackedRowsMoved += inserted;
+      const deleted = db.prepare(`DELETE FROM ${table} WHERE puuid = ?`).run(stalePuuid);
+      console.log("[db] merged rows:", {
+        table,
+        inserted,
+        deleted: deleted.changes,
+      });
+    }
+
+    const staleSync = db
+      .prepare(
+        "SELECT platform, last_sync_at, last_match_id, complete FROM riot_sync_state WHERE puuid = ?",
+      )
+      .get(stalePuuid) as
+      | {
+          platform: string;
+          last_sync_at: number | null;
+          last_match_id: string | null;
+          complete: number;
+        }
+      | undefined;
     const canonicalSync = db
-      .prepare("SELECT 1 FROM riot_sync_state WHERE puuid = ?")
+      .prepare(
+        "SELECT platform, last_sync_at, last_match_id, complete FROM riot_sync_state WHERE puuid = ?",
+      )
       .get(canonicalPuuid);
     if (staleSync && !canonicalSync) {
       db.prepare("UPDATE riot_sync_state SET puuid = ? WHERE puuid = ?").run(
@@ -53,6 +114,25 @@ function mergeSummonerReferences(stalePuuid: string, canonicalPuuid: string): vo
         stalePuuid,
       );
     } else if (staleSync) {
+      const currentCanonical = canonicalSync as {
+        platform: string;
+        last_sync_at: number | null;
+        last_match_id: string | null;
+        complete: number;
+      };
+      if ((staleSync.last_sync_at ?? 0) > (currentCanonical.last_sync_at ?? 0)) {
+        db.prepare(
+          `INSERT OR REPLACE INTO riot_sync_state
+             (puuid, platform, last_sync_at, last_match_id, complete)
+           VALUES (?, ?, ?, ?, ?)`,
+        ).run(
+          canonicalPuuid,
+          staleSync.platform,
+          staleSync.last_sync_at,
+          staleSync.last_match_id,
+          staleSync.complete,
+        );
+      }
       const result = db.prepare("DELETE FROM riot_sync_state WHERE puuid = ?").run(stalePuuid);
       console.log("[db] merged rows:", { table: "riot_sync_state", count: result.changes });
     }
@@ -71,8 +151,10 @@ function mergeSummonerReferences(stalePuuid: string, canonicalPuuid: string): vo
       }
       db.prepare("DELETE FROM settings WHERE key = ?").run(staleSetting);
     }
+
+    return { gamesMoved, trackedRowsMoved };
   });
-  merge();
+  return merge();
 }
 
 export function upsertSummoner(
@@ -120,15 +202,14 @@ export function upsertSummoner(
   }
   if (duplicates.length > 0 && source === "riot") {
     for (const duplicate of duplicates) {
-      if (duplicate.tracked_count === 0) {
-        mergeSummonerReferences(duplicate.puuid, summoner.puuid);
-        const result = db.prepare("DELETE FROM summoner WHERE puuid = ?").run(duplicate.puuid);
-        console.log("[db] merged duplicate summoner:", {
-          stalePuuid: duplicate.puuid,
-          canonicalPuuid: summoner.puuid,
-          deleted: result.changes,
-        });
-      }
+      const moved = mergeSummonerReferences(duplicate.puuid, summoner.puuid);
+      const result = db.prepare("DELETE FROM summoner WHERE puuid = ?").run(duplicate.puuid);
+      console.log("[db] merged duplicate summoner:", {
+        stalePuuid: duplicate.puuid,
+        canonicalPuuid: summoner.puuid,
+        deleted: result.changes,
+        ...moved,
+      });
     }
   }
 

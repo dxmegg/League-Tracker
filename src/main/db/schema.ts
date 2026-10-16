@@ -403,7 +403,7 @@ export function createIndexes() {
 // versioning, so it could be missing any subset of the columns v1 adds — which
 // is why each step checks for its column rather than assuming. A database that
 // createTables just built is also version 0, and lands on the same no-op path.
-export const SCHEMA_VERSION = 30;
+export const SCHEMA_VERSION = 31;
 
 export function tableColumns(table: string): Set<string> {
   const rows = db.pragma(`table_info(${table})`) as { name: string }[];
@@ -1456,14 +1456,190 @@ export function migrateToV30(): void {
     }
 
     if (dataRows.length >= 2) {
-      // TODO: Category B duplicate identities require a user decision; never
-      // merge accounts when both PUUIDs contain tracked games automatically.
-      console.warn("[migrate] TODO manual duplicate decision:", {
+      console.log("[migrate] Category B duplicate deferred to v31:", {
         gameName: rows[0].game_name,
         tagLine: rows[0].tag_line,
         puuids: rows.map((row) => row.puuid),
       });
     }
+  }
+}
+
+export function migrateToV31(): void {
+  type DuplicateRow = {
+    puuid: string;
+    game_name: string;
+    tag_line: string;
+    tracked_count: number;
+  };
+  type IdentityGroup = {
+    identity_name: string;
+    identity_tag: string;
+  };
+
+  const isUuidPuuid = (puuid: string) =>
+    puuid.length === 36 &&
+    puuid[8] === "-" &&
+    puuid[13] === "-" &&
+    puuid[18] === "-" &&
+    puuid[23] === "-";
+  const groups = db
+    .prepare(
+      `SELECT LOWER(TRIM(game_name)) AS identity_name,
+              LOWER(TRIM(tag_line)) AS identity_tag
+       FROM summoner
+       WHERE TRIM(COALESCE(game_name, '')) <> ''
+         AND TRIM(COALESCE(tag_line, '')) <> ''
+       GROUP BY LOWER(TRIM(game_name)), LOWER(TRIM(tag_line))
+       HAVING COUNT(*) > 1`,
+    )
+    .all() as IdentityGroup[];
+
+  const migrate = db.transaction(() => {
+    const copyPuuidRows = (table: string, stalePuuid: string, canonicalPuuid: string) => {
+      const columns = (db.pragma(`table_info(${table})`) as { name: string }[]).map(
+        (column) => column.name,
+      );
+      const quotedColumns = columns.map((column) => `"${column}"`).join(", ");
+      const selectColumns = columns
+        .map((column) => (column === "puuid" ? "?" : `"${column}"`))
+        .join(", ");
+      const inserted = db
+        .prepare(
+          `INSERT OR IGNORE INTO ${table} (${quotedColumns})
+           SELECT ${selectColumns} FROM ${table} WHERE puuid = ?`,
+        )
+        .run(canonicalPuuid, stalePuuid).changes;
+      const deleted = db.prepare(`DELETE FROM ${table} WHERE puuid = ?`).run(stalePuuid).changes;
+      return { inserted, deleted };
+    };
+
+    const mergeOne = (
+      stalePuuid: string,
+      canonicalPuuid: string,
+      gameName: string,
+      tagLine: string,
+    ) => {
+      const staleGames = db
+        .prepare("SELECT game_id FROM games WHERE puuid = ?")
+        .all(stalePuuid) as { game_id: number }[];
+      let gamesMoved = 0;
+      for (const game of staleGames) {
+        const ownedByCanonical = db
+          .prepare("SELECT 1 FROM games WHERE game_id = ? AND puuid = ?")
+          .get(game.game_id, canonicalPuuid);
+        if (!ownedByCanonical) {
+          gamesMoved += db
+            .prepare("UPDATE games SET puuid = ? WHERE game_id = ? AND puuid = ?")
+            .run(canonicalPuuid, game.game_id, stalePuuid).changes;
+        }
+      }
+
+      const tracked = copyPuuidRows("tracked_game_stats", stalePuuid, canonicalPuuid);
+      const participants = copyPuuidRows("match_participants", stalePuuid, canonicalPuuid);
+
+      const staleSync = db
+        .prepare(
+          "SELECT platform, last_sync_at, last_match_id, complete FROM riot_sync_state WHERE puuid = ?",
+        )
+        .get(stalePuuid) as
+        | {
+            platform: string;
+            last_sync_at: number | null;
+            last_match_id: string | null;
+            complete: number;
+          }
+        | undefined;
+      const canonicalSync = db
+        .prepare(
+          "SELECT platform, last_sync_at, last_match_id, complete FROM riot_sync_state WHERE puuid = ?",
+        )
+        .get(canonicalPuuid) as
+        | {
+            platform: string;
+            last_sync_at: number | null;
+            last_match_id: string | null;
+            complete: number;
+          }
+        | undefined;
+      if (
+        staleSync &&
+        (!canonicalSync || (staleSync.last_sync_at ?? 0) > (canonicalSync.last_sync_at ?? 0))
+      ) {
+        db.prepare(
+          `INSERT OR REPLACE INTO riot_sync_state
+             (puuid, platform, last_sync_at, last_match_id, complete)
+           VALUES (?, ?, ?, ?, ?)`,
+        ).run(
+          canonicalPuuid,
+          staleSync.platform,
+          staleSync.last_sync_at,
+          staleSync.last_match_id,
+          staleSync.complete,
+        );
+      }
+      if (staleSync) {
+        db.prepare("DELETE FROM riot_sync_state WHERE puuid = ?").run(stalePuuid);
+      }
+
+      const staleSetting = `backfill_complete_${stalePuuid}`;
+      const canonicalSetting = `backfill_complete_${canonicalPuuid}`;
+      const staleComplete = db
+        .prepare("SELECT value FROM settings WHERE key = ?")
+        .get(staleSetting) as { value: string } | undefined;
+      if (staleComplete) {
+        if (!db.prepare("SELECT 1 FROM settings WHERE key = ?").get(canonicalSetting)) {
+          db.prepare("INSERT INTO settings (key, value) VALUES (?, ?)").run(
+            canonicalSetting,
+            staleComplete.value,
+          );
+        }
+        db.prepare("DELETE FROM settings WHERE key = ?").run(staleSetting);
+      }
+
+      const deletedSummoner = db.prepare("DELETE FROM summoner WHERE puuid = ?").run(stalePuuid);
+      if (deletedSummoner.changes !== 1) {
+        throw new Error(`Expected one stale summoner row for ${stalePuuid}`);
+      }
+      console.log(
+        `[migrate v31] merged ${stalePuuid} into ${canonicalPuuid} (${gameName}#${tagLine}) — moved ${gamesMoved} games, ${tracked.inserted} tracked rows`,
+      );
+      console.log("[migrate v31] participant rows:", {
+        inserted: participants.inserted,
+        deleted: participants.deleted,
+      });
+    };
+
+    for (const group of groups) {
+      const rows = db
+        .prepare(
+          `SELECT s.puuid, s.game_name, s.tag_line,
+                  (SELECT COUNT(*) FROM tracked_game_stats t WHERE t.puuid = s.puuid) AS tracked_count
+           FROM summoner s
+           WHERE LOWER(TRIM(s.game_name)) = ?
+             AND LOWER(TRIM(s.tag_line)) = ?
+           ORDER BY tracked_count DESC`,
+        )
+        .all(group.identity_name, group.identity_tag) as DuplicateRow[];
+      if (rows.length < 2 || rows.some((row) => row.tracked_count === 0)) continue;
+
+      const canonical = [...rows].sort((a, b) => {
+        const uuidOrder = Number(isUuidPuuid(b.puuid)) - Number(isUuidPuuid(a.puuid));
+        return uuidOrder || b.tracked_count - a.tracked_count;
+      })[0];
+      for (const stale of rows) {
+        if (stale.puuid !== canonical.puuid) {
+          mergeOne(stale.puuid, canonical.puuid, canonical.game_name, canonical.tag_line);
+        }
+      }
+    }
+  });
+
+  try {
+    migrate();
+  } catch (error) {
+    console.error("[migrate v31] failed; transaction rolled back:", error);
+    throw error;
   }
 }
 
@@ -1682,6 +1858,7 @@ export async function runMigrations() {
   if (current < 28) migrateToV28();
   if (current < 29) migrateToV29();
   if (current < 30) migrateToV30();
+  if (current < 31) migrateToV31();
 
   db.pragma(`user_version = ${SCHEMA_VERSION}`);
 }
