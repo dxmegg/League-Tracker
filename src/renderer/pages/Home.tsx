@@ -17,6 +17,7 @@ import {
 } from "../../shared/queues";
 import ChampionIcon from "../components/ChampionIcon";
 import { ChampCard } from "../components/ChampCard";
+import { EmptyState } from "../components/EmptyState";
 import { HomeHero } from "../components/HomeHero";
 import { HomeCard } from "../components/HomeCard";
 import { LiveGameTile } from "../components/LiveGameTile";
@@ -68,17 +69,6 @@ const ROLE_LABELS: Record<RoleBreakdown["role"], string> = {
   UTILITY: "Support",
   NO_POSITION: "No position",
 };
-
-function EmptyState({ text }: { text: string }) {
-  return (
-    <div className="rounded-md border border-dashed border-white/[0.08] bg-white/[0.02] px-4 py-3 text-lol-text/70">
-      <span className="mr-2" aria-hidden="true">
-        ⓘ
-      </span>
-      {text}
-    </div>
-  );
-}
 
 function StatValue({
   label,
@@ -844,7 +834,11 @@ export default function Home() {
               </span>
             </div>
             {visibleRoles.length === 0 ? (
-              <EmptyState text="No role data for this period. Roles require Ranked or Normal games with a stored position." />
+              <EmptyState
+                variant="compact"
+                showIcon
+                text="No role data for this period. Roles require Ranked or Normal games with a stored position."
+              />
             ) : (
               <div className={`grid gap-2.5 ${roleGridClass}`}>
                 {visibleRoles.map((stats) => {

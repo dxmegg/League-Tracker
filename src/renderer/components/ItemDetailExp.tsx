@@ -6,6 +6,7 @@ import { useHistoryScopeQueue } from "../lib/historyScope";
 import { getChampionName, getItemName, useChampionData, useItemData } from "../hooks/useChampions";
 import ItemIcon from "./ItemIcon";
 import ChampionIcon from "./ChampionIcon";
+import { EmptyState } from "./EmptyState";
 import WinRateBar from "./WinRateBar";
 import RiotText from "./RiotText";
 import { SearchInput } from "./SearchInput";
@@ -61,14 +62,6 @@ function PanelHeading({ title }: { title: string }) {
         className="pointer-events-none absolute bottom-[-6px] left-0 h-px w-2/5 bg-gradient-to-r from-[#E5483F]/35 to-transparent"
         aria-hidden="true"
       />
-    </div>
-  );
-}
-
-function EmptyState({ text }: { text: string }) {
-  return (
-    <div className="rounded-md border border-dashed border-white/[0.08] bg-white/[0.02] px-4 py-3 text-lol-text/70">
-      {text}
     </div>
   );
 }
@@ -263,7 +256,7 @@ export function ItemDetailExp() {
       <Panel>
         <PanelHeading title="Win rate by patch" />
         {data.patchBreakdown.length === 0 ? (
-          <EmptyState text="No patch data available." />
+          <EmptyState variant="compact" text="No patch data available." />
         ) : (
           <div className="max-h-[400px] overflow-y-auto">
             <div className="flex flex-col gap-2 text-xs">
@@ -290,7 +283,7 @@ export function ItemDetailExp() {
       <Panel>
         <PanelHeading title="Top pairings" />
         {data.topPairings.length === 0 ? (
-          <EmptyState text="No pairing data." />
+          <EmptyState variant="compact" text="No pairing data." />
         ) : (
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 xl:grid-cols-8">
             {data.topPairings.map((pairing) => (

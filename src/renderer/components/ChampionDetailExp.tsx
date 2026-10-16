@@ -53,6 +53,7 @@ import { useHistoryScopeQueue } from "../lib/historyScope";
 import AugmentIcon from "./AugmentIcon";
 import ChampionIcon from "./ChampionIcon";
 import { DonutChart } from "./DonutChart";
+import { EmptyState } from "./EmptyState";
 import { LineChartExp } from "./LineChartExp";
 import { MatchRowExperiment } from "./MatchRowExperiment";
 import { Panel } from "./Panel";
@@ -1411,7 +1412,10 @@ function ChallengesPanel({
     return (
       <Panel className={TAB_PANEL_CLASSES.sapphire}>
         <SectionHeading title="Challenges" source="m" />
-        <EmptyState text="No challenge data for this champion. Challenges require Match-V5 sync (Settings → Riot Match-V5 sync)." />
+        <EmptyState
+          variant="compact"
+          text="No challenge data for this champion. Challenges require Match-V5 sync (Settings → Riot Match-V5 sync)."
+        />
       </Panel>
     );
   }
@@ -4227,7 +4231,10 @@ function AbilitiesTab({
         <p className="mb-3 text-[11px] text-lol-text/70">
           Ability-specific damage details are unavailable from the stored match data.
         </p>
-        <EmptyState text="Per-ability damage (Q/W/E/R breakdown) is not available in any public Riot API. This section is intentionally empty." />
+        <EmptyState
+          variant="compact"
+          text="Per-ability damage (Q/W/E/R breakdown) is not available in any public Riot API. This section is intentionally empty."
+        />
       </Panel>
     </div>
   );
@@ -5254,7 +5261,7 @@ function EconomyTab({
                 Win rate by your gold lead at 15 minutes.
               </p>
               {timeline?.winrateByGoldLead15 == null ? (
-                <EmptyState text="Gold lead outcomes are not available" />
+                <EmptyState variant="compact" text="Gold lead outcomes are not available" />
               ) : (
                 <div className="grid grid-cols-4 gap-3 text-xs">
                   {[
@@ -5288,7 +5295,7 @@ function EconomyTab({
                         {label}
                       </div>
                       {rate == null ? (
-                        <EmptyState text="No games" />
+                        <EmptyState variant="compact" text="No games" />
                       ) : (
                         <div className="relative pt-4">
                           <span className="absolute inset-x-0 top-0 text-center text-[10px] font-semibold tabular-nums text-lol-text-bright">
@@ -5320,7 +5327,7 @@ function EconomyTab({
                 Games in each 15-minute gold-lead bucket.
               </p>
               {timeline?.goldLeadDistribution15 == null ? (
-                <EmptyState text="Per-game lead distribution is not available" />
+                <EmptyState variant="compact" text="Per-game lead distribution is not available" />
               ) : (
                 <div className="grid grid-cols-4 gap-3 text-xs">
                   {goldLeadBuckets.map(([label, count, color]) => (
@@ -5361,7 +5368,7 @@ function EconomyTab({
                 Average item purchases per game by minute.
               </p>
               {timeline?.spendingTimeline == null ? (
-                <EmptyState text="Item purchase timeline is not available" />
+                <EmptyState variant="compact" text="Item purchase timeline is not available" />
               ) : (
                 <div className="flex h-32 items-end gap-2">
                   {timeline.spendingTimeline.map((bucket) => {
@@ -5831,7 +5838,7 @@ function ObjectivesTab({
           Objective control and first-objective rates for your team vs enemy team across your games.
         </p>
         {!teamObj || teamObj.ally.games === 0 ? (
-          <EmptyState text="No team objective data for these games." />
+          <EmptyState variant="compact" text="No team objective data for these games." />
         ) : (
           <div className="grid gap-3">
             <div className="grid grid-cols-[minmax(0,1fr)_130px] gap-3 border-b border-lol-border/50 pb-2 text-xs font-semibold text-lol-text">
@@ -5906,11 +5913,17 @@ function ObjectivesTab({
 
       <Panel className={TAB_PANEL_CLASSES.sapphire}>
         <SectionHeading title="Stolen objectives" source="m" />
-        <EmptyState text="Objective steal tracking is not available from Riot's stored payload." />
+        <EmptyState
+          variant="compact"
+          text="Objective steal tracking is not available from Riot's stored payload."
+        />
       </Panel>
       <Panel className={TAB_PANEL_CLASSES.sapphire}>
         <SectionHeading title="Unavailable objective detail (future work)" source="d" />
-        <EmptyState text="Timeline objective data is available but not surfaced yet." />
+        <EmptyState
+          variant="compact"
+          text="Timeline objective data is available but not surfaced yet."
+        />
       </Panel>
     </div>
   );
@@ -6447,7 +6460,7 @@ function Stat({
           </b>
           {sub &&
             (emptySub ? (
-              <EmptyState text={sub} />
+              <EmptyState variant="compact" text={sub} />
             ) : (
               <div className="text-[12px] text-lol-text">{sub}</div>
             ))}
@@ -6563,17 +6576,6 @@ function SectionLoading() {
 
 function NoData({ text = "No data" }: { text?: string }) {
   return <span className="text-[12.5px] text-lol-text">{text}</span>;
-}
-
-function EmptyState({ text }: { text: string }) {
-  return (
-    <div className="rounded-md border border-dashed border-white/[0.08] bg-white/[0.02] px-4 py-3 text-lol-text/70">
-      <span className="mr-2" aria-hidden="true">
-        ⓘ
-      </span>
-      {text}
-    </div>
-  );
 }
 
 function RoleRow({

@@ -9,6 +9,7 @@ import type {
   MatchDetail,
 } from "../lib/types";
 import ChampionIcon from "../components/ChampionIcon";
+import { EmptyState } from "../components/EmptyState";
 import ItemIcon from "../components/ItemIcon";
 import { MatchRowExperiment } from "../components/MatchRowExperiment";
 import { Panel } from "../components/Panel";
@@ -111,7 +112,7 @@ export default function FriendDetail() {
           )}
         </div>
         <Panel>
-          <EmptyState text="No games found with this player." />
+          <EmptyState variant="roomy" text="No games found with this player." />
         </Panel>
       </div>
     );
@@ -347,7 +348,7 @@ export default function FriendDetail() {
             ))}
           </div>
         ) : (
-          <EmptyState text="No champion data available." />
+          <EmptyState variant="roomy" text="No champion data available." />
         )}
         {player.champions.length > 20 && (
           <button
@@ -527,7 +528,7 @@ export default function FriendDetail() {
             ))}
           </div>
         ) : (
-          <EmptyState text="No shared matches found." />
+          <EmptyState variant="roomy" text="No shared matches found." />
         )}
       </Panel>
     </div>
@@ -557,14 +558,6 @@ function SectionHeading({
           {aside}
         </span>
       )}
-    </div>
-  );
-}
-
-function EmptyState({ text }: { text: string }) {
-  return (
-    <div className="rounded-md border border-dashed border-white/[0.08] bg-white/[0.02] px-4 py-6 text-center text-sm text-lol-text/70">
-      {text}
     </div>
   );
 }
