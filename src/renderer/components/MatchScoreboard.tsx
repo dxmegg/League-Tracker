@@ -830,7 +830,7 @@ function TelemetryBlock({ player: p }: { player: ParsedParticipant }) {
     .sort(([, a], [, b]) => b - a);
   const visibleChallengeEntries = showAllChallenges
     ? challengeEntries
-    : challengeEntries.slice(0, 20);
+    : challengeEntries.slice(0, 15);
   const hasTelemetry =
     telemetryValues.some((value) => value != null && value !== 0) || challengeEntries.length > 0;
 
@@ -865,13 +865,13 @@ function TelemetryBlock({ player: p }: { player: ParsedParticipant }) {
                     </div>
                   ))}
                 </div>
-                {challengeEntries.length > 20 && (
+                {challengeEntries.length > 15 && (
                   <button
                     type="button"
                     className="mt-1 text-lol-accent hover:text-lol-text-bright"
                     onClick={() => setShowAllChallenges((expanded) => !expanded)}
                   >
-                    {showAllChallenges ? "Show less" : `Show all (${challengeEntries.length})`}
+                    {showAllChallenges ? "Show top 15" : `Show all (${challengeEntries.length})`}
                   </button>
                 )}
               </div>
