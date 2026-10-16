@@ -187,13 +187,16 @@ Cherry-pickuje commity między worktree'ami — nie używać subsessji.
 6. Co dalej
 
 - A — New feature (ask user for direction)
-- B — Optional: tokenize remaining hardcoded colors across experiment pages (TrendsExp, DataExp, RecordsExp) to fully respect experiment2-5 theme variants
-- C — Optional: extract Panel + SectionHeading + StatCard + EmptyState to shared components (already done partially for SectionHeading; check RecordsExp, ChampionDetailExp, ItemsExp, FriendsExp for remaining duplicates)
-- D — Optional: Match Detail — show more than top 20 challenges per participant
-- E — Optional: Milestone labels in Records — align wording with mockup ("Game #1 — first ever tracked win", "1 000th career kill" format) if user wants
+- B — Optional: Trophy Cabinet tiers (Bronze/Silver/Gold) — user will define criteria
+- C — Optional: Records Best by queue — filter unknown queue IDs (Queue 3270, Summoner's Rift (Draft), League Classic, ARURF) or group into "Other"
+- D — Optional: Records Recently Broken — history table (track old values, not just current) if user wants to see progression over time
 
 Completed since last handoff:
 
+- Color tokenization: TrendsExp, DataExp, RecordsExp, FriendsExp, FriendDetail — all hardcoded hex → var(--theme-*) / lol-* classes. Orange (no token) and neutral white/black overlays left as-is.
+- Shared components: EmptyState extracted to src/renderer/components/EmptyState.tsx with compact/roomy variants + optional showIcon. Panel + StatCard were already shared.
+- Match Detail challenges: top 15 default, "Show all (N)" expand, per-match useState (MatchScoreboard.tsx TelemetryBlock).
+- Records milestone labels aligned with mockup format: "Game #1 — first ever tracked win", "1 000th career kill", "Win #1 000", "Game #2 000", "Longest win streak — N games".
 - Records full redesign (mockup-driven): thematic sections (TROPHY CABINET, COMBAT, MULTIKILLS, ECONOMY & FARMING, VISION & OBJECTIVES, SURVIVAL & GAME LENGTH, Best records by queue, Milestones, Recently Broken at bottom), 6 achievements (Pentakill Hunter, Marathon Runner, Untouchable, Hot Streak, Centurion, Thousand Club — flat, no tiers), section accent colors, per-section tile top borders
 - Records backend: 7 new aggregates (vision_score, wards_placed, damage_to_turrets, damage_to_objectives, fastest_pentakill, flawless_ace via score_raw on 0-death LOSS, multikillTotals lifetime counts), best-by-queue (GROUP BY normalized queue, Arena grouped via ARENA_QUEUE_IDS), milestones (ordered scan: first win, first penta, 1000th kill, win #1000, game #2000, longest win streak)
 - Records fixes: hook order (unconditional useHistoryScopeQueue), NaN queue guard, header scope label, compound index idx_mp_puuid_creation_game (SCHEMA_VERSION 29), accounts cache invalidation on games-updated, IPC error state with Retry, unified loss streak semantics (hide 1-game), KDA Perfect via bests.kda.perfect, totalGames includes NO_STATS queues, getRecords returns RecordsData (typed, not any), recentlyBroken excludes lifetime multikill totals, account selector can return to "All accounts" (undefined → "all" normalization)
@@ -210,8 +213,9 @@ Known working-as-designed (do NOT touch without approval):
 - Old games (2+ years) 404 from Riot API
 - riot-accounts.local.json is optional seed file, gitignored
 - Legacy `test` theme is comparison-only, will be removed later; all new work targets `experiment*`
-- Records: flat achievements (no tiers yet — user will define later)
+- Records: flat achievements (no tiers yet)
 - Records: Recently Broken shows only latest state per record (no history table)
+- Records: Top 5 damage payload exists but section hidden in UI
 
 7. Komendy
 npm run dev          # apka (wymaga LCU jako admin)
