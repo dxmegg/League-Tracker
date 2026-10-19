@@ -1167,6 +1167,7 @@ export interface TrendsDay {
 
 export interface TrendsData {
   daily: TrendsDay[];
+  combatEconomy?: { dpm: number; gpm: number; cspm: number; vision: number };
   // Chronological by first game played on the patch
   patches: {
     patch: string;

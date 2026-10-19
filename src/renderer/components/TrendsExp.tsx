@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import type { TrendsData } from "../lib/types";
 import { ActivityHeatmap } from "./ActivityHeatmap";
 import ChampionIcon from "./ChampionIcon";
@@ -13,6 +13,16 @@ import { WeekdayChart } from "./WeekdayChart";
 import { isArenaQueue } from "../../shared/queues";
 import { formatDuration } from "../lib/format";
 import { getChampionName, useChampionData } from "../hooks/useChampions";
+import { FilterChip } from "./FilterChip";
+
+type TimeRange = "4w" | "12w" | "6m" | "all";
+
+const TIME_RANGES: { value: TimeRange; label: string }[] = [
+  { value: "4w", label: "4 Weeks" },
+  { value: "12w", label: "12 Weeks" },
+  { value: "6m", label: "6 Months" },
+  { value: "all", label: "All Time" },
+];
 
 function parseDay(day: string): Date {
   const [year, month, date] = day.split("-").map(Number);
@@ -213,14 +223,31 @@ export function TrendsExp({
   onRetry: () => Promise<void>;
 }) {
   const championData = useChampionData();
+  const [timeRange, setTimeRange] = useState<TimeRange>("12w");
   const weekly = useMemo(() => {
     if (!data || data.daily.length === 0) return [];
 
     const daily = [...data.daily].sort((a, b) => a.day.localeCompare(b.day));
-    const lastMonday = mondayOf(new Date());
-    const buckets = Array.from({ length: 12 }, (_, index) => {
-      const week = new Date(lastMonday);
-      week.setDate(week.getDate() - (11 - index) * 7);
+    const firstMonday = mondayOf(parseDay(daily[0].day));
+    const lastMonday = mondayOf(parseDay(daily[daily.length - 1].day));
+    const bucketCount =
+      timeRange === "4w" ? 4 : timeRange === "12w" ? 12 : timeRange === "6m" ? 26 : 0;
+    const startMonday =
+      bucketCount > 0
+        ? new Date(lastMonday.getTime() - (bucketCount - 1) * 7 * 24 * 60 * 60 * 1000)
+        : firstMonday;
+    const allBucketCount =
+      Math.floor((lastMonday.getTime() - startMonday.getTime()) / (7 * 24 * 60 * 60 * 1000)) + 1;
+    const filteredDaily =
+      bucketCount > 0
+        ? daily.filter((row) => {
+            const week = mondayOf(parseDay(row.day)).getTime();
+            return week >= startMonday.getTime() && week <= lastMonday.getTime();
+          })
+        : daily;
+    const buckets = Array.from({ length: bucketCount || allBucketCount }, (_, index) => {
+      const week = new Date(startMonday);
+      week.setDate(week.getDate() + index * 7);
       return {
         day: dayKey(week),
         games: 0,
@@ -235,7 +262,7 @@ export function TrendsExp({
     });
     const bucketByDay = new Map(buckets.map((bucket) => [bucket.day, bucket]));
 
-    for (const row of daily) {
+    for (const row of filteredDaily) {
       const bucket = bucketByDay.get(dayKey(mondayOf(parseDay(row.day))));
       if (!bucket) continue;
       bucket.games += row.games;
@@ -249,7 +276,10 @@ export function TrendsExp({
     }
 
     return buckets;
-  }, [data]);
+  }, [data, timeRange]);
+
+  const timeRangeLabel =
+    TIME_RANGES.find((range) => range.value === timeRange)?.label ?? "12 Weeks";
 
   const weeklyWinRates = weekly.map((week) =>
     week.games > 0 ? (week.wins / week.games) * 100 : null,
@@ -370,7 +400,21 @@ export function TrendsExp({
         <h1 className="relative pl-4 font-display text-[30px] font-bold leading-tight tracking-[0.2px] text-lol-text-bright before:absolute before:left-0 before:top-1/2 before:h-2.5 before:w-2.5 before:-translate-y-1/2 before:rotate-45 before:bg-[var(--theme-crimson)]">
           Trends
         </h1>
-        <p className="relative mt-1.5 pl-4 text-lol-text">How your last 12 weeks look</p>
+        <p className="relative mt-1.5 pl-4 text-lol-text">
+          How your {timeRangeLabel.toLowerCase()} look
+        </p>
+      </div>
+
+      <div className="flex flex-wrap items-center gap-2" aria-label="Time range">
+        {TIME_RANGES.map((range) => (
+          <FilterChip
+            key={range.value}
+            active={timeRange === range.value}
+            onClick={() => setTimeRange(range.value)}
+          >
+            {range.label}
+          </FilterChip>
+        ))}
       </div>
 
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
@@ -396,7 +440,7 @@ export function TrendsExp({
           <h2 className="relative pl-4 font-display text-xl font-semibold text-lol-text-bright before:absolute before:left-0 before:top-1/2 before:h-2 before:w-2 before:-translate-y-1/2 before:rotate-45 before:bg-lol-crimson">
             K/D/A over time
           </h2>
-          <span className="text-xs uppercase tracking-wider text-lol-text">Last 12 weeks</span>
+          <span className="text-xs uppercase tracking-wider text-lol-text">{timeRangeLabel}</span>
         </div>
         <LineChartExp
           values={weekly.map((week) => week.kills)}
@@ -412,7 +456,7 @@ export function TrendsExp({
           <h2 className="relative pl-4 font-display text-xl font-semibold text-lol-text-bright before:absolute before:left-0 before:top-1/2 before:h-2 before:w-2 before:-translate-y-1/2 before:rotate-45 before:bg-lol-crimson">
             Activity heatmap
           </h2>
-          <span className="text-xs uppercase tracking-wider text-lol-text">Last 12 weeks</span>
+          <span className="text-xs uppercase tracking-wider text-lol-text">{timeRangeLabel}</span>
         </div>
         <ActivityHeatmap daily={data.daily} />
       </Panel>
@@ -487,7 +531,7 @@ export function TrendsExp({
             <h2 className="relative pl-4 font-display text-xl font-semibold text-lol-text-bright before:absolute before:left-0 before:top-1/2 before:h-2 before:w-2 before:-translate-y-1/2 before:rotate-45 before:bg-lol-crimson">
               Win / loss balance
             </h2>
-            <span className="text-xs uppercase tracking-wider text-lol-text">Last 12 weeks</span>
+            <span className="text-xs uppercase tracking-wider text-lol-text">{timeRangeLabel}</span>
           </div>
           <GroupedBarChart data={weeklyWinLoss} />
         </Panel>
@@ -596,6 +640,35 @@ export function TrendsExp({
             </Panel>
           </div>
 
+          <Panel className="border-t-[3px] border-t-[var(--theme-gold)] bg-[radial-gradient(circle_at_top_right,color-mix(in_oklab,var(--theme-gold)_8%,transparent),transparent_48%),linear-gradient(180deg,var(--theme-card-hover),var(--theme-card))]">
+            <div className="mb-3 flex items-baseline justify-between">
+              <h2 className="relative pl-4 font-display text-xl font-semibold text-lol-text-bright before:absolute before:left-0 before:top-1/2 before:h-2 before:w-2 before:-translate-y-1/2 before:rotate-45 before:bg-lol-crimson">
+                Combat &amp; economy
+              </h2>
+              <span className="text-xs uppercase tracking-wider text-lol-text">All games</span>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              {[
+                ["DPM", data.combatEconomy?.dpm ?? 0],
+                ["GPM", data.combatEconomy?.gpm ?? 0],
+                ["CS/min", data.combatEconomy?.cspm ?? 0],
+                ["Vision Score", data.combatEconomy?.vision ?? 0],
+              ].map(([label, value]) => (
+                <div
+                  key={label}
+                  className="rounded-md border border-lol-border/40 bg-lol-card/30 p-3"
+                >
+                  <div className="text-xl font-semibold tabular-nums text-lol-text-bright">
+                    {Number(value).toFixed(1)}
+                  </div>
+                  <div className="mt-1 text-[10px] uppercase tracking-wider text-lol-text">
+                    {label}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </Panel>
+
           <div>
             <SectionHeading title="Performance by queue" />
             <Panel>
@@ -645,7 +718,7 @@ export function TrendsExp({
             <h2 className="relative pl-4 font-display text-xl font-semibold text-lol-text-bright before:absolute before:left-0 before:top-1/2 before:h-2 before:w-2 before:-translate-y-1/2 before:rotate-45 before:bg-lol-crimson">
               Win rate by patch
             </h2>
-            <span className="text-xs uppercase tracking-wider text-lol-text">Last 12 weeks</span>
+            <span className="text-xs uppercase tracking-wider text-lol-text">{timeRangeLabel}</span>
           </div>
           <PatchBars patches={data.patches} />
         </Panel>
@@ -655,7 +728,7 @@ export function TrendsExp({
             <h2 className="relative pl-4 font-display text-xl font-semibold text-lol-text-bright before:absolute before:left-0 before:top-1/2 before:h-2 before:w-2 before:-translate-y-1/2 before:rotate-45 before:bg-lol-crimson">
               By day of week
             </h2>
-            <span className="text-xs uppercase tracking-wider text-lol-text">Last 12 weeks</span>
+            <span className="text-xs uppercase tracking-wider text-lol-text">{timeRangeLabel}</span>
           </div>
           <WeekdayChart weekdays={data.weekdays} />
         </Panel>
@@ -665,7 +738,7 @@ export function TrendsExp({
             <h2 className="relative pl-4 font-display text-xl font-semibold text-lol-text-bright before:absolute before:left-0 before:top-1/2 before:h-2 before:w-2 before:-translate-y-1/2 before:rotate-45 before:bg-lol-crimson">
               By hour of day
             </h2>
-            <span className="text-xs uppercase tracking-wider text-lol-text">Last 12 weeks</span>
+            <span className="text-xs uppercase tracking-wider text-lol-text">{timeRangeLabel}</span>
           </div>
           <HourChart hours={data.hours} />
         </Panel>

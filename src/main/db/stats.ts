@@ -3757,6 +3757,17 @@ export function getTrendsData(queue?: number, account?: string): TrendsData {
     `)
       .all(...params) as TrendsData["daily"];
 
+    const combatEconomyRow = db
+      .prepare(`
+      SELECT SUM(ps.total_damage_dealt) * 60.0 / MAX(SUM(g.game_duration), 1) as dpm,
+             SUM(ps.gold_earned) * 60.0 / MAX(SUM(g.game_duration), 1) as gpm,
+             SUM(ps.cs) * 60.0 / MAX(SUM(g.game_duration), 1) as cspm,
+             AVG(ps.vision_score) as vision
+      ${fromSql}
+      ${whereSql}
+    `)
+      .get(...params) as TrendsData["combatEconomy"];
+
     const roleBreakdown = db
       .prepare(`
     SELECT mp.team_position as role,
@@ -3865,6 +3876,12 @@ export function getTrendsData(queue?: number, account?: string): TrendsData {
       queueBreakdown,
       championTop,
       dayHourMatrix,
+      combatEconomy: {
+        dpm: combatEconomyRow?.dpm ?? 0,
+        gpm: combatEconomyRow?.gpm ?? 0,
+        cspm: combatEconomyRow?.cspm ?? 0,
+        vision: combatEconomyRow?.vision ?? 0,
+      },
     };
   });
 }
