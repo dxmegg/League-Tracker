@@ -1,14 +1,18 @@
 import { useMemo } from "react";
 import type { TrendsData } from "../lib/types";
 import { ActivityHeatmap } from "./ActivityHeatmap";
+import ChampionIcon from "./ChampionIcon";
 import { LineChartExp } from "./LineChartExp";
 import { Panel } from "./Panel";
 import { HourChart } from "./HourChart";
 import { PatchBars } from "./PatchBars";
 import { queueLabel } from "./QueueSelect";
+import { SectionHeading } from "./SectionHeading";
 import { TimeSeriesChart, type SeriesPoint } from "./TimeSeriesChart";
 import { WeekdayChart } from "./WeekdayChart";
 import { isArenaQueue } from "../../shared/queues";
+import { formatDuration } from "../lib/format";
+import { getChampionName, useChampionData } from "../hooks/useChampions";
 
 function parseDay(day: string): Date {
   const [year, month, date] = day.split("-").map(Number);
@@ -111,10 +115,7 @@ function SimpleBar({ label, games, wins }: { label: string; games: number; wins:
   const barColor = winRate >= 50 ? "var(--theme-win)" : "var(--theme-assist)";
 
   return (
-    <div
-      className="flex min-w-0 flex-1 flex-col items-center gap-2"
-      title={`${label}: ${winRate.toFixed(0)}% WR`}
-    >
+    <div className="flex min-w-0 flex-1 flex-col items-center gap-2" title={label}>
       <div className="flex h-40 w-full items-end justify-center">
         <div
           className="w-full max-w-12 rounded-t-md transition-[height] duration-200"
@@ -124,7 +125,7 @@ function SimpleBar({ label, games, wins }: { label: string; games: number; wins:
           }}
         />
       </div>
-      <div className="max-w-full truncate text-center text-[11px] font-semibold text-lol-text-bright">
+      <div className="max-w-full truncate text-center text-[10px] font-semibold text-lol-text-bright">
         {label}
       </div>
       <div className="text-[10px] tabular-nums text-lol-text">{games} games</div>
@@ -211,6 +212,7 @@ export function TrendsExp({
   error: string | null;
   onRetry: () => Promise<void>;
 }) {
+  const championData = useChampionData();
   const weekly = useMemo(() => {
     if (!data || data.daily.length === 0) return [];
 
@@ -317,7 +319,16 @@ export function TrendsExp({
   const queueBreakdown = (() => {
     const grouped = new Map<
       string,
-      { label: string; queueId: number; games: number; wins: number }
+      {
+        label: string;
+        queueId: number;
+        games: number;
+        wins: number;
+        kills: number;
+        deaths: number;
+        assists: number;
+        duration: number;
+      }
     >();
     for (const queue of data.queueBreakdown) {
       const label = isArenaQueue(queue.queueId) ? "Arena" : queueLabel(queue.queueId);
@@ -326,9 +337,17 @@ export function TrendsExp({
         queueId: queue.queueId,
         games: 0,
         wins: 0,
+        kills: 0,
+        deaths: 0,
+        assists: 0,
+        duration: 0,
       };
       current.games += queue.games;
       current.wins += queue.wins;
+      current.kills += queue.kills;
+      current.deaths += queue.deaths;
+      current.assists += queue.assists;
+      current.duration += queue.avgDuration * queue.games;
       grouped.set(label, current);
     }
     return [...grouped.values()].sort((a, b) => b.games - a.games);
@@ -530,6 +549,96 @@ export function TrendsExp({
           </div>
           <DayHourMatrix data={data.dayHourMatrix} />
         </Panel>
+
+        <div className="grid grid-cols-1 gap-5 lg:col-span-2 lg:grid-cols-2">
+          <div>
+            <SectionHeading title="Champion performance" />
+            <Panel>
+              <div className="overflow-x-auto">
+                <table className="w-full min-w-[420px] text-left">
+                  <thead className="border-b border-lol-border/50 text-[10px] uppercase tracking-wider text-lol-text">
+                    <tr>
+                      <th className="px-3 py-2 font-semibold">Champion</th>
+                      <th className="px-3 py-2 text-right font-semibold">Games</th>
+                      <th className="px-3 py-2 text-right font-semibold">Win rate</th>
+                      <th className="px-3 py-2 text-right font-semibold">KDA</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {data.championTop.map((champion) => (
+                      <tr
+                        key={champion.championId}
+                        className="border-b border-lol-border/20 last:border-b-0"
+                      >
+                        <td className="px-3 py-2">
+                          <span className="flex items-center gap-2 text-sm font-semibold text-lol-text-bright">
+                            <ChampionIcon championId={champion.championId} size={26} />
+                            {getChampionName(championData, champion.championId)}
+                          </span>
+                        </td>
+                        <td className="px-3 py-2 text-right text-xs tabular-nums text-lol-text">
+                          {champion.games}
+                        </td>
+                        <td className="px-3 py-2 text-right text-xs tabular-nums text-lol-text">
+                          {((champion.wins / champion.games) * 100).toFixed(1)}%
+                        </td>
+                        <td className="px-3 py-2 text-right text-xs tabular-nums text-lol-text">
+                          {(
+                            (champion.kills + champion.assists) /
+                            Math.max(champion.deaths, 1)
+                          ).toFixed(2)}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </Panel>
+          </div>
+
+          <div>
+            <SectionHeading title="Performance by queue" />
+            <Panel>
+              <div className="overflow-x-auto">
+                <table className="w-full min-w-[480px] text-left">
+                  <thead className="border-b border-lol-border/50 text-[10px] uppercase tracking-wider text-lol-text">
+                    <tr>
+                      <th className="px-3 py-2 font-semibold">Queue</th>
+                      <th className="px-3 py-2 text-right font-semibold">Games</th>
+                      <th className="px-3 py-2 text-right font-semibold">Win rate</th>
+                      <th className="px-3 py-2 text-right font-semibold">Avg KDA</th>
+                      <th className="px-3 py-2 text-right font-semibold">Avg duration</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {queueBreakdown.map((queue) => (
+                      <tr
+                        key={queue.label}
+                        className="border-b border-lol-border/20 last:border-b-0"
+                      >
+                        <td className="px-3 py-2 text-sm font-semibold text-lol-text-bright">
+                          {queue.label}
+                        </td>
+                        <td className="px-3 py-2 text-right text-xs tabular-nums text-lol-text">
+                          {queue.games}
+                        </td>
+                        <td className="px-3 py-2 text-right text-xs tabular-nums text-lol-text">
+                          {((queue.wins / queue.games) * 100).toFixed(1)}%
+                        </td>
+                        <td className="px-3 py-2 text-right text-xs tabular-nums text-lol-text">
+                          {((queue.kills + queue.assists) / Math.max(queue.deaths, 1)).toFixed(2)}
+                        </td>
+                        <td className="px-3 py-2 text-right text-xs tabular-nums text-lol-text">
+                          {formatDuration(Math.round(queue.duration / queue.games))}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </Panel>
+          </div>
+        </div>
 
         <Panel className="border-t-[3px] border-t-[var(--theme-win)] bg-[radial-gradient(circle_at_top_right,color-mix(in_oklab,var(--theme-win)_8%,transparent),transparent_48%),linear-gradient(180deg,var(--theme-card-hover),var(--theme-card))] lg:col-span-2">
           <div className="mb-3 flex items-baseline justify-between">

@@ -3774,6 +3774,9 @@ export function getTrendsData(queue?: number, account?: string): TrendsData {
     SELECT g.queue_id as queueId,
            COUNT(*) as games,
            SUM(ps.win) as wins,
+           SUM(ps.kills) as kills,
+           SUM(ps.deaths) as deaths,
+           SUM(ps.assists) as assists,
            AVG(g.game_duration) as avgDuration
     ${fromSql}
     ${whereSql}

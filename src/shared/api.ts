@@ -1183,6 +1183,9 @@ export interface TrendsData {
     queueId: number;
     games: number;
     wins: number;
+    kills: number;
+    deaths: number;
+    assists: number;
     avgDuration: number;
   }[];
   championTop: {
