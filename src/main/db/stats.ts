@@ -3986,7 +3986,16 @@ export function getTrendsData(
       ${fromSql}
       WHERE ${baseWhere.join(" AND ")} AND g.game_creation >= ?
     `)
-      .get(cutoff30d, cutoff30d, cutoff60d, cutoff30d, cutoff60d, cutoff30d, ...baseParams) as {
+      .get(
+        cutoff30d,
+        cutoff30d,
+        cutoff60d,
+        cutoff30d,
+        cutoff60d,
+        cutoff30d,
+        ...baseParams,
+        cutoff30d,
+      ) as {
       recentWins: number | null;
       recentGames: number | null;
       previousWins: number | null;
