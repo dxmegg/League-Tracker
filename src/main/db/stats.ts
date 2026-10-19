@@ -3875,6 +3875,75 @@ export function getTrendsData(
         };
       });
 
+    const damageSplitRow = db
+      .prepare(`
+    SELECT COALESCE(SUM(mp.physical_damage_dealt), 0) as physical,
+           COALESCE(SUM(mp.magic_damage_dealt), 0) as magic,
+           COALESCE(SUM(mp.true_damage_dealt), 0) as trueDamage
+    ${roleFromSql}
+    ${whereSql}
+    `)
+      .get(...params) as {
+      physical: number;
+      magic: number;
+      trueDamage: number;
+    };
+
+    const objectiveRows = db
+      .prepare(`
+    SELECT ps.win as win,
+           COALESCE(AVG(mt.dragon_kills), 0) as dragons,
+           COALESCE(AVG(mt.baron_kills), 0) as barons,
+           COALESCE(AVG(mt.tower_kills), 0) as towers
+    ${roleFromSql}
+    JOIN match_teams mt ON mt.game_id = g.game_id AND mt.team_id = mp.team_id
+    ${whereSql}
+    GROUP BY ps.win
+    `)
+      .all(...params) as Array<{
+      win: number;
+      dragons: number;
+      barons: number;
+      towers: number;
+    }>;
+    const objectiveRow = (win: number) => objectiveRows.find((row) => row.win === win);
+    const objectiveControl: TrendsData["objectiveControl"] = {
+      dragons: {
+        win: objectiveRow(1)?.dragons ?? 0,
+        loss: objectiveRow(0)?.dragons ?? 0,
+      },
+      barons: {
+        win: objectiveRow(1)?.barons ?? 0,
+        loss: objectiveRow(0)?.barons ?? 0,
+      },
+      towers: {
+        win: objectiveRow(1)?.towers ?? 0,
+        loss: objectiveRow(0)?.towers ?? 0,
+      },
+    };
+
+    const topDuos = db
+      .prepare(`
+    SELECT teammate.puuid as puuid,
+           account.game_name as gameName,
+           account.tag_line as tagLine,
+           COUNT(DISTINCT g.game_id) as games,
+           SUM(ps.win) as wins,
+           SUM(ps.win) * 100.0 / COUNT(DISTINCT g.game_id) as winRate
+    ${roleFromSql}
+    JOIN match_participants teammate
+      ON teammate.game_id = g.game_id
+     AND teammate.team_id = mp.team_id
+     AND teammate.puuid IS NOT NULL
+     AND teammate.puuid != ${ownerPuuidSql}
+    JOIN summoner account ON account.puuid = teammate.puuid
+    ${whereSql}
+    GROUP BY teammate.puuid, account.game_name, account.tag_line
+    ORDER BY games DESC, winRate DESC
+    LIMIT 3
+    `)
+      .all(...params) as TrendsData["topDuos"];
+
     const championTop = db
       .prepare(`
     SELECT ps.champion_id as championId,
@@ -4202,6 +4271,13 @@ export function getTrendsData(
         score7Wr: winningConditionsRow?.score7Wr ?? null,
       },
       recentSessions,
+      damageSplit: {
+        physical: damageSplitRow?.physical ?? 0,
+        magic: damageSplitRow?.magic ?? 0,
+        true: damageSplitRow?.trueDamage ?? 0,
+      },
+      objectiveControl,
+      topDuos,
       combatEconomy: {
         dpm: combatEconomyRow?.dpm ?? 0,
         gpm: combatEconomyRow?.gpm ?? 0,

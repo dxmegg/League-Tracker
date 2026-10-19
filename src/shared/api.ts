@@ -1238,6 +1238,24 @@ export interface TrendsData {
     wins: number;
     avgKda: number;
   }[];
+  damageSplit: {
+    physical: number;
+    magic: number;
+    true: number;
+  };
+  objectiveControl: {
+    dragons: { win: number; loss: number };
+    barons: { win: number; loss: number };
+    towers: { win: number; loss: number };
+  };
+  topDuos: {
+    puuid: string;
+    gameName: string;
+    tagLine: string;
+    games: number;
+    wins: number;
+    winRate: number;
+  }[];
 }
 
 export interface ChampionTrendsDay {
