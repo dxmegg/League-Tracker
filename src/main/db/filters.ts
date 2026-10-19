@@ -77,8 +77,8 @@ export function applyQueueFilter(
     return;
   }
   if (queue === QUEUE_SCOPE_NORMAL) {
-    where.push(`${alias}.queue_id IN (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`);
-    params.push(400, 480, 830, 840, 850, 870, 880, 890, 900, 2000, 2010, 2020, 3140, 3270, 4310);
+    where.push(`${alias}.queue_id IN (?,?,?,?,?,?,?,?,?,?,?,?,?,?)`);
+    params.push(400, 480, 830, 840, 850, 870, 880, 890, 900, 2000, 2010, 2020, 3140, 4310);
     return;
   }
   if (queue === QUEUE_SCOPE_ARAM) {

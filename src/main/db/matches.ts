@@ -331,8 +331,11 @@ export function getMatchFilterOptions(filters?: {
     ORDER BY g.queue_id
   `)
     .all(...queueParams) as { queue_id: number }[];
-  const hasArena = queueRows.some((row) => [1700, 1740, 1750].includes(row.queue_id));
-  const queueIds = [...(hasArena ? [QUEUE_GROUP_ARENA] : []), ...queueRows.map((r) => r.queue_id)];
+  const hasArena = queueRows.some((row) => ARENA_QUEUE_IDS.includes(row.queue_id));
+  const queueIds = [
+    ...(hasArena ? [QUEUE_GROUP_ARENA] : []),
+    ...queueRows.filter((row) => !ARENA_QUEUE_IDS.includes(row.queue_id)).map((row) => row.queue_id),
+  ];
 
   // Like the favorites toggle below, this list ignores the other filters: the
   // set of tracked accounts is stable, and the dropdown shouldn't reshuffle as

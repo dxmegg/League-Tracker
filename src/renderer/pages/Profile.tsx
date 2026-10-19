@@ -205,8 +205,8 @@ const NO_LANE_QUEUES = new Set([
   1700, 1740, 1750,
   // Tutorials
   2000, 2010, 2020,
-  // ARAM Mayhem and Mayhem Classic
-  2400, 2450,
+  // ARAM Mayhem, Mayhem Classic, and custom games
+  2400, 2450, 3270,
   // Training Tool
   3140,
 ]);

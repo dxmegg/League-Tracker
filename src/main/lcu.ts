@@ -13,6 +13,7 @@ import https from "https";
 import * as db from "./db";
 import { invalidateDashboardCache } from "./db/dashboard-cache";
 import type { CurrentSummoner, LcuStatus, ProfileExtras, RankEntry } from "../shared/api";
+import { QUEUE_ID_MAYHEM_CUSTOM } from "../shared/queues";
 import { accountByRiotId, regionalRoute } from "./riot-api";
 
 let credentials: Credentials | null = null;
@@ -1510,6 +1511,7 @@ const QUEUE_LABEL_BY_ID: Record<number, string> = {
   1750: "Arena",
   2400: "ARAM Mayhem",
   2450: "ARAM Mayhem",
+  [QUEUE_ID_MAYHEM_CUSTOM]: "ARAM Mayhem - Custom game",
 };
 
 export async function fetchLiveSessionData(): Promise<LiveSessionData | null> {

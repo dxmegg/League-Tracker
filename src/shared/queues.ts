@@ -1,6 +1,7 @@
 export const QUEUE_ID_MAYHEM = 2400;
 export const QUEUE_ID_MAYHEM_CLASSIC = 2450;
 export const QUEUE_ID_CUSTOM = 0;
+export const QUEUE_ID_MAYHEM_CUSTOM = 3270;
 
 export const MAYHEM_QUEUE_IDS = [QUEUE_ID_MAYHEM, QUEUE_ID_MAYHEM_CLASSIC];
 export const ARENA_QUEUE_IDS = [1700, 1740, 1750];
@@ -12,7 +13,7 @@ export const NO_CS_QUEUE_IDS = [1700, 1740, 1750] as const;
 
 // Custom games, tutorials, and the practice tool. Their stats are excluded
 // from every average and record, but the games still count in totalGames.
-export const NO_STATS_QUEUE_IDS = [0, 30, 2000, 2010, 2020, 3140] as const;
+export const NO_STATS_QUEUE_IDS = [0, 30, 2000, 2010, 2020, 3140, QUEUE_ID_MAYHEM_CUSTOM] as const;
 
 // Arena and Mayhem replace the standard rune page with Augments — there is no
 // rune data to show for these queues at all (see extractRunes in
@@ -40,6 +41,7 @@ export const QUEUE_GROUP_ARENA = -3;
 export const QUEUE_LABELS: Record<number, string> = {
   [QUEUE_ID_MAYHEM]: "ARAM Mayhem",
   [QUEUE_ID_MAYHEM_CLASSIC]: "Mayhem Classic",
+  [QUEUE_ID_MAYHEM_CUSTOM]: "ARAM Mayhem - Custom game",
   0: "Custom",
   2: "Summoner's Rift (Blind)",
   4: "Ranked Solo",

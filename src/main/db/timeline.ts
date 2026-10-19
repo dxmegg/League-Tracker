@@ -6,7 +6,12 @@ import type {
   TimelineFrame,
   TimelineStatus,
 } from "../../shared/api";
-import { MAYHEM_QUEUE_IDS, QUEUE_ID_CUSTOM, TUTORIAL_QUEUE_IDS } from "../../shared/queues";
+import {
+  MAYHEM_QUEUE_IDS,
+  QUEUE_ID_CUSTOM,
+  QUEUE_ID_MAYHEM_CUSTOM,
+  TUTORIAL_QUEUE_IDS,
+} from "../../shared/queues";
 import { parseTimeline, type ParsedTimeline } from "../timeline";
 import { acquireRequestSlot, fetchMatchTimeline, RiotApiError } from "../riot-api";
 import { db } from "../db";
@@ -80,6 +85,7 @@ export interface ChampionTimelineGame {
 const TIMELINE_EXCLUDED_QUEUE_IDS = new Set([
   ...MAYHEM_QUEUE_IDS,
   QUEUE_ID_CUSTOM,
+  QUEUE_ID_MAYHEM_CUSTOM,
   ...TUTORIAL_QUEUE_IDS,
 ]);
 
