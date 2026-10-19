@@ -190,17 +190,21 @@ Cherry-pickuje commity między worktree'ami — nie używać subsessji.
 - B — Optional: Trophy Cabinet tiers (Bronze/Silver/Gold) in Records
 - C — Optional: Records Best by queue — filter unknown queue IDs or group into "Other"
 - D — Optional: Records Recently Broken — history table
-- E — Optional: Trends — monthly/weekly toggle (classic Trends has it, experiment currently fixed to 12-week view)
+- E — Optional: Trends — Winning conditions & Recent sessions panels (mockup reference)
 
 Completed since last handoff:
 
-- Settings Saved accounts: delete fix (await refresh, error surfaced in UI)
-- Duplicate saved accounts fix: v30 and v31 migrations merge Category A and B duplicates. upsertSummoner source-aware. SCHEMA_VERSION = 31. Merge logic uses INSERT OR IGNORE + overlap check to prevent data loss on PK conflict. Manual "Merge duplicate accounts" button in Settings.
-- Trends audit fixes: error state rendered, 12-week window anchored to current week, empty weeks return null (gaps in chart) instead of 0, fixed axes removed (dynamic ranges).
-- Trends refactor: extracted reusable chart components (TimeSeriesChart, ActivityHeatmap, PatchBars, WeekdayChart, HourChart) from classic Trends.
-- TrendsExp expansion: added Activity Heatmap, Win rate by patch, By day of week, By hour of day. Win rate and Average score now use TimeSeriesChart with sample-size bars. Top stats show "Last played" value (last week with games) instead of current week if empty.
-- Version bumped to 1.0.7.
-- LineChartExp now supports null values (breaks line into segments) for empty periods.
+- Settings Saved accounts: delete fix, duplicate account merges (v30/v31), ghost account cleanup (default avatar fallback 29), and manual "Merge duplicate accounts" button with auto refresh.
+- Merge logic safety: Fixed overlap logic for tracked_game_stats to prevent false-positive "Unsafe merge" errors on PK conflicts.
+- Trends audit fixes: error state rendered, 12-week window anchored to current week, empty weeks return null, fixed axes removed, LineChartExp supports null values.
+- Trends refactor: Extracted shared chart components (TimeSeriesChart, ActivityHeatmap, PatchBars, WeekdayChart, HourChart).
+- Trends dashboard expansion (Mockup parity): 
+    - Top KPI row (Matches, Win Rate, Avg KDA, Avg Score, Total Playtime).
+    - Time range selector (4w, 12w, 6m, all).
+    - New charts: K/D/A over time, Win/Loss balance, Win rate by role, Win rate by queue, 7x24 Day/Hour performance matrix.
+    - New tables: Champion performance (top 6), Performance by queue.
+    - Combat & Economy panel (DPM, GPM, CS/min, Vision).
+- Trends backend: Extended TrendsData contract, fixed SQL join for vision_score, added scoped combat aggregates.
 
 Known working-as-designed (do NOT touch without approval):
 
@@ -211,8 +215,8 @@ Known working-as-designed (do NOT touch without approval):
 - riot-accounts.local.json is optional seed file, gitignored
 - Legacy `test` theme is comparison-only
 - Records: flat achievements (no tiers yet)
-- Records: Recently Broken shows only latest state per record
-- repairDerivedScores runs on startup and fixes stale derived scores
+- Records: Recently Broken shows only latest state
+- Trends: Time selector is client-side (filters `daily` array), data is always fetched for all time.
 
 7. Komendy
 npm run dev          # apka (wymaga LCU jako admin)
