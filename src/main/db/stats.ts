@@ -3810,6 +3810,71 @@ export function getTrendsData(
     `)
       .all(...params) as TrendsData["queueBreakdown"];
 
+    const recentSessionGames = db
+      .prepare(`
+    SELECT g.game_creation as date,
+           g.queue_id as queueId,
+           ps.win as win,
+           ps.kills as kills,
+           ps.deaths as deaths,
+           ps.assists as assists
+    ${fromSql}
+    ${whereSql}
+    ORDER BY g.game_creation DESC, g.game_id DESC
+    LIMIT 100
+    `)
+      .all(...params) as Array<{
+      date: number;
+      queueId: number;
+      win: number;
+      kills: number;
+      deaths: number;
+      assists: number;
+    }>;
+    type RecentSessionGame = (typeof recentSessionGames)[number];
+    type RecentSession = { games: RecentSessionGame[] };
+    const sessionGroups: RecentSession[] = [];
+    for (const game of [...recentSessionGames].reverse()) {
+      const current = sessionGroups[sessionGroups.length - 1];
+      const previousGame = current?.games[current.games.length - 1];
+      if (!current || !previousGame || game.date - previousGame.date > 2 * 60 * 60 * 1000) {
+        sessionGroups.push({ games: [game] });
+      } else {
+        current.games.push(game);
+      }
+    }
+    const recentSessions: TrendsData["recentSessions"] = sessionGroups
+      .reverse()
+      .slice(0, 5)
+      .map((session) => {
+        const queueCounts = new Map<number, number>();
+        let wins = 0;
+        let kills = 0;
+        let deaths = 0;
+        let assists = 0;
+        for (const game of session.games) {
+          queueCounts.set(game.queueId, (queueCounts.get(game.queueId) ?? 0) + 1);
+          wins += game.win;
+          kills += game.kills;
+          deaths += game.deaths;
+          assists += game.assists;
+        }
+        const queueId = [...queueCounts.entries()].sort((a, b) => b[1] - a[1])[0]?.[0];
+        const queueName =
+          queueId != null && ARENA_QUEUE_IDS.includes(queueId)
+            ? "Arena"
+            : queueId != null
+              ? (QUEUE_LABELS[queueId] ?? `Queue ${queueId}`)
+              : "Unknown";
+        return {
+          date: session.games[0].date,
+          queueName,
+          games: session.games.length,
+          wins,
+          avgKda: (kills + assists) / Math.max(deaths, 1),
+        };
+      });
+
     const championTop = db
       .prepare(`
     SELECT ps.champion_id as championId,
@@ -4136,6 +4201,7 @@ export function getTrendsData(
         kda3Wr: winningConditionsRow?.kda3Wr ?? null,
         score7Wr: winningConditionsRow?.score7Wr ?? null,
       },
+      recentSessions,
       combatEconomy: {
         dpm: combatEconomyRow?.dpm ?? 0,
         gpm: combatEconomyRow?.gpm ?? 0,

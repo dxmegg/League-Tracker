@@ -797,80 +797,82 @@ export function TrendsExp({
           <DayHourMatrix data={data.dayHourMatrix} />
         </Panel>
 
-        <div className="grid grid-cols-1 gap-5 lg:col-span-2 lg:grid-cols-2">
-          <div>
-            <SectionHeading title="Champion performance" />
-            <Panel>
-              <div className="overflow-x-auto">
-                <table className="w-full min-w-[420px] text-left">
-                  <thead className="border-b border-lol-border/50 text-[10px] uppercase tracking-wider text-lol-text">
-                    <tr>
-                      <th className="px-3 py-2 font-semibold">Champion</th>
-                      <th className="px-3 py-2 text-right font-semibold">Games</th>
-                      <th className="px-3 py-2 text-right font-semibold">Win rate</th>
-                      <th className="px-3 py-2 text-right font-semibold">KDA</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {data.championTop.map((champion) => (
-                      <tr
-                        key={champion.championId}
-                        className="border-b border-lol-border/20 last:border-b-0"
-                      >
-                        <td className="px-3 py-2">
-                          <span className="flex items-center gap-2 text-sm font-semibold text-lol-text-bright">
-                            <ChampionIcon championId={champion.championId} size={26} />
-                            {getChampionName(championData, champion.championId)}
-                          </span>
-                        </td>
-                        <td className="px-3 py-2 text-right text-xs tabular-nums text-lol-text">
-                          {champion.games}
-                        </td>
-                        <td className="px-3 py-2 text-right text-xs tabular-nums text-lol-text">
-                          {((champion.wins / champion.games) * 100).toFixed(1)}%
-                        </td>
-                        <td className="px-3 py-2 text-right text-xs tabular-nums text-lol-text">
-                          {(
-                            (champion.kills + champion.assists) /
-                            Math.max(champion.deaths, 1)
-                          ).toFixed(2)}
-                        </td>
+        <div className="grid grid-cols-1 gap-5 lg:col-span-2">
+          <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
+            <div>
+              <SectionHeading title="Champion performance" />
+              <Panel>
+                <div className="overflow-x-auto">
+                  <table className="w-full min-w-[420px] text-left">
+                    <thead className="border-b border-lol-border/50 text-[10px] uppercase tracking-wider text-lol-text">
+                      <tr>
+                        <th className="px-3 py-2 font-semibold">Champion</th>
+                        <th className="px-3 py-2 text-right font-semibold">Games</th>
+                        <th className="px-3 py-2 text-right font-semibold">Win rate</th>
+                        <th className="px-3 py-2 text-right font-semibold">KDA</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
+                    </thead>
+                    <tbody>
+                      {data.championTop.map((champion) => (
+                        <tr
+                          key={champion.championId}
+                          className="border-b border-lol-border/20 last:border-b-0"
+                        >
+                          <td className="px-3 py-2">
+                            <span className="flex items-center gap-2 text-sm font-semibold text-lol-text-bright">
+                              <ChampionIcon championId={champion.championId} size={26} />
+                              {getChampionName(championData, champion.championId)}
+                            </span>
+                          </td>
+                          <td className="px-3 py-2 text-right text-xs tabular-nums text-lol-text">
+                            {champion.games}
+                          </td>
+                          <td className="px-3 py-2 text-right text-xs tabular-nums text-lol-text">
+                            {((champion.wins / champion.games) * 100).toFixed(1)}%
+                          </td>
+                          <td className="px-3 py-2 text-right text-xs tabular-nums text-lol-text">
+                            {(
+                              (champion.kills + champion.assists) /
+                              Math.max(champion.deaths, 1)
+                            ).toFixed(2)}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </Panel>
+            </div>
+
+            <Panel className="border-t-[3px] border-t-[var(--theme-gold)] bg-[radial-gradient(circle_at_top_right,color-mix(in_oklab,var(--theme-gold)_8%,transparent),transparent_48%),linear-gradient(180deg,var(--theme-card-hover),var(--theme-card))]">
+              <div className="mb-3 flex items-baseline justify-between">
+                <h2 className="relative pl-4 font-display text-xl font-semibold text-lol-text-bright before:absolute before:left-0 before:top-1/2 before:h-2 before:w-2 before:-translate-y-1/2 before:rotate-45 before:bg-lol-crimson">
+                  Combat &amp; economy
+                </h2>
+                <span className="text-xs uppercase tracking-wider text-lol-text">All games</span>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                {[
+                  ["DPM", data.combatEconomy?.dpm ?? 0],
+                  ["GPM", data.combatEconomy?.gpm ?? 0],
+                  ["CS/min", data.combatEconomy?.cspm ?? 0],
+                  ["Vision Score", data.combatEconomy?.vision ?? 0],
+                ].map(([label, value]) => (
+                  <div
+                    key={label}
+                    className="rounded-md border border-lol-border/40 bg-lol-card/30 p-3"
+                  >
+                    <div className="text-xl font-semibold tabular-nums text-lol-text-bright">
+                      {Number(value).toFixed(1)}
+                    </div>
+                    <div className="mt-1 text-[10px] uppercase tracking-wider text-lol-text">
+                      {label}
+                    </div>
+                  </div>
+                ))}
               </div>
             </Panel>
           </div>
-
-          <Panel className="border-t-[3px] border-t-[var(--theme-gold)] bg-[radial-gradient(circle_at_top_right,color-mix(in_oklab,var(--theme-gold)_8%,transparent),transparent_48%),linear-gradient(180deg,var(--theme-card-hover),var(--theme-card))]">
-            <div className="mb-3 flex items-baseline justify-between">
-              <h2 className="relative pl-4 font-display text-xl font-semibold text-lol-text-bright before:absolute before:left-0 before:top-1/2 before:h-2 before:w-2 before:-translate-y-1/2 before:rotate-45 before:bg-lol-crimson">
-                Combat &amp; economy
-              </h2>
-              <span className="text-xs uppercase tracking-wider text-lol-text">All games</span>
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              {[
-                ["DPM", data.combatEconomy?.dpm ?? 0],
-                ["GPM", data.combatEconomy?.gpm ?? 0],
-                ["CS/min", data.combatEconomy?.cspm ?? 0],
-                ["Vision Score", data.combatEconomy?.vision ?? 0],
-              ].map(([label, value]) => (
-                <div
-                  key={label}
-                  className="rounded-md border border-lol-border/40 bg-lol-card/30 p-3"
-                >
-                  <div className="text-xl font-semibold tabular-nums text-lol-text-bright">
-                    {Number(value).toFixed(1)}
-                  </div>
-                  <div className="mt-1 text-[10px] uppercase tracking-wider text-lol-text">
-                    {label}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </Panel>
 
           <div>
             <SectionHeading title="Performance by queue" />
@@ -887,28 +889,41 @@ export function TrendsExp({
                     </tr>
                   </thead>
                   <tbody>
-                    {queueBreakdown.map((queue) => (
-                      <tr
-                        key={queue.label}
-                        className="border-b border-lol-border/20 last:border-b-0"
-                      >
-                        <td className="px-3 py-2 text-sm font-semibold text-lol-text-bright">
-                          {queue.label}
-                        </td>
-                        <td className="px-3 py-2 text-right text-xs tabular-nums text-lol-text">
-                          {queue.games}
-                        </td>
-                        <td className="px-3 py-2 text-right text-xs tabular-nums text-lol-text">
-                          {((queue.wins / queue.games) * 100).toFixed(1)}%
-                        </td>
-                        <td className="px-3 py-2 text-right text-xs tabular-nums text-lol-text">
-                          {((queue.kills + queue.assists) / Math.max(queue.deaths, 1)).toFixed(2)}
-                        </td>
-                        <td className="px-3 py-2 text-right text-xs tabular-nums text-lol-text">
-                          {formatDuration(Math.round(queue.duration / queue.games))}
-                        </td>
-                      </tr>
-                    ))}
+                    {queueBreakdown.map((queue) => {
+                      const winRate = (queue.wins / queue.games) * 100;
+                      return (
+                        <tr
+                          key={queue.label}
+                          className="border-b border-lol-border/20 last:border-b-0"
+                        >
+                          <td className="px-3 py-2 text-sm font-semibold text-lol-text-bright">
+                            {queue.label}
+                          </td>
+                          <td className="px-3 py-2 text-right text-xs tabular-nums text-lol-text">
+                            {queue.games}
+                          </td>
+                          <td className="relative overflow-hidden px-3 py-2 text-right text-xs tabular-nums text-lol-text">
+                            <div
+                              className="absolute inset-y-0 left-0"
+                              style={{
+                                width: `${winRate}%`,
+                                backgroundColor:
+                                  winRate >= 50 ? "var(--theme-win)" : "var(--theme-loss)",
+                                opacity: 0.25,
+                              }}
+                              aria-hidden="true"
+                            />
+                            <span className="relative z-10">{winRate.toFixed(1)}%</span>
+                          </td>
+                          <td className="px-3 py-2 text-right text-xs tabular-nums text-lol-text">
+                            {((queue.kills + queue.assists) / Math.max(queue.deaths, 1)).toFixed(2)}
+                          </td>
+                          <td className="px-3 py-2 text-right text-xs tabular-nums text-lol-text">
+                            {formatDuration(Math.round(queue.duration / queue.games))}
+                          </td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>
@@ -944,6 +959,57 @@ export function TrendsExp({
             <span className="text-xs uppercase tracking-wider text-lol-text">{timeRangeLabel}</span>
           </div>
           <HourChart hours={data.hours} />
+        </Panel>
+
+        <Panel className="border-t-[3px] border-t-[var(--theme-violet)] lg:col-span-2">
+          <div className="mb-3 flex items-baseline justify-between">
+            <h2 className="relative pl-4 font-display text-xl font-semibold text-lol-text-bright before:absolute before:left-0 before:top-1/2 before:h-2 before:w-2 before:-translate-y-1/2 before:rotate-45 before:bg-lol-crimson">
+              Recent sessions
+            </h2>
+            <span className="text-xs uppercase tracking-wider text-lol-text">Latest 5</span>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[560px] text-left">
+              <thead className="border-b border-lol-border/50 text-[10px] uppercase tracking-wider text-lol-text">
+                <tr>
+                  <th className="px-3 py-2 font-semibold">Date</th>
+                  <th className="px-3 py-2 font-semibold">Queue</th>
+                  <th className="px-3 py-2 text-right font-semibold">Games</th>
+                  <th className="px-3 py-2 text-right font-semibold">Record</th>
+                  <th className="px-3 py-2 text-right font-semibold">Avg KDA</th>
+                </tr>
+              </thead>
+              <tbody>
+                {data.recentSessions.map((session) => (
+                  <tr
+                    key={`${session.date}-${session.queueName}`}
+                    className="border-b border-lol-border/20 last:border-b-0"
+                  >
+                    <td className="px-3 py-2 text-sm text-lol-text-bright">
+                      {new Date(session.date).toLocaleDateString(undefined, {
+                        day: "2-digit",
+                        month: "short",
+                      })}
+                    </td>
+                    <td className="px-3 py-2 text-sm text-lol-text">{session.queueName}</td>
+                    <td className="px-3 py-2 text-right text-xs tabular-nums text-lol-text">
+                      {session.games}
+                    </td>
+                    <td className="px-3 py-2 text-right text-xs tabular-nums">
+                      <span className="text-[var(--theme-win)]">{session.wins}W</span>
+                      <span className="text-lol-text"> - </span>
+                      <span className="text-[var(--theme-loss)]">
+                        {session.games - session.wins}L
+                      </span>
+                    </td>
+                    <td className="px-3 py-2 text-right text-xs tabular-nums text-lol-text">
+                      {session.avgKda.toFixed(2)}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </Panel>
       </div>
     </div>

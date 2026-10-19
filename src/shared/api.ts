@@ -1231,6 +1231,13 @@ export interface TrendsData {
     kda3Wr: number | null;
     score7Wr: number | null;
   };
+  recentSessions: {
+    date: number;
+    queueName: string;
+    games: number;
+    wins: number;
+    avgKda: number;
+  }[];
 }
 
 export interface ChampionTrendsDay {
