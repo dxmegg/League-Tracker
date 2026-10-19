@@ -1,3 +1,6 @@
+import { useMemo, type ReactNode } from "react";
+import type { TrendsDay } from "../lib/types";
+
 interface ActivityHeatmapProps {
   days: Array<{ day: string; games: number }>;
   colorPrimary?: string;
@@ -137,7 +140,7 @@ function HighlightColumn({
   );
 }
 
-export default function ActivityHeatmap({
+function HistoryActivityHeatmap({
   days,
   colorPrimary = "#E5483F",
   colorMuted = "rgba(255,255,255,0.04)",
@@ -239,3 +242,118 @@ export default function ActivityHeatmap({
     </section>
   );
 }
+
+const HEATMAP_CELL = 11;
+const HEATMAP_GAP = 2;
+const HEATMAP_PITCH = HEATMAP_CELL + HEATMAP_GAP;
+const HEATMAP_WEEKS = 53;
+const HEATMAP_COLORS = [
+  "rgba(255,255,255,0.03)",
+  "rgba(165,15,21,0.20)",
+  "rgba(165,15,21,0.45)",
+  "rgba(196,30,40,0.70)",
+  "rgba(196,30,40,0.95)",
+];
+
+function shortDate(date: Date): string {
+  return date.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
+}
+
+export function ActivityHeatmap({ daily }: { daily: TrendsDay[] }) {
+  const byDay = useMemo(() => new Map(daily.map((d) => [d.day, d])), [daily]);
+
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  // Sunday-start columns, trailing 52 full weeks plus the current partial one
+  const start = new Date(today);
+  start.setDate(start.getDate() - start.getDay() - 52 * 7);
+
+  let maxGames = 1;
+  for (let i = 0; i < HEATMAP_WEEKS * 7; i++) {
+    const d = new Date(start);
+    d.setDate(d.getDate() + i);
+    if (d > today) break;
+    maxGames = Math.max(maxGames, byDay.get(dayKey(d))?.games ?? 0);
+  }
+
+  const left = 28;
+  const top = 14;
+  const width = left + HEATMAP_WEEKS * HEATMAP_PITCH;
+  const height = top + 7 * HEATMAP_PITCH;
+
+  const cells: ReactNode[] = [];
+  const monthLabels: ReactNode[] = [];
+  let prevMonth = -1;
+  for (let w = 0; w < HEATMAP_WEEKS; w++) {
+    const colDate = new Date(start);
+    colDate.setDate(colDate.getDate() + w * 7);
+    if (colDate.getMonth() !== prevMonth) {
+      // Skip a first-column label that the next column would immediately repeat
+      const next = new Date(colDate);
+      next.setDate(next.getDate() + 7);
+      if (!(w === 0 && next.getMonth() !== colDate.getMonth())) {
+        monthLabels.push(
+          <text key={w} x={left + w * HEATMAP_PITCH} y={9} fontSize={9} fill="#8a8f95">
+            {colDate.toLocaleDateString(undefined, { month: "short" })}
+          </text>,
+        );
+      }
+      prevMonth = colDate.getMonth();
+    }
+    for (let dow = 0; dow < 7; dow++) {
+      const d = new Date(colDate);
+      d.setDate(d.getDate() + dow);
+      if (d > today) continue;
+      const row = byDay.get(dayKey(d));
+      const games = row?.games ?? 0;
+      const level = games === 0 ? 0 : Math.min(Math.ceil((games / maxGames) * 4), 4);
+      const date = shortDate(d);
+      const label = row
+        ? `${date} — ${games} game${games === 1 ? "" : "s"} (${row.wins}W–${games - row.wins}L)`
+        : `${date} — no games`;
+      cells.push(
+        <rect
+          key={dayKey(d)}
+          x={left + w * HEATMAP_PITCH}
+          y={top + dow * HEATMAP_PITCH}
+          width={HEATMAP_CELL}
+          height={HEATMAP_CELL}
+          rx={2}
+          fill={HEATMAP_COLORS[level]}
+        >
+          <title>{label}</title>
+        </rect>,
+      );
+    }
+  }
+
+  return (
+    <div className="overflow-x-auto">
+      <svg width={width} height={height} className="block">
+        {monthLabels}
+        {(["Mon", "Wed", "Fri"] as const).map((label, i) => (
+          <text
+            key={label}
+            x={left - 5}
+            y={top + (i * 2 + 1) * HEATMAP_PITCH + 9}
+            textAnchor="end"
+            fontSize={9}
+            fill="#8a8f95"
+          >
+            {label}
+          </text>
+        ))}
+        {cells}
+      </svg>
+      <div className="flex items-center justify-end gap-1 mt-2 text-[10px] text-lol-text">
+        <span className="mr-1">Less</span>
+        {HEATMAP_COLORS.map((color) => (
+          <span key={color} className="w-2.5 h-2.5 rounded-xs" style={{ backgroundColor: color }} />
+        ))}
+        <span className="ml-1">More</span>
+      </div>
+    </div>
+  );
+}
+
+export default HistoryActivityHeatmap;
