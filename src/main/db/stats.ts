@@ -3928,7 +3928,7 @@ export function getTrendsData(
     const totalDeaths = daily.reduce((sum, row) => sum + row.deaths, 0);
     const totalAssists = daily.reduce((sum, row) => sum + row.assists, 0);
     const dailyWinRates = daily
-      .filter((row) => row.games > 0)
+      .filter((row) => row.games >= 3)
       .map((row) => (row.wins / row.games) * 100);
     const mostActive = daily.reduce<TrendsData["daily"][number] | null>(
       (best, row) => (!best || row.games > best.games ? row : best),
@@ -3946,9 +3946,16 @@ export function getTrendsData(
     }
     const cutoff30d = Date.now() - 30 * 86400000;
     const recent30d = daily.filter((row) => new Date(`${row.day}T23:59:59`).getTime() >= cutoff30d);
-    const recentKills = recent30d.reduce((sum, row) => sum + row.kills, 0);
-    const recentDeaths = recent30d.reduce((sum, row) => sum + row.deaths, 0);
-    const recentAssists = recent30d.reduce((sum, row) => sum + row.assists, 0);
+    const older30d = daily.filter((row) => new Date(`${row.day}T23:59:59`).getTime() < cutoff30d);
+    const kdaForRows = (rows: TrendsData["daily"]): number => {
+      const kills = rows.reduce((sum, row) => sum + row.kills, 0);
+      const deaths = rows.reduce((sum, row) => sum + row.deaths, 0);
+      const assists = rows.reduce((sum, row) => sum + row.assists, 0);
+      return (kills + assists) / Math.max(deaths, 1);
+    };
+    const midpoint = Math.ceil(daily.length / 2);
+    const firstHalf = daily.slice(0, midpoint);
+    const secondHalf = daily.slice(midpoint);
     const mostActiveDay = mostActive
       ? new Date(`${mostActive.day}T00:00:00`).toLocaleDateString(undefined, { weekday: "long" })
       : "—";
@@ -3967,8 +3974,14 @@ export function getTrendsData(
       currentWlStreak,
       avgKdaAll,
       kdaOver3Percent: summaryRow.kdaOver3Percent ?? 0,
-      trend30dKda: (recentKills + recentAssists) / Math.max(recentDeaths, 1),
-      trendKdaAll: avgKdaAll,
+      trend30dKda:
+        recent30d.length > 0 && older30d.length > 0
+          ? kdaForRows(recent30d) - kdaForRows(older30d)
+          : 0,
+      trendKdaAll:
+        firstHalf.length > 0 && secondHalf.length > 0
+          ? kdaForRows(secondHalf) - kdaForRows(firstHalf)
+          : 0,
     };
 
     return {

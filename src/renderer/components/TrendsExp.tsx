@@ -283,6 +283,8 @@ export function TrendsExp({
 
   const timeRangeLabel =
     TIME_RANGES.find((range) => range.value === timeRange)?.label ?? "12 Weeks";
+  const hasQualifiedWrDay = data?.daily.some((row) => row.games >= 3) ?? false;
+  const formatSigned = (value: number) => `${value > 0 ? "+" : ""}${value.toFixed(2)}`;
 
   const weeklyWinRates = weekly.map((week) =>
     week.games > 0 ? (week.wins / week.games) * 100 : null,
@@ -463,7 +465,7 @@ export function TrendsExp({
                 ? `${data.summaryStats.peakKdaGame.kills}/${data.summaryStats.peakKdaGame.deaths}/${data.summaryStats.peakKdaGame.assists}`
                 : "—",
             ],
-            ["Trend (30D)", data.summaryStats.trend30dKda.toFixed(2)],
+            ["Trend (30D)", formatSigned(data.summaryStats.trend30dKda)],
           ].map(([label, value]) => (
             <div key={label} className="text-center">
               <div className="text-sm font-semibold tabular-nums text-lol-text-bright">{value}</div>
@@ -491,7 +493,7 @@ export function TrendsExp({
             {[
               ["Total Games Played", data.summaryStats.totalGames.toLocaleString()],
               ["Most Active Day", data.summaryStats.mostActiveDay],
-              ["Longest Streak", `${data.summaryStats.longestActiveStreak} days`],
+              ["Longest Daily Streak", `${data.summaryStats.longestActiveStreak} days`],
               [
                 "Last Played",
                 data.summaryStats.lastPlayed > 0
@@ -540,13 +542,13 @@ export function TrendsExp({
             <span>
               Peak WR{" "}
               <strong className="text-lol-text-bright">
-                {data.summaryStats.peakWr.toFixed(1)}%
+                {hasQualifiedWrDay ? `${data.summaryStats.peakWr.toFixed(1)}%` : "—"}
               </strong>
             </span>
             <span>
               Lowest WR{" "}
               <strong className="text-lol-text-bright">
-                {data.summaryStats.lowestWr.toFixed(1)}%
+                {hasQualifiedWrDay ? `${data.summaryStats.lowestWr.toFixed(1)}%` : "—"}
               </strong>
             </span>
             <span>
@@ -586,7 +588,7 @@ export function TrendsExp({
             <span>
               Trend (All){" "}
               <strong className="text-lol-text-bright">
-                {data.summaryStats.trendKdaAll.toFixed(2)}
+                {formatSigned(data.summaryStats.trendKdaAll)}
               </strong>
             </span>
           </div>
@@ -629,7 +631,9 @@ export function TrendsExp({
               <h2 className="relative pl-4 font-display text-xl font-semibold text-lol-text-bright before:absolute before:left-0 before:top-1/2 before:h-2 before:w-2 before:-translate-y-1/2 before:rotate-45 before:bg-lol-crimson">
                 Win rate by role
               </h2>
-              <span className="text-xs uppercase tracking-wider text-lol-text">All games</span>
+              <span className="text-xs uppercase tracking-wider text-lol-text">
+                Selected period
+              </span>
             </div>
             {roleBreakdown.length > 0 ? (
               <div className="flex min-h-52 items-end gap-3 border-b border-lol-border/50 px-2 pt-2">
@@ -652,7 +656,9 @@ export function TrendsExp({
               <h2 className="relative pl-4 font-display text-xl font-semibold text-lol-text-bright before:absolute before:left-0 before:top-1/2 before:h-2 before:w-2 before:-translate-y-1/2 before:rotate-45 before:bg-lol-crimson">
                 Win rate by queue
               </h2>
-              <span className="text-xs uppercase tracking-wider text-lol-text">All games</span>
+              <span className="text-xs uppercase tracking-wider text-lol-text">
+                Selected period
+              </span>
             </div>
             {queueBreakdown.length > 0 ? (
               <div className="flex min-h-52 items-end gap-3 border-b border-lol-border/50 px-2 pt-2">
