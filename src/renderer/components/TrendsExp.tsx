@@ -470,7 +470,10 @@ export function TrendsExp({
           {
             icon: "↗",
             label: "Biggest improvement",
-            value: `${data.insights.winRateDiff >= 0 ? "+" : ""}${data.insights.winRateDiff.toFixed(1)} pp Win Rate`,
+            value:
+              data.insights.winRateDiff === 0
+                ? "0.0 pp Win Rate"
+                : `${data.insights.winRateDiff >= 0 ? "+" : ""}${data.insights.winRateDiff.toFixed(1)} pp Win Rate`,
             color: "var(--theme-win)",
           },
           {

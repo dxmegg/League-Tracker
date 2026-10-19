@@ -3928,14 +3928,15 @@ export function getTrendsData(
            account.game_name as gameName,
            account.tag_line as tagLine,
            COUNT(DISTINCT g.game_id) as games,
-           SUM(ps.win) as wins,
-           SUM(ps.win) * 100.0 / COUNT(DISTINCT g.game_id) as winRate
+           COUNT(DISTINCT CASE WHEN ps.win = 1 THEN g.game_id END) as wins,
+           COUNT(DISTINCT CASE WHEN ps.win = 1 THEN g.game_id END) * 100.0 /
+             COUNT(DISTINCT g.game_id) as winRate
     ${roleFromSql}
     JOIN match_participants teammate
       ON teammate.game_id = g.game_id
      AND teammate.team_id = mp.team_id
      AND teammate.puuid IS NOT NULL
-     AND teammate.puuid != ${ownerPuuidSql}
+     AND teammate.puuid != mp.puuid
     JOIN summoner account ON account.puuid = teammate.puuid
     ${whereSql}
     GROUP BY teammate.puuid, account.game_name, account.tag_line
@@ -3994,7 +3995,7 @@ export function getTrendsData(
         cutoff60d,
         cutoff30d,
         ...baseParams,
-        cutoff30d,
+        cutoff60d,
       ) as {
       recentWins: number | null;
       recentGames: number | null;
@@ -4188,9 +4189,8 @@ export function getTrendsData(
     const totalKills = daily.reduce((sum, row) => sum + row.kills, 0);
     const totalDeaths = daily.reduce((sum, row) => sum + row.deaths, 0);
     const totalAssists = daily.reduce((sum, row) => sum + row.assists, 0);
-    const dailyWinRates = daily
-      .filter((row) => row.games >= 3)
-      .map((row) => (row.wins / row.games) * 100);
+    const qualifiedDaily = daily.filter((row) => row.games >= 3);
+    const dailyWinRates = qualifiedDaily.map((row) => (row.wins / row.games) * 100);
     const mostActive = daily.reduce<TrendsData["daily"][number] | null>(
       (best, row) => (!best || row.games > best.games ? row : best),
       null,
