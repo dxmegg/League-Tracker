@@ -550,7 +550,7 @@ export function listAccountsWithData(): Array<{
         s.puuid,
         s.game_name,
         s.tag_line,
-        s.profile_icon,
+        COALESCE(s.profile_icon, 29) AS profile_icon,
         s.platform,
         s.summoner_level,
         s.last_seen,

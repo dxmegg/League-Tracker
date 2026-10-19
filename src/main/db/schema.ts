@@ -5,6 +5,7 @@ import { QUEUE_ID_MAYHEM_CLASSIC } from "../../shared/queues";
 import { getSetting, setSetting } from "./settings";
 import { groupByGame, parsePatch, detectRemake, rebuildDerivedStats } from "./scoring";
 import { unpackRaw, participantRowsFromRaw, writeParticipants } from "./payloads";
+import { upsertSummoner } from "./summoner";
 
 // The old hide-Mayhem-Classic switch became a per-queue list. Carry the boolean
 // over once; writing the key even when nothing was hidden is what keeps this
@@ -811,11 +812,6 @@ export function backfillGamePuuids() {
   }[];
 
   const updateStmt = db.prepare("UPDATE games SET puuid = ? WHERE game_id = ?");
-  const upsertStmt = db.prepare(`
-    INSERT OR IGNORE INTO summoner (puuid, game_name, tag_line, summoner_id, account_id, updated_at)
-    VALUES (?, ?, ?, NULL, NULL, ?)
-  `);
-
   const tx = db.transaction(() => {
     for (const game of gamesToBackfill) {
       try {
@@ -845,7 +841,15 @@ export function backfillGamePuuids() {
                 p.riotIdGameName ||
                 null;
               const tagLine = identity?.player?.tagLine || p.riotIdTagline || null;
-              upsertStmt.run(pPuuid, gameName, tagLine, Date.now());
+              upsertSummoner(
+                {
+                  puuid: pPuuid,
+                  gameName,
+                  tagLine,
+                  profileIconId: 29,
+                },
+                "import",
+              );
             }
             break;
           }
@@ -1416,20 +1420,20 @@ export function mergeDuplicateAccounts(): MergeDuplicateAccountsResult {
            SELECT ${selectColumns} FROM ${table} WHERE puuid = ?`,
         )
         .run(canonicalPuuid, stalePuuid).changes;
-      const overlap = columns.includes("participant_id")
-        ? (
-            db
-              .prepare(
-                `SELECT COUNT(*) AS count
-                 FROM ${table} a
-                 JOIN ${table} b
-                   ON a.game_id = b.game_id
-                  AND a.participant_id = b.participant_id
-                 WHERE a.puuid = ? AND b.puuid = ?`,
-              )
-              .get(stalePuuid, canonicalPuuid) as { count: number }
-          ).count
-        : 0;
+      const overlapJoin = columns.includes("participant_id")
+        ? "a.game_id = b.game_id AND a.participant_id = b.participant_id"
+        : "a.game_id = b.game_id";
+      const overlap = (
+        db
+          .prepare(
+            `SELECT COUNT(*) AS count
+             FROM ${table} a
+             JOIN ${table} b
+               ON ${overlapJoin}
+             WHERE a.puuid = ? AND b.puuid = ?`,
+          )
+          .get(stalePuuid, canonicalPuuid) as { count: number }
+      ).count;
       const deleteSafe = inserted + overlap === sourceCount;
       console.log(
         `[merge] table=${table} source=${sourceCount} inserted=${inserted} overlap=${overlap} delete_safe=${deleteSafe}${deleteSafe ? "" : " SKIPPED_DELETE"}`,
