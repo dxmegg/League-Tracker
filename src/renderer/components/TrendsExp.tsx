@@ -21,12 +21,20 @@ function mondayOf(date: Date): Date {
   return monday;
 }
 
-export function TrendsExp({ data }: { data: TrendsData | null }) {
+export function TrendsExp({
+  data,
+  error,
+  onRetry,
+}: {
+  data: TrendsData | null;
+  error: string | null;
+  onRetry: () => Promise<void>;
+}) {
   const weekly = useMemo(() => {
     if (!data || data.daily.length === 0) return [];
 
     const daily = [...data.daily].sort((a, b) => a.day.localeCompare(b.day));
-    const lastMonday = mondayOf(parseDay(daily[daily.length - 1].day));
+    const lastMonday = mondayOf(new Date());
     const buckets = Array.from({ length: 12 }, (_, index) => {
       const week = new Date(lastMonday);
       week.setDate(week.getDate() - (11 - index) * 7);
@@ -58,14 +66,36 @@ export function TrendsExp({ data }: { data: TrendsData | null }) {
     return buckets;
   }, [data]);
 
-  const weeklyWinRates = weekly.map((week) => (week.wins / Math.max(week.games, 1)) * 100);
-  const weeklyKda = weekly.map((week) => (week.kills + week.assists) / Math.max(week.deaths, 1));
-  const weeklyScores = weekly.map((week) => week.scoreSum / Math.max(week.scoredGames, 1));
+  const weeklyWinRates = weekly.map((week) =>
+    week.games > 0 ? (week.wins / week.games) * 100 : null,
+  );
+  const weeklyKda = weekly.map((week) =>
+    week.games > 0 ? (week.kills + week.assists) / Math.max(week.deaths, 1) : null,
+  );
+  const weeklyScores = weekly.map((week) =>
+    week.scoredGames > 0 ? week.scoreSum / week.scoredGames : null,
+  );
   const weekdayCounts = data
     ? [1, 2, 3, 4, 5, 6, 0].map(
         (weekday) => data.weekdays.find((item) => item.weekday === weekday)?.games ?? 0,
       )
     : [];
+
+  if (error) {
+    return (
+      <div className="rounded-xl border border-lol-border border-t-[3px] border-t-[var(--theme-crimson)] bg-[var(--theme-card)] p-12 text-center">
+        <p className="text-sm font-semibold text-lol-text-bright">Failed to load trends.</p>
+        <p className="mt-1 text-xs text-lol-text">{error}</p>
+        <button
+          type="button"
+          onClick={() => void onRetry()}
+          className="mt-4 rounded-md border border-lol-border px-3 py-1.5 text-xs font-semibold text-lol-text transition-colors hover:border-lol-gold/60 hover:text-lol-text-bright"
+        >
+          Retry
+        </button>
+      </div>
+    );
+  }
 
   if (!data) {
     return (
@@ -88,8 +118,8 @@ export function TrendsExp({ data }: { data: TrendsData | null }) {
     );
   }
 
-  const currentWinRate = weeklyWinRates[weeklyWinRates.length - 1] ?? 0;
-  const currentKda = weeklyKda[weeklyKda.length - 1] ?? 0;
+  const currentWinRate = weeklyWinRates[weeklyWinRates.length - 1];
+  const currentKda = weeklyKda[weeklyKda.length - 1];
 
   return (
     <div className="mx-auto flex min-h-full w-full max-w-[1320px] flex-col gap-5">
@@ -107,15 +137,13 @@ export function TrendsExp({ data }: { data: TrendsData | null }) {
               Win rate
             </h2>
             <span className="text-xs uppercase tracking-wider text-lol-text">
-              Now {currentWinRate.toFixed(1)}%
+              Now {currentWinRate != null ? `${currentWinRate.toFixed(1)}%` : "—"}
             </span>
           </div>
           <LineChartExp
             values={weeklyWinRates}
             format={(value) => value.toFixed(1) + "%"}
             color="var(--theme-win)"
-            min={40}
-            max={75}
           />
         </Panel>
 
@@ -125,15 +153,13 @@ export function TrendsExp({ data }: { data: TrendsData | null }) {
               Average KDA
             </h2>
             <span className="text-xs uppercase tracking-wider text-lol-text">
-              Now {currentKda.toFixed(2)}
+              Now {currentKda != null ? currentKda.toFixed(2) : "—"}
             </span>
           </div>
           <LineChartExp
             values={weeklyKda}
             format={(value) => value.toFixed(2)}
             color="var(--theme-assist)"
-            min={2}
-            max={4.2}
           />
         </Panel>
 
@@ -148,8 +174,6 @@ export function TrendsExp({ data }: { data: TrendsData | null }) {
             values={weeklyScores}
             format={(value) => value.toFixed(1)}
             color="var(--theme-gold)"
-            min={4}
-            max={8}
           />
         </Panel>
 

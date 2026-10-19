@@ -1,5 +1,26 @@
 import { useId } from "react";
 
+type ChartValue = number | null;
+
+function isNumber(value: ChartValue): value is number {
+  return value != null;
+}
+
+function lineSegments(values: ChartValue[]): string[] {
+  const segments: string[] = [];
+  let points: string[] = [];
+  values.forEach((value, index) => {
+    if (value == null) {
+      if (points.length > 0) segments.push(points.join(" "));
+      points = [];
+      return;
+    }
+    points.push(`${index},${value}`);
+  });
+  if (points.length > 0) segments.push(points.join(" "));
+  return segments;
+}
+
 export function LineChartExp({
   values,
   format,
@@ -17,10 +38,10 @@ export function LineChartExp({
   hollowIndices = [],
   showStats = false,
 }: {
-  values: number[];
+  values: ChartValue[];
   format: (v: number) => string;
   color?: string;
-  series?: Array<{ values: number[]; color: string; label: string }>;
+  series?: Array<{ values: ChartValue[]; color: string; label: string }>;
   min?: number;
   max?: number;
   baseline?: number;
@@ -34,8 +55,8 @@ export function LineChartExp({
   showStats?: boolean;
 }) {
   const gradientIdPrefix = useId().replace(/:/g, "-");
-  const chartValues = series ? series.flatMap((item) => item.values) : values;
-  const statValues = series?.[0]?.values ?? values;
+  const chartValues = (series ? series.flatMap((item) => item.values) : values).filter(isNumber);
+  const statValues = (series?.[0]?.values ?? values).filter(isNumber);
   const pointCount = series?.[0]?.values.length ?? values.length;
 
   if (
@@ -179,48 +200,95 @@ export function LineChartExp({
             })}
             {series ? (
               series.map((item, index) => {
-                const points = item.values.map((v, i) => `${x(i)},${y(v).toFixed(1)}`).join(" ");
-                const areaPath = `${points} L ${x(item.values.length - 1)},${H - P} L ${x(0)},${H - P} Z`;
                 return (
                   <g key={item.label}>
-                    <path d={areaPath} fill={`url(#${gradientIdPrefix}-line-gradient-${index})`} />
-                    <polyline
-                      points={points}
-                      fill="none"
-                      stroke={item.color}
-                      strokeWidth="2.5"
-                      strokeLinejoin="round"
-                    />
+                    {lineSegments(item.values).map((segment, segmentIndex) => {
+                      const pointPairs = segment.split(" ").map((point) => {
+                        const [indexText, valueText] = point.split(",");
+                        return { index: Number(indexText), value: Number(valueText) };
+                      });
+                      const points = pointPairs
+                        .map(
+                          ({ index: pointIndex, value }) =>
+                            `${x(pointIndex)},${y(value).toFixed(1)}`,
+                        )
+                        .join(" ");
+                      const first = pointPairs[0];
+                      const last = pointPairs[pointPairs.length - 1];
+                      const areaPath = `${points} L ${x(last.index)},${H - P} L ${x(first.index)},${H - P} Z`;
+                      return (
+                        <g key={segmentIndex}>
+                          <path
+                            d={areaPath}
+                            fill={`url(#${gradientIdPrefix}-line-gradient-${index})`}
+                          />
+                          <polyline
+                            points={points}
+                            fill="none"
+                            stroke={item.color}
+                            strokeWidth="2.5"
+                            strokeLinejoin="round"
+                          />
+                        </g>
+                      );
+                    })}
                   </g>
                 );
               })
             ) : (
               <>
                 <path
-                  d={`${values.map((v, i) => `${x(i)},${y(v).toFixed(1)}`).join(" ")} L ${x(values.length - 1)},${H - P} L ${x(0)},${H - P} Z`}
+                  d={lineSegments(values)
+                    .map((segment) => {
+                      const pointPairs = segment.split(" ").map((point) => {
+                        const [indexText, valueText] = point.split(",");
+                        return { index: Number(indexText), value: Number(valueText) };
+                      });
+                      const points = pointPairs
+                        .map(
+                          ({ index: pointIndex, value }) =>
+                            `${x(pointIndex)},${y(value).toFixed(1)}`,
+                        )
+                        .join(" ");
+                      const first = pointPairs[0];
+                      const last = pointPairs[pointPairs.length - 1];
+                      return `${points} L ${x(last.index)},${H - P} L ${x(first.index)},${H - P} Z`;
+                    })
+                    .join(" ")}
                   fill={`url(#${gradientIdPrefix}-line-gradient-primary)`}
                 />
-                <polyline
-                  points={values.map((v, i) => `${x(i)},${y(v).toFixed(1)}`).join(" ")}
-                  fill="none"
-                  stroke={color}
-                  strokeWidth="2.5"
-                  strokeLinejoin="round"
-                />
-                {values.map((v, i) => (
-                  <circle
-                    key={i}
-                    cx={x(i)}
-                    cy={y(v).toFixed(1)}
-                    r="4"
-                    fill={hollowIndices.includes(i) ? "var(--theme-card)" : color}
+                {lineSegments(values).map((segment, segmentIndex) => (
+                  <polyline
+                    key={segmentIndex}
+                    points={segment
+                      .split(" ")
+                      .map((point) => {
+                        const [indexText, valueText] = point.split(",");
+                        return `${x(Number(indexText))},${y(Number(valueText)).toFixed(1)}`;
+                      })
+                      .join(" ")}
+                    fill="none"
                     stroke={color}
-                    strokeWidth={hollowIndices.includes(i) ? "1.5" : "0"}
-                    opacity={hollowIndices.includes(i) ? "0.65" : "1"}
-                  >
-                    <title>{tooltips ? tooltips[i] : format(v)}</title>
-                  </circle>
+                    strokeWidth="2.5"
+                    strokeLinejoin="round"
+                  />
                 ))}
+                {values.map((value, index) =>
+                  value == null ? null : (
+                    <circle
+                      key={index}
+                      cx={x(index)}
+                      cy={y(value).toFixed(1)}
+                      r="4"
+                      fill={hollowIndices.includes(index) ? "var(--theme-card)" : color}
+                      stroke={color}
+                      strokeWidth={hollowIndices.includes(index) ? "1.5" : "0"}
+                      opacity={hollowIndices.includes(index) ? "0.65" : "1"}
+                    >
+                      <title>{tooltips ? tooltips[index] : format(value)}</title>
+                    </circle>
+                  ),
+                )}
               </>
             )}
             {xLabelIndices.map((index) => {

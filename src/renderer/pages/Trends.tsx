@@ -683,7 +683,7 @@ export default function Trends() {
 
   const scopedQueue = queue ?? useHistoryScopeQueue();
   const accountForFetch = isExperiment ? account : undefined;
-  const { data, refetch } = useIpc<TrendsData>(
+  const { data, error, refetch } = useIpc<TrendsData>(
     () => window.api.getTrends(scopedQueue, accountForFetch),
     [scopedQueue, accountForFetch],
   );
@@ -742,7 +742,7 @@ export default function Trends() {
   }, [scorePoints]);
 
   if (isExperiment) {
-    return <TrendsExp data={data} />;
+    return <TrendsExp data={data} error={error} onRetry={refetch} />;
   }
 
   if (!data) {
