@@ -5,8 +5,10 @@ import { LineChartExp } from "./LineChartExp";
 import { Panel } from "./Panel";
 import { HourChart } from "./HourChart";
 import { PatchBars } from "./PatchBars";
+import { queueLabel } from "./QueueSelect";
 import { TimeSeriesChart, type SeriesPoint } from "./TimeSeriesChart";
 import { WeekdayChart } from "./WeekdayChart";
+import { isArenaQueue } from "../../shared/queues";
 
 function parseDay(day: string): Date {
   const [year, month, date] = day.split("-").map(Number);
@@ -99,6 +101,102 @@ function GroupedBarChart({ data }: { data: { label: string; wins: number; losses
           <span className="h-2 w-2 rounded-full bg-[var(--theme-loss)]" aria-hidden="true" />
           Losses
         </span>
+      </div>
+    </div>
+  );
+}
+
+function SimpleBar({ label, games, wins }: { label: string; games: number; wins: number }) {
+  const winRate = games > 0 ? (wins / games) * 100 : 0;
+  const barColor = winRate >= 50 ? "var(--theme-win)" : "var(--theme-assist)";
+
+  return (
+    <div
+      className="flex min-w-0 flex-1 flex-col items-center gap-2"
+      title={`${label}: ${winRate.toFixed(0)}% WR`}
+    >
+      <div className="flex h-40 w-full items-end justify-center">
+        <div
+          className="w-full max-w-12 rounded-t-md transition-[height] duration-200"
+          style={{
+            height: `${Math.max(winRate, 4)}%`,
+            backgroundColor: barColor,
+          }}
+        />
+      </div>
+      <div className="max-w-full truncate text-center text-[11px] font-semibold text-lol-text-bright">
+        {label}
+      </div>
+      <div className="text-[10px] tabular-nums text-lol-text">{games} games</div>
+    </div>
+  );
+}
+
+const MATRIX_WEEKDAYS = [
+  { weekday: 1, name: "Monday" },
+  { weekday: 2, name: "Tuesday" },
+  { weekday: 3, name: "Wednesday" },
+  { weekday: 4, name: "Thursday" },
+  { weekday: 5, name: "Friday" },
+  { weekday: 6, name: "Saturday" },
+  { weekday: 0, name: "Sunday" },
+];
+
+function matrixCellColor(games: number, winRate: number): string {
+  if (games === 0) return "var(--theme-card-hover)";
+  if (winRate < 45) return "color-mix(in srgb, var(--theme-loss) 45%, var(--theme-card))";
+  if (winRate < 50) return "var(--theme-loss)";
+  if (winRate < 55) return "var(--theme-gold)";
+  if (winRate < 60) return "color-mix(in srgb, var(--theme-win) 55%, var(--theme-card))";
+  return "var(--theme-win)";
+}
+
+function DayHourMatrix({ data }: { data: TrendsData["dayHourMatrix"] }) {
+  const cells = new Map(data.map((cell) => [`${cell.weekday}:${cell.hour}`, cell]));
+  const hours = Array.from({ length: 24 }, (_, hour) => hour);
+
+  return (
+    <div className="overflow-x-auto">
+      <div className="min-w-[760px]">
+        <div className="mb-2 grid grid-cols-[72px_repeat(24,minmax(20px,1fr))] gap-1 text-[10px] text-lol-text/70">
+          <span />
+          {hours.map((hour) => (
+            <span key={hour} className="text-center">
+              {hour % 3 === 0 ? `${hour}:00` : ""}
+            </span>
+          ))}
+        </div>
+        <div className="space-y-1">
+          {MATRIX_WEEKDAYS.map((day) => (
+            <div
+              key={day.weekday}
+              className="grid grid-cols-[72px_repeat(24,minmax(20px,1fr))] items-center gap-1"
+            >
+              <span className="text-xs text-lol-text">{day.name.slice(0, 3)}</span>
+              {hours.map((hour) => {
+                const cell = cells.get(`${day.weekday}:${hour}`);
+                const games = cell?.games ?? 0;
+                const winRate = games > 0 ? (cell!.wins / games) * 100 : 0;
+                return (
+                  <div
+                    key={hour}
+                    className="aspect-square rounded-[3px] border border-lol-border/30"
+                    style={{ backgroundColor: matrixCellColor(games, winRate) }}
+                    title={`${day.name} ${String(hour).padStart(2, "0")}:00 - ${games} games, ${Math.round(winRate)}% WR`}
+                  />
+                );
+              })}
+            </div>
+          ))}
+        </div>
+        <div className="mt-2 grid grid-cols-[72px_repeat(24,minmax(20px,1fr))] gap-1 text-[10px] text-lol-text/70">
+          <span />
+          {hours.map((hour) => (
+            <span key={hour} className="text-center">
+              {hour % 3 === 0 ? `${hour}:00` : ""}
+            </span>
+          ))}
+        </div>
       </div>
     </div>
   );
@@ -215,6 +313,26 @@ export function TrendsExp({
     wins: week.wins,
     losses: week.games - week.wins,
   }));
+  const roleBreakdown = [...data.roleBreakdown].sort((a, b) => b.games - a.games);
+  const queueBreakdown = (() => {
+    const grouped = new Map<
+      string,
+      { label: string; queueId: number; games: number; wins: number }
+    >();
+    for (const queue of data.queueBreakdown) {
+      const label = isArenaQueue(queue.queueId) ? "Arena" : queueLabel(queue.queueId);
+      const current = grouped.get(label) ?? {
+        label,
+        queueId: queue.queueId,
+        games: 0,
+        wins: 0,
+      };
+      current.games += queue.games;
+      current.wins += queue.wins;
+      grouped.set(label, current);
+    }
+    return [...grouped.values()].sort((a, b) => b.games - a.games);
+  })();
 
   const currentWinRate =
     weeklyWinRates
@@ -353,6 +471,64 @@ export function TrendsExp({
             <span className="text-xs uppercase tracking-wider text-lol-text">Last 12 weeks</span>
           </div>
           <GroupedBarChart data={weeklyWinLoss} />
+        </Panel>
+
+        <div className="grid grid-cols-1 gap-5 lg:col-span-2 lg:grid-cols-2">
+          <Panel className="border-t-[3px] border-t-[var(--theme-win)] bg-[radial-gradient(circle_at_top_right,color-mix(in_oklab,var(--theme-win)_8%,transparent),transparent_48%),linear-gradient(180deg,var(--theme-card-hover),var(--theme-card))]">
+            <div className="mb-3 flex items-baseline justify-between">
+              <h2 className="relative pl-4 font-display text-xl font-semibold text-lol-text-bright before:absolute before:left-0 before:top-1/2 before:h-2 before:w-2 before:-translate-y-1/2 before:rotate-45 before:bg-lol-crimson">
+                Win rate by role
+              </h2>
+              <span className="text-xs uppercase tracking-wider text-lol-text">All games</span>
+            </div>
+            {roleBreakdown.length > 0 ? (
+              <div className="flex min-h-52 items-end gap-3 border-b border-lol-border/50 px-2 pt-2">
+                {roleBreakdown.map((role) => (
+                  <SimpleBar
+                    key={role.role}
+                    label={role.role}
+                    games={role.games}
+                    wins={role.wins}
+                  />
+                ))}
+              </div>
+            ) : (
+              <p className="py-16 text-center text-sm text-lol-text">No role data</p>
+            )}
+          </Panel>
+
+          <Panel className="border-t-[3px] border-t-[var(--theme-assist)] bg-[radial-gradient(circle_at_top_right,color-mix(in_oklab,var(--theme-assist)_8%,transparent),transparent_48%),linear-gradient(180deg,var(--theme-card-hover),var(--theme-card))]">
+            <div className="mb-3 flex items-baseline justify-between">
+              <h2 className="relative pl-4 font-display text-xl font-semibold text-lol-text-bright before:absolute before:left-0 before:top-1/2 before:h-2 before:w-2 before:-translate-y-1/2 before:rotate-45 before:bg-lol-crimson">
+                Win rate by queue
+              </h2>
+              <span className="text-xs uppercase tracking-wider text-lol-text">All games</span>
+            </div>
+            {queueBreakdown.length > 0 ? (
+              <div className="flex min-h-52 items-end gap-3 border-b border-lol-border/50 px-2 pt-2">
+                {queueBreakdown.map((queue) => (
+                  <SimpleBar
+                    key={queue.label}
+                    label={queue.label}
+                    games={queue.games}
+                    wins={queue.wins}
+                  />
+                ))}
+              </div>
+            ) : (
+              <p className="py-16 text-center text-sm text-lol-text">No queue data</p>
+            )}
+          </Panel>
+        </div>
+
+        <Panel className="border-t-[3px] border-t-[var(--theme-gold)] bg-[radial-gradient(circle_at_top_right,color-mix(in_oklab,var(--theme-gold)_8%,transparent),transparent_48%),linear-gradient(180deg,var(--theme-card-hover),var(--theme-card))] lg:col-span-2">
+          <div className="mb-3 flex items-baseline justify-between">
+            <h2 className="relative pl-4 font-display text-xl font-semibold text-lol-text-bright before:absolute before:left-0 before:top-1/2 before:h-2 before:w-2 before:-translate-y-1/2 before:rotate-45 before:bg-lol-crimson">
+              Performance by day &amp; hour
+            </h2>
+            <span className="text-xs uppercase tracking-wider text-lol-text">All games</span>
+          </div>
+          <DayHourMatrix data={data.dayHourMatrix} />
         </Panel>
 
         <Panel className="border-t-[3px] border-t-[var(--theme-win)] bg-[radial-gradient(circle_at_top_right,color-mix(in_oklab,var(--theme-win)_8%,transparent),transparent_48%),linear-gradient(180deg,var(--theme-card-hover),var(--theme-card))] lg:col-span-2">
