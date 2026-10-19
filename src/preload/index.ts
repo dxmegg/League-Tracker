@@ -437,7 +437,11 @@ const api: ElectronAPI = {
   getOwnedItemDetail: (itemId: number, patch?: string, queue?: number) =>
     ipcRenderer.invoke("db:owned-item-detail", itemId, patch, queue),
 
-  getTrends: (queue?: number, account?: string) => ipcRenderer.invoke("db:trends", queue, account),
+  getTrends: (
+    queue?: number,
+    account?: string,
+    timePeriod?: "4w" | "12w" | "6m" | "all",
+  ) => ipcRenderer.invoke("db:trends", queue, account, timePeriod),
 
   getRecords: (queue?: number, account?: string) =>
     ipcRenderer.invoke("db:records", queue, account),

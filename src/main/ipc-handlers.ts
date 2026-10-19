@@ -1157,9 +1157,12 @@ export function registerIpcHandlers() {
     },
   );
 
-  ipcMain.handle("db:trends", (_event, queue?: number, account?: string) => {
-    return db.getTrendsData(queue, account);
-  });
+  ipcMain.handle(
+    "db:trends",
+    (_event, queue?: number, account?: string, timePeriod?: "4w" | "12w" | "6m" | "all") => {
+      return db.getTrendsData(queue, account, timePeriod);
+    },
+  );
 
   ipcMain.handle("db:records", (_event, queue?: number, account?: string) => {
     return db.getRecords(queue, account);

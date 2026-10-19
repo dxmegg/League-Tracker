@@ -7,7 +7,7 @@ import QueueSelect from "../components/QueueSelect";
 import { FilterChip } from "../components/FilterChip";
 import { useActiveTheme } from "../hooks/useActiveTheme";
 import { useActiveAccount } from "../hooks/useActiveAccount";
-import { TrendsExp } from "../components/TrendsExp";
+import { TrendsExp, type TimeRange } from "../components/TrendsExp";
 import { ALL_ACCOUNTS_SENTINEL } from "../lib/accountsEvent";
 import { ActivityHeatmap } from "../components/ActivityHeatmap";
 import { HourChart } from "../components/HourChart";
@@ -155,6 +155,7 @@ export default function Trends() {
   const account = activeAccountRaw === ALL_ACCOUNTS_SENTINEL ? "all" : activeAccountRaw;
   const queueParam = searchParams.get("queue");
   const queue = queueParam ? Number(queueParam) : undefined;
+  const [timeRange, setTimeRange] = useState<TimeRange>("12w");
   const setQueue = (q: number | undefined) => {
     setSearchParams(
       (prev) => {
@@ -170,8 +171,8 @@ export default function Trends() {
   const scopedQueue = queue ?? useHistoryScopeQueue();
   const accountForFetch = isExperiment ? account : undefined;
   const { data, error, refetch } = useIpc<TrendsData>(
-    () => window.api.getTrends(scopedQueue, accountForFetch),
-    [scopedQueue, accountForFetch],
+    () => window.api.getTrends(scopedQueue, accountForFetch, timeRange),
+    [scopedQueue, accountForFetch, timeRange],
   );
 
   useEffect(() => {
@@ -228,7 +229,20 @@ export default function Trends() {
   }, [scorePoints]);
 
   if (isExperiment) {
-    return <TrendsExp data={data} error={error} onRetry={refetch} />;
+    return (
+      <div className="flex flex-col gap-4">
+        <div className="[&_select]:h-9 [&_select]:rounded-md [&_select]:border [&_select]:border-lol-border/60 [&_select]:bg-lol-card/40 [&_select]:px-3 [&_select]:text-xs [&_select]:text-lol-text-bright [&_select]:focus-visible:outline-none [&_select]:focus-visible:border-lol-gold/60 [&_select]:focus-visible:ring-1 [&_select]:focus-visible:ring-lol-gold/40 [&_select]:transition-colors">
+          <QueueSelect value={queue} onChange={setQueue} />
+        </div>
+        <TrendsExp
+          data={data}
+          error={error}
+          onRetry={refetch}
+          timeRange={timeRange}
+          setTimeRange={setTimeRange}
+        />
+      </div>
+    );
   }
 
   if (!data) {

@@ -3723,14 +3723,24 @@ export function getChampionSkillOrders(
 // itself instead of asking again; patches and clock buckets can't be derived
 // from days and come as their own aggregates. All local time — "games per day"
 // means the player's day, not UTC's.
-export function getTrendsData(queue?: number, account?: string): TrendsData {
-  return cachedQuery("getTrendsData", [queue, account], 60_000, () => {
+export function getTrendsData(
+  queue?: number,
+  account?: string,
+  timePeriod: "4w" | "12w" | "6m" | "all" = "all",
+): TrendsData {
+  return cachedQuery("getTrendsData", [queue, account, timePeriod], 60_000, () => {
     const source = statsSource(account);
     const where = ["g.is_remake = 0"];
     where.push(source.accountFilter);
     const params: any[] = account && account !== "all" ? [account] : [];
     applyQueueFilter(where, params, queue);
     where.push(`g.queue_id NOT IN (${EXCLUDED_STATS_SQL})`);
+    const timeDays =
+      timePeriod === "4w" ? 28 : timePeriod === "12w" ? 84 : timePeriod === "6m" ? 180 : null;
+    if (timeDays !== null) {
+      where.push("g.game_creation >= ?");
+      params.push(Date.now() - timeDays * 86400000);
+    }
     const whereSql = `WHERE ${where.join(" AND ")}`;
     const fromSql = `FROM games g JOIN ${source.table} ps ON g.game_id = ps.game_id`;
     const ownerPuuidSql = source.table === "tracked_game_stats" ? "ps.puuid" : "g.puuid";
@@ -3869,8 +3879,101 @@ export function getTrendsData(queue?: number, account?: string): TrendsData {
     `)
       .all(...params) as TrendsData["weekdays"];
 
+    const peakKdaGame = db
+      .prepare(`
+      SELECT ps.kills as kills, ps.deaths as deaths, ps.assists as assists
+      ${fromSql}
+      ${whereSql}
+      ORDER BY (ps.kills + ps.assists) * 1.0 / MAX(ps.deaths, 1) DESC, g.game_creation ASC
+      LIMIT 1
+    `)
+      .get(...params) as TrendsData["summaryStats"]["peakKdaGame"];
+
+    const summaryRow = db
+      .prepare(`
+      SELECT
+        COUNT(*) as totalGames,
+        MAX(g.game_creation) as lastPlayed,
+        100.0 * COUNT(CASE WHEN (ps.kills + ps.assists) / MAX(ps.deaths, 1) > 3 THEN 1 END) / NULLIF(COUNT(*), 0) as kdaOver3Percent
+      ${fromSql}
+      ${whereSql}
+    `)
+      .get(...params) as {
+      totalGames: number;
+      lastPlayed: number | null;
+      kdaOver3Percent: number | null;
+    };
+
+    const streakRows = db
+      .prepare(`
+      SELECT ps.win as win
+      ${fromSql}
+      ${whereSql}
+      ORDER BY g.game_creation DESC, g.game_id DESC
+    `)
+      .all(...params) as { win: number }[];
+    let currentWlStreak = "—";
+    if (streakRows.length > 0) {
+      const firstResult = streakRows[0].win === 1 ? "W" : "L";
+      let streakLength = 0;
+      for (const row of streakRows) {
+        if ((row.win === 1 ? "W" : "L") !== firstResult) break;
+        streakLength++;
+      }
+      currentWlStreak = `${firstResult}${streakLength}`;
+    }
+
+    const totalGames = daily.reduce((sum, row) => sum + row.games, 0);
+    const totalKills = daily.reduce((sum, row) => sum + row.kills, 0);
+    const totalDeaths = daily.reduce((sum, row) => sum + row.deaths, 0);
+    const totalAssists = daily.reduce((sum, row) => sum + row.assists, 0);
+    const dailyWinRates = daily
+      .filter((row) => row.games > 0)
+      .map((row) => (row.wins / row.games) * 100);
+    const mostActive = daily.reduce<TrendsData["daily"][number] | null>(
+      (best, row) => (!best || row.games > best.games ? row : best),
+      null,
+    );
+    let longestActiveStreak = 0;
+    let activeStreak = 0;
+    let previousDay: Date | null = null;
+    for (const row of daily) {
+      const day = new Date(`${row.day}T00:00:00`);
+      if (previousDay && day.getTime() - previousDay.getTime() === 86400000) activeStreak++;
+      else activeStreak = 1;
+      longestActiveStreak = Math.max(longestActiveStreak, activeStreak);
+      previousDay = day;
+    }
+    const cutoff30d = Date.now() - 30 * 86400000;
+    const recent30d = daily.filter((row) => new Date(`${row.day}T23:59:59`).getTime() >= cutoff30d);
+    const recentKills = recent30d.reduce((sum, row) => sum + row.kills, 0);
+    const recentDeaths = recent30d.reduce((sum, row) => sum + row.deaths, 0);
+    const recentAssists = recent30d.reduce((sum, row) => sum + row.assists, 0);
+    const mostActiveDay = mostActive
+      ? new Date(`${mostActive.day}T00:00:00`).toLocaleDateString(undefined, { weekday: "long" })
+      : "—";
+    const avgKdaAll = (totalKills + totalAssists) / Math.max(totalDeaths, 1);
+    const summaryStats: TrendsData["summaryStats"] = {
+      avgKills: totalGames > 0 ? totalKills / totalGames : 0,
+      avgDeaths: totalGames > 0 ? totalDeaths / totalGames : 0,
+      avgAssists: totalGames > 0 ? totalAssists / totalGames : 0,
+      peakKdaGame: peakKdaGame ?? null,
+      totalGames,
+      mostActiveDay,
+      longestActiveStreak,
+      lastPlayed: summaryRow.lastPlayed ?? 0,
+      peakWr: dailyWinRates.length > 0 ? Math.max(...dailyWinRates) : 0,
+      lowestWr: dailyWinRates.length > 0 ? Math.min(...dailyWinRates) : 0,
+      currentWlStreak,
+      avgKdaAll,
+      kdaOver3Percent: summaryRow.kdaOver3Percent ?? 0,
+      trend30dKda: (recentKills + recentAssists) / Math.max(recentDeaths, 1),
+      trendKdaAll: avgKdaAll,
+    };
+
     return {
       daily,
+      summaryStats,
       patches,
       hours,
       weekdays,

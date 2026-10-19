@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import type { TrendsData } from "../lib/types";
 import { ActivityHeatmap } from "./ActivityHeatmap";
 import ChampionIcon from "./ChampionIcon";
@@ -11,11 +11,11 @@ import { SectionHeading } from "./SectionHeading";
 import { TimeSeriesChart, type SeriesPoint } from "./TimeSeriesChart";
 import { WeekdayChart } from "./WeekdayChart";
 import { isArenaQueue } from "../../shared/queues";
-import { formatDuration } from "../lib/format";
+import { formatDuration, formatTimeAgo } from "../lib/format";
 import { getChampionName, useChampionData } from "../hooks/useChampions";
 import { FilterChip } from "./FilterChip";
 
-type TimeRange = "4w" | "12w" | "6m" | "all";
+export type TimeRange = "4w" | "12w" | "6m" | "all";
 
 const TIME_RANGES: { value: TimeRange; label: string }[] = [
   { value: "4w", label: "4 Weeks" },
@@ -217,13 +217,16 @@ export function TrendsExp({
   data,
   error,
   onRetry,
+  timeRange,
+  setTimeRange,
 }: {
   data: TrendsData | null;
   error: string | null;
   onRetry: () => Promise<void>;
+  timeRange: TimeRange;
+  setTimeRange: (timeRange: TimeRange) => void;
 }) {
   const championData = useChampionData();
-  const [timeRange, setTimeRange] = useState<TimeRange>("12w");
   const weekly = useMemo(() => {
     if (!data || data.daily.length === 0) return [];
 
@@ -449,17 +452,63 @@ export function TrendsExp({
           xLabels={weekly.map((week) => weekLabel(week.day))}
           min={0}
         />
+        <div className="mt-4 grid grid-cols-2 gap-3 border-t border-lol-border/50 pt-3 sm:grid-cols-5">
+          {[
+            ["Avg Kills", data.summaryStats.avgKills.toFixed(1)],
+            ["Avg Deaths", data.summaryStats.avgDeaths.toFixed(1)],
+            ["Avg Assists", data.summaryStats.avgAssists.toFixed(1)],
+            [
+              "Peak KDA Game",
+              data.summaryStats.peakKdaGame
+                ? `${data.summaryStats.peakKdaGame.kills}/${data.summaryStats.peakKdaGame.deaths}/${data.summaryStats.peakKdaGame.assists}`
+                : "—",
+            ],
+            ["Trend (30D)", data.summaryStats.trend30dKda.toFixed(2)],
+          ].map(([label, value]) => (
+            <div key={label} className="text-center">
+              <div className="text-sm font-semibold tabular-nums text-lol-text-bright">{value}</div>
+              <div className="mt-1 text-[10px] uppercase tracking-wider text-lol-text">{label}</div>
+            </div>
+          ))}
+        </div>
       </Panel>
 
-      <Panel className="border-t-[3px] border-t-[var(--theme-crimson)] bg-[radial-gradient(circle_at_top_right,color-mix(in_oklab,var(--theme-crimson)_8%,transparent),transparent_48%),linear-gradient(180deg,var(--theme-card-hover),var(--theme-card))]">
-        <div className="mb-3 flex items-baseline justify-between">
-          <h2 className="relative pl-4 font-display text-xl font-semibold text-lol-text-bright before:absolute before:left-0 before:top-1/2 before:h-2 before:w-2 before:-translate-y-1/2 before:rotate-45 before:bg-lol-crimson">
-            Activity heatmap
+      <div className="flex flex-col gap-5 lg:flex-row">
+        <Panel className="min-w-0 flex-1 border-t-[3px] border-t-[var(--theme-crimson)] bg-[radial-gradient(circle_at_top_right,color-mix(in_oklab,var(--theme-crimson)_8%,transparent),transparent_48%),linear-gradient(180deg,var(--theme-card-hover),var(--theme-card))]">
+          <div className="mb-3 flex items-baseline justify-between">
+            <h2 className="relative pl-4 font-display text-xl font-semibold text-lol-text-bright before:absolute before:left-0 before:top-1/2 before:h-2 before:w-2 before:-translate-y-1/2 before:rotate-45 before:bg-lol-crimson">
+              Activity heatmap
+            </h2>
+            <span className="text-xs uppercase tracking-wider text-lol-text">{timeRangeLabel}</span>
+          </div>
+          <ActivityHeatmap daily={data.daily} />
+        </Panel>
+        <Panel className="lg:w-72">
+          <h2 className="mb-3 text-xs font-bold uppercase tracking-wider text-lol-gold">
+            Activity summary
           </h2>
-          <span className="text-xs uppercase tracking-wider text-lol-text">{timeRangeLabel}</span>
-        </div>
-        <ActivityHeatmap daily={data.daily} />
-      </Panel>
+          <div className="grid grid-cols-2 gap-4">
+            {[
+              ["Total Games Played", data.summaryStats.totalGames.toLocaleString()],
+              ["Most Active Day", data.summaryStats.mostActiveDay],
+              ["Longest Streak", `${data.summaryStats.longestActiveStreak} days`],
+              [
+                "Last Played",
+                data.summaryStats.lastPlayed > 0
+                  ? formatTimeAgo(data.summaryStats.lastPlayed)
+                  : "—",
+              ],
+            ].map(([label, value]) => (
+              <div key={label}>
+                <div className="text-sm font-semibold text-lol-text-bright">{value}</div>
+                <div className="mt-1 text-[10px] uppercase tracking-wider text-lol-text">
+                  {label}
+                </div>
+              </div>
+            ))}
+          </div>
+        </Panel>
+      </div>
 
       <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
         <Panel className="border-t-[3px] border-t-[var(--theme-win)] bg-[radial-gradient(circle_at_top_right,color-mix(in_oklab,var(--theme-win)_8%,transparent),transparent_48%),linear-gradient(180deg,var(--theme-card-hover),var(--theme-card))]">
@@ -487,6 +536,24 @@ export function TrendsExp({
             refValue={50}
             format={(value) => value.toFixed(0) + "%"}
           />
+          <div className="mt-4 flex flex-wrap gap-x-5 gap-y-2 border-t border-lol-border/50 pt-3 text-xs">
+            <span>
+              Peak WR{" "}
+              <strong className="text-lol-text-bright">
+                {data.summaryStats.peakWr.toFixed(1)}%
+              </strong>
+            </span>
+            <span>
+              Lowest WR{" "}
+              <strong className="text-lol-text-bright">
+                {data.summaryStats.lowestWr.toFixed(1)}%
+              </strong>
+            </span>
+            <span>
+              W/L Streak{" "}
+              <strong className="text-lol-text-bright">{data.summaryStats.currentWlStreak}</strong>
+            </span>
+          </div>
         </Panel>
 
         <Panel className="border-t-[3px] border-t-[var(--theme-assist)] bg-[radial-gradient(circle_at_top_right,color-mix(in_oklab,var(--theme-assist)_8%,transparent),transparent_48%),linear-gradient(180deg,var(--theme-card-hover),var(--theme-card))]">
@@ -503,6 +570,26 @@ export function TrendsExp({
             format={(value) => value.toFixed(2)}
             color="var(--theme-assist)"
           />
+          <div className="mt-4 flex flex-wrap gap-x-5 gap-y-2 border-t border-lol-border/50 pt-3 text-xs">
+            <span>
+              Avg KDA (All){" "}
+              <strong className="text-lol-text-bright">
+                {data.summaryStats.avgKdaAll.toFixed(2)}
+              </strong>
+            </span>
+            <span>
+              KDA &gt; 3.0{" "}
+              <strong className="text-lol-text-bright">
+                {data.summaryStats.kdaOver3Percent.toFixed(1)}%
+              </strong>
+            </span>
+            <span>
+              Trend (All){" "}
+              <strong className="text-lol-text-bright">
+                {data.summaryStats.trendKdaAll.toFixed(2)}
+              </strong>
+            </span>
+          </div>
         </Panel>
 
         <Panel className="border-t-[3px] border-t-[var(--theme-gold)] bg-[radial-gradient(circle_at_top_right,color-mix(in_oklab,var(--theme-gold)_8%,transparent),transparent_48%),linear-gradient(180deg,var(--theme-card-hover),var(--theme-card))]">

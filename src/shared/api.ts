@@ -1167,6 +1167,23 @@ export interface TrendsDay {
 
 export interface TrendsData {
   daily: TrendsDay[];
+  summaryStats: {
+    avgKills: number;
+    avgDeaths: number;
+    avgAssists: number;
+    peakKdaGame: { kills: number; deaths: number; assists: number } | null;
+    totalGames: number;
+    mostActiveDay: string;
+    longestActiveStreak: number;
+    lastPlayed: number;
+    peakWr: number;
+    lowestWr: number;
+    currentWlStreak: string;
+    avgKdaAll: number;
+    kdaOver3Percent: number;
+    trend30dKda: number;
+    trendKdaAll: number;
+  };
   combatEconomy?: { dpm: number; gpm: number; cspm: number; vision: number };
   // Chronological by first game played on the patch
   patches: {
@@ -1956,7 +1973,11 @@ export interface ElectronAPI {
   getRuneData: () => Promise<RuneData>;
   getRuneTrees: () => Promise<RuneTreeLayout>;
   getOwnedItemDetail: (itemId: number, patch?: string, queue?: number) => Promise<ItemDetail>;
-  getTrends: (queue?: number, account?: string) => Promise<TrendsData>;
+  getTrends: (
+    queue?: number,
+    account?: string,
+    timePeriod?: "4w" | "12w" | "6m" | "all",
+  ) => Promise<TrendsData>;
   getRecords: (queue?: number, account?: string) => Promise<RecordsData>;
   getGlobalChampionDetail: (
     championId: number | null,
