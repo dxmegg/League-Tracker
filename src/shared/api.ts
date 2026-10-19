@@ -1158,6 +1158,7 @@ export interface TrendsDay {
   kills: number;
   deaths: number;
   assists: number;
+  duration_sum: number;
   // Summed over games that have a score; scored_games is that count, so the
   // average stays honest when only some games are scored
   score_sum: number | null;
@@ -1177,6 +1178,22 @@ export interface TrendsData {
   hours: { hour: number; games: number; wins: number }[];
   // 0 = Sunday, matching strftime('%w')
   weekdays: { weekday: number; games: number; wins: number }[];
+  roleBreakdown: { role: string; games: number; wins: number }[];
+  queueBreakdown: {
+    queueId: number;
+    games: number;
+    wins: number;
+    avgDuration: number;
+  }[];
+  championTop: {
+    championId: number;
+    games: number;
+    wins: number;
+    kills: number;
+    deaths: number;
+    assists: number;
+  }[];
+  dayHourMatrix: { weekday: number; hour: number; games: number; wins: number }[];
 }
 
 export interface ChampionTrendsDay {

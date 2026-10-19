@@ -16,6 +16,7 @@ import type {
   RecordsData,
   RoleBreakdown,
   StatRecord,
+  TrendsData,
 } from "../../shared/api";
 import { getChampionClasses } from "../dragon";
 import { ARENA_QUEUE_IDS, QUEUE_LABELS } from "../../shared/queues";
@@ -3722,7 +3723,7 @@ export function getChampionSkillOrders(
 // itself instead of asking again; patches and clock buckets can't be derived
 // from days and come as their own aggregates. All local time — "games per day"
 // means the player's day, not UTC's.
-export function getTrendsData(queue?: number, account?: string): any {
+export function getTrendsData(queue?: number, account?: string): TrendsData {
   return cachedQuery("getTrendsData", [queue, account], 60_000, () => {
     const source = statsSource(account);
     const where = ["g.is_remake = 0"];
@@ -3732,6 +3733,9 @@ export function getTrendsData(queue?: number, account?: string): any {
     where.push(`g.queue_id NOT IN (${EXCLUDED_STATS_SQL})`);
     const whereSql = `WHERE ${where.join(" AND ")}`;
     const fromSql = `FROM games g JOIN ${source.table} ps ON g.game_id = ps.game_id`;
+    const ownerPuuidSql = source.table === "tracked_game_stats" ? "ps.puuid" : "g.puuid";
+    const roleFromSql = `${fromSql} JOIN match_participants mp
+      ON mp.game_id = g.game_id AND mp.puuid = ${ownerPuuidSql}`;
 
     // SUM/COUNT over ps.score skip NULLs, so score averages stay honest for
     // days where only some games have a stored score.
@@ -3743,6 +3747,7 @@ export function getTrendsData(queue?: number, account?: string): any {
              SUM(ps.kills) as kills,
              SUM(ps.deaths) as deaths,
              SUM(ps.assists) as assists,
+             SUM(g.game_duration) as duration_sum,
              SUM(ps.score) as score_sum,
              COUNT(ps.score) as scored_games
       ${fromSql}
@@ -3750,7 +3755,62 @@ export function getTrendsData(queue?: number, account?: string): any {
       GROUP BY day
       ORDER BY day
     `)
-      .all(...params);
+      .all(...params) as TrendsData["daily"];
+
+    const roleBreakdown = db
+      .prepare(`
+    SELECT mp.team_position as role,
+           COUNT(*) as games,
+           SUM(ps.win) as wins
+    ${roleFromSql}
+    ${whereSql} AND mp.team_position IS NOT NULL AND mp.team_position != ''
+    GROUP BY mp.team_position
+    ORDER BY games DESC
+    `)
+      .all(...params) as TrendsData["roleBreakdown"];
+
+    const queueBreakdown = db
+      .prepare(`
+    SELECT g.queue_id as queueId,
+           COUNT(*) as games,
+           SUM(ps.win) as wins,
+           AVG(g.game_duration) as avgDuration
+    ${fromSql}
+    ${whereSql}
+    GROUP BY g.queue_id
+    ORDER BY games DESC
+    `)
+      .all(...params) as TrendsData["queueBreakdown"];
+
+    const championTop = db
+      .prepare(`
+    SELECT ps.champion_id as championId,
+           COUNT(*) as games,
+           SUM(ps.win) as wins,
+           SUM(ps.kills) as kills,
+           SUM(ps.deaths) as deaths,
+           SUM(ps.assists) as assists
+    ${fromSql}
+    ${whereSql}
+    GROUP BY ps.champion_id
+    HAVING COUNT(*) >= 10
+    ORDER BY (SUM(ps.win) * 1.0 / COUNT(*)) DESC
+    LIMIT 6
+    `)
+      .all(...params) as TrendsData["championTop"];
+
+    const dayHourMatrix = db
+      .prepare(`
+    SELECT CAST(strftime('%w', g.game_creation / 1000, 'unixepoch', 'localtime') AS INTEGER) as weekday,
+           CAST(strftime('%H', g.game_creation / 1000, 'unixepoch', 'localtime') AS INTEGER) as hour,
+           COUNT(*) as games,
+           SUM(ps.win) as wins
+    ${fromSql}
+    ${whereSql}
+    GROUP BY weekday, hour
+    ORDER BY weekday, hour
+    `)
+      .all(...params) as TrendsData["dayHourMatrix"];
 
     // Ordered by when the patch was first played rather than by parsing version
     // strings — chronological is what a trend axis wants anyway.
@@ -3766,7 +3826,7 @@ export function getTrendsData(queue?: number, account?: string): any {
       GROUP BY g.game_version
       ORDER BY first_played
     `)
-      .all(...params);
+      .all(...params) as TrendsData["patches"];
 
     const hours = db
       .prepare(`
@@ -3778,7 +3838,7 @@ export function getTrendsData(queue?: number, account?: string): any {
       GROUP BY hour
       ORDER BY hour
     `)
-      .all(...params);
+      .all(...params) as TrendsData["hours"];
 
     // strftime('%w'): 0 = Sunday
     const weekdays = db
@@ -3791,9 +3851,18 @@ export function getTrendsData(queue?: number, account?: string): any {
       GROUP BY weekday
       ORDER BY weekday
     `)
-      .all(...params);
+      .all(...params) as TrendsData["weekdays"];
 
-    return { daily, patches, hours, weekdays };
+    return {
+      daily,
+      patches,
+      hours,
+      weekdays,
+      roleBreakdown,
+      queueBreakdown,
+      championTop,
+      dayHourMatrix,
+    };
   });
 }
 
