@@ -36,7 +36,7 @@ Workflow:
 3. Stan projektu (Zrobione)
 - Home, Local Account, Champions, Items, Friends & Foes, FriendDetail, Settings — w pełni spolishowane w motywie experiment.
 - Records: Pełny redesign (Trophy Cabinet, Milestones, Best by queue, Recently Broken, 6 achievements).
-- Trends: Pełny redesign z mockupów. Zawiera: KPI row, Globalny Time Range (4w/12w/6m/all), Queue Select, K/D/A over time (z Avg Kills/Deaths/Assists, Peak KDA, Trend 30D), Activity heatmap (z panelem Total Games/Most Active Day/Streak/Last Played), Win Rate over time (z Peak/Lowest WR, W/L Streak), Average KDA (z KDA > 3.0%, Trend All), Win/Loss balance, Win rate by role/queue, Performance by day/hour (macierz 7x24), Champion performance, Combat & Economy, Performance by queue, Win rate by patch, By day/hour. Wszystkie dane podlegają globalnemu filtrowi czasu.
+- Trends: Pełny redesign z mockupów. Zawiera: KPI row, Globalny Time Range (4w/12w/6m/all), Queue Select, Insights Bar (Biggest improvement, Strongest day, Peak window), K/D/A over time (z Avg Kills/Deaths/Assists, Peak KDA, Trend 30D), Activity heatmap (z panelem Total Games/Most Active Day/Streak/Last Played), Win Rate over time (z Peak/Lowest WR, W/L Streak), Average KDA (z KDA > 3.0%, Trend All), Win/Loss balance, Win rate by role/queue, Performance by day/hour (macierz 7x24), Champion performance, Combat & Economy, Performance by queue (z paskami postępu), Win rate by patch, By day/hour, Recent Sessions, Streaks & Consistency (siatka 24 gier), Winning Conditions, Damage Split (Donut), Objective Control, Top Duo Partners. Wszystkie dane podlegają globalnemu filtrowi czasu, mają hover effects.
 - Accounts: Naprawiony błąd scalania kont (v30/v31 migrations). Usunięto konta-duchy bez avatarów. Dodano przycisk ręcznego scalania (Merge duplicate accounts) w Settings.
 - Champion Detail: 16 tabów gotowych (NIE RUSZAĆ Overview, Combat, Economy bez zgody!).
 
@@ -58,7 +58,6 @@ Workflow:
 - B — Opcjonalnie: Records Trophy Cabinet — dodać tiery (Bronze/Silver/Gold)
 - C — Opcjonalnie: Records Best by queue — odfiltrować nieznane kolejki (Queue 3270, itp.)
 - D — Opcjonalnie: Records Recently Broken — historia (a nie tylko aktualny stan)
-- E — Opcjonalnie: Trends — Winning conditions & Recent sessions (dokończenie mockupów, opcjonalne)
 
 7. Known working-as-designed (NIE RUSZAĆ)
 - Overview, Combat, Economy tabs w Champion Detail.
