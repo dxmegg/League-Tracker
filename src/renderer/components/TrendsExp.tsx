@@ -25,6 +25,85 @@ function mondayOf(date: Date): Date {
   return monday;
 }
 
+function GroupedBarChart({ data }: { data: { label: string; wins: number; losses: number }[] }) {
+  const width = 600;
+  const height = 180;
+  const padding = { top: 12, right: 8, bottom: 28, left: 8 };
+  const chartWidth = width - padding.left - padding.right;
+  const chartHeight = height - padding.top - padding.bottom;
+  const maxValue = Math.max(...data.flatMap((item) => [item.wins, item.losses]), 1);
+  const groupWidth = chartWidth / data.length;
+  const barWidth = Math.max(4, groupWidth * 0.24);
+  const baseline = padding.top + chartHeight;
+  const barHeight = (value: number) => (value / maxValue) * chartHeight;
+
+  return (
+    <div>
+      <svg
+        className="block h-auto w-full"
+        viewBox={`0 0 ${width} ${height}`}
+        role="img"
+        aria-label="Weekly wins and losses"
+      >
+        <line
+          x1={padding.left}
+          x2={width - padding.right}
+          y1={baseline}
+          y2={baseline}
+          stroke="var(--theme-border)"
+        />
+        {data.map((item, index) => {
+          const center = padding.left + groupWidth * (index + 0.5);
+          const winsHeight = barHeight(item.wins);
+          const lossesHeight = barHeight(item.losses);
+          return (
+            <g key={item.label}>
+              <rect
+                x={center - barWidth - 1}
+                y={baseline - winsHeight}
+                width={barWidth}
+                height={winsHeight}
+                rx="2"
+                fill="var(--theme-win)"
+              >
+                <title>{`${item.label}: ${item.wins} wins`}</title>
+              </rect>
+              <rect
+                x={center + 1}
+                y={baseline - lossesHeight}
+                width={barWidth}
+                height={lossesHeight}
+                rx="2"
+                fill="var(--theme-loss)"
+              >
+                <title>{`${item.label}: ${item.losses} losses`}</title>
+              </rect>
+              <text
+                x={center}
+                y={height - 8}
+                textAnchor="middle"
+                className="fill-lol-text text-[10px]"
+              >
+                {item.label}
+              </text>
+            </g>
+          );
+        })}
+      </svg>
+      <div className="flex flex-wrap gap-4 px-2 pt-1 text-xs text-lol-text">
+        <span className="inline-flex items-center gap-1.5">
+          <span className="h-2 w-2 rounded-full bg-[var(--theme-win)]" aria-hidden="true" />
+          Wins
+        </span>
+        <span className="inline-flex items-center gap-1.5">
+          <span className="h-2 w-2 rounded-full bg-[var(--theme-loss)]" aria-hidden="true" />
+          Losses
+        </span>
+      </div>
+    </div>
+  );
+}
+
 export function TrendsExp({
   data,
   error,
@@ -51,6 +130,7 @@ export function TrendsExp({
         assists: 0,
         scoreSum: 0,
         scoredGames: 0,
+        duration: 0,
       };
     });
     const bucketByDay = new Map(buckets.map((bucket) => [bucket.day, bucket]));
@@ -65,6 +145,7 @@ export function TrendsExp({
       bucket.assists += row.assists;
       bucket.scoreSum += row.score_sum ?? 0;
       bucket.scoredGames += row.scored_games;
+      bucket.duration += row.duration_sum;
     }
 
     return buckets;
@@ -116,6 +197,25 @@ export function TrendsExp({
     );
   }
 
+  const totalGames = data.daily.reduce((sum, row) => sum + row.games, 0);
+  const totalWins = data.daily.reduce((sum, row) => sum + row.wins, 0);
+  const totalKills = data.daily.reduce((sum, row) => sum + row.kills, 0);
+  const totalDeaths = data.daily.reduce((sum, row) => sum + row.deaths, 0);
+  const totalAssists = data.daily.reduce((sum, row) => sum + row.assists, 0);
+  const totalScoredGames = data.daily.reduce((sum, row) => sum + row.scored_games, 0);
+  const totalScore = data.daily.reduce((sum, row) => sum + (row.score_sum ?? 0), 0);
+  const totalDuration = data.daily.reduce((sum, row) => sum + row.duration_sum, 0);
+  const kdaSeries = [
+    { values: weekly.map((week) => week.kills), color: "var(--theme-win)", label: "Kills" },
+    { values: weekly.map((week) => week.deaths), color: "var(--theme-loss)", label: "Deaths" },
+    { values: weekly.map((week) => week.assists), color: "var(--theme-assist)", label: "Assists" },
+  ];
+  const weeklyWinLoss = weekly.map((week) => ({
+    label: weekLabel(week.day),
+    wins: week.wins,
+    losses: week.games - week.wins,
+  }));
+
   const currentWinRate =
     weeklyWinRates
       .slice()
@@ -135,6 +235,40 @@ export function TrendsExp({
         </h1>
         <p className="relative mt-1.5 pl-4 text-lol-text">How your last 12 weeks look</p>
       </div>
+
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
+        {[
+          ["Matches Played", totalGames.toLocaleString()],
+          ["Win Rate", `${totalGames > 0 ? ((totalWins / totalGames) * 100).toFixed(1) : "0.0"}%`],
+          ["Avg KDA", `${((totalKills + totalAssists) / Math.max(totalDeaths, 1)).toFixed(2)}`],
+          [
+            "Avg Score",
+            `${totalScoredGames > 0 ? (totalScore / totalScoredGames).toFixed(1) : "—"}`,
+          ],
+          ["Total Playtime", `${Math.round(totalDuration / 3600)}h`],
+        ].map(([label, value]) => (
+          <Panel key={label} className="border-t-2 border-t-[var(--theme-crimson)] px-4 py-3">
+            <div className="text-2xl font-semibold tabular-nums text-lol-text-bright">{value}</div>
+            <div className="mt-1 text-[10px] uppercase tracking-wider text-lol-text">{label}</div>
+          </Panel>
+        ))}
+      </div>
+
+      <Panel className="border-t-[3px] border-t-[var(--theme-assist)] bg-[radial-gradient(circle_at_top_right,color-mix(in_oklab,var(--theme-assist)_8%,transparent),transparent_48%),linear-gradient(180deg,var(--theme-card-hover),var(--theme-card))]">
+        <div className="mb-3 flex items-baseline justify-between">
+          <h2 className="relative pl-4 font-display text-xl font-semibold text-lol-text-bright before:absolute before:left-0 before:top-1/2 before:h-2 before:w-2 before:-translate-y-1/2 before:rotate-45 before:bg-lol-crimson">
+            K/D/A over time
+          </h2>
+          <span className="text-xs uppercase tracking-wider text-lol-text">Last 12 weeks</span>
+        </div>
+        <LineChartExp
+          values={weekly.map((week) => week.kills)}
+          series={kdaSeries}
+          format={(value) => value.toFixed(0)}
+          xLabels={weekly.map((week) => weekLabel(week.day))}
+          min={0}
+        />
+      </Panel>
 
       <Panel className="border-t-[3px] border-t-[var(--theme-crimson)] bg-[radial-gradient(circle_at_top_right,color-mix(in_oklab,var(--theme-crimson)_8%,transparent),transparent_48%),linear-gradient(180deg,var(--theme-card-hover),var(--theme-card))]">
         <div className="mb-3 flex items-baseline justify-between">
@@ -209,6 +343,16 @@ export function TrendsExp({
             ticks={[0, 2.5, 5, 7.5, 10]}
             format={(value) => value.toFixed(1)}
           />
+        </Panel>
+
+        <Panel className="border-t-[3px] border-t-[var(--theme-win)] bg-[radial-gradient(circle_at_top_right,color-mix(in_oklab,var(--theme-win)_8%,transparent),transparent_48%),linear-gradient(180deg,var(--theme-card-hover),var(--theme-card))]">
+          <div className="mb-3 flex items-baseline justify-between">
+            <h2 className="relative pl-4 font-display text-xl font-semibold text-lol-text-bright before:absolute before:left-0 before:top-1/2 before:h-2 before:w-2 before:-translate-y-1/2 before:rotate-45 before:bg-lol-crimson">
+              Win / loss balance
+            </h2>
+            <span className="text-xs uppercase tracking-wider text-lol-text">Last 12 weeks</span>
+          </div>
+          <GroupedBarChart data={weeklyWinLoss} />
         </Panel>
 
         <Panel className="border-t-[3px] border-t-[var(--theme-win)] bg-[radial-gradient(circle_at_top_right,color-mix(in_oklab,var(--theme-win)_8%,transparent),transparent_48%),linear-gradient(180deg,var(--theme-card-hover),var(--theme-card))] lg:col-span-2">
