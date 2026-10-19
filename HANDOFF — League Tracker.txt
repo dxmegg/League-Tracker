@@ -187,18 +187,20 @@ Cherry-pickuje commity między worktree'ami — nie używać subsessji.
 6. Co dalej
 
 - A — New feature (ask user for direction)
-- B — Optional: Trophy Cabinet tiers (Bronze/Silver/Gold) — user will define criteria
-- C — Optional: Records Best by queue — filter unknown queue IDs (Queue 3270, Summoner's Rift (Draft), League Classic, ARURF) or group into "Other"
-- D — Optional: Records Recently Broken — history table (track value progression over time)
+- B — Optional: Trophy Cabinet tiers (Bronze/Silver/Gold) in Records
+- C — Optional: Records Best by queue — filter unknown queue IDs or group into "Other"
+- D — Optional: Records Recently Broken — history table
+- E — Optional: Trends — monthly/weekly toggle (classic Trends has it, experiment currently fixed to 12-week view)
 
 Completed since last handoff:
 
-- Color tokenization: TrendsExp, DataExp, RecordsExp, FriendsExp, FriendDetail — hardcoded hex → var(--theme-*) / lol-* classes
-- Shared components: EmptyState extracted to src/renderer/components/EmptyState.tsx (compact/roomy variants + showIcon)
-- Match Detail challenges: top 15 default, "Show all (N)" expand (MatchScoreboard.tsx TelemetryBlock)
-- Records milestone labels aligned with mockup: "Game #1 — first ever tracked win", "1 000th career kill", "Win #1 000", "Game #2 000", "Longest win streak — N games"
-- Settings Saved accounts: delete fix (await refresh, error surfaced in UI, diagnostic logs)
-- Duplicate saved accounts fix: v30 migration merges Category A (0-game LCU PUUID → canonical Riot PUUID with games). v31 migration merges Category B (both PUUIDs have games, no overlap). upsertSummoner now source-aware ("lcu" | "riot" | "import"): LCU reuses existing row for same Riot ID instead of creating dupe; Riot path merges non-canonical records at runtime. SCHEMA_VERSION = 31. Non-overlap merge uses INSERT OR IGNORE on (game_id, puuid) PK. Logs: `[migrate] merged <stale> into <canonical> (game_name#tag_line)` and `[migrate v31] merged ... moved N games, M tracked rows`.
+- Settings Saved accounts: delete fix (await refresh, error surfaced in UI)
+- Duplicate saved accounts fix: v30 and v31 migrations merge Category A and B duplicates. upsertSummoner source-aware. SCHEMA_VERSION = 31. Merge logic uses INSERT OR IGNORE + overlap check to prevent data loss on PK conflict. Manual "Merge duplicate accounts" button in Settings.
+- Trends audit fixes: error state rendered, 12-week window anchored to current week, empty weeks return null (gaps in chart) instead of 0, fixed axes removed (dynamic ranges).
+- Trends refactor: extracted reusable chart components (TimeSeriesChart, ActivityHeatmap, PatchBars, WeekdayChart, HourChart) from classic Trends.
+- TrendsExp expansion: added Activity Heatmap, Win rate by patch, By day of week, By hour of day. Win rate and Average score now use TimeSeriesChart with sample-size bars. Top stats show "Last played" value (last week with games) instead of current week if empty.
+- Version bumped to 1.0.7.
+- LineChartExp now supports null values (breaks line into segments) for empty periods.
 
 Known working-as-designed (do NOT touch without approval):
 
@@ -207,11 +209,10 @@ Known working-as-designed (do NOT touch without approval):
 - Historical LCU games lack pings/casts/challenges
 - Old games (2+ years) 404 from Riot API
 - riot-accounts.local.json is optional seed file, gitignored
-- Legacy `test` theme is comparison-only, will be removed later; all new work targets `experiment*`
+- Legacy `test` theme is comparison-only
 - Records: flat achievements (no tiers yet)
-- Records: Recently Broken shows only latest state per record (no history table)
-- Records: Top 5 damage payload exists but section hidden in UI
-- repairDerivedScores runs on startup and fixes stale derived scores (69 repaired in last run) — expected behavior, not a bug
+- Records: Recently Broken shows only latest state per record
+- repairDerivedScores runs on startup and fixes stale derived scores
 
 7. Komendy
 npm run dev          # apka (wymaga LCU jako admin)
