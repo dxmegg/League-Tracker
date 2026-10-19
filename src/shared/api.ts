@@ -1215,6 +1215,22 @@ export interface TrendsData {
     assists: number;
   }[];
   dayHourMatrix: { weekday: number; hour: number; games: number; wins: number }[];
+  insights: {
+    winRateDiff: number;
+    bestDay: { day: string; wr: number } | null;
+    peakWindow: { startHour: number; endHour: number; wr: number } | null;
+  };
+  streaks: {
+    maxWinStreak: number;
+    maxLossStreak: number;
+    avgSessionKda: number;
+    last24Games: boolean[];
+  };
+  winningConditions: {
+    firstBloodWr: number | null;
+    kda3Wr: number | null;
+    score7Wr: number | null;
+  };
 }
 
 export interface ChampionTrendsDay {

@@ -440,6 +440,116 @@ export function TrendsExp({
         ))}
       </div>
 
+      <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+        {[
+          {
+            icon: "↗",
+            label: "Biggest improvement",
+            value: `${data.insights.winRateDiff >= 0 ? "+" : ""}${data.insights.winRateDiff.toFixed(1)} pp Win Rate`,
+            color: "var(--theme-win)",
+          },
+          {
+            icon: "★",
+            label: "Strongest day",
+            value: data.insights.bestDay
+              ? `${data.insights.bestDay.day} - ${data.insights.bestDay.wr.toFixed(1)}% WR`
+              : "—",
+            color: "var(--theme-gold)",
+          },
+          {
+            icon: "◷",
+            label: "Peak window",
+            value: data.insights.peakWindow
+              ? `${data.insights.peakWindow.startHour}:00 - ${data.insights.peakWindow.endHour}:00 - ${data.insights.peakWindow.wr.toFixed(1)}% WR`
+              : "—",
+            color: "var(--theme-assist)",
+          },
+        ].map((insight) => (
+          <Panel key={insight.label} className="flex items-center gap-3 px-4 py-3">
+            <span
+              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-sm font-bold text-lol-card"
+              style={{ backgroundColor: insight.color }}
+              aria-hidden="true"
+            >
+              {insight.icon}
+            </span>
+            <div className="min-w-0">
+              <div className="truncate text-sm font-semibold text-lol-text-bright">
+                {insight.value}
+              </div>
+              <div className="mt-1 text-[10px] uppercase tracking-wider text-lol-text">
+                {insight.label}
+              </div>
+            </div>
+          </Panel>
+        ))}
+      </div>
+
+      <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
+        <Panel className="border-t-[3px] border-t-[var(--theme-win)]">
+          <h2 className="mb-4 font-display text-xl font-semibold text-lol-text-bright">
+            Streaks &amp; Consistency
+          </h2>
+          <div className="grid grid-cols-3 gap-3">
+            {[
+              ["Max Win Streak", data.streaks.maxWinStreak],
+              ["Max Loss Streak", data.streaks.maxLossStreak],
+              ["Avg KDA", data.streaks.avgSessionKda.toFixed(2)],
+            ].map(([label, value]) => (
+              <div key={label} className="text-center">
+                <div className="text-2xl font-semibold tabular-nums text-lol-text-bright">
+                  {value}
+                </div>
+                <div className="mt-1 text-[10px] uppercase tracking-wider text-lol-text">
+                  {label}
+                </div>
+              </div>
+            ))}
+          </div>
+          <div className="mt-5 grid grid-cols-12 gap-2" aria-label="Last 24 games">
+            {data.streaks.last24Games.map((win, index) => (
+              <span
+                key={`${index}-${win}`}
+                className="aspect-square rounded-full border border-lol-border/40"
+                style={{ backgroundColor: win ? "var(--theme-win)" : "var(--theme-loss)" }}
+                title={`${win ? "Win" : "Loss"} ${index + 1}`}
+              />
+            ))}
+          </div>
+        </Panel>
+
+        <Panel className="border-t-[3px] border-t-[var(--theme-gold)]">
+          <h2 className="mb-4 font-display text-xl font-semibold text-lol-text-bright">
+            Winning Conditions
+          </h2>
+          <div className="space-y-4">
+            {[
+              ["First blood", data.winningConditions.firstBloodWr],
+              ["KDA > 3.0", data.winningConditions.kda3Wr],
+              ["Score 7.0+", data.winningConditions.score7Wr],
+            ].map(([label, value]) => {
+              const percentage = typeof value === "number" ? value : null;
+              return (
+                <div key={label}>
+                  <div className="mb-1.5 flex items-center justify-between gap-3 text-sm">
+                    <span className="text-lol-text">{label}</span>
+                    <span className="font-semibold tabular-nums text-lol-text-bright">
+                      {percentage == null ? "—" : `${percentage.toFixed(1)}%`}
+                    </span>
+                  </div>
+                  <div className="h-2 overflow-hidden rounded-full bg-[var(--theme-card-hover)]">
+                    <div
+                      className="h-full rounded-full bg-[var(--theme-win)] transition-[width]"
+                      style={{ width: `${Math.min(Math.max(percentage ?? 0, 0), 100)}%` }}
+                    />
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </Panel>
+      </div>
+
       <Panel className="border-t-[3px] border-t-[var(--theme-assist)] bg-[radial-gradient(circle_at_top_right,color-mix(in_oklab,var(--theme-assist)_8%,transparent),transparent_48%),linear-gradient(180deg,var(--theme-card-hover),var(--theme-card))]">
         <div className="mb-3 flex items-baseline justify-between">
           <h2 className="relative pl-4 font-display text-xl font-semibold text-lol-text-bright before:absolute before:left-0 before:top-1/2 before:h-2 before:w-2 before:-translate-y-1/2 before:rotate-45 before:bg-lol-crimson">

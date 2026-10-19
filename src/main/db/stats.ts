@@ -3732,9 +3732,11 @@ export function getTrendsData(
     const source = statsSource(account);
     const where = ["g.is_remake = 0"];
     where.push(source.accountFilter);
-    const params: any[] = account && account !== "all" ? [account] : [];
-    applyQueueFilter(where, params, queue);
+    const baseParams: any[] = account && account !== "all" ? [account] : [];
+    applyQueueFilter(where, baseParams, queue);
     where.push(`g.queue_id NOT IN (${EXCLUDED_STATS_SQL})`);
+    const baseWhere = [...where];
+    const params = [...baseParams];
     const timeDays =
       timePeriod === "4w" ? 28 : timePeriod === "12w" ? 84 : timePeriod === "6m" ? 180 : null;
     if (timeDays !== null) {
@@ -3838,6 +3840,104 @@ export function getTrendsData(
     `)
       .all(...params) as TrendsData["dayHourMatrix"];
 
+    const cutoff30d = Date.now() - 30 * 86400000;
+    const cutoff60d = Date.now() - 60 * 86400000;
+    const comparisonRow = db
+      .prepare(`
+      SELECT
+        SUM(CASE WHEN g.game_creation >= ? THEN ps.win ELSE 0 END) as recentWins,
+        SUM(CASE WHEN g.game_creation >= ? THEN 1 ELSE 0 END) as recentGames,
+        SUM(CASE WHEN g.game_creation >= ? AND g.game_creation < ? THEN ps.win ELSE 0 END) as previousWins,
+        SUM(CASE WHEN g.game_creation >= ? AND g.game_creation < ? THEN 1 ELSE 0 END) as previousGames
+      ${fromSql}
+      WHERE ${baseWhere.join(" AND ")} AND g.game_creation >= ?
+    `)
+      .get(cutoff30d, cutoff30d, cutoff60d, cutoff30d, cutoff60d, ...baseParams, cutoff60d) as {
+      recentWins: number | null;
+      recentGames: number | null;
+      previousWins: number | null;
+      previousGames: number | null;
+    };
+
+    const orderedGames = db
+      .prepare(`
+      SELECT ps.win as win
+      ${fromSql}
+      ${whereSql}
+      ORDER BY g.game_creation ASC, g.game_id ASC
+    `)
+      .all(...params) as { win: number }[];
+    let maxWinStreak = 0;
+    let maxLossStreak = 0;
+    let currentWinStreak = 0;
+    let currentLossStreak = 0;
+    for (const game of orderedGames) {
+      if (game.win === 1) {
+        currentWinStreak++;
+        currentLossStreak = 0;
+        maxWinStreak = Math.max(maxWinStreak, currentWinStreak);
+      } else {
+        currentLossStreak++;
+        currentWinStreak = 0;
+        maxLossStreak = Math.max(maxLossStreak, currentLossStreak);
+      }
+    }
+
+    const last24Rows = db
+      .prepare(`
+      SELECT ps.win as win
+      ${fromSql}
+      WHERE ${baseWhere.join(" AND ")}
+      ORDER BY g.game_creation DESC, g.game_id DESC
+      LIMIT 24
+    `)
+      .all(...baseParams) as { win: number }[];
+    const last24Games = last24Rows.reverse().map((game) => game.win === 1);
+
+    const peakWindow = Array.from({ length: 24 }, (_, startHour) => {
+      const nextHour = (startHour + 1) % 24;
+      const first = dayHourMatrix.filter((cell) => cell.hour === startHour);
+      const second = dayHourMatrix.filter((cell) => cell.hour === nextHour);
+      const games = [...first, ...second].reduce((sum, cell) => sum + cell.games, 0);
+      const wins = [...first, ...second].reduce((sum, cell) => sum + cell.wins, 0);
+      return {
+        startHour,
+        endHour: (startHour + 2) % 24,
+        games,
+        wr: games > 0 ? (wins / games) * 100 : 0,
+      };
+    })
+      .filter((window) => window.games > 0)
+      .sort((a, b) => b.wr - a.wr || b.games - a.games)[0];
+
+    const winningConditionsRow = db
+      .prepare(`
+      SELECT
+        SUM(CASE WHEN (
+          mp.first_blood_kill = 1 OR mp.first_blood_assist = 1 OR EXISTS (
+            SELECT 1 FROM match_participants team_mp
+            WHERE team_mp.game_id = g.game_id
+              AND team_mp.team_id = mp.team_id
+              AND team_mp.first_blood_kill = 1
+          )
+        ) THEN ps.win ELSE 0 END) * 100.0 /
+          NULLIF(SUM(CASE WHEN (
+            mp.first_blood_kill = 1 OR mp.first_blood_assist = 1 OR EXISTS (
+              SELECT 1 FROM match_participants team_mp
+              WHERE team_mp.game_id = g.game_id
+                AND team_mp.team_id = mp.team_id
+                AND team_mp.first_blood_kill = 1
+            )
+          ) THEN 1 ELSE 0 END), 0) as firstBloodWr,
+        SUM(CASE WHEN (ps.kills + ps.assists) * 1.0 / MAX(ps.deaths, 1) > 3 THEN ps.win ELSE 0 END) * 100.0 /
+          NULLIF(SUM(CASE WHEN (ps.kills + ps.assists) * 1.0 / MAX(ps.deaths, 1) > 3 THEN 1 ELSE 0 END), 0) as kda3Wr,
+        SUM(CASE WHEN ps.score >= 7 THEN ps.win ELSE 0 END) * 100.0 /
+          NULLIF(SUM(CASE WHEN ps.score >= 7 THEN 1 ELSE 0 END), 0) as score7Wr
+      ${roleFromSql}
+      ${whereSql}
+    `)
+      .get(...params) as TrendsData["winningConditions"];
+
     // Ordered by when the patch was first played rather than by parsing version
     // strings — chronological is what a trend axis wants anyway.
     const patches = db
@@ -3878,6 +3978,24 @@ export function getTrendsData(
       ORDER BY weekday
     `)
       .all(...params) as TrendsData["weekdays"];
+
+    const weekdayNames = [
+      "Sunday",
+      "Monday",
+      "Tuesday",
+      "Wednesday",
+      "Thursday",
+      "Friday",
+      "Saturday",
+    ];
+    const bestWeekday = weekdays
+      .filter((day) => day.games >= 3)
+      .map((day) => ({
+        day: weekdayNames[day.weekday] ?? "Unknown",
+        wr: (day.wins / day.games) * 100,
+        games: day.games,
+      }))
+      .sort((a, b) => b.wr - a.wr || b.games - a.games)[0];
 
     const peakKdaGame = db
       .prepare(`
@@ -3944,7 +4062,6 @@ export function getTrendsData(
       longestActiveStreak = Math.max(longestActiveStreak, activeStreak);
       previousDay = day;
     }
-    const cutoff30d = Date.now() - 30 * 86400000;
     const recent30d = daily.filter((row) => new Date(`${row.day}T23:59:59`).getTime() >= cutoff30d);
     const older30d = daily.filter((row) => new Date(`${row.day}T23:59:59`).getTime() < cutoff30d);
     const kdaForRows = (rows: TrendsData["daily"]): number => {
@@ -3984,6 +4101,24 @@ export function getTrendsData(
           : 0,
     };
 
+    const insights: TrendsData["insights"] = {
+      winRateDiff:
+        comparisonRow.recentGames && comparisonRow.previousGames
+          ? (comparisonRow.recentWins! / comparisonRow.recentGames) * 100 -
+            (comparisonRow.previousWins! / comparisonRow.previousGames) * 100
+          : 0,
+      bestDay: bestWeekday ? { day: bestWeekday.day, wr: bestWeekday.wr } : null,
+      peakWindow: peakWindow
+        ? { startHour: peakWindow.startHour, endHour: peakWindow.endHour, wr: peakWindow.wr }
+        : null,
+    };
+    const streaks: TrendsData["streaks"] = {
+      maxWinStreak,
+      maxLossStreak,
+      avgSessionKda: avgKdaAll,
+      last24Games,
+    };
+
     return {
       daily,
       summaryStats,
@@ -3994,6 +4129,13 @@ export function getTrendsData(
       queueBreakdown,
       championTop,
       dayHourMatrix,
+      insights,
+      streaks,
+      winningConditions: {
+        firstBloodWr: winningConditionsRow?.firstBloodWr ?? null,
+        kda3Wr: winningConditionsRow?.kda3Wr ?? null,
+        score7Wr: winningConditionsRow?.score7Wr ?? null,
+      },
       combatEconomy: {
         dpm: combatEconomyRow?.dpm ?? 0,
         gpm: combatEconomyRow?.gpm ?? 0,
