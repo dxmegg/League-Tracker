@@ -116,8 +116,16 @@ export function TrendsExp({
     );
   }
 
-  const currentWinRate = weeklyWinRates[weeklyWinRates.length - 1];
-  const currentKda = weeklyKda[weeklyKda.length - 1];
+  const currentWinRate =
+    weeklyWinRates
+      .slice()
+      .reverse()
+      .find((value) => value != null) ?? null;
+  const currentKda =
+    weeklyKda
+      .slice()
+      .reverse()
+      .find((value) => value != null) ?? null;
 
   return (
     <div className="mx-auto flex min-h-full w-full max-w-[1320px] flex-col gap-5">
@@ -145,7 +153,7 @@ export function TrendsExp({
               Win rate over time
             </h2>
             <span className="text-xs uppercase tracking-wider text-lol-text">
-              Now {currentWinRate != null ? `${currentWinRate.toFixed(1)}%` : "—"}
+              Last played {currentWinRate != null ? `${currentWinRate.toFixed(1)}%` : "—"}
             </span>
           </div>
           <TimeSeriesChart
@@ -172,7 +180,7 @@ export function TrendsExp({
               Average KDA
             </h2>
             <span className="text-xs uppercase tracking-wider text-lol-text">
-              Now {currentKda != null ? currentKda.toFixed(2) : "—"}
+              Last played {currentKda != null ? currentKda.toFixed(2) : "—"}
             </span>
           </div>
           <LineChartExp
