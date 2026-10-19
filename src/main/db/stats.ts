@@ -3762,8 +3762,10 @@ export function getTrendsData(queue?: number, account?: string): TrendsData {
       SELECT SUM(ps.total_damage_dealt) * 60.0 / MAX(SUM(g.game_duration), 1) as dpm,
              SUM(ps.gold_earned) * 60.0 / MAX(SUM(g.game_duration), 1) as gpm,
              SUM(ps.cs) * 60.0 / MAX(SUM(g.game_duration), 1) as cspm,
-             AVG(ps.vision_score) as vision
+             AVG(mp.vision_score) as vision
       ${fromSql}
+      JOIN match_participants mp
+        ON mp.game_id = g.game_id AND mp.puuid = ${ownerPuuidSql}
       ${whereSql}
     `)
       .get(...params) as TrendsData["combatEconomy"];
