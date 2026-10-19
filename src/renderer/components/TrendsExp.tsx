@@ -1,8 +1,12 @@
 import { useMemo } from "react";
 import type { TrendsData } from "../lib/types";
+import { ActivityHeatmap } from "./ActivityHeatmap";
 import { LineChartExp } from "./LineChartExp";
 import { Panel } from "./Panel";
-import { WeekdayBarChart } from "./WeekdayBarChart";
+import { HourChart } from "./HourChart";
+import { PatchBars } from "./PatchBars";
+import { TimeSeriesChart, type SeriesPoint } from "./TimeSeriesChart";
+import { WeekdayChart } from "./WeekdayChart";
 
 function parseDay(day: string): Date {
   const [year, month, date] = day.split("-").map(Number);
@@ -72,14 +76,8 @@ export function TrendsExp({
   const weeklyKda = weekly.map((week) =>
     week.games > 0 ? (week.kills + week.assists) / Math.max(week.deaths, 1) : null,
   );
-  const weeklyScores = weekly.map((week) =>
-    week.scoredGames > 0 ? week.scoreSum / week.scoredGames : null,
-  );
-  const weekdayCounts = data
-    ? [1, 2, 3, 4, 5, 6, 0].map(
-        (weekday) => data.weekdays.find((item) => item.weekday === weekday)?.games ?? 0,
-      )
-    : [];
+  const weekLabel = (day: string) =>
+    parseDay(day).toLocaleDateString(undefined, { month: "short", day: "numeric" });
 
   if (error) {
     return (
@@ -130,24 +128,45 @@ export function TrendsExp({
         <p className="relative mt-1.5 pl-4 text-lol-text">How your last 12 weeks look</p>
       </div>
 
+      <Panel className="border-t-[3px] border-t-[var(--theme-crimson)] bg-[radial-gradient(circle_at_top_right,color-mix(in_oklab,var(--theme-crimson)_8%,transparent),transparent_48%),linear-gradient(180deg,var(--theme-card-hover),var(--theme-card))]">
+        <div className="mb-3 flex items-baseline justify-between">
+          <h2 className="relative pl-4 font-display text-xl font-semibold text-lol-text-bright before:absolute before:left-0 before:top-1/2 before:h-2 before:w-2 before:-translate-y-1/2 before:rotate-45 before:bg-lol-crimson">
+            Activity heatmap
+          </h2>
+          <span className="text-xs uppercase tracking-wider text-lol-text">Last 12 weeks</span>
+        </div>
+        <ActivityHeatmap daily={data.daily} />
+      </Panel>
+
       <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
-        <Panel className="border-t-[3px] border-t-[var(--theme-crimson)] bg-[radial-gradient(circle_at_top_right,color-mix(in_oklab,var(--theme-crimson)_8%,transparent),transparent_48%),linear-gradient(180deg,var(--theme-card-hover),var(--theme-card))]">
+        <Panel className="border-t-[3px] border-t-[var(--theme-win)] bg-[radial-gradient(circle_at_top_right,color-mix(in_oklab,var(--theme-win)_8%,transparent),transparent_48%),linear-gradient(180deg,var(--theme-card-hover),var(--theme-card))]">
           <div className="mb-3 flex items-baseline justify-between">
             <h2 className="relative pl-4 font-display text-xl font-semibold text-lol-text-bright before:absolute before:left-0 before:top-1/2 before:h-2 before:w-2 before:-translate-y-1/2 before:rotate-45 before:bg-lol-crimson">
-              Win rate
+              Win rate over time
             </h2>
             <span className="text-xs uppercase tracking-wider text-lol-text">
               Now {currentWinRate != null ? `${currentWinRate.toFixed(1)}%` : "—"}
             </span>
           </div>
-          <LineChartExp
-            values={weeklyWinRates}
-            format={(value) => value.toFixed(1) + "%"}
-            color="var(--theme-win)"
+          <TimeSeriesChart
+            points={weekly.map<SeriesPoint>((week) => ({
+              label: weekLabel(week.day),
+              games: week.games,
+              value: week.games === 0 ? null : (week.wins / week.games) * 100,
+              detail:
+                week.games > 0
+                  ? `${week.games} games · ${week.wins}W-${week.games - week.wins}L`
+                  : "No games",
+            }))}
+            yMin={0}
+            yMax={100}
+            ticks={[0, 25, 50, 75, 100]}
+            refValue={50}
+            format={(value) => value.toFixed(0) + "%"}
           />
         </Panel>
 
-        <Panel className="border-t-[3px] border-t-[var(--theme-gold)] bg-[radial-gradient(circle_at_top_right,color-mix(in_oklab,var(--theme-gold)_8%,transparent),transparent_48%),linear-gradient(180deg,var(--theme-card-hover),var(--theme-card))]">
+        <Panel className="border-t-[3px] border-t-[var(--theme-assist)] bg-[radial-gradient(circle_at_top_right,color-mix(in_oklab,var(--theme-assist)_8%,transparent),transparent_48%),linear-gradient(180deg,var(--theme-card-hover),var(--theme-card))]">
           <div className="mb-3 flex items-baseline justify-between">
             <h2 className="relative pl-4 font-display text-xl font-semibold text-lol-text-bright before:absolute before:left-0 before:top-1/2 before:h-2 before:w-2 before:-translate-y-1/2 before:rotate-45 before:bg-lol-crimson">
               Average KDA
@@ -163,31 +182,55 @@ export function TrendsExp({
           />
         </Panel>
 
-        <Panel className="border-t-[3px] border-t-[var(--theme-win)] bg-[radial-gradient(circle_at_top_right,color-mix(in_oklab,var(--theme-win)_8%,transparent),transparent_48%),linear-gradient(180deg,var(--theme-card-hover),var(--theme-card))]">
+        <Panel className="border-t-[3px] border-t-[var(--theme-gold)] bg-[radial-gradient(circle_at_top_right,color-mix(in_oklab,var(--theme-gold)_8%,transparent),transparent_48%),linear-gradient(180deg,var(--theme-card-hover),var(--theme-card))]">
           <div className="mb-3 flex items-baseline justify-between">
             <h2 className="relative pl-4 font-display text-xl font-semibold text-lol-text-bright before:absolute before:left-0 before:top-1/2 before:h-2 before:w-2 before:-translate-y-1/2 before:rotate-45 before:bg-lol-crimson">
-              Average score
+              Average score over time
             </h2>
             <span className="text-xs uppercase tracking-wider text-lol-text">out of 10</span>
           </div>
-          <LineChartExp
-            values={weeklyScores}
+          <TimeSeriesChart
+            points={weekly.map<SeriesPoint>((week) => ({
+              label: weekLabel(week.day),
+              games: week.scoredGames,
+              value: week.scoredGames === 0 ? null : week.scoreSum / week.scoredGames,
+              detail: week.scoredGames > 0 ? `${week.scoredGames} scored games` : "No scored games",
+            }))}
+            yMin={0}
+            yMax={10}
+            ticks={[0, 2.5, 5, 7.5, 10]}
             format={(value) => value.toFixed(1)}
-            color="var(--theme-gold)"
           />
         </Panel>
 
-        <Panel className="border-t-[3px] border-t-lol-assist bg-[radial-gradient(circle_at_top_right,color-mix(in_oklab,var(--theme-assist)_8%,transparent),transparent_48%),linear-gradient(180deg,var(--theme-card-hover),var(--theme-card))]">
+        <Panel className="border-t-[3px] border-t-[var(--theme-win)] bg-[radial-gradient(circle_at_top_right,color-mix(in_oklab,var(--theme-win)_8%,transparent),transparent_48%),linear-gradient(180deg,var(--theme-card-hover),var(--theme-card))] lg:col-span-2">
           <div className="mb-3 flex items-baseline justify-between">
             <h2 className="relative pl-4 font-display text-xl font-semibold text-lol-text-bright before:absolute before:left-0 before:top-1/2 before:h-2 before:w-2 before:-translate-y-1/2 before:rotate-45 before:bg-lol-crimson">
-              Games by weekday
+              Win rate by patch
             </h2>
             <span className="text-xs uppercase tracking-wider text-lol-text">Last 12 weeks</span>
           </div>
-          <WeekdayBarChart
-            days={["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]}
-            counts={weekdayCounts}
-          />
+          <PatchBars patches={data.patches} />
+        </Panel>
+
+        <Panel className="border-t-[3px] border-t-[var(--theme-violet)] bg-[radial-gradient(circle_at_top_right,color-mix(in_oklab,var(--theme-violet)_8%,transparent),transparent_48%),linear-gradient(180deg,var(--theme-card-hover),var(--theme-card))]">
+          <div className="mb-3 flex items-baseline justify-between">
+            <h2 className="relative pl-4 font-display text-xl font-semibold text-lol-text-bright before:absolute before:left-0 before:top-1/2 before:h-2 before:w-2 before:-translate-y-1/2 before:rotate-45 before:bg-lol-crimson">
+              By day of week
+            </h2>
+            <span className="text-xs uppercase tracking-wider text-lol-text">Last 12 weeks</span>
+          </div>
+          <WeekdayChart weekdays={data.weekdays} />
+        </Panel>
+
+        <Panel className="border-t-[3px] border-t-[var(--theme-assist)] bg-[radial-gradient(circle_at_top_right,color-mix(in_oklab,var(--theme-assist)_8%,transparent),transparent_48%),linear-gradient(180deg,var(--theme-card-hover),var(--theme-card))]">
+          <div className="mb-3 flex items-baseline justify-between">
+            <h2 className="relative pl-4 font-display text-xl font-semibold text-lol-text-bright before:absolute before:left-0 before:top-1/2 before:h-2 before:w-2 before:-translate-y-1/2 before:rotate-45 before:bg-lol-crimson">
+              By hour of day
+            </h2>
+            <span className="text-xs uppercase tracking-wider text-lol-text">Last 12 weeks</span>
+          </div>
+          <HourChart hours={data.hours} />
         </Panel>
       </div>
     </div>
