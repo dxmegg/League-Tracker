@@ -6,6 +6,7 @@ export const QUEUE_ID_MAYHEM_CUSTOM = 3270;
 export const MAYHEM_QUEUE_IDS = [QUEUE_ID_MAYHEM, QUEUE_ID_MAYHEM_CLASSIC];
 export const ARENA_QUEUE_IDS = [1700, 1740, 1750];
 export const TUTORIAL_QUEUE_IDS = [31, 32, 42, 52] as const;
+export const HIDDEN_QUEUE_IDS: ReadonlyArray<number> = [0, 31, 32, 33, 830, 840, 850];
 
 // Queues where CS and CS/min are meaningless — Arena variants have no lanes
 // or minion waves. These games still count toward kills/damage/gold averages.

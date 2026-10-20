@@ -1,5 +1,10 @@
 import { useState, useEffect } from "react";
-import { isArenaQueue, QUEUE_GROUP_ARENA, QUEUE_LABELS } from "../../shared/queues";
+import {
+  HIDDEN_QUEUE_IDS,
+  isArenaQueue,
+  QUEUE_GROUP_ARENA,
+  QUEUE_LABELS,
+} from "../../shared/queues";
 import { FilterSelect } from "./FilterSelect";
 import { useHistoryScopeQueue } from "../lib/historyScope";
 
@@ -23,7 +28,9 @@ export default function QueueSelect({
 }) {
   const [queues, setQueues] = useState<number[]>([]);
   const scopedQueue = useHistoryScopeQueue();
-  const visibleQueues = filter ? queues.filter(filter) : queues;
+  const visibleQueues = queues.filter(
+    (queueId) => !HIDDEN_QUEUE_IDS.includes(queueId) && (!filter || filter(queueId)),
+  );
 
   useEffect(() => {
     const fetchQueues = () =>
