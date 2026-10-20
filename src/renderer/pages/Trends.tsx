@@ -4,7 +4,6 @@ import { useIpc } from "../hooks/useIpc";
 import { useHistoryScopeQueue } from "../lib/historyScope";
 import type { TrendsData, TrendsDay } from "../lib/types";
 import QueueSelect from "../components/QueueSelect";
-import PatchSelect from "../components/PatchSelect";
 import { FilterChip } from "../components/FilterChip";
 import { useActiveTheme } from "../hooks/useActiveTheme";
 import { useActiveAccount } from "../hooks/useActiveAccount";
@@ -157,7 +156,6 @@ export default function Trends() {
   const queueParam = searchParams.get("queue");
   const queue = queueParam ? Number(queueParam) : undefined;
   const [timeRange, setTimeRange] = useState<TimeRange>("12w");
-  const [patch, setPatch] = useState<string | undefined>();
   const setQueue = (q: number | undefined) => {
     setSearchParams(
       (prev) => {
@@ -173,8 +171,8 @@ export default function Trends() {
   const scopedQueue = queue ?? useHistoryScopeQueue();
   const accountForFetch = isExperiment ? account : undefined;
   const { data, error, refetch } = useIpc<TrendsData>(
-    () => window.api.getTrends(scopedQueue, accountForFetch, timeRange, patch),
-    [scopedQueue, accountForFetch, timeRange, patch],
+    () => window.api.getTrends(scopedQueue, accountForFetch, timeRange, undefined),
+    [scopedQueue, accountForFetch, timeRange],
   );
 
   useEffect(() => {
@@ -236,7 +234,6 @@ export default function Trends() {
         <div className="[&_select]:h-9 [&_select]:rounded-md [&_select]:border [&_select]:border-lol-border/60 [&_select]:bg-lol-card/40 [&_select]:px-3 [&_select]:text-xs [&_select]:text-lol-text-bright [&_select]:focus-visible:outline-none [&_select]:focus-visible:border-lol-gold/60 [&_select]:focus-visible:ring-1 [&_select]:focus-visible:ring-lol-gold/40 [&_select]:transition-colors">
           <div className="flex flex-wrap items-center gap-2">
             <QueueSelect value={scopedQueue} onChange={setQueue} />
-            <PatchSelect value={patch} onChange={setPatch} />
           </div>
         </div>
         <TrendsExp
@@ -245,7 +242,6 @@ export default function Trends() {
           onRetry={refetch}
           timeRange={timeRange}
           setTimeRange={setTimeRange}
-          patch={patch}
         />
       </div>
     );
@@ -295,7 +291,6 @@ export default function Trends() {
           <div className="[&_select]:h-9 [&_select]:rounded-md [&_select]:border [&_select]:border-lol-border/60 [&_select]:bg-lol-card/40 [&_select]:px-3 [&_select]:text-xs [&_select]:text-lol-text-bright [&_select]:focus-visible:outline-none [&_select]:focus-visible:border-lol-gold/60 [&_select]:focus-visible:ring-1 [&_select]:focus-visible:ring-lol-gold/40 [&_select]:transition-colors">
             <div className="flex flex-wrap items-center gap-2">
               <QueueSelect value={scopedQueue} onChange={setQueue} />
-              <PatchSelect value={patch} onChange={setPatch} />
             </div>
           </div>
         </div>
