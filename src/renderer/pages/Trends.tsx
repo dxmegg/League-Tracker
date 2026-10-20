@@ -1,9 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
-import { useSearchParams } from "react-router-dom";
 import { useIpc } from "../hooks/useIpc";
 import { useHistoryScopeQueue } from "../lib/historyScope";
 import type { TrendsData, TrendsDay } from "../lib/types";
-import QueueSelect from "../components/QueueSelect";
 import { FilterChip } from "../components/FilterChip";
 import { useActiveTheme } from "../hooks/useActiveTheme";
 import { useActiveAccount } from "../hooks/useActiveAccount";
@@ -148,27 +146,13 @@ function Card({
 // ---- Page ----
 
 export default function Trends() {
-  const [searchParams, setSearchParams] = useSearchParams();
   const activeTheme = useActiveTheme();
   const isExperiment = activeTheme === "experiment";
   const [activeAccountRaw] = useActiveAccount();
   const account = activeAccountRaw === ALL_ACCOUNTS_SENTINEL ? "all" : activeAccountRaw;
-  const queueParam = searchParams.get("queue");
-  const queue = queueParam ? Number(queueParam) : undefined;
   const [timeRange, setTimeRange] = useState<TimeRange>("12w");
-  const setQueue = (q: number | undefined) => {
-    setSearchParams(
-      (prev) => {
-        const next = new URLSearchParams(prev);
-        if (q == null) next.delete("queue");
-        else next.set("queue", String(q));
-        return next;
-      },
-      { replace: true },
-    );
-  };
 
-  const scopedQueue = queue ?? useHistoryScopeQueue();
+  const scopedQueue = useHistoryScopeQueue();
   const accountForFetch = isExperiment ? account : undefined;
   const { data, error, refetch } = useIpc<TrendsData>(
     () => window.api.getTrends(scopedQueue, accountForFetch, timeRange, undefined),
@@ -231,11 +215,6 @@ export default function Trends() {
   if (isExperiment) {
     return (
       <div className="flex flex-col gap-4">
-        <div className="[&_select]:h-9 [&_select]:rounded-md [&_select]:border [&_select]:border-lol-border/60 [&_select]:bg-lol-card/40 [&_select]:px-3 [&_select]:text-xs [&_select]:text-lol-text-bright [&_select]:focus-visible:outline-none [&_select]:focus-visible:border-lol-gold/60 [&_select]:focus-visible:ring-1 [&_select]:focus-visible:ring-lol-gold/40 [&_select]:transition-colors">
-          <div className="flex flex-wrap items-center gap-2">
-            <QueueSelect value={scopedQueue} onChange={setQueue} />
-          </div>
-        </div>
         <TrendsExp
           data={data}
           error={error}
@@ -288,11 +267,6 @@ export default function Trends() {
           <span className="text-xs text-lol-text">
             {totalGames} games over {data.daily.length} days
           </span>
-          <div className="[&_select]:h-9 [&_select]:rounded-md [&_select]:border [&_select]:border-lol-border/60 [&_select]:bg-lol-card/40 [&_select]:px-3 [&_select]:text-xs [&_select]:text-lol-text-bright [&_select]:focus-visible:outline-none [&_select]:focus-visible:border-lol-gold/60 [&_select]:focus-visible:ring-1 [&_select]:focus-visible:ring-lol-gold/40 [&_select]:transition-colors">
-            <div className="flex flex-wrap items-center gap-2">
-              <QueueSelect value={scopedQueue} onChange={setQueue} />
-            </div>
-          </div>
         </div>
         {granularityToggle}
       </div>
