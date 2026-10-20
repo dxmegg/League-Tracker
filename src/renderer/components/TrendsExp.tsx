@@ -825,6 +825,7 @@ export function TrendsExp({
           yTicks={kdaYTicks}
           min={0}
           max={kdaYAxisMax}
+          height={220}
           showLegend={false}
         />
       </Panel>
@@ -839,7 +840,9 @@ export function TrendsExp({
             </h2>
             <span className="text-xs uppercase tracking-wider text-lol-text">{timeRangeLabel}</span>
           </div>
-          <ActivityHeatmap daily={data.daily} timeRange={timeRange} />
+          <div className="flex justify-center">
+            <ActivityHeatmap daily={data.daily} timeRange={timeRange} />
+          </div>
         </Panel>
         <Panel className={`${PANEL_HOVER_CLASSES} w-full lg:w-1/3`}>
           <div className="mb-3 flex items-baseline justify-between">
@@ -1114,6 +1117,11 @@ export function TrendsExp({
                         </td>
                         <td className="px-3 py-2 text-right text-xs tabular-nums text-lol-text">
                           {((champion.wins / champion.games) * 100).toFixed(1)}%
+                          {champion.games < 5 && (
+                            <span className="ml-1 text-[9px] uppercase text-lol-loss border border-lol-loss/30 px-1 rounded">
+                              Low sample
+                            </span>
+                          )}
                         </td>
                         <td className="px-3 py-2 text-right text-xs tabular-nums text-lol-text">
                           {(
@@ -1217,7 +1225,14 @@ export function TrendsExp({
                             }}
                             aria-hidden="true"
                           />
-                          <span className="relative z-10">{winRate.toFixed(1)}%</span>
+                          <span className="relative z-10">
+                            {winRate.toFixed(1)}%
+                            {queue.games < 5 && (
+                              <span className="ml-1 text-[9px] uppercase text-lol-loss border border-lol-loss/30 px-1 rounded">
+                                Low sample
+                              </span>
+                            )}
+                          </span>
                         </td>
                         <td className="px-3 py-2 text-right text-xs tabular-nums text-lol-text">
                           {((queue.kills + queue.assists) / Math.max(queue.deaths, 1)).toFixed(2)}

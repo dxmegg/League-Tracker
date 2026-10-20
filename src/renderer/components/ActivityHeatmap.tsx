@@ -243,8 +243,8 @@ function HistoryActivityHeatmap({
   );
 }
 
-const HEATMAP_CELL = 11;
-const HEATMAP_GAP = 2;
+const HEATMAP_CELL = 14;
+const HEATMAP_GAP = 3;
 const HEATMAP_PITCH = HEATMAP_CELL + HEATMAP_GAP;
 const HEATMAP_COLORS = [
   "rgba(255,255,255,0.03)",
