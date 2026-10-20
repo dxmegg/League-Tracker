@@ -1224,7 +1224,9 @@ export interface TrendsData {
     maxWinStreak: number;
     maxLossStreak: number;
     avgSessionKda: number;
-    last24Games: boolean[];
+    last20Games: boolean[];
+    last20AvgKda: number;
+    currentStreak: { type: "W" | "L" | null; count: number };
   };
   winningConditions: {
     firstBloodWr: number | null;

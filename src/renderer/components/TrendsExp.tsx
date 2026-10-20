@@ -13,6 +13,7 @@ import { isArenaQueue } from "../../shared/queues";
 import { formatDuration, formatPatch, formatTimeAgo } from "../lib/format";
 import { getChampionName, useChampionData } from "../hooks/useChampions";
 import { FilterChip } from "./FilterChip";
+import { CrosshairIcon, StarIcon, SwordsIcon } from "./icons";
 
 const PANEL_HOVER_CLASSES = "transition-colors hover:border-lol-crimson/50 hover:bg-white/[0.02]";
 const WEEKDAY_ORDER = [1, 2, 3, 4, 5, 6, 0];
@@ -130,6 +131,7 @@ function SimpleBar({ label, games, wins }: { label: string; games: number; wins:
 
   return (
     <div className="flex min-w-0 flex-1 flex-col items-center gap-2" title={label}>
+      <div className="text-[10px] font-bold text-lol-text-bright">{winRate.toFixed(1)}%</div>
       <div className="flex h-40 w-full items-end justify-center">
         <div
           className="w-full max-w-12 rounded-t-md transition-[height] duration-200"
@@ -351,6 +353,20 @@ export function TrendsExp({
     { values: weekly.map((week) => week.deaths), color: "var(--theme-loss)", label: "Deaths" },
     { values: weekly.map((week) => week.assists), color: "var(--theme-assist)", label: "Assists" },
   ];
+  const kdaMaxValue = Math.max(
+    1,
+    ...kdaSeries.flatMap((item) => item.values).filter((value): value is number => value != null),
+  );
+  const kdaTickStep = kdaMaxValue <= 10 ? 2 : 5;
+  const kdaYAxisMax = Math.max(kdaTickStep, Math.ceil(kdaMaxValue / kdaTickStep) * kdaTickStep);
+  const kdaYTicks = Array.from(
+    { length: kdaYAxisMax / kdaTickStep + 1 },
+    (_, index) => index * kdaTickStep,
+  );
+  const kdaTooltips = weekly.map(
+    (week) =>
+      `Date: ${weekLabel(week.day)}\nKills: ${week.kills.toFixed(1)}\nDeaths: ${week.deaths.toFixed(1)}\nAssists: ${week.assists.toFixed(1)}`,
+  );
   const weeklyWinLoss = weekly.map((week) => ({
     label: weekLabel(week.day),
     wins: week.wins,
@@ -404,6 +420,14 @@ export function TrendsExp({
       .slice()
       .reverse()
       .find((value) => value != null) ?? null;
+  const last20Wins = data.streaks.last20Games.filter(Boolean).length;
+  const last20Losses = data.streaks.last20Games.length - last20Wins;
+  const streakBorderClass =
+    data.streaks.currentStreak.type === "W"
+      ? "border-t-[var(--theme-win)]"
+      : data.streaks.currentStreak.type === "L"
+        ? "border-t-[var(--theme-loss)]"
+        : "border-t-[var(--theme-gold)]";
   const weekdayByDay = new Map(data.weekdays.map((weekday) => [weekday.weekday, weekday]));
   const weekdayPoints = WEEKDAY_ORDER.map((weekday) =>
     clockPoint(
@@ -425,7 +449,7 @@ export function TrendsExp({
 
   return (
     <div className="mx-auto flex min-h-full w-full max-w-[1320px] flex-col gap-5">
-      <div className="shrink-0 overflow-hidden rounded-xl border border-lol-border border-t-[3px] border-t-[var(--theme-crimson)] bg-[radial-gradient(circle_at_top_right,color-mix(in_oklab,var(--theme-crimson)_10%,transparent),transparent_46%),linear-gradient(180deg,var(--theme-card-hover),var(--theme-card))] px-5 py-4 before:pointer-events-none before:absolute before:inset-x-0 before:top-0 before:h-10 before:bg-[linear-gradient(180deg,color-mix(in_oklab,var(--theme-crimson)_5%,transparent),transparent)]">
+      <div className="relative shrink-0 overflow-hidden rounded-xl border border-lol-border border-t-[3px] border-t-[var(--theme-crimson)] bg-[radial-gradient(circle_at_top_right,color-mix(in_oklab,var(--theme-crimson)_10%,transparent),transparent_46%),linear-gradient(180deg,var(--theme-card-hover),var(--theme-card))] px-5 py-4 before:pointer-events-none before:absolute before:inset-x-0 before:top-0 before:h-10 before:bg-[linear-gradient(180deg,color-mix(in_oklab,var(--theme-crimson)_5%,transparent),transparent)]">
         <h1 className="relative pl-4 font-display text-[30px] font-bold leading-tight tracking-[0.2px] text-lol-text-bright before:absolute before:left-0 before:top-1/2 before:h-2.5 before:w-2.5 before:-translate-y-1/2 before:rotate-45 before:bg-[var(--theme-crimson)]">
           Trends
         </h1>
@@ -550,19 +574,34 @@ export function TrendsExp({
       </div>
 
       <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
-        <Panel className={`${PANEL_HOVER_CLASSES} border-t-[3px] border-t-[var(--theme-win)]`}>
+        <Panel className={`${PANEL_HOVER_CLASSES} border-t-[3px] ${streakBorderClass}`}>
           <h2 className="mb-4 font-display text-xl font-semibold text-lol-text-bright">
             Streaks &amp; Consistency
           </h2>
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-4 gap-4 text-center">
             {[
-              ["Max Win Streak", data.streaks.maxWinStreak],
-              ["Max Loss Streak", data.streaks.maxLossStreak],
-              ["Avg KDA", data.streaks.avgSessionKda.toFixed(2)],
-            ].map(([label, value]) => (
-              <div key={label} className="text-center">
+              { label: "Max Win Streak", value: data.streaks.maxWinStreak },
+              { label: "Max Loss Streak", value: data.streaks.maxLossStreak },
+              {
+                label: "Current Streak (Latest)",
+                value: data.streaks.currentStreak.type
+                  ? `${data.streaks.currentStreak.count}${data.streaks.currentStreak.type}`
+                  : "—",
+                valueClassName:
+                  data.streaks.currentStreak.type === "W"
+                    ? "text-[var(--theme-win)]"
+                    : data.streaks.currentStreak.type === "L"
+                      ? "text-[var(--theme-loss)]"
+                      : "text-lol-text-bright",
+              },
+              {
+                label: "Avg KDA",
+                value: data.streaks.last20AvgKda.toFixed(2),
+              },
+            ].map(({ label, value, valueClassName = "text-lol-text-bright" }) => (
+              <div key={label}>
                 <div className="text-2xl font-semibold tabular-nums text-lol-text-bright">
-                  {value}
+                  <span className={valueClassName}>{value}</span>
                 </div>
                 <div className="mt-1 text-[10px] uppercase tracking-wider text-lol-text">
                   {label}
@@ -570,15 +609,34 @@ export function TrendsExp({
               </div>
             ))}
           </div>
-          <div className="mt-5 grid grid-cols-12 gap-2" aria-label="Last 24 games">
-            {data.streaks.last24Games.map((win, index) => (
-              <span
-                key={`${index}-${win}`}
-                className="aspect-square rounded-full border border-lol-border/40"
-                style={{ backgroundColor: win ? "var(--theme-win)" : "var(--theme-loss)" }}
-                title={`${win ? "Win" : "Loss"} ${index + 1}`}
-              />
-            ))}
+          <div className="relative mt-5">
+            <div
+              className="absolute left-0 right-0 top-1/2 h-px bg-lol-border"
+              aria-hidden="true"
+            />
+            <div
+              className="relative flex h-12 items-center justify-between gap-1"
+              aria-label="Last 20 games"
+            >
+              {data.streaks.last20Games.map((win, index) => (
+                <div
+                  key={`${index}-${win}`}
+                  className="relative h-full min-w-0 flex-1"
+                  title={`Game ${index + 1}: ${win ? "WIN" : "LOSS"}`}
+                >
+                  {win ? (
+                    <span className="absolute bottom-1/2 left-1/2 h-6 w-full max-w-3 -translate-x-1/2 rounded-t-sm bg-[var(--theme-win)]" />
+                  ) : (
+                    <span className="absolute left-1/2 top-1/2 h-6 w-full max-w-3 -translate-x-1/2 rounded-b-sm bg-[var(--theme-loss)]" />
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+          <div className="mt-3 text-center text-[11px] text-lol-text">
+            Last 20: <span className="font-semibold text-[var(--theme-win)]">{last20Wins} W</span>
+            <span className="px-1">—</span>
+            <span className="font-semibold text-[var(--theme-loss)]">{last20Losses} L</span>
           </div>
         </Panel>
 
@@ -586,27 +644,59 @@ export function TrendsExp({
           <h2 className="mb-4 font-display text-xl font-semibold text-lol-text-bright">
             Winning Conditions
           </h2>
-          <div className="space-y-4">
+          <div className="space-y-3">
             {[
-              ["First blood", data.winningConditions.firstBloodWr],
-              ["KDA > 3.0", data.winningConditions.kda3Wr],
-              ["Score 7.0+", data.winningConditions.score7Wr],
-            ].map(([label, value]) => {
-              const percentage = typeof value === "number" ? value : null;
+              {
+                label: "First blood",
+                value: data.winningConditions.firstBloodWr,
+                color: "var(--theme-crimson)",
+                icon: SwordsIcon,
+              },
+              {
+                label: "KDA > 3.0",
+                value: data.winningConditions.kda3Wr,
+                color: "var(--theme-assist)",
+                icon: CrosshairIcon,
+              },
+              {
+                label: "Score 7.0+",
+                value: data.winningConditions.score7Wr,
+                color: "var(--theme-gold)",
+                icon: StarIcon,
+              },
+            ].map((condition) => {
+              const percentage = typeof condition.value === "number" ? condition.value : null;
+              const Icon = condition.icon;
               return (
-                <div key={label}>
-                  <div className="mb-1.5 flex items-center justify-between gap-3 text-sm">
-                    <span className="text-lol-text">{label}</span>
-                    <span className="font-semibold tabular-nums text-lol-text-bright">
-                      {percentage == null ? "—" : `${percentage.toFixed(1)}%`}
-                    </span>
-                  </div>
-                  <div className="h-2 overflow-hidden rounded-full bg-[var(--theme-card-hover)]">
+                <div
+                  key={condition.label}
+                  className="flex items-center gap-4 rounded-lg px-2 py-2 transition-colors hover:bg-white/[0.02]"
+                >
+                  <span
+                    className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-base text-lol-card"
+                    style={{ backgroundColor: condition.color }}
+                  >
+                    <Icon className="h-4 w-4" aria-hidden="true" />
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <div className="mb-2 text-sm text-lol-text">{condition.label}</div>
                     <div
-                      className="h-full rounded-full bg-[var(--theme-win)] transition-[width]"
-                      style={{ width: `${Math.min(Math.max(percentage ?? 0, 0), 100)}%` }}
-                    />
+                      className="h-2.5 overflow-hidden rounded-full bg-[color-mix(in_oklab,var(--theme-card-hover)_50%,transparent)]"
+                      title={
+                        percentage == null
+                          ? "No Win Rate data"
+                          : `${percentage.toFixed(1)}% Win Rate`
+                      }
+                    >
+                      <div
+                        className="h-full rounded-full bg-[var(--theme-win)] shadow-[0_0_8px_var(--theme-win)] transition-[width]"
+                        style={{ width: `${Math.min(Math.max(percentage ?? 0, 0), 100)}%` }}
+                      />
+                    </div>
                   </div>
+                  <span className="text-lg font-bold tabular-nums text-lol-text-bright">
+                    {percentage == null ? "—" : `${percentage.toFixed(1)}%`}
+                  </span>
                 </div>
               );
             })}
@@ -628,7 +718,11 @@ export function TrendsExp({
           series={kdaSeries}
           format={(value) => value.toFixed(0)}
           xLabels={weekly.map((week) => weekLabel(week.day))}
+          tooltips={kdaTooltips}
+          yFormat={(value) => value.toString()}
+          yTicks={kdaYTicks}
           min={0}
+          max={kdaYAxisMax}
         />
         <div className="mt-4 grid grid-cols-2 gap-3 border-t border-lol-border/50 pt-3 sm:grid-cols-5">
           {[
@@ -888,10 +982,18 @@ export function TrendsExp({
                   <table className="w-full min-w-[420px] text-left">
                     <thead className="border-b border-lol-border/50 text-[10px] uppercase tracking-wider text-lol-text">
                       <tr>
-                        <th className="px-3 py-2 font-semibold">Champion</th>
-                        <th className="px-3 py-2 text-right font-semibold">Games</th>
-                        <th className="px-3 py-2 text-right font-semibold">Win rate</th>
-                        <th className="px-3 py-2 text-right font-semibold">KDA</th>
+                        <th scope="col" className="px-3 py-2 font-semibold">
+                          Champion
+                        </th>
+                        <th scope="col" className="px-3 py-2 text-right font-semibold">
+                          Games
+                        </th>
+                        <th scope="col" className="px-3 py-2 text-right font-semibold">
+                          Win rate
+                        </th>
+                        <th scope="col" className="px-3 py-2 text-right font-semibold">
+                          KDA
+                        </th>
                       </tr>
                     </thead>
                     <tbody>
@@ -967,11 +1069,21 @@ export function TrendsExp({
                 <table className="w-full min-w-[480px] text-left">
                   <thead className="border-b border-lol-border/50 text-[10px] uppercase tracking-wider text-lol-text">
                     <tr>
-                      <th className="px-3 py-2 font-semibold">Queue</th>
-                      <th className="px-3 py-2 text-right font-semibold">Games</th>
-                      <th className="px-3 py-2 text-right font-semibold">Win rate</th>
-                      <th className="px-3 py-2 text-right font-semibold">Avg KDA</th>
-                      <th className="px-3 py-2 text-right font-semibold">Avg duration</th>
+                      <th scope="col" className="px-3 py-2 font-semibold">
+                        Queue
+                      </th>
+                      <th scope="col" className="px-3 py-2 text-right font-semibold">
+                        Games
+                      </th>
+                      <th scope="col" className="px-3 py-2 text-right font-semibold">
+                        Win rate
+                      </th>
+                      <th scope="col" className="px-3 py-2 text-right font-semibold">
+                        Avg KDA
+                      </th>
+                      <th scope="col" className="px-3 py-2 text-right font-semibold">
+                        Avg duration
+                      </th>
                     </tr>
                   </thead>
                   <tbody>
@@ -1167,11 +1279,21 @@ export function TrendsExp({
             <table className="w-full min-w-[560px] text-left">
               <thead className="border-b border-lol-border/50 text-[10px] uppercase tracking-wider text-lol-text">
                 <tr>
-                  <th className="px-3 py-2 font-semibold">Date</th>
-                  <th className="px-3 py-2 font-semibold">Queue</th>
-                  <th className="px-3 py-2 text-right font-semibold">Games</th>
-                  <th className="px-3 py-2 text-right font-semibold">Record</th>
-                  <th className="px-3 py-2 text-right font-semibold">Avg KDA</th>
+                  <th scope="col" className="px-3 py-2 font-semibold">
+                    Date
+                  </th>
+                  <th scope="col" className="px-3 py-2 font-semibold">
+                    Queue
+                  </th>
+                  <th scope="col" className="px-3 py-2 text-right font-semibold">
+                    Games
+                  </th>
+                  <th scope="col" className="px-3 py-2 text-right font-semibold">
+                    Record
+                  </th>
+                  <th scope="col" className="px-3 py-2 text-right font-semibold">
+                    Avg KDA
+                  </th>
                 </tr>
               </thead>
               <tbody>

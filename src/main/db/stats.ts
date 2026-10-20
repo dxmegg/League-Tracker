@@ -4038,18 +4038,27 @@ export function getTrendsData(
       }
     }
 
-    const last24Rows = db
+    const last20Rows = db
       .prepare(`
-      SELECT ps.win as win
+      SELECT ps.win as win, ps.kills as kills, ps.deaths as deaths, ps.assists as assists
       ${fromSql}
-      WHERE ${baseWhere.join(" AND ")}${timeDays !== null ? " AND g.game_creation >= ?" : ""}
+      WHERE ${baseWhere.join(" AND ")}
       ORDER BY g.game_creation DESC, g.game_id DESC
-      LIMIT 24
+      LIMIT 20
     `)
-      .all(...baseParams, ...(timeDays !== null ? [now - timeDays * 86400000] : [])) as {
+      .all(...baseParams) as {
       win: number;
+      kills: number;
+      deaths: number;
+      assists: number;
     }[];
-    const last24Games = last24Rows.reverse().map((game) => game.win === 1);
+    const last20AvgKda =
+      last20Rows.reduce((sum, game) => sum + game.kills + game.assists, 0) /
+      Math.max(
+        last20Rows.reduce((sum, game) => sum + game.deaths, 0),
+        1,
+      );
+    const last20Games = last20Rows.reverse().map((game) => game.win === 1);
 
     const peakWindow = Array.from({ length: 24 }, (_, startHour) => {
       const nextHour = (startHour + 1) % 24;
@@ -4188,13 +4197,15 @@ export function getTrendsData(
     `)
       .all(...params) as { win: number }[];
     let currentWlStreak = "—";
+    let currentStreak: TrendsData["streaks"]["currentStreak"] = { type: null, count: 0 };
     if (streakRows.length > 0) {
-      const firstResult = streakRows[0].win === 1 ? "W" : "L";
+      const firstResult: "W" | "L" = streakRows[0].win === 1 ? "W" : "L";
       let streakLength = 0;
       for (const row of streakRows) {
         if ((row.win === 1 ? "W" : "L") !== firstResult) break;
         streakLength++;
       }
+      currentStreak = { type: firstResult, count: streakLength };
       currentWlStreak = `${firstResult}${streakLength}`;
     }
 
@@ -4284,7 +4295,9 @@ export function getTrendsData(
       maxWinStreak,
       maxLossStreak,
       avgSessionKda: avgKdaAll,
-      last24Games,
+      last20Games,
+      last20AvgKda,
+      currentStreak,
     };
 
     return {

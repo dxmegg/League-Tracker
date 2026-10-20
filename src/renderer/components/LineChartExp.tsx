@@ -1,4 +1,4 @@
-import { useId } from "react";
+import { useId, useState, type MouseEvent } from "react";
 
 type ChartValue = number | null;
 
@@ -55,6 +55,7 @@ export function LineChartExp({
   showStats?: boolean;
 }) {
   const gradientIdPrefix = useId().replace(/:/g, "-");
+  const [hoverIndex, setHoverIndex] = useState<number | null>(null);
   const chartValues = (series ? series.flatMap((item) => item.values) : values).filter(isNumber);
   const statValues = (series?.[0]?.values ?? values).filter(isNumber);
   const pointCount = series?.[0]?.values.length ?? values.length;
@@ -70,8 +71,8 @@ export function LineChartExp({
   const H = height;
   const P = 16;
   const hasYAxis = yTicks != null && yTicks.length > 0;
-  const plotLeft = 0;
-  const plotRight = W;
+  const plotLeft = hasYAxis ? 36 : 0;
+  const plotRight = W - 4;
   const lo = min ?? Math.min(...chartValues) - 1;
   const hi = max ?? Math.max(...chartValues) + 1;
   const range = hi - lo || 1;
@@ -81,6 +82,15 @@ export function LineChartExp({
   const x = (i: number) => plotLeft + (i * (plotRight - plotLeft)) / (pointCount - 1 || 1);
   const y = (v: number) => plotTop + (1 - (v - lo) / range) * plotHeight;
   const maxSecondary = Math.max(...(secondaryValues ?? [0]), 1);
+  const handleMove = (event: MouseEvent<SVGSVGElement>) => {
+    if (pointCount === 0) return;
+    const rect = event.currentTarget.getBoundingClientRect();
+    const chartX = ((event.clientX - rect.left) / rect.width) * W;
+    const nearestIndex = Math.round(
+      ((chartX - plotLeft) / (plotRight - plotLeft)) * (pointCount - 1),
+    );
+    setHoverIndex(Math.min(Math.max(nearestIndex, 0), pointCount - 1));
+  };
 
   const xLabelIndices = (() => {
     if (!xLabels?.length) return [];
@@ -106,209 +116,231 @@ export function LineChartExp({
 
   return (
     <div>
-      <div className="flex gap-2">
-        {hasYAxis && (
-          <div className="relative min-w-[32px] text-right text-[10px] tabular-nums text-lol-text/50">
-            {yTicks.map((tick) => (
-              <span
-                key={tick}
-                className="absolute right-0 -translate-y-1/2 whitespace-nowrap"
-                style={{ top: y(tick) }}
-              >
-                {yFormat ? yFormat(tick) : tick}
-              </span>
-            ))}
-          </div>
-        )}
-        <div className="min-w-0 flex-1" style={{ aspectRatio: `${W} / ${H}` }}>
-          <svg
-            className="svgc block h-full w-full"
-            viewBox={`0 0 ${W} ${H}`}
-            width="100%"
-            height="100%"
-            preserveAspectRatio="none"
-            role="img"
-          >
-            <defs>
-              {series ? (
-                series.map((item, index) => (
-                  <linearGradient
-                    key={item.label}
-                    id={`${gradientIdPrefix}-line-gradient-${index}`}
-                    x1="0"
-                    y1="0"
-                    x2="0"
-                    y2="1"
-                  >
-                    <stop offset="0%" stopColor={item.color} stopOpacity="0.35" />
-                    <stop offset="100%" stopColor={item.color} stopOpacity="0" />
-                  </linearGradient>
-                ))
-              ) : (
+      <div className="relative min-w-0" style={{ aspectRatio: `${W} / ${H}` }}>
+        <svg
+          className="svgc block h-full w-full"
+          viewBox={`0 0 ${W} ${H}`}
+          width="100%"
+          height="100%"
+          preserveAspectRatio="none"
+          role="img"
+          onMouseMove={handleMove}
+          onMouseLeave={() => setHoverIndex(null)}
+        >
+          <defs>
+            {series ? (
+              series.map((item, index) => (
                 <linearGradient
-                  id={`${gradientIdPrefix}-line-gradient-primary`}
+                  key={item.label}
+                  id={`${gradientIdPrefix}-line-gradient-${index}`}
                   x1="0"
                   y1="0"
                   x2="0"
                   y2="1"
                 >
-                  <stop offset="0%" stopColor={color} stopOpacity="0.35" />
-                  <stop offset="100%" stopColor={color} stopOpacity="0" />
+                  <stop offset="0%" stopColor={item.color} stopOpacity="0.35" />
+                  <stop offset="100%" stopColor={item.color} stopOpacity="0" />
                 </linearGradient>
-              )}
-            </defs>
-            <line x1={plotLeft} x2={plotRight} y1={H - P} y2={H - P} stroke="var(--theme-border)" />
-            {yTicks?.map((tick) => (
-              <g key={tick}>
-                <line
-                  x1={plotLeft}
-                  x2={plotRight}
-                  y1={y(tick)}
-                  y2={y(tick)}
-                  stroke="var(--theme-border)"
-                  strokeDasharray="4 4"
-                  strokeWidth="1"
-                />
-              </g>
-            ))}
-            {baseline != null && baseline >= lo && baseline <= hi && (
+              ))
+            ) : (
+              <linearGradient
+                id={`${gradientIdPrefix}-line-gradient-primary`}
+                x1="0"
+                y1="0"
+                x2="0"
+                y2="1"
+              >
+                <stop offset="0%" stopColor={color} stopOpacity="0.35" />
+                <stop offset="100%" stopColor={color} stopOpacity="0" />
+              </linearGradient>
+            )}
+          </defs>
+          <line x1={plotLeft} x2={plotRight} y1={H - P} y2={H - P} stroke="var(--theme-border)" />
+          {yTicks?.map((tick) => (
+            <g key={tick}>
               <line
                 x1={plotLeft}
                 x2={plotRight}
-                y1={y(baseline)}
-                y2={y(baseline)}
-                stroke="var(--theme-border)"
-                strokeDasharray="4 4"
+                y1={y(tick)}
+                y2={y(tick)}
+                stroke="rgba(255,255,255,0.05)"
                 strokeWidth="1"
               />
-            )}
-            {secondaryValues?.map((value, index) => {
-              const barWidth = Math.max(4, (plotRight - plotLeft) / (pointCount * 2.5));
-              const barHeight = ((H - P - plotTop) * value) / maxSecondary;
+              <text x={plotLeft - 8} y={y(tick) + 3} textAnchor="end" fontSize={10} fill="#8a8f95">
+                {yFormat ? yFormat(tick) : tick}
+              </text>
+            </g>
+          ))}
+          {hoverIndex != null && (
+            <line
+              x1={x(hoverIndex)}
+              x2={x(hoverIndex)}
+              y1={plotTop}
+              y2={H - P}
+              stroke="rgba(255,255,255,0.25)"
+              strokeDasharray="3 3"
+            />
+          )}
+          {baseline != null && baseline >= lo && baseline <= hi && (
+            <line
+              x1={plotLeft}
+              x2={plotRight}
+              y1={y(baseline)}
+              y2={y(baseline)}
+              stroke="var(--theme-border)"
+              strokeDasharray="4 4"
+              strokeWidth="1"
+            />
+          )}
+          {secondaryValues?.map((value, index) => {
+            const barWidth = Math.max(4, (plotRight - plotLeft) / (pointCount * 2.5));
+            const barHeight = ((H - P - plotTop) * value) / maxSecondary;
+            return (
+              <rect
+                key={`secondary-${index}`}
+                x={x(index) - barWidth / 2}
+                y={H - P - barHeight}
+                width={barWidth}
+                height={barHeight}
+                fill="var(--theme-text)"
+                opacity="0.1"
+                rx="2"
+              />
+            );
+          })}
+          {series ? (
+            series.map((item, index) => {
               return (
-                <rect
-                  key={`secondary-${index}`}
-                  x={x(index) - barWidth / 2}
-                  y={H - P - barHeight}
-                  width={barWidth}
-                  height={barHeight}
-                  fill="var(--theme-text)"
-                  opacity="0.1"
-                  rx="2"
-                />
+                <g key={item.label}>
+                  {lineSegments(item.values).map((segment, segmentIndex) => {
+                    const pointPairs = segment.split(" ").map((point) => {
+                      const [indexText, valueText] = point.split(",");
+                      return { index: Number(indexText), value: Number(valueText) };
+                    });
+                    const points = pointPairs
+                      .map(
+                        ({ index: pointIndex, value }) => `${x(pointIndex)},${y(value).toFixed(1)}`,
+                      )
+                      .join(" ");
+                    const first = pointPairs[0];
+                    const last = pointPairs[pointPairs.length - 1];
+                    const areaPath = `${points} L ${x(last.index)},${H - P} L ${x(first.index)},${H - P} Z`;
+                    return (
+                      <g key={segmentIndex}>
+                        <path
+                          d={areaPath}
+                          fill={`url(#${gradientIdPrefix}-line-gradient-${index})`}
+                        />
+                        <polyline
+                          points={points}
+                          fill="none"
+                          stroke={item.color}
+                          strokeWidth="2.5"
+                          strokeLinejoin="round"
+                        />
+                      </g>
+                    );
+                  })}
+                  {item.values.map((value, pointIndex) =>
+                    value == null ? null : (
+                      <circle
+                        key={`dot-${pointIndex}`}
+                        cx={x(pointIndex)}
+                        cy={y(value).toFixed(1)}
+                        r={3}
+                        fill="currentColor"
+                        stroke="var(--theme-card)"
+                        strokeWidth={2}
+                        style={{ color: item.color }}
+                      />
+                    ),
+                  )}
+                </g>
               );
-            })}
-            {series ? (
-              series.map((item, index) => {
-                return (
-                  <g key={item.label}>
-                    {lineSegments(item.values).map((segment, segmentIndex) => {
-                      const pointPairs = segment.split(" ").map((point) => {
-                        const [indexText, valueText] = point.split(",");
-                        return { index: Number(indexText), value: Number(valueText) };
-                      });
-                      const points = pointPairs
-                        .map(
-                          ({ index: pointIndex, value }) =>
-                            `${x(pointIndex)},${y(value).toFixed(1)}`,
-                        )
-                        .join(" ");
-                      const first = pointPairs[0];
-                      const last = pointPairs[pointPairs.length - 1];
-                      const areaPath = `${points} L ${x(last.index)},${H - P} L ${x(first.index)},${H - P} Z`;
-                      return (
-                        <g key={segmentIndex}>
-                          <path
-                            d={areaPath}
-                            fill={`url(#${gradientIdPrefix}-line-gradient-${index})`}
-                          />
-                          <polyline
-                            points={points}
-                            fill="none"
-                            stroke={item.color}
-                            strokeWidth="2.5"
-                            strokeLinejoin="round"
-                          />
-                        </g>
-                      );
-                    })}
-                  </g>
-                );
-              })
-            ) : (
-              <>
-                <path
-                  d={lineSegments(values)
-                    .map((segment) => {
-                      const pointPairs = segment.split(" ").map((point) => {
-                        const [indexText, valueText] = point.split(",");
-                        return { index: Number(indexText), value: Number(valueText) };
-                      });
-                      const points = pointPairs
-                        .map(
-                          ({ index: pointIndex, value }) =>
-                            `${x(pointIndex)},${y(value).toFixed(1)}`,
-                        )
-                        .join(" ");
-                      const first = pointPairs[0];
-                      const last = pointPairs[pointPairs.length - 1];
-                      return `${points} L ${x(last.index)},${H - P} L ${x(first.index)},${H - P} Z`;
+            })
+          ) : (
+            <>
+              <path
+                d={lineSegments(values)
+                  .map((segment) => {
+                    const pointPairs = segment.split(" ").map((point) => {
+                      const [indexText, valueText] = point.split(",");
+                      return { index: Number(indexText), value: Number(valueText) };
+                    });
+                    const points = pointPairs
+                      .map(
+                        ({ index: pointIndex, value }) => `${x(pointIndex)},${y(value).toFixed(1)}`,
+                      )
+                      .join(" ");
+                    const first = pointPairs[0];
+                    const last = pointPairs[pointPairs.length - 1];
+                    return `${points} L ${x(last.index)},${H - P} L ${x(first.index)},${H - P} Z`;
+                  })
+                  .join(" ")}
+                fill={`url(#${gradientIdPrefix}-line-gradient-primary)`}
+              />
+              {lineSegments(values).map((segment, segmentIndex) => (
+                <polyline
+                  key={segmentIndex}
+                  points={segment
+                    .split(" ")
+                    .map((point) => {
+                      const [indexText, valueText] = point.split(",");
+                      return `${x(Number(indexText))},${y(Number(valueText)).toFixed(1)}`;
                     })
                     .join(" ")}
-                  fill={`url(#${gradientIdPrefix}-line-gradient-primary)`}
+                  fill="none"
+                  stroke={color}
+                  strokeWidth="2.5"
+                  strokeLinejoin="round"
                 />
-                {lineSegments(values).map((segment, segmentIndex) => (
-                  <polyline
-                    key={segmentIndex}
-                    points={segment
-                      .split(" ")
-                      .map((point) => {
-                        const [indexText, valueText] = point.split(",");
-                        return `${x(Number(indexText))},${y(Number(valueText)).toFixed(1)}`;
-                      })
-                      .join(" ")}
-                    fill="none"
-                    stroke={color}
-                    strokeWidth="2.5"
-                    strokeLinejoin="round"
-                  />
-                ))}
-                {values.map((value, index) =>
-                  value == null ? null : (
-                    <circle
-                      key={index}
-                      cx={x(index)}
-                      cy={y(value).toFixed(1)}
-                      r="4"
-                      fill={hollowIndices.includes(index) ? "var(--theme-card)" : color}
-                      stroke={color}
-                      strokeWidth={hollowIndices.includes(index) ? "1.5" : "0"}
-                      opacity={hollowIndices.includes(index) ? "0.65" : "1"}
-                    >
-                      <title>{tooltips ? tooltips[index] : format(value)}</title>
-                    </circle>
-                  ),
-                )}
-              </>
-            )}
-            {xLabelIndices.map((index) => {
-              const label = xLabels?.[index];
-              if (label == null) return null;
-              const anchor = index === 0 ? "start" : index === pointCount - 1 ? "end" : "middle";
-              return (
-                <text
-                  key={index}
-                  x={x(index)}
-                  y={H - 2}
-                  textAnchor={anchor}
-                  className="fill-lol-text text-[10px]"
-                >
-                  {label}
-                </text>
-              );
-            })}
-          </svg>
-        </div>
+              ))}
+              {values.map((value, index) =>
+                value == null ? null : (
+                  <circle
+                    key={index}
+                    cx={x(index)}
+                    cy={y(value).toFixed(1)}
+                    r={3}
+                    fill="currentColor"
+                    stroke="var(--theme-card)"
+                    strokeWidth={2}
+                    style={{
+                      color: hollowIndices.includes(index) ? "var(--theme-card)" : color,
+                    }}
+                    opacity={hollowIndices.includes(index) ? "0.65" : "1"}
+                  >
+                    <title>{tooltips ? tooltips[index] : format(value)}</title>
+                  </circle>
+                ),
+              )}
+            </>
+          )}
+          {xLabelIndices.map((index) => {
+            const label = xLabels?.[index];
+            if (label == null) return null;
+            const anchor = index === 0 ? "start" : index === pointCount - 1 ? "end" : "middle";
+            return (
+              <text
+                key={index}
+                x={x(index)}
+                y={H - 2}
+                textAnchor={anchor}
+                className="fill-lol-text text-[10px]"
+              >
+                {label}
+              </text>
+            );
+          })}
+        </svg>
+        {hoverIndex != null && tooltips?.[hoverIndex] && (
+          <div
+            className="pointer-events-none absolute top-1 z-10 max-w-[240px] -translate-x-1/2 whitespace-pre-line rounded-lg border border-[rgba(165,15,21,0.4)] bg-[#0c0e11] px-2.5 py-1.5 text-xs leading-4 text-[#f5efe0] shadow-lg"
+            style={{ left: `${(x(hoverIndex) / W) * 100}%` }}
+          >
+            {tooltips[hoverIndex]}
+          </div>
+        )}
       </div>
       {showStats && statValues.length > 0 && (
         <div className="grid grid-cols-5 gap-2 border-t border-lol-border/40 px-2 pt-2 text-[10px] uppercase tracking-wider text-lol-text">
