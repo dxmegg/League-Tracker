@@ -448,19 +448,44 @@ export function TrendsExp({
 
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
         {[
-          ["Matches Played", totalGames.toLocaleString()],
-          ["Win Rate", `${totalGames > 0 ? ((totalWins / totalGames) * 100).toFixed(1) : "0.0"}%`],
-          ["Avg KDA", `${((totalKills + totalAssists) / Math.max(totalDeaths, 1)).toFixed(2)}`],
-          [
-            "Avg Score",
-            `${totalScoredGames > 0 ? (totalScore / totalScoredGames).toFixed(1) : "—"}`,
-          ],
-          ["Total Playtime", `${Math.round(totalDuration / 3600)}h`],
-        ].map(([label, value]) => (
-          <Panel
-            key={label}
-            className={`${PANEL_HOVER_CLASSES} border-t-2 border-t-[var(--theme-crimson)] px-4 py-3`}
-          >
+          {
+            label: "Matches Played",
+            value: totalGames.toLocaleString(),
+            className:
+              "border-t-[3px] border-t-[var(--theme-crimson)] bg-[radial-gradient(circle_at_top_right,color-mix(in_oklab,var(--theme-crimson)_8%,transparent),transparent_48%),linear-gradient(180deg,var(--theme-card-hover),var(--theme-card))]",
+          },
+          {
+            label: "Total Wins",
+            value: totalWins.toLocaleString(),
+            className:
+              "border-t-[3px] border-t-[var(--theme-win)] bg-[radial-gradient(circle_at_top_right,color-mix(in_oklab,var(--theme-win)_8%,transparent),transparent_48%),linear-gradient(180deg,var(--theme-card-hover),var(--theme-card))]",
+          },
+          {
+            label: "Win Rate",
+            value: `${totalGames > 0 ? ((totalWins / totalGames) * 100).toFixed(1) : "0.0"}%`,
+            className:
+              "border-t-[3px] border-t-[var(--theme-win)] bg-[radial-gradient(circle_at_top_right,color-mix(in_oklab,var(--theme-win)_8%,transparent),transparent_48%),linear-gradient(180deg,var(--theme-card-hover),var(--theme-card))]",
+          },
+          {
+            label: "Avg KDA",
+            value: `${((totalKills + totalAssists) / Math.max(totalDeaths, 1)).toFixed(2)}`,
+            className:
+              "border-t-[3px] border-t-[var(--theme-assist)] bg-[radial-gradient(circle_at_top_right,color-mix(in_oklab,var(--theme-assist)_8%,transparent),transparent_48%),linear-gradient(180deg,var(--theme-card-hover),var(--theme-card))]",
+          },
+          {
+            label: "Avg Score",
+            value: `${totalScoredGames > 0 ? (totalScore / totalScoredGames).toFixed(1) : "—"}`,
+            className:
+              "border-t-[3px] border-t-[var(--theme-gold)] bg-[radial-gradient(circle_at_top_right,color-mix(in_oklab,var(--theme-gold)_8%,transparent),transparent_48%),linear-gradient(180deg,var(--theme-card-hover),var(--theme-card))]",
+          },
+          {
+            label: "Total Playtime",
+            value: `${Math.round(totalDuration / 3600)}h`,
+            className:
+              "border-t-[3px] border-t-[var(--theme-violet)] bg-[radial-gradient(circle_at_top_right,color-mix(in_oklab,var(--theme-violet)_8%,transparent),transparent_48%),linear-gradient(180deg,var(--theme-card-hover),var(--theme-card))]",
+          },
+        ].map(({ label, value, className }) => (
+          <Panel key={label} className={`${PANEL_HOVER_CLASSES} ${className} px-4 py-3`}>
             <div className="text-2xl font-semibold tabular-nums text-lol-text-bright">{value}</div>
             <div className="mt-1 text-[10px] uppercase tracking-wider text-lol-text">{label}</div>
           </Panel>
@@ -477,6 +502,8 @@ export function TrendsExp({
                 ? "0.0 pp Win Rate"
                 : `${data.insights.winRateDiff >= 0 ? "+" : ""}${data.insights.winRateDiff.toFixed(1)} pp Win Rate`,
             color: "var(--theme-win)",
+            className:
+              "border-[color-mix(in_oklab,var(--theme-win)_25%,var(--theme-border))] bg-[color-mix(in_oklab,var(--theme-win)_5%,var(--theme-card))]",
           },
           {
             icon: "★",
@@ -485,6 +512,8 @@ export function TrendsExp({
               ? `${data.insights.bestDay.day} - ${data.insights.bestDay.wr.toFixed(1)}% WR`
               : "—",
             color: "var(--theme-gold)",
+            className:
+              "border-[color-mix(in_oklab,var(--theme-gold)_25%,var(--theme-border))] bg-[color-mix(in_oklab,var(--theme-gold)_5%,var(--theme-card))]",
           },
           {
             icon: "◷",
@@ -493,11 +522,13 @@ export function TrendsExp({
               ? `${data.insights.peakWindow.startHour}:00 - ${data.insights.peakWindow.endHour}:00 - ${data.insights.peakWindow.wr.toFixed(1)}% WR`
               : "—",
             color: "var(--theme-assist)",
+            className:
+              "border-[color-mix(in_oklab,var(--theme-assist)_25%,var(--theme-border))] bg-[color-mix(in_oklab,var(--theme-assist)_5%,var(--theme-card))]",
           },
         ].map((insight) => (
           <Panel
             key={insight.label}
-            className={`${PANEL_HOVER_CLASSES} flex items-center gap-3 px-4 py-3`}
+            className={`${PANEL_HOVER_CLASSES} ${insight.className} flex items-center gap-3 px-4 py-3`}
           >
             <span
               className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-sm font-bold text-lol-card"
