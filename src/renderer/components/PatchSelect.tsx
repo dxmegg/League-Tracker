@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { formatPatch } from "../lib/format";
-import { SegmentedControl } from "./SegmentedControl";
+import { FilterSelect } from "./FilterSelect";
 
 export default function PatchSelect({
   value,
@@ -13,7 +13,14 @@ export default function PatchSelect({
 
   useEffect(() => {
     const fetchPatches = () =>
-      window.api.getMatchFilterOptions().then((o) => setPatches(o.patches.slice(0, 4)));
+      window.api.getMatchFilterOptions().then((o) => {
+        const latest = [...o.patches].sort((a, b) => {
+          const [aMajor, aMinor] = a.split(".").map(Number);
+          const [bMajor, bMinor] = b.split(".").map(Number);
+          return bMajor - aMajor || bMinor - aMinor;
+        });
+        setPatches(latest.slice(0, 15));
+      });
     fetchPatches();
     const unsub = window.api.onGamesUpdated(fetchPatches);
     return unsub;
@@ -27,14 +34,16 @@ export default function PatchSelect({
   }, [patches, value, onChange]);
 
   return (
-    <SegmentedControl
+    <FilterSelect
       value={value}
       onChange={(v) => onChange(v)}
-      label="Patch"
-      options={[
-        { value: undefined, label: "All patches" },
-        ...patches.map((p) => ({ value: p, label: formatPatch(p) })),
-      ]}
+      placeholder="ALL PATCHES"
+      title="Patch"
+      allowClear
+      options={patches.map((patch) => ({
+        value: patch,
+        label: `PATCH ${formatPatch(patch).toUpperCase()}`,
+      }))}
     />
   );
 }
