@@ -1032,6 +1032,34 @@ export interface HomeDashboardPayload {
       gameCreation: number;
       win: number;
     } | null;
+    damageTaken: {
+      value: number;
+      championId: number;
+      gameId: number;
+      gameCreation: number;
+      win: number;
+    } | null;
+    longestGame: {
+      value: number;
+      championId: number;
+      gameId: number;
+      gameCreation: number;
+      win: number;
+    } | null;
+    visionScore: {
+      value: number;
+      championId: number;
+      gameId: number;
+      gameCreation: number;
+      win: number;
+    } | null;
+    turretDamage: {
+      value: number;
+      championId: number;
+      gameId: number;
+      gameCreation: number;
+      win: number;
+    } | null;
   };
   topChampions: Array<{
     championId: number;

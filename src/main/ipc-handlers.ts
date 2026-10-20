@@ -568,7 +568,7 @@ export function registerIpcHandlers() {
         games: number;
         wins: number;
       }>;
-      const toHomeRecord = (record: RecordsData["bests"][keyof RecordsData["bests"]]) =>
+      const toHomeRecord = (record: RecordsData["bests"]["kills"] | null | undefined) =>
         record
           ? {
               value: record.value,
@@ -636,6 +636,10 @@ export function registerIpcHandlers() {
           mostCs: toHomeRecord(records.bests.cs),
           mostGold: toHomeRecord(records.bests.gold),
           wardsPlaced: toHomeRecord(records.wardsPlaced ?? null),
+          damageTaken: toHomeRecord(records.bests.damageTaken),
+          longestGame: toHomeRecord(records.bests.longestGame),
+          visionScore: toHomeRecord(records.visionScore),
+          turretDamage: toHomeRecord(records.turretDamage),
         },
         topChampions: championStats.map((champion) => ({
           championId: champion.champion_id,

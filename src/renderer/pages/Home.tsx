@@ -867,7 +867,7 @@ export default function Home() {
                 <span className="text-[11px] text-lol-text">All-time peaks</span>
               </div>
             </div>
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+            <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-6">
               {(
                 [
                   { label: "MOST KILLS", record: dashboard?.records.mostKills },
@@ -878,6 +878,10 @@ export default function Home() {
                   { label: "MOST CS", record: dashboard?.records.mostCs },
                   { label: "MOST GOLD", record: dashboard?.records.mostGold },
                   { label: "MOST WARDS PLACED", record: dashboard?.records.wardsPlaced },
+                  { label: "MOST DAMAGE TAKEN", record: dashboard?.records.damageTaken },
+                  { label: "HIGHEST VISION SCORE", record: dashboard?.records.visionScore },
+                  { label: "LONGEST GAME", record: dashboard?.records.longestGame },
+                  { label: "MOST TURRET DAMAGE", record: dashboard?.records.turretDamage },
                 ] as const
               ).map(({ label, record }) =>
                 record ? (
@@ -889,6 +893,7 @@ export default function Home() {
                     win={record.win}
                     gameCreation={record.gameCreation}
                     accentIndex={record.championId}
+                    formatValue={label === "LONGEST GAME" ? formatLiveGameTime : undefined}
                   />
                 ) : (
                   <div

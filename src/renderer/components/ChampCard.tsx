@@ -58,9 +58,14 @@ export function ChampCard({
         </b>
         {layout === "horizontal" ? (
           <>
-            <div className="mt-0.5 flex min-w-0 items-center justify-between gap-2 text-[10px] leading-tight">
-              <span className="min-w-0 truncate text-lol-text">{formatNumber(games)} games</span>
+            <div className="mt-0.5 grid min-w-0 grid-cols-[minmax(0,1fr)_auto] gap-x-1 text-[10px] leading-tight">
+              <span className="truncate text-lol-text">{formatNumber(games)} games</span>
               <span className="shrink-0 font-semibold text-lol-text-bright">{winRate}% WR</span>
+              <span className="col-span-2 min-w-0 truncate whitespace-nowrap">
+                <span className="font-semibold text-lol-win">{formatNumber(wins)}W</span>
+                <span className="text-lol-text"> - </span>
+                <span className="font-semibold text-lol-loss">{formatNumber(losses)}L</span>
+              </span>
             </div>
             <div className="mt-1 h-[4px] w-full overflow-hidden rounded-full bg-white/[0.05]">
               <i
