@@ -3925,8 +3925,8 @@ export function getTrendsData(
     const topDuos = db
       .prepare(`
     SELECT teammate.puuid as puuid,
-           account.game_name as gameName,
-           account.tag_line as tagLine,
+           COALESCE(account.game_name, teammate.game_name, 'Unknown') as gameName,
+           COALESCE(account.tag_line, teammate.tag_line, '') as tagLine,
            COUNT(DISTINCT g.game_id) as games,
            COUNT(DISTINCT CASE WHEN ps.win = 1 THEN g.game_id END) as wins,
            COUNT(DISTINCT CASE WHEN ps.win = 1 THEN g.game_id END) * 100.0 /
@@ -3937,9 +3937,11 @@ export function getTrendsData(
      AND teammate.team_id = mp.team_id
      AND teammate.puuid IS NOT NULL
      AND teammate.puuid != mp.puuid
-    JOIN summoner account ON account.puuid = teammate.puuid
+    LEFT JOIN summoner account ON account.puuid = teammate.puuid
     ${whereSql}
-    GROUP BY teammate.puuid, account.game_name, account.tag_line
+    GROUP BY teammate.puuid,
+             COALESCE(account.game_name, teammate.game_name, 'Unknown'),
+             COALESCE(account.tag_line, teammate.tag_line, '')
     ORDER BY games DESC, winRate DESC
     LIMIT 3
     `)
@@ -4195,8 +4197,6 @@ export function getTrendsData(
     const totalKills = daily.reduce((sum, row) => sum + row.kills, 0);
     const totalDeaths = daily.reduce((sum, row) => sum + row.deaths, 0);
     const totalAssists = daily.reduce((sum, row) => sum + row.assists, 0);
-    const qualifiedDaily = daily.filter((row) => row.games >= 3);
-    const dailyWinRates = qualifiedDaily.map((row) => (row.wins / row.games) * 100);
     const mostActive = daily.reduce<TrendsData["daily"][number] | null>(
       (best, row) => (!best || row.games > best.games ? row : best),
       null,
@@ -4211,6 +4211,22 @@ export function getTrendsData(
       longestActiveStreak = Math.max(longestActiveStreak, activeStreak);
       previousDay = day;
     }
+    const weeklyGames = new Map<string, { games: number; wins: number }>();
+    for (const row of daily) {
+      const weekStart = new Date(`${row.day}T00:00:00`);
+      weekStart.setDate(weekStart.getDate() - ((weekStart.getDay() + 6) % 7));
+      const weekKey = [
+        weekStart.getFullYear(),
+        String(weekStart.getMonth() + 1).padStart(2, "0"),
+        String(weekStart.getDate()).padStart(2, "0"),
+      ].join("-");
+      const bucket = weeklyGames.get(weekKey) ?? { games: 0, wins: 0 };
+      bucket.games += row.games;
+      bucket.wins += row.wins;
+      weeklyGames.set(weekKey, bucket);
+    }
+    const qualifiedWeekly = [...weeklyGames.values()].filter((row) => row.games >= 3);
+    const weeklyWinRates = qualifiedWeekly.map((row) => (row.wins / row.games) * 100);
     const kdaForRows = (rows: TrendsData["daily"]): number => {
       const kills = rows.reduce((sum, row) => sum + row.kills, 0);
       const deaths = rows.reduce((sum, row) => sum + row.deaths, 0);
@@ -4233,8 +4249,8 @@ export function getTrendsData(
       mostActiveDay,
       longestActiveStreak,
       lastPlayed: summaryRow.lastPlayed ?? 0,
-      peakWr: dailyWinRates.length > 0 ? Math.max(...dailyWinRates) : 0,
-      lowestWr: dailyWinRates.length > 0 ? Math.min(...dailyWinRates) : 0,
+      peakWr: weeklyWinRates.length > 0 ? Math.max(...weeklyWinRates) : 0,
+      lowestWr: weeklyWinRates.length > 0 ? Math.min(...weeklyWinRates) : 0,
       currentWlStreak,
       avgKdaAll,
       kdaOver3Percent: summaryRow.kdaOver3Percent ?? 0,
