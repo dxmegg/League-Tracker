@@ -441,7 +441,8 @@ const api: ElectronAPI = {
     queue?: number,
     account?: string,
     timePeriod?: "4w" | "12w" | "6m" | "all",
-  ) => ipcRenderer.invoke("db:trends", queue, account, timePeriod),
+    patch?: string,
+  ) => ipcRenderer.invoke("db:trends", queue, account, timePeriod, patch),
 
   getRecords: (queue?: number, account?: string) =>
     ipcRenderer.invoke("db:records", queue, account),

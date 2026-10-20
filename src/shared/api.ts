@@ -2018,6 +2018,7 @@ export interface ElectronAPI {
     queue?: number,
     account?: string,
     timePeriod?: "4w" | "12w" | "6m" | "all",
+    patch?: string,
   ) => Promise<TrendsData>;
   getRecords: (queue?: number, account?: string) => Promise<RecordsData>;
   getGlobalChampionDetail: (

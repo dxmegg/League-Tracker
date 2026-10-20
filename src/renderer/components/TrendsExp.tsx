@@ -10,7 +10,7 @@ import { queueLabel } from "./QueueSelect";
 import { SectionHeading } from "./SectionHeading";
 import { clockPoint, TimeSeriesChart, type SeriesPoint } from "./TimeSeriesChart";
 import { isArenaQueue } from "../../shared/queues";
-import { formatDuration, formatTimeAgo } from "../lib/format";
+import { formatDuration, formatPatch, formatTimeAgo } from "../lib/format";
 import { getChampionName, useChampionData } from "../hooks/useChampions";
 import { FilterChip } from "./FilterChip";
 
@@ -223,12 +223,14 @@ export function TrendsExp({
   onRetry,
   timeRange,
   setTimeRange,
+  patch,
 }: {
   data: TrendsData | null;
   error: string | null;
   onRetry: () => Promise<void>;
   timeRange: TimeRange;
   setTimeRange: (timeRange: TimeRange) => void;
+  patch?: string;
 }) {
   const championData = useChampionData();
   const weekly = useMemo(() => {
@@ -1078,7 +1080,7 @@ export function TrendsExp({
         >
           <div className="mb-3 flex items-baseline justify-between">
             <h2 className="relative pl-4 font-display text-xl font-semibold text-lol-text-bright before:absolute before:left-0 before:top-1/2 before:h-2 before:w-2 before:-translate-y-1/2 before:rotate-45 before:bg-lol-crimson">
-              Win rate by patch
+              {patch ? `Win rate for ${formatPatch(patch)}` : "Win rate by patch"}
             </h2>
             <span className="text-xs uppercase tracking-wider text-lol-text">{timeRangeLabel}</span>
           </div>

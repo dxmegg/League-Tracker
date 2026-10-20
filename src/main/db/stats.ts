@@ -3727,14 +3727,19 @@ export function getTrendsData(
   queue?: number,
   account?: string,
   timePeriod: "4w" | "12w" | "6m" | "all" = "all",
+  patch?: string,
 ): TrendsData {
-  return cachedQuery("getTrendsData", [queue, account, timePeriod], 60_000, () => {
+  return cachedQuery("getTrendsData", [queue, account, timePeriod, patch], 60_000, () => {
     const source = statsSource(account);
     const where = ["g.is_remake = 0"];
     where.push(source.accountFilter);
     const baseParams: any[] = account && account !== "all" ? [account] : [];
     applyQueueFilter(where, baseParams, queue);
     where.push(`g.queue_id NOT IN (${EXCLUDED_STATS_SQL})`);
+    if (patch !== undefined) {
+      where.push("g.game_version = ?");
+      baseParams.push(patch);
+    }
     const baseWhere = [...where];
     const params = [...baseParams];
     const timeDays =

@@ -1159,8 +1159,14 @@ export function registerIpcHandlers() {
 
   ipcMain.handle(
     "db:trends",
-    (_event, queue?: number, account?: string, timePeriod?: "4w" | "12w" | "6m" | "all") => {
-      return db.getTrendsData(queue, account, timePeriod);
+    (
+      _event,
+      queue?: number,
+      account?: string,
+      timePeriod?: "4w" | "12w" | "6m" | "all",
+      patch?: string,
+    ) => {
+      return db.getTrendsData(queue, account, timePeriod, patch);
     },
   );
 
