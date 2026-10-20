@@ -300,6 +300,20 @@ export function TrendsExp({
   const weeklyKda = weekly.map((week) =>
     week.games > 0 ? (week.kills + week.assists) / Math.max(week.deaths, 1) : null,
   );
+  const kdaDisplay = Array.from({ length: Math.ceil(weekly.length / 2) }, (_, index) => {
+    const pair = weekly.slice(index * 2, index * 2 + 2);
+    const games = pair.reduce((sum, week) => sum + week.games, 0);
+    const average = (key: "kills" | "deaths" | "assists") => {
+      const total = pair.reduce((sum, week) => sum + week[key], 0);
+      return games > 0 ? total / games : 0;
+    };
+    return {
+      day: pair[0].day,
+      kills: average("kills"),
+      deaths: average("deaths"),
+      assists: average("assists"),
+    };
+  });
   const weekLabel = (day: string) =>
     parseDay(day).toLocaleDateString(undefined, { month: "short", day: "numeric" });
 
@@ -349,9 +363,13 @@ export function TrendsExp({
   const totalScore = data.daily.reduce((sum, row) => sum + (row.score_sum ?? 0), 0);
   const totalDuration = data.daily.reduce((sum, row) => sum + row.duration_sum, 0);
   const kdaSeries = [
-    { values: weekly.map((week) => week.kills), color: "var(--theme-win)", label: "Kills" },
-    { values: weekly.map((week) => week.deaths), color: "var(--theme-loss)", label: "Deaths" },
-    { values: weekly.map((week) => week.assists), color: "var(--theme-assist)", label: "Assists" },
+    { values: kdaDisplay.map((week) => week.kills), color: "var(--theme-win)", label: "Kills" },
+    { values: kdaDisplay.map((week) => week.deaths), color: "var(--theme-loss)", label: "Deaths" },
+    {
+      values: kdaDisplay.map((week) => week.assists),
+      color: "var(--theme-assist)",
+      label: "Assists",
+    },
   ];
   const kdaMaxValue = Math.max(
     1,
@@ -363,7 +381,7 @@ export function TrendsExp({
     { length: kdaYAxisMax / kdaTickStep + 1 },
     (_, index) => index * kdaTickStep,
   );
-  const kdaTooltips = weekly.map(
+  const kdaTooltips = kdaDisplay.map(
     (week) =>
       `Date: ${weekLabel(week.day)}\nKills: ${week.kills.toFixed(1)}\nDeaths: ${week.deaths.toFixed(1)}\nAssists: ${week.assists.toFixed(1)}`,
   );
@@ -705,7 +723,7 @@ export function TrendsExp({
       </div>
 
       <Panel
-        className={`${PANEL_HOVER_CLASSES} border-t-[3px] border-t-[var(--theme-assist)] bg-[radial-gradient(circle_at_top_right,color-mix(in_oklab,var(--theme-assist)_8%,transparent),transparent_48%),linear-gradient(180deg,var(--theme-card-hover),var(--theme-card))]`}
+        className={`${PANEL_HOVER_CLASSES} rounded-xl border-t-[3px] border-t-[var(--theme-assist)] bg-[radial-gradient(circle_at_top_right,color-mix(in_oklab,var(--theme-assist)_8%,transparent),transparent_48%),linear-gradient(180deg,var(--theme-card-hover),var(--theme-card))]`}
       >
         <div className="mb-3 flex items-baseline justify-between">
           <h2 className="relative pl-4 font-display text-xl font-semibold text-lol-text-bright before:absolute before:left-0 before:top-1/2 before:h-2 before:w-2 before:-translate-y-1/2 before:rotate-45 before:bg-lol-crimson">
@@ -713,18 +731,7 @@ export function TrendsExp({
           </h2>
           <span className="text-xs uppercase tracking-wider text-lol-text">{timeRangeLabel}</span>
         </div>
-        <LineChartExp
-          values={weekly.map((week) => week.kills)}
-          series={kdaSeries}
-          format={(value) => value.toFixed(0)}
-          xLabels={weekly.map((week) => weekLabel(week.day))}
-          tooltips={kdaTooltips}
-          yFormat={(value) => value.toString()}
-          yTicks={kdaYTicks}
-          min={0}
-          max={kdaYAxisMax}
-        />
-        <div className="mt-4 grid grid-cols-2 gap-3 border-t border-lol-border/50 pt-3 sm:grid-cols-5">
+        <div className="mb-4 grid grid-cols-2 gap-3 border-b border-lol-border/50 pb-3 sm:grid-cols-5">
           {[
             ["Avg Kills", data.summaryStats.avgKills.toFixed(1)],
             ["Avg Deaths", data.summaryStats.avgDeaths.toFixed(1)],
@@ -743,6 +750,18 @@ export function TrendsExp({
             </div>
           ))}
         </div>
+        <LineChartExp
+          values={kdaDisplay.map((week) => week.kills)}
+          series={kdaSeries}
+          format={(value) => value.toFixed(0)}
+          xLabels={kdaDisplay.map((week) => weekLabel(week.day))}
+          tooltips={kdaTooltips}
+          yFormat={(value) => value.toString()}
+          yTicks={kdaYTicks}
+          min={0}
+          max={kdaYAxisMax}
+          showLegend={false}
+        />
       </Panel>
 
       <div className="flex flex-col gap-5 lg:flex-row">

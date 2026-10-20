@@ -1,4 +1,4 @@
-import { useId, useState, type MouseEvent } from "react";
+import { useState, type MouseEvent } from "react";
 
 type ChartValue = number | null;
 
@@ -37,6 +37,7 @@ export function LineChartExp({
   secondaryValues,
   hollowIndices = [],
   showStats = false,
+  showLegend = true,
 }: {
   values: ChartValue[];
   format: (v: number) => string;
@@ -53,8 +54,8 @@ export function LineChartExp({
   secondaryValues?: number[];
   hollowIndices?: number[];
   showStats?: boolean;
+  showLegend?: boolean;
 }) {
-  const gradientIdPrefix = useId().replace(/:/g, "-");
   const [hoverIndex, setHoverIndex] = useState<number | null>(null);
   const chartValues = (series ? series.flatMap((item) => item.values) : values).filter(isNumber);
   const statValues = (series?.[0]?.values ?? values).filter(isNumber);
@@ -122,39 +123,11 @@ export function LineChartExp({
           viewBox={`0 0 ${W} ${H}`}
           width="100%"
           height="100%"
-          preserveAspectRatio="none"
+          preserveAspectRatio="xMidYMid meet"
           role="img"
           onMouseMove={handleMove}
           onMouseLeave={() => setHoverIndex(null)}
         >
-          <defs>
-            {series ? (
-              series.map((item, index) => (
-                <linearGradient
-                  key={item.label}
-                  id={`${gradientIdPrefix}-line-gradient-${index}`}
-                  x1="0"
-                  y1="0"
-                  x2="0"
-                  y2="1"
-                >
-                  <stop offset="0%" stopColor={item.color} stopOpacity="0.35" />
-                  <stop offset="100%" stopColor={item.color} stopOpacity="0" />
-                </linearGradient>
-              ))
-            ) : (
-              <linearGradient
-                id={`${gradientIdPrefix}-line-gradient-primary`}
-                x1="0"
-                y1="0"
-                x2="0"
-                y2="1"
-              >
-                <stop offset="0%" stopColor={color} stopOpacity="0.35" />
-                <stop offset="100%" stopColor={color} stopOpacity="0" />
-              </linearGradient>
-            )}
-          </defs>
           <line x1={plotLeft} x2={plotRight} y1={H - P} y2={H - P} stroke="var(--theme-border)" />
           {yTicks?.map((tick) => (
             <g key={tick}>
@@ -209,7 +182,7 @@ export function LineChartExp({
             );
           })}
           {series ? (
-            series.map((item, index) => {
+            series.map((item, _index) => {
               return (
                 <g key={item.label}>
                   {lineSegments(item.values).map((segment, segmentIndex) => {
@@ -222,15 +195,8 @@ export function LineChartExp({
                         ({ index: pointIndex, value }) => `${x(pointIndex)},${y(value).toFixed(1)}`,
                       )
                       .join(" ");
-                    const first = pointPairs[0];
-                    const last = pointPairs[pointPairs.length - 1];
-                    const areaPath = `${points} L ${x(last.index)},${H - P} L ${x(first.index)},${H - P} Z`;
                     return (
                       <g key={segmentIndex}>
-                        <path
-                          d={areaPath}
-                          fill={`url(#${gradientIdPrefix}-line-gradient-${index})`}
-                        />
                         <polyline
                           points={points}
                           fill="none"
@@ -247,7 +213,7 @@ export function LineChartExp({
                         key={`dot-${pointIndex}`}
                         cx={x(pointIndex)}
                         cy={y(value).toFixed(1)}
-                        r={3}
+                        r={3.5}
                         fill="currentColor"
                         stroke="var(--theme-card)"
                         strokeWidth={2}
@@ -260,25 +226,6 @@ export function LineChartExp({
             })
           ) : (
             <>
-              <path
-                d={lineSegments(values)
-                  .map((segment) => {
-                    const pointPairs = segment.split(" ").map((point) => {
-                      const [indexText, valueText] = point.split(",");
-                      return { index: Number(indexText), value: Number(valueText) };
-                    });
-                    const points = pointPairs
-                      .map(
-                        ({ index: pointIndex, value }) => `${x(pointIndex)},${y(value).toFixed(1)}`,
-                      )
-                      .join(" ");
-                    const first = pointPairs[0];
-                    const last = pointPairs[pointPairs.length - 1];
-                    return `${points} L ${x(last.index)},${H - P} L ${x(first.index)},${H - P} Z`;
-                  })
-                  .join(" ")}
-                fill={`url(#${gradientIdPrefix}-line-gradient-primary)`}
-              />
               {lineSegments(values).map((segment, segmentIndex) => (
                 <polyline
                   key={segmentIndex}
@@ -301,7 +248,7 @@ export function LineChartExp({
                     key={index}
                     cx={x(index)}
                     cy={y(value).toFixed(1)}
-                    r={3}
+                    r={3.5}
                     fill="currentColor"
                     stroke="var(--theme-card)"
                     strokeWidth={2}
@@ -369,7 +316,7 @@ export function LineChartExp({
           ))}
         </div>
       )}
-      {series && (
+      {series && showLegend && (
         <div className="flex flex-wrap gap-4 px-2 pt-1 text-xs text-lol-text">
           {series.map((item) => (
             <span key={item.label} className="inline-flex items-center gap-1.5">
