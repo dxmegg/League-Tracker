@@ -1018,6 +1018,20 @@ export interface HomeDashboardPayload {
       gameCreation: number;
       win: number;
     } | null;
+    mostGold: {
+      value: number;
+      championId: number;
+      gameId: number;
+      gameCreation: number;
+      win: number;
+    } | null;
+    wardsPlaced: {
+      value: number;
+      championId: number;
+      gameId: number;
+      gameCreation: number;
+      win: number;
+    } | null;
   };
   topChampions: Array<{
     championId: number;

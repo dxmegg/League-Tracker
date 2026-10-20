@@ -61,6 +61,16 @@ function timePeriodLabel(timePeriod: HomeTimePeriod): string {
 }
 
 const periodLabel = (period: HomeTimePeriod): string => (period === "full" ? "FULL" : period);
+const LIVE_GAME_MODE_LABEL: Record<string, string> = {
+  KIWI: "ARAM Mayhem",
+  ARAM: "ARAM",
+  CLASSIC: "Classic",
+};
+const formatLiveGameTime = (seconds: number): string => {
+  const minutes = Math.floor(seconds / 60);
+  const remainder = Math.floor(seconds % 60);
+  return `${minutes}:${remainder.toString().padStart(2, "0")}`;
+};
 const ROLE_LABELS: Record<RoleBreakdown["role"], string> = {
   TOP: "Top",
   JUNGLE: "Jungle",
@@ -69,6 +79,16 @@ const ROLE_LABELS: Record<RoleBreakdown["role"], string> = {
   UTILITY: "Support",
   NO_POSITION: "No position",
 };
+const ROLE_BADGES: Record<RoleBreakdown["role"], string> = {
+  TOP: "TOP",
+  JUNGLE: "JGL",
+  MIDDLE: "MID",
+  BOTTOM: "BOT",
+  UTILITY: "SUP",
+  NO_POSITION: "—",
+};
+const NEON_PANEL_CLASS =
+  "border border-white/[0.08] shadow-[0_0_15px_rgba(255,255,255,0.02)] hover:border-lol-crimson/30 hover:shadow-[0_0_20px_rgba(220,38,38,0.1)] transition-all";
 
 function StatValue({
   label,
@@ -602,18 +622,8 @@ export default function Home() {
   );
   const visibleTopChampions = showAllChampions
     ? sortedTopChampions
-    : sortedTopChampions.slice(0, 20);
+    : sortedTopChampions.slice(0, 24);
   const visibleRoles = roleBreakdown.filter((role) => role.games > 0);
-  const roleGridClass =
-    visibleRoles.length <= 1
-      ? "grid-cols-1"
-      : visibleRoles.length === 2
-        ? "grid-cols-2"
-        : visibleRoles.length === 3
-          ? "grid-cols-2 sm:grid-cols-3"
-          : visibleRoles.length === 4
-            ? "grid-cols-2 sm:grid-cols-4"
-            : "grid-cols-2 sm:grid-cols-3 xl:grid-cols-6";
 
   useEffect(() => {
     getAccountsWithData()
@@ -661,12 +671,17 @@ export default function Home() {
         {/* Page head + time toggle */}
         <div className="flex flex-wrap items-end justify-between gap-4">
           <div>
-            <h1 className="font-display text-[30px] font-bold leading-tight tracking-[0.2px] text-lol-text-bright">
-              {account === "all" ? "All accounts" : "Account summary"}
+            <h1 className="font-display text-[30px] font-bold uppercase leading-tight tracking-widest text-lol-text-bright">
+              {account === "all" ? "ALL ACCOUNTS" : "Account summary"}
+              {account === "all" && (
+                <span className="ml-3 inline-flex rounded-full bg-purple-500/20 px-2.5 py-1 align-middle text-[11px] font-semibold uppercase tracking-wide text-purple-300">
+                  AGGREGATED VIEW
+                </span>
+              )}
             </h1>
             <p className="mt-1.5 text-lol-text">
               {account === "all"
-                ? `Combined stats from your ${savedAccounts.length} saved accounts`
+                ? "Combined statistics across your saved Summoner profiles."
                 : "Detailed stats for the selected account"}
             </p>
           </div>
@@ -687,19 +702,25 @@ export default function Home() {
                 </button>
               ))}
             </div>
-            {!hasLiveActivity && (
-              <div className="flex items-center gap-2 rounded-md border border-lol-border/60 bg-lol-card/60 px-3 py-1.5 text-xs text-lol-text">
-                <span className="h-2 w-2 rounded-full bg-lol-text/40" />
-                Not in a match
+            {live.game && (
+              <div className="flex items-center gap-2 rounded-md border border-green-500/20 bg-green-900/30 px-3 py-1.5 text-xs text-green-200">
+                <span className="h-2 w-2 rounded-full bg-green-400 shadow-[0_0_8px_rgba(74,222,128,0.8)]" />
+                <span>
+                  • In Match: {LIVE_GAME_MODE_LABEL[live.game.gameMode] ?? live.game.gameMode} -{" "}
+                  {live.game.activePlayer.championName} {formatLiveGameTime(live.game.gameTimeSec)}
+                </span>
               </div>
             )}
           </div>
         </div>
 
-        {/* 12-column grid */}
-        <div className="grid grid-cols-12 gap-5">
-          {/* Hero: 8 columns */}
-          <Panel className="col-span-12 border-t-[3px] border-t-lol-win bg-[radial-gradient(circle_at_top_right,rgba(34,197,94,0.10),transparent_42%)] 2xl:col-span-8">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <Panel
+            className={`lg:col-span-2 border-t-[3px] border-t-lol-win bg-[radial-gradient(circle_at_top_right,rgba(34,197,94,0.10),transparent_42%)] ${NEON_PANEL_CLASS}`}
+          >
+            <h2 className="mb-4 font-display text-[16px] font-bold uppercase tracking-widest text-lol-text-bright">
+              Performance Summary
+            </h2>
             <HomeHero
               dashboard={dashboard}
               loading={loading}
@@ -708,19 +729,82 @@ export default function Home() {
             />
           </Panel>
 
-          {/* Live game: 4 columns */}
-          {hasLiveActivity && (
-            <Panel className="col-span-12 border-l-[3px] border-l-lol-win bg-[radial-gradient(circle_at_top_right,rgba(34,197,94,0.08),transparent_55%)] 2xl:col-span-4">
-              <LiveGameTile game={live.game} session={live.session} />
-            </Panel>
-          )}
-
-          {/* Most played champions: 7 columns */}
-          <Panel className="col-span-12 2xl:col-span-7">
+          <Panel className={`flex h-full flex-col lg:col-span-1 ${NEON_PANEL_CLASS}`}>
             <div className="mb-4 flex items-baseline justify-between gap-3">
-              <h2 className="font-display text-[16px] font-semibold text-lol-text-bright">
+              <div>
+                <h2 className="font-display text-[16px] font-bold uppercase tracking-widest text-lol-text-bright">
+                  <span className="mr-2 inline-block h-1.5 w-1.5 rotate-45 bg-lol-crimson align-middle" />
+                  Role Performance
+                </h2>
+                <p className="mt-1 text-[12px] text-lol-text">By position and queue type</p>
+              </div>
+              <span className="text-[13px] text-lol-text">
+                {timePeriod === "full" ? "All time" : `Last ${timePeriod}`}
+              </span>
+            </div>
+            {visibleRoles.length === 0 ? (
+              <EmptyState
+                variant="compact"
+                showIcon
+                text="No role data for this period. Roles require Ranked or Normal games with a stored position."
+              />
+            ) : (
+              <div className="flex-1 divide-y divide-lol-border/50">
+                {visibleRoles.map((stats) => {
+                  const noPosition = stats.role === "NO_POSITION";
+                  return (
+                    <div
+                      key={stats.role}
+                      className="flex items-center gap-3 py-3 first:pt-1 last:pb-1"
+                    >
+                      <span
+                        className={`flex h-7 min-w-10 items-center justify-center rounded-md px-1.5 font-display text-[10px] font-bold tracking-wide ${
+                          noPosition
+                            ? "bg-lol-text/10 text-lol-text"
+                            : "bg-lol-crimson/15 text-lol-crimson"
+                        }`}
+                      >
+                        [{ROLE_BADGES[stats.role]}]
+                      </span>
+                      <div className="min-w-[84px]">
+                        <span className="block font-display text-sm font-semibold text-lol-text-bright">
+                          {ROLE_LABELS[stats.role]}
+                        </span>
+                        <span className="block text-[11px] text-lol-text">
+                          {stats.games} Games Played
+                        </span>
+                      </div>
+                      <div className="flex min-w-0 flex-1 items-center gap-2">
+                        <div className="h-1.5 min-w-0 flex-1 overflow-hidden rounded-full bg-white/[0.06]">
+                          <i
+                            className="block h-full rounded-full bg-lol-win"
+                            style={{ width: `${Math.min(100, Math.max(0, stats.winRate))}%` }}
+                          />
+                        </div>
+                        <span className="shrink-0 font-display text-xs font-semibold text-lol-text-bright">
+                          {Math.round(stats.winRate)}% WR
+                        </span>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </Panel>
+        </div>
+
+        {hasLiveActivity && (
+          <Panel className="border-l-[3px] border-l-lol-win bg-[radial-gradient(circle_at_top_right,rgba(34,197,94,0.08),transparent_55%)]">
+            <LiveGameTile game={live.game} session={live.session} />
+          </Panel>
+        )}
+
+        <div className="flex flex-col gap-6">
+          <Panel className={`${NEON_PANEL_CLASS} w-full`}>
+            <div className="mb-4 flex items-baseline justify-between gap-3">
+              <h2 className="font-display text-[16px] font-bold uppercase tracking-widest text-lol-text-bright">
                 <span className="mr-2 inline-block h-1.5 w-1.5 rotate-45 bg-lol-crimson align-middle" />
-                Most played champions
+                Most Played Champions <span className="ml-1 text-[13px] text-lol-gold">👑</span>
               </h2>
               <div className="flex flex-wrap items-center justify-end gap-2">
                 <div className="inline-flex rounded-md border border-lol-border/60 bg-lol-card/50 p-0.5">
@@ -747,7 +831,7 @@ export default function Home() {
                 </span>
               </div>
             </div>
-            <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 md:grid-cols-5">
+            <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3">
               {visibleTopChampions.map((champion) => (
                 <ChampCard
                   key={champion.championId}
@@ -756,10 +840,11 @@ export default function Home() {
                   wins={champion.wins}
                   champData={champData}
                   accentIndex={champion.championId}
+                  layout="horizontal"
                 />
               ))}
             </div>
-            {sortedTopChampions.length > 20 && (
+            {sortedTopChampions.length > 24 && (
               <button
                 type="button"
                 onClick={() => setShowAllChampions((expanded) => !expanded)}
@@ -767,32 +852,32 @@ export default function Home() {
                 aria-expanded={showAllChampions}
               >
                 {showAllChampions
-                  ? "Show top 20"
+                  ? "Show top 24"
                   : `Show all (${sortedTopChampions.length.toLocaleString()})`}
               </button>
             )}
           </Panel>
 
-          {/* Records: 5 columns */}
-          <Panel className="col-span-12 2xl:col-span-5">
+          <Panel className={`${NEON_PANEL_CLASS} w-full`}>
             <div className="mb-4 flex items-baseline justify-between gap-3">
-              <h2 className="font-display text-[16px] font-semibold text-lol-text-bright">
-                <span className="mr-2 inline-block h-1.5 w-1.5 rotate-45 bg-lol-crimson align-middle" />
-                Records
-              </h2>
-              <span className="text-[13px] text-lol-text">
-                {timePeriod === "full" ? "All time" : `Last ${timePeriod}`}
-              </span>
+              <div>
+                <h2 className="font-display text-[16px] font-bold uppercase tracking-widest text-lol-text-bright">
+                  ⚡ PERSONAL RECORDS (7D)
+                </h2>
+                <span className="text-[11px] text-lol-text">All-time peaks</span>
+              </div>
             </div>
-            <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
               {(
                 [
-                  { label: "Most kills", record: dashboard?.records.mostKills },
-                  { label: "Most deaths", record: dashboard?.records.mostDeaths },
-                  { label: "Most assists", record: dashboard?.records.mostAssists },
-                  { label: "Most damage", record: dashboard?.records.mostDamage },
-                  { label: "Biggest crit", record: dashboard?.records.biggestCrit },
-                  { label: "Most CS", record: dashboard?.records.mostCs },
+                  { label: "MOST KILLS", record: dashboard?.records.mostKills },
+                  { label: "MOST DEATHS", record: dashboard?.records.mostDeaths },
+                  { label: "HIGHEST DAMAGE", record: dashboard?.records.mostDamage },
+                  { label: "MOST ASSISTS", record: dashboard?.records.mostAssists },
+                  { label: "BIGGEST CRIT", record: dashboard?.records.biggestCrit },
+                  { label: "MOST CS", record: dashboard?.records.mostCs },
+                  { label: "MOST GOLD", record: dashboard?.records.mostGold },
+                  { label: "MOST WARDS PLACED", record: dashboard?.records.wardsPlaced },
                 ] as const
               ).map(({ label, record }) =>
                 record ? (
@@ -810,7 +895,7 @@ export default function Home() {
                     key={label}
                     className="rounded-xl border border-lol-border border-t-[3px] border-t-lol-crimson/50 bg-black/10 px-3.5 py-3 text-[12.5px] text-lol-text transition-colors duration-[120ms] hover:bg-white/[0.02]"
                   >
-                    <span className="uppercase tracking-wider">{label}</span>
+                    <span className="font-display uppercase tracking-wider">{label}</span>
                     <b className="my-0.5 block font-display text-[28px] font-bold leading-tight text-lol-text-bright/40">
                       —
                     </b>
@@ -819,85 +904,19 @@ export default function Home() {
               )}
             </div>
           </Panel>
-
-          <Panel className="col-span-12">
-            <div className="mb-4 flex items-baseline justify-between gap-3">
-              <div>
-                <h2 className="font-display text-[16px] font-semibold text-lol-text-bright">
-                  <span className="mr-2 inline-block h-1.5 w-1.5 rotate-45 bg-lol-crimson align-middle" />
-                  Roles
-                </h2>
-                <p className="mt-1 text-[12px] text-lol-text">By position and queue type</p>
-              </div>
-              <span className="text-[13px] text-lol-text">
-                {timePeriod === "full" ? "All time" : `Last ${timePeriod}`}
-              </span>
-            </div>
-            {visibleRoles.length === 0 ? (
-              <EmptyState
-                variant="compact"
-                showIcon
-                text="No role data for this period. Roles require Ranked or Normal games with a stored position."
-              />
-            ) : (
-              <div className={`grid gap-2.5 ${roleGridClass}`}>
-                {visibleRoles.map((stats) => {
-                  const noPosition = stats.role === "NO_POSITION";
-                  return (
-                    <div
-                      key={stats.role}
-                      className="rounded-xl border border-lol-border border-t-[3px] border-t-lol-crimson/50 bg-black/10 px-3.5 py-3"
-                    >
-                      <div className="mb-2 flex items-center gap-2">
-                        <span
-                          className={`flex h-7 w-7 items-center justify-center rounded-md font-display text-xs font-bold ${
-                            noPosition
-                              ? "bg-lol-text/10 text-lol-text"
-                              : "bg-lol-crimson/15 text-lol-crimson"
-                          }`}
-                        >
-                          {noPosition
-                            ? "—"
-                            : stats.role === "MIDDLE"
-                              ? "M"
-                              : stats.role === "UTILITY"
-                                ? "S"
-                                : stats.role[0]}
-                        </span>
-                        <div>
-                          <span className="block font-display text-sm font-semibold text-lol-text-bright">
-                            {ROLE_LABELS[stats.role]}
-                          </span>
-                          <span className="block text-[11px] text-lol-text">
-                            {noPosition ? "ARAM / Arena / Other" : "Ranked / Normal"}
-                          </span>
-                        </div>
-                      </div>
-                      <div className="font-display text-xl font-bold text-lol-text-bright">
-                        {stats.games} games
-                      </div>
-                      <div className="mt-1 text-xs text-lol-text">
-                        {Math.round(stats.winRate)}% win
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </Panel>
-
-          {/* Last 20 played games: 12 columns */}
-          <Panel className="col-span-12">
-            <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-              <h2 className="font-display text-[16px] font-semibold text-lol-text-bright">
-                <span className="mr-2 inline-block h-1.5 w-1.5 rotate-45 bg-lol-crimson align-middle" />
-                Last 20 played games
-              </h2>
-              <QueueFilterChips value={queue} onChange={setQueue} />
-            </div>
-            <MatchListPanel account={account} queue={queue} timePeriod={timePeriod} experiment />
-          </Panel>
         </div>
+
+        {/* Last 20 played games: 12 columns */}
+        <Panel className="col-span-12">
+          <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+            <h2 className="font-display text-[16px] font-semibold text-lol-text-bright">
+              <span className="mr-2 inline-block h-1.5 w-1.5 rotate-45 bg-lol-crimson align-middle" />
+              Last 20 played games
+            </h2>
+            <QueueFilterChips value={queue} onChange={setQueue} />
+          </div>
+          <MatchListPanel account={account} queue={queue} timePeriod={timePeriod} experiment />
+        </Panel>
       </div>
     );
   }

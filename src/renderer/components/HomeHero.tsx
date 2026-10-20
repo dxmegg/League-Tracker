@@ -2,7 +2,6 @@ import type { ChampionData, HomeDashboardPayload, HomeTimePeriod } from "../../s
 import ChampionIcon from "./ChampionIcon";
 import { getChampionName } from "../hooks/useChampions";
 import { formatNumber } from "../lib/format";
-import StatCard from "./StatCard";
 
 function periodLabel(period: HomeTimePeriod): string {
   if (period === "24h") return "Last 24 hours";
@@ -11,17 +10,15 @@ function periodLabel(period: HomeTimePeriod): string {
   return "Last 7 days";
 }
 
-function formatDuration(seconds: number): string {
-  const totalSeconds = Math.max(0, Math.round(seconds));
-  const minutes = Math.floor(totalSeconds / 60);
-  return `${minutes}:${(totalSeconds % 60).toString().padStart(2, "0")}`;
-}
-
 function formatPlayTime(seconds: number): string {
   if (seconds < 60) return "less than a minute";
   const minutes = Math.floor(seconds / 60);
   if (seconds < 3600) return `${minutes}m`;
   return `${Math.floor(minutes / 60)}h ${minutes % 60}m`;
+}
+
+function formatAverageGold(gold: number): string {
+  return gold >= 1000 ? `${(gold / 1000).toFixed(1)}K G` : `${Math.round(gold)} G`;
 }
 
 export function HomeHero({
@@ -50,35 +47,36 @@ export function HomeHero({
     <div
       className={`relative overflow-hidden rounded-[10px] bg-[radial-gradient(circle_at_top_right,rgba(34,197,94,0.10),transparent_42%)] transition-opacity ${loading ? "opacity-50" : ""}`}
     >
-      <div className="flex flex-wrap items-end justify-between gap-5">
-        <div>
-          <div className="mb-0.5 font-display text-[15px] font-semibold text-lol-text">
-            {periodLabel(timePeriod)}
+      <div className="flex flex-wrap items-center justify-between gap-4 border-b border-lol-border/50 pb-4">
+        <div className="flex flex-wrap items-center gap-x-5 gap-y-2">
+          <div>
+            <div className="mb-1 font-display text-[12px] font-semibold uppercase tracking-wider text-lol-text">
+              {periodLabel(timePeriod)}
+            </div>
+            <div className="flex items-baseline gap-2.5 font-display text-[42px] font-bold leading-none tracking-[-1px]">
+              <span className="text-[#00ff9d]">{formatNumber(wins)}</span>
+              <span className="font-medium text-lol-text/60">–</span>
+              <span className="text-[#ff3366]">{formatNumber(losses)}</span>
+            </div>
           </div>
-          <div className="flex items-baseline gap-3.5 font-display text-[64px] font-bold leading-none tracking-[-1px]">
-            <span className="text-lol-win">{formatNumber(wins)}</span>
-            <span className="font-medium text-lol-text/60">–</span>
-            <span className="text-lol-loss">{formatNumber(losses)}</span>
-          </div>
-          <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-lol-text">
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[13px] text-lol-text">
             <span>{formatNumber(totalGames)} games played</span>
             {totalGames > 0 && <span>{formatPlayTime(totalTimeSeconds)} played</span>}
           </div>
         </div>
-        <div className="flex items-end gap-3">
+        <div className="flex items-center gap-3">
           <div className="text-right">
-            <b className="block font-display text-[40px] font-bold leading-none text-lol-gold">
-              {winRate}%
+            <b className="block font-display text-[30px] font-bold leading-none text-lol-gold">
+              {winRate}% <span className="text-[12px] tracking-[0.08em]">WIN RATE</span>
             </b>
-            <span className="text-[13px] text-lol-text">win rate</span>
           </div>
           {recentStreak !== 0 && (
             <span
-              className={`rounded-full px-2.5 py-1 font-display text-sm font-bold ${
-                recentStreak > 0 ? "bg-lol-win/15 text-lol-win" : "bg-lol-loss/15 text-lol-loss"
+              className={`rounded-md border border-white/10 bg-black/20 px-2.5 py-1 font-display text-[11px] font-bold uppercase tracking-wider ${
+                recentStreak > 0 ? "bg-lol-win/15 text-[#00ff9d]" : "bg-lol-loss/15 text-[#ff3366]"
               }`}
             >
-              {recentStreak > 0 ? `W${recentStreak}` : `L${Math.abs(recentStreak)}`}
+              {recentStreak > 0 ? `W${recentStreak}` : `L${Math.abs(recentStreak)}`} STREAK
             </span>
           )}
         </div>
@@ -99,11 +97,11 @@ export function HomeHero({
                 </span>
               </span>
               <span className="mt-0.5 block text-[11px] text-lol-text">
-                <span className="text-lol-win">{game.kills}</span>
+                <span className="text-[#00ff9d]">{game.kills}</span>
                 <span className="mx-0.5">/</span>
-                <span className="text-lol-loss">{game.deaths}</span>
+                <span className="text-[#ff3366]">{game.deaths}</span>
                 <span className="mx-0.5">/</span>
-                <span className="text-lol-assist">{game.assists}</span>
+                <span className="text-[#00f2ff]">{game.assists}</span>
                 <span className="ml-2 font-display font-semibold text-lol-gold">
                   {(game.score ?? 0).toFixed(1)}
                 </span>
@@ -136,94 +134,64 @@ export function HomeHero({
         })}
       </div>
       <div className="mt-2 flex justify-between gap-3 text-[12px] text-lol-text/60">
-        <span>Oldest</span>
-        <span>Wins above the line, losses below.</span>
-        <span>Latest</span>
+        <span>OLDEST (7 DAYS AGO)</span>
+        <span className="text-center">WINS ABOVE AXIS / LOSSES BELOW</span>
+        <span>LATEST (TODAY)</span>
       </div>
 
-      <div className="mt-5 grid grid-cols-4 gap-4 border-t border-lol-border/40 pt-5">
-        <div className="relative rounded-md border-t-[3px] border-t-amber-400 bg-[radial-gradient(circle_at_top_right,rgba(245,158,11,0.08),transparent_70%)]">
-          <b className="block font-display text-[30px] font-bold leading-tight text-lol-gold">
-            {formatNumber(dashboard?.summary.totalKills ?? 0)}
-          </b>
-          <span className="text-[13px] text-lol-text">
-            <i className="mr-1 inline-block h-1.5 w-1.5 rounded-full bg-amber-400" />
-            Kills
+      <div className="mt-5 grid grid-cols-1 divide-y divide-white/10 border-t border-lol-border/40 pt-1 sm:grid-cols-2 sm:divide-x sm:divide-y-0 lg:grid-cols-4">
+        <div className="px-3 py-3 first:pl-0">
+          <span className="block text-[10px] font-bold uppercase tracking-wider text-lol-text">
+            Kills / Deaths / Assists
           </span>
-        </div>
-        <div className="relative rounded-md border-t-[3px] border-t-red-400 bg-[radial-gradient(circle_at_top_right,rgba(248,113,113,0.08),transparent_70%)]">
-          <b className="block font-display text-[30px] font-bold leading-tight text-lol-loss">
-            {formatNumber(dashboard?.summary.totalDeaths ?? 0)}
+          <b className="mt-1 block font-display text-[20px] font-bold tabular-nums">
+            <span className="text-[#ffb700]">
+              {formatNumber(dashboard?.summary.totalKills ?? 0)}
+            </span>
+            <span className="text-lol-text/50"> / </span>
+            <span className="text-[#ff3366]">
+              {formatNumber(dashboard?.summary.totalDeaths ?? 0)}
+            </span>
+            <span className="text-lol-text/50"> / </span>
+            <span className="text-[#00f2ff]">
+              {formatNumber(dashboard?.summary.totalAssists ?? 0)}
+            </span>
           </b>
-          <span className="text-[13px] text-lol-text">
-            <i className="mr-1 inline-block h-1.5 w-1.5 rounded-full bg-red-400" />
-            Deaths
-          </span>
         </div>
-        <div className="relative rounded-md border-t-[3px] border-t-sky-400 bg-[radial-gradient(circle_at_top_right,rgba(56,189,248,0.08),transparent_70%)]">
-          <b className="block font-display text-[30px] font-bold leading-tight text-lol-assist">
-            {formatNumber(dashboard?.summary.totalAssists ?? 0)}
+        <div className="px-3 py-3">
+          <span className="block text-[10px] font-bold uppercase tracking-wider text-lol-text">
+            AVG KDA RATIO
+          </span>
+          <b className="mt-1 block font-display text-[20px] font-bold tabular-nums text-[#00ff9d]">
+            {(dashboard?.summary.avgKda ?? 0).toFixed(2)} : 1
           </b>
-          <span className="text-[13px] text-lol-text">
-            <i className="mr-1 inline-block h-1.5 w-1.5 rounded-full bg-sky-400" />
-            Assists
-          </span>
         </div>
-        <div className="relative rounded-md border-t-[3px] border-t-lol-text-bright bg-[radial-gradient(circle_at_top_right,rgba(226,232,240,0.08),transparent_70%)]">
-          <b className="block font-display text-[30px] font-bold leading-tight">
-            {(dashboard?.summary.avgKda ?? 0).toFixed(2)}
-          </b>
-          <span className="text-[13px] text-lol-text">
-            <i className="mr-1 inline-block h-1.5 w-1.5 rounded-full bg-lol-text-bright" />
-            Average K/D/A
+        <div className="px-3 py-3">
+          <span className="block text-[10px] font-bold uppercase tracking-wider text-lol-text">
+            AVG DAMAGE TO CHAMPS
           </span>
-        </div>
-      </div>
-      <div className="mt-4 grid grid-cols-2 gap-3 border-t border-lol-border/40 pt-4 xl:grid-cols-4">
-        <StatCard
-          label="Avg damage"
-          value={
-            dashboard?.summary.statsEligibleGames
+          <b className="mt-1 block font-display text-[20px] font-bold tabular-nums text-[#ffb700]">
+            {dashboard?.summary.statsEligibleGames
               ? formatNumber(Math.round(dashboard.summary.avgDamageDealt))
-              : "—"
-          }
-          subtext="per game"
-          accent="gold"
-          className="p-3 xl:p-3 2xl:p-3"
-        />
-        <StatCard
-          label="Avg gold"
-          value={
-            dashboard?.summary.statsEligibleGames
-              ? formatNumber(Math.round(dashboard.summary.avgGold))
-              : "—"
-          }
-          subtext="per game"
-          accent="sky"
-          className="p-3 xl:p-3 2xl:p-3"
-        />
-        <StatCard
-          label="Avg CS"
-          value={
-            dashboard?.summary.statsEligibleGames
-              ? formatNumber(Math.round(dashboard.summary.avgCs))
-              : "—"
-          }
-          subtext="per game"
-          accent="purple"
-          className="p-3 xl:p-3 2xl:p-3"
-        />
-        <StatCard
-          label="Avg game duration"
-          value={
-            dashboard?.summary.statsEligibleGames
-              ? formatDuration(dashboard.summary.avgGameLength)
-              : "—"
-          }
-          subtext="MM:SS"
-          accent="win"
-          className="p-3 xl:p-3 2xl:p-3"
-        />
+              : "—"}
+          </b>
+        </div>
+        <div className="px-3 py-3 last:pr-0">
+          <span className="block text-[10px] font-bold uppercase tracking-wider text-lol-text">
+            AVG CS / GOLD
+          </span>
+          <b className="mt-1 block font-display text-[20px] font-bold tabular-nums text-lol-text-bright">
+            {dashboard?.summary.statsEligibleGames
+              ? `${formatNumber(Math.round(dashboard.summary.avgCs))} CS`
+              : "—"}
+            {dashboard?.summary.statsEligibleGames && (
+              <span className="text-lol-text/60">
+                {" "}
+                • {formatAverageGold(dashboard.summary.avgGold)}
+              </span>
+            )}
+          </b>
+        </div>
       </div>
     </div>
   );

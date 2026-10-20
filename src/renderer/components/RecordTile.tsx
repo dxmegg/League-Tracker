@@ -27,7 +27,6 @@ export function RecordTile({
   const date = new Date(gameCreation).toLocaleDateString("en-GB", {
     day: "2-digit",
     month: "short",
-    year: "numeric",
   });
   const display = formatValue ? formatValue(value) : formatNumber(value);
   const accents = [
@@ -45,15 +44,18 @@ export function RecordTile({
   }`;
   const content = (
     <>
-      <span className="text-[12.5px] uppercase tracking-wider text-lol-text">{label}</span>
+      <span className="font-display text-[11px] font-bold uppercase tracking-wider text-lol-text">
+        {label}
+      </span>
       <b className="my-0.5 font-display text-[28px] font-bold leading-tight text-lol-text-bright">
         {display}
       </b>
-      <div className="flex items-center gap-2 text-[12.5px] text-lol-text">
+      <div className="flex items-center gap-1.5 text-[11px] text-lol-text">
         <ChampionIcon championId={championId} size={26} className="rounded-full" />
         <i className={`font-semibold not-italic ${win ? "text-lol-win" : "text-lol-loss"}`}>
           {win ? "WIN" : "LOSS"}
         </i>
+        <span>•</span>
         <span>{date}</span>
       </div>
     </>

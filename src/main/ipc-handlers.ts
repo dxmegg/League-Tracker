@@ -634,6 +634,8 @@ export function registerIpcHandlers() {
           mostDamage: toHomeRecord(records.bests.damage),
           biggestCrit: toHomeRecord(records.bests.criticalStrike),
           mostCs: toHomeRecord(records.bests.cs),
+          mostGold: toHomeRecord(records.bests.gold),
+          wardsPlaced: toHomeRecord(records.wardsPlaced ?? null),
         },
         topChampions: championStats.map((champion) => ({
           championId: champion.champion_id,
