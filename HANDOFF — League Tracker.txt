@@ -54,10 +54,15 @@ Workflow:
 - Czasem wstawia nowe handlery IPC wewnątrz innych handlerów.
 
 6. Co dalej (Open Tasks)
+
 - A — New feature (zapytaj usera o kierunek)
-- B — Opcjonalnie: Records Trophy Cabinet — dodać tiery (Bronze/Silver/Gold)
+- B — Records Trophy Cabinet — dodać tiery (Bronze/Silver/Gold) i podpiąć pod nowe statystyki (najbliższe zadanie)
 - C — Opcjonalnie: Records Best by queue — odfiltrować nieznane kolejki (Queue 3270, itp.)
 - D — Opcjonalnie: Records Recently Broken — historia (a nie tylko aktualny stan)
+
+Completed since last handoff:
+
+- Trends page is 100% complete. Includes: Global time range (4w/12w/6m/all), dynamic insights, K/D/A chart (hover interactivity, rich tooltips, inline legend, best/worst periods), unified 2x2 grid for other trend charts, responsive Heatmap + Activity Summary row, table layout reorganization, bottom row (Damage split, Objective control, Top Duos), and full responsive polish.
 
 7. Known working-as-designed (NIE RUSZAĆ)
 - Overview, Combat, Economy tabs w Champion Detail.
