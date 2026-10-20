@@ -1261,6 +1261,7 @@ export interface TrendsData {
     puuid: string;
     gameName: string;
     tagLine: string;
+    profileIcon: number | null;
     games: number;
     wins: number;
     winRate: number;

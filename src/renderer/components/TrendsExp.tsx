@@ -13,6 +13,7 @@ import { formatDuration, formatPatch, formatTimeAgo } from "../lib/format";
 import { getChampionName, useChampionData } from "../hooks/useChampions";
 import { FilterChip } from "./FilterChip";
 import { CrosshairIcon, StarIcon, SwordsIcon } from "./icons";
+import SummonerIcon from "./SummonerIcon";
 
 const PANEL_HOVER_CLASSES =
   "rounded-xl border-lol-border transition-colors hover:border-lol-crimson/50 hover:bg-white/[0.02]";
@@ -169,8 +170,8 @@ function DayHourMatrix({ data }: { data: TrendsData["dayHourMatrix"] }) {
   return (
     <div className="relative">
       <div className="overflow-x-auto pr-3">
-        <div className="min-w-[760px]">
-          <div className="mb-2 grid grid-cols-[72px_repeat(24,minmax(20px,1fr))] gap-1 text-[10px] text-lol-text/70">
+        <div className="min-w-[920px]">
+          <div className="mb-2 grid grid-cols-[56px_repeat(24,36px)] gap-1 text-[10px] text-lol-text/70">
             <span className="sticky left-0 z-10 bg-[var(--theme-card)]" />
             {hours.map((hour) => (
               <span key={hour} className="text-center">
@@ -182,7 +183,7 @@ function DayHourMatrix({ data }: { data: TrendsData["dayHourMatrix"] }) {
             {MATRIX_WEEKDAYS.map((day) => (
               <div
                 key={day.weekday}
-                className="grid grid-cols-[72px_repeat(24,minmax(20px,1fr))] items-center gap-1"
+                className="grid grid-cols-[56px_repeat(24,36px)] items-center gap-1"
               >
                 <span className="sticky left-0 z-10 bg-[var(--theme-card)] pr-2 text-xs text-lol-text">
                   {day.name.slice(0, 3)}
@@ -195,8 +196,8 @@ function DayHourMatrix({ data }: { data: TrendsData["dayHourMatrix"] }) {
                     games === 0
                       ? "bg-black/40 text-lol-text/50"
                       : winRate >= 50
-                        ? "bg-[var(--theme-win)] text-white"
-                        : "bg-[var(--theme-loss)] text-white";
+                        ? "bg-[#087f5b] text-white"
+                        : "bg-[#9f1239] text-white";
                   return (
                     <div
                       key={hour}
@@ -210,7 +211,7 @@ function DayHourMatrix({ data }: { data: TrendsData["dayHourMatrix"] }) {
               </div>
             ))}
           </div>
-          <div className="mt-2 grid grid-cols-[72px_repeat(24,minmax(20px,1fr))] gap-1 text-[10px] text-lol-text/70">
+          <div className="mt-2 grid grid-cols-[56px_repeat(24,36px)] gap-1 text-[10px] text-lol-text/70">
             <span className="sticky left-0 z-10 bg-[var(--theme-card)]" />
             {hours.map((hour) => (
               <span key={hour} className="text-center">
@@ -890,7 +891,7 @@ export function TrendsExp({
               </span>
             </div>
             <div className="flex w-full justify-center">
-              <ActivityHeatmap daily={data.daily} timeRange={timeRange} />
+              <ActivityHeatmap daily={data.daily} />
             </div>
           </Panel>
           <Panel variant="muted" className={`${PANEL_HOVER_CLASSES} h-fit w-full`}>
@@ -1428,12 +1429,12 @@ export function TrendsExp({
                       >
                         <td className="max-w-[180px] truncate px-2 py-2 text-sm text-lol-text-bright">
                           <span className="inline-flex min-w-0 items-center gap-3">
-                            <span
-                              className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-lol-border/60 bg-white/[0.04] text-[10px] font-bold uppercase text-lol-text"
-                              aria-hidden="true"
-                            >
-                              {duo.gameName.slice(0, 1)}
-                            </span>
+                            <SummonerIcon
+                              iconId={duo.profileIcon}
+                              size={28}
+                              className="border border-lol-border/60"
+                              title={`${duo.gameName}#${duo.tagLine}`}
+                            />
                             <span className="truncate font-bold">
                               {duo.gameName}#{duo.tagLine}
                             </span>

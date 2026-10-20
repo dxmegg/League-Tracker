@@ -272,7 +272,7 @@ export default function Trends() {
       </div>
 
       <Card title="Activity" accent="gold">
-        <ActivityHeatmap daily={data.daily} timeRange={timeRange} />
+        <ActivityHeatmap daily={data.daily} />
       </Card>
 
       <Card title="Win Rate Over Time" accent="win">

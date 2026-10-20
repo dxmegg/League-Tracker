@@ -253,18 +253,11 @@ const HEATMAP_COLORS = [
   "rgba(196,30,40,0.95)",
 ];
 
-export function ActivityHeatmap({
-  daily,
-  timeRange,
-}: {
-  daily: TrendsDay[];
-  timeRange: "4w" | "12w" | "6m" | "all";
-}) {
+export function ActivityHeatmap({ daily }: { daily: TrendsDay[] }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [containerWidth, setContainerWidth] = useState(0);
   const byDay = useMemo(() => new Map(daily.map((d) => [d.day, d])), [daily]);
-  const heatmapWeeks =
-    timeRange === "4w" ? 4 : timeRange === "12w" ? 12 : timeRange === "6m" ? 26 : 53;
+  const heatmapWeeks = 53;
 
   useEffect(() => {
     const container = containerRef.current;

@@ -3960,6 +3960,7 @@ export function getTrendsData(
     SELECT teammate.puuid as puuid,
            COALESCE(account.game_name, teammate.game_name, 'Unknown') as gameName,
            COALESCE(account.tag_line, teammate.tag_line, '') as tagLine,
+           COALESCE(account.profile_icon, teammate.profile_icon) as profileIcon,
            COUNT(DISTINCT g.game_id) as games,
            COUNT(DISTINCT CASE WHEN ps.win = 1 THEN g.game_id END) as wins,
            COUNT(DISTINCT CASE WHEN ps.win = 1 THEN g.game_id END) * 100.0 /
@@ -3974,7 +3975,8 @@ export function getTrendsData(
     ${whereSql}
     GROUP BY teammate.puuid,
              COALESCE(account.game_name, teammate.game_name, 'Unknown'),
-             COALESCE(account.tag_line, teammate.tag_line, '')
+             COALESCE(account.tag_line, teammate.tag_line, ''),
+             COALESCE(account.profile_icon, teammate.profile_icon)
     ORDER BY games DESC, winRate DESC
     LIMIT 3
     `)
