@@ -68,6 +68,7 @@ export function TimeSeriesChart({
   yMax,
   ticks,
   refValue,
+  refLabel,
   format,
   height = 190,
 }: {
@@ -76,6 +77,7 @@ export function TimeSeriesChart({
   yMax: number;
   ticks: number[];
   refValue?: number;
+  refLabel?: string;
   format: (v: number) => string;
   height?: number;
 }) {
@@ -140,14 +142,27 @@ export function TimeSeriesChart({
             </g>
           ))}
           {refValue != null && (
-            <line
-              x1={M.left}
-              x2={width - M.right}
-              y1={y(refValue)}
-              y2={y(refValue)}
-              stroke="rgba(255,255,255,0.08)"
-              strokeDasharray="4 4"
-            />
+            <>
+              <line
+                x1={M.left}
+                x2={width - M.right}
+                y1={y(refValue)}
+                y2={y(refValue)}
+                stroke="#64748b"
+                strokeDasharray="4 4"
+              />
+              {refLabel && (
+                <text
+                  x={width - M.right}
+                  y={y(refValue) - 4}
+                  textAnchor="end"
+                  fontSize={9}
+                  fill="#94a3b8"
+                >
+                  {refLabel}
+                </text>
+              )}
+            </>
           )}
           {hover != null && (
             <rect

@@ -244,7 +244,7 @@ function HistoryActivityHeatmap({
 }
 
 const HEATMAP_CELL = 14;
-const HEATMAP_GAP = 3;
+const HEATMAP_GAP = 2;
 const HEATMAP_COLORS = [
   "rgba(255,255,255,0.03)",
   "rgba(165,15,21,0.20)",
@@ -295,7 +295,7 @@ export function ActivityHeatmap({
   const top = 14;
   const cellSize =
     containerWidth > 0
-      ? Math.max(1, (containerWidth - left) / heatmapWeeks - HEATMAP_GAP)
+      ? Math.min(HEATMAP_CELL, Math.max(1, (containerWidth - left) / heatmapWeeks - HEATMAP_GAP))
       : HEATMAP_CELL;
   const pitch = cellSize + HEATMAP_GAP;
   const width = left + heatmapWeeks * pitch;

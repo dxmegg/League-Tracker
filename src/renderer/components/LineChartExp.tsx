@@ -38,6 +38,8 @@ export function LineChartExp({
   hollowIndices = [],
   showStats = false,
   showLegend = true,
+  highlightLast = false,
+  showTrendline = false,
 }: {
   values: ChartValue[];
   format: (v: number) => string;
@@ -55,11 +57,14 @@ export function LineChartExp({
   hollowIndices?: number[];
   showStats?: boolean;
   showLegend?: boolean;
+  highlightLast?: boolean;
+  showTrendline?: boolean;
 }) {
   const [hoverIndex, setHoverIndex] = useState<number | null>(null);
   const [activeSeriesIndex, setActiveSeriesIndex] = useState<number | null>(null);
   const chartValues = (series ? series.flatMap((item) => item.values) : values).filter(isNumber);
   const statValues = (series?.[0]?.values ?? values).filter(isNumber);
+  const primaryValues = series?.[0]?.values ?? values;
   const pointCount = series?.[0]?.values.length ?? values.length;
 
   if (
@@ -80,6 +85,33 @@ export function LineChartExp({
   const range = hi - lo || 1;
   const plotTop = P + 8;
   const plotHeight = H - 2 * P - 16;
+  const lastPointIndex = primaryValues.reduce(
+    (lastIndex, value, index) => (value == null ? lastIndex : index),
+    -1,
+  );
+  const trendPoints = (() => {
+    if (!showTrendline) return null;
+    const points = primaryValues.flatMap((value, index) =>
+      value == null ? [] : [{ index, value }],
+    );
+    if (points.length < 2) return null;
+    const meanX = points.reduce((sum, point) => sum + point.index, 0) / points.length;
+    const meanY = points.reduce((sum, point) => sum + point.value, 0) / points.length;
+    const denominator = points.reduce(
+      (sum, point) => sum + (point.index - meanX) ** 2,
+      0,
+    );
+    const slope =
+      denominator === 0
+        ? 0
+        : points.reduce((sum, point) => sum + (point.index - meanX) * (point.value - meanY), 0) /
+          denominator;
+    const intercept = meanY - slope * meanX;
+    return [
+      [points[0].index, intercept + slope * points[0].index],
+      [points[points.length - 1].index, intercept + slope * points[points.length - 1].index],
+    ] as const;
+  })();
 
   const x = (i: number) => plotLeft + (i * (plotRight - plotLeft)) / (pointCount - 1 || 1);
   const y = (v: number) => plotTop + (1 - (v - lo) / range) * plotHeight;
@@ -194,6 +226,18 @@ export function LineChartExp({
               />
             );
           })}
+          {trendPoints && (
+            <line
+              x1={x(trendPoints[0][0])}
+              y1={y(trendPoints[0][1])}
+              x2={x(trendPoints[1][0])}
+              y2={y(trendPoints[1][1])}
+              stroke={color}
+              strokeDasharray="4 4"
+              strokeWidth="1.5"
+              opacity="0.45"
+            />
+          )}
           {series ? (
             series.map((item, index) => {
               const seriesOpacity =
@@ -274,19 +318,32 @@ export function LineChartExp({
               ))}
               {values.map((value, index) =>
                 value == null ? null : (
-                  <circle
-                    key={index}
-                    cx={x(index)}
-                    cy={y(value).toFixed(1)}
-                    r={hoverIndex === index ? 5 : 3.5}
-                    fill="currentColor"
-                    stroke="var(--theme-card)"
-                    strokeWidth={2}
-                    style={{
-                      color: hollowIndices.includes(index) ? "var(--theme-card)" : color,
-                    }}
-                    opacity={hollowIndices.includes(index) ? "0.65" : "1"}
-                  />
+                  <g key={index}>
+                    {highlightLast && index === lastPointIndex && (
+                      <circle
+                        cx={x(index)}
+                        cy={y(value).toFixed(1)}
+                        r="7"
+                        fill="none"
+                        stroke={color}
+                        strokeWidth="1.5"
+                        opacity="0.45"
+                        style={{ filter: "drop-shadow(0 0 4px currentColor)", color }}
+                      />
+                    )}
+                    <circle
+                      cx={x(index)}
+                      cy={y(value).toFixed(1)}
+                      r={highlightLast && index === lastPointIndex ? 5 : hoverIndex === index ? 5 : 3.5}
+                      fill="currentColor"
+                      stroke="var(--theme-card)"
+                      strokeWidth={2}
+                      style={{
+                        color: hollowIndices.includes(index) ? "var(--theme-card)" : color,
+                      }}
+                      opacity={hollowIndices.includes(index) ? "0.65" : "1"}
+                    />
+                  </g>
                 ),
               )}
             </>
