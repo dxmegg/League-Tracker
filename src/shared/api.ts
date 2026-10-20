@@ -1184,7 +1184,14 @@ export interface TrendsData {
     trend30dKda: number;
     trendKdaAll: number;
   };
-  combatEconomy?: { dpm: number; gpm: number; cspm: number; vision: number };
+  combatEconomy?: {
+    dpm: number;
+    gpm: number;
+    cspm: number;
+    vision: number;
+    killParticipation: number;
+    damageTaken: number;
+  };
   // Chronological by first game played on the patch
   patches: {
     patch: string;

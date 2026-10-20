@@ -23,6 +23,7 @@ export function WeekdayChart({ weekdays }: { weekdays: TrendsData["weekdays"] })
       ticks={[0, 25, 50, 75, 100]}
       refValue={50}
       format={(v) => `${Math.round(v)}%`}
+      height={180}
     />
   );
 }

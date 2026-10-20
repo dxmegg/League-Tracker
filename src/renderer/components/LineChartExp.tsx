@@ -93,6 +93,8 @@ export function LineChartExp({
     );
     setHoverIndex(Math.min(Math.max(nearestIndex, 0), pointCount - 1));
   };
+  const hoveredValue =
+    hoverIndex == null ? null : (series?.[0]?.values[hoverIndex] ?? values[hoverIndex] ?? null);
 
   const xLabelIndices = (() => {
     if (!xLabels?.length) return [];
@@ -284,9 +286,7 @@ export function LineChartExp({
                       color: hollowIndices.includes(index) ? "var(--theme-card)" : color,
                     }}
                     opacity={hollowIndices.includes(index) ? "0.65" : "1"}
-                  >
-                    <title>{tooltips ? tooltips[index] : format(value)}</title>
-                  </circle>
+                  />
                 ),
               )}
             </>
@@ -308,12 +308,16 @@ export function LineChartExp({
             );
           })}
         </svg>
-        {hoverIndex != null && tooltips?.[hoverIndex] && (
+        {hoverIndex != null && hoveredValue != null && (
           <div
-            className="pointer-events-none absolute top-1 z-10 max-w-[240px] -translate-x-1/2 whitespace-pre-wrap rounded-lg border border-[rgba(165,15,21,0.4)] bg-[#0c0e11] px-2.5 py-1.5 text-xs leading-4 text-[#f5efe0] shadow-lg"
+            className="absolute top-1 z-50 pointer-events-none max-w-[240px] -translate-x-1/2 whitespace-pre-wrap rounded border border-lol-border bg-[var(--theme-card)] p-2 text-xs leading-4 text-lol-text shadow-xl"
             style={{ left: `${(x(hoverIndex) / W) * 100}%` }}
           >
-            {tooltips[hoverIndex]}
+            <div className="font-medium text-lol-text-bright">
+              {xLabels?.[hoverIndex] ?? `Point ${hoverIndex + 1}`}
+            </div>
+            <div>Value: {format(hoveredValue)}</div>
+            {tooltips?.[hoverIndex] && <div>{tooltips[hoverIndex]}</div>}
           </div>
         )}
       </div>

@@ -3779,23 +3779,51 @@ export function getTrendsData(
       SELECT SUM(ps.total_damage_dealt) * 60.0 / MAX(SUM(g.game_duration), 1) as dpm,
              SUM(ps.gold_earned) * 60.0 / MAX(SUM(g.game_duration), 1) as gpm,
              SUM(ps.cs) * 60.0 / MAX(SUM(g.game_duration), 1) as cspm,
-             AVG(mp.vision_score) as vision
+             AVG(mp.vision_score) as vision,
+             (SUM(ps.kills) + SUM(ps.assists)) * 100.0 /
+               MAX(SUM(team_kills.kills), 1) as killParticipation,
+             AVG(ps.total_damage_taken) as damageTaken
       ${fromSql}
       JOIN match_participants mp
         ON mp.game_id = g.game_id AND mp.puuid = ${ownerPuuidSql}
+      JOIN (
+        SELECT game_id, team_id, SUM(kills) as kills
+        FROM match_participants
+        GROUP BY game_id, team_id
+      ) team_kills
+        ON team_kills.game_id = mp.game_id AND team_kills.team_id = mp.team_id
       ${whereSql}
     `)
       .get(...params) as TrendsData["combatEconomy"];
 
     const roleBreakdown = db
       .prepare(`
-    SELECT mp.team_position as role,
-           COUNT(*) as games,
-           SUM(ps.win) as wins
-    ${roleFromSql}
-    ${whereSql} AND mp.team_position IS NOT NULL AND mp.team_position != ''
-    GROUP BY mp.team_position
-    ORDER BY games DESC
+    WITH roles(role) AS (
+      VALUES ('TOP'), ('JUNGLE'), ('MIDDLE'), ('BOTTOM'), ('SUPPORT')
+    ),
+    role_totals AS (
+      SELECT CASE
+               WHEN mp.team_position = 'UTILITY' THEN 'SUPPORT'
+               ELSE mp.team_position
+             END as role,
+             COUNT(*) as games,
+             SUM(ps.win) as wins
+      ${roleFromSql}
+      ${whereSql} AND mp.team_position IS NOT NULL AND mp.team_position != ''
+      GROUP BY role
+    )
+    SELECT roles.role,
+           COALESCE(role_totals.games, 0) as games,
+           COALESCE(role_totals.wins, 0) as wins
+    FROM roles
+    LEFT JOIN role_totals ON role_totals.role = roles.role
+    ORDER BY CASE roles.role
+      WHEN 'TOP' THEN 1
+      WHEN 'JUNGLE' THEN 2
+      WHEN 'MIDDLE' THEN 3
+      WHEN 'BOTTOM' THEN 4
+      WHEN 'SUPPORT' THEN 5
+    END
     `)
       .all(...params) as TrendsData["roleBreakdown"];
 
@@ -4330,6 +4358,8 @@ export function getTrendsData(
         gpm: combatEconomyRow?.gpm ?? 0,
         cspm: combatEconomyRow?.cspm ?? 0,
         vision: combatEconomyRow?.vision ?? 0,
+        killParticipation: combatEconomyRow?.killParticipation ?? 0,
+        damageTaken: combatEconomyRow?.damageTaken ?? 0,
       },
     };
   });

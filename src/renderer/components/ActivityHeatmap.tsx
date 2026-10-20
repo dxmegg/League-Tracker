@@ -1,4 +1,4 @@
-import { useMemo, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import type { TrendsDay } from "../lib/types";
 
 interface ActivityHeatmapProps {
@@ -245,7 +245,6 @@ function HistoryActivityHeatmap({
 
 const HEATMAP_CELL = 14;
 const HEATMAP_GAP = 3;
-const HEATMAP_PITCH = HEATMAP_CELL + HEATMAP_GAP;
 const HEATMAP_COLORS = [
   "rgba(255,255,255,0.03)",
   "rgba(165,15,21,0.20)",
@@ -261,9 +260,22 @@ export function ActivityHeatmap({
   daily: TrendsDay[];
   timeRange: "4w" | "12w" | "6m" | "all";
 }) {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [containerWidth, setContainerWidth] = useState(0);
   const byDay = useMemo(() => new Map(daily.map((d) => [d.day, d])), [daily]);
   const heatmapWeeks =
     timeRange === "4w" ? 4 : timeRange === "12w" ? 12 : timeRange === "6m" ? 26 : 53;
+
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+
+    const observer = new ResizeObserver(([entry]) => {
+      setContainerWidth(entry.contentRect.width);
+    });
+    observer.observe(container);
+    return () => observer.disconnect();
+  }, []);
 
   const today = new Date();
   today.setHours(0, 0, 0, 0);
@@ -281,8 +293,13 @@ export function ActivityHeatmap({
 
   const left = 28;
   const top = 14;
-  const width = left + heatmapWeeks * HEATMAP_PITCH;
-  const height = top + 7 * HEATMAP_PITCH;
+  const cellSize =
+    containerWidth > 0
+      ? Math.max(1, (containerWidth - left) / heatmapWeeks - HEATMAP_GAP)
+      : HEATMAP_CELL;
+  const pitch = cellSize + HEATMAP_GAP;
+  const width = left + heatmapWeeks * pitch;
+  const height = top + 7 * pitch;
 
   const cells: ReactNode[] = [];
   const monthLabels: ReactNode[] = [];
@@ -296,7 +313,7 @@ export function ActivityHeatmap({
       next.setDate(next.getDate() + 7);
       if (!(w === 0 && next.getMonth() !== colDate.getMonth())) {
         monthLabels.push(
-          <text key={w} x={left + w * HEATMAP_PITCH} y={9} fontSize={9} fill="#8a8f95">
+          <text key={w} x={left + w * pitch} y={9} fontSize={9} fill="#8a8f95">
             {colDate.toLocaleDateString(undefined, { month: "short" })}
           </text>,
         );
@@ -316,10 +333,10 @@ export function ActivityHeatmap({
       cells.push(
         <rect
           key={dayKey(d)}
-          x={left + w * HEATMAP_PITCH}
-          y={top + dow * HEATMAP_PITCH}
-          width={HEATMAP_CELL}
-          height={HEATMAP_CELL}
+          x={left + w * pitch}
+          y={top + dow * pitch}
+          width={cellSize}
+          height={cellSize}
           rx={2}
           fill={HEATMAP_COLORS[level]}
         >
@@ -330,14 +347,14 @@ export function ActivityHeatmap({
   }
 
   return (
-    <div className="overflow-x-auto">
-      <svg width={width} height={height} className="block max-w-none">
+    <div ref={containerRef} className="w-full overflow-x-auto">
+      <svg width="100%" height={height} viewBox={`0 0 ${width} ${height}`} className="block">
         {monthLabels}
         {(["Mon", "Wed", "Fri"] as const).map((label, i) => (
           <text
             key={label}
             x={left - 5}
-            y={top + (i * 2 + 1) * HEATMAP_PITCH + 9}
+            y={top + (i * 2 + 1) * pitch + 9}
             textAnchor="end"
             fontSize={9}
             fill="#8a8f95"

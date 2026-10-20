@@ -28,15 +28,15 @@ export function HoverTooltip({
 }) {
   return (
     <div
-      className="absolute top-1 pointer-events-none rounded-lg border border-[rgba(165,15,21,0.4)] bg-[#0c0e11] px-2.5 py-1.5 text-xs shadow-lg z-10 whitespace-nowrap"
+      className="absolute top-1 z-50 pointer-events-none rounded border border-lol-border bg-[var(--theme-card)] p-2 text-xs shadow-xl whitespace-nowrap"
       style={{
         left: Math.min(Math.max(x, 70), Math.max(width - 70, 70)),
         transform: "translateX(-50%)",
       }}
     >
-      <div className="font-medium text-[#f5efe0]">{label}</div>
-      <div className="text-[#f5efe0]">{detail}</div>
-      {value != null && <div className="font-medium text-[#f5efe0]">{value}</div>}
+      <div className="font-medium text-lol-text-bright">{label}</div>
+      {value != null && <div className="text-lol-text">Value: {value}</div>}
+      <div className="text-lol-text">{detail}</div>
     </div>
   );
 }

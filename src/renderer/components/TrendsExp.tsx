@@ -19,6 +19,7 @@ const PANEL_HOVER_CLASSES =
 const WEEKDAY_ORDER = [1, 2, 3, 4, 5, 6, 0];
 const WEEKDAY_LABELS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 const WEEKDAY_FULL = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+const ROLE_ORDER = ["TOP", "JUNGLE", "MIDDLE", "BOTTOM", "SUPPORT"] as const;
 
 export type TimeRange = "4w" | "12w" | "6m" | "all";
 
@@ -137,7 +138,7 @@ function SimpleBar({ label, games, wins }: { label: string; games: number; wins:
         <div
           className="w-full max-w-12 rounded-t-md transition-[height] duration-200"
           style={{
-            height: `${winRate === 0 ? 0 : Math.max(winRate, 4)}%`,
+            height: `${games === 0 ? 2 : winRate === 0 ? 0 : Math.max(winRate, 4)}%`,
             backgroundColor: barColor,
           }}
         />
@@ -159,15 +160,6 @@ const MATRIX_WEEKDAYS = [
   { weekday: 6, name: "Saturday" },
   { weekday: 0, name: "Sunday" },
 ];
-
-function matrixCellColor(games: number, winRate: number): string {
-  if (games === 0) return "var(--theme-card-hover)";
-  if (winRate < 45) return "color-mix(in srgb, var(--theme-loss) 45%, var(--theme-card))";
-  if (winRate < 50) return "var(--theme-loss)";
-  if (winRate < 55) return "var(--theme-gold)";
-  if (winRate < 60) return "color-mix(in srgb, var(--theme-win) 55%, var(--theme-card))";
-  return "var(--theme-win)";
-}
 
 function DayHourMatrix({ data }: { data: TrendsData["dayHourMatrix"] }) {
   const cells = new Map(data.map((cell) => [`${cell.weekday}:${cell.hour}`, cell]));
@@ -195,13 +187,20 @@ function DayHourMatrix({ data }: { data: TrendsData["dayHourMatrix"] }) {
                 const cell = cells.get(`${day.weekday}:${hour}`);
                 const games = cell?.games ?? 0;
                 const winRate = games > 0 ? (cell!.wins / games) * 100 : 0;
+                const cellClass =
+                  games === 0
+                    ? "bg-black/40 text-lol-text/50"
+                    : winRate >= 50
+                      ? "bg-[var(--theme-win)] text-white"
+                      : "bg-[var(--theme-loss)] text-white";
                 return (
                   <div
                     key={hour}
-                    className="aspect-square rounded-[3px] border border-lol-border/30"
-                    style={{ backgroundColor: matrixCellColor(games, winRate) }}
+                    className={`flex aspect-square items-center justify-center rounded-[3px] border border-lol-border/30 text-[9px] font-semibold leading-none ${cellClass}`}
                     title={`${day.name} ${String(hour).padStart(2, "0")}:00 - ${games} games, ${Math.round(winRate)}% WR`}
-                  />
+                  >
+                    {games > 0 ? `${Math.round(winRate)}%` : "—"}
+                  </div>
                 );
               })}
             </div>
@@ -427,7 +426,17 @@ export function TrendsExp({
       .reverse()
       .find((value) => value != null) ?? null;
   const lastWinLoss = weeklyWinLoss[weeklyWinLoss.length - 1] ?? { wins: 0, losses: 0 };
-  const roleBreakdown = [...data.roleBreakdown].sort((a, b) => b.games - a.games);
+  const rolesByName = new Map(
+    data.roleBreakdown.map((role) => [role.role === "UTILITY" ? "SUPPORT" : role.role, role]),
+  );
+  const roleBreakdown = ROLE_ORDER.map((role) => {
+    const stats = rolesByName.get(role);
+    return {
+      role,
+      games: stats?.games ?? 0,
+      wins: stats?.wins ?? 0,
+    };
+  });
   const queueBreakdown = (() => {
     const grouped = new Map<
       string,
@@ -1104,7 +1113,7 @@ export function TrendsExp({
                     {data.championTop.map((champion) => (
                       <tr
                         key={champion.championId}
-                        className="border-b border-lol-border/20 last:border-b-0"
+                        className="border-b border-lol-border/20 transition-colors hover:bg-white/[0.02] last:border-b-0"
                       >
                         <td className="px-3 py-2">
                           <span className="flex items-center gap-2 text-sm font-semibold text-lol-text-bright">
@@ -1147,19 +1156,26 @@ export function TrendsExp({
                   Selected period
                 </span>
               </div>
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
                 {[
-                  ["DPM", data.combatEconomy?.dpm ?? 0],
-                  ["GPM", data.combatEconomy?.gpm ?? 0],
-                  ["CS/min", data.combatEconomy?.cspm ?? 0],
-                  ["Vision Score", data.combatEconomy?.vision ?? 0],
-                ].map(([label, value]) => (
+                  { label: "DPM", value: data.combatEconomy?.dpm ?? 0 },
+                  { label: "GPM", value: data.combatEconomy?.gpm ?? 0 },
+                  { label: "CS/min", value: data.combatEconomy?.cspm ?? 0 },
+                  { label: "Vision Score", value: data.combatEconomy?.vision ?? 0 },
+                  {
+                    label: "KP%",
+                    value: data.combatEconomy?.killParticipation ?? 0,
+                    suffix: "%",
+                  },
+                  { label: "DMG TAKEN", value: data.combatEconomy?.damageTaken ?? 0 },
+                ].map(({ label, value, suffix = "" }) => (
                   <div
                     key={label}
                     className="rounded-md border border-lol-border/40 bg-lol-card/30 p-3"
                   >
                     <div className="text-xl font-semibold tabular-nums text-lol-text-bright">
                       {Number(value).toFixed(1)}
+                      {suffix}
                     </div>
                     <div className="mt-1 text-[10px] uppercase tracking-wider text-lol-text">
                       {label}
@@ -1206,7 +1222,7 @@ export function TrendsExp({
                     return (
                       <tr
                         key={queue.label}
-                        className="border-b border-lol-border/20 last:border-b-0"
+                        className="border-b border-lol-border/20 transition-colors hover:bg-white/[0.02] last:border-b-0"
                       >
                         <td className="px-3 py-2 text-sm font-semibold text-lol-text-bright">
                           {queue.label}
@@ -1436,33 +1452,43 @@ export function TrendsExp({
                 </tr>
               </thead>
               <tbody>
-                {data.recentSessions.map((session) => (
-                  <tr
-                    key={`${session.date}-${session.queueName}`}
-                    className="border-b border-lol-border/20 last:border-b-0"
-                  >
-                    <td className="px-3 py-2 text-sm text-lol-text-bright">
-                      {new Date(session.date).toLocaleDateString(undefined, {
-                        day: "2-digit",
-                        month: "short",
-                      })}
-                    </td>
-                    <td className="px-3 py-2 text-sm text-lol-text">{session.queueName}</td>
-                    <td className="px-3 py-2 text-right text-xs tabular-nums text-lol-text">
-                      {session.games}
-                    </td>
-                    <td className="px-3 py-2 text-right text-xs tabular-nums">
-                      <span className="text-[var(--theme-win)]">{session.wins}W</span>
-                      <span className="text-lol-text"> - </span>
-                      <span className="text-[var(--theme-loss)]">
-                        {session.games - session.wins}L
-                      </span>
-                    </td>
-                    <td className="px-3 py-2 text-right text-xs tabular-nums text-lol-text">
-                      {session.avgKda.toFixed(2)}
-                    </td>
-                  </tr>
-                ))}
+                {data.recentSessions.map((session) => {
+                  const losses = session.games - session.wins;
+                  const winRate = (session.wins / (session.wins + losses)) * 100;
+                  return (
+                    <tr
+                      key={`${session.date}-${session.queueName}`}
+                      className="border-b border-lol-border/20 transition-colors hover:bg-white/[0.02] last:border-b-0"
+                    >
+                      <td className="px-3 py-2 text-sm text-lol-text-bright">
+                        {new Date(session.date).toLocaleDateString(undefined, {
+                          day: "2-digit",
+                          month: "short",
+                        })}
+                      </td>
+                      <td className="px-3 py-2 text-sm text-lol-text">{session.queueName}</td>
+                      <td className="px-3 py-2 text-right text-xs tabular-nums text-lol-text">
+                        {session.games}
+                      </td>
+                      <td className="space-y-1 px-3 py-2 text-right text-xs tabular-nums">
+                        <div>
+                          <span className="text-[var(--theme-win)]">{session.wins}W</span>
+                          <span className="text-lol-text"> - </span>
+                          <span className="text-[var(--theme-loss)]">{losses}L</span>
+                        </div>
+                        <div className="flex h-1 w-full rounded bg-lol-loss">
+                          <div
+                            className="h-full rounded bg-[var(--theme-win)]"
+                            style={{ width: `${winRate}%` }}
+                          />
+                        </div>
+                      </td>
+                      <td className="px-3 py-2 text-right text-xs tabular-nums text-lol-text">
+                        {session.avgKda.toFixed(2)}
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
