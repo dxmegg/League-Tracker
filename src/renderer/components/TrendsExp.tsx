@@ -303,19 +303,36 @@ export function TrendsExp({
   const kdaDisplay = Array.from({ length: Math.ceil(weekly.length / 2) }, (_, index) => {
     const pair = weekly.slice(index * 2, index * 2 + 2);
     const games = pair.reduce((sum, week) => sum + week.games, 0);
+    const wins = pair.reduce((sum, week) => sum + week.wins, 0);
     const average = (key: "kills" | "deaths" | "assists") => {
       const total = pair.reduce((sum, week) => sum + week[key], 0);
       return games > 0 ? total / games : 0;
     };
+    const startDate = parseDay(pair[0].day);
+    const endDate = new Date(startDate);
+    endDate.setDate(endDate.getDate() + 13);
+    const kills = average("kills");
+    const deaths = average("deaths");
+    const assists = average("assists");
     return {
       day: pair[0].day,
-      kills: average("kills"),
-      deaths: average("deaths"),
-      assists: average("assists"),
+      startDate,
+      endDate,
+      games,
+      wins,
+      kills,
+      deaths,
+      assists,
+      kda: (kills + assists) / Math.max(deaths, 1),
+      winRate: games > 0 ? (wins / games) * 100 : 0,
     };
   });
   const weekLabel = (day: string) =>
     parseDay(day).toLocaleDateString(undefined, { month: "short", day: "numeric" });
+  const shortDate = (date: Date) =>
+    date.toLocaleDateString("pl-PL", { day: "numeric", month: "short" }).replace(".", "");
+  const dateRangeLabel = (startDate: Date, endDate: Date) =>
+    `${shortDate(startDate)}–${shortDate(endDate)}`;
 
   if (error) {
     return (
@@ -383,7 +400,17 @@ export function TrendsExp({
   );
   const kdaTooltips = kdaDisplay.map(
     (week) =>
-      `Date: ${weekLabel(week.day)}\nKills: ${week.kills.toFixed(1)}\nDeaths: ${week.deaths.toFixed(1)}\nAssists: ${week.assists.toFixed(1)}`,
+      `${dateRangeLabel(week.startDate, week.endDate)}\nK/D/A ${week.kills.toFixed(1)} / ${week.deaths.toFixed(1)} / ${week.assists.toFixed(1)}\nKDA ${week.kda.toFixed(2)}\nWin rate ${week.winRate.toFixed(1)}% (${week.wins}W - ${week.games - week.wins}L)\nGames ${week.games}`,
+  );
+  const averageKda = (totalKills + totalAssists) / Math.max(totalDeaths, 1);
+  const populatedKdaPeriods = kdaDisplay.filter((period) => period.games > 0);
+  const bestKdaPeriod = populatedKdaPeriods.reduce<(typeof kdaDisplay)[number] | null>(
+    (best, period) => (best == null || period.kda > best.kda ? period : best),
+    null,
+  );
+  const worstKdaPeriod = populatedKdaPeriods.reduce<(typeof kdaDisplay)[number] | null>(
+    (worst, period) => (worst == null || period.kda < worst.kda ? period : worst),
+    null,
   );
   const weeklyWinLoss = weekly.map((week) => ({
     label: weekLabel(week.day),
@@ -725,27 +752,46 @@ export function TrendsExp({
       <Panel
         className={`${PANEL_HOVER_CLASSES} rounded-xl border-t-[3px] border-t-[var(--theme-assist)] bg-[radial-gradient(circle_at_top_right,color-mix(in_oklab,var(--theme-assist)_8%,transparent),transparent_48%),linear-gradient(180deg,var(--theme-card-hover),var(--theme-card))]`}
       >
-        <div className="mb-3 flex items-baseline justify-between">
-          <h2 className="relative pl-4 font-display text-xl font-semibold text-lol-text-bright before:absolute before:left-0 before:top-1/2 before:h-2 before:w-2 before:-translate-y-1/2 before:rotate-45 before:bg-lol-crimson">
-            K/D/A over time
-          </h2>
-          <span className="text-xs uppercase tracking-wider text-lol-text">{timeRangeLabel}</span>
+        <div className="mb-3 flex flex-wrap items-baseline justify-between gap-2">
+          <div className="flex min-w-0 flex-wrap items-baseline gap-x-3 gap-y-1">
+            <h2 className="relative pl-4 font-display text-xl font-semibold text-lol-text-bright before:absolute before:left-0 before:top-1/2 before:h-2 before:w-2 before:-translate-y-1/2 before:rotate-45 before:bg-lol-crimson">
+              K/D/A over time
+            </h2>
+            <span className="text-xs text-lol-text">Average per game · {timeRangeLabel}</span>
+            <span className="text-xs">
+              <span className="text-[var(--theme-win)]">● Kills</span>{" "}
+              <span className="text-[var(--theme-loss)]">● Deaths</span>{" "}
+              <span className="text-[var(--theme-assist)]">● Assists</span>
+            </span>
+          </div>
+          <div className="flex gap-2 text-[10px] font-semibold uppercase tracking-wider text-lol-text">
+            <span>{timeRangeLabel.toUpperCase()}</span>
+            <span>{totalGames.toLocaleString()} GAMES</span>
+          </div>
         </div>
-        <div className="mb-4 grid grid-cols-2 gap-3 border-b border-lol-border/50 pb-3 sm:grid-cols-5">
+        <div className="mb-4 grid grid-cols-2 gap-3 border-b border-lol-border/50 pb-3 sm:grid-cols-6">
           {[
             ["Avg Kills", data.summaryStats.avgKills.toFixed(1)],
             ["Avg Deaths", data.summaryStats.avgDeaths.toFixed(1)],
             ["Avg Assists", data.summaryStats.avgAssists.toFixed(1)],
+            ["Avg KDA", averageKda.toFixed(2)],
             [
-              "Peak KDA Game",
-              data.summaryStats.peakKdaGame
-                ? `${data.summaryStats.peakKdaGame.kills}/${data.summaryStats.peakKdaGame.deaths}/${data.summaryStats.peakKdaGame.assists}`
+              "Best period",
+              bestKdaPeriod
+                ? `${dateRangeLabel(bestKdaPeriod.startDate, bestKdaPeriod.endDate)} · ${bestKdaPeriod.kda.toFixed(2)} KDA`
                 : "—",
             ],
-            ["Trend (30D)", formatSigned(data.summaryStats.trend30dKda)],
+            [
+              "Worst period",
+              worstKdaPeriod
+                ? `${dateRangeLabel(worstKdaPeriod.startDate, worstKdaPeriod.endDate)} · ${worstKdaPeriod.kda.toFixed(2)} KDA`
+                : "—",
+            ],
           ].map(([label, value]) => (
-            <div key={label} className="text-center">
-              <div className="text-sm font-semibold tabular-nums text-lol-text-bright">{value}</div>
+            <div key={label} className="min-w-0 text-center">
+              <div className="truncate text-sm font-semibold tabular-nums text-lol-text-bright">
+                {value}
+              </div>
               <div className="mt-1 text-[10px] uppercase tracking-wider text-lol-text">{label}</div>
             </div>
           ))}

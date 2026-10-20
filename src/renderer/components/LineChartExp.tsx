@@ -182,7 +182,8 @@ export function LineChartExp({
             );
           })}
           {series ? (
-            series.map((item, _index) => {
+            series.map((item, index) => {
+              const seriesOpacity = hoverIndex !== null && hoverIndex !== index ? 0.3 : 1;
               return (
                 <g key={item.label}>
                   {lineSegments(item.values).map((segment, segmentIndex) => {
@@ -203,6 +204,12 @@ export function LineChartExp({
                           stroke={item.color}
                           strokeWidth="2.5"
                           strokeLinejoin="round"
+                          opacity={seriesOpacity}
+                          style={
+                            hoverIndex === index
+                              ? { filter: "drop-shadow(0 0 3px currentColor)", color: item.color }
+                              : undefined
+                          }
                         />
                       </g>
                     );
@@ -213,11 +220,12 @@ export function LineChartExp({
                         key={`dot-${pointIndex}`}
                         cx={x(pointIndex)}
                         cy={y(value).toFixed(1)}
-                        r={3.5}
+                        r={hoverIndex === pointIndex ? 5 : 3.5}
                         fill="currentColor"
                         stroke="var(--theme-card)"
                         strokeWidth={2}
                         style={{ color: item.color }}
+                        opacity={seriesOpacity}
                       />
                     ),
                   )}
@@ -240,6 +248,12 @@ export function LineChartExp({
                   stroke={color}
                   strokeWidth="2.5"
                   strokeLinejoin="round"
+                  opacity={hoverIndex !== null ? 1 : 1}
+                  style={
+                    hoverIndex !== null
+                      ? { filter: "drop-shadow(0 0 3px currentColor)", color }
+                      : undefined
+                  }
                 />
               ))}
               {values.map((value, index) =>
@@ -248,7 +262,7 @@ export function LineChartExp({
                     key={index}
                     cx={x(index)}
                     cy={y(value).toFixed(1)}
-                    r={3.5}
+                    r={hoverIndex === index ? 5 : 3.5}
                     fill="currentColor"
                     stroke="var(--theme-card)"
                     strokeWidth={2}
@@ -282,7 +296,7 @@ export function LineChartExp({
         </svg>
         {hoverIndex != null && tooltips?.[hoverIndex] && (
           <div
-            className="pointer-events-none absolute top-1 z-10 max-w-[240px] -translate-x-1/2 whitespace-pre-line rounded-lg border border-[rgba(165,15,21,0.4)] bg-[#0c0e11] px-2.5 py-1.5 text-xs leading-4 text-[#f5efe0] shadow-lg"
+            className="pointer-events-none absolute top-1 z-10 max-w-[240px] -translate-x-1/2 whitespace-pre-wrap rounded-lg border border-[rgba(165,15,21,0.4)] bg-[#0c0e11] px-2.5 py-1.5 text-xs leading-4 text-[#f5efe0] shadow-lg"
             style={{ left: `${(x(hoverIndex) / W) * 100}%` }}
           >
             {tooltips[hoverIndex]}
