@@ -134,7 +134,7 @@ function SimpleBar({ label, games, wins }: { label: string; games: number; wins:
         <div
           className="w-full max-w-12 rounded-t-md transition-[height] duration-200"
           style={{
-            height: `${Math.max(winRate, 4)}%`,
+            height: `${winRate === 0 ? 0 : Math.max(winRate, 4)}%`,
             backgroundColor: barColor,
           }}
         />
@@ -628,7 +628,7 @@ export function TrendsExp({
             </h2>
             <span className="text-xs uppercase tracking-wider text-lol-text">{timeRangeLabel}</span>
           </div>
-          <ActivityHeatmap daily={data.daily} />
+          <ActivityHeatmap daily={data.daily} timeRange={timeRange} />
         </Panel>
         <Panel className={`${PANEL_HOVER_CLASSES} lg:w-72`}>
           <h2 className="mb-3 text-xs font-bold uppercase tracking-wider text-lol-gold">
@@ -841,7 +841,7 @@ export function TrendsExp({
             <h2 className="relative pl-4 font-display text-xl font-semibold text-lol-text-bright before:absolute before:left-0 before:top-1/2 before:h-2 before:w-2 before:-translate-y-1/2 before:rotate-45 before:bg-lol-crimson">
               Performance by day &amp; hour
             </h2>
-            <span className="text-xs uppercase tracking-wider text-lol-text">All games</span>
+            <span className="text-xs uppercase tracking-wider text-lol-text">Selected period</span>
           </div>
           <DayHourMatrix data={data.dayHourMatrix} />
         </Panel>
@@ -900,7 +900,9 @@ export function TrendsExp({
                 <h2 className="relative pl-4 font-display text-xl font-semibold text-lol-text-bright before:absolute before:left-0 before:top-1/2 before:h-2 before:w-2 before:-translate-y-1/2 before:rotate-45 before:bg-lol-crimson">
                   Combat &amp; economy
                 </h2>
-                <span className="text-xs uppercase tracking-wider text-lol-text">All games</span>
+                <span className="text-xs uppercase tracking-wider text-lol-text">
+                  Selected period
+                </span>
               </div>
               <div className="grid grid-cols-2 gap-3">
                 {[

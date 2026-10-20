@@ -3975,8 +3975,12 @@ export function getTrendsData(
     `)
       .all(...params) as TrendsData["dayHourMatrix"];
 
-    const cutoff30d = Date.now() - 30 * 86400000;
-    const cutoff60d = Date.now() - 60 * 86400000;
+    const now = Date.now();
+    const windowMs =
+      (timePeriod === "4w" ? 28 : timePeriod === "12w" ? 84 : timePeriod === "6m" ? 180 : 180) *
+      86400000;
+    const recentCutoff = now - windowMs;
+    const previousCutoff = now - 2 * windowMs;
     const comparisonRow = db
       .prepare(`
       SELECT
@@ -3988,14 +3992,14 @@ export function getTrendsData(
       WHERE ${baseWhere.join(" AND ")} AND g.game_creation >= ?
     `)
       .get(
-        cutoff30d,
-        cutoff30d,
-        cutoff60d,
-        cutoff30d,
-        cutoff60d,
-        cutoff30d,
+        recentCutoff,
+        recentCutoff,
+        previousCutoff,
+        recentCutoff,
+        previousCutoff,
+        recentCutoff,
         ...baseParams,
-        cutoff60d,
+        previousCutoff,
       ) as {
       recentWins: number | null;
       recentGames: number | null;
@@ -4031,11 +4035,13 @@ export function getTrendsData(
       .prepare(`
       SELECT ps.win as win
       ${fromSql}
-      WHERE ${baseWhere.join(" AND ")}
+      WHERE ${baseWhere.join(" AND ")}${timeDays !== null ? " AND g.game_creation >= ?" : ""}
       ORDER BY g.game_creation DESC, g.game_id DESC
       LIMIT 24
     `)
-      .all(...baseParams) as { win: number }[];
+      .all(...baseParams, ...(timeDays !== null ? [now - timeDays * 86400000] : [])) as {
+      win: number;
+    }[];
     const last24Games = last24Rows.reverse().map((game) => game.win === 1);
 
     const peakWindow = Array.from({ length: 24 }, (_, startHour) => {
@@ -4051,7 +4057,7 @@ export function getTrendsData(
         wr: games > 0 ? (wins / games) * 100 : 0,
       };
     })
-      .filter((window) => window.games > 0)
+      .filter((window) => window.games >= 3)
       .sort((a, b) => b.wr - a.wr || b.games - a.games)[0];
 
     const winningConditionsRow = db
@@ -4205,8 +4211,6 @@ export function getTrendsData(
       longestActiveStreak = Math.max(longestActiveStreak, activeStreak);
       previousDay = day;
     }
-    const recent30d = daily.filter((row) => new Date(`${row.day}T23:59:59`).getTime() >= cutoff30d);
-    const older30d = daily.filter((row) => new Date(`${row.day}T23:59:59`).getTime() < cutoff30d);
     const kdaForRows = (rows: TrendsData["daily"]): number => {
       const kills = rows.reduce((sum, row) => sum + row.kills, 0);
       const deaths = rows.reduce((sum, row) => sum + row.deaths, 0);
@@ -4235,8 +4239,8 @@ export function getTrendsData(
       avgKdaAll,
       kdaOver3Percent: summaryRow.kdaOver3Percent ?? 0,
       trend30dKda:
-        recent30d.length > 0 && older30d.length > 0
-          ? kdaForRows(recent30d) - kdaForRows(older30d)
+        firstHalf.length > 0 && secondHalf.length > 0
+          ? kdaForRows(secondHalf) - kdaForRows(firstHalf)
           : 0,
       trendKdaAll:
         firstHalf.length > 0 && secondHalf.length > 0

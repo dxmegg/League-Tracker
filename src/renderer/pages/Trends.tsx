@@ -232,7 +232,7 @@ export default function Trends() {
     return (
       <div className="flex flex-col gap-4">
         <div className="[&_select]:h-9 [&_select]:rounded-md [&_select]:border [&_select]:border-lol-border/60 [&_select]:bg-lol-card/40 [&_select]:px-3 [&_select]:text-xs [&_select]:text-lol-text-bright [&_select]:focus-visible:outline-none [&_select]:focus-visible:border-lol-gold/60 [&_select]:focus-visible:ring-1 [&_select]:focus-visible:ring-lol-gold/40 [&_select]:transition-colors">
-          <QueueSelect value={queue} onChange={setQueue} />
+          <QueueSelect value={scopedQueue} onChange={setQueue} />
         </div>
         <TrendsExp
           data={data}
@@ -287,14 +287,14 @@ export default function Trends() {
             {totalGames} games over {data.daily.length} days
           </span>
           <div className="[&_select]:h-9 [&_select]:rounded-md [&_select]:border [&_select]:border-lol-border/60 [&_select]:bg-lol-card/40 [&_select]:px-3 [&_select]:text-xs [&_select]:text-lol-text-bright [&_select]:focus-visible:outline-none [&_select]:focus-visible:border-lol-gold/60 [&_select]:focus-visible:ring-1 [&_select]:focus-visible:ring-lol-gold/40 [&_select]:transition-colors">
-            <QueueSelect value={queue} onChange={setQueue} />
+            <QueueSelect value={scopedQueue} onChange={setQueue} />
           </div>
         </div>
         {granularityToggle}
       </div>
 
       <Card title="Activity" accent="gold">
-        <ActivityHeatmap daily={data.daily} />
+        <ActivityHeatmap daily={data.daily} timeRange={timeRange} />
       </Card>
 
       <Card title="Win Rate Over Time" accent="win">

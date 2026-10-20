@@ -246,7 +246,6 @@ function HistoryActivityHeatmap({
 const HEATMAP_CELL = 11;
 const HEATMAP_GAP = 2;
 const HEATMAP_PITCH = HEATMAP_CELL + HEATMAP_GAP;
-const HEATMAP_WEEKS = 53;
 const HEATMAP_COLORS = [
   "rgba(255,255,255,0.03)",
   "rgba(165,15,21,0.20)",
@@ -259,17 +258,25 @@ function shortDate(date: Date): string {
   return date.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
 }
 
-export function ActivityHeatmap({ daily }: { daily: TrendsDay[] }) {
+export function ActivityHeatmap({
+  daily,
+  timeRange,
+}: {
+  daily: TrendsDay[];
+  timeRange: "4w" | "12w" | "6m" | "all";
+}) {
   const byDay = useMemo(() => new Map(daily.map((d) => [d.day, d])), [daily]);
+  const heatmapWeeks =
+    timeRange === "4w" ? 4 : timeRange === "12w" ? 12 : timeRange === "6m" ? 26 : 53;
 
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   // Sunday-start columns, trailing 52 full weeks plus the current partial one
   const start = new Date(today);
-  start.setDate(start.getDate() - start.getDay() - 52 * 7);
+  start.setDate(start.getDate() - start.getDay() - (heatmapWeeks - 1) * 7);
 
   let maxGames = 1;
-  for (let i = 0; i < HEATMAP_WEEKS * 7; i++) {
+  for (let i = 0; i < heatmapWeeks * 7; i++) {
     const d = new Date(start);
     d.setDate(d.getDate() + i);
     if (d > today) break;
@@ -278,13 +285,13 @@ export function ActivityHeatmap({ daily }: { daily: TrendsDay[] }) {
 
   const left = 28;
   const top = 14;
-  const width = left + HEATMAP_WEEKS * HEATMAP_PITCH;
+  const width = left + heatmapWeeks * HEATMAP_PITCH;
   const height = top + 7 * HEATMAP_PITCH;
 
   const cells: ReactNode[] = [];
   const monthLabels: ReactNode[] = [];
   let prevMonth = -1;
-  for (let w = 0; w < HEATMAP_WEEKS; w++) {
+  for (let w = 0; w < heatmapWeeks; w++) {
     const colDate = new Date(start);
     colDate.setDate(colDate.getDate() + w * 7);
     if (colDate.getMonth() !== prevMonth) {
