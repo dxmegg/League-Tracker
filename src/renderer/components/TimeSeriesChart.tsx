@@ -91,7 +91,7 @@ export function TimeSeriesChart({
   const y = (v: number) => M.top + ih - ((v - yMin) / (yMax - yMin)) * ih;
   const maxGames = Math.max(...points.map((p) => p.games), 1);
   const barWidth = Math.max(Math.min(step * 0.6, 28), 2);
-  const labelEvery = Math.max(1, Math.ceil(n / Math.max(Math.floor(iw / 64), 1)));
+  const labelEvery = Math.max(1, Math.ceil(n / 8));
 
   // Null values (empty buckets) break the line into segments instead of
   // interpolating across periods that were never played.

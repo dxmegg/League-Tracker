@@ -55,6 +55,7 @@ function GroupedBarChart({ data }: { data: { label: string; wins: number; losses
   const maxValue = Math.max(...data.flatMap((item) => [item.wins, item.losses]), 1);
   const groupWidth = chartWidth / data.length;
   const barWidth = Math.max(4, groupWidth * 0.24);
+  const barGap = 3;
   const baseline = padding.top + chartHeight;
   const barHeight = (value: number) => (value / maxValue) * chartHeight;
 
@@ -80,7 +81,7 @@ function GroupedBarChart({ data }: { data: { label: string; wins: number; losses
           return (
             <g key={item.label}>
               <rect
-                x={center - barWidth - 1}
+                x={center - barWidth - barGap / 2}
                 y={baseline - winsHeight}
                 width={barWidth}
                 height={winsHeight}
@@ -90,7 +91,7 @@ function GroupedBarChart({ data }: { data: { label: string; wins: number; losses
                 <title>{`${item.label}: ${item.wins} wins`}</title>
               </rect>
               <rect
-                x={center + 1}
+                x={center + barGap / 2}
                 y={baseline - lossesHeight}
                 width={barWidth}
                 height={lossesHeight}
@@ -300,6 +301,9 @@ export function TrendsExp({
   const weeklyKda = weekly.map((week) =>
     week.games > 0 ? (week.kills + week.assists) / Math.max(week.deaths, 1) : null,
   );
+  const weeklyScores = weekly.map((week) =>
+    week.scoredGames > 0 ? week.scoreSum / week.scoredGames : null,
+  );
   const kdaDisplay = Array.from({ length: Math.ceil(weekly.length / 2) }, (_, index) => {
     const pair = weekly.slice(index * 2, index * 2 + 2);
     const games = pair.reduce((sum, week) => sum + week.games, 0);
@@ -417,6 +421,12 @@ export function TrendsExp({
     wins: week.wins,
     losses: week.games - week.wins,
   }));
+  const lastScore =
+    weeklyScores
+      .slice()
+      .reverse()
+      .find((value) => value != null) ?? null;
+  const lastWinLoss = weeklyWinLoss[weeklyWinLoss.length - 1] ?? { wins: 0, losses: 0 };
   const roleBreakdown = [...data.roleBreakdown].sort((a, b) => b.games - a.games);
   const queueBreakdown = (() => {
     const grouped = new Map<
@@ -465,6 +475,9 @@ export function TrendsExp({
       .slice()
       .reverse()
       .find((value) => value != null) ?? null;
+  const kdaValues = weeklyKda.filter((value): value is number => value != null);
+  const kdaMin = kdaValues.length > 0 ? Math.floor(Math.min(...kdaValues) - 1) : 0;
+  const kdaMax = kdaValues.length > 0 ? Math.ceil(Math.max(...kdaValues) + 1) : 1;
   const last20Wins = data.streaks.last20Games.filter(Boolean).length;
   const last20Losses = data.streaks.last20Games.length - last20Wins;
   const streakBorderClass =
@@ -618,7 +631,7 @@ export function TrendsExp({
         ))}
       </div>
 
-      <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
         <Panel className={`${PANEL_HOVER_CLASSES} border-t-[3px] ${streakBorderClass}`}>
           <h2 className="mb-4 font-display text-xl font-semibold text-lol-text-bright">
             Streaks &amp; Consistency
@@ -857,8 +870,8 @@ export function TrendsExp({
             <h2 className="relative pl-4 font-display text-xl font-semibold text-lol-text-bright before:absolute before:left-0 before:top-1/2 before:h-2 before:w-2 before:-translate-y-1/2 before:rotate-45 before:bg-lol-crimson">
               Win rate over time
             </h2>
-            <span className="text-xs uppercase tracking-wider text-lol-text">
-              Last played {currentWinRate != null ? `${currentWinRate.toFixed(1)}%` : "—"}
+            <span className="text-[10px] uppercase tracking-wider text-lol-text">
+              LAST: {currentWinRate != null ? `${currentWinRate.toFixed(1)}%` : "—"}
             </span>
           </div>
           <TimeSeriesChart
@@ -904,14 +917,16 @@ export function TrendsExp({
             <h2 className="relative pl-4 font-display text-xl font-semibold text-lol-text-bright before:absolute before:left-0 before:top-1/2 before:h-2 before:w-2 before:-translate-y-1/2 before:rotate-45 before:bg-lol-crimson">
               Average KDA
             </h2>
-            <span className="text-xs uppercase tracking-wider text-lol-text">
-              Last played {currentKda != null ? currentKda.toFixed(2) : "—"}
+            <span className="text-[10px] uppercase tracking-wider text-lol-text">
+              LAST: {currentKda != null ? currentKda.toFixed(2) : "—"}
             </span>
           </div>
           <LineChartExp
             values={weeklyKda}
             format={(value) => value.toFixed(2)}
             color="var(--theme-assist)"
+            min={kdaMin}
+            max={kdaMax}
           />
           <div className="mt-4 flex flex-wrap gap-x-5 gap-y-2 border-t border-lol-border/50 pt-3 text-xs">
             <span>
@@ -942,13 +957,15 @@ export function TrendsExp({
             <h2 className="relative pl-4 font-display text-xl font-semibold text-lol-text-bright before:absolute before:left-0 before:top-1/2 before:h-2 before:w-2 before:-translate-y-1/2 before:rotate-45 before:bg-lol-crimson">
               Average score over time
             </h2>
-            <span className="text-xs uppercase tracking-wider text-lol-text">out of 10</span>
+            <span className="text-[10px] uppercase tracking-wider text-lol-text">
+              LAST: {lastScore != null ? lastScore.toFixed(1) : "—"}
+            </span>
           </div>
           <TimeSeriesChart
-            points={weekly.map<SeriesPoint>((week) => ({
+            points={weekly.map<SeriesPoint>((week, index) => ({
               label: weekLabel(week.day),
               games: week.scoredGames,
-              value: week.scoredGames === 0 ? null : week.scoreSum / week.scoredGames,
+              value: weeklyScores[index],
               detail: week.scoredGames > 0 ? `${week.scoredGames} scored games` : "No scored games",
             }))}
             yMin={0}
@@ -965,7 +982,9 @@ export function TrendsExp({
             <h2 className="relative pl-4 font-display text-xl font-semibold text-lol-text-bright before:absolute before:left-0 before:top-1/2 before:h-2 before:w-2 before:-translate-y-1/2 before:rotate-45 before:bg-lol-crimson">
               Win / loss balance
             </h2>
-            <span className="text-xs uppercase tracking-wider text-lol-text">{timeRangeLabel}</span>
+            <span className="text-[10px] uppercase tracking-wider text-lol-text">
+              LAST: {lastWinLoss.wins}W - {lastWinLoss.losses}L
+            </span>
           </div>
           <GroupedBarChart data={weeklyWinLoss} />
         </Panel>
