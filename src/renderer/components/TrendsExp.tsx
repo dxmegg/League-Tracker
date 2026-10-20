@@ -822,7 +822,7 @@ export function TrendsExp({
           </div>
           <ActivityHeatmap daily={data.daily} timeRange={timeRange} />
         </Panel>
-        <Panel className={`${PANEL_HOVER_CLASSES} lg:w-72`}>
+        <Panel className={`${PANEL_HOVER_CLASSES} w-full lg:w-1/3`}>
           <h2 className="mb-3 text-xs font-bold uppercase tracking-wider text-lol-gold">
             Activity summary
           </h2>

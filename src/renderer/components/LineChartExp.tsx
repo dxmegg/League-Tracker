@@ -57,6 +57,7 @@ export function LineChartExp({
   showLegend?: boolean;
 }) {
   const [hoverIndex, setHoverIndex] = useState<number | null>(null);
+  const [activeSeriesIndex, setActiveSeriesIndex] = useState<number | null>(null);
   const chartValues = (series ? series.flatMap((item) => item.values) : values).filter(isNumber);
   const statValues = (series?.[0]?.values ?? values).filter(isNumber);
   const pointCount = series?.[0]?.values.length ?? values.length;
@@ -126,7 +127,10 @@ export function LineChartExp({
           preserveAspectRatio="xMidYMid meet"
           role="img"
           onMouseMove={handleMove}
-          onMouseLeave={() => setHoverIndex(null)}
+          onMouseLeave={() => {
+            setHoverIndex(null);
+            setActiveSeriesIndex(null);
+          }}
         >
           <line x1={plotLeft} x2={plotRight} y1={H - P} y2={H - P} stroke="var(--theme-border)" />
           {yTicks?.map((tick) => (
@@ -139,7 +143,14 @@ export function LineChartExp({
                 stroke="rgba(255,255,255,0.05)"
                 strokeWidth="1"
               />
-              <text x={plotLeft - 8} y={y(tick) + 3} textAnchor="end" fontSize={10} fill="#8a8f95">
+              <text
+                x={plotLeft - 8}
+                y={y(tick)}
+                textAnchor="end"
+                dominantBaseline="middle"
+                fontSize={10}
+                fill="#8a8f95"
+              >
                 {yFormat ? yFormat(tick) : tick}
               </text>
             </g>
@@ -183,7 +194,8 @@ export function LineChartExp({
           })}
           {series ? (
             series.map((item, index) => {
-              const seriesOpacity = hoverIndex !== null && hoverIndex !== index ? 0.3 : 1;
+              const seriesOpacity =
+                activeSeriesIndex !== null && activeSeriesIndex !== index ? 0.3 : 1;
               return (
                 <g key={item.label}>
                   {lineSegments(item.values).map((segment, segmentIndex) => {
@@ -205,8 +217,9 @@ export function LineChartExp({
                           strokeWidth="2.5"
                           strokeLinejoin="round"
                           opacity={seriesOpacity}
+                          onMouseEnter={() => setActiveSeriesIndex(index)}
                           style={
-                            hoverIndex === index
+                            activeSeriesIndex === index
                               ? { filter: "drop-shadow(0 0 3px currentColor)", color: item.color }
                               : undefined
                           }
@@ -226,6 +239,7 @@ export function LineChartExp({
                         strokeWidth={2}
                         style={{ color: item.color }}
                         opacity={seriesOpacity}
+                        onMouseEnter={() => setActiveSeriesIndex(index)}
                       />
                     ),
                   )}
@@ -248,7 +262,7 @@ export function LineChartExp({
                   stroke={color}
                   strokeWidth="2.5"
                   strokeLinejoin="round"
-                  opacity={hoverIndex !== null ? 1 : 1}
+                  opacity={1}
                   style={
                     hoverIndex !== null
                       ? { filter: "drop-shadow(0 0 3px currentColor)", color }

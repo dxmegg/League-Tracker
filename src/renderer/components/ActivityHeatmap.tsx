@@ -254,10 +254,6 @@ const HEATMAP_COLORS = [
   "rgba(196,30,40,0.95)",
 ];
 
-function shortDate(date: Date): string {
-  return date.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
-}
-
 export function ActivityHeatmap({
   daily,
   timeRange,
@@ -314,10 +310,9 @@ export function ActivityHeatmap({
       const row = byDay.get(dayKey(d));
       const games = row?.games ?? 0;
       const level = games === 0 ? 0 : Math.min(Math.ceil((games / maxGames) * 4), 4);
-      const date = shortDate(d);
-      const label = row
-        ? `${date} — ${games} game${games === 1 ? "" : "s"} (${row.wins}W–${games - row.wins}L)`
-        : `${date} — no games`;
+      const date = dayKey(d);
+      const wins = row?.wins ?? 0;
+      const label = `Date: ${date} | ${games} game${games === 1 ? "" : "s"} (${wins}W - ${games - wins}L)`;
       cells.push(
         <rect
           key={dayKey(d)}
@@ -336,7 +331,7 @@ export function ActivityHeatmap({
 
   return (
     <div className="overflow-x-auto">
-      <svg width={width} height={height} className="block">
+      <svg width={width} height={height} className="block max-w-none">
         {monthLabels}
         {(["Mon", "Wed", "Fri"] as const).map((label, i) => (
           <text
