@@ -4604,7 +4604,8 @@ export function getRecords(
              ps.gold_earned, ps.total_heal, ps.largest_killing_spree, ps.score, ps.score_raw,
              ps.total_damage_dealt_all, ps.true_damage_dealt, ps.cs, ps.largest_critical_strike,
              ps.double_kills, ps.triple_kills, ps.quadra_kills, ps.penta_kills,
-             mp.vision_score, mp.wards_placed, mp.damage_to_turrets, mp.damage_to_objectives
+             mp.vision_score, mp.wards_placed, mp.damage_to_turrets, mp.damage_to_objectives,
+             mp.pentakill_time
       FROM games g
       JOIN ${source.table} ps ON g.game_id = ps.game_id
       LEFT JOIN match_participants mp ON mp.game_id = ps.game_id AND mp.puuid = ps.puuid
@@ -4769,8 +4770,8 @@ export function getRecords(
         wardsPlaced = trackExtra(wardsPlaced, r.wards_placed, r);
         turretDamage = trackExtra(turretDamage, r.damage_to_turrets, r);
         objectiveDamage = trackExtra(objectiveDamage, r.damage_to_objectives, r);
-        if (r.penta_kills >= 1) {
-          fastestPentakill = trackExtra(fastestPentakill, r.game_duration, r, lower);
+        if (r.penta_kills >= 1 && r.pentakill_time != null) {
+          fastestPentakill = trackExtra(fastestPentakill, r.pentakill_time, r, lower);
         }
         if (!r.win && r.deaths === 0) {
           flawlessAce = trackExtra(flawlessAce, r.score_raw, r);
