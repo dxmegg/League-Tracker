@@ -1645,6 +1645,7 @@ export interface RiotSyncResult {
   totalGames: number;
   complete: boolean;
   cancelled: boolean;
+  error?: string;
 }
 
 export interface RiotSyncOptions {

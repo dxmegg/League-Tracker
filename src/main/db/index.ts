@@ -55,6 +55,7 @@ export { getSetting, setSetting } from "./settings";
 export {
   insertGameFull,
   refreshParticipantTelemetry,
+  setParticipantPentakillTime,
   backfillMissingTrackedRows,
   findOwnerRow,
   insertTrackedStatsOnly,
@@ -172,6 +173,7 @@ export {
   migrateToV29,
   migrateToV30,
   migrateToV31,
+  migrateToV32,
   mergeDuplicateAccounts,
   runMigrations,
 } from "./schema";

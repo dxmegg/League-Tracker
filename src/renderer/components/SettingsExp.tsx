@@ -574,8 +574,12 @@ export function SettingsExp() {
     setRiotSyncProgress(null);
     try {
       const result = await window.api.syncRiotHistory();
-      if ("error" in result) {
+      if (!("added" in result)) {
         setRiotSyncStatus(`Error: ${result.error}`);
+      } else if (result.error) {
+        setRiotSyncStatus(
+          `Synced ${result.added} new match(es) from ${result.scanned} processed match(es). Error: ${result.error}`,
+        );
       } else if (result.cancelled) {
         setRiotSyncStatus(`Cancelled after ${result.scanned} game(s).`);
       } else {
@@ -628,8 +632,12 @@ export function SettingsExp() {
     setRiotSyncProgress(null);
     try {
       const result = await window.api.syncRiotHistory({ refreshExisting: true });
-      if ("error" in result) {
+      if (!("added" in result)) {
         setRiotSyncStatus(`Error: ${result.error}`);
+      } else if (result.error) {
+        setRiotSyncStatus(
+          `Processed ${result.scanned} match(es); added ${result.added} new match(es). Error: ${result.error}`,
+        );
       } else if (result.cancelled) {
         setRiotSyncStatus(`Cancelled after ${result.scanned} game(s).`);
       } else {

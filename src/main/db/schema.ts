@@ -181,6 +181,7 @@ export function createTables() {
       primary_style INTEGER, secondary_style INTEGER,
       item0 INTEGER, item1 INTEGER, item2 INTEGER,
       item3 INTEGER, item4 INTEGER, item5 INTEGER, item6 INTEGER,
+      pentakill_time INTEGER,
       team_position  TEXT,
       score          REAL,
       PRIMARY KEY (game_id, participant_id)
@@ -404,7 +405,7 @@ export function createIndexes() {
 // versioning, so it could be missing any subset of the columns v1 adds — which
 // is why each step checks for its column rather than assuming. A database that
 // createTables just built is also version 0, and lands on the same no-op path.
-export const SCHEMA_VERSION = 31;
+export const SCHEMA_VERSION = 32;
 
 export function tableColumns(table: string): Set<string> {
   const rows = db.pragma(`table_info(${table})`) as { name: string }[];
@@ -1401,6 +1402,27 @@ export function mergeDuplicateAccounts(): MergeDuplicateAccountsResult {
       .all() as IdentityGroup[];
     const details: MergeDuplicateAccountDetail[] = [];
 
+    const runMergeSql = <T>(
+      table: string,
+      stalePuuid: string,
+      canonicalPuuid: string,
+      sql: string,
+      run: () => T,
+    ): T => {
+      try {
+        return run();
+      } catch (error) {
+        console.error("[merge] SQL operation failed:", {
+          table,
+          stalePuuid,
+          canonicalPuuid,
+          sql,
+          error: error instanceof Error ? error.message : String(error),
+        });
+        throw error;
+      }
+    };
+
     const copyPuuidRows = (table: string, stalePuuid: string, canonicalPuuid: string) => {
       const columns = (db.pragma(`table_info(${table})`) as { name: string }[]).map(
         (column) => column.name,
@@ -1414,12 +1436,15 @@ export function mergeDuplicateAccounts(): MergeDuplicateAccountsResult {
           count: number;
         }
       ).count;
-      const inserted = db
-        .prepare(
-          `INSERT OR IGNORE INTO ${table} (${quotedColumns})
-           SELECT ${selectColumns} FROM ${table} WHERE puuid = ?`,
-        )
-        .run(canonicalPuuid, stalePuuid).changes;
+      const insertSql = `INSERT OR IGNORE INTO ${table} (${quotedColumns})
+           SELECT ${selectColumns} FROM ${table} WHERE puuid = ?`;
+      const inserted = runMergeSql(
+        table,
+        stalePuuid,
+        canonicalPuuid,
+        insertSql,
+        () => db.prepare(insertSql).run(canonicalPuuid, stalePuuid).changes,
+      );
       const overlapJoin = columns.includes("participant_id")
         ? "a.game_id = b.game_id AND a.participant_id = b.participant_id"
         : "a.game_id = b.game_id";
@@ -1449,7 +1474,14 @@ export function mergeDuplicateAccounts(): MergeDuplicateAccountsResult {
         });
         throw new Error(`Unsafe PUUID merge for ${table}: source rows were not preserved`);
       }
-      const deleted = db.prepare(`DELETE FROM ${table} WHERE puuid = ?`).run(stalePuuid).changes;
+      const deleteSql = `DELETE FROM ${table} WHERE puuid = ?`;
+      const deleted = runMergeSql(
+        table,
+        stalePuuid,
+        canonicalPuuid,
+        deleteSql,
+        () => db.prepare(deleteSql).run(stalePuuid).changes,
+      );
       return { inserted, deleted };
     };
 
@@ -1468,9 +1500,14 @@ export function mergeDuplicateAccounts(): MergeDuplicateAccountsResult {
           .prepare("SELECT 1 FROM games WHERE game_id = ? AND puuid = ?")
           .get(game.game_id, canonicalPuuid);
         if (!ownedByCanonical) {
-          gamesMoved += db
-            .prepare("UPDATE games SET puuid = ? WHERE game_id = ? AND puuid = ?")
-            .run(canonicalPuuid, game.game_id, stalePuuid).changes;
+          const sql = "UPDATE games SET puuid = ? WHERE game_id = ? AND puuid = ?";
+          gamesMoved += runMergeSql(
+            "games",
+            stalePuuid,
+            canonicalPuuid,
+            sql,
+            () => db.prepare(sql).run(canonicalPuuid, game.game_id, stalePuuid).changes,
+          );
         }
       }
 
@@ -1505,20 +1542,26 @@ export function mergeDuplicateAccounts(): MergeDuplicateAccountsResult {
         staleSync &&
         (!canonicalSync || (staleSync.last_sync_at ?? 0) > (canonicalSync.last_sync_at ?? 0))
       ) {
-        db.prepare(
-          `INSERT OR REPLACE INTO riot_sync_state
+        const sql = `INSERT OR REPLACE INTO riot_sync_state
              (puuid, platform, last_sync_at, last_match_id, complete)
-           VALUES (?, ?, ?, ?, ?)`,
-        ).run(
-          canonicalPuuid,
-          staleSync.platform,
-          staleSync.last_sync_at,
-          staleSync.last_match_id,
-          staleSync.complete,
+           VALUES (?, ?, ?, ?, ?)`;
+        runMergeSql("riot_sync_state", stalePuuid, canonicalPuuid, sql, () =>
+          db
+            .prepare(sql)
+            .run(
+              canonicalPuuid,
+              staleSync.platform,
+              staleSync.last_sync_at,
+              staleSync.last_match_id,
+              staleSync.complete,
+            ),
         );
       }
       if (staleSync) {
-        db.prepare("DELETE FROM riot_sync_state WHERE puuid = ?").run(stalePuuid);
+        const sql = "DELETE FROM riot_sync_state WHERE puuid = ?";
+        runMergeSql("riot_sync_state", stalePuuid, canonicalPuuid, sql, () =>
+          db.prepare(sql).run(stalePuuid),
+        );
       }
 
       const staleSetting = `backfill_complete_${stalePuuid}`;
@@ -1528,15 +1571,21 @@ export function mergeDuplicateAccounts(): MergeDuplicateAccountsResult {
         .get(staleSetting) as { value: string } | undefined;
       if (staleComplete) {
         if (!db.prepare("SELECT 1 FROM settings WHERE key = ?").get(canonicalSetting)) {
-          db.prepare("INSERT INTO settings (key, value) VALUES (?, ?)").run(
-            canonicalSetting,
-            staleComplete.value,
+          const sql = "INSERT INTO settings (key, value) VALUES (?, ?)";
+          runMergeSql("settings", stalePuuid, canonicalPuuid, sql, () =>
+            db.prepare(sql).run(canonicalSetting, staleComplete.value),
           );
         }
-        db.prepare("DELETE FROM settings WHERE key = ?").run(staleSetting);
+        const sql = "DELETE FROM settings WHERE key = ?";
+        runMergeSql("settings", stalePuuid, canonicalPuuid, sql, () =>
+          db.prepare(sql).run(staleSetting),
+        );
       }
 
-      const deletedSummoner = db.prepare("DELETE FROM summoner WHERE puuid = ?").run(stalePuuid);
+      const sql = "DELETE FROM summoner WHERE puuid = ?";
+      const deletedSummoner = runMergeSql("summoner", stalePuuid, canonicalPuuid, sql, () =>
+        db.prepare(sql).run(stalePuuid),
+      );
       if (deletedSummoner.changes !== 1) {
         throw new Error(`Expected one stale summoner row for ${stalePuuid}`);
       }
@@ -1602,6 +1651,21 @@ export function migrateToV30(): void {
 
 export function migrateToV31(): void {
   mergeDuplicateAccounts();
+}
+
+export function migrateToV32(): void {
+  console.log("[db] migrateToV32 called");
+  try {
+    if (!tableColumns("match_participants").has("pentakill_time")) {
+      db.exec("ALTER TABLE match_participants ADD COLUMN pentakill_time INTEGER");
+    }
+    console.log("[db] migrateToV32 done:", {
+      hasPentakillTime: tableColumns("match_participants").has("pentakill_time"),
+    });
+  } catch (error) {
+    console.error("[db] migrateToV32 failed:", error);
+    throw error;
+  }
 }
 
 export async function runMigrations() {
@@ -1820,6 +1884,7 @@ export async function runMigrations() {
   if (current < 29) migrateToV29();
   if (current < 30) migrateToV30();
   if (current < 31) migrateToV31();
+  if (current < 32) migrateToV32();
 
   db.pragma(`user_version = ${SCHEMA_VERSION}`);
 }

@@ -1005,6 +1005,7 @@ export type RiotSyncResult = {
   totalGames: number;
   complete: boolean;
   cancelled: boolean;
+  error?: string;
 };
 
 let syncCancelRequested = false;
@@ -1034,20 +1035,34 @@ export async function syncRiotHistory(
   let scanned = 0;
   let complete = true;
   let cancelled = false;
+  let error: string | undefined;
   for (const [index, { identity }] of identities.entries()) {
     if (syncCancelRequested) {
       console.log("[sync] cancelled by user");
       cancelled = true;
       break;
     }
-    const result = await syncRiotAccount(identity, resolvedPuuids, {
-      ...options,
-      accountIndex: index,
-      accountTotal: identities.length,
-    });
+    let result: RiotSyncResult;
+    try {
+      result = await syncRiotAccount(identity, resolvedPuuids, {
+        ...options,
+        accountIndex: index,
+        accountTotal: identities.length,
+      });
+    } catch (err) {
+      error = friendlyRiotError(err, "match");
+      complete = false;
+      console.error("[sync] account sync failed:", { accountIndex: index, error });
+      break;
+    }
     added += result.added;
     scanned += result.scanned;
     complete &&= result.complete;
+    if (result.error) {
+      error = result.error;
+      complete = false;
+      break;
+    }
     if (result.cancelled) {
       cancelled = true;
       break;
@@ -1059,6 +1074,7 @@ export async function syncRiotHistory(
     totalGames: db.getDashboardData().totalGames,
     complete: complete && !cancelled,
     cancelled,
+    ...(error ? { error } : {}),
   };
 }
 
@@ -1102,6 +1118,7 @@ async function syncRiotAccount(
   );
   const ids: number[] = [];
   let cancelled = false;
+  let error: string | undefined;
 
   for (let start = 0; start < 10_000; start += count) {
     if (syncCancelRequested) {
@@ -1142,6 +1159,7 @@ async function syncRiotAccount(
   }
 
   let added = 0;
+  let processed = 0;
   for (const [index, id] of ids.entries()) {
     if (syncCancelRequested) {
       console.log("[sync] cancelled by user");
@@ -1158,39 +1176,68 @@ async function syncRiotAccount(
       currentAccount: tag,
     });
     const knownAlready = known.has(id);
-    if (knownAlready && !refreshExisting) continue;
-    let payload: any;
+    if (knownAlready && !refreshExisting) {
+      processed++;
+      continue;
+    }
     try {
-      payload = await riotFetch<any>(
+      const payload = await riotFetch<any>(
         `https://${route}.api.riotgames.com/lol/match/v5/matches/${encodeURIComponent(toMatchV5Id(id, identity.platform))}`,
         route,
         undefined,
         tag,
       );
+      const normalized = normalizeMatchPayload(payload, id, puuid);
+      const trackedPentakiller = normalized.participants.find(
+        (participant: any) =>
+          participant.puuid === puuid && Number(participant.pentaKills ?? 0) >= 1,
+      );
+      if (knownAlready) {
+        db.refreshParticipantTelemetry(normalized);
+        console.log(`[sync] refreshed ${id} (${normalized.participants.length} participants)`);
+      } else if (db.insertGameFull(normalized, puuid, "riot-sync")) {
+        added++;
+      }
+      if (trackedPentakiller) {
+        try {
+          const timeline = await fetchMatchTimeline(id, identity.platform);
+          const pentakillTime = findPentakillTime(timeline, trackedPentakiller.participantId);
+          if (pentakillTime !== null) {
+            db.setParticipantPentakillTime(id, puuid, pentakillTime);
+          } else {
+            console.warn(`[sync ${tag}] No pentakill event found in timeline for match ${id}`);
+          }
+        } catch (timelineError) {
+          console.warn(
+            `[sync ${tag}] Failed to fetch pentakill timeline for match ${id}:`,
+            timelineError,
+          );
+        }
+      }
+      processed++;
     } catch (err) {
       if (err instanceof RiotApiError && err.status === 404) {
         console.warn(`[sync ${tag}] Match ${id} not available on Riot's servers (404), skipping.`);
         db.markIgnoredGame(id);
+        processed++;
         continue;
       }
-      throw new Error(friendlyRiotError(err, "match"));
-    }
-    const normalized = normalizeMatchPayload(payload, id, puuid);
-    if (knownAlready) {
-      db.refreshParticipantTelemetry(normalized);
-      console.log(`[sync] refreshed ${id} (${normalized.participants.length} participants)`);
-    } else if (db.insertGameFull(normalized, puuid, "riot-sync")) {
-      added++;
+      error = `Failed at match ${index + 1} (${id}): ${friendlyRiotError(err, "match")}`;
+      console.error("[sync] stopping after match failure:", { matchNumber: index + 1, id, error });
+      break;
     }
   }
 
-  db.setRiotSyncState(puuid, identity.platform, ids[0] ?? null, ids.length < 10_000);
+  if (!error) {
+    db.setRiotSyncState(puuid, identity.platform, ids[0] ?? null, ids.length < 10_000);
+  }
   return {
     added,
-    scanned: ids.length,
+    scanned: error ? processed : ids.length,
     totalGames: db.getDashboardData().totalGames,
-    complete: !cancelled && ids.length < 10_000,
+    complete: !error && !cancelled && ids.length < 10_000,
     cancelled,
+    ...(error ? { error } : {}),
   };
 }
 
@@ -1207,6 +1254,30 @@ export function friendlyRiotError(err: unknown, context: "account" | "match" = "
     if (err.status >= 500) return "Riot API is temporarily unavailable";
   }
   return err instanceof Error ? err.message : String(err);
+}
+
+function findPentakillTime(timeline: any, participantId: number): number | null {
+  const events = (timeline?.info?.frames ?? []).flatMap((frame: any) =>
+    Array.isArray(frame?.events) ? frame.events : [],
+  );
+  const killEvents = events
+    .filter((event: any) => event?.type === "CHAMPION_KILL" && typeof event?.timestamp === "number")
+    .sort((a: any, b: any) => a.timestamp - b.timestamp);
+  let streak: any[] = [];
+  for (const event of killEvents) {
+    if (event.victimId === participantId) {
+      streak = [];
+      continue;
+    }
+    if (event.killerId !== participantId || typeof event.victimId !== "number") continue;
+    streak = streak.filter((kill) => event.timestamp - kill.timestamp <= 10_000);
+    streak.push(event);
+    const distinctVictims = new Set(streak.map((kill) => kill.victimId));
+    if (distinctVictims.size >= 5) {
+      return Math.floor(event.timestamp / 1000);
+    }
+  }
+  return null;
 }
 
 export async function fetchMatchTimeline(gameId: number, platform: string): Promise<any> {

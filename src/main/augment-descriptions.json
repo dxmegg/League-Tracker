@@ -1,5 +1,5 @@
 {
-  "patch": "16.17",
+  "patch": "26.21",
   "descriptions": {
     "1001": "Gain stacks when taking or dealing damage. For every 10 stacks, gain <scaleAF>Adaptive Force</scaleAF>, <scaleArmor>Armor</scaleArmor>, <scaleMR>Magic Resist</scaleMR>, <attention>Size</attention>, and <status>Tenacity</status>.",
     "1002": "Gain <scaleBonus>100 Item Haste</scaleBonus> (equivalent to 50% Item CDR).<br><br><rules>Item Haste reduces the cooldown%i:cooldown% of all Item Abilities.</rules>",

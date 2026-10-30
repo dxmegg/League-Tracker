@@ -754,6 +754,13 @@ export function registerIpcHandlers() {
           }
         },
       });
+      if (result.error) {
+        console.warn("[riot] returning partial sync result:", {
+          added: result.added,
+          scanned: result.scanned,
+          error: result.error,
+        });
+      }
       invalidateDashboardCache();
       win?.webContents.send("lcu:games-updated");
       return result;

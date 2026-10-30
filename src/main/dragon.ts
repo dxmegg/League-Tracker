@@ -175,6 +175,7 @@ const cherryAugmentsUrl = (branch: string) =>
 // Unlike the rest of AugmentInfo, this is not patch-accurate — it's whatever
 // the text was when the generator last ran. That's the right trade for prose,
 // and the wrong one for a rarity ring, which is why only this field takes it.
+// TODO: Manually review the bundled descriptions against patch 26.21.
 const descriptions: Record<string, string> = augmentDescriptions.descriptions;
 
 // cherry-augments.json is normally an array of augment objects, but has also

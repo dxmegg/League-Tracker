@@ -423,6 +423,23 @@ export function refreshParticipantTelemetry(gameData: any): number {
   return updated;
 }
 
+export function setParticipantPentakillTime(
+  gameId: number,
+  puuid: string,
+  pentakillTime: number,
+): number {
+  console.log("[db] setParticipantPentakillTime called:", { gameId, puuid, pentakillTime });
+  const updated = db
+    .prepare(
+      `UPDATE match_participants
+       SET pentakill_time = ?
+       WHERE game_id = ? AND puuid = ? AND penta_kills >= 1`,
+    )
+    .run(pentakillTime, gameId, puuid).changes;
+  console.log("[db] setParticipantPentakillTime done:", { gameId, updated });
+  return updated;
+}
+
 // A game whose owner is correct but whose tracked_game_stats row is missing
 // is the shape left behind by a partial LCU payload: the participants table
 // gets one row (the owner), player_stats gets one row, and tracked_game_stats
