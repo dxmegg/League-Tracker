@@ -3,6 +3,7 @@ import { NavLink, useLocation } from "react-router-dom";
 import type { AccountListItem } from "../../shared/api";
 import { useBackfill } from "../hooks/useBackfill";
 import { useActiveAccount } from "../hooks/useActiveAccount";
+import { useActiveTheme } from "../hooks/useActiveTheme";
 import { getAccountsWithData } from "../hooks/useChampions";
 import { useLcuStatus } from "../hooks/useLcuStatus";
 import { ALL_ACCOUNTS_SENTINEL } from "../lib/accountsEvent";
@@ -37,12 +38,20 @@ const mainTabs = [
   { to: "/data", label: "DATA" },
 ];
 
+// Redesign merges Local Account and History into one page
+const redesignTabs = [
+  { to: "/home", label: "HOME" },
+  { to: "/profile", label: "YOUR PROFILE" },
+  ...mainTabs.filter((tab) => !["/home", "/local", "/history"].includes(tab.to)),
+];
+
 const ACTIVE_TAIL: Record<string, string> = {
   "/data": "total-stats",
 };
 
 export function Sidebar() {
   const { pathname } = useLocation();
+  const tabs = useActiveTheme({ exact: true }) === "redesign" ? redesignTabs : mainTabs;
   const status = useLcuStatus();
   const { running: backfilling } = useBackfill();
   const [refreshing, setRefreshing] = useState(false);
@@ -178,7 +187,7 @@ export function Sidebar() {
         </div>
 
         <nav aria-label="Main navigation" className="flex flex-col gap-1">
-          {mainTabs.map(({ to, label }, index) => (
+          {tabs.map(({ to, label }, index) => (
             <div key={to}>
               {index === 3 && <hr className="my-2 border-lol-border/40" />}
               <NavLink

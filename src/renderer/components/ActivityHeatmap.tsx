@@ -5,6 +5,10 @@ interface ActivityHeatmapProps {
   days: Array<{ day: string; games: number }>;
   colorPrimary?: string;
   colorMuted?: string;
+  // Stretches the 26 week columns across the card instead of fixed 12px cells
+  fluid?: boolean;
+  // What one tile stands for; coarser units sum the daily rows into a fixed tile count
+  unit?: HeatmapUnit;
 }
 
 const CELL_COLORS = [
@@ -140,28 +144,105 @@ function HighlightColumn({
   );
 }
 
+export type HeatmapUnit = "hour" | "day" | "week" | "month";
+
+const UNIT_RANGE: Record<HeatmapUnit, string> = {
+  hour: "24 hours",
+  day: "26 weeks",
+  week: "26 weeks",
+  month: "24 months",
+};
+
+function tileKey(day: string, unit: HeatmapUnit): string {
+  if (unit === "week") return weekStart(day);
+  if (unit === "month") return day.slice(0, 7);
+  return day;
+}
+
+// Coarser units sum the daily rows into a fixed number of tiles ending today
+function buildTiles(days: ActivityHeatmapProps["days"], unit: Exclude<HeatmapUnit, "day">) {
+  if (unit === "hour") {
+    // Rows are ISO timestamps of single games here, not day counts
+    const perHour = new Map<number, number>();
+    for (const { day, games } of days) {
+      const hour = new Date(day);
+      hour.setMinutes(0, 0, 0);
+      perHour.set(hour.getTime(), (perHour.get(hour.getTime()) ?? 0) + games);
+    }
+    const now = new Date();
+    now.setMinutes(0, 0, 0);
+    return Array.from({ length: 24 }, (_, i) => {
+      const start = new Date(now.getTime() - (23 - i) * 60 * 60 * 1000);
+      return {
+        key: String(start.getTime()),
+        label: `${formatDate(dayKey(start))} ${start.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`,
+        games: perHour.get(start.getTime()) ?? 0,
+      };
+    });
+  }
+  const totals = new Map<string, number>();
+  for (const { day, games } of days) {
+    const key = tileKey(day, unit);
+    totals.set(key, (totals.get(key) ?? 0) + games);
+  }
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  if (unit === "week") {
+    const monday = dayDate(weekStart(dayKey(today)));
+    return Array.from({ length: 26 }, (_, i) => {
+      const start = new Date(monday);
+      start.setDate(monday.getDate() - (25 - i) * 7);
+      const end = new Date(start);
+      end.setDate(start.getDate() + 6);
+      const key = dayKey(start);
+      return {
+        key,
+        label: `${formatDate(key)} – ${formatDate(dayKey(end))}`,
+        games: totals.get(key) ?? 0,
+      };
+    });
+  }
+  return Array.from({ length: 24 }, (_, i) => {
+    const date = new Date(today.getFullYear(), today.getMonth() - (23 - i), 1);
+    const key = dayKey(date).slice(0, 7);
+    return {
+      key,
+      label: date.toLocaleDateString(undefined, { month: "long", year: "numeric" }),
+      games: totals.get(key) ?? 0,
+    };
+  });
+}
+
 function HistoryActivityHeatmap({
   days,
   colorPrimary = "#E5483F",
   colorMuted = "rgba(255,255,255,0.04)",
+  fluid = false,
+  unit = "day",
 }: ActivityHeatmapProps) {
-  const total = days.reduce((sum, day) => sum + day.games, 0);
   const gamesByDay = new Map(days.map((day) => [day.day, day.games]));
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   const monday = new Date(today);
   monday.setDate(today.getDate() - ((today.getDay() + 6) % 7));
   monday.setDate(monday.getDate() - 25 * 7);
-  const cells = Array.from({ length: 26 * 7 }, (_, index) => {
-    const date = new Date(monday);
-    date.setDate(monday.getDate() + index);
-    const day = [
-      date.getFullYear(),
-      String(date.getMonth() + 1).padStart(2, "0"),
-      String(date.getDate()).padStart(2, "0"),
-    ].join("-");
-    return { day, games: gamesByDay.get(day) ?? 0 };
-  });
+  const cells =
+    unit === "day"
+      ? Array.from({ length: 26 * 7 }, (_, index) => {
+          const date = new Date(monday);
+          date.setDate(monday.getDate() + index);
+          const day = dayKey(date);
+          return { key: day, label: formatDate(day), games: gamesByDay.get(day) ?? 0 };
+        })
+      : buildTiles(days, unit);
+  const total = cells.reduce((sum, cell) => sum + cell.games, 0);
+  const maxGames = Math.max(...cells.map((cell) => cell.games), 1);
+  // Single days use fixed game-count steps; summed tiles scale against the busiest one
+  const levelOf = (games: number) => {
+    if (games === 0) return 0;
+    if (unit !== "day") return Math.min(4, Math.ceil((games / maxGames) * 4));
+    return games >= 7 ? 4 : games >= 4 ? 3 : games >= 2 ? 2 : 1;
+  };
   const cellColors = CELL_COLORS.map((color, index) => {
     if (index === 0) return colorMuted;
     return color.replace(
@@ -169,21 +250,30 @@ function HistoryActivityHeatmap({
       `${parseInt(colorPrimary.slice(1, 3), 16)},${parseInt(colorPrimary.slice(3, 5), 16)},${parseInt(colorPrimary.slice(5, 7), 16)}`,
     );
   });
-  const highlights = getHighlights(days);
+  // Best and worst periods are per day, week and month; hourly rows can't feed them
+  const highlights = unit === "hour" ? { week: null, day: null, month: null } : getHighlights(days);
+  const title = fluid ? "Activity" : "Weekly activity";
+  const range = UNIT_RANGE[unit];
 
   if (total === 0) {
     return (
       <section className="rounded-lg border border-lol-border/60 bg-lol-card/40 p-4">
         <h2 className="mb-3 flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-lol-text-bright">
           <span className="h-1.5 w-1.5 rotate-45 bg-lol-crimson" aria-hidden="true" />
-          Weekly activity
+          {title}
         </h2>
         <p className="py-5 text-center text-[11px] text-lol-text/70">
-          No activity in the last 26 weeks
+          No activity in the last {range}
         </p>
       </section>
     );
   }
+
+  const gridClass = !fluid
+    ? "grid grid-flow-col grid-cols-[repeat(26,12px)] grid-rows-[repeat(7,12px)] gap-[3px] overflow-x-auto"
+    : unit === "day"
+      ? "grid grid-flow-col grid-cols-[repeat(26,minmax(0,1fr))] grid-rows-[repeat(7,18px)] gap-[3px]"
+      : "grid grid-flow-col auto-cols-fr grid-rows-[64px] gap-[3px]";
 
   return (
     <section className="rounded-lg border border-lol-border/60 bg-lol-card/40 p-4">
@@ -193,30 +283,22 @@ function HistoryActivityHeatmap({
           style={{ backgroundColor: colorPrimary }}
           aria-hidden="true"
         />
-        Weekly activity
+        {title}
       </h2>
-      <p className="mb-3 text-[11px] text-lol-text/70">{total} games in the last 26 weeks</p>
-      <div className="grid grid-flow-col grid-cols-[repeat(26,12px)] grid-rows-[repeat(7,12px)] gap-[3px] overflow-x-auto">
+      <p className="mb-3 text-[11px] text-lol-text/70">
+        {total} games in the last {range}
+      </p>
+      <div className={gridClass}>
         {cells.map((cell) => (
           <div
-            key={cell.day}
+            key={cell.key}
             title={
-              cell.games > 0
-                ? `${cell.games} games on ${formatDate(cell.day)}`
-                : `No games on ${formatDate(cell.day)}`
+              cell.games > 0 ? `${cell.games} games · ${cell.label}` : `No games · ${cell.label}`
             }
-            className="h-3 w-3 shrink-0 rounded-[3px] transition-[filter] duration-100 hover:brightness-[1.15]"
-            style={{
-              backgroundColor:
-                cell.games === 0
-                  ? colorMuted
-                  : cellColors[
-                      Math.min(
-                        cell.games >= 7 ? 4 : cell.games >= 4 ? 3 : cell.games >= 2 ? 2 : 1,
-                        4,
-                      )
-                    ],
-            }}
+            className={`rounded-[3px] transition-[filter] duration-100 hover:brightness-[1.15] ${
+              fluid ? "h-full w-full" : "h-3 w-3 shrink-0"
+            }`}
+            style={{ backgroundColor: cellColors[levelOf(cell.games)] }}
           />
         ))}
       </div>

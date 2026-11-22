@@ -679,6 +679,7 @@ export default function Home() {
         dashboard={dashboard}
         loading={loading}
         liveGame={live.game}
+        savedAccounts={savedAccounts}
       />
     );
   }

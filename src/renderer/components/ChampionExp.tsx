@@ -52,6 +52,10 @@ const COLUMNS: Array<{
 const CHAMP_GRID =
   "grid min-w-[1120px] grid-cols-[40px_minmax(160px,1fr)_60px_50px_50px_80px_90px_60px_70px_70px_90px_80px_80px_100px] items-center";
 
+// Redesign: wider win-rate and K/D/A columns so neither wraps, same overall width
+const CHAMP_GRID_REDESIGN =
+  "grid min-w-[1072px] grid-cols-[36px_minmax(150px,1fr)_56px_44px_44px_110px_124px_56px_60px_56px_80px_72px_72px_112px] items-center";
+
 const CHAMPION_ICON_ACCENTS = [
   "border-lol-crimson/70 shadow-[0_0_10px_rgba(229,72,63,0.22)]",
   "border-lol-gold/70 shadow-[0_0_10px_rgba(201,164,92,0.22)]",
@@ -75,12 +79,27 @@ function KpiTile({
   value,
   caption,
   accent,
+  flat = false,
 }: {
   label: string;
   value: string;
   caption: string;
   accent: Accent;
+  // Plain card with one small accent bar, no tinted glow or coloured top edge
+  flat?: boolean;
 }) {
+  if (flat) {
+    return (
+      <div className="rounded-[14px] border border-lol-border bg-[var(--theme-card)] p-5">
+        <span className="mb-3 block h-0.5 w-6 rounded-full bg-lol-crimson" />
+        <div className="text-[11px] font-bold uppercase tracking-widest text-lol-text">{label}</div>
+        <div className="mt-1 font-display text-[32px] font-bold leading-tight text-lol-text-bright">
+          {value}
+        </div>
+        <div className="text-xs text-lol-text">{caption}</div>
+      </div>
+    );
+  }
   return (
     <div
       className="relative overflow-hidden rounded-[12px] border border-lol-border p-4"
@@ -105,6 +124,7 @@ function HighlightCard({
   accent,
   champData,
   emptyTitle,
+  flat = false,
 }: {
   title: string;
   champion: ChampionStats | null;
@@ -113,7 +133,37 @@ function HighlightCard({
   accent: Accent;
   champData: ReturnType<typeof useChampionData>;
   emptyTitle?: string;
+  // Plain card, neutral icon frame, no glow
+  flat?: boolean;
 }) {
+  if (flat) {
+    return (
+      <div
+        className="flex items-center gap-4 rounded-[14px] border border-lol-border bg-[var(--theme-card)] p-5"
+        title={emptyTitle}
+      >
+        {champion ? (
+          <ChampionIcon
+            championId={champion.champion_id}
+            size={52}
+            className="shrink-0 rounded-xl border border-lol-border"
+          />
+        ) : (
+          <div className="h-[52px] w-[52px] shrink-0 rounded-xl border border-lol-border bg-black/10" />
+        )}
+        <div className="min-w-0">
+          <div className="text-[11px] font-bold uppercase tracking-widest text-lol-text">
+            {title}
+          </div>
+          <div className="mt-0.5 truncate font-display text-[16px] font-bold text-lol-text-bright">
+            {champion ? getChampionName(champData, champion.champion_id) : "—"}
+          </div>
+          <div className="text-[13px] font-semibold text-lol-text-bright">{value}</div>
+          <div className="text-[11px] text-lol-text">{caption}</div>
+        </div>
+      </div>
+    );
+  }
   return (
     <div
       className="relative min-h-[132px] overflow-hidden rounded-[12px] border border-lol-border p-4"
@@ -150,7 +200,9 @@ function HighlightCard({
   );
 }
 
-export function ChampionExp() {
+export function ChampionExp({ redesign = false }: { redesign?: boolean }) {
+  const grid = redesign ? CHAMP_GRID_REDESIGN : CHAMP_GRID;
+  const cellY = redesign ? "py-3" : "py-2";
   const champData = useChampionData();
   const navigate = useNavigate();
   const [patch, setPatch] = useViewState<string | undefined>("champions.patch", undefined);
@@ -270,7 +322,11 @@ export function ChampionExp() {
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
           <h1 className="flex items-center font-display text-[30px] font-bold leading-tight tracking-[0.2px] text-lol-text-bright">
-            <span className="mr-2 h-2.5 w-2.5 rotate-45 bg-lol-crimson shadow-[0_0_8px_rgba(229,72,63,0.45)]" />
+            <span
+              className={`mr-2 h-2.5 w-2.5 rotate-45 bg-lol-crimson ${
+                redesign ? "" : "shadow-[0_0_8px_rgba(229,72,63,0.45)]"
+              }`}
+            />
             <span className="relative pb-2 after:absolute after:bottom-0 after:left-0 after:h-px after:w-full after:bg-gradient-to-r after:from-lol-crimson after:to-transparent">
               Champions
             </span>
@@ -315,24 +371,28 @@ export function ChampionExp() {
           value={formatNumber(filtered.length)}
           caption={`of ${formatNumber(filtered.length)} tracked`}
           accent={ACCENTS[0]}
+          flat={redesign}
         />
         <KpiTile
           label="Total games"
           value={formatNumber(totalGames)}
           caption="in the selected queue and patch"
           accent={ACCENTS[1]}
+          flat={redesign}
         />
         <KpiTile
           label="Average win rate"
           value={totalGames > 0 ? `${((totalWins / totalGames) * 100).toFixed(1)}%` : "—"}
           caption="across all champions"
           accent={ACCENTS[2]}
+          flat={redesign}
         />
         <KpiTile
           label="Games per champion"
           value={filtered.length > 0 ? (totalGames / filtered.length).toFixed(1) : "—"}
           caption="average sample"
           accent={ACCENTS[3]}
+          flat={redesign}
         />
       </div>
 
@@ -347,6 +407,7 @@ export function ChampionExp() {
               : "No champion data"
           }
           accent={ACCENTS[0]}
+          flat={redesign}
           champData={champData}
         />
         <HighlightCard
@@ -361,6 +422,7 @@ export function ChampionExp() {
               : "No champion meets the minimum"
           }
           accent={ACCENTS[1]}
+          flat={redesign}
           champData={champData}
           emptyTitle={bestWinRate ? undefined : "Not enough games"}
         />
@@ -374,6 +436,7 @@ export function ChampionExp() {
               : "No champion meets the minimum"
           }
           accent={ACCENTS[2]}
+          flat={redesign}
           champData={champData}
           emptyTitle={highestScore ? undefined : "Not enough games"}
         />
@@ -385,15 +448,22 @@ export function ChampionExp() {
             mostMvpAce ? `across ${formatNumber(mostMvpAce.games)} games` : "No champion data"
           }
           accent={ACCENTS[3]}
+          flat={redesign}
           champData={champData}
         />
       </div>
 
-      <div className="min-w-0 rounded-[14px] border border-lol-border bg-[linear-gradient(180deg,var(--theme-card-hover),var(--theme-card))] p-5">
+      <div
+        className={`min-w-0 rounded-[14px] border border-lol-border p-5 ${
+          redesign
+            ? "bg-[var(--theme-card)]"
+            : "bg-[linear-gradient(180deg,var(--theme-card-hover),var(--theme-card))]"
+        }`}
+      >
         <div className="scroll">
           <div role="table" className="tbl ct">
             <div role="rowgroup">
-              <div role="row" className={CHAMP_GRID}>
+              <div role="row" className={grid}>
                 {COLUMNS.map((column) => (
                   <div
                     key={column.label}
@@ -407,9 +477,11 @@ export function ChampionExp() {
                         : undefined
                     }
                     onClick={column.key ? () => handleSort(column.key as ColumnKey) : undefined}
-                    className={`px-2.5 pb-2.5 text-[12.5px] font-medium text-lol-text/60 ${column.align} ${
-                      column.key ? "cursor-pointer select-none" : ""
-                    }`}
+                    className={`px-2.5 ${
+                      redesign
+                        ? "pb-3 text-[11px] font-semibold uppercase tracking-wider text-lol-text/80"
+                        : "pb-2.5 text-[12.5px] font-medium text-lol-text/60"
+                    } ${column.align} ${column.key ? "cursor-pointer select-none" : ""}`}
                   >
                     <span
                       className={`flex items-center gap-1 ${
@@ -429,7 +501,7 @@ export function ChampionExp() {
             </div>
             <div role="rowgroup">
               {sorted.length === 0 ? (
-                <div role="row" className={CHAMP_GRID}>
+                <div role="row" className={grid}>
                   <div role="cell" className="col-span-full px-2.5 py-2 text-left">
                     No champions match your filters
                   </div>
@@ -442,7 +514,7 @@ export function ChampionExp() {
                     <div
                       key={r.champion_id}
                       role="row"
-                      className={`${CHAMP_GRID} cursor-pointer border-b border-lol-border/40 transition-colors duration-[120ms] hover:bg-white/[0.03]`}
+                      className={`${grid} cursor-pointer border-b border-lol-border/40 transition-colors duration-[120ms] hover:bg-white/[0.03]`}
                       tabIndex={0}
                       data-champion-id={r.champion_id}
                       onClick={() => navigate(`/champions/${r.champion_id}`)}
@@ -452,30 +524,34 @@ export function ChampionExp() {
                     >
                       <div
                         role="cell"
-                        className={`px-2.5 py-2 ${COLUMNS[0].align} text-lol-text/60`}
+                        className={`px-2.5 ${cellY} ${COLUMNS[0].align} text-lol-text/60`}
                       >
                         {i + 1}
                       </div>
-                      <div role="cell" className={`px-2.5 py-2 ${COLUMNS[1].align}`}>
+                      <div role="cell" className={`px-2.5 ${cellY} ${COLUMNS[1].align}`}>
                         <div className="nm">
                           <ChampionIcon
                             championId={r.champion_id}
                             size={30}
-                            className={`rounded-lg border ${CHAMPION_ICON_ACCENTS[i % CHAMPION_ICON_ACCENTS.length]}`}
+                            className={`rounded-lg border ${
+                              redesign
+                                ? "border-lol-border"
+                                : CHAMPION_ICON_ACCENTS[i % CHAMPION_ICON_ACCENTS.length]
+                            }`}
                           />
                           <span>{getChampionName(champData, r.champion_id)}</span>
                         </div>
                       </div>
-                      <div role="cell" className={`px-2.5 py-2 ${COLUMNS[2].align}`}>
+                      <div role="cell" className={`px-2.5 ${cellY} ${COLUMNS[2].align}`}>
                         {formatNumber(r.games)}
                       </div>
-                      <div role="cell" className={`px-2.5 py-2 ${COLUMNS[3].align}`}>
+                      <div role="cell" className={`px-2.5 ${cellY} ${COLUMNS[3].align}`}>
                         <span className="text-lol-win">{formatNumber(r.wins)}</span>
                       </div>
-                      <div role="cell" className={`px-2.5 py-2 ${COLUMNS[4].align}`}>
+                      <div role="cell" className={`px-2.5 ${cellY} ${COLUMNS[4].align}`}>
                         <span className="text-lol-loss">{formatNumber(r.games - r.wins)}</span>
                       </div>
-                      <div role="cell" className={`px-2.5 py-2 ${COLUMNS[5].align}`}>
+                      <div role="cell" className={`px-2.5 ${cellY} ${COLUMNS[5].align}`}>
                         <span
                           className={`rounded-md px-1.5 py-0.5 ${
                             wr >= 55
@@ -493,7 +569,7 @@ export function ChampionExp() {
                             display: "inline-block",
                             verticalAlign: "middle",
                             marginLeft: 8,
-                            width: 84,
+                            width: redesign ? 40 : 84,
                           }}
                         >
                           <i style={{ width: `${wr}%` }} />
@@ -501,14 +577,16 @@ export function ChampionExp() {
                       </div>
                       <div
                         role="cell"
-                        className={`px-2.5 py-2 ${COLUMNS[6].align} text-lol-text/60`}
+                        className={`px-2.5 ${cellY} ${COLUMNS[6].align} text-lol-text/60 ${
+                          redesign ? "whitespace-nowrap" : ""
+                        }`}
                       >
                         {r.avg_kills.toFixed(1)} / {r.avg_deaths.toFixed(1)} /{" "}
                         {r.avg_assists.toFixed(1)}
                       </div>
                       <div
                         role="cell"
-                        className={`px-2.5 py-2 ${COLUMNS[7].align} ${
+                        className={`px-2.5 ${cellY} ${COLUMNS[7].align} ${
                           kda != null && kda >= 4
                             ? "text-lol-gold"
                             : kda != null && kda >= 3
@@ -518,23 +596,26 @@ export function ChampionExp() {
                       >
                         {kda != null ? kda.toFixed(2) : "Perfect"}
                       </div>
-                      <div role="cell" className={`px-2.5 py-2 ${COLUMNS[8].align}`}>
+                      <div role="cell" className={`px-2.5 ${cellY} ${COLUMNS[8].align}`}>
                         {r.avg_cs_per_min?.toFixed(1) ?? "—"}
                       </div>
-                      <div role="cell" className={`px-2.5 py-2 ${COLUMNS[9].align} text-lol-gold`}>
+                      <div
+                        role="cell"
+                        className={`px-2.5 ${cellY} ${COLUMNS[9].align} text-lol-gold`}
+                      >
                         {r.avg_score?.toFixed(1) ?? "—"}
                       </div>
-                      <div role="cell" className={`px-2.5 py-2 ${COLUMNS[10].align}`}>
+                      <div role="cell" className={`px-2.5 ${cellY} ${COLUMNS[10].align}`}>
                         {formatNumber(r.mvps)}{" "}
                         <span className="muted">/ {formatNumber(r.aces)}</span>
                       </div>
-                      <div role="cell" className={`px-2.5 py-2 ${COLUMNS[11].align}`}>
+                      <div role="cell" className={`px-2.5 ${cellY} ${COLUMNS[11].align}`}>
                         {formatNumber(r.avg_damage)}
                       </div>
-                      <div role="cell" className={`px-2.5 py-2 ${COLUMNS[12].align}`}>
+                      <div role="cell" className={`px-2.5 ${cellY} ${COLUMNS[12].align}`}>
                         {formatNumber(r.avg_gold)}
                       </div>
-                      <div role="cell" className={`px-2.5 py-2 ${COLUMNS[13].align}`}>
+                      <div role="cell" className={`px-2.5 ${cellY} ${COLUMNS[13].align}`}>
                         <div className="ml-auto grid w-max grid-cols-2 gap-x-2 gap-y-0.5 text-[10.5px] tabular-nums">
                           <span className="mk0 whitespace-nowrap" title="Double kills">
                             D {formatNumber(r.double_kills)}

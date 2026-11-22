@@ -155,16 +155,25 @@ export function getChampionStatsAll(
   );
 }
 
-export function getActivityHeatmap(account?: string): ActivityHeatmapDay[] {
-  console.log("[db] getActivityHeatmap called:", { account });
+// The period picks how coarse a heatmap tile is, so it also picks how far back the
+// rows must reach: 26 weeks of days or weeks, or 24 months of tiles. 24h shows 24
+// hourly tiles, so it gets two days to cover a partly elapsed first hour.
+const HEATMAP_WINDOW_DAYS = { "24h": 2, "7d": 182, "30d": 760, full: 182 } as const;
+
+export function getActivityHeatmap(
+  account?: string,
+  timePeriod?: "24h" | "7d" | "30d" | "full",
+): ActivityHeatmapDay[] {
+  console.log("[db] getActivityHeatmap called:", { account, timePeriod });
   const statsPlaceholders = NO_STATS_QUEUE_IDS.map(() => "?").join(",");
   const where = [
     "g.is_remake = 0",
     "g.source != 'search-import'",
     `g.queue_id NOT IN (${statsPlaceholders})`,
-    "g.game_creation >= (strftime('%s', 'now', '-182 days') * 1000)",
+    "g.game_creation >= ?",
   ];
-  const params: any[] = [...NO_STATS_QUEUE_IDS];
+  const windowDays = HEATMAP_WINDOW_DAYS[timePeriod ?? "7d"];
+  const params: any[] = [...NO_STATS_QUEUE_IDS, Date.now() - windowDays * 24 * 60 * 60 * 1000];
 
   if (account === "all") {
     where.push("mp.puuid IN (SELECT puuid FROM summoner)");
@@ -175,15 +184,20 @@ export function getActivityHeatmap(account?: string): ActivityHeatmapDay[] {
     where.push("mp.puuid = g.puuid");
   }
 
+  // Hourly tiles are bucketed in the renderer's local time, so 24h returns one
+  // ISO timestamp per game instead of UTC-day counts.
+  const hourly = timePeriod === "24h";
   const rows = db
     .prepare(`
-      SELECT strftime('%Y-%m-%d', g.game_creation / 1000, 'unixepoch') AS day,
-             COUNT(*) AS games
+      SELECT ${
+        hourly
+          ? "strftime('%Y-%m-%dT%H:%M:%SZ', g.game_creation / 1000, 'unixepoch') AS day, 1 AS games"
+          : "strftime('%Y-%m-%d', g.game_creation / 1000, 'unixepoch') AS day, COUNT(*) AS games"
+      }
       FROM match_participants mp
       JOIN games g ON g.game_id = mp.game_id
       WHERE ${where.join(" AND ")}
-      GROUP BY day
-      ORDER BY day ASC
+      ${hourly ? "ORDER BY g.game_creation ASC" : "GROUP BY day ORDER BY day ASC"}
     `)
     .all(...params) as ActivityHeatmapDay[];
   console.log("[db] getActivityHeatmap done:", { count: rows.length });

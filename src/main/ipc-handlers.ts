@@ -97,9 +97,10 @@ export function registerIpcHandlers() {
         sortDir?: string;
         multikills?: string[];
         favorites?: boolean;
+        timePeriod?: "24h" | "7d" | "30d" | "full";
       },
     ) => {
-      return db.getMatchHistory(limit, offset, filters);
+      return db.getMatchHistory(limit, offset, filters, filters?.timePeriod);
     },
   );
 
@@ -258,12 +259,15 @@ export function registerIpcHandlers() {
     },
   );
 
-  ipcMain.handle("db:activity-heatmap", (_event, account?: string) => {
-    console.log("[db] activity-heatmap handler called:", { account });
-    const result = db.getActivityHeatmap(account);
-    console.log("[db] activity-heatmap handler done:", { count: result.length });
-    return result;
-  });
+  ipcMain.handle(
+    "db:activity-heatmap",
+    (_event, account?: string, timePeriod?: "24h" | "7d" | "30d" | "full") => {
+      console.log("[db] activity-heatmap handler called:", { account, timePeriod });
+      const result = db.getActivityHeatmap(account, timePeriod);
+      console.log("[db] activity-heatmap handler done:", { count: result.length });
+      return result;
+    },
+  );
 
   ipcMain.handle(
     "db:champion-detail-stats",
@@ -488,9 +492,15 @@ export function registerIpcHandlers() {
     "db:dashboard",
     (
       _event,
-      filters?: { championId?: number; patch?: string; queue?: number; account?: string },
+      filters?: {
+        championId?: number;
+        patch?: string;
+        queue?: number;
+        account?: string;
+        timePeriod?: "24h" | "7d" | "30d" | "full";
+      },
     ) => {
-      return db.getDashboardData(filters);
+      return db.getDashboardData(filters, filters?.timePeriod);
     },
   );
 

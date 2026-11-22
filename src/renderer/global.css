@@ -769,6 +769,7 @@ html[data-theme="test"] #root {
 
 .scroll-themed::-webkit-scrollbar {
   width: 6px;
+  height: 6px;
 }
 
 .scroll-themed::-webkit-scrollbar-track {

@@ -188,6 +188,7 @@ export default function Champions() {
   }, [refetch]);
 
   const activeTheme = useActiveTheme();
+  const exactTheme = useActiveTheme({ exact: true });
   const isExperiment = activeTheme === "experiment";
 
   const handleSort = (key: SortKey) => {
@@ -239,7 +240,8 @@ export default function Champions() {
   }, [data, search, sortKey, sortDir, champData]);
 
   if (isExperiment) {
-    return <ChampionExp />;
+    // useActiveTheme folds redesign into "experiment"; only the exact value tells them apart
+    return <ChampionExp redesign={exactTheme === "redesign"} />;
   }
 
   if (!data) {

@@ -28,6 +28,7 @@ export function ChampCard({
     "border-emerald-400/40 shadow-[0_0_14px_rgba(52,211,153,0.10)]",
     "border-rose-400/40 shadow-[0_0_14px_rgba(251,113,133,0.10)]",
   ];
+  const accent = accents[accentIndex % accents.length];
 
   return (
     <div
@@ -35,12 +36,12 @@ export function ChampCard({
         layout === "horizontal"
           ? "flex min-w-0 items-center gap-2.5 p-2.5"
           : `flex flex-col ${compact ? "gap-1 p-2" : "gap-1.5 p-3.5"}`
-      } ${accents[accentIndex % accents.length]}`}
+      } ${accent}`}
     >
       <div
         className={`w-fit shrink-0 rounded-lg border ${
           layout === "horizontal" ? "p-0.5" : compact ? "p-0.5" : "p-1"
-        } ${accents[accentIndex % accents.length]}`}
+        } ${accent}`}
       >
         <ChampionIcon
           championId={championId}

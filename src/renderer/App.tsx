@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import { HashRouter, Navigate, Routes, Route } from "react-router-dom";
 import { FullHistoryShell } from "./components/FullHistoryShell";
 import { SectionChrome } from "./components/SectionChrome";
@@ -30,6 +31,12 @@ function ChampionsDetailRoute() {
 function ItemDetailRoute() {
   const activeTheme = useActiveTheme();
   return activeTheme === "experiment" ? <ItemDetailExp /> : <ItemDetail />;
+}
+
+// Redesign has no Local Account or History tab; both land on Your Profile
+function RedirectInRedesign({ children }: { children: ReactNode }) {
+  const isRedesign = useActiveTheme({ exact: true }) === "redesign";
+  return isRedesign ? <Navigate to="/profile" replace /> : children;
 }
 
 function ScopedFriendDetail() {
@@ -111,7 +118,14 @@ export default function App() {
       <Routes>
         <Route element={<FullHistoryShell />}>
           <Route path="/" element={<Navigate to="/home" replace />} />
-          <Route path="/history" element={<MatchHistory />} />
+          <Route
+            path="/history"
+            element={
+              <RedirectInRedesign>
+                <MatchHistory />
+              </RedirectInRedesign>
+            }
+          />
           <Route path="/match/:gameId" element={<MatchDetailPage />} />
           <Route path="/history/full/:section" element={<HistorySection />} />
           <Route path="/history/:scope/:section" element={<HistorySection />} />
@@ -129,7 +143,15 @@ export default function App() {
           <Route path="/history/arena" element={<MatchHistory scope="arena" />} />
           <Route path="/settings" element={<Settings />} />
           <Route path="/home" element={<Home />} />
-          <Route path="/local" element={<Profile />} />
+          <Route
+            path="/local"
+            element={
+              <RedirectInRedesign>
+                <Profile />
+              </RedirectInRedesign>
+            }
+          />
+          <Route path="/profile" element={<Profile />} />
           <Route path="/champions" element={<FullHistorySection section="champions" />} />
           <Route path="/champions/:championId" element={<ChampionsDetailRoute />} />
           <Route path="/items" element={<FullHistorySection section="items" />} />

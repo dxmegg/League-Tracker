@@ -167,6 +167,7 @@ export interface MatchFilters {
   sortDir?: MatchSortDir;
   multikills?: MultikillType[];
   favorites?: boolean;
+  timePeriod?: HomeTimePeriod;
 }
 
 export interface TrackedAccount {
@@ -1865,7 +1866,10 @@ export interface ElectronAPI {
   ) => () => void;
   toggleFavorite: (gameId: number) => Promise<boolean>;
   getChampionStats: (patch?: string, queue?: number, account?: string) => Promise<ChampionStats[]>;
-  getActivityHeatmap: (account?: string) => Promise<ActivityHeatmapDay[]>;
+  getActivityHeatmap: (
+    account?: string,
+    timePeriod?: HomeTimePeriod,
+  ) => Promise<ActivityHeatmapDay[]>;
   getChampionDetailStats: (
     championId: number | null,
     patch?: string,
@@ -1968,7 +1972,7 @@ export interface ElectronAPI {
     account?: string,
   ) => Promise<AugmentStatsDetailedResult>;
   getDashboard: (
-    filters?: Pick<MatchFilters, "championId" | "patch" | "queue" | "account">,
+    filters?: Pick<MatchFilters, "championId" | "patch" | "queue" | "account" | "timePeriod">,
   ) => Promise<DashboardData>;
   getHomeDashboard: (
     account: HomeAccountFilter,

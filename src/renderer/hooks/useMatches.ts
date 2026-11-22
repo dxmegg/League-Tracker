@@ -3,8 +3,9 @@ import type { MatchFilters, MatchListItem, MultikillType } from "../lib/types";
 
 const PAGE_SIZE = 20;
 
-export function useMatches(filters: MatchFilters = {}) {
-  const { championId, patch, queue, account, sort, sortDir, multikills, favorites } = filters;
+export function useMatches(filters: MatchFilters = {}, pageSize = PAGE_SIZE) {
+  const { championId, patch, queue, account, sort, sortDir, multikills, favorites, timePeriod } =
+    filters;
   // Arrays are recreated each render, so the joined string is what the hook
   // actually depends on. The list is rebuilt from it below rather than closing
   // over the array, which keeps every dependency here a primitive.
@@ -26,7 +27,7 @@ export function useMatches(filters: MatchFilters = {}) {
       setError(null);
       const offset = reset ? 0 : offsetRef.current;
       try {
-        const result = await window.api.getMatchHistory(PAGE_SIZE, offset, {
+        const result = await window.api.getMatchHistory(pageSize, offset, {
           championId,
           patch,
           queue,
@@ -34,6 +35,7 @@ export function useMatches(filters: MatchFilters = {}) {
           sort,
           sortDir,
           favorites,
+          timePeriod,
           // Safe to narrow: the key was joined from these same values
           multikills: multikillsKey ? (multikillsKey.split(",") as MultikillType[]) : [],
         });
@@ -51,7 +53,18 @@ export function useMatches(filters: MatchFilters = {}) {
         setLoading(false);
       }
     },
-    [championId, patch, queue, account, sort, sortDir, multikillsKey, favorites],
+    [
+      championId,
+      patch,
+      queue,
+      account,
+      sort,
+      sortDir,
+      multikillsKey,
+      favorites,
+      timePeriod,
+      pageSize,
+    ],
   );
 
   // `load` changes only when a filter changes, so this both loads the first

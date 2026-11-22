@@ -28,6 +28,7 @@ import { MatchRowExperiment } from "../components/MatchRowExperiment";
 import { MostPlayedQueuesExp } from "../components/MostPlayedQueuesExp";
 import { Panel } from "../components/Panel";
 import { ProfileHeroExp } from "../components/ProfileHeroExp";
+import { ProfileHeaderRedesign, ProfileRedesign } from "../components/ProfileRedesign";
 import { RankCardExp } from "../components/RankCardExp";
 import { ChampCard } from "../components/ChampCard";
 import { HomeHero } from "../components/HomeHero";
@@ -641,6 +642,8 @@ export default function Profile() {
   const log = dbg.scope("profile");
   const activeTheme = useActiveTheme();
   const isExperiment = activeTheme === "experiment";
+  // useActiveTheme folds redesign into "experiment"; only the exact value tells them apart
+  const isRedesign = useActiveTheme({ exact: true }) === "redesign";
   const championData = useChampionData();
   const lcuStatus = useLcuStatus();
   const lcuConnected = lcuStatus === "connected" || lcuStatus === "ingame";
@@ -932,7 +935,7 @@ export default function Profile() {
   }, [selectedPuuid, loadLocalProfile, livePuuid, queue]);
 
   useEffect(() => {
-    if (!isExperiment || !isAllAccounts) return;
+    if (!isExperiment || isRedesign || !isAllAccounts) return;
     let cancelled = false;
     setAllDashboard(null);
     window.api
@@ -946,10 +949,10 @@ export default function Profile() {
     return () => {
       cancelled = true;
     };
-  }, [isExperiment, isAllAccounts, timePeriod, queue]);
+  }, [isExperiment, isRedesign, isAllAccounts, timePeriod, queue]);
 
   useEffect(() => {
-    if (!isExperiment || !isAllAccounts) return;
+    if (!isExperiment || isRedesign || !isAllAccounts) return;
     let cancelled = false;
     setAllLoading(true);
     setAllMatches([]);
@@ -973,7 +976,7 @@ export default function Profile() {
     return () => {
       cancelled = true;
     };
-  }, [isExperiment, isAllAccounts]);
+  }, [isExperiment, isRedesign, isAllAccounts]);
 
   useEffect(() => {
     if (syncing) {
@@ -1003,6 +1006,47 @@ export default function Profile() {
       setAllLoading(false);
     }
   };
+
+  const renderRedesignHeader = (mode: "single" | "all") => (
+    <ProfileHeaderRedesign
+      mode={mode}
+      gameName={selectedAccount?.gameName ?? profile?.gameName ?? "Unknown"}
+      tagLine={selectedAccount?.tagLine ?? profile?.tagLine ?? null}
+      profileIconId={profile?.profileIconId ?? selectedAccount?.profileIconId ?? null}
+      level={profile?.summonerLevel ?? null}
+      platform={profile?.platform ?? selectedAccount?.platform ?? null}
+      lastSeen={selectedAccount?.lastSeen ?? null}
+      rankedSolo={profile?.rankedSolo ?? null}
+      rankedFlex={profile?.rankedFlex ?? null}
+      accounts={accounts}
+      activePuuid={isAllAccounts ? null : selectedPuuid}
+      livePuuid={livePuuid}
+      onSelectAccount={(puuid) => setActiveAccountRaw(puuid ?? ALL_ACCOUNTS_SENTINEL)}
+      onRefresh={handleRefresh}
+      refreshing={syncing}
+      scannedCount={scannedCount}
+      totalCount={totalCount}
+      syncError={syncError}
+      onDismissError={() => setSyncError(null)}
+      timePeriod={timePeriod}
+      onTimePeriodChange={setTimePeriod}
+    />
+  );
+
+  // "Your Profile": one page for both the single-account and combined views
+  if (isRedesign) {
+    return (
+      <ProfileRedesign
+        header={renderRedesignHeader(isAllAccounts ? "all" : "single")}
+        profile={profile}
+        accounts={accounts}
+        error={error}
+        account={isAllAccounts ? "all" : selectedPuuid}
+        timePeriod={timePeriod}
+        champData={championData}
+      />
+    );
+  }
 
   if (isExperiment && isAllAccounts) {
     return (

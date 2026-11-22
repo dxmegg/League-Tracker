@@ -154,8 +154,11 @@ const api: ElectronAPI = {
   getChampionStats: (patch?: string, queue?: number, account?: string) =>
     ipcRenderer.invoke("db:champion-stats", patch, queue, account),
 
-  getActivityHeatmap: (account?: string): Promise<ActivityHeatmapDay[]> =>
-    ipcRenderer.invoke("db:activity-heatmap", account),
+  getActivityHeatmap: (
+    account?: string,
+    timePeriod?: HomeTimePeriod,
+  ): Promise<ActivityHeatmapDay[]> =>
+    ipcRenderer.invoke("db:activity-heatmap", account, timePeriod),
 
   getChampionDetailStats: (
     championId: number | null,
@@ -244,8 +247,9 @@ const api: ElectronAPI = {
   getAugmentStatsDetailed: (patch?: string, queue?: number, account?: string) =>
     ipcRenderer.invoke("db:augment-stats-detailed", patch, queue, account),
 
-  getDashboard: (filters?: Pick<MatchFilters, "championId" | "patch" | "queue" | "account">) =>
-    ipcRenderer.invoke("db:dashboard", filters),
+  getDashboard: (
+    filters?: Pick<MatchFilters, "championId" | "patch" | "queue" | "account" | "timePeriod">,
+  ) => ipcRenderer.invoke("db:dashboard", filters),
 
   getHomeDashboard: (
     account: HomeAccountFilter,
