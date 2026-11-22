@@ -1,8 +1,9 @@
-import type { ReactNode } from "react";
+import { type ReactNode, useEffect } from "react";
 import type { AccountListItem, ChampionData, HomeTimePeriod } from "../../shared/api";
 import { shortRegion } from "../../shared/regions";
-import { formatTimeAgo } from "../lib/format";
-import type { ProfileData, ProfileRankedEntry } from "../lib/types";
+import { useIpc } from "../hooks/useIpc";
+import { formatNumber, formatPlaytime, formatTimeAgo } from "../lib/format";
+import type { DashboardData, ProfileData, ProfileRankedEntry } from "../lib/types";
 import { ChampionMasteryExp } from "./ChampionMasteryExp";
 import { Panel } from "./Panel";
 import { RankCardExp } from "./RankCardExp";
@@ -72,6 +73,11 @@ export function ProfileHeaderRedesign({
   onTimePeriodChange: (period: HomeTimePeriod) => void;
 }) {
   const isLive = mode === "single" && activePuuid !== null && activePuuid === livePuuid;
+  const { data: totals, refetch: refetchTotals } = useIpc<DashboardData>(
+    () => window.api.getDashboard({ account: activePuuid ?? "all", timePeriod }),
+    [activePuuid, timePeriod],
+  );
+  useEffect(() => window.api.onGamesUpdated(refetchTotals), [refetchTotals]);
   const progress = totalCount > 0 ? Math.min(100, (scannedCount / totalCount) * 100) : 0;
   const sortedAccounts = [...accounts].sort((a, b) => {
     const aLive = a.puuid === livePuuid ? 1 : 0;
@@ -134,6 +140,12 @@ export function ProfileHeaderRedesign({
               </>
             ) : (
               <span>{accounts.length} saved accounts</span>
+            )}
+            {totals && (
+              <>
+                <span>{formatNumber(totals.totalGames)} games</span>
+                <span>{formatPlaytime(totals.totalDuration)} played</span>
+              </>
             )}
           </div>
         </div>

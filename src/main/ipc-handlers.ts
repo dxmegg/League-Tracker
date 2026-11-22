@@ -44,6 +44,7 @@ const RENDERER_SETTINGS = new Set([
   "auto_start",
   "minimize_to_tray",
   "hidden_queues",
+  "mayhem_only",
   "hide_remakes",
   "auto_backup",
   "remember_filters",
@@ -1380,7 +1381,10 @@ export function registerIpcHandlers() {
     // The one setting with a home outside the database: the login item has to be
     // rewritten to match, and only this handler knows the answer just changed.
     if (key === "auto_start") applyAutoStart(value === "true");
-    if (key === "active_account") invalidateDashboardCache();
+    if (key === "active_account" || key === "mayhem_only") {
+      invalidateDashboardCache();
+      if (key === "mayhem_only") invalidateAllCaches();
+    }
   });
   ipcMain.handle("dbg:get", () => {
     const enabled = db.getSetting("debug_enabled") === "true";

@@ -37,6 +37,11 @@ export function applyQueueFilter(
   queue?: number | number[],
   alias = "g",
 ): void {
+  // Master switch from Settings: applied on top of any explicit queue filter
+  if (getSetting("mayhem_only") === "true") {
+    where.push(`${alias}.queue_id IN (${MAYHEM_QUEUE_IDS.map(() => "?").join(", ")})`);
+    params.push(...MAYHEM_QUEUE_IDS);
+  }
   if (Array.isArray(queue)) {
     if (queue.length === 0) return;
     if (queue.length === 1) {

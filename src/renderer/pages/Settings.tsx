@@ -105,6 +105,7 @@ function Section({
 }
 
 export default function Settings() {
+  const [mayhemOnly, setMayhemOnly] = useState(false);
   // Shared so a backfill started automatically on first connect shows here too
   const { running: backfilling } = useBackfill();
   const [theme, setTheme] = useState<string>(
@@ -161,7 +162,9 @@ export default function Settings() {
       window.api.getSetting("auto_backup"),
       window.api.getSetting("remember_filters"),
       window.api.getSetting("theme"),
-    ]).then(([startup, startupSupported, tray, hidden, remakes, backup, remember, storedTheme]) => {
+      window.api.getSetting("mayhem_only"),
+    ]).then(([startup, startupSupported, tray, hidden, remakes, backup, remember, storedTheme, mayhem]) => {
+      setMayhemOnly(mayhem === "true");
       setTheme(storedTheme === "test" || storedTheme === "experiment" ? storedTheme : "experiment");
       setAutoStart(startup === "true");
       setAutoStartSupported(startupSupported);
@@ -490,7 +493,16 @@ export default function Settings() {
 
   return (
     <div className="w-full max-w-3xl xl:max-w-4xl 2xl:max-w-5xl space-y-5 2xl:space-y-6">
-      <h1 className="text-xl font-bold text-lol-text-bright">Settings</h1>
+      <div className="flex items-center gap-4">
+        <h1 className="text-xl font-bold text-lol-text-bright">Settings</h1>
+        <Switch
+          checked={mayhemOnly}
+          onChange={() => {
+            setMayhemOnly(!mayhemOnly);
+            void window.api.setSetting("mayhem_only", String(!mayhemOnly));
+          }}
+        />
+      </div>
 
       <Section title="Appearance">
         <div className="flex items-center justify-between gap-4">

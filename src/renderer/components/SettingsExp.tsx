@@ -365,6 +365,7 @@ function Section({
 }
 
 export function SettingsExp() {
+  const [mayhemOnly, setMayhemOnly] = useState(false);
   // Shared so a backfill started automatically on first connect shows here too
   const { running: backfilling } = useBackfill();
   const {
@@ -446,7 +447,9 @@ export function SettingsExp() {
       window.api.getSetting("auto_backup"),
       window.api.getSetting("remember_filters"),
       window.api.getSetting("theme"),
-    ]).then(([startup, startupSupported, tray, hidden, remakes, backup, remember, storedTheme]) => {
+      window.api.getSetting("mayhem_only"),
+    ]).then(([startup, startupSupported, tray, hidden, remakes, backup, remember, storedTheme, mayhem]) => {
+      setMayhemOnly(mayhem === "true");
       const persistedTheme =
         THEME_OPTIONS.find((option) => option.value === storedTheme)?.value ?? "experiment";
       document.documentElement.setAttribute("data-theme", persistedTheme);
@@ -975,9 +978,18 @@ export function SettingsExp() {
   return (
     <div className="mx-auto flex min-h-full w-full max-w-[1320px] flex-col gap-5">
       <div>
-        <h1 className="font-display text-[30px] font-bold leading-tight tracking-[0.2px] text-lol-text-bright">
-          Settings
-        </h1>
+        <div className="flex items-center gap-4">
+          <h1 className="font-display text-[30px] font-bold leading-tight tracking-[0.2px] text-lol-text-bright">
+            Settings
+          </h1>
+          <Switch
+            checked={mayhemOnly}
+            onChange={() => {
+              setMayhemOnly(!mayhemOnly);
+              void window.api.setSetting("mayhem_only", String(!mayhemOnly));
+            }}
+          />
+        </div>
         <p className="mt-1.5 text-lol-text">
           Control synchronization, storage, and application behavior
         </p>
