@@ -81,7 +81,7 @@ function emptyStateMessage(
 }
 
 // The unselected state is the default sort (date), so it isn't listed here
-const SORT_OPTIONS: { value: MatchSort; label: string }[] = [
+export const SORT_OPTIONS: { value: MatchSort; label: string }[] = [
   { value: "score", label: "Score" },
   { value: "kda", label: "KDA" },
   { value: "kills", label: "Kills" },

@@ -167,6 +167,7 @@ export interface MatchFilters {
   sortDir?: MatchSortDir;
   multikills?: MultikillType[];
   favorites?: boolean;
+  timePeriod?: HomeTimePeriod;
 }
 
 export interface TrackedAccount {
@@ -1864,13 +1865,22 @@ export interface ElectronAPI {
     callback: (payload: { cancelled: boolean; progress: TimelineBackfillProgress | null }) => void,
   ) => () => void;
   toggleFavorite: (gameId: number) => Promise<boolean>;
-  getChampionStats: (patch?: string, queue?: number, account?: string) => Promise<ChampionStats[]>;
-  getActivityHeatmap: (account?: string) => Promise<ActivityHeatmapDay[]>;
+  getChampionStats: (
+    patch?: string,
+    queue?: number,
+    account?: string,
+    timePeriod?: HomeTimePeriod,
+  ) => Promise<ChampionStats[]>;
+  getActivityHeatmap: (
+    account?: string,
+    timePeriod?: HomeTimePeriod,
+  ) => Promise<ActivityHeatmapDay[]>;
   getChampionDetailStats: (
     championId: number | null,
     patch?: string,
     queue?: number,
     account?: string,
+    timePeriod?: HomeTimePeriod,
   ) => Promise<ChampionDetailStats>;
   getChampionChallengeAggregates: (
     puuid: string,
@@ -1892,10 +1902,12 @@ export interface ElectronAPI {
     patch?: string,
     queue?: number,
     account?: string,
+    timePeriod?: HomeTimePeriod,
   ) => Promise<ChampionRoleStat[]>;
   getChampionKeystones: (
     championId: number | null,
     account?: string,
+    timePeriod?: HomeTimePeriod,
   ) => Promise<ChampionKeystoneStat[]>;
   getChampionRuneStats: (
     championId: number | null,
@@ -1943,12 +1955,14 @@ export interface ElectronAPI {
     patch?: string,
     queue?: number,
     account?: string,
+    timePeriod?: HomeTimePeriod,
   ) => Promise<ChampionMatchupRow[]>;
   getChampionAllyStats: (
     championId: number | null,
     patch?: string,
     queue?: number,
     account?: string,
+    timePeriod?: HomeTimePeriod,
   ) => Promise<ChampionAllyRow[]>;
   getChampionTeammateStats: (
     championId: number | null,
@@ -1961,6 +1975,7 @@ export interface ElectronAPI {
     patch?: string,
     queue?: number,
     account?: string,
+    timePeriod?: HomeTimePeriod,
   ) => Promise<AugmentStats[]>;
   getAugmentStatsDetailed: (
     patch?: string,
@@ -1968,7 +1983,7 @@ export interface ElectronAPI {
     account?: string,
   ) => Promise<AugmentStatsDetailedResult>;
   getDashboard: (
-    filters?: Pick<MatchFilters, "championId" | "patch" | "queue" | "account">,
+    filters?: Pick<MatchFilters, "championId" | "patch" | "queue" | "account" | "timePeriod">,
   ) => Promise<DashboardData>;
   getHomeDashboard: (
     account: HomeAccountFilter,
@@ -2028,12 +2043,14 @@ export interface ElectronAPI {
     patch?: string,
     queue?: number,
     account?: string,
+    timePeriod?: HomeTimePeriod,
   ) => Promise<{ matches: MatchListItem[]; total: number }>;
   getChampionRecords: (
     championId: number | null,
     patch?: string,
     queue?: number,
     account?: string,
+    timePeriod?: HomeTimePeriod,
   ) => Promise<ChampionRecordsResult>;
   getChampionItemStats: (
     championId: number | null,
@@ -2079,6 +2096,7 @@ export interface ElectronAPI {
     patch?: string,
     queue?: number,
     account?: string,
+    timePeriod?: HomeTimePeriod,
   ) => Promise<GlobalChampionDetail>;
   getSummonerPuuid: () => Promise<string | null>;
   getAllSummonerPuuids: () => Promise<string[]>;

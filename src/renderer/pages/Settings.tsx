@@ -506,7 +506,8 @@ export default function Settings() {
                 value !== "experiment2" &&
                 value !== "experiment3" &&
                 value !== "experiment4" &&
-                value !== "experiment5"
+                value !== "experiment5" &&
+                value !== "redesign"
               )
                 return;
               setTheme(value);
@@ -523,6 +524,7 @@ export default function Settings() {
               { value: "experiment3", label: "Fourth Theme" },
               { value: "experiment4", label: "Fifth Theme" },
               { value: "experiment5", label: "Sixth Theme" },
+              { value: "redesign", label: "Redesign" },
             ]}
           />
         </div>

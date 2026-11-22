@@ -134,6 +134,42 @@ html[data-theme="experiment"] {
   --theme-font-body: "IBM Plex Sans", "Segoe UI", system-ui, sans-serif;
 }
 
+html[data-theme="redesign"] {
+  /* Redesign — structural clone of the experiment palette; diverge from here */
+  --theme-bg-deep: #08050a;
+  --theme-bg-base: #0d080c;
+  --theme-bg-elevated: #171017;
+  --theme-bg: #0d080c;
+  --theme-card: #171017;
+  --theme-card-hover: #20151d;
+  --theme-border: #35222c;
+  --theme-border-hover: #4a2e3d;
+  --theme-surface: rgba(210, 43, 71, 0.06);
+  --theme-surface-hover: rgba(210, 43, 71, 0.11);
+  --theme-foreground: #f4ebee;
+  --theme-foreground-muted: #a5939b;
+  --theme-foreground-subtle: #75646c;
+  --theme-text: #a5939b;
+  --theme-text-bright: #f4ebee;
+  --theme-accent: #e6bc63;
+  --theme-accent-bright: #f5e0a8;
+  --theme-accent-glow: rgba(230, 188, 99, 0.45);
+  --theme-gold: #e6bc63;
+  --theme-gold-light: #f5e0a8;
+  --theme-crimson: #d22b47;
+  --theme-crimson-bright: #e85068;
+  --theme-crimson-glow: rgba(210, 43, 71, 0.48);
+  --theme-victory: #38d6a2;
+  --theme-win: #38d6a2;
+  --theme-defeat: #f0566e;
+  --theme-loss: #f0566e;
+  --theme-assist: #4db8ff;
+  --theme-violet: #a98bff;
+  --theme-flint: #75646c;
+  --theme-font-display: "Chakra Petch", "Rajdhani", "Segoe UI", system-ui, sans-serif;
+  --theme-font-body: "IBM Plex Sans", "Segoe UI", system-ui, sans-serif;
+}
+
 html[data-theme="experiment2"] {
   /* Third theme — royal purple + gold */
   --theme-bg-deep: #0a0612;
@@ -301,7 +337,10 @@ html[data-theme="experiment4"] h2,
 html[data-theme="experiment4"] h3,
 html[data-theme="experiment5"] h1,
 html[data-theme="experiment5"] h2,
-html[data-theme="experiment5"] h3 {
+html[data-theme="experiment5"] h3,
+html[data-theme="redesign"] h1,
+html[data-theme="redesign"] h2,
+html[data-theme="redesign"] h3 {
   font-family: var(
     --theme-font-display,
     -apple-system,
@@ -361,6 +400,16 @@ html[data-theme="experiment4"] body {
 }
 
 html[data-theme="experiment5"] body {
+  position: relative;
+  background-color: var(--theme-bg-base);
+  background-image:
+    radial-gradient(900px 500px at 85% -8%, var(--theme-crimson-glow), transparent 70%),
+    linear-gradient(to bottom, var(--theme-bg-deep), var(--theme-bg-base));
+  color: var(--theme-foreground);
+  -moz-osx-font-smoothing: grayscale;
+}
+
+html[data-theme="redesign"] body {
   position: relative;
   background-color: var(--theme-bg-base);
   background-image:
@@ -720,6 +769,7 @@ html[data-theme="test"] #root {
 
 .scroll-themed::-webkit-scrollbar {
   width: 6px;
+  height: 6px;
 }
 
 .scroll-themed::-webkit-scrollbar-track {

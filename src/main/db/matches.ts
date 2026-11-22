@@ -13,6 +13,7 @@ import {
 } from "../../shared/queues";
 import {
   applyQueueFilter,
+  pushTimeFilter,
   applyTimeFilter,
   localGamesFilter,
   hideRemakes,
@@ -334,7 +335,9 @@ export function getMatchFilterOptions(filters?: {
   const hasArena = queueRows.some((row) => ARENA_QUEUE_IDS.includes(row.queue_id));
   const queueIds = [
     ...(hasArena ? [QUEUE_GROUP_ARENA] : []),
-    ...queueRows.filter((row) => !ARENA_QUEUE_IDS.includes(row.queue_id)).map((row) => row.queue_id),
+    ...queueRows
+      .filter((row) => !ARENA_QUEUE_IDS.includes(row.queue_id))
+      .map((row) => row.queue_id),
   ];
 
   // Like the favorites toggle below, this list ignores the other filters: the
@@ -569,6 +572,7 @@ export function getChampionMatchHistory(
   patch?: string,
   queue?: number,
   account?: string,
+  timePeriod?: "24h" | "7d" | "30d" | "full",
 ): { matches: any[]; total: number } {
   const source = statsSource(account);
   const hasConcreteAccount = account !== undefined && account !== "all";
@@ -581,6 +585,7 @@ export function getChampionMatchHistory(
     params.push(patch);
   }
   applyQueueFilter(where, params, queue);
+  pushTimeFilter(where, params, timePeriod);
   const whereSql = `WHERE ${where.join(" AND ")}`;
   const augmentIdsSql = account
     ? `(SELECT GROUP_CONCAT(augment_id, ',')

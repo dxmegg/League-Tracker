@@ -171,7 +171,31 @@ export const GAME_MAX_STATS_SQL = `
 // Filters for a query over match_participants. is_remake, queue_id and
 // game_version are carried on the participant rows themselves, so nothing here
 // has to join back to games.
-export function participantFilter(patch?: string, queue?: number, alias = "mp") {
+// Lower bound (epoch ms) of a time period, or null for "full"/unset
+function periodStart(timePeriod?: "24h" | "7d" | "30d" | "full"): number | null {
+  const days = timePeriod === "24h" ? 1 : timePeriod === "7d" ? 7 : timePeriod === "30d" ? 30 : 0;
+  return days > 0 ? Date.now() - days * 24 * 60 * 60 * 1000 : null;
+}
+
+// Adds `<alias>.game_creation >= ?` for the period; the caller's alias must be the games table
+export function pushTimeFilter(
+  where: string[],
+  params: unknown[],
+  timePeriod?: "24h" | "7d" | "30d" | "full",
+  alias = "g",
+): void {
+  const start = periodStart(timePeriod);
+  if (start == null) return;
+  where.push(`${alias}.game_creation >= ?`);
+  params.push(start);
+}
+
+export function participantFilter(
+  patch?: string,
+  queue?: number,
+  alias = "mp",
+  timePeriod?: "24h" | "7d" | "30d" | "full",
+) {
   const where = [`${alias}.is_remake = 0`];
   const params: any[] = [];
   if (patch) {
@@ -179,9 +203,13 @@ export function participantFilter(patch?: string, queue?: number, alias = "mp") 
     params.push(patch);
   }
   applyQueueFilter(where, params, queue, alias);
+  // game_creation lives on games, so the period goes inside the EXISTS; its ? follows the
+  // patch and queue params because this clause is appended after them
+  const start = periodStart(timePeriod);
   where.push(
-    `EXISTS (SELECT 1 FROM games g WHERE g.game_id = ${alias}.game_id AND ${localGamesFilter("g")} AND g.queue_id NOT IN (${EXCLUDED_STATS_SQL}))`,
+    `EXISTS (SELECT 1 FROM games g WHERE g.game_id = ${alias}.game_id AND ${localGamesFilter("g")} AND g.queue_id NOT IN (${EXCLUDED_STATS_SQL})${start != null ? " AND g.game_creation >= ?" : ""})`,
   );
+  if (start != null) params.push(start);
   return { where, params, sql: where.join(" AND ") };
 }
 

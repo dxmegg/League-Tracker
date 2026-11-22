@@ -25,6 +25,7 @@ import {
   applyTimeFilter,
   localGamesFilter,
   participantFilter,
+  pushTimeFilter,
   statsSource,
   EXCLUDED_ITEM_IDS,
   EXCLUDED_STATS_SQL,
@@ -155,16 +156,25 @@ export function getChampionStatsAll(
   );
 }
 
-export function getActivityHeatmap(account?: string): ActivityHeatmapDay[] {
-  console.log("[db] getActivityHeatmap called:", { account });
+// The period picks how coarse a heatmap tile is, so it also picks how far back the
+// rows must reach: 26 weeks of days or weeks, or 24 months of tiles. 24h shows 24
+// hourly tiles, so it gets two days to cover a partly elapsed first hour.
+const HEATMAP_WINDOW_DAYS = { "24h": 2, "7d": 182, "30d": 760, full: 182 } as const;
+
+export function getActivityHeatmap(
+  account?: string,
+  timePeriod?: "24h" | "7d" | "30d" | "full",
+): ActivityHeatmapDay[] {
+  console.log("[db] getActivityHeatmap called:", { account, timePeriod });
   const statsPlaceholders = NO_STATS_QUEUE_IDS.map(() => "?").join(",");
   const where = [
     "g.is_remake = 0",
     "g.source != 'search-import'",
     `g.queue_id NOT IN (${statsPlaceholders})`,
-    "g.game_creation >= (strftime('%s', 'now', '-182 days') * 1000)",
+    "g.game_creation >= ?",
   ];
-  const params: any[] = [...NO_STATS_QUEUE_IDS];
+  const windowDays = HEATMAP_WINDOW_DAYS[timePeriod ?? "7d"];
+  const params: any[] = [...NO_STATS_QUEUE_IDS, Date.now() - windowDays * 24 * 60 * 60 * 1000];
 
   if (account === "all") {
     where.push("mp.puuid IN (SELECT puuid FROM summoner)");
@@ -175,15 +185,20 @@ export function getActivityHeatmap(account?: string): ActivityHeatmapDay[] {
     where.push("mp.puuid = g.puuid");
   }
 
+  // Hourly tiles are bucketed in the renderer's local time, so 24h returns one
+  // ISO timestamp per game instead of UTC-day counts.
+  const hourly = timePeriod === "24h";
   const rows = db
     .prepare(`
-      SELECT strftime('%Y-%m-%d', g.game_creation / 1000, 'unixepoch') AS day,
-             COUNT(*) AS games
+      SELECT ${
+        hourly
+          ? "strftime('%Y-%m-%dT%H:%M:%SZ', g.game_creation / 1000, 'unixepoch') AS day, 1 AS games"
+          : "strftime('%Y-%m-%d', g.game_creation / 1000, 'unixepoch') AS day, COUNT(*) AS games"
+      }
       FROM match_participants mp
       JOIN games g ON g.game_id = mp.game_id
       WHERE ${where.join(" AND ")}
-      GROUP BY day
-      ORDER BY day ASC
+      ${hourly ? "ORDER BY g.game_creation ASC" : "GROUP BY day ORDER BY day ASC"}
     `)
     .all(...params) as ActivityHeatmapDay[];
   console.log("[db] getActivityHeatmap done:", { count: rows.length });
@@ -243,9 +258,16 @@ export function getChampionRoleStats(
   patch?: string,
   queue?: number,
   account?: string,
+  timePeriod?: "24h" | "7d" | "30d" | "full",
 ): ChampionRoleStat[] {
-  console.log("[db] getChampionRoleStats called:", { championId, patch, queue, account });
-  const filter = participantFilter(patch, queue);
+  console.log("[db] getChampionRoleStats called:", {
+    championId,
+    patch,
+    queue,
+    account,
+    timePeriod,
+  });
+  const filter = participantFilter(patch, queue, "mp", timePeriod);
   const ownerFilter =
     account === "all"
       ? "mp.puuid IN (SELECT puuid FROM summoner)"
@@ -283,6 +305,7 @@ export function getChampionRoleStats(
 export function getChampionKeystones(
   championId: number | null,
   account?: string,
+  timePeriod?: "24h" | "7d" | "30d" | "full",
 ): Array<{
   runeId: number;
   picks: number;
@@ -300,6 +323,7 @@ export function getChampionKeystones(
   where.push(`g.queue_id NOT IN (${EXCLUDED_STATS_SQL})`);
   const params: any[] = account && account !== "all" ? [account] : [];
   if (championId !== null) params.push(championId);
+  pushTimeFilter(where, params, timePeriod);
 
   const rows = db
     .prepare(`
@@ -646,27 +670,38 @@ export function getChampionMatchupList(
   patch?: string,
   queue?: number,
   account?: string,
+  timePeriod?: "24h" | "7d" | "30d" | "full",
 ): ChampionMatchupRow[] {
-  return cachedQuery("getChampionMatchupList", [championId, patch, queue, account], 30_000, () => {
-    console.log("[db] getChampionMatchupList called:", { championId, patch, queue, account });
+  return cachedQuery(
+    "getChampionMatchupList",
+    [championId, patch, queue, account, timePeriod],
+    30_000,
+    () => {
+      console.log("[db] getChampionMatchupList called:", {
+        championId,
+        patch,
+        queue,
+        account,
+        timePeriod,
+      });
 
-    const participant = participantFilter(patch, undefined, "owner");
-    const ownerFilter =
-      account === "all"
-        ? "owner.puuid IN (SELECT puuid FROM summoner)"
-        : account
-          ? "owner.puuid = ?"
-          : "owner.puuid = g.puuid";
-    const where = [ownerFilter, participant.sql];
-    if (championId !== null) where.push("owner.champion_id = ?");
-    const params: any[] = [];
-    if (account && account !== "all") params.push(account);
-    params.push(...participant.params);
-    if (championId !== null) params.push(championId);
-    applyQueueFilter(where, params, queue, "g");
+      const participant = participantFilter(patch, undefined, "owner", timePeriod);
+      const ownerFilter =
+        account === "all"
+          ? "owner.puuid IN (SELECT puuid FROM summoner)"
+          : account
+            ? "owner.puuid = ?"
+            : "owner.puuid = g.puuid";
+      const where = [ownerFilter, participant.sql];
+      if (championId !== null) where.push("owner.champion_id = ?");
+      const params: any[] = [];
+      if (account && account !== "all") params.push(account);
+      params.push(...participant.params);
+      if (championId !== null) params.push(championId);
+      applyQueueFilter(where, params, queue, "g");
 
-    const rows = db
-      .prepare(`
+      const rows = db
+        .prepare(`
       WITH owner_rows AS (
         SELECT owner.game_id,
                owner.participant_id AS ownerParticipantId,
@@ -778,11 +813,12 @@ export function getChampionMatchupList(
       HAVING games >= 1
       ORDER BY games DESC, championId ASC
     `)
-      .all(...params) as ChampionMatchupRow[];
+        .all(...params) as ChampionMatchupRow[];
 
-    console.log("[db] getChampionMatchupList done:", { count: rows.length });
-    return rows;
-  });
+      console.log("[db] getChampionMatchupList done:", { count: rows.length });
+      return rows;
+    },
+  );
 }
 
 export function getChampionAllyStats(
@@ -790,10 +826,17 @@ export function getChampionAllyStats(
   patch?: string,
   queue?: number,
   account?: string,
+  timePeriod?: "24h" | "7d" | "30d" | "full",
 ): ChampionAllyRow[] {
-  console.log("[db] getChampionAllyStats called:", { championId, patch, queue, account });
+  console.log("[db] getChampionAllyStats called:", {
+    championId,
+    patch,
+    queue,
+    account,
+    timePeriod,
+  });
 
-  const participant = participantFilter(patch, undefined, "me");
+  const participant = participantFilter(patch, undefined, "me", timePeriod);
   const ownerFilter =
     account === "all"
       ? "me.puuid IN (SELECT puuid FROM summoner)"
@@ -1001,6 +1044,7 @@ export function getAugmentStatsAll(
   patch?: string,
   queue?: number,
   account?: string,
+  timePeriod?: "24h" | "7d" | "30d" | "full",
 ): any[] {
   const source = statsSource(account);
   const where = ["g.is_remake = 0"];
@@ -1016,6 +1060,7 @@ export function getAugmentStatsAll(
   }
   applyQueueFilter(where, params, queue);
   where.push(`g.queue_id NOT IN (${EXCLUDED_STATS_SQL})`);
+  pushTimeFilter(where, params, timePeriod);
   const augmentId = account ? "mpa.augment_id" : "ga.augment_id";
   const augmentSource = account
     ? `FROM match_participant_augments mpa
@@ -2444,6 +2489,7 @@ export function getGlobalChampionDetail(
   patch?: string,
   queue?: number,
   account?: string,
+  timePeriod?: "24h" | "7d" | "30d" | "full",
 ): {
   champion_id: number;
   games: number;
@@ -2468,28 +2514,32 @@ export function getGlobalChampionDetail(
   items: { item_id: number; picks: number; wins: number }[];
   augments: { augment_id: number; picks: number; wins: number }[];
 } {
-  return cachedQuery("getGlobalChampionDetail", [championId, patch, queue, account], 60_000, () => {
-    const mp = participantFilter(patch, queue);
-    const mpa = participantFilter(patch, queue, "mpa");
-    const accountSql = (alias: string) =>
-      account && account !== "all"
-        ? alias === "mp"
-          ? ` AND ${alias}.puuid = ?`
-          : ` AND EXISTS (SELECT 1 FROM match_participants owner WHERE owner.game_id = ${alias}.game_id AND owner.puuid = ?)`
-        : alias === "mp"
-          ? ` AND ${alias}.puuid IN (SELECT puuid FROM summoner)`
-          : ` AND EXISTS (SELECT 1 FROM match_participants owner WHERE owner.game_id = ${alias}.game_id AND owner.puuid IN (SELECT puuid FROM summoner))`;
-    const mpSql = `${mp.sql}${accountSql("mp")}`;
-    const mpaSql = `${mpa.sql}${accountSql("mpa")}`;
-    const mpParams = account && account !== "all" ? [...mp.params, account] : mp.params;
-    const mpaParams = account && account !== "all" ? [...mpa.params, account] : mpa.params;
+  return cachedQuery(
+    "getGlobalChampionDetail",
+    [championId, patch, queue, account, timePeriod],
+    60_000,
+    () => {
+      const mp = participantFilter(patch, queue, "mp", timePeriod);
+      const mpa = participantFilter(patch, queue, "mpa", timePeriod);
+      const accountSql = (alias: string) =>
+        account && account !== "all"
+          ? alias === "mp"
+            ? ` AND ${alias}.puuid = ?`
+            : ` AND EXISTS (SELECT 1 FROM match_participants owner WHERE owner.game_id = ${alias}.game_id AND owner.puuid = ?)`
+          : alias === "mp"
+            ? ` AND ${alias}.puuid IN (SELECT puuid FROM summoner)`
+            : ` AND EXISTS (SELECT 1 FROM match_participants owner WHERE owner.game_id = ${alias}.game_id AND owner.puuid IN (SELECT puuid FROM summoner))`;
+      const mpSql = `${mp.sql}${accountSql("mp")}`;
+      const mpaSql = `${mpa.sql}${accountSql("mpa")}`;
+      const mpParams = account && account !== "all" ? [...mp.params, account] : mp.params;
+      const mpaParams = account && account !== "all" ? [...mpa.params, account] : mpa.params;
 
-    // Shares are per-game ratios averaged over the games they're defined in, so
-    // a game with no team damage/kills recorded can't drag the average to zero —
-    // which is what AVG over a NULLable expression does.
-    const championFilter = championId !== null ? " AND mp.champion_id = ?" : "";
-    const totals = db
-      .prepare(`
+      // Shares are per-game ratios averaged over the games they're defined in, so
+      // a game with no team damage/kills recorded can't drag the average to zero —
+      // which is what AVG over a NULLable expression does.
+      const championFilter = championId !== null ? " AND mp.champion_id = ?" : "";
+      const totals = db
+        .prepare(`
       WITH teams AS (
         SELECT mp.game_id, mp.team_id,
                SUM(mp.total_damage_dealt) as team_damage,
@@ -2519,20 +2569,20 @@ export function getGlobalChampionDetail(
       JOIN teams t ON t.game_id = mp.game_id AND t.team_id = mp.team_id
       WHERE ${mpSql}${championFilter}
     `)
-      .get(...mpParams, ...mpParams, ...(championId !== null ? [championId] : [])) as any;
+        .get(...mpParams, ...mpParams, ...(championId !== null ? [championId] : [])) as any;
 
-    const slots = db
-      .prepare(`
+      const slots = db
+        .prepare(`
       SELECT COUNT(*) as count
       FROM match_participants mp
       WHERE ${mpSql} AND mp.champion_id > 0
     `)
-      .get(...mpParams) as { count: number };
+        .get(...mpParams) as { count: number };
 
-    const itemCols = [0, 1, 2, 3, 4, 5, 6];
-    const excludedList = EXCLUDED_ITEM_IDS.join(", ");
-    const items = db
-      .prepare(`
+      const itemCols = [0, 1, 2, 3, 4, 5, 6];
+      const excludedList = EXCLUDED_ITEM_IDS.join(", ");
+      const items = db
+        .prepare(`
       SELECT item_id, COUNT(*) as picks, SUM(win) as wins
       FROM (
         ${itemCols
@@ -2547,56 +2597,57 @@ export function getGlobalChampionDetail(
       GROUP BY item_id
       ORDER BY picks DESC
     `)
-      .all(
-        ...itemCols.flatMap(() => [...mpParams, ...(championId !== null ? [championId] : [])]),
-      ) as {
-      item_id: number;
-      picks: number;
-      wins: number;
-    }[];
+        .all(
+          ...itemCols.flatMap(() => [...mpParams, ...(championId !== null ? [championId] : [])]),
+        ) as {
+        item_id: number;
+        picks: number;
+        wins: number;
+      }[];
 
-    const augments = db
-      .prepare(`
+      const augments = db
+        .prepare(`
       SELECT mpa.augment_id, COUNT(*) as picks, SUM(mpa.win) as wins
       FROM match_participant_augments mpa
       WHERE ${mpaSql}${championId !== null ? " AND mpa.champion_id = ?" : ""}
       GROUP BY mpa.augment_id
       ORDER BY picks DESC
     `)
-      .all(...mpaParams, ...(championId !== null ? [championId] : [])) as {
-      augment_id: number;
-      picks: number;
-      wins: number;
-    }[];
+        .all(...mpaParams, ...(championId !== null ? [championId] : [])) as {
+        augment_id: number;
+        picks: number;
+        wins: number;
+      }[];
 
-    const games = totals?.games ?? 0;
-    const avg = (total: number | null) => (games > 0 ? Math.round((total ?? 0) / games) : 0);
+      const games = totals?.games ?? 0;
+      const avg = (total: number | null) => (games > 0 ? Math.round((total ?? 0) / games) : 0);
 
-    return {
-      champion_id: championId ?? 0,
-      games,
-      wins: totals?.wins ?? 0,
-      kills: totals?.kills ?? 0,
-      deaths: totals?.deaths ?? 0,
-      assists: totals?.assists ?? 0,
-      totalKills: totals?.kills ?? 0,
-      totalDeaths: totals?.deaths ?? 0,
-      totalAssists: totals?.assists ?? 0,
-      avgDamage: avg(totals?.damage),
-      avgDamageTaken: avg(totals?.damageTaken),
-      avgGold: avg(totals?.gold),
-      avgHeal: avg(totals?.heal),
-      damageShare: totals?.damageShare ?? 0,
-      killParticipation: totals?.killParticipation ?? 0,
-      doubleKills: totals?.doubleKills ?? 0,
-      tripleKills: totals?.tripleKills ?? 0,
-      quadraKills: totals?.quadraKills ?? 0,
-      pentaKills: totals?.pentaKills ?? 0,
-      totalParticipantSlots: slots.count,
-      items,
-      augments,
-    };
-  });
+      return {
+        champion_id: championId ?? 0,
+        games,
+        wins: totals?.wins ?? 0,
+        kills: totals?.kills ?? 0,
+        deaths: totals?.deaths ?? 0,
+        assists: totals?.assists ?? 0,
+        totalKills: totals?.kills ?? 0,
+        totalDeaths: totals?.deaths ?? 0,
+        totalAssists: totals?.assists ?? 0,
+        avgDamage: avg(totals?.damage),
+        avgDamageTaken: avg(totals?.damageTaken),
+        avgGold: avg(totals?.gold),
+        avgHeal: avg(totals?.heal),
+        damageShare: totals?.damageShare ?? 0,
+        killParticipation: totals?.killParticipation ?? 0,
+        doubleKills: totals?.doubleKills ?? 0,
+        tripleKills: totals?.tripleKills ?? 0,
+        quadraKills: totals?.quadraKills ?? 0,
+        pentaKills: totals?.pentaKills ?? 0,
+        totalParticipantSlots: slots.count,
+        items,
+        augments,
+      };
+    },
+  );
 }
 
 export function getChampionDetailStats(
@@ -2604,6 +2655,7 @@ export function getChampionDetailStats(
   patch?: string,
   queue?: number | number[],
   account?: string,
+  timePeriod?: "24h" | "7d" | "30d" | "full",
 ): {
   games: number;
   killParticipation: number;
@@ -2736,6 +2788,7 @@ export function getChampionDetailStats(
   }
 
   applyQueueFilter(where, params, queue, "g");
+  pushTimeFilter(where, params, timePeriod);
 
   if (account === "all") {
     where.push("mp.puuid IN (SELECT puuid FROM summoner)");
@@ -4372,11 +4425,12 @@ export function getChampionRecords(
   patch?: string,
   queue?: number,
   account?: string,
+  timePeriod?: "24h" | "7d" | "30d" | "full",
 ): ChampionRecordsResult {
-  console.log("[db] getChampionRecords called:", { championId, patch, queue, account });
+  console.log("[db] getChampionRecords called:", { championId, patch, queue, account, timePeriod });
 
   const source = statsSource(account);
-  const participant = participantFilter(patch, undefined, "mp");
+  const participant = participantFilter(patch, undefined, "mp", timePeriod);
   const ownerPuuidSql = account ? "ps.puuid" : "g.puuid";
   const where = [
     source.accountFilter,

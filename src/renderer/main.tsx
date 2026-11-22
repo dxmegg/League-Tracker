@@ -33,7 +33,8 @@ Promise.resolve(window.api?.getDebugEnabled?.())
           stored === "experiment2" ||
           stored === "experiment3" ||
           stored === "experiment4" ||
-          stored === "experiment5"
+          stored === "experiment5" ||
+          stored === "redesign"
             ? stored
             : "experiment";
         document.documentElement.setAttribute("data-theme", valid);

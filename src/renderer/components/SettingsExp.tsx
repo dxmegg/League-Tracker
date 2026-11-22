@@ -56,6 +56,7 @@ const THEME_OPTIONS = [
   { value: "experiment3", label: "Fourth Theme" },
   { value: "experiment4", label: "Fifth Theme" },
   { value: "experiment5", label: "Sixth Theme" },
+  { value: "redesign", label: "Redesign" },
 ] as const;
 
 function formatSize(bytes: number): string {

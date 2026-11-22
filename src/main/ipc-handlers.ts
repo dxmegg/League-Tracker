@@ -97,9 +97,10 @@ export function registerIpcHandlers() {
         sortDir?: string;
         multikills?: string[];
         favorites?: boolean;
+        timePeriod?: "24h" | "7d" | "30d" | "full";
       },
     ) => {
-      return db.getMatchHistory(limit, offset, filters);
+      return db.getMatchHistory(limit, offset, filters, filters?.timePeriod);
     },
   );
 
@@ -253,22 +254,32 @@ export function registerIpcHandlers() {
 
   ipcMain.handle(
     "db:champion-stats",
-    (_event, patch?: string, queue?: number, account?: string) => {
-      return db.getChampionStatsAll(patch, queue, account);
+    (_event, patch?: string, queue?: number, account?: string, timePeriod?: HomeTimePeriod) => {
+      return db.getChampionStatsAll(patch, queue, account, timePeriod);
     },
   );
 
-  ipcMain.handle("db:activity-heatmap", (_event, account?: string) => {
-    console.log("[db] activity-heatmap handler called:", { account });
-    const result = db.getActivityHeatmap(account);
-    console.log("[db] activity-heatmap handler done:", { count: result.length });
-    return result;
-  });
+  ipcMain.handle(
+    "db:activity-heatmap",
+    (_event, account?: string, timePeriod?: "24h" | "7d" | "30d" | "full") => {
+      console.log("[db] activity-heatmap handler called:", { account, timePeriod });
+      const result = db.getActivityHeatmap(account, timePeriod);
+      console.log("[db] activity-heatmap handler done:", { count: result.length });
+      return result;
+    },
+  );
 
   ipcMain.handle(
     "db:champion-detail-stats",
-    (_event, championId: number | null, patch?: string, queue?: number, account?: string) => {
-      return db.getChampionDetailStats(championId, patch, queue, account);
+    (
+      _event,
+      championId: number | null,
+      patch?: string,
+      queue?: number,
+      account?: string,
+      timePeriod?: HomeTimePeriod,
+    ) => {
+      return db.getChampionDetailStats(championId, patch, queue, account, timePeriod);
     },
   );
 
@@ -336,9 +347,16 @@ export function registerIpcHandlers() {
 
   ipcMain.handle(
     "db:champion-records",
-    (_event, championId: number | null, patch?: string, queue?: number, account?: string) => {
+    (
+      _event,
+      championId: number | null,
+      patch?: string,
+      queue?: number,
+      account?: string,
+      timePeriod?: HomeTimePeriod,
+    ) => {
       console.log("[db] champion-records handler called:", { championId, patch, queue, account });
-      const result = db.getChampionRecords(championId, patch, queue, account);
+      const result = db.getChampionRecords(championId, patch, queue, account, timePeriod);
       console.log("[db] champion-records handler done:", { count: result.records.length });
       return result;
     },
@@ -404,22 +422,32 @@ export function registerIpcHandlers() {
 
   ipcMain.handle(
     "db:champion-role-stats",
-    (_event, championId: number | null, patch?: string, queue?: number, account?: string) => {
+    (
+      _event,
+      championId: number | null,
+      patch?: string,
+      queue?: number,
+      account?: string,
+      timePeriod?: HomeTimePeriod,
+    ) => {
       console.log("[db] champion-role-stats handler called:", {
         championId,
         patch,
         queue,
         account,
       });
-      const result = db.getChampionRoleStats(championId, patch, queue, account);
+      const result = db.getChampionRoleStats(championId, patch, queue, account, timePeriod);
       console.log("[db] champion-role-stats handler done:", { count: result.length });
       return result;
     },
   );
 
-  ipcMain.handle("db:champion-keystones", (_event, championId: number | null, account?: string) => {
-    return db.getChampionKeystones(championId, account);
-  });
+  ipcMain.handle(
+    "db:champion-keystones",
+    (_event, championId: number | null, account?: string, timePeriod?: HomeTimePeriod) => {
+      return db.getChampionKeystones(championId, account, timePeriod);
+    },
+  );
 
   ipcMain.handle(
     "db:champion-rune-stats",
@@ -451,15 +479,29 @@ export function registerIpcHandlers() {
 
   ipcMain.handle(
     "db:champion-matchup-list",
-    (_event, championId: number | null, patch?: string, queue?: number, account?: string) => {
-      return db.getChampionMatchupList(championId, patch, queue, account);
+    (
+      _event,
+      championId: number | null,
+      patch?: string,
+      queue?: number,
+      account?: string,
+      timePeriod?: HomeTimePeriod,
+    ) => {
+      return db.getChampionMatchupList(championId, patch, queue, account, timePeriod);
     },
   );
 
   ipcMain.handle(
     "db:champion-ally-stats",
-    (_event, championId: number | null, patch?: string, queue?: number, account?: string) => {
-      return db.getChampionAllyStats(championId, patch, queue, account);
+    (
+      _event,
+      championId: number | null,
+      patch?: string,
+      queue?: number,
+      account?: string,
+      timePeriod?: HomeTimePeriod,
+    ) => {
+      return db.getChampionAllyStats(championId, patch, queue, account, timePeriod);
     },
   );
 
@@ -472,8 +514,15 @@ export function registerIpcHandlers() {
 
   ipcMain.handle(
     "db:augment-stats",
-    (_event, championId?: number, patch?: string, queue?: number, account?: string) => {
-      return db.getAugmentStatsAll(championId, patch, queue, account);
+    (
+      _event,
+      championId?: number,
+      patch?: string,
+      queue?: number,
+      account?: string,
+      timePeriod?: HomeTimePeriod,
+    ) => {
+      return db.getAugmentStatsAll(championId, patch, queue, account, timePeriod);
     },
   );
 
@@ -488,9 +537,15 @@ export function registerIpcHandlers() {
     "db:dashboard",
     (
       _event,
-      filters?: { championId?: number; patch?: string; queue?: number; account?: string },
+      filters?: {
+        championId?: number;
+        patch?: string;
+        queue?: number;
+        account?: string;
+        timePeriod?: "24h" | "7d" | "30d" | "full";
+      },
     ) => {
-      return db.getDashboardData(filters);
+      return db.getDashboardData(filters, filters?.timePeriod);
     },
   );
 
@@ -724,8 +779,17 @@ export function registerIpcHandlers() {
       patch?: string,
       queue?: number,
       account?: string,
+      timePeriod?: HomeTimePeriod,
     ) => {
-      return db.getChampionMatchHistory(championId, limit, offset, patch, queue, account);
+      return db.getChampionMatchHistory(
+        championId,
+        limit,
+        offset,
+        patch,
+        queue,
+        account,
+        timePeriod,
+      );
     },
   );
 
@@ -1189,8 +1253,15 @@ export function registerIpcHandlers() {
 
   ipcMain.handle(
     "db:global-champion-detail",
-    (_event, championId: number | null, patch?: string, queue?: number, account?: string) => {
-      return db.getGlobalChampionDetail(championId, patch, queue, account);
+    (
+      _event,
+      championId: number | null,
+      patch?: string,
+      queue?: number,
+      account?: string,
+      timePeriod?: HomeTimePeriod,
+    ) => {
+      return db.getGlobalChampionDetail(championId, patch, queue, account, timePeriod);
     },
   );
 
