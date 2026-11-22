@@ -151,8 +151,12 @@ const api: ElectronAPI = {
 
   toggleFavorite: (gameId: number) => ipcRenderer.invoke("db:toggle-favorite", gameId),
 
-  getChampionStats: (patch?: string, queue?: number, account?: string) =>
-    ipcRenderer.invoke("db:champion-stats", patch, queue, account),
+  getChampionStats: (
+    patch?: string,
+    queue?: number,
+    account?: string,
+    timePeriod?: HomeTimePeriod,
+  ) => ipcRenderer.invoke("db:champion-stats", patch, queue, account, timePeriod),
 
   getActivityHeatmap: (
     account?: string,
@@ -165,8 +169,9 @@ const api: ElectronAPI = {
     patch?: string,
     queue?: number,
     account?: string,
+    timePeriod?: HomeTimePeriod,
   ): Promise<ChampionDetailStats> =>
-    ipcRenderer.invoke("db:champion-detail-stats", championId, patch, queue, account),
+    ipcRenderer.invoke("db:champion-detail-stats", championId, patch, queue, account, timePeriod),
 
   getChampionChallengeAggregates: (
     puuid: string,
@@ -193,11 +198,15 @@ const api: ElectronAPI = {
     patch?: string,
     queue?: number,
     account?: string,
+    timePeriod?: HomeTimePeriod,
   ): Promise<ChampionRoleStat[]> =>
-    ipcRenderer.invoke("db:champion-role-stats", championId, patch, queue, account),
+    ipcRenderer.invoke("db:champion-role-stats", championId, patch, queue, account, timePeriod),
 
-  getChampionKeystones: (championId: number | null, account?: string) =>
-    ipcRenderer.invoke("db:champion-keystones", championId, account),
+  getChampionKeystones: (
+    championId: number | null,
+    account?: string,
+    timePeriod?: HomeTimePeriod,
+  ) => ipcRenderer.invoke("db:champion-keystones", championId, account, timePeriod),
 
   getChampionRuneStats: (
     championId: number | null,
@@ -225,14 +234,17 @@ const api: ElectronAPI = {
     patch?: string,
     queue?: number,
     account?: string,
-  ) => ipcRenderer.invoke("db:champion-matchup-list", championId, patch, queue, account),
+    timePeriod?: HomeTimePeriod,
+  ) =>
+    ipcRenderer.invoke("db:champion-matchup-list", championId, patch, queue, account, timePeriod),
 
   getChampionAllyStats: (
     championId: number | null,
     patch?: string,
     queue?: number,
     account?: string,
-  ) => ipcRenderer.invoke("db:champion-ally-stats", championId, patch, queue, account),
+    timePeriod?: HomeTimePeriod,
+  ) => ipcRenderer.invoke("db:champion-ally-stats", championId, patch, queue, account, timePeriod),
 
   getChampionTeammateStats: (
     championId: number | null,
@@ -241,8 +253,13 @@ const api: ElectronAPI = {
     account?: string,
   ) => ipcRenderer.invoke("db:champion-teammate-stats", championId, patch, queue, account),
 
-  getAugmentStats: (championId?: number, patch?: string, queue?: number, account?: string) =>
-    ipcRenderer.invoke("db:augment-stats", championId, patch, queue, account),
+  getAugmentStats: (
+    championId?: number,
+    patch?: string,
+    queue?: number,
+    account?: string,
+    timePeriod?: HomeTimePeriod,
+  ) => ipcRenderer.invoke("db:augment-stats", championId, patch, queue, account, timePeriod),
 
   getAugmentStatsDetailed: (patch?: string, queue?: number, account?: string) =>
     ipcRenderer.invoke("db:augment-stats-detailed", patch, queue, account),
@@ -310,6 +327,7 @@ const api: ElectronAPI = {
     patch?: string,
     queue?: number,
     account?: string,
+    timePeriod?: HomeTimePeriod,
   ) =>
     ipcRenderer.invoke(
       "db:champion-match-history",
@@ -319,6 +337,7 @@ const api: ElectronAPI = {
       patch,
       queue,
       account,
+      timePeriod,
     ),
 
   getChampionRecords: (
@@ -326,7 +345,8 @@ const api: ElectronAPI = {
     patch?: string,
     queue?: number,
     account?: string,
-  ) => ipcRenderer.invoke("db:champion-records", championId, patch, queue, account),
+    timePeriod?: HomeTimePeriod,
+  ) => ipcRenderer.invoke("db:champion-records", championId, patch, queue, account, timePeriod),
 
   refreshGames: () => ipcRenderer.invoke("lcu:refresh"),
 
@@ -456,7 +476,9 @@ const api: ElectronAPI = {
     patch?: string,
     queue?: number,
     account?: string,
-  ) => ipcRenderer.invoke("db:global-champion-detail", championId, patch, queue, account),
+    timePeriod?: HomeTimePeriod,
+  ) =>
+    ipcRenderer.invoke("db:global-champion-detail", championId, patch, queue, account, timePeriod),
 
   getSummonerPuuid: () => ipcRenderer.invoke("db:summoner-puuid"),
 

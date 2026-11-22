@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import type { ChampionStats } from "../../shared/api";
+import type { ChampionStats, HomeTimePeriod } from "../../shared/api";
 import ChampionIcon from "./ChampionIcon";
 import { ChampionCombobox } from "./ChampionCombobox";
 import { FilterSelect } from "./FilterSelect";
@@ -11,6 +11,7 @@ import { useIpc } from "../hooks/useIpc";
 import { useActiveAccount } from "../hooks/useActiveAccount";
 import { useViewState } from "../hooks/useViewState";
 import { formatNumber } from "../lib/format";
+import { scoreColor } from "../../shared/opScore";
 import { ALL_ACCOUNTS_SENTINEL } from "../lib/accountsEvent";
 
 type ColumnKey =
@@ -52,9 +53,12 @@ const COLUMNS: Array<{
 const CHAMP_GRID =
   "grid min-w-[1120px] grid-cols-[40px_minmax(160px,1fr)_60px_50px_50px_80px_90px_60px_70px_70px_90px_80px_80px_100px] items-center";
 
-// Redesign: wider win-rate and K/D/A columns so neither wraps, same overall width
+// Redesign: larger type, so every column is wider; win rate holds pill + bar on one line
 const CHAMP_GRID_REDESIGN =
-  "grid min-w-[1072px] grid-cols-[36px_minmax(150px,1fr)_56px_44px_44px_110px_124px_56px_60px_56px_80px_72px_72px_112px] items-center";
+  "grid min-w-[1150px] grid-cols-[36px_minmax(160px,1fr)_56px_44px_44px_150px_132px_58px_62px_58px_84px_80px_80px_104px] items-center";
+
+// Top three ranks get a medal colour, the rest stay muted
+const RANK_COLORS = ["text-lol-gold", "text-slate-300", "text-amber-600"];
 
 const CHAMPION_ICON_ACCENTS = [
   "border-lol-crimson/70 shadow-[0_0_10px_rgba(229,72,63,0.22)]",
@@ -202,7 +206,7 @@ function HighlightCard({
 
 export function ChampionExp({ redesign = false }: { redesign?: boolean }) {
   const grid = redesign ? CHAMP_GRID_REDESIGN : CHAMP_GRID;
-  const cellY = redesign ? "py-3" : "py-2";
+  const cellY = redesign ? "py-4" : "py-2";
   const champData = useChampionData();
   const navigate = useNavigate();
   const [patch, setPatch] = useViewState<string | undefined>("champions.patch", undefined);
@@ -211,9 +215,11 @@ export function ChampionExp({ redesign = false }: { redesign?: boolean }) {
   const [activeAccountRaw] = useActiveAccount();
   const account = activeAccountRaw === ALL_ACCOUNTS_SENTINEL ? "all" : activeAccountRaw;
 
+  const [timePeriod, setTimePeriod] = useViewState<HomeTimePeriod>("champions.timePeriod", "full");
+
   const { data, refetch } = useIpc<ChampionStats[]>(
-    () => window.api.getChampionStats(patch, scopedQueue, account),
-    [patch, scopedQueue, account],
+    () => window.api.getChampionStats(patch, scopedQueue, account, timePeriod),
+    [patch, scopedQueue, account, timePeriod],
   );
 
   useEffect(() => {
@@ -356,6 +362,22 @@ export function ChampionExp({ redesign = false }: { redesign?: boolean }) {
             ]}
           />
           <PatchSelect value={patch} onChange={setPatch} />
+          <div className="inline-flex h-9 items-center rounded-md border border-lol-border/60 bg-lol-card/40 p-[3px]">
+            {(["24h", "7d", "30d", "full"] as const).map((period) => (
+              <button
+                key={period}
+                type="button"
+                onClick={() => setTimePeriod(period)}
+                className={`h-full rounded px-2.5 text-xs font-semibold transition-colors ${
+                  period === timePeriod
+                    ? "bg-lol-crimson text-white"
+                    : "text-lol-text hover:text-lol-text-bright"
+                }`}
+              >
+                {period === "full" ? "Full" : period}
+              </button>
+            ))}
+          </div>
           <ChampionCombobox
             value={championFilter}
             onChange={setChampionFilter}
@@ -461,7 +483,7 @@ export function ChampionExp({ redesign = false }: { redesign?: boolean }) {
         }`}
       >
         <div className="scroll">
-          <div role="table" className="tbl ct">
+          <div role="table" className={`tbl ct ${redesign ? "!text-[14px]" : ""}`}>
             <div role="rowgroup">
               <div role="row" className={grid}>
                 {COLUMNS.map((column) => (
@@ -514,7 +536,11 @@ export function ChampionExp({ redesign = false }: { redesign?: boolean }) {
                     <div
                       key={r.champion_id}
                       role="row"
-                      className={`${grid} cursor-pointer border-b border-lol-border/40 transition-colors duration-[120ms] hover:bg-white/[0.03]`}
+                      className={`${grid} cursor-pointer border-b border-lol-border/40 transition-colors duration-[120ms] hover:bg-white/[0.03] ${
+                        redesign
+                          ? `shadow-[inset_3px_0_0_transparent] hover:shadow-[inset_3px_0_0_var(--theme-accent,#E5483F)] ${i % 2 === 1 ? "bg-white/[0.015]" : ""}`
+                          : ""
+                      }`}
                       tabIndex={0}
                       data-champion-id={r.champion_id}
                       onClick={() => navigate(`/champions/${r.champion_id}`)}
@@ -524,7 +550,9 @@ export function ChampionExp({ redesign = false }: { redesign?: boolean }) {
                     >
                       <div
                         role="cell"
-                        className={`px-2.5 ${cellY} ${COLUMNS[0].align} text-lol-text/60`}
+                        className={`px-2.5 ${cellY} ${COLUMNS[0].align} ${
+                          redesign && i < 3 ? `${RANK_COLORS[i]} font-bold` : "text-lol-text/60"
+                        }`}
                       >
                         {i + 1}
                       </div>
@@ -532,7 +560,7 @@ export function ChampionExp({ redesign = false }: { redesign?: boolean }) {
                         <div className="nm">
                           <ChampionIcon
                             championId={r.champion_id}
-                            size={30}
+                            size={redesign ? 38 : 30}
                             className={`rounded-lg border ${
                               redesign
                                 ? "border-lol-border"
@@ -551,7 +579,10 @@ export function ChampionExp({ redesign = false }: { redesign?: boolean }) {
                       <div role="cell" className={`px-2.5 ${cellY} ${COLUMNS[4].align}`}>
                         <span className="text-lol-loss">{formatNumber(r.games - r.wins)}</span>
                       </div>
-                      <div role="cell" className={`px-2.5 ${cellY} ${COLUMNS[5].align}`}>
+                      <div
+                        role="cell"
+                        className={`flex items-center justify-end gap-2 px-2.5 ${cellY} ${COLUMNS[5].align}`}
+                      >
                         <span
                           className={`rounded-md px-1.5 py-0.5 ${
                             wr >= 55
@@ -563,17 +594,21 @@ export function ChampionExp({ redesign = false }: { redesign?: boolean }) {
                         >
                           {wr.toFixed(1)}%
                         </span>
-                        <span
-                          className={`track ${wr < 50 ? "low" : ""}`}
-                          style={{
-                            display: "inline-block",
-                            verticalAlign: "middle",
-                            marginLeft: 8,
-                            width: redesign ? 40 : 84,
-                          }}
-                        >
-                          <i style={{ width: `${wr}%` }} />
-                        </span>
+                        {redesign ? (
+                          <span className="h-1.5 w-12 overflow-hidden rounded-full bg-white/10">
+                            <i
+                              className={`block h-full rounded-full ${wr < 50 ? "bg-lol-crimson" : "bg-lol-win"}`}
+                              style={{ width: `${wr}%` }}
+                            />
+                          </span>
+                        ) : (
+                          <span
+                            className={`track ${wr < 50 ? "low" : ""}`}
+                            style={{ display: "inline-block", width: 84 }}
+                          >
+                            <i style={{ width: `${wr}%` }} />
+                          </span>
+                        )}
                       </div>
                       <div
                         role="cell"
@@ -581,8 +616,20 @@ export function ChampionExp({ redesign = false }: { redesign?: boolean }) {
                           redesign ? "whitespace-nowrap" : ""
                         }`}
                       >
-                        {r.avg_kills.toFixed(1)} / {r.avg_deaths.toFixed(1)} /{" "}
-                        {r.avg_assists.toFixed(1)}
+                        {redesign ? (
+                          <>
+                            <span className="text-lol-text-bright">{r.avg_kills.toFixed(1)}</span>
+                            <span className="text-lol-text/40"> / </span>
+                            <span className="text-lol-loss">{r.avg_deaths.toFixed(1)}</span>
+                            <span className="text-lol-text/40"> / </span>
+                            <span className="text-lol-assist">{r.avg_assists.toFixed(1)}</span>
+                          </>
+                        ) : (
+                          <>
+                            {r.avg_kills.toFixed(1)} / {r.avg_deaths.toFixed(1)} /{" "}
+                            {r.avg_assists.toFixed(1)}
+                          </>
+                        )}
                       </div>
                       <div
                         role="cell"
@@ -601,19 +648,39 @@ export function ChampionExp({ redesign = false }: { redesign?: boolean }) {
                       </div>
                       <div
                         role="cell"
-                        className={`px-2.5 ${cellY} ${COLUMNS[9].align} text-lol-gold`}
+                        className={`px-2.5 ${cellY} ${COLUMNS[9].align} ${
+                          redesign && r.avg_score != null
+                            ? `${scoreColor(r.avg_score)} font-semibold`
+                            : "text-lol-gold"
+                        }`}
                       >
                         {r.avg_score?.toFixed(1) ?? "—"}
                       </div>
                       <div role="cell" className={`px-2.5 ${cellY} ${COLUMNS[10].align}`}>
-                        {formatNumber(r.mvps)}{" "}
-                        <span className="muted">/ {formatNumber(r.aces)}</span>
+                        {redesign ? (
+                          <>
+                            <span className={r.mvps > 0 ? "text-amber-300" : "text-lol-text/40"}>
+                              {formatNumber(r.mvps)}
+                            </span>
+                            <span className="text-lol-text/40"> / </span>
+                            <span className={r.aces > 0 ? "text-purple-400" : "text-lol-text/40"}>
+                              {formatNumber(r.aces)}
+                            </span>
+                          </>
+                        ) : (
+                          <>
+                            {formatNumber(r.mvps)}{" "}
+                            <span className="muted">/ {formatNumber(r.aces)}</span>
+                          </>
+                        )}
                       </div>
                       <div role="cell" className={`px-2.5 ${cellY} ${COLUMNS[11].align}`}>
                         {formatNumber(r.avg_damage)}
                       </div>
                       <div role="cell" className={`px-2.5 ${cellY} ${COLUMNS[12].align}`}>
-                        {formatNumber(r.avg_gold)}
+                        <span className={redesign ? "text-lol-gold" : ""}>
+                          {formatNumber(r.avg_gold)}
+                        </span>
                       </div>
                       <div role="cell" className={`px-2.5 ${cellY} ${COLUMNS[13].align}`}>
                         <div className="ml-auto grid w-max grid-cols-2 gap-x-2 gap-y-0.5 text-[10.5px] tabular-nums">

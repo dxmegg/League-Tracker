@@ -1865,7 +1865,12 @@ export interface ElectronAPI {
     callback: (payload: { cancelled: boolean; progress: TimelineBackfillProgress | null }) => void,
   ) => () => void;
   toggleFavorite: (gameId: number) => Promise<boolean>;
-  getChampionStats: (patch?: string, queue?: number, account?: string) => Promise<ChampionStats[]>;
+  getChampionStats: (
+    patch?: string,
+    queue?: number,
+    account?: string,
+    timePeriod?: HomeTimePeriod,
+  ) => Promise<ChampionStats[]>;
   getActivityHeatmap: (
     account?: string,
     timePeriod?: HomeTimePeriod,
@@ -1875,6 +1880,7 @@ export interface ElectronAPI {
     patch?: string,
     queue?: number,
     account?: string,
+    timePeriod?: HomeTimePeriod,
   ) => Promise<ChampionDetailStats>;
   getChampionChallengeAggregates: (
     puuid: string,
@@ -1896,10 +1902,12 @@ export interface ElectronAPI {
     patch?: string,
     queue?: number,
     account?: string,
+    timePeriod?: HomeTimePeriod,
   ) => Promise<ChampionRoleStat[]>;
   getChampionKeystones: (
     championId: number | null,
     account?: string,
+    timePeriod?: HomeTimePeriod,
   ) => Promise<ChampionKeystoneStat[]>;
   getChampionRuneStats: (
     championId: number | null,
@@ -1947,12 +1955,14 @@ export interface ElectronAPI {
     patch?: string,
     queue?: number,
     account?: string,
+    timePeriod?: HomeTimePeriod,
   ) => Promise<ChampionMatchupRow[]>;
   getChampionAllyStats: (
     championId: number | null,
     patch?: string,
     queue?: number,
     account?: string,
+    timePeriod?: HomeTimePeriod,
   ) => Promise<ChampionAllyRow[]>;
   getChampionTeammateStats: (
     championId: number | null,
@@ -1965,6 +1975,7 @@ export interface ElectronAPI {
     patch?: string,
     queue?: number,
     account?: string,
+    timePeriod?: HomeTimePeriod,
   ) => Promise<AugmentStats[]>;
   getAugmentStatsDetailed: (
     patch?: string,
@@ -2032,12 +2043,14 @@ export interface ElectronAPI {
     patch?: string,
     queue?: number,
     account?: string,
+    timePeriod?: HomeTimePeriod,
   ) => Promise<{ matches: MatchListItem[]; total: number }>;
   getChampionRecords: (
     championId: number | null,
     patch?: string,
     queue?: number,
     account?: string,
+    timePeriod?: HomeTimePeriod,
   ) => Promise<ChampionRecordsResult>;
   getChampionItemStats: (
     championId: number | null,
@@ -2083,6 +2096,7 @@ export interface ElectronAPI {
     patch?: string,
     queue?: number,
     account?: string,
+    timePeriod?: HomeTimePeriod,
   ) => Promise<GlobalChampionDetail>;
   getSummonerPuuid: () => Promise<string | null>;
   getAllSummonerPuuids: () => Promise<string[]>;

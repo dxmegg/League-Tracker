@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { HashRouter, Navigate, Routes, Route } from "react-router-dom";
+import { HashRouter, Navigate, Routes, Route, useParams } from "react-router-dom";
 import { FullHistoryShell } from "./components/FullHistoryShell";
 import { SectionChrome } from "./components/SectionChrome";
 import MatchHistory from "./pages/MatchHistory";
@@ -9,6 +9,7 @@ import Profile from "./pages/Profile";
 import HistorySection from "./pages/HistorySection";
 import GlobalChampionDetail from "./pages/GlobalChampionDetail";
 import { ChampionDetailExp } from "./components/ChampionDetailExp";
+import { ChampionDetailRedesign } from "./components/ChampionDetailRedesign";
 import { ItemDetailExp } from "./components/ItemDetailExp";
 import ItemDetail from "./pages/ItemDetail";
 import Home from "./pages/Home";
@@ -25,6 +26,10 @@ import { useActiveTheme } from "./hooks/useActiveTheme";
 
 function ChampionsDetailRoute() {
   const activeTheme = useActiveTheme();
+  const exactTheme = useActiveTheme({ exact: true });
+  const { championId } = useParams<{ championId: string }>();
+  // The cross-champion summary keeps the old page; single champions get the redesigned one
+  if (exactTheme === "redesign" && championId !== "summary") return <ChampionDetailRedesign />;
   return activeTheme === "experiment" ? <ChampionDetailExp /> : <GlobalChampionDetail />;
 }
 
