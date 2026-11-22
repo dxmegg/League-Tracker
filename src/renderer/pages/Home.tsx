@@ -19,6 +19,7 @@ import ChampionIcon from "../components/ChampionIcon";
 import { ChampCard } from "../components/ChampCard";
 import { EmptyState } from "../components/EmptyState";
 import { HomeHero } from "../components/HomeHero";
+import { HomeRedesign } from "../components/HomeRedesign";
 import { HomeCard } from "../components/HomeCard";
 import { LiveGameTile } from "../components/LiveGameTile";
 import { MatchRowExperiment } from "../components/MatchRowExperiment";
@@ -594,6 +595,8 @@ function MatchListPanel({
 export default function Home() {
   const activeTheme = useActiveTheme();
   const isExperiment = activeTheme === "experiment";
+  // useActiveTheme folds redesign into "experiment"; only the exact value tells them apart
+  const isRedesign = useActiveTheme({ exact: true }) === "redesign";
   const live = useLiveGame();
   const [activeAccountRaw, setActiveAccountRaw] = useActiveAccount();
   const account: HomeAccountFilter =
@@ -664,6 +667,21 @@ export default function Home() {
       cancelled = true;
     };
   }, [account, timePeriod, queue]);
+
+  if (isRedesign) {
+    return (
+      <HomeRedesign
+        account={account}
+        queue={queue}
+        onQueueChange={setQueue}
+        timePeriod={timePeriod}
+        onTimePeriodChange={setTimePeriod}
+        dashboard={dashboard}
+        loading={loading}
+        liveGame={live.game}
+      />
+    );
+  }
 
   if (isExperiment) {
     return (

@@ -21,7 +21,8 @@ export function useActiveTheme({ exact = false }: { exact?: boolean } = {}): str
   return theme === "experiment2" ||
     theme === "experiment3" ||
     theme === "experiment4" ||
-    theme === "experiment5"
+    theme === "experiment5" ||
+    theme === "redesign"
     ? "experiment"
     : theme;
 }
