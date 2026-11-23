@@ -887,6 +887,12 @@ export interface DashboardData {
   avgGold: number;
   goldTotal: number;
   avgScore: number | null;
+  // 0–1 shares averaged per game; null when no game has the team data
+  killParticipation: number | null;
+  damageShare: number | null;
+  longestGameSeconds: number | null;
+  // Deaths per game over the last period and the one before it
+  deathsTrend: { current: number | null; previous: number | null };
   teamAvgScore: number;
   mvps: number;
   aces: number;

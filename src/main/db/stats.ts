@@ -1268,6 +1268,55 @@ export function getDashboardData(
   `)
     .get(...queryParams) as { teamAvgScore: number | null } | undefined;
 
+  // Share of the team's kills and champion damage, averaged per game. The owner row is found by puuid,
+  // and a game with no team kills or damage is skipped rather than counted as 0%.
+  const share = db
+    .prepare(`
+  SELECT
+    AVG((owner.kills + owner.assists) * 1.0 / NULLIF(t.kills, 0)) AS kp,
+    AVG(owner.total_damage_dealt * 1.0 / NULLIF(t.dmg, 0)) AS dmgShare
+  FROM games g
+  JOIN ${source.table} ${source.alias} ON g.game_id = ${source.alias}.game_id
+  JOIN match_participants owner
+    ON owner.game_id = g.game_id AND owner.puuid = ${source.alias}.puuid
+  JOIN (
+    SELECT game_id, team_id, SUM(kills) AS kills, SUM(total_damage_dealt) AS dmg
+    FROM match_participants
+    GROUP BY game_id, team_id
+  ) t ON t.game_id = owner.game_id AND t.team_id = owner.team_id
+  ${whereSql} AND g.queue_id NOT IN (${EXCLUDED_STATS_SQL})
+  `)
+    .get(...queryParams) as { kp: number | null; dmgShare: number | null } | undefined;
+
+  const longestGame = db
+    .prepare(`
+  SELECT MAX(g.game_duration) AS longest
+  FROM ${source.table} ${source.alias}
+  JOIN games g ON ${source.alias}.game_id = g.game_id
+  ${whereSql} AND g.queue_id NOT IN (${EXCLUDED_STATS_SQL})
+  `)
+    .get(...queryParams) as { longest: number | null } | undefined;
+
+  // Deaths per game over the period against the period before it ("full" compares the last 30 days)
+  const spanDays = timePeriod === "24h" ? 1 : timePeriod === "7d" ? 7 : 30;
+  const spanMs = spanDays * 24 * 60 * 60 * 1000;
+  const nowMs = Date.now();
+  const deathsIn = (from: number, to: number): number | null =>
+    (
+      db
+        .prepare(`
+    SELECT AVG(ps.deaths) AS d
+    FROM ${source.table} ${source.alias}
+    JOIN games g ON ${source.alias}.game_id = g.game_id
+    WHERE ${where.join(" AND ")} AND g.queue_id NOT IN (${EXCLUDED_STATS_SQL})
+      AND g.game_creation >= ? AND g.game_creation < ?
+  `)
+        .get(...params, from, to) as { d: number | null }
+    ).d;
+  const deathsTrend = {
+    current: deathsIn(nowMs - spanMs, nowMs + 1),
+    previous: deathsIn(nowMs - 2 * spanMs, nowMs - spanMs),
+  };
   return {
     totalGames: totals.totalGames ?? 0,
     remakes,
@@ -1302,6 +1351,10 @@ export function getDashboardData(
     avgGold: totals.avgGold ?? 0,
     goldTotal: totals.goldTotal ?? 0,
     avgScore: totals.avgScore ?? null,
+    killParticipation: share?.kp ?? null,
+    damageShare: share?.dmgShare ?? null,
+    longestGameSeconds: longestGame?.longest ?? null,
+    deathsTrend,
     teamAvgScore: teamAvgScoreRow?.teamAvgScore ?? 0,
     mvps: totals.mvps ?? 0,
     aces: totals.aces ?? 0,

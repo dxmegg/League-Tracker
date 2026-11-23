@@ -156,7 +156,7 @@ export function SplashPicker({
   };
 
   return (
-    <div ref={wrapRef} className="absolute right-3 top-3 z-30">
+    <div ref={wrapRef} className="relative z-30 self-end">
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}

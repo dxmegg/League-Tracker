@@ -36,6 +36,11 @@ interface HistoryStatRowProps {
   avgGold: number;
   goldTotal: number;
   avgGameLengthSec: number;
+  // Optional extras for the K/D/A tile; each cell hides when its data is missing
+  killParticipation?: number | null;
+  damageShare?: number | null;
+  longestGameSeconds?: number | null;
+  deathsTrend?: { current: number | null; previous: number | null };
 
   multikillsTotal: number;
   doubles: { count: number; games: number };
@@ -56,6 +61,13 @@ export function HistoryStatRow(props: HistoryStatRowProps) {
     const r = Math.floor(s % 60);
     return `${m}:${r.toString().padStart(2, "0")}`;
   };
+
+  const perMin = (perGame: number) =>
+    props.avgGameLengthSec > 0 ? (perGame / props.avgGameLengthSec) * 60 : null;
+  const deathsDelta =
+    props.deathsTrend?.current != null && props.deathsTrend.previous != null
+      ? props.deathsTrend.current - props.deathsTrend.previous
+      : null;
 
   return (
     <div
@@ -234,6 +246,92 @@ export function HistoryStatRow(props: HistoryStatRowProps) {
                 </b>
                 <span className="block text-[12px] leading-snug text-lol-text">Average length</span>
               </div>
+              {perMin(props.avgDamageDealt) != null && (
+                <div>
+                  <b className="block font-display text-[16px] font-semibold text-lol-loss">
+                    {formatNumber(Math.round(perMin(props.avgDamageDealt) ?? 0))}
+                  </b>
+                  <span className="block text-[12px] leading-snug text-lol-text">
+                    Damage per minute
+                    <br />
+                    to champions
+                  </span>
+                </div>
+              )}
+              {perMin(props.avgGold) != null && (
+                <div>
+                  <b className="block font-display text-[16px] font-semibold text-lol-gold">
+                    {formatNumber(Math.round(perMin(props.avgGold) ?? 0))}
+                  </b>
+                  <span className="block text-[12px] leading-snug text-lol-text">
+                    Gold per minute
+                    <br />
+                    earned
+                  </span>
+                </div>
+              )}
+              {props.killParticipation != null && (
+                <div>
+                  <b className="block font-display text-[16px] font-semibold text-lol-win">
+                    {(props.killParticipation * 100).toFixed(0)}%
+                  </b>
+                  <span className="block text-[12px] leading-snug text-lol-text">
+                    Kill participation
+                    <br />
+                    of team kills
+                  </span>
+                </div>
+              )}
+              {props.damageShare != null && (
+                <div>
+                  <b className="block font-display text-[16px] font-semibold text-lol-loss">
+                    {(props.damageShare * 100).toFixed(0)}%
+                  </b>
+                  <span className="block text-[12px] leading-snug text-lol-text">
+                    Damage share
+                    <br />
+                    of team damage
+                  </span>
+                </div>
+              )}
+              {props.longestGameSeconds != null && (
+                <div>
+                  <b className="block font-display text-[16px] font-semibold text-lol-text-bright">
+                    {fmtSec(props.longestGameSeconds)}
+                  </b>
+                  <span className="block text-[12px] leading-snug text-lol-text">
+                    Longest game
+                    <br />
+                    played
+                  </span>
+                </div>
+              )}
+              {props.deathsTrend?.current != null && (
+                <div>
+                  <b className="block font-display text-[16px] font-semibold text-lol-loss">
+                    {props.deathsTrend.current.toFixed(1)}
+                    {deathsDelta != null && (
+                      <small
+                        className={`ml-1.5 text-[12px] ${
+                          Math.abs(deathsDelta) < 0.05
+                            ? "text-lol-text"
+                            : deathsDelta < 0
+                              ? "text-lol-win"
+                              : "text-lol-loss"
+                        }`}
+                      >
+                        {Math.abs(deathsDelta) < 0.05 ? "=" : deathsDelta < 0 ? "▼" : "▲"}{" "}
+                        {Math.abs(deathsDelta).toFixed(1)}
+                      </small>
+                    )}
+                  </b>
+                  <span className="block text-[12px] leading-snug text-lol-text">
+                    Deaths per game
+                    <br />
+                    vs previous period
+                  </span>
+                </div>
+              )}
             </div>
           </div>
 

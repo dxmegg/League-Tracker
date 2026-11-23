@@ -124,13 +124,6 @@ export function ProfileHeaderRedesign({
             : undefined
         }
       >
-        <SplashPicker
-          championId={splashChampionId}
-          pref={splashPref}
-          champData={champData}
-          onChange={updateSplash}
-          onReset={resetSplash}
-        />
         {mode === "single" ? (
           <div className="relative shrink-0">
             <SummonerIcon
@@ -205,7 +198,14 @@ export function ProfileHeaderRedesign({
           </div>
         )}
 
-        <div className="flex shrink-0 flex-col items-end gap-2">
+        <div className="flex shrink-0 flex-col items-end gap-2.5">
+          <SplashPicker
+            championId={splashChampionId}
+            pref={splashPref}
+            champData={champData}
+            onChange={updateSplash}
+            onReset={resetSplash}
+          />
           <div className="inline-flex rounded-[10px] border border-lol-border bg-lol-card p-[3px]">
             {TIME_PERIODS.map((period) => (
               <button

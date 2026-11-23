@@ -97,10 +97,7 @@ export function LineChartExp({
     if (points.length < 2) return null;
     const meanX = points.reduce((sum, point) => sum + point.index, 0) / points.length;
     const meanY = points.reduce((sum, point) => sum + point.value, 0) / points.length;
-    const denominator = points.reduce(
-      (sum, point) => sum + (point.index - meanX) ** 2,
-      0,
-    );
+    const denominator = points.reduce((sum, point) => sum + (point.index - meanX) ** 2, 0);
     const slope =
       denominator === 0
         ? 0
@@ -334,7 +331,13 @@ export function LineChartExp({
                     <circle
                       cx={x(index)}
                       cy={y(value).toFixed(1)}
-                      r={highlightLast && index === lastPointIndex ? 5 : hoverIndex === index ? 5 : 3.5}
+                      r={
+                        highlightLast && index === lastPointIndex
+                          ? 5
+                          : hoverIndex === index
+                            ? 5
+                            : 3.5
+                      }
                       fill="currentColor"
                       stroke="var(--theme-card)"
                       strokeWidth={2}

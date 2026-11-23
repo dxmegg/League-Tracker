@@ -14,9 +14,9 @@ export interface BackfillTeamsLocalResult {
   errors: number;
 }
 
-export function backfillTeamsLocal(
-  { limit = 0 }: BackfillTeamsLocalOptions = {},
-): BackfillTeamsLocalResult {
+export function backfillTeamsLocal({
+  limit = 0,
+}: BackfillTeamsLocalOptions = {}): BackfillTeamsLocalResult {
   console.log("[db] backfillTeamsLocal called:", { limit });
   if (!Number.isInteger(limit) || limit < 0) {
     throw new TypeError("limit must be a non-negative integer");

@@ -442,7 +442,6 @@ export function ProfilePlayInsights({
       }),
     [games],
   );
-  const maxSlotGames = Math.max(1, ...slots.map((s) => s.games));
   const bestSlot = [...slots]
     .filter((s) => s.games >= 10)
     .sort((a, b) => rate(b.wins, b.games) - rate(a.wins, a.games))[0];
@@ -561,32 +560,46 @@ export function ProfilePlayInsights({
           >
             When you play best
           </Title>
-          <div className="flex min-h-[140px] flex-1 items-end gap-2">
+          {/* Bar height = win rate on a 35–75% scale */}
+          <div className="my-auto flex items-stretch gap-2.5 py-3">
             {slots.map((s) => {
               const wr = rate(s.wins, s.games);
+              const height = s.games ? Math.min(100, Math.max(6, ((wr - 35) / 40) * 100)) : 0;
+              const best = bestSlot?.label === s.label;
               return (
                 <div
                   key={s.label}
-                  className="flex h-full flex-1 flex-col items-center justify-end gap-1"
+                  title={`${s.games} games · ${s.wins}W ${s.games - s.wins}L`}
+                  className="group relative z-10 flex flex-1 flex-col items-center justify-end gap-1.5"
                 >
-                  <span
-                    className={`font-display text-[11px] ${s.games ? rateColor(wr) : "text-lol-text/50"}`}
-                  >
-                    {s.games ? `${wr.toFixed(0)}%` : "—"}
+                  <div className="flex h-[150px] w-full flex-col items-center justify-end gap-1">
+                    <span
+                      className={`font-display text-[12px] font-bold ${s.games ? rateColor(wr) : "text-lol-text/50"}`}
+                    >
+                      {s.games ? `${wr.toFixed(0)}%` : "—"}
+                    </span>
+                    <div
+                      className={`w-full rounded-t-lg transition-[filter] group-hover:brightness-125 ${
+                        wr >= 50
+                          ? "bg-gradient-to-t from-lol-win/30 to-lol-win/85"
+                          : "bg-gradient-to-t from-lol-loss/30 to-lol-loss/85"
+                      } ${best ? "ring-2 ring-lol-gold/70" : ""}`}
+                      style={{ height: `${(height / 100) * 120}px` }}
+                    />
+                  </div>{" "}
+                  <span className="text-[11px] font-semibold tabular-nums text-lol-text-bright">
+                    {s.label}
                   </span>
-                  <div
-                    className={`w-full rounded-t-md ${wr >= 50 ? "bg-lol-win/70" : "bg-lol-loss/70"}`}
-                    style={{ height: `${Math.max(3, (s.games / maxSlotGames) * 70)}%` }}
-                    title={`${s.games} games · ${s.wins}W ${s.games - s.wins}L`}
-                  />
-                  <span className="text-[10.5px] tabular-nums text-lol-text">{s.label}</span>
+                  <span className="-mt-1 text-[10px] tabular-nums text-lol-text/70">
+                    {s.games} games
+                  </span>
                 </div>
               );
             })}
           </div>
           <p className="mt-2 text-[11px] text-lol-text/70">
-            Bar height = games played, label = win rate (local time).
-          </p>
+            Bar height = win rate, gold ring = best slot with 10+ games. Local time.
+          </p>{" "}
         </Panel>
       </div>
     </div>

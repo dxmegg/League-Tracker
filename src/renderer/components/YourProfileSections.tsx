@@ -92,6 +92,10 @@ function StatTiles({ dashboard, tiles }: { dashboard: DashboardData; tiles: "sco
       avgGold={dashboard.avgGold}
       goldTotal={dashboard.goldTotal}
       avgGameLengthSec={dashboard.avgGameLength}
+      killParticipation={dashboard.killParticipation}
+      damageShare={dashboard.damageShare}
+      longestGameSeconds={dashboard.longestGameSeconds}
+      deathsTrend={dashboard.deathsTrend}
       multikillsTotal={mk.doubles + mk.triples + mk.quadras + mk.pentas}
       doubles={{ count: mk.doubles, games: mk.gamesWithDoubles }}
       triples={{ count: mk.triples, games: mk.gamesWithTriples }}
