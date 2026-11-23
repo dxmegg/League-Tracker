@@ -6,6 +6,7 @@ import { useBackfill } from "../hooks/useBackfill";
 import { useLcuStatus } from "../hooks/useLcuStatus";
 import type { LcuStatus } from "../lib/types";
 import { RefreshIcon, SettingsIcon } from "./icons";
+import { ThemeMenu } from "./ThemeMenu";
 import { WindowControls } from "./WindowControls";
 
 const STATUS_DOT: Record<LcuStatus, string> = {
@@ -99,6 +100,7 @@ export function TopBar() {
       )}
 
       <div className="titlebar-no-drag ml-auto flex items-center gap-2 pr-2">
+        <ThemeMenu />
         <AccountMenu />
         <NavLink
           to="/settings"

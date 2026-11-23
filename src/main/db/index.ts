@@ -211,9 +211,25 @@ export async function initDatabase() {
   // here is re-fetchable from the client.
   db.pragma("synchronous = NORMAL");
   db.pragma("foreign_keys = ON");
+  // The default 2 MB page cache is far too small for a database of this size; the stats pages
+  // re-read the same pages constantly. Memory-mapped reads and in-memory temp tables help GROUP BY.
+  db.pragma("cache_size = -131072");
+  db.pragma("temp_store = MEMORY");
+  db.pragma("mmap_size = 536870912");
 
   createTables();
   await runMigrations();
+  // Startup counts rows with no score on every launch; without these the count scans every
+  // participant row. Partial, so they stay tiny while nothing is missing.
+  try {
+    db.exec(`
+      CREATE INDEX IF NOT EXISTS idx_mp_score_null ON match_participants(game_id) WHERE score IS NULL;
+      CREATE INDEX IF NOT EXISTS idx_ps_score_null ON player_stats(game_id) WHERE score IS NULL;
+      CREATE INDEX IF NOT EXISTS idx_tgs_score_null ON tracked_game_stats(game_id) WHERE score IS NULL;
+    `);
+  } catch (err) {
+    console.warn("[db] could not create the missing-score indexes:", err);
+  }
   const missingScoreCount = db
     .prepare("SELECT COUNT(*) as n FROM match_participants WHERE score IS NULL")
     .get() as { n: number };

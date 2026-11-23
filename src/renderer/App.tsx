@@ -1,30 +1,41 @@
-import type { ReactNode } from "react";
+import { lazy, type ReactNode } from "react";
 import { HashRouter, Navigate, Routes, Route, useParams } from "react-router-dom";
 import { FullHistoryShell } from "./components/FullHistoryShell";
 import { SectionChrome } from "./components/SectionChrome";
-import MatchHistory from "./pages/MatchHistory";
-import FriendDetail from "./pages/FriendDetail";
-import Settings from "./pages/Settings";
-import Profile from "./pages/Profile";
-import HistorySection from "./pages/HistorySection";
-import GlobalChampionDetail from "./pages/GlobalChampionDetail";
-import { ChampionDetailExp } from "./components/ChampionDetailExp";
-import { ChampionDetailRedesign } from "./components/ChampionDetailRedesign";
-import { ItemDetailExp } from "./components/ItemDetailExp";
-import ItemDetail from "./pages/ItemDetail";
-import Home from "./pages/Home";
-import Champions from "./pages/Champions";
-import Augments from "./pages/Augments";
-import Items from "./pages/Items";
-import Runes from "./pages/Runes";
-import Friends from "./pages/Friends";
-import Trends from "./pages/Trends";
-import Records from "./pages/Records";
-import MatchDetailPage from "./pages/MatchDetailPage";
-import GlobalStats from "./pages/GlobalStats";
-import Live from "./pages/Live";
 import { useActiveMode } from "./hooks/useActiveMode";
 import { useActiveTheme } from "./hooks/useActiveTheme";
+
+// Pages load on first visit, so launch only parses the shell and the page being opened. Some of
+// these files are several thousand lines.
+const MatchHistory = lazy(() => import("./pages/MatchHistory"));
+const FriendDetail = lazy(() => import("./pages/FriendDetail"));
+const Settings = lazy(() => import("./pages/Settings"));
+const Profile = lazy(() => import("./pages/Profile"));
+const HistorySection = lazy(() => import("./pages/HistorySection"));
+const GlobalChampionDetail = lazy(() => import("./pages/GlobalChampionDetail"));
+const ChampionDetailExp = lazy(() =>
+  import("./components/ChampionDetailExp").then((m) => ({ default: m.ChampionDetailExp })),
+);
+const ChampionDetailRedesign = lazy(() =>
+  import("./components/ChampionDetailRedesign").then((m) => ({
+    default: m.ChampionDetailRedesign,
+  })),
+);
+const ItemDetailExp = lazy(() =>
+  import("./components/ItemDetailExp").then((m) => ({ default: m.ItemDetailExp })),
+);
+const ItemDetail = lazy(() => import("./pages/ItemDetail"));
+const Home = lazy(() => import("./pages/Home"));
+const Champions = lazy(() => import("./pages/Champions"));
+const Augments = lazy(() => import("./pages/Augments"));
+const Items = lazy(() => import("./pages/Items"));
+const Runes = lazy(() => import("./pages/Runes"));
+const Friends = lazy(() => import("./pages/Friends"));
+const Trends = lazy(() => import("./pages/Trends"));
+const Records = lazy(() => import("./pages/Records"));
+const MatchDetailPage = lazy(() => import("./pages/MatchDetailPage"));
+const GlobalStats = lazy(() => import("./pages/GlobalStats"));
+const Live = lazy(() => import("./pages/Live"));
 
 function ChampionsDetailRoute() {
   const activeTheme = useActiveTheme();

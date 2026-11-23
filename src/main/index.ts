@@ -94,11 +94,44 @@ function createWindow(): BrowserWindow {
   });
 
   // Load renderer
-  if (process.env.ELECTRON_RENDERER_URL) {
-    mainWindow.loadURL(process.env.ELECTRON_RENDERER_URL);
-  } else {
-    mainWindow.loadFile(path.join(__dirname, "../renderer/index.html"));
-  }
+  const loadRenderer = () => {
+    if (process.env.ELECTRON_RENDERER_URL) {
+      void mainWindow?.loadURL(process.env.ELECTRON_RENDERER_URL).catch(() => undefined);
+    } else {
+      void mainWindow
+        ?.loadFile(path.join(__dirname, "../renderer/index.html"))
+        .catch(() => undefined);
+    }
+  };
+  loadRenderer();
+
+  // A page that fails to load, a renderer that dies, or one that loads but never draws anything
+  // (the dev server still warming up, a network-service restart) used to leave a blank window until
+  // someone pressed Ctrl+R. Reload by itself a couple of times instead.
+  let reloads = 0;
+  const reload = (why: string) => {
+    if (reloads >= 3 || !mainWindow) return;
+    reloads++;
+    console.warn(`[window] reloading renderer (${why}), attempt ${reloads}`);
+    setTimeout(loadRenderer, 600 * reloads);
+  };
+  mainWindow.webContents.on("did-fail-load", (_e, code, _desc, _url, isMainFrame) => {
+    // -3 is a navigation superseded by another one, not a failure
+    if (isMainFrame && code !== -3) reload(`load failed ${code}`);
+  });
+  mainWindow.webContents.on("render-process-gone", (_e, details) => {
+    if (details.reason !== "clean-exit") reload(`renderer ${details.reason}`);
+  });
+  mainWindow.webContents.on("did-finish-load", () => {
+    setTimeout(() => {
+      void mainWindow?.webContents
+        .executeJavaScript("document.getElementById('root')?.childElementCount ?? 0")
+        .then((n: number) => {
+          if (n === 0) reload("nothing rendered");
+        })
+        .catch(() => undefined);
+    }, 6_000);
+  });
 
   // A frameless window carries no menu bar, so Electron's default
   // View > Toggle Developer Tools accelerator never reaches it. Bind the usual

@@ -11,9 +11,12 @@ import { Panel } from "./Panel";
 const HOUR = 3_600_000;
 const DAY = 24 * HOUR;
 // A pause longer than this ends a session
-const SESSION_GAP_MS = 60 * 60_000;
-const SESSIONS_SHOWN = 8;
+const SESSION_GAP_MS = 90 * 60_000;
+const SESSIONS_SHOWN = 11;
 const AUGMENTS_COLLAPSED = 10;
+// Name column is capped so Picks sits right beside it and the champions fill the middle
+const AUGMENT_COLS =
+  "grid-cols-[minmax(150px,220px)_56px_190px_minmax(150px,200px)_76px_minmax(120px,1fr)_46px]";
 
 const RARITIES = [
   { key: "kPrismatic", label: "Prismatic", dot: "bg-fuchsia-400", text: "text-fuchsia-300" },
@@ -188,10 +191,15 @@ export function ProfileAugments({
         <p className="py-8 text-center text-sm text-lol-text">No augments for this selection.</p>
       ) : (
         <>
-          <div className="grid grid-cols-[minmax(0,1fr)_64px_minmax(90px,1.2fr)_52px] items-center gap-x-3 px-2 pb-1.5 font-display text-[10px] font-bold uppercase tracking-widest text-lol-text">
+          <div
+            className={`grid ${AUGMENT_COLS} items-center gap-x-3 px-2 pb-1.5 font-display text-[10px] font-bold uppercase tracking-widest text-lol-text`}
+          >
             <span>Augment</span>
             <span className="text-right">Picks</span>
+            <span>Most played on</span>
             <span>Win rate</span>
+            <span>Record</span>
+            <span>Avg K / D / A</span>
             <span className="text-right">Score</span>
           </div>
           <div className="flex flex-col gap-1">
@@ -203,7 +211,7 @@ export function ProfileAugments({
                 <div
                   key={s.augment_id}
                   title={meta?.desc?.replace(/<[^>]+>/g, "")}
-                  className="grid grid-cols-[minmax(0,1fr)_64px_minmax(90px,1.2fr)_52px] items-center gap-x-3 rounded-lg bg-white/[0.03] px-2 py-1.5 transition-colors hover:bg-white/[0.07]"
+                  className={`grid ${AUGMENT_COLS} items-center gap-x-3 rounded-lg bg-white/[0.03] px-2 py-1.5 transition-colors hover:bg-white/[0.07]`}
                 >
                   <div className="flex min-w-0 items-center gap-2.5">
                     <AugmentIcon augmentId={s.augment_id} size={32} />
@@ -228,12 +236,46 @@ export function ProfileAugments({
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
-                    <b className={`w-11 font-display text-[13px] ${rateColor(wr)}`}>
+                    {(s.champions ?? []).map((c) => (
+                      <div
+                        key={c.champion_id}
+                        title={`${c.picks}× picked`}
+                        className="flex flex-col items-center"
+                      >
+                        <ChampionIcon championId={c.champion_id} size={26} className="rounded-md" />
+                        <span className="font-display text-[10.5px] font-semibold leading-tight text-lol-text-bright">
+                          {c.picks}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <b className={`w-10 font-display text-[13px] ${rateColor(wr)}`}>
                       {wr.toFixed(0)}%
                     </b>
                     <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-lol-loss/40">
                       <i className="block h-full bg-lol-win" style={{ width: `${wr}%` }} />
                     </div>
+                  </div>
+                  <div className="whitespace-nowrap font-display text-[12px] tabular-nums">
+                    <span className="text-lol-win">{s.wins}W</span>{" "}
+                    <span className="text-lol-loss">{s.picks - s.wins}L</span>
+                  </div>
+                  <div className="whitespace-nowrap">
+                    {s.kills != null && s.deaths != null && s.assists != null ? (
+                      <>
+                        <div className="font-display text-[12.5px] tabular-nums text-lol-text-bright">
+                          {s.kills.toFixed(1)} /{" "}
+                          <span className="text-lol-loss">{s.deaths.toFixed(1)}</span> /{" "}
+                          {s.assists.toFixed(1)}
+                        </div>
+                        <div className="text-[10.5px] text-lol-text">
+                          {((s.kills + s.assists) / Math.max(s.deaths, 1)).toFixed(2)} KDA
+                        </div>
+                      </>
+                    ) : (
+                      <span className="text-lol-text">—</span>
+                    )}
                   </div>
                   <b
                     className={`text-right font-display text-[13px] ${s.avgScore != null ? scoreColor(s.avgScore) : "text-lol-text"}`}
@@ -295,9 +337,16 @@ const kdaOf = (games: MatchListItem[]) => {
   return games.length ? k / Math.max(1, d) : null;
 };
 const winsOf = (games: MatchListItem[]) => games.filter((g) => g.win).length;
+const avgOf = (games: MatchListItem[], key: "kills" | "deaths" | "assists") =>
+  games.length ? games.reduce((s, g) => s + g[key], 0) / games.length : null;
+const avgLengthMin = (games: MatchListItem[]) =>
+  games.length ? games.reduce((s, g) => s + g.game_duration, 0) / games.length / 60 : null;
 
 const fmtDuration = (min: number) =>
   min >= 60 ? `${Math.floor(min / 60)}h ${min % 60}m` : `${min} min`;
+
+const shortDay = (ms: number) =>
+  new Date(ms).toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" });
 
 const fmtTime = (ms: number) =>
   new Date(ms).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
@@ -362,22 +411,36 @@ function Delta({
   value,
   suffix = "",
   digits = 1,
+  lowerBetter = false,
+  neutral = false,
 }: {
   value: number | null;
   suffix?: string;
   digits?: number;
+  // Deaths going down is an improvement; neutral stats (game count, length) get no verdict colour
+  lowerBetter?: boolean;
+  neutral?: boolean;
 }) {
-  if (value == null || Math.abs(value) < 0.05) return <span className="text-lol-text">—</span>;
+  if (value == null || Math.abs(value) < 0.05)
+    return <span className="text-[12px] text-lol-text">no change</span>;
   const up = value > 0;
+  const good = lowerBetter ? !up : up;
+  const tone = neutral
+    ? "bg-white/[0.07] text-lol-text-bright"
+    : good
+      ? "bg-lol-win/15 text-lol-win"
+      : "bg-lol-loss/15 text-lol-loss";
   return (
     <span
-      className={`font-display text-[12px] font-semibold ${up ? "text-lol-win" : "text-lol-loss"}`}
+      className={`whitespace-nowrap rounded-md px-1.5 py-0.5 font-display text-[11.5px] font-semibold ${tone}`}
     >
       {up ? "▲" : "▼"} {Math.abs(value).toFixed(digits)}
       {suffix}
     </span>
   );
 }
+
+const WEEKDAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
 const SLOTS = [
   { label: "00–04", from: 0, to: 4 },
@@ -417,6 +480,20 @@ export function ProfilePlayInsights({
   }, [account, queue]);
 
   const sessions = useMemo(() => (games ? buildSessions(games).reverse() : []), [games]);
+  // Best session needs a few games, or a lone 1-0 would always win
+  const records = useMemo(() => {
+    if (sessions.length === 0) return null;
+    const pickMax = (list: Session[], key: (s: Session) => number) =>
+      list.reduce((a, b) => (key(b) > key(a) ? b : a));
+    const sample = sessions.filter((s) => s.games.length >= 5);
+    return {
+      most: pickMax(sessions, (s) => s.games.length),
+      longest: pickMax(sessions, (s) => s.end - s.start),
+      best: pickMax(sample.length ? sample : sessions, (s) =>
+        rate(winsOf(s.games), s.games.length),
+      ),
+    };
+  }, [sessions]);
 
   // "Full" has no previous period, so it compares the last 30 days with the 30 before
   const span = PERIOD_MS[timePeriod] ?? 30 * DAY;
@@ -446,31 +523,70 @@ export function ProfilePlayInsights({
     .filter((s) => s.games >= 10)
     .sort((a, b) => rate(b.wins, b.games) - rate(a.wins, a.games))[0];
 
+  // Weekday form, Monday first; getDay() counts from Sunday
+  const weekdays = useMemo(
+    () =>
+      WEEKDAYS.map((label, i) => {
+        const inDay = (games ?? []).filter(
+          (g) => (new Date(g.game_creation).getDay() + 6) % 7 === i,
+        );
+        return { label, games: inDay.length, wins: winsOf(inDay) };
+      }),
+    [games],
+  );
+  const slotStats = (() => {
+    const played = slots.filter((s) => s.games >= 10);
+    if (played.length === 0) return null;
+    const byRate = [...played].sort((a, b) => rate(b.wins, b.games) - rate(a.wins, a.games));
+    const busiest = [...slots].sort((a, b) => b.games - a.games)[0];
+    return { best: byRate[0], worst: byRate[byRate.length - 1], busiest };
+  })();
+
   const metric = (
     label: string,
     cur: number | null,
     prev: number | null,
     fmt: (n: number) => string,
-    suffix = "",
-    digits = 1,
-  ) => (
-    <div
-      key={label}
-      className="grid grid-cols-[1fr_auto_auto] items-baseline gap-x-4 border-b border-lol-border/30 py-2 last:border-b-0"
-    >
-      <span className="text-[13px] text-lol-text">{label}</span>
-      <span className="font-display text-[15px] font-semibold text-lol-text-bright">
-        {cur != null ? fmt(cur) : "—"}
-      </span>
-      <span className="w-20 text-right">
-        <Delta
-          value={cur != null && prev != null ? cur - prev : null}
-          suffix={suffix}
-          digits={digits}
+    opts: { suffix?: string; digits?: number; lowerBetter?: boolean; neutral?: boolean } = {},
+  ) => {
+    const top = Math.max(cur ?? 0, prev ?? 0, 0.0001);
+    const bar = (v: number | null, cls: string) => (
+      <div className="h-1 overflow-hidden rounded-full bg-white/[0.05]">
+        <i
+          className={`block h-full rounded-full ${cls}`}
+          style={{ width: `${((v ?? 0) / top) * 100}%` }}
         />
-      </span>
-    </div>
-  );
+      </div>
+    );
+    return (
+      <div key={label} className="border-b border-lol-border/30 py-2.5 last:border-b-0">
+        <div className="grid grid-cols-[1fr_auto_auto] items-baseline gap-x-3">
+          <span className="text-[13px] text-lol-text">{label}</span>
+          <span className="font-display text-[16px] font-semibold text-lol-text-bright">
+            {cur != null ? fmt(cur) : "—"}
+          </span>
+          <span className="w-[88px] text-right">
+            <Delta
+              value={cur != null && prev != null ? cur - prev : null}
+              suffix={opts.suffix}
+              digits={opts.digits}
+              lowerBetter={opts.lowerBetter}
+              neutral={opts.neutral}
+            />
+          </span>
+        </div>
+        <div className="mt-1.5 grid grid-cols-[1fr_auto] items-center gap-x-3 gap-y-1">
+          <div className="flex flex-col gap-1">
+            {bar(cur, "bg-lol-assist")}
+            {bar(prev, "bg-white/25")}
+          </div>
+          <span className="w-[88px] text-right text-[11px] text-lol-text">
+            was {prev != null ? fmt(prev) : "—"}
+          </span>
+        </div>
+      </div>
+    );
+  };
 
   return (
     <div className="grid grid-cols-1 gap-5 xl:grid-cols-[1.3fr_1fr]">
@@ -478,7 +594,7 @@ export function ProfilePlayInsights({
         <Title
           aside={
             <span
-              title="A pause longer than 60 minutes starts a new session"
+              title="A pause longer than 90 minutes starts a new session"
               className="text-[13px] text-lol-text"
             >
               {sessions.length} total · avg{" "}
@@ -494,6 +610,43 @@ export function ProfilePlayInsights({
           <p className="py-8 text-center text-sm text-lol-text">No games yet.</p>
         ) : (
           <div className="flex flex-col gap-2">
+            {records && (
+              <div className="mb-1 grid grid-cols-3 gap-2">
+                {[
+                  [
+                    "Record games",
+                    String(records.most.games.length),
+                    `${shortDay(records.most.start)}`,
+                    "text-lol-gold",
+                  ],
+                  [
+                    "Longest session",
+                    fmtDuration(Math.round((records.longest.end - records.longest.start) / 60_000)),
+                    shortDay(records.longest.start),
+                    "text-lol-assist",
+                  ],
+                  [
+                    "Best session",
+                    `${winsOf(records.best.games)}W ${records.best.games.length - winsOf(records.best.games)}L`,
+                    `${shortDay(records.best.start)} · ${rate(winsOf(records.best.games), records.best.games.length).toFixed(0)}%`,
+                    "text-lol-win",
+                  ],
+                ].map(([label, value, sub, tone]) => (
+                  <div
+                    key={label}
+                    className="rounded-xl border border-lol-border/50 bg-black/20 px-3 py-2"
+                  >
+                    <div className="font-display text-[10px] font-bold uppercase tracking-widest text-lol-text">
+                      {label}
+                    </div>
+                    <b className={`font-display text-[20px] font-bold leading-tight ${tone}`}>
+                      {value}
+                    </b>
+                    <div className="text-[11px] text-lol-text">{sub}</div>
+                  </div>
+                ))}
+              </div>
+            )}
             {sessions.slice(0, SESSIONS_SHOWN).map((s) => (
               <SessionRow key={s.start} session={s} />
             ))}
@@ -520,29 +673,48 @@ export function ProfilePlayInsights({
             </p>
           ) : (
             <div>
-              {metric("Games", compare.cur.length, compare.prev.length, (n) => String(n), "", 0)}
+              {metric("Games", compare.cur.length, compare.prev.length, (n) => String(n), {
+                digits: 0,
+                neutral: true,
+              })}
+              {metric("Wins", winsOf(compare.cur), winsOf(compare.prev), (n) => String(n), {
+                digits: 0,
+              })}
               {metric(
                 "Win rate",
                 rate(winsOf(compare.cur), compare.cur.length),
                 compare.prev.length ? rate(winsOf(compare.prev), compare.prev.length) : null,
                 (n) => `${n.toFixed(1)}%`,
-                " pp",
+                { suffix: " pp" },
               )}
               {metric(
                 "KDA",
                 kdaOf(compare.cur),
                 compare.prev.length ? kdaOf(compare.prev) : null,
                 (n) => n.toFixed(2),
-                "",
-                2,
+                { digits: 2 },
               )}
               {metric(
                 "Avg score",
                 avgScore(compare.cur),
                 compare.prev.length ? avgScore(compare.prev) : null,
                 (n) => n.toFixed(1),
-                "",
-                1,
+              )}
+              {metric(
+                "Deaths per game",
+                avgOf(compare.cur, "deaths"),
+                avgOf(compare.prev, "deaths"),
+                (n) => n.toFixed(1),
+                {
+                  lowerBetter: true,
+                },
+              )}
+              {metric(
+                "Game length",
+                avgLengthMin(compare.cur),
+                avgLengthMin(compare.prev),
+                (n) => `${n.toFixed(1)} min`,
+                { suffix: " min", neutral: true },
               )}
             </div>
           )}
@@ -560,8 +732,35 @@ export function ProfilePlayInsights({
           >
             When you play best
           </Title>
+          {slotStats && (
+            <div className="mb-2 grid grid-cols-3 gap-2">
+              {[
+                ["Best hours", slotStats.best, "text-lol-win"],
+                ["Worst hours", slotStats.worst, "text-lol-loss"],
+                ["Busiest hours", slotStats.busiest, "text-lol-assist"],
+              ].map(([label, slot, tone]) => {
+                const s = slot as (typeof slots)[number];
+                return (
+                  <div
+                    key={label as string}
+                    className="rounded-xl border border-lol-border/50 bg-black/20 px-3 py-2"
+                  >
+                    <div className="font-display text-[10px] font-bold uppercase tracking-widest text-lol-text">
+                      {label as string}
+                    </div>
+                    <b className={`font-display text-[18px] font-bold leading-tight ${tone}`}>
+                      {s.label}
+                    </b>
+                    <div className="text-[11px] text-lol-text">
+                      {rate(s.wins, s.games).toFixed(0)}% · {s.games} games
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
           {/* Bar height = win rate on a 35–75% scale */}
-          <div className="my-auto flex items-stretch gap-2.5 py-3">
+          <div className="flex items-stretch gap-2.5 py-2">
             {slots.map((s) => {
               const wr = rate(s.wins, s.games);
               const height = s.games ? Math.min(100, Math.max(6, ((wr - 35) / 40) * 100)) : 0;
@@ -597,7 +796,38 @@ export function ProfilePlayInsights({
               );
             })}
           </div>
-          <p className="mt-2 text-[11px] text-lol-text/70">
+          <div className="mt-auto border-t border-lol-border/40 pt-3">
+            <div className="mb-2 font-display text-[10px] font-bold uppercase tracking-widest text-lol-text">
+              By weekday
+            </div>
+            <div className="grid grid-cols-7 gap-1.5">
+              {weekdays.map((d) => {
+                const wr = rate(d.wins, d.games);
+                // Colour strength follows distance from 50%, capped at ±15 points
+                const strength = d.games ? Math.min(1, Math.abs(wr - 50) / 15) : 0;
+                const tint = wr >= 50 ? "var(--color-lol-win)" : "var(--color-lol-loss)";
+                return (
+                  <div
+                    key={d.label}
+                    title={`${d.games} games · ${d.wins}W ${d.games - d.wins}L`}
+                    className="rounded-lg border border-lol-border/40 px-1 py-1.5 text-center"
+                    style={{
+                      background: `color-mix(in srgb, ${tint} ${Math.round(strength * 28)}%, transparent)`,
+                    }}
+                  >
+                    <div className="text-[10.5px] font-semibold text-lol-text">{d.label}</div>
+                    <b
+                      className={`font-display text-[13px] ${d.games ? rateColor(wr) : "text-lol-text/50"}`}
+                    >
+                      {d.games ? `${wr.toFixed(0)}%` : "—"}
+                    </b>
+                    <div className="text-[10px] tabular-nums text-lol-text/70">{d.games}</div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+          <p className="mt-3 text-[11px] text-lol-text/70">
             Bar height = win rate, gold ring = best slot with 10+ games. Local time.
           </p>{" "}
         </Panel>

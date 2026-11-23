@@ -1,3 +1,4 @@
+import ChampionIcon from "./ChampionIcon";
 import SummonerIcon from "./SummonerIcon";
 import { formatNumber } from "../lib/format";
 
@@ -12,6 +13,11 @@ interface HistoryStatRowProps {
   recentForm: number[];
 
   avgScore: number | null;
+  // Extra cells in the Score tile; each hides when missing
+  avgScoreWins?: number | null;
+  avgScoreLosses?: number | null;
+  bestScore?: number | null;
+  worstScore?: number | null;
   teamAvgScore: number | null;
   mvpCount: number;
   mvpShare: number;
@@ -47,6 +53,11 @@ interface HistoryStatRowProps {
   triples: { count: number; games: number };
   quadras: { count: number; games: number };
   pentas: { count: number; games: number };
+  // Champions with the most of each multikill, shown as portraits under its bar
+  multikillChampions?: Record<
+    "double" | "triple" | "quadra" | "penta",
+    Array<{ champion_id: number; count: number }>
+  >;
   // Skips the identity card and renders just the Score tile, or just KDA and Multikills,
   // straight into the parent grid so the page can place them beside other panels
   tiles?: "score" | "kda";
@@ -68,6 +79,15 @@ export function HistoryStatRow(props: HistoryStatRowProps) {
     props.deathsTrend?.current != null && props.deathsTrend.previous != null
       ? props.deathsTrend.current - props.deathsTrend.previous
       : null;
+
+  const scoreExtras: Array<[string, number, string]> = [];
+  const addExtra = (label: string, value: number | null | undefined, tone: string) => {
+    if (value != null) scoreExtras.push([label, value, tone]);
+  };
+  addExtra("Average in wins", props.avgScoreWins, "text-lol-win");
+  addExtra("Average in losses", props.avgScoreLosses, "text-lol-loss");
+  addExtra("Best game", props.bestScore, "text-lol-gold");
+  addExtra("Worst game", props.worstScore, "text-lol-text-bright");
 
   return (
     <div
@@ -127,7 +147,7 @@ export function HistoryStatRow(props: HistoryStatRowProps) {
             <i className="mr-2 inline-block h-1.5 w-1.5 rounded-full bg-lol-gold" />
             Score
           </h2>
-          <div className="flex flex-1 flex-wrap content-center items-baseline gap-x-8 gap-y-4">
+          <div className="grid flex-1 grid-cols-2 content-center items-baseline gap-x-8 gap-y-4">
             <div>
               <span className="block text-[13px] text-lol-text">Average</span>
               <b className="font-display text-[40px] font-bold leading-none text-lol-gold">
@@ -135,7 +155,7 @@ export function HistoryStatRow(props: HistoryStatRowProps) {
                 <small className="text-[20px] font-medium text-lol-text">/10</small>
               </b>
             </div>
-            <div>
+            <div className="text-right">
               <span className="block text-[13px] text-lol-text">Team average</span>
               <b className="font-display text-[40px] font-bold leading-none text-lol-text/60">
                 {props.teamAvgScore != null ? props.teamAvgScore.toFixed(1) : "—"}
@@ -143,6 +163,21 @@ export function HistoryStatRow(props: HistoryStatRowProps) {
               </b>
             </div>
           </div>
+          {scoreExtras.length > 0 && (
+            <div className="mt-5 grid grid-cols-2 gap-2.5">
+              {scoreExtras.map(([label, value, tone]) => (
+                <div
+                  key={label}
+                  className="rounded-xl border border-lol-border/50 bg-black/20 px-3 py-2"
+                >
+                  <b className={`block font-display text-[20px] font-bold leading-tight ${tone}`}>
+                    {value.toFixed(1)}
+                  </b>
+                  <span className="text-[11.5px] text-lol-text">{label}</span>
+                </div>
+              ))}
+            </div>
+          )}
           <div className="mt-auto grid grid-cols-[44px_40px_1fr_50px] items-center gap-2.5 pt-5 text-[13px]">
             <span className="rounded bg-lol-gold px-2 py-0.5 text-[10.5px] font-bold tracking-wider text-[#241705]">
               MVP
@@ -420,6 +455,26 @@ export function HistoryStatRow(props: HistoryStatRowProps) {
                         </div>
                         <span />
                       </div>
+                      {(props.multikillChampions?.[row.key as "double"] ?? []).length > 0 && (
+                        <div className="mt-2.5 flex flex-wrap gap-x-1.5 gap-y-1">
+                          {props.multikillChampions![row.key as "double"].map((c) => (
+                            <div
+                              key={c.champion_id}
+                              title={`${c.count}× ${row.label.toLowerCase()}`}
+                              className="flex flex-col items-center gap-0.5"
+                            >
+                              <ChampionIcon
+                                championId={c.champion_id}
+                                size={30}
+                                className="rounded-lg"
+                              />
+                              <b className="font-display text-[11px] font-semibold text-lol-text-bright">
+                                {c.count}
+                              </b>
+                            </div>
+                          ))}
+                        </div>
+                      )}
                     </div>
                   );
                 });

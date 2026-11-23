@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import { Outlet, useLocation } from "react-router-dom";
 import { useActiveTheme } from "../hooks/useActiveTheme";
 import { Sidebar } from "./Sidebar";
@@ -30,7 +31,9 @@ export function FullHistoryShell() {
             key={pathname}
             className="page-enter flex min-h-0 flex-1 flex-col overflow-y-auto p-6"
           >
-            <Outlet />
+            <Suspense fallback={null}>
+              <Outlet />
+            </Suspense>
           </main>
         </div>
       </div>
@@ -43,7 +46,9 @@ export function FullHistoryShell() {
       <TopNav />
       <div className="flex min-h-0 flex-1">
         <main className="flex min-h-0 flex-1 flex-col overflow-y-auto p-6">
-          <Outlet />
+          <Suspense fallback={null}>
+            <Outlet />
+          </Suspense>
         </main>
         {showSideNav && (
           <div className="shrink-0">

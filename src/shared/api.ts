@@ -761,6 +761,8 @@ export interface AugmentStats {
   deaths?: number;
   assists?: number;
   avgScore?: number | null;
+  // Five champions that took this augment most often
+  champions?: Array<{ champion_id: number; picks: number }>;
 }
 
 export interface ItemStats {
@@ -887,6 +889,10 @@ export interface DashboardData {
   avgGold: number;
   goldTotal: number;
   avgScore: number | null;
+  avgScoreWins: number | null;
+  avgScoreLosses: number | null;
+  bestScore: number | null;
+  worstScore: number | null;
   // 0–1 shares averaged per game; null when no game has the team data
   killParticipation: number | null;
   damageShare: number | null;
@@ -923,6 +929,11 @@ export interface DashboardData {
     gamesWithTriples: number;
     gamesWithQuadras: number;
     gamesWithPentas: number;
+    // Champions with the most of each multikill, best first
+    topChampions: Record<
+      "double" | "triple" | "quadra" | "penta",
+      Array<{ champion_id: number; count: number }>
+    >;
   };
   topAugments: AugmentStats[];
 }

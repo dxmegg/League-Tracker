@@ -101,6 +101,11 @@ function StatTiles({ dashboard, tiles }: { dashboard: DashboardData; tiles: "sco
       triples={{ count: mk.triples, games: mk.gamesWithTriples }}
       quadras={{ count: mk.quadras, games: mk.gamesWithQuadras }}
       pentas={{ count: mk.pentas, games: mk.gamesWithPentas }}
+      multikillChampions={mk.topChampions}
+      avgScoreWins={dashboard.avgScoreWins}
+      avgScoreLosses={dashboard.avgScoreLosses}
+      bestScore={dashboard.bestScore}
+      worstScore={dashboard.worstScore}
     />
   );
 }

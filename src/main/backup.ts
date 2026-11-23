@@ -1,7 +1,7 @@
 import Database from "better-sqlite3";
 import fs from "fs";
 import path from "path";
-import { closeDatabase, getDatabase, getDbPath, getSetting, initDatabase } from "./db";
+import { closeDatabase, getDatabase, getDbPath, getSetting, initDatabase, setSetting } from "./db";
 import { getBackupDir } from "./paths";
 
 // Snapshots are taken through SQLite's online backup API rather than by copying
@@ -20,6 +20,9 @@ const MAX_AGE_MS = 24 * 60 * 60 * 1000;
 // The scheduler only checks staleness, so this is a resolution, not a rate:
 // snapshots still land roughly a day apart no matter how long the app runs.
 const CHECK_INTERVAL_MS = 60 * 60 * 1000;
+const QUICK_CHECK_INTERVAL_MS = 24 * 60 * 60 * 1000;
+// Keeps the first snapshot check clear of the busy first seconds after launch
+const FIRST_TICK_DELAY_MS = 90_000;
 
 // Tiered retention rather than "keep the last N". Corruption is often noticed
 // days after it happened, and a flat window of daily snapshots can be fully
@@ -64,6 +67,7 @@ const FILE_RE = /^matches-(\d{4}-\d{2}-\d{2}T\d{2}-\d{2}-\d{2})-([a-z-]+)\.db$/;
 
 let recoveryReport: RecoveryReport | null = null;
 let scheduleTimer: NodeJS.Timeout | null = null;
+let firstTickTimer: NodeJS.Timeout | null = null;
 // Backups are async, so the hourly check, a Settings-page click and a
 // pre-import snapshot can all be in flight at once. They would race over the
 // same directory and prune each other's files, so they share one run instead.
@@ -91,12 +95,16 @@ function countGames(db: Database.Database): number {
 
 // Opens a finished snapshot and decides whether it can be trusted. Anything
 // that throws here means the file is not a backup we would ever restore.
-function verifySnapshot(file: string): number {
+function verifySnapshot(file: string, deep = true): number {
   const snap = new Database(file);
   try {
-    const result = snap.pragma("quick_check") as { quick_check: string }[];
-    if (result[0]?.quick_check !== "ok") {
-      throw new Error(`integrity check failed: ${result[0]?.quick_check ?? "unknown"}`);
+    // A snapshot just written by SQLite's own backup API is consistent by construction, so the
+    // full scan (which blocks the main thread for seconds) is kept for restores and recovery.
+    if (deep) {
+      const result = snap.pragma("quick_check") as { quick_check: string }[];
+      if (result[0]?.quick_check !== "ok") {
+        throw new Error(`integrity check failed: ${result[0]?.quick_check ?? "unknown"}`);
+      }
     }
     const games = countGames(snap);
     // The copy inherits WAL mode from the source, and a WAL database can't be
@@ -203,7 +211,7 @@ async function runBackup(reason: BackupReason): Promise<BackupInfo> {
   const partial = `${dest}.part`;
   try {
     await db.backup(partial);
-    const games = verifySnapshot(partial);
+    const games = verifySnapshot(partial, false);
     if (games < before) {
       throw new Error(`snapshot holds ${games} games, database had ${before}`);
     }
@@ -260,11 +268,13 @@ export function startBackupSchedule(): void {
     if (getSetting("auto_backup") === "false") return;
     if (isStale()) void backupQuietly("auto");
   };
-  tick();
+  firstTickTimer = setTimeout(tick, FIRST_TICK_DELAY_MS);
   scheduleTimer = setInterval(tick, CHECK_INTERVAL_MS);
 }
 
 export function stopBackupSchedule(): void {
+  if (firstTickTimer) clearTimeout(firstTickTimer);
+  firstTickTimer = null;
   if (!scheduleTimer) return;
   clearInterval(scheduleTimer);
   scheduleTimer = null;
@@ -384,11 +394,15 @@ export async function initDatabaseWithRecovery(): Promise<void> {
 
   try {
     await initDatabase();
-    if (!missing) {
+    // quick_check reads the whole file, which is seconds on a database of a gigabyte or more, so a
+    // clean result is trusted for a day. A database that cannot even open still fails above.
+    const lastCheck = Number(getSetting("last_quick_check") ?? 0);
+    if (!missing && Date.now() - lastCheck > QUICK_CHECK_INTERVAL_MS) {
       const result = getDatabase().pragma("quick_check") as { quick_check: string }[];
       if (result[0]?.quick_check !== "ok") {
         throw new Error(result[0]?.quick_check ?? "integrity check failed");
       }
+      setSetting("last_quick_check", String(Date.now()));
     }
   } catch (err: unknown) {
     // Damage can surface either on open or on the first statements migrations

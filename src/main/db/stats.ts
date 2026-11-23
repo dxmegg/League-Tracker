@@ -1076,7 +1076,7 @@ export function getAugmentStatsAll(
     : `FROM game_augments ga
        JOIN ${source.table} ${source.alias} ON ga.game_id = ps.game_id
        JOIN games g ON ga.game_id = g.game_id`;
-  return db
+  const rows = db
     .prepare(`
     SELECT ${augmentId} as augment_id,
            COUNT(*) as picks,
@@ -1090,7 +1090,25 @@ export function getAugmentStatsAll(
     GROUP BY ${augmentId}
     ORDER BY picks DESC
   `)
-    .all(...params);
+    .all(...params) as Array<{ augment_id: number; picks: number } & Record<string, unknown>>;
+
+  // The five champions that took each augment most often
+  const byChampion = db
+    .prepare(`
+    SELECT ${augmentId} as augment_id, ps.champion_id, COUNT(*) as picks
+    ${augmentSource}
+    WHERE ${where.join(" AND ")}
+    GROUP BY ${augmentId}, ps.champion_id
+    ORDER BY picks DESC
+  `)
+    .all(...params) as Array<{ augment_id: number; champion_id: number; picks: number }>;
+  const top = new Map<number, Array<{ champion_id: number; picks: number }>>();
+  for (const r of byChampion) {
+    const list = top.get(r.augment_id) ?? [];
+    if (list.length < 5) list.push({ champion_id: r.champion_id, picks: r.picks });
+    top.set(r.augment_id, list);
+  }
+  return rows.map((r) => ({ ...r, champions: top.get(r.augment_id) ?? [] }));
 }
 
 export function getDashboardData(
@@ -1150,6 +1168,10 @@ export function getDashboardData(
            COUNT(CASE WHEN g.queue_id NOT IN (${EXCLUDED_STATS_SQL}) AND ps.quadra_kills > 0 THEN 1 END) as gamesWithQuadras,
            COUNT(CASE WHEN g.queue_id NOT IN (${EXCLUDED_STATS_SQL}) AND ps.penta_kills > 0 THEN 1 END) as gamesWithPentas,
            AVG(CASE WHEN g.queue_id NOT IN (${EXCLUDED_STATS_SQL}) THEN ps.score END) as avgScore,
+           AVG(CASE WHEN g.queue_id NOT IN (${EXCLUDED_STATS_SQL}) AND ps.win = 1 THEN ps.score END) as avgScoreWins,
+           AVG(CASE WHEN g.queue_id NOT IN (${EXCLUDED_STATS_SQL}) AND ps.win = 0 THEN ps.score END) as avgScoreLosses,
+           MAX(CASE WHEN g.queue_id NOT IN (${EXCLUDED_STATS_SQL}) THEN ps.score END) as bestScore,
+           MIN(CASE WHEN g.queue_id NOT IN (${EXCLUDED_STATS_SQL}) THEN ps.score END) as worstScore,
            SUM(CASE WHEN g.queue_id NOT IN (${EXCLUDED_STATS_SQL}) AND ps.score_badge = 'MVP' THEN 1 ELSE 0 END) as mvps,
            SUM(CASE WHEN g.queue_id NOT IN (${EXCLUDED_STATS_SQL}) AND ps.score_badge = 'ACE' THEN 1 ELSE 0 END) as aces,
            SUM(CASE WHEN ps.score IS NOT NULL AND ps.win = 1 THEN 1 ELSE 0 END) as scoredWins,
@@ -1237,6 +1259,31 @@ export function getDashboardData(
     : `FROM game_augments ga
      JOIN ${source.table} ${source.alias} ON ga.game_id = ps.game_id
      JOIN games g ON ga.game_id = g.game_id`;
+  // Five champions with the most of each multikill
+  const mkRows = db
+    .prepare(`
+    SELECT ps.champion_id,
+           SUM(ps.double_kills) as d, SUM(ps.triple_kills) as t,
+           SUM(ps.quadra_kills) as q, SUM(ps.penta_kills) as p
+    FROM ${source.table} ${source.alias}
+    JOIN games g ON ${source.alias}.game_id = g.game_id
+    ${whereSql} AND g.queue_id NOT IN (${EXCLUDED_STATS_SQL})
+    GROUP BY ps.champion_id
+  `)
+    .all(...queryParams) as Array<{
+    champion_id: number;
+    d: number;
+    t: number;
+    q: number;
+    p: number;
+  }>;
+  const topFor = (col: "d" | "t" | "q" | "p") =>
+    mkRows
+      .filter((r) => r[col] > 0)
+      .sort((a, b) => b[col] - a[col])
+      .slice(0, 8)
+      .map((r) => ({ champion_id: r.champion_id, count: r[col] }));
+
   const topAugments = db
     .prepare(`
   SELECT ${augmentId} as augment_id, COUNT(*) as picks, SUM(ps.win) as wins
@@ -1351,6 +1398,10 @@ export function getDashboardData(
     avgGold: totals.avgGold ?? 0,
     goldTotal: totals.goldTotal ?? 0,
     avgScore: totals.avgScore ?? null,
+    avgScoreWins: totals.avgScoreWins ?? null,
+    avgScoreLosses: totals.avgScoreLosses ?? null,
+    bestScore: totals.bestScore ?? null,
+    worstScore: totals.worstScore ?? null,
     killParticipation: share?.kp ?? null,
     damageShare: share?.dmgShare ?? null,
     longestGameSeconds: longestGame?.longest ?? null,
@@ -1372,6 +1423,12 @@ export function getDashboardData(
       gamesWithTriples: totals.gamesWithTriples ?? 0,
       gamesWithQuadras: totals.gamesWithQuadras ?? 0,
       gamesWithPentas: totals.gamesWithPentas ?? 0,
+      topChampions: {
+        double: topFor("d"),
+        triple: topFor("t"),
+        quadra: topFor("q"),
+        penta: topFor("p"),
+      },
     },
     topAugments,
   };
