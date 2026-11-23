@@ -1,10 +1,11 @@
 import { useCallback, useState } from "react";
-import { useLocation } from "react-router-dom";
+import { NavLink, useLocation } from "react-router-dom";
+import { AccountMenu } from "./AccountMenu";
 import { useActiveMode } from "../hooks/useActiveMode";
 import { useBackfill } from "../hooks/useBackfill";
 import { useLcuStatus } from "../hooks/useLcuStatus";
 import type { LcuStatus } from "../lib/types";
-import { RefreshIcon } from "./icons";
+import { RefreshIcon, SettingsIcon } from "./icons";
 import { WindowControls } from "./WindowControls";
 
 const STATUS_DOT: Record<LcuStatus, string> = {
@@ -58,7 +59,7 @@ export function TopBar() {
   }, []);
 
   return (
-    <header className="titlebar-drag flex h-12 w-full shrink-0 items-center gap-3 border-b border-lol-border/40 bg-black/25 pl-4 backdrop-blur">
+    <header className="titlebar-drag relative z-30 flex h-12 w-full shrink-0 items-center gap-3 border-b border-lol-border/40 bg-black/25 pl-4 backdrop-blur">
       <div className="titlebar-no-drag flex items-center gap-1.5 rounded-full border border-lol-border/60 bg-lol-card/60 p-1 pr-1.5">
         <div className="flex items-center gap-2 px-2.5 text-[12px] text-lol-text">
           <span className={`h-2 w-2 rounded-full ${STATUS_DOT[status]}`} />
@@ -97,7 +98,22 @@ export function TopBar() {
         </div>
       )}
 
-      <div className="titlebar-no-drag ml-auto flex items-center gap-0.5 pr-2">
+      <div className="titlebar-no-drag ml-auto flex items-center gap-2 pr-2">
+        <AccountMenu />
+        <NavLink
+          to="/settings"
+          title="Settings"
+          aria-label="Settings"
+          className={({ isActive }) =>
+            `flex h-8 w-8 items-center justify-center rounded-full border transition-colors ${
+              isActive
+                ? "border-lol-crimson/60 bg-lol-crimson/20 text-lol-text-bright"
+                : "border-lol-border/60 bg-lol-card/60 text-lol-text hover:border-lol-crimson/40 hover:text-lol-text-bright"
+            }`
+          }
+        >
+          <SettingsIcon className="h-4 w-4 transition-transform duration-300 hover:rotate-90" />
+        </NavLink>
         <WindowControls />
       </div>
     </header>

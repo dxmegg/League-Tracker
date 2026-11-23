@@ -14,6 +14,7 @@ import type {
   MatchListItem,
   TeammateStats,
 } from "../../shared/api";
+import { scoreColor } from "../../shared/opScore";
 import {
   QUEUE_SCOPE_ARAM,
   QUEUE_SCOPE_ARENA,
@@ -1138,7 +1139,6 @@ export function HomeRedesign({
           {lastFive.length > 0 ? (
             <div className="flex flex-col gap-1.5">
               {lastFive.map((game) => {
-                const kda = (game.kills + game.assists) / Math.max(1, game.deaths);
                 return (
                   <Link
                     key={game.game_id}
@@ -1154,9 +1154,10 @@ export function HomeRedesign({
                       {game.assists}
                     </span>
                     <b
-                      className={`w-9 text-right font-display text-[13px] ${kda >= 3 ? "text-lol-win" : kda >= 2 ? "text-lol-gold-light" : "text-lol-text"}`}
+                      title="Game score"
+                      className={`w-9 text-right font-display text-[13px] ${game.score != null ? scoreColor(game.score) : "text-lol-text"}`}
                     >
-                      {kda.toFixed(1)}
+                      {game.score != null ? game.score.toFixed(1) : "—"}
                     </b>
                   </Link>
                 );
