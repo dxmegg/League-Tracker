@@ -3,12 +3,15 @@ import { NavLink, useLocation } from "react-router-dom";
 import type { AccountListItem } from "../../shared/api";
 import { useBackfill } from "../hooks/useBackfill";
 import { useActiveAccount } from "../hooks/useActiveAccount";
+import { useActiveMode } from "../hooks/useActiveMode";
 import { useActiveTheme } from "../hooks/useActiveTheme";
 import { getAccountsWithData } from "../hooks/useChampions";
 import { useLcuStatus } from "../hooks/useLcuStatus";
 import { ALL_ACCOUNTS_SENTINEL } from "../lib/accountsEvent";
+import type { DataMode } from "../lib/dataMode";
 import type { LcuStatus } from "../lib/types";
 import { RefreshIcon } from "./icons";
+import { SegmentedControl } from "./SegmentedControl";
 
 const statusColors: Record<LcuStatus, string> = {
   connected: "bg-lol-win",
@@ -25,6 +28,7 @@ const statusLabels: Record<LcuStatus, string> = {
 };
 
 const mainTabs = [
+  { to: "/test", label: "TEST" },
   { to: "/home", label: "HOME" },
   { to: "/local", label: "LOCAL ACCOUNT" },
   { to: "/history", label: "HISTORY" },
@@ -40,9 +44,17 @@ const mainTabs = [
 
 // Redesign merges Local Account and History into one page
 const redesignTabs = [
+  { to: "/test", label: "TEST" },
   { to: "/home", label: "HOME" },
   { to: "/profile", label: "YOUR PROFILE" },
-  ...mainTabs.filter((tab) => !["/home", "/local", "/history"].includes(tab.to)),
+  ...mainTabs.filter((tab) => !["/test", "/home", "/local", "/history"].includes(tab.to)),
+];
+
+// Each tab appears in exactly one group; tabs a theme doesn't have are simply skipped.
+const NAV_GROUPS = [
+  { title: "Main", paths: ["/test", "/home", "/profile", "/local", "/history"] },
+  { title: "Analytics", paths: ["/champions", "/items", "/augments", "/runes"] },
+  { title: "Community & progress", paths: ["/friends", "/trends", "/records", "/data"] },
 ];
 
 const ACTIVE_TAIL: Record<string, string> = {
@@ -56,6 +68,7 @@ export function Sidebar() {
   const { running: backfilling } = useBackfill();
   const [refreshing, setRefreshing] = useState(false);
   const [activeAccount, setActiveAccount] = useActiveAccount();
+  const [mode, setMode] = useActiveMode();
   const [savedAccounts, setSavedAccounts] = useState<AccountListItem[]>([]);
   const [accountsOpen, setAccountsOpen] = useState(false);
   const accountsWrapRef = useRef<HTMLDivElement>(null);
@@ -186,26 +199,43 @@ export function Sidebar() {
           )}
         </div>
 
-        <nav aria-label="Main navigation" className="flex flex-col gap-1">
-          {tabs.map(({ to, label }, index) => (
-            <div key={to}>
-              {index === 3 && <hr className="my-2 border-lol-border/40" />}
-              <NavLink
-                to={to}
-                className={`flex items-center gap-3 rounded-lg border-l-[3px] px-3 py-2 text-sm transition-[background-color,border-left-color,border-left-width] duration-[60ms] ${
-                  isLinkActive(to)
-                    ? "border-l-[#E5483F] bg-[radial-gradient(circle_at_left_center,rgba(229,72,63,0.15),transparent_70%)] text-lol-text-bright"
-                    : "border-l-[rgba(255,255,255,0.04)] text-lol-text hover:bg-white/[0.04] hover:text-lol-text-bright hover:border-l-white/10"
-                }`}
-              >
-                <span
-                  className={`h-[7px] w-[7px] shrink-0 rotate-45 border-[1.5px] border-current opacity-70 ${
-                    isLinkActive(to) ? "border-lol-crimson bg-lol-crimson opacity-100" : ""
-                  }`}
-                  aria-hidden="true"
-                />
-                <span>{label}</span>
-              </NavLink>
+        <SegmentedControl<DataMode>
+          label="Data mode"
+          value={mode}
+          onChange={(next) => next && setMode(next)}
+          options={[
+            { value: "all", label: "All matches" },
+            { value: "mayhem", label: "Mayhem" },
+          ]}
+        />
+
+        <nav aria-label="Main navigation" className="flex flex-col gap-4">
+          {NAV_GROUPS.map(({ title, paths }) => (
+            <div key={title} className="flex flex-col gap-1">
+              <h2 className="px-3 text-[10px] font-semibold uppercase tracking-[0.18em] text-lol-text/60">
+                {title}
+              </h2>
+              {tabs
+                .filter((tab) => paths.includes(tab.to))
+                .map(({ to, label }) => (
+                  <NavLink
+                    key={to}
+                    to={to}
+                    className={`flex items-center gap-3 rounded-lg border-l-[3px] px-3 py-2 text-sm transition-[background-color,border-left-color,border-left-width] duration-[60ms] ${
+                      isLinkActive(to)
+                        ? "border-l-lol-crimson bg-gradient-to-r from-lol-crimson/15 to-transparent text-lol-text-bright"
+                        : "border-l-[rgba(255,255,255,0.04)] text-lol-text hover:bg-white/[0.04] hover:text-lol-text-bright hover:border-l-white/10"
+                    }`}
+                  >
+                    <span
+                      className={`h-[7px] w-[7px] shrink-0 rotate-45 border-[1.5px] border-current opacity-70 ${
+                        isLinkActive(to) ? "border-lol-crimson bg-lol-crimson opacity-100" : ""
+                      }`}
+                      aria-hidden="true"
+                    />
+                    <span>{label}</span>
+                  </NavLink>
+                ))}
             </div>
           ))}
         </nav>

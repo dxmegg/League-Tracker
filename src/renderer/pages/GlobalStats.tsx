@@ -20,7 +20,7 @@ import { SearchInput } from "../components/SearchInput";
 import PatchSelect from "../components/PatchSelect";
 import QueueSelect from "../components/QueueSelect";
 import { type Rarity } from "../components/RarityFilter";
-import { useHistoryScopeQueue } from "../lib/historyScope";
+import { useHistoryScopeQueue, useScopedQueue } from "../lib/historyScope";
 import { useActiveTheme } from "../hooks/useActiveTheme";
 import { DataExp } from "../components/DataExp";
 
@@ -82,7 +82,7 @@ export default function GlobalStats() {
   const patch = searchParams.get("patch") ?? undefined;
   const queueParam = searchParams.get("queue");
   const queue = queueParam ? Number(queueParam) : undefined;
-  const scopedQueue = queue ?? useHistoryScopeQueue();
+  const scopedQueue = useScopedQueue(queue);
   const scopedHistory = useHistoryScopeQueue() !== undefined;
   const { scope } = useParams<{ scope?: string }>();
   const allowScopedAugments = true;

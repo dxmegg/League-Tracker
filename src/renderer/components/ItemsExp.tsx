@@ -7,7 +7,7 @@ import QueueSelect from "./QueueSelect";
 import PatchSelect from "./PatchSelect";
 import { useItemData, getItemName } from "../hooks/useChampions";
 import { useActiveAccount } from "../hooks/useActiveAccount";
-import { useHistoryScopeQueue } from "../lib/historyScope";
+import { useScopedQueue } from "../lib/historyScope";
 import { ALL_ACCOUNTS_SENTINEL } from "../lib/accountsEvent";
 import { useViewState } from "../hooks/useViewState";
 import { useIpc } from "../hooks/useIpc";
@@ -234,7 +234,7 @@ export function ItemsExp() {
   const { scope } = useParams<{ scope?: string }>();
   const [queue, setQueue] = useViewState<number | undefined>("items.queue", undefined);
   const [patch, setPatch] = useViewState<string | undefined>("items.patch", undefined);
-  const scopedQueue = queue ?? useHistoryScopeQueue();
+  const scopedQueue = useScopedQueue(queue);
   const [activeAccountRaw] = useActiveAccount();
   const account = activeAccountRaw === ALL_ACCOUNTS_SENTINEL ? "all" : activeAccountRaw;
   const itemData = useItemData(patch);

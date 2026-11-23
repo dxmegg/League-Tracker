@@ -147,6 +147,7 @@ export default function App() {
           <Route path="/history/aram" element={<MatchHistory scope="aram" />} />
           <Route path="/history/arena" element={<MatchHistory scope="arena" />} />
           <Route path="/settings" element={<Settings />} />
+          <Route path="/test" element={<div />} />
           <Route path="/home" element={<Home />} />
           <Route
             path="/local"

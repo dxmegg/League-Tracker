@@ -31,7 +31,7 @@ import { useIpc } from "../hooks/useIpc";
 import { useViewState } from "../hooks/useViewState";
 import { ALL_ACCOUNTS_SENTINEL } from "../lib/accountsEvent";
 import { formatDuration, formatNumber, formatPlain, formatPlaytime } from "../lib/format";
-import { useHistoryScopeQueue } from "../lib/historyScope";
+import { useScopedQueue } from "../lib/historyScope";
 import AugmentIcon from "./AugmentIcon";
 import ChampionIcon from "./ChampionIcon";
 import ItemIcon from "./ItemIcon";
@@ -154,7 +154,7 @@ export function ChampionDetailRedesign() {
   const [patch] = useViewState<string | undefined>("champions.patch", undefined);
   const [timePeriod, setTimePeriod] = useViewState<HomeTimePeriod>("champions.timePeriod", "full");
   const [queue, setQueue] = useViewState<number | undefined>("champions.queue", undefined);
-  const scopedQueue = queue ?? useHistoryScopeQueue();
+  const scopedQueue = useScopedQueue(queue);
   const [activeAccountRaw] = useActiveAccount();
   const account = activeAccountRaw === ALL_ACCOUNTS_SENTINEL ? "all" : activeAccountRaw;
 

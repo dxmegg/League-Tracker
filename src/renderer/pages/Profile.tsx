@@ -2,6 +2,7 @@ import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } fro
 import type { MatchDetail, MatchListItem, ProfileData, ProfileRankedEntry } from "../lib/types";
 import { GameRow } from "./MatchHistory";
 import { useActiveAccount } from "../hooks/useActiveAccount";
+import { useScopedQueue } from "../lib/historyScope";
 import {
   getAccountsWithData,
   getChampionDataVersion,
@@ -682,7 +683,8 @@ export default function Profile() {
   const [queueStats, setQueueStats] = useState<QueueStat[]>([]);
   const [allDashboard, setAllDashboard] = useState<HomeDashboardPayload | null>(null);
   const [timePeriod, setTimePeriod] = useState<HomeTimePeriod>("full");
-  const [queue, setQueue] = useState<number | undefined>(undefined);
+  const [localQueue, setQueue] = useState<number | undefined>(undefined);
+  const queue = useScopedQueue(localQueue);
   const [allMatches, setAllMatches] = useState<MatchListItem[]>([]);
   const [allOffset, setAllOffset] = useState(0);
   const [allLoading, setAllLoading] = useState(false);

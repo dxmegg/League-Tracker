@@ -15,7 +15,7 @@ import PatchSelect from "../components/PatchSelect";
 import QueueSelect from "../components/QueueSelect";
 import { FilterChip } from "../components/FilterChip";
 import { SearchInput } from "../components/SearchInput";
-import { useHistoryScopeQueue } from "../lib/historyScope";
+import { useScopedQueue } from "../lib/historyScope";
 import { isAugmentQueue } from "../../shared/queues";
 import { useActiveTheme } from "../hooks/useActiveTheme";
 import { AugmentsExp } from "../components/AugmentsExp";
@@ -62,7 +62,7 @@ export default function Augments() {
   const augmentData = useAugmentData();
   const [patch, setPatch] = useViewState<string | undefined>("augments.patch", undefined);
   const [queue, setQueue] = useViewState<number | undefined>("augments.queue", undefined);
-  const scopedQueue = queue ?? useHistoryScopeQueue();
+  const scopedQueue = useScopedQueue(queue);
   const { data, refetch } = useIpc<AugmentStatsDetailedResult>(
     () => window.api.getAugmentStatsDetailed(patch, scopedQueue),
     [patch, scopedQueue],

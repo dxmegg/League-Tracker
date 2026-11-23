@@ -52,6 +52,7 @@ const RENDERER_SETTINGS = new Set([
   "riot_tag_line",
   "riot_platform",
   "active_account",
+  "active_mode",
 ]);
 
 // Registered once for the lifetime of the app — ipcMain.handle throws on a

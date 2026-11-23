@@ -27,11 +27,13 @@ import { Panel } from "../components/Panel";
 import { RecordTile } from "../components/RecordTile";
 import SummonerIcon from "../components/SummonerIcon";
 import { useActiveAccount } from "../hooks/useActiveAccount";
+import { useActiveMode } from "../hooks/useActiveMode";
 import { useActiveTheme } from "../hooks/useActiveTheme";
 import { getAccountsWithData, getChampionName, useChampionData } from "../hooks/useChampions";
 import { useLiveGame } from "../hooks/useLiveGame";
 import { useViewState } from "../hooks/useViewState";
 import { ALL_ACCOUNTS_SENTINEL } from "../lib/accountsEvent";
+import { useScopedQueue } from "../lib/historyScope";
 import { NavLink } from "react-router-dom";
 import { GameRow } from "./MatchHistory";
 
@@ -419,6 +421,9 @@ export function QueueFilterChips({
   value: number | undefined;
   onChange: (queue: number | undefined) => void;
 }) {
+  const [mode] = useActiveMode();
+  // Mayhem mode pins the queue globally, so the per-page chips would be misleading.
+  if (mode === "mayhem") return null;
   return (
     <div className="ml-auto flex items-center gap-2">
       {QUEUE_FILTERS.map((filter) => {
@@ -605,7 +610,8 @@ export default function Home() {
     setActiveAccountRaw(next === "all" || next === undefined ? ALL_ACCOUNTS_SENTINEL : next);
   };
   const [timePeriod, setTimePeriod] = useViewState<HomeTimePeriod>("home.timePeriod", "7d");
-  const [queue, setQueue] = useViewState<number | undefined>("home.queue", undefined);
+  const [localQueue, setQueue] = useViewState<number | undefined>("home.queue", undefined);
+  const queue = useScopedQueue(localQueue);
   const [dashboard, setDashboard] = useState<HomeDashboardPayload | null>(null);
   const [roleBreakdown, setRoleBreakdown] = useState<RoleBreakdown[]>([]);
   const [loading, setLoading] = useState(false);

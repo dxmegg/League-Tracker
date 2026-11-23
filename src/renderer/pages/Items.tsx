@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { useHistoryScopeQueue } from "../lib/historyScope";
+import { useScopedQueue } from "../lib/historyScope";
 import { useIpc } from "../hooks/useIpc";
 import { useViewState } from "../hooks/useViewState";
 import { useItemData, getItemName } from "../hooks/useChampions";
@@ -18,7 +18,7 @@ import { ItemsExp } from "../components/ItemsExp";
 export default function Items() {
   const [queue, setQueue] = useViewState<number | undefined>("items.queue", undefined);
   const [patch, setPatch] = useViewState<string | undefined>("items.patch", undefined);
-  const scopedQueue = queue ?? useHistoryScopeQueue();
+  const scopedQueue = useScopedQueue(queue);
   const navigate = useNavigate();
   const { scope } = useParams<{ scope?: string }>();
   const data = useItemData();

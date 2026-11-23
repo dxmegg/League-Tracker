@@ -49,7 +49,7 @@ import {
   formatPlaytime,
   formatTimeAgo,
 } from "../lib/format";
-import { useHistoryScopeQueue } from "../lib/historyScope";
+import { useScopedQueue } from "../lib/historyScope";
 import AugmentIcon from "./AugmentIcon";
 import ChampionIcon from "./ChampionIcon";
 import { DonutChart } from "./DonutChart";
@@ -165,7 +165,7 @@ export function ChampionDetailExp() {
   const [augmentSort, setAugmentSort] = useState<RateSort>("count");
   const [itemSort, setItemSort] = useState<RateSort>("count");
   const [keystoneSort, setKeystoneSort] = useState<RateSort>("count");
-  const scopedQueue = queue ?? useHistoryScopeQueue();
+  const scopedQueue = useScopedQueue(queue);
   const [activeAccountRaw] = useActiveAccount();
   const account = activeAccountRaw === ALL_ACCOUNTS_SENTINEL ? "all" : activeAccountRaw;
   const overviewActive = activeTab === "ov";

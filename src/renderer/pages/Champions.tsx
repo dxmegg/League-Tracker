@@ -14,7 +14,7 @@ import { FilterChip } from "../components/FilterChip";
 import { SearchInput } from "../components/SearchInput";
 import { formatKDA, formatDuration, formatTimeAgo, kdaRatio, kdaColor } from "../lib/format";
 import { scoreColor } from "../../shared/opScore";
-import { useHistoryScopeQueue } from "../lib/historyScope";
+import { useScopedQueue } from "../lib/historyScope";
 import { useActiveTheme } from "../hooks/useActiveTheme";
 import { ChampionExp } from "../components/ChampionExp";
 
@@ -172,7 +172,7 @@ export default function Champions() {
   const champData = useChampionData();
   const [patch, setPatch] = useViewState<string | undefined>("champions.patch", undefined);
   const [queue, setQueue] = useViewState<number | undefined>("champions.queue", undefined);
-  const scopedQueue = queue ?? useHistoryScopeQueue();
+  const scopedQueue = useScopedQueue(queue);
   const { data, refetch } = useIpc<ChampionStats[]>(
     () => window.api.getChampionStats(patch, scopedQueue),
     [patch, scopedQueue],

@@ -3,7 +3,7 @@ import type { RuneOverview } from "../lib/types";
 import { useIpc } from "../hooks/useIpc";
 import { useActiveAccount } from "../hooks/useActiveAccount";
 import { useRuneData } from "../hooks/useChampions";
-import { useHistoryScopeQueue } from "../lib/historyScope";
+import { useScopedQueue } from "../lib/historyScope";
 import { useViewState } from "../hooks/useViewState";
 import { ALL_ACCOUNTS_SENTINEL } from "../lib/accountsEvent";
 import RuneIcon from "./RuneIcon";
@@ -138,7 +138,7 @@ export function RunesExp() {
   const runeData = useRuneData();
   const [patch, setPatch] = useViewState<string | undefined>("runes.patch", undefined);
   const [queue, setQueue] = useViewState<number | undefined>("runes.queue", undefined);
-  const scopedQueue = queue ?? useHistoryScopeQueue();
+  const scopedQueue = useScopedQueue(queue);
   const [activeAccountRaw] = useActiveAccount();
   const account = activeAccountRaw === ALL_ACCOUNTS_SENTINEL ? "all" : activeAccountRaw;
   const [search, setSearch] = useState("");

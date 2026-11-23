@@ -6,6 +6,7 @@ import { useLcuStatus } from "../hooks/useLcuStatus";
 import { useBackfill } from "../hooks/useBackfill";
 import { useViewState } from "../hooks/useViewState";
 import { useActiveAccount } from "../hooks/useActiveAccount";
+import { useActiveMode } from "../hooks/useActiveMode";
 import type {
   MatchListItem,
   MatchDetail,
@@ -253,6 +254,7 @@ export default function MatchHistory({
     `matches.queue.${scope ?? "full"}`,
     undefined,
   );
+  const [mode] = useActiveMode();
   const scopedQueue =
     scope === "mayhem"
       ? (queueFilter ?? QUEUE_SCOPE_MAYHEM)
@@ -264,7 +266,9 @@ export default function MatchHistory({
             ? (queueFilter ?? QUEUE_SCOPE_ARAM)
             : scope === "arena"
               ? (queueFilter ?? QUEUE_SCOPE_ARENA)
-              : queueFilter;
+              : mode === "mayhem"
+                ? QUEUE_SCOPE_MAYHEM
+                : queueFilter;
   const [activeAccountRaw] = useActiveAccount();
   const accountFilter: string | undefined =
     activeAccountRaw === ALL_ACCOUNTS_SENTINEL ? undefined : activeAccountRaw;

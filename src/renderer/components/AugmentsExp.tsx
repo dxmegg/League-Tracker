@@ -3,7 +3,7 @@ import type { AugmentStatsDetailed, AugmentStatsDetailedResult } from "../lib/ty
 import { useIpc } from "../hooks/useIpc";
 import { useActiveAccount } from "../hooks/useActiveAccount";
 import { useAugmentData, getAugmentName } from "../hooks/useChampions";
-import { useHistoryScopeQueue } from "../lib/historyScope";
+import { useScopedQueue } from "../lib/historyScope";
 import { useViewState } from "../hooks/useViewState";
 import AugmentIcon from "./AugmentIcon";
 import { Tile } from "./Tile";
@@ -127,7 +127,7 @@ function HighlightCard({
 export function AugmentsExp() {
   const [patch, setPatch] = useViewState<string | undefined>("augments.patch", undefined);
   const [queue, setQueue] = useViewState<number | undefined>("augments.queue", undefined);
-  const scopedQueue = queue ?? useHistoryScopeQueue();
+  const scopedQueue = useScopedQueue(queue);
   const [activeAccountRaw] = useActiveAccount();
   const account = activeAccountRaw === ALL_ACCOUNTS_SENTINEL ? "all" : activeAccountRaw;
   const augmentData = useAugmentData(patch);

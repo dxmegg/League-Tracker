@@ -134,6 +134,13 @@ html[data-theme="experiment"] {
   --theme-font-body: "IBM Plex Sans", "Segoe UI", system-ui, sans-serif;
 }
 
+/* Mayhem mode swaps the crimson accent for violet; extra attribute beats the theme blocks on specificity */
+html[data-mode="mayhem"][data-theme] {
+  --theme-crimson: #8b5cf6;
+  --theme-crimson-bright: #a78bfa;
+  --theme-crimson-glow: rgba(139, 92, 246, 0.48);
+}
+
 html[data-theme="redesign"] {
   /* Redesign — structural clone of the experiment palette; diverge from here */
   --theme-bg-deep: #08050a;

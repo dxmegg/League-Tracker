@@ -6,7 +6,7 @@ import { ChampionCombobox } from "./ChampionCombobox";
 import { FilterSelect } from "./FilterSelect";
 import PatchSelect from "./PatchSelect";
 import { useChampionData, getChampionName } from "../hooks/useChampions";
-import { useHistoryScopeQueue } from "../lib/historyScope";
+import { useScopedQueue } from "../lib/historyScope";
 import { useIpc } from "../hooks/useIpc";
 import { useActiveAccount } from "../hooks/useActiveAccount";
 import { useViewState } from "../hooks/useViewState";
@@ -211,7 +211,7 @@ export function ChampionExp({ redesign = false }: { redesign?: boolean }) {
   const navigate = useNavigate();
   const [patch, setPatch] = useViewState<string | undefined>("champions.patch", undefined);
   const [queue, setQueue] = useViewState<number | undefined>("champions.queue", undefined);
-  const scopedQueue = queue ?? useHistoryScopeQueue();
+  const scopedQueue = useScopedQueue(queue);
   const [activeAccountRaw] = useActiveAccount();
   const account = activeAccountRaw === ALL_ACCOUNTS_SENTINEL ? "all" : activeAccountRaw;
 
