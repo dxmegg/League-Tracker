@@ -1,7 +1,6 @@
 # Rift Records
 
 Desktop app for tracking complete League of Legends match history locally. It can connect to the League Client (LCU) for automatic detection. It was made solely for myself—for my own use—though I did want to share it with a specific person, which is why it is here.
-<img width="1280" height="820" alt="image" src="https://raw.githubusercontent.com/dxmegg/League-Tracker/refs/heads/main/1.png" />
 
 ## Important
 
@@ -18,8 +17,6 @@ Original project can be found here: [https://github.com/Yhprum/mayhem-tracker](h
 - Aggregate statistics from all players in your games
 - Item and Runes statistics
 - More
-
-<img width="1280" height="820" alt="image" src="https://raw.githubusercontent.com/dxmegg/League-Tracker/refs/heads/main/2.png" />
 
 # Rift Records
 
@@ -44,11 +41,17 @@ Rift Records stores your match data locally and turns it into an easy-to-read da
 
 - Detailed match breakdowns including items, spells, runes, damage, healing, and multikills
 
+- Your Profile page with augment, multikill, session, and time-of-day insights
+
+- Live game tab that shows everything the game exposes while a match is running
+
+- Separate scoring systems for ARAM, Summoner's Rift, and Arena, with MVP/ACE badges and a score breakdown on hover (Settings → Recalculate score rescores stored games)
+
 - Local data storage with export and import support
 
 - Automatic synchronization with the League of Legends client
 
-- Dark, League-inspired interface designed for quick browsing
+- Dark, League-inspired interface designed for quick browsing, with a theme switcher in the top bar
 
 
 
@@ -71,7 +74,7 @@ npm run dev       # Start the application in development mode
 ## Build
 
 ```
-npm run dist      # Build the Windows portable executable
+npm run dist      # Build the Windows portable executable (dist/RiftRecords.exe)
 
 ```
 

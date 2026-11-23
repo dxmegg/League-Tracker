@@ -244,6 +244,13 @@ export interface MatchParticipantRecord {
   summoner2Casts?: number | null;
   totalHealOnTeammates?: number | null;
   totalDamageShieldedOnTeammates?: number | null;
+  // What the Rift and Arena score systems read on top of the damage/gold/heal totals
+  teamPosition?: string | null;
+  visionScore?: number | null;
+  timeCcOthers?: number | null;
+  damageToObjectives?: number | null;
+  firstBloodKill?: boolean;
+  objectivesStolen?: number | null;
   challenges?: Record<string, number>;
 }
 
@@ -1586,6 +1593,12 @@ export interface ParsedParticipant {
   summoner2Casts?: number | null;
   totalHealOnTeammates?: number | null;
   totalDamageShieldedOnTeammates?: number | null;
+  teamPosition?: string | null;
+  visionScore?: number | null;
+  timeCcOthers?: number | null;
+  damageToObjectives?: number | null;
+  firstBloodKill?: boolean;
+  objectivesStolen?: number | null;
   challenges?: Record<string, number>;
   win: boolean;
   isSelf: boolean;
@@ -2356,6 +2369,7 @@ export interface ElectronAPI {
     discoveredAccounts: number;
     rebuiltGames: number;
   }>;
+  recalculateScores: () => Promise<{ games: number; ms: number } | { error: string }>;
   restoreOlderGames: () => Promise<RestoreOlderGamesResult | { error: string }>;
   hasLocalAccount: () => Promise<boolean>;
   listBackups: () => Promise<BackupInfo[]>;

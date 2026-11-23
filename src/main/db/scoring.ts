@@ -3,6 +3,7 @@ import { getSetting, setSetting } from "./settings";
 import {
   SCORE_FORMULA_VERSION,
   computeMatchScores,
+  scoreConfigHash,
   type PlayerScore,
   type ScoreInput,
 } from "../../shared/opScore";
@@ -16,7 +17,8 @@ export let scoreBackfillInFlight = false;
 // stored scores recompute when either changes (new formula, new patch,
 // re-tagged champion).
 export function scoreFormulaKey() {
-  return `${SCORE_FORMULA_VERSION}@${getChampionDataVersion()}`;
+  // The hash covers every weight, benchmark and anchor, so tuning a number rescoring stored games
+  return `${SCORE_FORMULA_VERSION}.${scoreConfigHash()}@${getChampionDataVersion()}`;
 }
 
 // Recompute stored scores from the participant rows. Runs whenever the formula version or
@@ -49,13 +51,45 @@ export interface ScoreRow {
   total_damage_taken: number;
   gold_earned: number;
   total_heal: number;
+  // What the Rift, ARAM and Arena systems read on top of the above. Rows built from a raw payload
+  // carry all of them except queue_id and game_duration, which come in through ScoreContext.
+  queue_id?: number | null;
+  game_duration?: number | null;
+  team_position?: string | null;
+  player_subteam_id?: number | null;
+  player_subteam_placement?: number | null;
+  cs?: number | null;
+  vision_score?: number | null;
+  time_cc_others?: number | null;
+  total_heal_on_teammates?: number | null;
+  total_damage_shielded_on_teammates?: number | null;
+  damage_to_objectives?: number | null;
+  first_blood_kill?: number | null;
+  objectives_stolen?: number | null;
 }
+
+// Game-level facts a participant row doesn't hold when it comes from a raw payload
+export interface ScoreContext {
+  queueId?: number | null;
+  gameDuration?: number | null;
+}
+
+// The columns of match_participants a score reads. The duration is not a participant column, so it
+// is fetched alongside; queries using this must select FROM match_participants unaliased.
+export const SCORE_EXTRA_COLUMNS = `queue_id, team_position, player_subteam_id, player_subteam_placement,
+       cs, vision_score, time_cc_others, total_heal_on_teammates,
+       total_damage_shielded_on_teammates, damage_to_objectives, first_blood_kill, objectives_stolen,
+       (SELECT game_duration FROM games WHERE games.game_id = match_participants.game_id) AS game_duration`;
 
 export const SCORE_ROW_COLUMNS = `participant_id, puuid, team_id, champion_id, win,
        kills, deaths, assists, double_kills, triple_kills, quadra_kills, penta_kills,
-       total_damage_dealt, total_damage_taken, gold_earned, total_heal`;
+       total_damage_dealt, total_damage_taken, gold_earned, total_heal,
+       ${SCORE_EXTRA_COLUMNS}`;
 
-export function scoreInputsFromRows(rows: ScoreRow[]): (ScoreInput & { puuid: string | null })[] {
+export function scoreInputsFromRows(
+  rows: ScoreRow[],
+  ctx?: ScoreContext,
+): (ScoreInput & { puuid: string | null })[] {
   return rows.map((r) => ({
     participantId: r.participant_id,
     teamId: r.team_id,
@@ -73,6 +107,19 @@ export function scoreInputsFromRows(rows: ScoreRow[]): (ScoreInput & { puuid: st
     goldEarned: r.gold_earned,
     totalHeal: r.total_heal,
     win: r.win === 1,
+    queueId: ctx?.queueId ?? r.queue_id,
+    gameDuration: ctx?.gameDuration ?? r.game_duration,
+    teamPosition: r.team_position,
+    cs: r.cs,
+    visionScore: r.vision_score,
+    timeCcingOthers: r.time_cc_others,
+    healOnTeammates: r.total_heal_on_teammates,
+    shieldedOnTeammates: r.total_damage_shielded_on_teammates,
+    damageToObjectives: r.damage_to_objectives,
+    firstBlood: r.first_blood_kill === 1,
+    objectivesStolen: r.objectives_stolen,
+    subteamId: r.player_subteam_id,
+    placement: r.player_subteam_placement,
   }));
 }
 
@@ -92,8 +139,9 @@ export function computeOwnerScore(
   participants: ScoreRow[],
   ownerPuuid: string | null,
   fallback?: { champion_id: number; kills: number; deaths: number; assists: number },
+  ctx?: ScoreContext,
 ): PlayerScore | null {
-  const inputs = scoreInputsFromRows(participants);
+  const inputs = scoreInputsFromRows(participants, ctx);
   if (inputs.length === 0) return null;
   let owner = ownerPuuid ? inputs.find((p) => p.puuid === ownerPuuid) : undefined;
   if (!owner && fallback) {
@@ -149,7 +197,7 @@ export async function backfillParticipantScores(
     while (done < total) {
       const rows = db
         .prepare(
-          `SELECT g.game_id, g.raw_gz
+          `SELECT g.game_id, g.raw_gz, g.queue_id, g.game_duration
          FROM games g
          WHERE g.raw_gz IS NOT NULL
            AND EXISTS (
@@ -159,7 +207,12 @@ export async function backfillParticipantScores(
          ORDER BY g.game_id
          LIMIT ? OFFSET ?`,
         )
-        .all(pageSize, 0) as { game_id: number; raw_gz: Buffer }[];
+        .all(pageSize, 0) as {
+        game_id: number;
+        raw_gz: Buffer;
+        queue_id: number;
+        game_duration: number;
+      }[];
       if (rows.length === 0) break;
 
       const updatePage = db.transaction(() => {
@@ -167,7 +220,10 @@ export async function backfillParticipantScores(
           const raw = unpackRaw(row.raw_gz);
           const participants = participantRowsFromRaw(raw);
           const scores = computeMatchScores(
-            scoreInputsFromRows(participants as ScoreRow[]),
+            scoreInputsFromRows(participants as ScoreRow[], {
+              queueId: row.queue_id,
+              gameDuration: row.game_duration,
+            }),
             getChampionClasses(),
           );
           for (const participant of participants) {
@@ -199,7 +255,22 @@ export function runScoreBackfillIfNeeded(onProgress?: (done: number, total: numb
   });
 }
 
-export function backfillScores() {
+// Rewrites match_participants.score for every player of a game. The score columns on player_stats
+// and tracked_game_stats only cover the tracked accounts; this one feeds the other players' scores
+// (team averages, friends), which would otherwise keep the old formula's numbers.
+function rescoreParticipants(
+  rows: ScoreRow[],
+  gameId: number,
+  update: { run: (score: number | null, gameId: number, participantId: number) => unknown },
+) {
+  if (rows.length === 0) return;
+  const scores = computeMatchScores(scoreInputsFromRows(rows), getChampionClasses());
+  for (const r of rows) {
+    update.run(scores.get(r.participant_id)?.score ?? null, gameId, r.participant_id);
+  }
+}
+
+export function backfillScores(): number {
   const games = db
     .prepare(`
       SELECT g.game_id, g.puuid, g.is_remake,
@@ -230,9 +301,13 @@ export function backfillScores() {
     "UPDATE tracked_game_stats SET score = ?, score_raw = ?, score_badge = ? WHERE game_id = ? AND puuid = ?",
   );
   const trackedPuuidsStmt = db.prepare("SELECT puuid FROM tracked_game_stats WHERE game_id = ?");
+  const updateParticipantStmt = db.prepare(
+    "UPDATE match_participants SET score = ? WHERE game_id = ? AND participant_id = ?",
+  );
   const tx = db.transaction(() => {
     for (const row of games) {
       const gameParticipants = participants.get(row.game_id) ?? [];
+      rescoreParticipants(gameParticipants, row.game_id, updateParticipantStmt);
       let result: PlayerScore | null = null;
       if (row.is_remake) {
         updateStmt.run(null, null, null, row.game_id);
@@ -262,6 +337,16 @@ export function backfillScores() {
     }
   });
   tx();
+  return games.length;
+}
+
+// Settings → "Recalculate score": rescores every stored game under the current formula, for the
+// tracked accounts and for every other player in the lobby, then marks the formula as applied.
+export function recalculateAllScores(): { games: number; ms: number } {
+  const start = Date.now();
+  const games = backfillScores();
+  setSetting("score_formula_version", scoreFormulaKey());
+  return { games, ms: Date.now() - start };
 }
 
 export function repairDerivedScores(): { repaired: number } {
@@ -395,7 +480,7 @@ export function rebuildDerivedStats(): number {
     db
       .prepare(`
         SELECT game_id, ${SCORE_ROW_COLUMNS}, early_surrender, largest_killing_spree,
-               total_damage_dealt_all, true_damage_dealt, largest_critical_strike, cs,
+               total_damage_dealt_all, true_damage_dealt, largest_critical_strike,
                spell1, spell2, item0, item1, item2, item3, item4, item5, item6
         FROM match_participants
       `)
@@ -443,6 +528,9 @@ export function rebuildDerivedStats(): number {
     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `);
   const updateRemake = db.prepare("UPDATE games SET is_remake = ? WHERE game_id = ?");
+  const updateParticipantScore = db.prepare(
+    "UPDATE match_participants SET score = ? WHERE game_id = ? AND participant_id = ?",
+  );
   const deleteAugments = db.prepare("DELETE FROM game_augments WHERE game_id = ?");
   const insertAugment = db.prepare(
     "INSERT OR IGNORE INTO game_augments (game_id, slot, augment_id) VALUES (?, ?, ?)",
@@ -476,6 +564,7 @@ export function rebuildDerivedStats(): number {
       // the new value down to the participant rows.
       const isRemake = detectRemake(row.game_duration, rows) ? 1 : 0;
       updateRemake.run(isRemake, row.game_id);
+      rescoreParticipants(rows, row.game_id, updateParticipantScore);
 
       let ownerScore: PlayerScore | null = null;
       if (!isRemake) {

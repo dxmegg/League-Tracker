@@ -1529,6 +1529,19 @@ export function registerIpcHandlers() {
     return db.repairPuuids();
   });
 
+  ipcMain.handle("data:recalculate-scores", async (event) => {
+    try {
+      // Scoring weights by champion class, so wait for the class data on a fresh launch
+      await dragon.waitForChampionData();
+      const result = db.recalculateAllScores();
+      invalidateDashboardCache();
+      senderWindow(event)?.webContents.send("lcu:games-updated");
+      return result;
+    } catch (err: any) {
+      return { error: err.message as string };
+    }
+  });
+
   ipcMain.handle("db:has-local-account", () => {
     return db.getAllPuuids().length > 0;
   });

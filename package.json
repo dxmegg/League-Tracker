@@ -1,6 +1,6 @@
 {
   "name": "league-tracker",
-  "version": "1.1.0",
+  "version": "1.0.9",
   "description": "League of Legends match history tracker",
   "license": "MIT",
   "main": "./out/main/index.js",
@@ -17,6 +17,7 @@
     "format": "oxfmt --ignore-path .oxfmtignore",
     "format:check": "oxfmt --check --ignore-path .oxfmtignore",
     "gen:augments": "node scripts/generate-augment-descriptions.mjs",
+    "check:scores": "node --no-warnings scripts/check-scores.mjs",
     "backfill:teams-local": "tsx src/main/db/backfill-teams-local.ts"
   },
   "dependencies": {

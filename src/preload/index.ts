@@ -535,6 +535,7 @@ const api: ElectronAPI = {
   }> => ipcRenderer.invoke("data:import"),
 
   repairPuuids: () => ipcRenderer.invoke("data:repair-puuids"),
+  recalculateScores: () => ipcRenderer.invoke("data:recalculate-scores"),
 
   restoreOlderGames: (): Promise<RestoreOlderGamesResult | { error: string }> =>
     ipcRenderer.invoke("db:restore-older-games"),

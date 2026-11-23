@@ -113,6 +113,16 @@ type RecentMatchResponse = {
       totalHeal?: number;
       totalMinionsKilled?: number;
       neutralMinionsKilled?: number;
+      visionScore?: number;
+      timeCCingOthers?: number;
+      totalHealsOnTeammates?: number;
+      totalDamageShieldedOnTeammates?: number;
+      damageDealtToObjectives?: number;
+      firstBloodKill?: boolean;
+      objectivesStolen?: number;
+      playerSubteamId?: number;
+      placement?: number;
+      subteamPlacement?: number;
     }>;
   };
 };
@@ -234,6 +244,19 @@ export async function getRecentRiotMatches(
           goldEarned: Number(entry.goldEarned) || 0,
           totalHeal: Number(entry.totalHeal) || 0,
           win: entry.win === true,
+          queueId: Number(info.queueId) || 0,
+          gameDuration: Number(info.gameDuration) || 0,
+          teamPosition: entry.teamPosition ?? null,
+          cs: (Number(entry.totalMinionsKilled) || 0) + (Number(entry.neutralMinionsKilled) || 0),
+          visionScore: Number(entry.visionScore) || 0,
+          timeCcingOthers: Number(entry.timeCCingOthers) || 0,
+          healOnTeammates: Number(entry.totalHealsOnTeammates) || 0,
+          shieldedOnTeammates: Number(entry.totalDamageShieldedOnTeammates) || 0,
+          damageToObjectives: Number(entry.damageDealtToObjectives) || 0,
+          firstBlood: entry.firstBloodKill === true,
+          objectivesStolen: Number(entry.objectivesStolen) || 0,
+          subteamId: Number(entry.playerSubteamId) || null,
+          placement: Number(entry.placement ?? entry.subteamPlacement) || null,
         }));
         const ourScore = participant.participantId
           ? computeMatchScores(scoreInputs, getChampionClasses()).get(participant.participantId)

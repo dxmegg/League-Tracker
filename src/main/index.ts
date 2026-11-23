@@ -287,19 +287,22 @@ app.whenReady().then(async () => {
 
   // Recompute stored scores once champion class data is available, so the
   // backfill uses the same class weights as insert-time scoring.
-  waitForChampionData().then(() => {
-    runScoreBackfillIfNeeded((done, total) => {
-      mainWindow?.webContents.send("lcu:participant-score-progress", {
-        phase: "scores",
-        done,
-        total,
+  waitForChampionData()
+    .then(() => {
+      runScoreBackfillIfNeeded((done, total) => {
+        mainWindow?.webContents.send("lcu:participant-score-progress", {
+          phase: "scores",
+          done,
+          total,
+        });
       });
-    });
-    if (checkScoreBackfill()) {
-      invalidateDashboardCache();
-      mainWindow?.webContents.send("lcu:games-updated");
-    }
-  });
+      if (checkScoreBackfill()) {
+        console.log("[score] formula changed, stored scores recomputed");
+        invalidateDashboardCache();
+        mainWindow?.webContents.send("lcu:games-updated");
+      }
+    })
+    .catch((err: unknown) => console.error("[score] startup rescore failed:", err));
 
   // Registered once, outside createWindow: ipcMain.handle throws if the same
   // channel is claimed twice, which a second createWindow would have done.

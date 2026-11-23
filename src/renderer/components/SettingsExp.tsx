@@ -397,6 +397,7 @@ export function SettingsExp() {
     route: string;
   } | null>(null);
   const [repairing, setRepairing] = useState(false);
+  const [recalculating, setRecalculating] = useState(false);
   const [restoring, setRestoring] = useState(false);
   const [backups, setBackups] = useState<BackupInfo[]>([]);
   const [backupStatus, setBackupStatus] = useState<string | null>(null);
@@ -667,6 +668,23 @@ export function SettingsExp() {
       setBackfillStatus(`Error: ${err instanceof Error ? err.message : String(err)}`);
     } finally {
       setRepairing(false);
+    }
+  }, []);
+
+  const handleRecalculateScores = useCallback(async () => {
+    setRecalculating(true);
+    setBackfillStatus("Recalculating scores...");
+    try {
+      const result = await window.api.recalculateScores();
+      setBackfillStatus(
+        "error" in result
+          ? `Error: ${result.error}`
+          : `Recalculated scores for ${result.games.toLocaleString()} game(s) in ${(result.ms / 1000).toFixed(1)} s`,
+      );
+    } catch (err: unknown) {
+      setBackfillStatus(`Error: ${err instanceof Error ? err.message : String(err)}`);
+    } finally {
+      setRecalculating(false);
     }
   }, []);
 
@@ -1104,6 +1122,15 @@ export function SettingsExp() {
           </Button>
           <Button variant="subtle" type="button" onClick={handleRepair} disabled={repairing}>
             {repairing ? "Repairing..." : "Repair"}
+          </Button>
+          <Button
+            variant="subtle"
+            type="button"
+            onClick={handleRecalculateScores}
+            disabled={recalculating || anyRunning}
+            title="Rescore every game in the database with the current scoring system. Use it after a scoring update, or when old scores look wrong."
+          >
+            {recalculating ? "Recalculating..." : "Recalculate score"}
           </Button>
           <Button
             variant="subtle"

@@ -454,7 +454,9 @@ export function getMatchParticipants(gameId: number): any[] {
              all_in_pings, basic_pings, command_pings,
              spell1_casts, spell2_casts, spell3_casts, spell4_casts,
              summoner1_casts, summoner2_casts,
-             total_heal_on_teammates, total_damage_shielded_on_teammates
+             total_heal_on_teammates, total_damage_shielded_on_teammates,
+             team_position, vision_score, time_cc_others, damage_to_objectives,
+             first_blood_kill, objectives_stolen
       FROM match_participants
       WHERE game_id = ?
       ORDER BY participant_id
@@ -536,6 +538,12 @@ export function getMatchParticipants(gameId: number): any[] {
       summoner2Casts: r.summoner2_casts ?? null,
       totalHealOnTeammates: r.total_heal_on_teammates ?? null,
       totalDamageShieldedOnTeammates: r.total_damage_shielded_on_teammates ?? null,
+      teamPosition: r.team_position ?? null,
+      visionScore: r.vision_score ?? null,
+      timeCcOthers: r.time_cc_others ?? null,
+      damageToObjectives: r.damage_to_objectives ?? null,
+      firstBloodKill: r.first_blood_kill === 1,
+      objectivesStolen: r.objectives_stolen ?? null,
       challenges: challenges.get(r.participant_id),
       items: [r.item0, r.item1, r.item2, r.item3, r.item4, r.item5, r.item6].map((i) => i ?? 0),
       augments: augments.get(r.participant_id) ?? [],
