@@ -151,7 +151,14 @@ export type MatchSort =
   | "score"
   | "damageDealt"
   | "damageTaken"
-  | "healing";
+  | "healing"
+  | "deaths"
+  | "cs"
+  | "gold"
+  | "doubles"
+  | "triples"
+  | "quadras"
+  | "pentas";
 
 export type MatchSortDir = "asc" | "desc";
 
@@ -167,6 +174,7 @@ export interface MatchFilters {
   sortDir?: MatchSortDir;
   multikills?: MultikillType[];
   favorites?: boolean;
+  result?: "win" | "loss";
   timePeriod?: HomeTimePeriod;
 }
 
@@ -927,6 +935,8 @@ export interface RoleBreakdown {
 export interface HomeDashboardPayload {
   summary: {
     totalGames: number;
+    // Remade games, which no stat counts
+    remakes: number;
     wins: number;
     losses: number;
     totalKills: number;
@@ -1736,6 +1746,8 @@ export interface AccountListItem {
   summonerLevel: number | null;
   lastSeen: number | null;
   gameCount: number;
+  wins: number;
+  decidedGames: number;
 }
 
 export interface AccountSnapshot {

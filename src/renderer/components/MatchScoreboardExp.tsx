@@ -18,7 +18,7 @@ import { RuneSetupGrid } from "./RuneSetup";
 import SummonerSpellIcon from "./SummonerSpellIcon";
 
 const GRID_COLS =
-  "grid-cols-[28px_minmax(140px,200px)_44px_56px_minmax(120px,180px)_minmax(120px,180px)_52px_52px_52px_240px_220px_1fr]";
+  "grid-cols-[58px_minmax(130px,200px)_50px_84px_minmax(92px,160px)_minmax(92px,160px)_50px_50px_52px_204px_minmax(136px,220px)_minmax(0,1fr)]";
 
 export default function MatchScoreboardExp({
   detail,
@@ -222,7 +222,7 @@ function ArenaTeamBlock({
   );
 
   return (
-    <div className="rounded-2xl border border-lol-border bg-[linear-gradient(180deg,var(--theme-card-hover),var(--theme-card))] overflow-hidden">
+    <div className="overflow-hidden rounded-2xl border border-t-[3px] border-lol-border border-t-lol-crimson bg-[linear-gradient(180deg,var(--theme-card-hover),var(--theme-card))] shadow-[0_18px_40px_-24px_rgba(0,0,0,0.9)]">
       <div
         className={`px-4 py-2 flex flex-wrap items-baseline gap-x-4 gap-y-1 ${
           isTopThree
@@ -239,29 +239,29 @@ function ArenaTeamBlock({
           {isTopThree ? " — Victory" : " — Defeat"}
         </span>
         <div className="flex flex-wrap items-baseline gap-x-5 gap-y-1">
-          <div className="flex items-baseline gap-x-2 border-l border-lol-border/30 pl-3 first:border-l-0 first:pl-0">
+          <div className="flex items-baseline rounded-lg bg-black/25 px-2.5 py-1">
             <TeamStat label="KDA">
               <span className="text-lol-text-bright">
                 {formatKDA(totals.kills, totals.deaths, totals.assists)}
               </span>
             </TeamStat>
           </div>
-          <div className="flex items-baseline gap-x-2 border-l border-lol-border/30 pl-3 first:border-l-0 first:pl-0">
+          <div className="flex items-baseline rounded-lg bg-black/25 px-2.5 py-1">
             <TeamStat label="Damage">
               <span className="text-red-400">{compact(totals.dmg)}</span>
             </TeamStat>
           </div>
-          <div className="flex items-baseline gap-x-2 border-l border-lol-border/30 pl-3 first:border-l-0 first:pl-0">
+          <div className="flex items-baseline rounded-lg bg-black/25 px-2.5 py-1">
             <TeamStat label="Taken">
               <span className="text-sky-400">{compact(totals.taken)}</span>
             </TeamStat>
           </div>
-          <div className="flex items-baseline gap-x-2 border-l border-lol-border/30 pl-3 first:border-l-0 first:pl-0">
+          <div className="flex items-baseline rounded-lg bg-black/25 px-2.5 py-1">
             <TeamStat label="Gold">
               <span className="text-lol-gold">{compact(totals.gold)}</span>
             </TeamStat>
           </div>
-          <div className="flex items-baseline gap-x-2 border-l border-lol-border/30 pl-3 first:border-l-0 first:pl-0">
+          <div className="flex items-baseline rounded-lg bg-black/25 px-2.5 py-1">
             <TeamStat label="Heal">
               <span className="text-emerald-400">{compact(totals.heal)}</span>
             </TeamStat>
@@ -339,12 +339,16 @@ function ArenaPlayerRow({
       }`}
     >
       <div className="relative flex items-center gap-0.5">
-        <ChampionIcon championId={p.championId} size={32} />
+        <ChampionIcon
+          championId={p.championId}
+          size={34}
+          className="rounded-lg ring-1 ring-lol-border"
+        />
         <div className="flex flex-col gap-0.5">
-          <div className="rounded border border-lol-border/30 bg-white/[0.02] p-0.5">
+          <div className="rounded-md border border-lol-border/50 bg-black/30 p-0.5">
             <SummonerSpellIcon spellId={p.spell1Id} size={15} />
           </div>
-          <div className="rounded border border-lol-border/30 bg-white/[0.02] p-0.5">
+          <div className="rounded-md border border-lol-border/50 bg-black/30 p-0.5">
             <SummonerSpellIcon spellId={p.spell2Id} size={15} />
           </div>
         </div>
@@ -378,11 +382,11 @@ function ArenaPlayerRow({
       </div>
 
       <div className="text-center">
-        <div className="text-[11px] font-display text-lol-text-bright">
+        <div className="whitespace-nowrap font-display text-[13px] font-semibold text-lol-text-bright">
           {formatKDA(p.kills, p.deaths, p.assists)}
         </div>
         <div
-          className={`text-[10px] ${
+          className={`text-[11px] ${
             parseFloat(kda) >= 3 || kda === "Perfect" ? "text-lol-gold" : "text-lol-text"
           }`}
         >
@@ -393,31 +397,35 @@ function ArenaPlayerRow({
       <ScoreboardBar
         value={p.totalDamageDealtToChampions}
         max={maxStats.dmg}
-        color="bg-red-400/50"
+        color="bg-gradient-to-r from-lol-loss/40 to-lol-loss/85"
       />
-      <ScoreboardBar value={p.totalDamageTaken} max={maxStats.taken} color="bg-sky-400/50" />
+      <ScoreboardBar
+        value={p.totalDamageTaken}
+        max={maxStats.taken}
+        color="bg-gradient-to-r from-lol-assist/40 to-lol-assist/85"
+      />
 
-      <div className="text-right text-[11px] text-lol-gold">
+      <div className="text-right font-display text-[12.5px] font-semibold text-lol-gold">
         {p.goldEarned >= 1000 ? `${(p.goldEarned / 1000).toFixed(1)}k` : p.goldEarned}
       </div>
-      <div className="text-right text-[11px] text-emerald-400">
+      <div className="text-right font-display text-[12.5px] font-semibold text-lol-win">
         {p.totalHeal >= 1000 ? `${(p.totalHeal / 1000).toFixed(1)}k` : p.totalHeal}
       </div>
 
       <div className="flex gap-0.5 justify-center">
         {p.items.slice(0, 6).map((itemId, i) => (
-          <div key={i} className="rounded border border-lol-border/30 bg-white/[0.02] p-0.5">
+          <div key={i} className="rounded-md border border-lol-border/50 bg-black/30 p-0.5">
             <ItemIcon itemId={itemId} size={22} patch={patch} />
           </div>
         ))}
-        <div className="ml-0.5 rounded border border-lol-border/30 bg-white/[0.02] p-0.5">
+        <div className="ml-0.5 rounded-md border border-lol-border/50 bg-black/30 p-0.5">
           <ItemIcon itemId={p.items[6] ?? 0} size={22} patch={patch} />
         </div>
       </div>
 
       <div className="flex items-center gap-1 justify-center">
         {p.augments.map((augId, i) => (
-          <div key={i} className="rounded border border-lol-border/30 bg-white/[0.02] p-0.5">
+          <div key={i} className="rounded-md border border-lol-border/50 bg-black/30 p-0.5">
             <AugmentIcon augmentId={augId} size={22} patch={patch} />
           </div>
         ))}
@@ -457,18 +465,20 @@ function TeamScoreboard({
   const totals = useMemo(() => computeTeamTotals(players, scores), [players, scores]);
 
   return (
-    <div className="rounded-2xl border border-lol-border bg-[linear-gradient(180deg,var(--theme-card-hover),var(--theme-card))] overflow-hidden">
+    <div
+      className={`overflow-hidden rounded-2xl border border-t-[3px] border-lol-border bg-[linear-gradient(180deg,var(--theme-card-hover),var(--theme-card))] shadow-[0_18px_40px_-24px_rgba(0,0,0,0.9)] ${isWin ? "border-t-lol-win" : "border-t-lol-loss"}`}
+    >
       {/* Team header: name on the left, team totals filling the rest of the bar */}
       <div
-        className={`px-4 py-2 flex flex-wrap items-baseline gap-x-4 gap-y-1 ${isWin ? "bg-gradient-to-r from-lol-win/15 via-lol-win/5 to-transparent" : "bg-gradient-to-r from-lol-loss/15 via-lol-loss/5 to-transparent"}`}
+        className={`px-4 py-3 flex flex-wrap items-center gap-x-4 gap-y-2 ${isWin ? "bg-gradient-to-r from-lol-win/15 via-lol-win/5 to-transparent" : "bg-gradient-to-r from-lol-loss/15 via-lol-loss/5 to-transparent"}`}
       >
         <span
-          className={`text-sm font-display font-bold uppercase tracking-wider ${isWin ? "text-lol-win" : "text-lol-loss"}`}
+          className={`text-[15px] font-display font-bold uppercase tracking-wider ${isWin ? "text-lol-win" : "text-lol-loss"}`}
         >
           Team {teamId === 100 ? "1" : "2"} — {isWin ? "Victory" : "Defeat"}
         </span>
         <div className="ml-auto flex flex-wrap items-baseline gap-x-5 gap-y-1">
-          <div className="flex items-baseline gap-x-2 border-l border-lol-border/30 pl-3 first:border-l-0 first:pl-0">
+          <div className="flex items-baseline rounded-lg bg-black/25 px-2.5 py-1">
             <TeamStat label="Avg score">
               <span
                 className={totals.avgScore != null ? scoreColor(totals.avgScore) : "text-lol-text"}
@@ -477,34 +487,34 @@ function TeamScoreboard({
               </span>
             </TeamStat>
           </div>
-          <div className="flex items-baseline gap-x-2 border-l border-lol-border/30 pl-3 first:border-l-0 first:pl-0">
+          <div className="flex items-baseline rounded-lg bg-black/25 px-2.5 py-1">
             <TeamStat label="KDA">
               <span className="text-lol-text-bright">
                 {formatKDA(totals.kills, totals.deaths, totals.assists)}
               </span>
             </TeamStat>
           </div>
-          <div className="flex items-baseline gap-x-2 border-l border-lol-border/30 pl-3 first:border-l-0 first:pl-0">
+          <div className="flex items-baseline rounded-lg bg-black/25 px-2.5 py-1">
             <TeamStat label="Damage">
               <span className="text-red-400">{compact(totals.dmg)}</span>
             </TeamStat>
           </div>
-          <div className="flex items-baseline gap-x-2 border-l border-lol-border/30 pl-3 first:border-l-0 first:pl-0">
+          <div className="flex items-baseline rounded-lg bg-black/25 px-2.5 py-1">
             <TeamStat label="Taken">
               <span className="text-sky-400">{compact(totals.taken)}</span>
             </TeamStat>
           </div>
-          <div className="flex items-baseline gap-x-2 border-l border-lol-border/30 pl-3 first:border-l-0 first:pl-0">
+          <div className="flex items-baseline rounded-lg bg-black/25 px-2.5 py-1">
             <TeamStat label="CS">
               <span className="text-lol-text-bright">{formatNumber(totals.cs)}</span>
             </TeamStat>
           </div>
-          <div className="flex items-baseline gap-x-2 border-l border-lol-border/30 pl-3 first:border-l-0 first:pl-0">
+          <div className="flex items-baseline rounded-lg bg-black/25 px-2.5 py-1">
             <TeamStat label="Gold">
               <span className="text-lol-gold">{compact(totals.gold)}</span>
             </TeamStat>
           </div>
-          <div className="flex items-baseline gap-x-2 border-l border-lol-border/30 pl-3 first:border-l-0 first:pl-0">
+          <div className="flex items-baseline rounded-lg bg-black/25 px-2.5 py-1">
             <TeamStat label="Heal">
               <span className="text-emerald-400">{compact(totals.heal)}</span>
             </TeamStat>
@@ -593,7 +603,7 @@ function TeamStat({ label, children }: { label: string; children: ReactNode }) {
   return (
     <div className="flex items-baseline gap-1.5 whitespace-nowrap">
       <span className="text-[10px] font-bold uppercase tracking-wider text-lol-text">{label}</span>
-      <span className="text-[11px] font-medium tabular-nums">{children}</span>
+      <span className="font-display text-[12.5px] font-semibold tabular-nums">{children}</span>
     </div>
   );
 }
@@ -601,9 +611,9 @@ function TeamStat({ label, children }: { label: string; children: ReactNode }) {
 function ScoreboardBar({ value, max, color }: { value: number; max: number; color: string }) {
   const pct = max > 0 ? Math.round((value / max) * 100) : 0;
   return (
-    <div className="h-4 bg-white/5 rounded ring-1 ring-lol-border/30 overflow-hidden relative">
-      <div className={`h-full rounded ${color}`} style={{ width: `${pct}%` }} />
-      <span className="absolute inset-0 flex items-center justify-end pr-1 text-[10px] font-medium text-white/90 leading-none">
+    <div className="relative h-5 overflow-hidden rounded-full bg-black/30 ring-1 ring-lol-border/40">
+      <div className={`h-full rounded-full ${color}`} style={{ width: `${pct}%` }} />
+      <span className="absolute inset-0 flex items-center justify-end pr-1 font-display text-[10.5px] font-semibold text-white leading-none">
         {value >= 1000 ? `${(value / 1000).toFixed(1)}k` : value}
       </span>
     </div>
@@ -638,18 +648,24 @@ function PlayerRow({
 
   return (
     <div
-      className={`px-4 py-2 border-b border-lol-border/20 last:border-b-0 grid ${GRID_COLS} gap-2 items-center transition-colors hover:bg-white/[0.03] ${
-        p.isSelf ? "border-l-2 border-l-lol-gold bg-lol-gold/[0.06]" : ""
+      className={`px-4 py-2.5 border-b border-lol-border/20 last:border-b-0 grid ${GRID_COLS} gap-2 items-center transition-colors hover:bg-white/[0.04] ${
+        p.isSelf
+          ? "bg-[linear-gradient(90deg,color-mix(in_srgb,var(--color-lol-gold)_16%,transparent),transparent_55%)] shadow-[inset_3px_0_0_var(--color-lol-gold)]"
+          : ""
       }`}
     >
       {/* Champion + spells; two 15px spells and the 2px gap match the 32px portrait */}
       <div className="flex items-center gap-0.5">
-        <ChampionIcon championId={p.championId} size={32} />
+        <ChampionIcon
+          championId={p.championId}
+          size={34}
+          className="rounded-lg ring-1 ring-lol-border"
+        />
         <div className="flex flex-col gap-0.5">
-          <div className="rounded border border-lol-border/30 bg-white/[0.02] p-0.5">
+          <div className="rounded-md border border-lol-border/50 bg-black/30 p-0.5">
             <SummonerSpellIcon spellId={p.spell1Id} size={15} />
           </div>
-          <div className="rounded border border-lol-border/30 bg-white/[0.02] p-0.5">
+          <div className="rounded-md border border-lol-border/50 bg-black/30 p-0.5">
             <SummonerSpellIcon spellId={p.spell2Id} size={15} />
           </div>
         </div>
@@ -685,11 +701,11 @@ function PlayerRow({
 
       {/* KDA */}
       <div className="text-center">
-        <div className="text-[11px] font-display text-lol-text-bright">
+        <div className="whitespace-nowrap font-display text-[13px] font-semibold text-lol-text-bright">
           {formatKDA(p.kills, p.deaths, p.assists)}
         </div>
         <div
-          className={`text-[10px] ${parseFloat(kda) >= 3 || kda === "Perfect" ? "text-lol-gold" : "text-lol-text"}`}
+          className={`text-[11px] ${parseFloat(kda) >= 3 || kda === "Perfect" ? "text-lol-gold" : "text-lol-text"}`}
         >
           {kda}
         </div>
@@ -699,24 +715,28 @@ function PlayerRow({
       <ScoreboardBar
         value={p.totalDamageDealtToChampions}
         max={maxStats.dmg}
-        color="bg-red-400/50"
+        color="bg-gradient-to-r from-lol-loss/40 to-lol-loss/85"
       />
 
       {/* Damage taken */}
-      <ScoreboardBar value={p.totalDamageTaken} max={maxStats.taken} color="bg-sky-400/50" />
+      <ScoreboardBar
+        value={p.totalDamageTaken}
+        max={maxStats.taken}
+        color="bg-gradient-to-r from-lol-assist/40 to-lol-assist/85"
+      />
 
       {/* Gold */}
-      <div className="text-right text-[11px] text-lol-gold">
+      <div className="text-right font-display text-[12.5px] font-semibold text-lol-gold">
         {p.goldEarned >= 1000 ? `${(p.goldEarned / 1000).toFixed(1)}k` : p.goldEarned}
       </div>
 
       {/* Heal */}
-      <div className="text-right text-[11px] text-emerald-400">
+      <div className="text-right font-display text-[12.5px] font-semibold text-lol-win">
         {p.totalHeal >= 1000 ? `${(p.totalHeal / 1000).toFixed(1)}k` : p.totalHeal}
       </div>
 
       {/* CS */}
-      <div className="text-right text-[11px] text-lol-text-bright">
+      <div className="text-right font-display text-[12.5px] font-semibold text-lol-text-bright">
         <div>{p.cs}</div>
         <div className="text-[9px] text-lol-text">
           {p.cs / Math.max(gameDuration / 60, 1) > 0
@@ -728,11 +748,11 @@ function PlayerRow({
       {/* Items */}
       <div className="flex gap-0.5 justify-center">
         {p.items.slice(0, 6).map((itemId, i) => (
-          <div key={i} className="rounded border border-lol-border/30 bg-white/[0.02] p-0.5">
+          <div key={i} className="rounded-md border border-lol-border/50 bg-black/30 p-0.5">
             <ItemIcon itemId={itemId} size={22} patch={patch} />
           </div>
         ))}
-        <div className="ml-0.5 rounded border border-lol-border/30 bg-white/[0.02] p-0.5">
+        <div className="ml-0.5 rounded-md border border-lol-border/50 bg-black/30 p-0.5">
           <ItemIcon itemId={p.items[6] ?? 0} size={22} patch={patch} />
         </div>
       </div>
@@ -743,7 +763,7 @@ function PlayerRow({
       <div className="flex items-center gap-1 justify-center">
         {showAugments ? (
           p.augments.map((augId, i) => (
-            <div key={i} className="rounded border border-lol-border/30 bg-white/[0.02] p-0.5">
+            <div key={i} className="rounded-md border border-lol-border/50 bg-black/30 p-0.5">
               <AugmentIcon augmentId={augId} size={22} patch={patch} />
             </div>
           ))
@@ -773,7 +793,7 @@ function ScoreCell({ score }: { score?: ScoreBreakdown }) {
       onMouseLeave={() => setAnchor(null)}
     >
       <div
-        className={`text-[11px] font-display font-semibold ${score ? scoreColor(score.score) : "text-lol-text"}`}
+        className={`text-[15px] font-display font-bold ${score ? scoreColor(score.score) : "text-lol-text"}`}
       >
         {score ? score.score.toFixed(1) : "-"}
       </div>

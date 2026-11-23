@@ -34,6 +34,13 @@ export const MATCH_SORT_COLUMNS: Record<string, string> = {
   damageDealt: "ps.total_damage_dealt",
   damageTaken: "ps.total_damage_taken",
   healing: "ps.total_heal",
+  deaths: "ps.deaths",
+  cs: "ps.cs",
+  gold: "ps.gold_earned",
+  doubles: "ps.double_kills",
+  triples: "ps.triple_kills",
+  quadras: "ps.quadra_kills",
+  pentas: "ps.penta_kills",
 };
 
 export function matchOrderBy(sort?: string, sortDir?: string): string {
@@ -66,6 +73,7 @@ export function getMatchHistory(
     sortDir?: string;
     multikills?: string[];
     favorites?: boolean;
+    result?: "win" | "loss";
     ignoreHiddenQueues?: boolean;
   },
   timePeriod?: "24h" | "7d" | "30d" | "full",
@@ -79,6 +87,9 @@ export function getMatchHistory(
   }
   if (filters?.favorites) {
     where.push("g.favorite = 1");
+  }
+  if (filters?.result === "win" || filters?.result === "loss") {
+    where.push(`${statsAlias}.win = ${filters.result === "win" ? 1 : 0}`);
   }
   if (filters?.account) {
     if (filters.account === "all") {

@@ -3,13 +3,13 @@ import type { ReactNode } from "react";
 import type { AccountListItem, ChampionData, HomeTimePeriod } from "../../shared/api";
 import { shortRegion } from "../../shared/regions";
 import { useChampionData } from "../hooks/useChampions";
-import { CHAMPION_SPLASH_URL } from "../lib/constants";
 import { formatTimeAgo } from "../lib/format";
 import { useScopedQueue } from "../lib/historyScope";
 import type { ProfileData, ProfileRankedEntry } from "../lib/types";
 import { ChampionMasteryExp } from "./ChampionMasteryExp";
 import { Panel } from "./Panel";
 import { RankCardExp } from "./RankCardExp";
+import { DEFAULT_SPLASH, SplashPicker, splashUrl, useSplashPref } from "./ProfileSplash";
 import SummonerIcon from "./SummonerIcon";
 import { YourProfileSections } from "./YourProfileSections";
 
@@ -41,7 +41,6 @@ export function ProfileHeaderRedesign({
   accounts,
   activePuuid,
   livePuuid,
-  onSelectAccount,
   onRefresh,
   refreshing,
   scannedCount,
@@ -64,7 +63,6 @@ export function ProfileHeaderRedesign({
   // null means the "All accounts" view
   activePuuid: string | null;
   livePuuid: string | null;
-  onSelectAccount: (puuid: string | null) => void;
   onRefresh: () => void;
   refreshing: boolean;
   scannedCount: number;
@@ -78,6 +76,7 @@ export function ProfileHeaderRedesign({
   const queue = useScopedQueue(undefined);
   const champData = useChampionData();
   const [topChampionId, setTopChampionId] = useState<number | null>(null);
+  const [streak, setStreak] = useState(0);
 
   // Splash art of the most played champion for the current scope and mode.
   useEffect(() => {
@@ -85,38 +84,53 @@ export function ProfileHeaderRedesign({
     window.api
       .getHomeDashboard(activePuuid ?? "all", "full", queue)
       .then((data) => {
-        if (!cancelled) setTopChampionId(data.topChampions[0]?.championId ?? null);
+        if (cancelled) return;
+        setTopChampionId(data.topChampions[0]?.championId ?? null);
+        setStreak(data.summary.recentStreak);
       })
       .catch(() => {
-        if (!cancelled) setTopChampionId(null);
+        if (cancelled) return;
+        setTopChampionId(null);
+        setStreak(0);
       });
     return () => {
       cancelled = true;
     };
   }, [activePuuid, queue]);
 
-  const splashKey = topChampionId != null ? champData[topChampionId]?.key : undefined;
+  const {
+    pref: splashPref,
+    update: updateSplash,
+    reset: resetSplash,
+  } = useSplashPref(activePuuid ?? "all");
+  const splashChampionId = splashPref?.championId ?? topChampionId;
+  const splashKey = splashChampionId != null ? champData[splashChampionId]?.key : undefined;
+  const art = { ...DEFAULT_SPLASH, ...splashPref };
   const isLive = mode === "single" && activePuuid !== null && activePuuid === livePuuid;
   const progress = totalCount > 0 ? Math.min(100, (scannedCount / totalCount) * 100) : 0;
-  const sortedAccounts = [...accounts].sort((a, b) => {
-    const aLive = a.puuid === livePuuid ? 1 : 0;
-    const bLive = b.puuid === livePuuid ? 1 : 0;
-    if (aLive !== bLive) return bLive - aLive;
-    return (b.lastSeen ?? 0) - (a.lastSeen ?? 0);
-  });
 
   return (
     <div className="flex flex-col gap-3">
       <section
-        className="flex min-h-[162px] flex-wrap items-center gap-6 rounded-[18px] border border-lol-border bg-[radial-gradient(900px_500px_at_85%_-8%,var(--theme-crimson-glow),transparent_70%),linear-gradient(to_bottom,var(--theme-bg-deep),var(--theme-bg-base))] bg-cover bg-[position:50%_22%] p-6 shadow-[0_24px_60px_-28px_var(--theme-crimson-glow)]"
+        className="relative flex min-h-[162px] flex-wrap items-center gap-6 rounded-[18px] border border-lol-border bg-[radial-gradient(900px_500px_at_85%_-8%,var(--theme-crimson-glow),transparent_70%),linear-gradient(to_bottom,var(--theme-bg-deep),var(--theme-bg-base))] p-6 shadow-[0_24px_60px_-28px_var(--theme-crimson-glow)]"
         style={
           splashKey
             ? {
-                backgroundImage: `linear-gradient(90deg, var(--theme-bg-deep) 4%, rgba(0,0,0,0.15) 55%, rgba(0,0,0,0.5) 100%), radial-gradient(720px 380px at 92% -12%, var(--theme-crimson-glow), transparent 70%), url(${CHAMPION_SPLASH_URL(splashKey)})`,
+                backgroundImage: `linear-gradient(90deg, var(--theme-bg-deep) 4%, rgba(0,0,0,0.15) 55%, rgba(0,0,0,0.5) 100%), radial-gradient(720px 380px at 92% -12%, var(--theme-crimson-glow), transparent 70%), url(${splashUrl(splashKey, art.skin)})`,
+                backgroundSize: `auto, auto, ${art.zoom}% auto`,
+                backgroundPosition: `0 0, 0 0, ${art.x}% ${art.y}%`,
+                backgroundRepeat: "no-repeat",
               }
             : undefined
         }
       >
+        <SplashPicker
+          championId={splashChampionId}
+          pref={splashPref}
+          champData={champData}
+          onChange={updateSplash}
+          onReset={resetSplash}
+        />
         {mode === "single" ? (
           <div className="relative shrink-0">
             <SummonerIcon
@@ -168,6 +182,18 @@ export function ProfileHeaderRedesign({
               </>
             ) : (
               <span>{accounts.length} saved accounts</span>
+            )}
+            {streak !== 0 && (
+              <span
+                className={`rounded-full border px-2 py-px font-display text-[11px] font-bold ${
+                  streak > 0
+                    ? "border-lol-win/50 bg-lol-win/10 text-lol-win"
+                    : "border-lol-loss/50 bg-lol-loss/10 text-lol-loss"
+                }`}
+              >
+                {streak > 0 ? "W" : "L"}
+                {Math.abs(streak)} streak
+              </span>
             )}
           </div>
         </div>
@@ -234,55 +260,6 @@ export function ProfileHeaderRedesign({
           </button>
         </div>
       )}
-
-      <div
-        className="scroll-themed flex gap-2 overflow-x-auto pb-2"
-        role="tablist"
-        aria-label="Accounts"
-      >
-        <button
-          type="button"
-          role="tab"
-          aria-selected={mode === "all"}
-          onClick={() => onSelectAccount(null)}
-          className={`shrink-0 rounded-lg border px-4 py-2 font-display text-[12px] font-semibold transition-colors ${
-            mode === "all"
-              ? "border-lol-crimson/60 bg-lol-crimson/20 text-lol-text-bright"
-              : "border-lol-border bg-lol-card text-lol-text hover:text-lol-text-bright"
-          }`}
-        >
-          All accounts
-        </button>
-        {sortedAccounts.map((account) => {
-          const selected = mode === "single" && account.puuid === activePuuid;
-          return (
-            <button
-              key={account.puuid}
-              type="button"
-              role="tab"
-              aria-selected={selected}
-              onClick={() => onSelectAccount(account.puuid)}
-              className={`flex shrink-0 items-center gap-2 rounded-lg border px-3 py-1.5 transition-colors ${
-                selected
-                  ? "border-lol-crimson/60 bg-lol-crimson/20 text-lol-text-bright"
-                  : "border-lol-border bg-lol-card text-lol-text hover:text-lol-text-bright"
-              }`}
-            >
-              <SummonerIcon
-                iconId={account.profileIconId}
-                size={24}
-                className="rounded-md bg-lol-dark object-cover"
-              />
-              <span className="max-w-[140px] truncate font-display text-[12px] font-semibold">
-                {account.gameName ?? "Unknown"}
-              </span>
-              {account.puuid === livePuuid && (
-                <span className="h-1.5 w-1.5 rounded-full bg-lol-win" aria-label="Live" />
-              )}
-            </button>
-          );
-        })}
-      </div>
     </div>
   );
 }
@@ -345,34 +322,67 @@ export function ProfileRedesign({
                 )}
               </Panel>
             ) : (
-              <Panel>
+              <Panel className="flex flex-col">
                 <SectionTitle
                   aside={<span className="text-[13px] text-lol-text">{accounts.length} saved</span>}
                 >
                   Most played accounts
                 </SectionTitle>
-                <div className="flex flex-col gap-2">
+                {/* Rows spread over the panel's full height, each with its share of the top account */}
+                <div className="flex flex-1 flex-col justify-between gap-2">
                   {[...accounts]
                     .sort((a, b) => b.gameCount - a.gameCount)
-                    .slice(0, 5)
-                    .map((saved) => (
-                      <div key={saved.puuid} className="flex items-center gap-2.5">
-                        <SummonerIcon
-                          iconId={saved.profileIconId}
-                          size={32}
-                          className="rounded-lg bg-lol-dark object-cover"
-                        />
-                        <span className="min-w-0 flex-1 truncate text-[13px] text-lol-text-bright">
-                          {saved.gameName ?? "Unknown"}
-                          {saved.tagLine && (
-                            <span className="ml-1 text-lol-text">#{saved.tagLine}</span>
-                          )}
-                        </span>
-                        <span className="text-[12px] tabular-nums text-lol-text">
-                          {saved.gameCount} games
-                        </span>
-                      </div>
-                    ))}
+                    .slice(0, 6)
+                    .map((saved, rank, top) => {
+                      const losses = saved.decidedGames - saved.wins;
+                      const wr =
+                        saved.decidedGames > 0 ? (saved.wins / saved.decidedGames) * 100 : 0;
+                      return (
+                        <div
+                          key={saved.puuid}
+                          className="rounded-xl bg-white/[0.04] px-3 py-2 transition-colors hover:bg-white/[0.08]"
+                        >
+                          <div className="flex items-center gap-3">
+                            <span className="w-4 text-center font-display text-[12px] font-bold text-lol-text">
+                              {rank + 1}
+                            </span>
+                            <SummonerIcon
+                              iconId={saved.profileIconId}
+                              size={34}
+                              className="rounded-lg bg-lol-dark object-cover ring-1 ring-lol-border"
+                            />
+                            <div className="min-w-0 flex-1">
+                              <div className="truncate font-display text-[13.5px] font-semibold text-lol-text-bright">
+                                {saved.gameName ?? "Unknown"}
+                                {saved.tagLine && (
+                                  <span className="ml-1 font-medium text-lol-text">
+                                    #{saved.tagLine}
+                                  </span>
+                                )}
+                              </div>
+                              <div className="font-display text-[11.5px] tabular-nums">
+                                <span className="text-lol-win">{saved.wins}W</span>{" "}
+                                <span className="text-lol-loss">{losses}L</span>
+                                <span className="ml-2 text-lol-text">{saved.gameCount} games</span>
+                              </div>
+                            </div>
+                            <b
+                              className={`font-display text-[17px] tabular-nums ${wr >= 50 ? "text-lol-win" : "text-lol-loss"}`}
+                            >
+                              {wr.toFixed(0)}%
+                            </b>
+                          </div>
+                          <div className="mt-2 h-1 overflow-hidden rounded-full bg-white/[0.06]">
+                            <i
+                              className="block h-full rounded-full bg-lol-crimson"
+                              style={{
+                                width: `${(saved.gameCount / Math.max(1, top[0].gameCount)) * 100}%`,
+                              }}
+                            />
+                          </div>
+                        </div>
+                      );
+                    })}{" "}
                 </div>
               </Panel>
             )

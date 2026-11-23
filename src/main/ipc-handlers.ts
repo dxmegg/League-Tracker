@@ -53,6 +53,7 @@ const RENDERER_SETTINGS = new Set([
   "riot_platform",
   "active_account",
   "active_mode",
+  "profile_splash",
 ]);
 
 // Registered once for the lifetime of the app — ipcMain.handle throws on a
@@ -98,6 +99,7 @@ export function registerIpcHandlers() {
         sortDir?: string;
         multikills?: string[];
         favorites?: boolean;
+        result?: "win" | "loss";
         timePeriod?: "24h" | "7d" | "30d" | "full";
       },
     ) => {
@@ -637,6 +639,7 @@ export function registerIpcHandlers() {
       const result: HomeDashboardPayload = {
         summary: {
           totalGames: dashboard.totalGames,
+          remakes: (dashboard as { remakes?: number }).remakes ?? 0,
           wins: dashboard.wins,
           losses: dashboard.totalGames - dashboard.wins,
           totalKills: dashboard.totalKills,

@@ -542,6 +542,9 @@ export function listAccountsWithData(): Array<{
   summonerLevel: number | null;
   lastSeen: number | null;
   gameCount: number;
+  // Decided games only: remakes are neither a win nor a loss
+  wins: number;
+  decidedGames: number;
 }> {
   console.log("[db] listAccountsWithData called:", {});
   const rows = db
@@ -554,9 +557,12 @@ export function listAccountsWithData(): Array<{
         s.platform,
         s.summoner_level,
         s.last_seen,
-        COUNT(tgs.game_id) AS game_count
+        COUNT(tgs.game_id) AS game_count,
+        COALESCE(SUM(CASE WHEN g.is_remake = 0 THEN tgs.win ELSE 0 END), 0) AS wins,
+        COUNT(CASE WHEN g.is_remake = 0 THEN 1 END) AS decided_games
       FROM summoner s
       INNER JOIN tracked_game_stats tgs ON tgs.puuid = s.puuid
+      INNER JOIN games g ON g.game_id = tgs.game_id
       GROUP BY s.puuid
       HAVING COUNT(tgs.game_id) > 0
       ORDER BY s.last_seen DESC
@@ -570,6 +576,8 @@ export function listAccountsWithData(): Array<{
     summoner_level: number | null;
     last_seen: number | null;
     game_count: number;
+    wins: number;
+    decided_games: number;
   }>;
 
   console.log("[db] listAccountsWithData done:", { count: rows.length });
@@ -582,6 +590,8 @@ export function listAccountsWithData(): Array<{
     summonerLevel: row.summoner_level,
     lastSeen: row.last_seen,
     gameCount: row.game_count,
+    wins: row.wins,
+    decidedGames: row.decided_games,
   }));
 }
 

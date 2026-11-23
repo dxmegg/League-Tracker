@@ -27,12 +27,19 @@ import { HomeHero } from "./HomeHero";
 import { ArrowDownIcon } from "./icons";
 import { MatchRowExperiment } from "./MatchRowExperiment";
 import { Panel } from "./Panel";
+import { ProfileAugments, ProfilePlayInsights } from "./ProfileInsights";
 import { queueLabel } from "./QueueSelect";
 import { useActiveMode } from "../hooks/useActiveMode";
 import { useScopedQueue } from "../lib/historyScope";
 
 // The list loads this many games per request, first page and every scroll after
 const PAGE_SIZE = 25;
+
+const RESULT_OPTIONS: Array<{ label: string; value: "win" | "loss" | undefined }> = [
+  { label: "All", value: undefined },
+  { label: "Wins", value: "win" },
+  { label: "Losses", value: "loss" },
+];
 
 // The period filter also sets what one heatmap tile covers
 const HEATMAP_UNIT: Record<HomeTimePeriod, HeatmapUnit> = {
@@ -114,6 +121,7 @@ export function YourProfileSections({
   const [dataMode] = useActiveMode();
   const [sort, setSort] = useState<MatchSort | undefined>(undefined);
   const [sortDir, setSortDir] = useState<MatchSortDir>("desc");
+  const [resultFilter, setResultFilter] = useState<"win" | "loss" | undefined>(undefined);
   const [filterOptions, setFilterOptions] = useState<MatchFilterOptions>({
     patches: [],
     champions: [],
@@ -135,6 +143,7 @@ export function YourProfileSections({
       account,
       sort,
       sortDir,
+      result: resultFilter,
       timePeriod,
     },
     PAGE_SIZE,
@@ -191,6 +200,7 @@ export function YourProfileSections({
     setChampionFilter(undefined);
     setPatchFilter(undefined);
     setQueueFilter(undefined);
+    setResultFilter(undefined);
     setExpandedId(null);
   }, [account]);
 
@@ -226,12 +236,26 @@ export function YourProfileSections({
   );
 
   const hasTiles = dashboard !== null && dashboard.totalGames > 0;
+  const filtersActive =
+    championFilter !== undefined ||
+    patchFilter !== undefined ||
+    resultFilter !== undefined ||
+    sort !== undefined ||
+    localQueue !== undefined;
+  const clearFilters = () => {
+    setChampionFilter(undefined);
+    setPatchFilter(undefined);
+    setQueueFilter(undefined);
+    setResultFilter(undefined);
+    setSort(undefined);
+    setSortDir("desc");
+  };
 
   return (
     <div className="flex flex-col gap-5">
       {(leading || hasTiles) && (
         <div
-          className={`grid grid-cols-1 gap-5 xl:min-h-[400px] ${
+          className={`grid grid-cols-1 gap-5 xl:min-h-[330px] ${
             leading && hasTiles
               ? "xl:grid-cols-[1fr_1.35fr_1.2fr]"
               : hasTiles
@@ -264,71 +288,106 @@ export function YourProfileSections({
         </div>
       </div>
 
+      <ProfileAugments account={account} timePeriod={timePeriod} />
+      <ProfilePlayInsights account={account} timePeriod={timePeriod} />
+
       <Panel>
-        <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+        <div className="mb-3 flex flex-wrap items-baseline justify-between gap-3">
           <h2 className="font-display text-[16px] font-semibold text-lol-text-bright">
-            <span className="mr-2 inline-block h-1.5 w-1.5 rotate-45 bg-lol-crimson align-middle" />
+            <i className="mr-2 inline-block h-1.5 w-1.5 rounded-full bg-lol-crimson" />
             Full match history
             <span className="ml-3 text-[13px] font-normal text-lol-text">{total} games</span>
           </h2>
-          <div className="flex flex-wrap items-center gap-2">
-            <ChampionCombobox
-              value={championFilter ?? null}
-              onChange={(value) => setChampionFilter(value ?? undefined)}
-              placeholder="Search champion"
-            />
-            <FilterSelect
-              value={patchFilter}
-              onChange={(value) => setPatchFilter(value)}
-              placeholder="All Patches"
-              title="Patch"
-              className="h-8 px-3 text-[12.5px]"
-              options={filterOptions.patches.map((patch) => ({
-                value: patch,
-                label: `Patch ${formatPatch(patch)}`,
-              }))}
-            />
-            {dataMode !== "mayhem" && (
-              <FilterSelect
-                title="Filter by queue type"
-                value={queueFilter}
-                onChange={(value) =>
-                  setQueueFilter(value === undefined ? undefined : Number(value))
-                }
-                placeholder="Queue Type"
-                className="h-8 px-3 text-[12.5px]"
-                options={filterOptions.queues.map((q) => ({
-                  value: q,
-                  label: q === QUEUE_GROUP_ARENA ? "All Arena" : queueLabel(q),
-                }))}
-              />
-            )}
-            <div className="flex items-center gap-1">
-              <FilterSelect
-                value={sort}
-                onChange={(value) => {
-                  setSort(value);
-                  setSortDir("desc");
-                }}
-                placeholder="Sort"
-                title="Sort"
-                className="h-8 px-3 text-[12.5px]"
-                options={SORT_OPTIONS}
-              />
-              <FilterChip
-                onClick={() => setSortDir((d) => (d === "desc" ? "asc" : "desc"))}
-                title={sortDir === "desc" ? "Highest or newest first" : "Lowest or oldest first"}
-                icon={
-                  <ArrowDownIcon
-                    className={`h-3.5 w-3.5 transition-transform ${sortDir === "asc" ? "rotate-180" : ""}`}
-                  />
-                }
-                className="h-8 w-8 !px-0"
-              />
-            </div>
-          </div>
+          {filtersActive && (
+            <button
+              type="button"
+              onClick={clearFilters}
+              className="rounded-md border border-lol-crimson/50 bg-lol-crimson/15 px-2.5 py-1 font-display text-[11.5px] font-semibold text-lol-text-bright transition-colors hover:bg-lol-crimson/30"
+            >
+              Clear filters ✕
+            </button>
+          )}
         </div>
 
+        <div className="mb-4 flex flex-wrap items-center gap-x-3 gap-y-2 rounded-xl border border-lol-border/60 bg-black/20 p-2">
+          <div className="inline-flex rounded-lg border border-lol-border bg-lol-card p-[3px]">
+            {RESULT_OPTIONS.map((option) => (
+              <button
+                key={option.label}
+                type="button"
+                onClick={() => setResultFilter(option.value)}
+                className={`rounded-md px-3 py-1 font-display text-[12px] font-semibold transition-colors ${
+                  resultFilter === option.value
+                    ? option.value === "loss"
+                      ? "bg-lol-loss text-white"
+                      : option.value === "win"
+                        ? "bg-lol-win text-[#04271b]"
+                        : "bg-lol-crimson text-white"
+                    : "text-lol-text hover:text-lol-text-bright"
+                }`}
+              >
+                {option.label}
+              </button>
+            ))}
+          </div>
+          <ChampionCombobox
+            value={championFilter ?? null}
+            onChange={(value) => setChampionFilter(value ?? undefined)}
+            placeholder="Search champion"
+          />
+          <FilterSelect
+            value={patchFilter}
+            onChange={(value) => setPatchFilter(value)}
+            placeholder="All Patches"
+            title="Patch"
+            className="h-8 px-3 text-[12.5px]"
+            options={filterOptions.patches.map((patch) => ({
+              value: patch,
+              label: `Patch ${formatPatch(patch)}`,
+            }))}
+          />
+          {dataMode !== "mayhem" && (
+            <FilterSelect
+              title="Filter by queue type"
+              value={queueFilter}
+              onChange={(value) => setQueueFilter(value === undefined ? undefined : Number(value))}
+              placeholder="Queue Type"
+              className="h-8 px-3 text-[12.5px]"
+              options={filterOptions.queues.map((q) => ({
+                value: q,
+                label: q === QUEUE_GROUP_ARENA ? "All Arena" : queueLabel(q),
+              }))}
+            />
+          )}
+          <div className="ml-auto flex items-center gap-2">
+            <span className="font-display text-[10.5px] font-bold uppercase tracking-widest text-lol-text">
+              Sort by
+            </span>
+            <FilterSelect
+              value={sort}
+              onChange={(value) => {
+                setSort(value);
+                setSortDir("desc");
+              }}
+              placeholder="Date"
+              title="Sort by"
+              className="h-8 px-3 text-[12.5px]"
+              options={SORT_OPTIONS}
+            />
+            <FilterChip
+              onClick={() => setSortDir((d) => (d === "desc" ? "asc" : "desc"))}
+              title={sortDir === "desc" ? "Highest or newest first" : "Lowest or oldest first"}
+              icon={
+                <ArrowDownIcon
+                  className={`h-3.5 w-3.5 transition-transform ${sortDir === "asc" ? "rotate-180" : ""}`}
+                />
+              }
+              className="h-8 gap-1.5 px-2.5 text-[11.5px]"
+            >
+              {sortDir === "desc" ? "High → Low" : "Low → High"}
+            </FilterChip>
+          </div>
+        </div>
         {loading && matches.length === 0 && (
           <p className="py-8 text-center text-sm text-lol-text">Loading matches...</p>
         )}

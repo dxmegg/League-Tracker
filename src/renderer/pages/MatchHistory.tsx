@@ -86,10 +86,17 @@ export const SORT_OPTIONS: { value: MatchSort; label: string }[] = [
   { value: "score", label: "Score" },
   { value: "kda", label: "KDA" },
   { value: "kills", label: "Kills" },
-  { value: "duration", label: "Duration" },
+  { value: "deaths", label: "Deaths" },
   { value: "damageDealt", label: "Damage Dealt" },
   { value: "damageTaken", label: "Damage Taken" },
   { value: "healing", label: "Healing" },
+  { value: "duration", label: "Duration" },
+  { value: "cs", label: "CS" },
+  { value: "gold", label: "Gold" },
+  { value: "doubles", label: "Double Kills" },
+  { value: "triples", label: "Triple Kills" },
+  { value: "quadras", label: "Quadra Kills" },
+  { value: "pentas", label: "Penta Kills" },
 ];
 
 // A session is a day of play, but the day doesn't end at midnight: games before

@@ -11,13 +11,8 @@ interface ActivityHeatmapProps {
   unit?: HeatmapUnit;
 }
 
-const CELL_COLORS = [
-  "rgba(255,255,255,0.04)",
-  "rgba(229,72,63,0.20)",
-  "rgba(229,72,63,0.45)",
-  "rgba(229,72,63,0.70)",
-  "rgba(229,72,63,0.95)",
-];
+const mix = (pct: number) => `color-mix(in srgb, var(--theme-crimson) ${pct}%, transparent)`;
+const CELL_COLORS = ["rgba(255,255,255,0.04)", mix(22), mix(45), mix(70), mix(95)];
 
 function formatDate(day: string): string {
   return new Date(`${day}T00:00:00`).toLocaleDateString(undefined, {
@@ -119,21 +114,23 @@ function HighlightColumn({
     ...(highlight.worst ? [{ label: "Worst", period: highlight.worst, accent: false }] : []),
   ];
   return (
-    <div>
-      <div className="mb-2 text-[10px] uppercase tracking-wider text-lol-text/60">{label}</div>
-      <div className="space-y-2">
+    <div className="rounded-xl bg-white/[0.04] px-3.5 py-3">
+      <div className="mb-2 font-display text-[11px] font-bold uppercase tracking-widest text-lol-text">
+        {label}
+      </div>
+      <div className="space-y-2.5">
         {rows.map((row) => (
           <div key={row.label}>
             <div className="text-[10px] uppercase tracking-wider text-lol-text/60">
               {row.label}{" "}
               <span
-                className="text-[14px] font-semibold"
+                className="font-display text-[18px] font-bold"
                 style={{ color: row.accent ? colorPrimary : undefined }}
               >
                 {row.period.games}
               </span>
             </div>
-            <div className="text-[11px] text-lol-text/50">
+            <div className="text-[11.5px] text-lol-text">
               {formatDate(row.period.start)}
               {row.period.start !== row.period.end && ` – ${formatDate(row.period.end)}`}
             </div>
@@ -215,7 +212,7 @@ function buildTiles(days: ActivityHeatmapProps["days"], unit: Exclude<HeatmapUni
 
 function HistoryActivityHeatmap({
   days,
-  colorPrimary = "#E5483F",
+  colorPrimary = "var(--theme-crimson)",
   colorMuted = "rgba(255,255,255,0.04)",
   fluid = false,
   unit = "day",
@@ -243,13 +240,7 @@ function HistoryActivityHeatmap({
     if (unit !== "day") return Math.min(4, Math.ceil((games / maxGames) * 4));
     return games >= 7 ? 4 : games >= 4 ? 3 : games >= 2 ? 2 : 1;
   };
-  const cellColors = CELL_COLORS.map((color, index) => {
-    if (index === 0) return colorMuted;
-    return color.replace(
-      "229,72,63",
-      `${parseInt(colorPrimary.slice(1, 3), 16)},${parseInt(colorPrimary.slice(3, 5), 16)},${parseInt(colorPrimary.slice(5, 7), 16)}`,
-    );
-  });
+  const cellColors = CELL_COLORS.map((color, index) => (index === 0 ? colorMuted : color));
   // Best and worst periods are per day, week and month; hourly rows can't feed them
   const highlights = unit === "hour" ? { week: null, day: null, month: null } : getHighlights(days);
   const title = fluid ? "Activity" : "Weekly activity";
@@ -276,18 +267,38 @@ function HistoryActivityHeatmap({
       : "grid grid-flow-col auto-cols-fr grid-rows-[64px] gap-[3px]";
 
   return (
-    <section className="rounded-lg border border-lol-border/60 bg-lol-card/40 p-4">
-      <h2 className="mb-3 flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-lol-text-bright">
-        <span
-          className="h-1.5 w-1.5 rotate-45"
-          style={{ backgroundColor: colorPrimary }}
-          aria-hidden="true"
-        />
-        {title}
-      </h2>
-      <p className="mb-3 text-[11px] text-lol-text/70">
-        {total} games in the last {range}
-      </p>
+    <section
+      className={
+        fluid
+          ? "flex flex-col rounded-2xl border border-lol-border border-t-[3px] border-t-lol-crimson bg-[radial-gradient(circle_at_top_right,color-mix(in_srgb,var(--theme-crimson)_9%,transparent),transparent_55%)] p-5"
+          : "rounded-lg border border-lol-border/60 bg-lol-card/40 p-4"
+      }
+    >
+      {fluid ? (
+        <div className="mb-4 flex h-8 items-center justify-between gap-3">
+          <h2 className="font-display text-[16px] font-semibold text-lol-text-bright">
+            <i className="mr-2 inline-block h-1.5 w-1.5 rounded-full bg-lol-crimson" />
+            {title}
+          </h2>
+          <span className="text-[13px] text-lol-text">
+            <b className="font-display text-lol-text-bright">{total}</b> games in the last {range}
+          </span>
+        </div>
+      ) : (
+        <>
+          <h2 className="mb-3 flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-lol-text-bright">
+            <span
+              className="h-1.5 w-1.5 rotate-45"
+              style={{ backgroundColor: colorPrimary }}
+              aria-hidden="true"
+            />
+            {title}
+          </h2>
+          <p className="mb-3 text-[11px] text-lol-text/70">
+            {total} games in the last {range}
+          </p>
+        </>
+      )}
       <div className={gridClass}>
         {cells.map((cell) => (
           <div
@@ -315,7 +326,7 @@ function HistoryActivityHeatmap({
         <span>More</span>
       </div>
       {(highlights.week || highlights.day || highlights.month) && (
-        <div className="mt-4 grid grid-cols-3 gap-3 border-t border-lol-border/40 pt-4">
+        <div className="mt-auto grid grid-cols-3 gap-3 pt-5">
           <HighlightColumn label="Week" highlight={highlights.week} colorPrimary={colorPrimary} />
           <HighlightColumn label="Day" highlight={highlights.day} colorPrimary={colorPrimary} />
           <HighlightColumn label="Month" highlight={highlights.month} colorPrimary={colorPrimary} />
@@ -327,13 +338,7 @@ function HistoryActivityHeatmap({
 
 const HEATMAP_CELL = 14;
 const HEATMAP_GAP = 2;
-const HEATMAP_COLORS = [
-  "rgba(255,255,255,0.03)",
-  "rgba(165,15,21,0.20)",
-  "rgba(165,15,21,0.45)",
-  "rgba(196,30,40,0.70)",
-  "rgba(196,30,40,0.95)",
-];
+const HEATMAP_COLORS = CELL_COLORS;
 
 export function ActivityHeatmap({ daily }: { daily: TrendsDay[] }) {
   const containerRef = useRef<HTMLDivElement>(null);

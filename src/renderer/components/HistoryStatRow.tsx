@@ -111,11 +111,11 @@ export function HistoryStatRow(props: HistoryStatRowProps) {
 
       {(!props.tiles || props.tiles === "score") && (
         <div className="flex flex-col rounded-2xl border border-lol-border border-t-[3px] border-t-lol-gold bg-[radial-gradient(circle_at_top_right,rgba(201,164,92,0.08),transparent_55%)] p-5 transition-colors duration-[120ms] hover:bg-white/[0.02]">
-          <h2 className="mb-4 font-display text-[16px] font-semibold text-lol-text-bright">
+          <h2 className="mb-4 flex h-8 items-center font-display text-[16px] font-semibold text-lol-text-bright">
             <i className="mr-2 inline-block h-1.5 w-1.5 rounded-full bg-lol-gold" />
             Score
           </h2>
-          <div className="flex flex-wrap items-baseline gap-5">
+          <div className="flex flex-1 flex-wrap content-center items-baseline gap-x-8 gap-y-4">
             <div>
               <span className="block text-[13px] text-lol-text">Average</span>
               <b className="font-display text-[40px] font-bold leading-none text-lol-gold">
@@ -131,7 +131,7 @@ export function HistoryStatRow(props: HistoryStatRowProps) {
               </b>
             </div>
           </div>
-          <div className="mt-5 grid grid-cols-[44px_40px_1fr_50px] items-center gap-2.5 text-[13px]">
+          <div className="mt-auto grid grid-cols-[44px_40px_1fr_50px] items-center gap-2.5 pt-5 text-[13px]">
             <span className="rounded bg-lol-gold px-2 py-0.5 text-[10.5px] font-bold tracking-wider text-[#241705]">
               MVP
             </span>
@@ -157,25 +157,27 @@ export function HistoryStatRow(props: HistoryStatRowProps) {
       {(!props.tiles || props.tiles === "kda") && (
         <>
           <div className="flex flex-col rounded-2xl border border-lol-border border-t-[3px] border-t-lol-violet bg-[radial-gradient(circle_at_top_right,rgba(169,139,255,0.08),transparent_55%)] p-5 transition-colors duration-[120ms] hover:bg-white/[0.02]">
-            <h2 className="mb-4 font-display text-[16px] font-semibold text-lol-text-bright">
+            <h2 className="mb-4 flex h-8 items-center font-display text-[16px] font-semibold text-lol-text-bright">
               <i className="mr-2 inline-block h-1.5 w-1.5 rounded-full bg-lol-violet" />
               Average K/D/A
             </h2>
-            <div className="font-display text-[36px] font-bold leading-none">
-              <span className="text-lol-gold">{props.avgKills.toFixed(1)}</span>
-              <span className="mx-1.5 font-medium text-lol-text">/</span>
-              <span className="text-lol-loss">{props.avgDeaths.toFixed(1)}</span>
-              <span className="mx-1.5 font-medium text-lol-text">/</span>
-              <span className="text-lol-assist">{props.avgAssists.toFixed(1)}</span>
+            <div className="flex flex-1 flex-col justify-center py-3">
+              <div className="font-display text-[36px] font-bold leading-none">
+                <span className="text-lol-gold">{props.avgKills.toFixed(1)}</span>
+                <span className="mx-1.5 font-medium text-lol-text">/</span>
+                <span className="text-lol-loss">{props.avgDeaths.toFixed(1)}</span>
+                <span className="mx-1.5 font-medium text-lol-text">/</span>
+                <span className="text-lol-assist">{props.avgAssists.toFixed(1)}</span>
+              </div>
+              <div className="mt-1.5 text-[13px] text-lol-text">
+                <b className="font-display text-[13px] font-semibold text-lol-win">
+                  {props.kdaRatio.toFixed(2)} KDA
+                </b>{" "}
+                from {formatNumber(props.killsTotal)} / {formatNumber(props.deathsTotal)} /{" "}
+                {formatNumber(props.assistsTotal)} in total
+              </div>
             </div>
-            <div className="mt-1.5 text-[13px] text-lol-text">
-              <b className="font-display text-[13px] font-semibold text-lol-win">
-                {props.kdaRatio.toFixed(2)} KDA
-              </b>{" "}
-              from {formatNumber(props.killsTotal)} / {formatNumber(props.deathsTotal)} /{" "}
-              {formatNumber(props.assistsTotal)} in total
-            </div>
-            <div className="mt-4 grid grid-cols-3 gap-x-3 gap-y-3.5 border-t border-lol-border/40 pt-4">
+            <div className="grid grid-cols-3 gap-x-3 gap-y-3.5 border-t border-lol-border/40 pt-4">
               <div>
                 <b className="block font-display text-[16px] font-semibold text-lol-loss">
                   {formatNumber(props.avgDamageDealt)}
@@ -236,7 +238,7 @@ export function HistoryStatRow(props: HistoryStatRowProps) {
           </div>
 
           <div className="flex flex-col rounded-2xl border border-lol-border border-t-[3px] border-t-lol-assist bg-[radial-gradient(circle_at_top_right,rgba(77,184,255,0.08),transparent_55%)] p-5 transition-colors duration-[120ms] hover:bg-white/[0.02]">
-            <div className="mb-4 flex items-baseline justify-between gap-3">
+            <div className="mb-4 flex h-8 items-center justify-between gap-3">
               <h2 className="font-display text-[16px] font-semibold text-lol-text-bright">
                 <i className="mr-2 inline-block h-1.5 w-1.5 rounded-full bg-lol-assist" />
                 Multikills
@@ -245,84 +247,86 @@ export function HistoryStatRow(props: HistoryStatRowProps) {
                 {formatNumber(props.multikillsTotal)}
               </b>
             </div>
-            {(() => {
-              const rows: Array<{
-                key: string;
-                label: string;
-                pillClass: string;
-                barClass: string;
-                data: { count: number; games: number };
-              }> = [
-                {
-                  key: "double",
-                  label: "Double",
-                  pillClass: "pill d",
-                  barClass: "bg-lol-assist",
-                  data: props.doubles,
-                },
-                {
-                  key: "triple",
-                  label: "Triple",
-                  pillClass: "pill t",
-                  barClass: "bg-lol-gold",
-                  data: props.triples,
-                },
-                {
-                  key: "quadra",
-                  label: "Quadra",
-                  pillClass: "pill q",
-                  barClass: "bg-lol-violet",
-                  data: props.quadras,
-                },
-                {
-                  key: "penta",
-                  label: "Penta",
-                  pillClass: "pill p",
-                  barClass: "bg-lol-loss",
-                  data: props.pentas,
-                },
-              ];
-              const totalGamesSafe = Math.max(1, totalGames);
-              return rows.map((row) => {
-                const share = row.data.games > 0 ? (row.data.games / totalGamesSafe) * 100 : 0;
-                return (
-                  <div key={row.key} className="mb-3">
-                    <div className="grid grid-cols-[80px_1fr_48px] items-center gap-2.5 text-[12.5px] text-lol-text">
-                      <span
-                        className={`justify-self-start rounded-full border px-2.5 py-1 font-display text-[11.5px] font-semibold ${
-                          row.key === "double"
-                            ? "border-lol-assist/50 bg-lol-assist/10 text-lol-assist"
-                            : row.key === "triple"
-                              ? "border-lol-gold/55 bg-lol-gold/10 text-lol-gold"
-                              : row.key === "quadra"
-                                ? "border-lol-violet/55 bg-lol-violet/10 text-lol-violet"
-                                : "border-lol-loss/60 bg-lol-loss/12 text-lol-loss"
-                        }`}
-                      >
-                        {row.label}
-                      </span>
-                      <div>
-                        <b className="mr-1.5 font-display text-[15px] font-semibold text-lol-text-bright">
-                          {row.data.count}
-                        </b>
-                        {row.data.games} games
+            <div className="flex flex-1 flex-col justify-between gap-3">
+              {(() => {
+                const rows: Array<{
+                  key: string;
+                  label: string;
+                  pillClass: string;
+                  barClass: string;
+                  data: { count: number; games: number };
+                }> = [
+                  {
+                    key: "double",
+                    label: "Double",
+                    pillClass: "pill d",
+                    barClass: "bg-lol-assist",
+                    data: props.doubles,
+                  },
+                  {
+                    key: "triple",
+                    label: "Triple",
+                    pillClass: "pill t",
+                    barClass: "bg-lol-gold",
+                    data: props.triples,
+                  },
+                  {
+                    key: "quadra",
+                    label: "Quadra",
+                    pillClass: "pill q",
+                    barClass: "bg-lol-violet",
+                    data: props.quadras,
+                  },
+                  {
+                    key: "penta",
+                    label: "Penta",
+                    pillClass: "pill p",
+                    barClass: "bg-lol-loss",
+                    data: props.pentas,
+                  },
+                ];
+                const totalGamesSafe = Math.max(1, totalGames);
+                return rows.map((row) => {
+                  const share = row.data.games > 0 ? (row.data.games / totalGamesSafe) * 100 : 0;
+                  return (
+                    <div key={row.key}>
+                      <div className="grid grid-cols-[80px_1fr_48px] items-center gap-2.5 text-[12.5px] text-lol-text">
+                        <span
+                          className={`justify-self-start rounded-full border px-2.5 py-1 font-display text-[11.5px] font-semibold ${
+                            row.key === "double"
+                              ? "border-lol-assist/50 bg-lol-assist/10 text-lol-assist"
+                              : row.key === "triple"
+                                ? "border-lol-gold/55 bg-lol-gold/10 text-lol-gold"
+                                : row.key === "quadra"
+                                  ? "border-lol-violet/55 bg-lol-violet/10 text-lol-violet"
+                                  : "border-lol-loss/60 bg-lol-loss/12 text-lol-loss"
+                          }`}
+                        >
+                          {row.label}
+                        </span>
+                        <div>
+                          <b className="mr-1.5 font-display text-[15px] font-semibold text-lol-text-bright">
+                            {row.data.count}
+                          </b>
+                          {row.data.games} games
+                        </div>
+                        <em className="text-right not-italic">{Math.round(share)}%</em>
                       </div>
-                      <em className="text-right not-italic">{Math.round(share)}%</em>
-                    </div>
-                    <div className="mt-1 grid grid-cols-[80px_1fr_48px] gap-2.5">
-                      <span />
-                      <div className="h-[5px] overflow-hidden rounded-full bg-white/[0.05]">
-                        <i
-                          className={`block h-full ${row.barClass}`}
-                          style={{ width: `${share}%` }}
-                        />
+                      <div className="mt-1 grid grid-cols-[80px_1fr_48px] gap-2.5">
+                        <span />
+                        <div className="h-[5px] overflow-hidden rounded-full bg-white/[0.05]">
+                          <i
+                            className={`block h-full ${row.barClass}`}
+                            style={{ width: `${share}%` }}
+                          />
+                        </div>
+                        <span />
                       </div>
-                      <span />
                     </div>
-                  </div>
-                );
-              });
-            })()}
+                  );
+                });
+              })()}
+            </div>
           </div>
         </>
       )}

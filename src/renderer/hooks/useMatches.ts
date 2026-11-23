@@ -4,8 +4,18 @@ import type { MatchFilters, MatchListItem, MultikillType } from "../lib/types";
 const PAGE_SIZE = 20;
 
 export function useMatches(filters: MatchFilters = {}, pageSize = PAGE_SIZE) {
-  const { championId, patch, queue, account, sort, sortDir, multikills, favorites, timePeriod } =
-    filters;
+  const {
+    championId,
+    patch,
+    queue,
+    account,
+    sort,
+    sortDir,
+    multikills,
+    favorites,
+    result: resultFilter,
+    timePeriod,
+  } = filters;
   // Arrays are recreated each render, so the joined string is what the hook
   // actually depends on. The list is rebuilt from it below rather than closing
   // over the array, which keeps every dependency here a primitive.
@@ -35,6 +45,7 @@ export function useMatches(filters: MatchFilters = {}, pageSize = PAGE_SIZE) {
           sort,
           sortDir,
           favorites,
+          result: resultFilter,
           timePeriod,
           // Safe to narrow: the key was joined from these same values
           multikills: multikillsKey ? (multikillsKey.split(",") as MultikillType[]) : [],
@@ -62,6 +73,7 @@ export function useMatches(filters: MatchFilters = {}, pageSize = PAGE_SIZE) {
       sortDir,
       multikillsKey,
       favorites,
+      resultFilter,
       timePeriod,
       pageSize,
     ],

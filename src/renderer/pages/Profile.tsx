@@ -1023,7 +1023,6 @@ export default function Profile() {
       accounts={accounts}
       activePuuid={isAllAccounts ? null : selectedPuuid}
       livePuuid={livePuuid}
-      onSelectAccount={(puuid) => setActiveAccountRaw(puuid ?? ALL_ACCOUNTS_SENTINEL)}
       onRefresh={handleRefresh}
       refreshing={syncing}
       scannedCount={scannedCount}

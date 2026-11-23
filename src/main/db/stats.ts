@@ -1163,6 +1163,18 @@ export function getDashboardData(
   `)
     .get(...queryParams) as any;
 
+  // Remakes stay out of every stat; they are only counted so the page can say how many there were
+  const remakes = (
+    db
+      .prepare(`
+    SELECT COUNT(*) as n
+    FROM ${source.table} ${source.alias}
+    JOIN games g ON ${source.alias}.game_id = g.game_id
+    ${whereSql.replace("g.is_remake = 0", "g.is_remake = 1")}
+  `)
+      .get(...queryParams) as { n: number }
+  ).n;
+
   const recentForm = db
     .prepare(`
     SELECT ps.win, ps.score, g.game_id, g.is_remake, ps.champion_id, ps.kills, ps.deaths, ps.assists
@@ -1258,6 +1270,7 @@ export function getDashboardData(
 
   return {
     totalGames: totals.totalGames ?? 0,
+    remakes,
     totalDuration: totals.totalDuration ?? 0,
     totalTimeSeconds: totals.totalTimeSeconds ?? 0,
     recentStreak,

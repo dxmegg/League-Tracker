@@ -30,20 +30,23 @@ const STYLE = `
   transition: background-color 120ms ease, box-shadow 120ms ease;
   --edge: var(--theme-win);
   container-type: inline-size;
-  grid-template-columns: 76px minmax(170px, 1.1fr) 106px 58px 62px 172px 138px minmax(0, 1fr) 68px;
+  grid-template-columns: 76px minmax(170px, 1.1fr) 106px 58px 62px 172px 172px minmax(0, 1fr) 68px;
   grid-template-areas: "res champ kda cs score bars items multi time";
-  background: linear-gradient(90deg, var(--theme-surface) 0%, transparent 55%), var(--theme-card);
+  background: linear-gradient(160deg, var(--theme-card-hover), var(--theme-card));
 }
 .match-row[data-win="false"] { --edge: var(--theme-loss); }
-.match-row[data-win="true"] {
-  background: linear-gradient(90deg, rgba(56,214,162,0.14) 0%, transparent 60%), linear-gradient(180deg, rgba(255,255,255,0.03), transparent 50%), var(--theme-card);
-}
+.match-row[data-win="true"],
 .match-row[data-win="false"] {
-  background: linear-gradient(90deg, rgba(240,86,110,0.15) 0%, transparent 60%), linear-gradient(180deg, rgba(255,255,255,0.03), transparent 50%), var(--theme-card);
+  border-color: color-mix(in srgb, var(--edge) 20%, var(--theme-border));
+  background:
+    linear-gradient(90deg, color-mix(in srgb, var(--edge) 13%, transparent) 0%, transparent 34%),
+    linear-gradient(180deg, rgba(255,255,255,0.045), transparent 45%),
+    linear-gradient(160deg, var(--theme-card-hover), var(--theme-card));
 }
 .match-row:hover {
+  border-color: color-mix(in srgb, var(--edge) 45%, var(--theme-border));
   box-shadow: inset 4px 0 0 var(--edge), 0 14px 30px -16px color-mix(in srgb, var(--edge) 45%, transparent);
-  background: rgba(255,255,255,0.02);
+  filter: brightness(1.08);
 }
 .match-row[data-polish="matches"] {
   padding-top: 2px;
@@ -117,7 +120,7 @@ const STYLE = `
 .match-row .m-time b { display: block; font-family: var(--theme-font-display); font-size: 14px; font-weight: 600; }
 .match-row .m-time span { color: var(--theme-foreground-muted); font-size: 12.5px; }
 
-@container (max-width: 1060px) {
+@container (max-width: 1100px) {
   .match-row {
     grid-template-columns: 72px minmax(0, 1fr) auto auto;
     grid-template-areas:
