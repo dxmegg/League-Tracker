@@ -125,7 +125,7 @@ function RankCard({
   isLive: boolean;
 }) {
   return (
-    <div className="relative overflow-visible rounded-lg border border-lol-crimson/40 bg-[radial-gradient(circle_at_top_right,rgba(229,72,63,0.10),transparent_42%),linear-gradient(180deg,rgba(229,72,63,0.04),transparent_24%),linear-gradient(145deg,#0c0e11_0%,#090b0d_48%,#060809_100%)] p-5 pl-6 shadow-[0_0_3px_rgba(150,30,30,0.55),0_0_10px_rgba(90,15,15,0.35),0_0_20px_rgba(60,10,10,0.20)] ring-1 ring-inset ring-white/[0.03] before:absolute before:bottom-0 before:left-0 before:top-0 before:w-[3px] before:bg-[#E5483F]">
+    <div className="relative overflow-visible rounded-2xl border border-lol-border bg-[radial-gradient(circle_at_top_right,rgba(229,72,63,0.10),transparent_42%),linear-gradient(180deg,rgba(229,72,63,0.04),transparent_24%),linear-gradient(160deg,var(--theme-card-hover),var(--theme-card))] p-5 pl-6 shadow-[inset_0_1px_0_rgba(255,255,255,0.06),0_14px_34px_-18px_rgba(0,0,0,0.8)] before:absolute before:bottom-0 before:left-0 before:top-0 before:w-[3px] before:bg-[#E5483F]">
       <div className="absolute left-0 top-0 bottom-0 w-1 bg-[#5865a8]" />
       <div className="mb-3 flex items-center justify-between">
         <h2 className="mb-3 text-xs font-bold uppercase tracking-wider text-lol-gold">{title}</h2>
@@ -333,7 +333,7 @@ function LastPlayedChampionsBox({
 }) {
   if (loading) {
     return (
-      <div className="relative min-w-[220px] flex flex-1 flex-col rounded-lg border border-lol-crimson/40 bg-[radial-gradient(circle_at_top_right,rgba(229,72,63,0.08),transparent_45%),linear-gradient(145deg,#0c0e11_0%,#090b0d_48%,#060809_100%)] p-3 shadow-[0_0_3px_rgba(150,30,30,0.55),0_0_10px_rgba(90,15,15,0.35),0_0_20px_rgba(60,10,10,0.20)] ring-1 ring-inset ring-white/[0.03] before:absolute before:left-0 before:right-0 before:top-0 before:h-[3px] before:bg-[#C9A45C]">
+      <div className="relative min-w-[220px] flex flex-1 flex-col rounded-2xl border border-lol-border bg-[radial-gradient(circle_at_top_right,rgba(229,72,63,0.08),transparent_45%),linear-gradient(160deg,var(--theme-card-hover),var(--theme-card))] p-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.06),0_14px_34px_-18px_rgba(0,0,0,0.8)] before:absolute before:left-0 before:right-0 before:top-0 before:h-[3px] before:bg-[#C9A45C]">
         <p className="mb-2 text-[10px] font-bold uppercase tracking-wider text-lol-gold">
           Last played champions
         </p>
@@ -344,7 +344,7 @@ function LastPlayedChampionsBox({
 
   if (matches.length === 0) {
     return (
-      <div className="relative min-w-[280px] flex-1 rounded-lg border border-lol-crimson/40 bg-[radial-gradient(circle_at_top_right,rgba(229,72,63,0.08),transparent_45%),linear-gradient(145deg,#0c0e11_0%,#090b0d_48%,#060809_100%)] p-3 shadow-[0_0_3px_rgba(150,30,30,0.55),0_0_10px_rgba(90,15,15,0.35),0_0_20px_rgba(60,10,10,0.20)] ring-1 ring-inset ring-white/[0.03] before:absolute before:left-0 before:right-0 before:top-0 before:h-[3px] before:bg-[#E5483F]">
+      <div className="relative min-w-[280px] flex-1 rounded-2xl border border-lol-border bg-[radial-gradient(circle_at_top_right,rgba(229,72,63,0.08),transparent_45%),linear-gradient(160deg,var(--theme-card-hover),var(--theme-card))] p-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.06),0_14px_34px_-18px_rgba(0,0,0,0.8)] before:absolute before:left-0 before:right-0 before:top-0 before:h-[3px] before:bg-[#E5483F]">
         <p className="mb-2 text-[10px] font-bold uppercase tracking-wider text-lol-gold">
           Last played champions
         </p>
@@ -367,7 +367,7 @@ function LastPlayedChampionsBox({
     .slice(0, 10);
 
   return (
-    <div className="relative min-w-[280px] flex-1 rounded-lg border border-lol-crimson/40 bg-[radial-gradient(circle_at_top_right,rgba(229,72,63,0.08),transparent_45%),linear-gradient(145deg,#0c0e11_0%,#090b0d_48%,#060809_100%)] p-3 shadow-[0_0_3px_rgba(150,30,30,0.55),0_0_10px_rgba(90,15,15,0.35),0_0_20px_rgba(60,10,10,0.20)] ring-1 ring-inset ring-white/[0.03] before:absolute before:left-0 before:right-0 before:top-0 before:h-[3px] before:bg-[#E5483F]">
+    <div className="relative min-w-[280px] flex-1 rounded-2xl border border-lol-border bg-[radial-gradient(circle_at_top_right,rgba(229,72,63,0.08),transparent_45%),linear-gradient(160deg,var(--theme-card-hover),var(--theme-card))] p-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.06),0_14px_34px_-18px_rgba(0,0,0,0.8)] before:absolute before:left-0 before:right-0 before:top-0 before:h-[3px] before:bg-[#E5483F]">
       <p className="mb-2 text-[10px] font-bold uppercase tracking-wider text-lol-gold">
         Last played champions
       </p>
@@ -416,7 +416,7 @@ function queueWinRate(wins: number, count: number): number {
 function LastGamesBox({ queueStats, loading }: { queueStats: QueueStat[]; loading: boolean }) {
   if (loading) {
     return (
-      <div className="relative min-w-[220px] flex flex-1 flex-col rounded-lg border border-lol-crimson/40 bg-[radial-gradient(circle_at_top_right,rgba(229,72,63,0.08),transparent_45%),linear-gradient(145deg,#0c0e11_0%,#090b0d_48%,#060809_100%)] p-3 shadow-[0_0_3px_rgba(150,30,30,0.55),0_0_10px_rgba(90,15,15,0.35),0_0_20px_rgba(60,10,10,0.20)] ring-1 ring-inset ring-white/[0.03] before:absolute before:left-0 before:right-0 before:top-0 before:h-[3px] before:bg-[#C9A45C]">
+      <div className="relative min-w-[220px] flex flex-1 flex-col rounded-2xl border border-lol-border bg-[radial-gradient(circle_at_top_right,rgba(229,72,63,0.08),transparent_45%),linear-gradient(160deg,var(--theme-card-hover),var(--theme-card))] p-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.06),0_14px_34px_-18px_rgba(0,0,0,0.8)] before:absolute before:left-0 before:right-0 before:top-0 before:h-[3px] before:bg-[#C9A45C]">
         <p className="mb-2 text-[10px] font-bold uppercase tracking-wider text-lol-gold">
           Most played queues
         </p>
@@ -427,7 +427,7 @@ function LastGamesBox({ queueStats, loading }: { queueStats: QueueStat[]; loadin
 
   if (queueStats.length === 0) {
     return (
-      <div className="relative min-w-[220px] flex-1 rounded-lg border border-lol-crimson/40 bg-[radial-gradient(circle_at_top_right,rgba(229,72,63,0.08),transparent_45%),linear-gradient(145deg,#0c0e11_0%,#090b0d_48%,#060809_100%)] p-3 shadow-[0_0_3px_rgba(150,30,30,0.55),0_0_10px_rgba(90,15,15,0.35),0_0_20px_rgba(60,10,10,0.20)] ring-1 ring-inset ring-white/[0.03] before:absolute before:left-0 before:right-0 before:top-0 before:h-[3px] before:bg-[#C9A45C]">
+      <div className="relative min-w-[220px] flex-1 rounded-2xl border border-lol-border bg-[radial-gradient(circle_at_top_right,rgba(229,72,63,0.08),transparent_45%),linear-gradient(160deg,var(--theme-card-hover),var(--theme-card))] p-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.06),0_14px_34px_-18px_rgba(0,0,0,0.8)] before:absolute before:left-0 before:right-0 before:top-0 before:h-[3px] before:bg-[#C9A45C]">
         <p className="mb-2 text-[10px] font-bold uppercase tracking-wider text-lol-gold">
           Most played queues
         </p>
@@ -437,7 +437,7 @@ function LastGamesBox({ queueStats, loading }: { queueStats: QueueStat[]; loadin
   }
 
   return (
-    <div className="relative min-w-[220px] flex-1 rounded-lg border border-lol-crimson/40 bg-[radial-gradient(circle_at_top_right,rgba(229,72,63,0.08),transparent_45%),linear-gradient(145deg,#0c0e11_0%,#090b0d_48%,#060809_100%)] p-3 shadow-[0_0_3px_rgba(150,30,30,0.55),0_0_10px_rgba(90,15,15,0.35),0_0_20px_rgba(60,10,10,0.20)] ring-1 ring-inset ring-white/[0.03] before:absolute before:left-0 before:right-0 before:top-0 before:h-[3px] before:bg-[#C9A45C]">
+    <div className="relative min-w-[220px] flex-1 rounded-2xl border border-lol-border bg-[radial-gradient(circle_at_top_right,rgba(229,72,63,0.08),transparent_45%),linear-gradient(160deg,var(--theme-card-hover),var(--theme-card))] p-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.06),0_14px_34px_-18px_rgba(0,0,0,0.8)] before:absolute before:left-0 before:right-0 before:top-0 before:h-[3px] before:bg-[#C9A45C]">
       <p className="mb-2 text-[10px] font-bold uppercase tracking-wider text-lol-gold">
         Most played queues
       </p>
@@ -559,7 +559,7 @@ function RecentRiotMatchesSection({
   }) => void;
 }) {
   return (
-    <section className="relative overflow-hidden rounded-lg border border-lol-crimson/40 bg-[radial-gradient(circle_at_top_right,rgba(229,72,63,0.08),transparent_45%),linear-gradient(145deg,#0c0e11_0%,#090b0d_48%,#060809_100%)] shadow-[0_0_3px_rgba(150,30,30,0.55),0_0_10px_rgba(90,15,15,0.35),0_0_20px_rgba(60,10,10,0.20)] ring-1 ring-inset ring-white/[0.03]">
+    <section className="relative overflow-hidden rounded-2xl border border-lol-border bg-[radial-gradient(circle_at_top_right,rgba(229,72,63,0.08),transparent_45%),linear-gradient(160deg,var(--theme-card-hover),var(--theme-card))] shadow-[inset_0_1px_0_rgba(255,255,255,0.06),0_14px_34px_-18px_rgba(0,0,0,0.8)]">
       <div className="flex items-center justify-between gap-3 px-4 pt-4">
         <h2 className="relative mb-3 pl-3 text-xs font-bold uppercase tracking-wider text-lol-gold before:absolute before:left-0 before:top-1 before:h-1.5 before:w-1.5 before:rotate-45 before:bg-lol-crimson after:absolute after:-bottom-2 after:left-0 after:h-px after:w-24 after:bg-gradient-to-r after:from-lol-crimson/60 after:to-transparent">
           Recent Matches
@@ -1350,7 +1350,7 @@ export default function Profile() {
                 {selectorOpen && (
                   <div
                     role="listbox"
-                    className="absolute left-0 top-full z-50 mt-2 max-h-80 w-80 overflow-y-auto rounded-lg border border-lol-crimson/40 bg-[linear-gradient(145deg,#0c0e11_0%,#090b0d_48%,#060809_100%)] p-1 shadow-[0_0_3px_rgba(150,30,30,0.55),0_0_10px_rgba(90,15,15,0.35),0_0_20px_rgba(60,10,10,0.20)] ring-1 ring-inset ring-white/[0.03]"
+                    className="absolute left-0 top-full z-50 mt-2 max-h-80 w-80 overflow-y-auto glass-surface rounded-2xl p-1"
                   >
                     {sortedAccounts.map((account) => {
                       const isLive = account.puuid === livePuuid;
@@ -1484,7 +1484,7 @@ export default function Profile() {
                 />
                 <LastGamesBox queueStats={queueStats} loading={loading} />
               </div>
-              <div className="relative flex h-full w-64 flex-col rounded-lg border border-lol-crimson/40 bg-[radial-gradient(circle_at_top_right,rgba(229,72,63,0.08),transparent_45%),linear-gradient(145deg,#0c0e11_0%,#090b0d_48%,#060809_100%)] px-4 py-3 shadow-[0_0_3px_rgba(150,30,30,0.55),0_0_10px_rgba(90,15,15,0.35),0_0_20px_rgba(60,10,10,0.20)] ring-1 ring-inset ring-white/[0.03] before:absolute before:left-0 before:right-0 before:top-0 before:h-[3px] before:bg-[#5865a8]">
+              <div className="relative flex h-full w-64 flex-col rounded-2xl border border-lol-border bg-[radial-gradient(circle_at_top_right,rgba(229,72,63,0.08),transparent_45%),linear-gradient(160deg,var(--theme-card-hover),var(--theme-card))] px-4 py-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.06),0_14px_34px_-18px_rgba(0,0,0,0.8)] before:absolute before:left-0 before:right-0 before:top-0 before:h-[3px] before:bg-[#5865a8]">
                 <h2 className="relative text-center text-xs font-bold uppercase tracking-wider text-lol-gold before:absolute before:left-0 before:top-1/2 before:h-1.5 before:w-1.5 before:-translate-y-1/2 before:rotate-45 before:bg-lol-crimson">
                   Champion Mastery
                 </h2>

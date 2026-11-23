@@ -4,7 +4,8 @@ import { Sidebar } from "./Sidebar";
 import TopNav from "./TopNav";
 import { HistorySideNav } from "./HistorySideNav";
 import RecoveryBanner from "./RecoveryBanner";
-import { WindowControls } from "./WindowControls";
+import { Rail } from "./Rail";
+import { TopBar } from "./TopBar";
 
 export function FullHistoryShell() {
   const { pathname } = useLocation();
@@ -19,15 +20,16 @@ export function FullHistoryShell() {
   if (showSidebar) {
     return (
       <div className="flex h-full w-full min-h-0">
+        <Rail />
         <Sidebar />
         <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-          <div className="titlebar-drag flex h-9 w-full shrink-0 items-center border-b border-lol-border/40 bg-lol-card/30">
-            <div className="titlebar-no-drag ml-auto flex items-center gap-0.5 pr-2">
-              <WindowControls />
-            </div>
-          </div>
+          <TopBar />
           <RecoveryBanner />
-          <main className="flex min-h-0 flex-1 flex-col overflow-y-auto p-6">
+          {/* keyed by path so every page change replays the entrance and starts scrolled to the top */}
+          <main
+            key={pathname}
+            className="page-enter flex min-h-0 flex-1 flex-col overflow-y-auto p-6"
+          >
             <Outlet />
           </main>
         </div>

@@ -1,30 +1,43 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import type { SVGProps } from "react";
 import { NavLink, useLocation } from "react-router-dom";
 import type { AccountListItem } from "../../shared/api";
-import { useBackfill } from "../hooks/useBackfill";
 import { useActiveAccount } from "../hooks/useActiveAccount";
 import { useActiveMode } from "../hooks/useActiveMode";
 import { useActiveTheme } from "../hooks/useActiveTheme";
 import { getAccountsWithData } from "../hooks/useChampions";
-import { useLcuStatus } from "../hooks/useLcuStatus";
 import { ALL_ACCOUNTS_SENTINEL } from "../lib/accountsEvent";
-import type { DataMode } from "../lib/dataMode";
-import type { LcuStatus } from "../lib/types";
-import { RefreshIcon } from "./icons";
-import { SegmentedControl } from "./SegmentedControl";
+import {
+  CoinsIcon,
+  GlobeIcon,
+  HomeIcon,
+  MedalIcon,
+  SettingsIcon,
+  ShieldIcon,
+  SparklesIcon,
+  TrendingUpIcon,
+  TrophyIcon,
+  UserIcon,
+  UsersIcon,
+  ZapIcon,
+} from "./icons";
 
-const statusColors: Record<LcuStatus, string> = {
-  connected: "bg-lol-win",
-  ingame: "bg-sky-400",
-  connecting: "bg-amber-500",
-  disconnected: "bg-lol-loss",
-};
+type NavIcon = (props: SVGProps<SVGSVGElement>) => React.JSX.Element;
 
-const statusLabels: Record<LcuStatus, string> = {
-  connected: "Connected",
-  ingame: "In Game",
-  connecting: "Connecting...",
-  disconnected: "Disconnected",
+const NAV_ICONS: Record<string, NavIcon> = {
+  "/test": SettingsIcon,
+  "/home": HomeIcon,
+  "/local": UserIcon,
+  "/profile": UserIcon,
+  "/history": MedalIcon,
+  "/champions": ShieldIcon,
+  "/items": CoinsIcon,
+  "/augments": SparklesIcon,
+  "/runes": ZapIcon,
+  "/friends": UsersIcon,
+  "/trends": TrendingUpIcon,
+  "/records": TrophyIcon,
+  "/data": GlobeIcon,
 };
 
 const mainTabs = [
@@ -64,11 +77,8 @@ const ACTIVE_TAIL: Record<string, string> = {
 export function Sidebar() {
   const { pathname } = useLocation();
   const tabs = useActiveTheme({ exact: true }) === "redesign" ? redesignTabs : mainTabs;
-  const status = useLcuStatus();
-  const { running: backfilling } = useBackfill();
-  const [refreshing, setRefreshing] = useState(false);
   const [activeAccount, setActiveAccount] = useActiveAccount();
-  const [mode, setMode] = useActiveMode();
+  const [mode] = useActiveMode();
   const [savedAccounts, setSavedAccounts] = useState<AccountListItem[]>([]);
   const [accountsOpen, setAccountsOpen] = useState(false);
   const accountsWrapRef = useRef<HTMLDivElement>(null);
@@ -127,15 +137,6 @@ export function Sidebar() {
       : "";
   const accountIconId = isAll ? null : (activeAccountData?.profileIconId ?? null);
 
-  const handleRefresh = useCallback(async () => {
-    setRefreshing(true);
-    try {
-      await window.api.refreshGames();
-    } finally {
-      setRefreshing(false);
-    }
-  }, []);
-
   const isLinkActive = (to: string) => {
     if (to === "/history") return pathname === "/history" || pathname === "/";
     if (to === "/home" || to === "/local") return pathname === to || pathname.startsWith(`${to}/`);
@@ -152,64 +153,13 @@ export function Sidebar() {
     <aside className="relative flex h-full w-[236px] shrink-0 flex-col gap-5 overflow-y-auto border-r border-lol-border/40 bg-lol-card/40 p-5">
       <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-lol-crimson/[0.08] to-transparent" />
       <div className="relative z-10 flex h-full flex-col gap-5">
-        <div className="flex items-center gap-3">
-          <svg
-            aria-hidden="true"
-            className="h-9 w-9 shrink-0 text-lol-crimson"
-            viewBox="0 0 36 36"
-            fill="none"
-          >
-            <path d="M18 2 32 10v16L18 34 4 26V10L18 2Z" stroke="currentColor" strokeWidth="1.5" />
-            <path d="m18 9 8 5v8l-8 5-8-5v-8l8-5Z" fill="currentColor" />
-          </svg>
-          <div className="min-w-0">
-            <div className="font-bold text-[17px] leading-tight text-lol-text-bright">
-              Rift Records
-            </div>
-            <div className="mt-1 text-[11.5px] leading-snug text-lol-text/60">
-              Work in progress, forked from yhprum
-            </div>
+        <div className="min-w-0 px-1">
+          <div className="font-display text-[18px] font-bold leading-tight text-lol-text-bright">
+            Rift Records
           </div>
-        </div>
-
-        <div
-          className="flex items-center gap-2 rounded-lg border border-lol-border/40 bg-lol-card/40 px-3 py-2 text-[13px] text-lol-text"
-          title={statusLabels[status]}
-        >
-          <div className={`h-2 w-2 shrink-0 rounded-full ${statusColors[status]}`} />
-          <span>{statusLabels[status]}</span>
-          {backfilling ? (
-            <button
-              type="button"
-              onClick={() => window.api.cancelBackfill()}
-              className="ml-auto rounded-md bg-lol-crimson px-3 py-1 text-[12.5px] font-semibold text-white hover:bg-lol-crimson-bright"
-            >
-              Cancel
-            </button>
-          ) : (
-            <button
-              type="button"
-              onClick={handleRefresh}
-              disabled={refreshing}
-              className="ml-auto inline-flex items-center gap-1.5 rounded-md bg-lol-crimson px-3 py-1 text-[12.5px] font-semibold text-white hover:bg-lol-crimson-bright disabled:opacity-50"
-            >
-              <RefreshIcon className={`h-3 w-3 ${refreshing ? "animate-spin" : ""}`} />
-              <span>{refreshing ? "Syncing..." : "Sync"}</span>
-            </button>
-          )}
-        </div>
-
-        {/* shrink-0: the control has overflow-x-auto, so in a short window flex would collapse it to 0 height */}
-        <div className="shrink-0">
-          <SegmentedControl<DataMode>
-            label="Data mode"
-            value={mode}
-            onChange={(next) => next && setMode(next)}
-            options={[
-              { value: "all", label: "All matches" },
-              { value: "mayhem", label: "Mayhem" },
-            ]}
-          />
+          <div className="mt-1 text-[11px] leading-snug text-lol-text/60">
+            Local match history tracker
+          </div>
         </div>
 
         <nav aria-label="Main navigation" className="flex flex-col gap-4">
@@ -227,18 +177,24 @@ export function Sidebar() {
                   <NavLink
                     key={to}
                     to={to}
-                    className={`flex items-center gap-3 rounded-lg border-l-[3px] px-3 py-2 text-sm transition-[background-color,border-left-color,border-left-width] duration-[60ms] ${
+                    className={`group flex items-center gap-3 rounded-xl px-3 py-2 text-[13px] font-medium transition-all duration-150 ${
                       isLinkActive(to)
-                        ? "border-l-lol-crimson bg-gradient-to-r from-lol-crimson/15 to-transparent text-lol-text-bright"
-                        : "border-l-[rgba(255,255,255,0.04)] text-lol-text hover:bg-white/[0.04] hover:text-lol-text-bright hover:border-l-white/10"
+                        ? "bg-gradient-to-r from-lol-crimson/25 via-lol-crimson/10 to-transparent text-lol-text-bright shadow-[inset_2px_0_0_var(--theme-crimson)]"
+                        : "text-lol-text hover:bg-white/[0.05] hover:text-lol-text-bright"
                     }`}
                   >
-                    <span
-                      className={`h-[7px] w-[7px] shrink-0 rotate-45 border-[1.5px] border-current opacity-70 ${
-                        isLinkActive(to) ? "border-lol-crimson bg-lol-crimson opacity-100" : ""
-                      }`}
-                      aria-hidden="true"
-                    />
+                    {(() => {
+                      const Icon = NAV_ICONS[to];
+                      return Icon ? (
+                        <Icon
+                          className={`h-[15px] w-[15px] shrink-0 transition-colors ${
+                            isLinkActive(to)
+                              ? "text-lol-crimson drop-shadow-[0_0_6px_var(--theme-crimson-glow)]"
+                              : "opacity-70 group-hover:opacity-100"
+                          }`}
+                        />
+                      ) : null;
+                    })()}
                     <span>{label}</span>
                   </NavLink>
                 ))}

@@ -2,13 +2,16 @@ import { useCallback, useEffect, useState } from "react";
 import {
   ACTIVE_MODE_EVENT,
   ACTIVE_MODE_KEY,
+  applyMode,
   broadcastActiveMode,
+  getLastMode,
+  parseMode,
   type DataMode,
 } from "../lib/dataMode";
 
 // Same shape as useActiveAccount: persisted setting + window event so every consumer stays in sync.
 export function useActiveMode(): [DataMode, (mode: DataMode) => void] {
-  const [mode, setMode] = useState<DataMode>("all");
+  const [mode, setMode] = useState<DataMode>(getLastMode);
 
   useEffect(() => {
     // `cancelled` doubles as an event latch so a slow initial read can't revert a fresher broadcast.
@@ -16,7 +19,7 @@ export function useActiveMode(): [DataMode, (mode: DataMode) => void] {
 
     const handler = (event: Event) => {
       cancelled = true;
-      setMode((event as CustomEvent<DataMode>).detail === "mayhem" ? "mayhem" : "all");
+      setMode(parseMode((event as CustomEvent<DataMode>).detail));
     };
     window.addEventListener(ACTIVE_MODE_EVENT, handler);
 
@@ -24,9 +27,8 @@ export function useActiveMode(): [DataMode, (mode: DataMode) => void] {
       .getSetting(ACTIVE_MODE_KEY)
       .then((value) => {
         if (cancelled) return;
-        const next = value === "mayhem" ? "mayhem" : "all";
-        // Written here, not in an effect: a freshly mounted consumer starts at "all" and must not flash it onto <html>.
-        document.documentElement.setAttribute("data-mode", next);
+        const next = parseMode(value);
+        applyMode(next);
         setMode(next);
       })
       .catch(() => {});

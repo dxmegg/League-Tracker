@@ -68,9 +68,7 @@ function Section({
   className?: string;
 }) {
   return (
-    <section
-      className={`min-w-0 rounded-[14px] border border-lol-border bg-[var(--theme-card)] p-5 ${className}`}
-    >
+    <section className={`min-w-0 rounded-[14px] glass-card p-5 ${className}`}>
       <div className="mb-4 flex items-baseline justify-between gap-3">
         <h2 className="font-display text-[15px] font-bold text-lol-text-bright">{title}</h2>
         {hint && <span className="text-[11px] text-lol-text/70">{hint}</span>}
@@ -92,7 +90,7 @@ function Kpi({
   valueClass?: string;
 }) {
   return (
-    <div className="rounded-[12px] border border-lol-border bg-[var(--theme-card)] px-4 py-3.5 text-center flex flex-col items-center justify-center">
+    <div className="rounded-[12px] glass-card px-4 py-3.5 text-center flex flex-col items-center justify-center">
       <div className="text-[10.5px] font-bold uppercase tracking-widest text-lol-text/80">
         {label}
       </div>
@@ -318,7 +316,7 @@ export function ChampionDetailRedesign() {
     <div className="mx-auto flex w-full max-w-[1320px] flex-col gap-5">
       {backButton}
 
-      <div className="relative overflow-hidden rounded-[14px] border border-lol-border bg-[var(--theme-card)] p-6">
+      <div className="relative overflow-hidden rounded-[14px] glass-card p-6">
         <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(229,72,63,0.16),transparent_55%)]" />
         <div className="relative flex flex-wrap items-center gap-6">
           <ChampionIcon

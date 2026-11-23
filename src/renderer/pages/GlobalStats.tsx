@@ -426,7 +426,7 @@ export default function GlobalStats() {
             <h2 className="relative mb-3 pl-4 text-xs font-bold uppercase tracking-wider text-lol-gold before:absolute before:left-0 before:top-1/2 before:h-2 before:w-2 before:-translate-y-1/2 before:rotate-45 before:bg-lol-crimson">
               Champions
             </h2>
-            <div className="rounded-lg border border-lol-crimson/40 border-t-[3px] border-t-lol-crimson bg-[radial-gradient(circle_at_top_right,rgba(165,15,21,0.08),transparent_42%),linear-gradient(145deg,#0c0e11_0%,#090b0d_48%,#060809_100%)] shadow-[0_0_3px_rgba(150,30,30,0.55),0_0_10px_rgba(90,15,15,0.35),0_0_20px_rgba(60,10,10,0.20)] ring-1 ring-inset ring-white/[0.03] overflow-hidden">
+            <div className="rounded-2xl border border-lol-border border-t-[3px] border-t-lol-crimson bg-[radial-gradient(circle_at_top_right,rgba(165,15,21,0.08),transparent_42%),linear-gradient(160deg,var(--theme-card-hover),var(--theme-card))] shadow-[inset_0_1px_0_rgba(255,255,255,0.06),0_14px_34px_-18px_rgba(0,0,0,0.8)] overflow-hidden">
               <table className="w-full">
                 <thead className="border-b border-lol-border/40 bg-lol-dark/50">
                   <tr>
@@ -503,7 +503,7 @@ export default function GlobalStats() {
             <h2 className="relative mb-3 pl-4 text-xs font-bold uppercase tracking-wider text-lol-gold before:absolute before:left-0 before:top-1/2 before:h-2 before:w-2 before:-translate-y-1/2 before:rotate-45 before:bg-lol-crimson">
               Items
             </h2>
-            <div className="rounded-lg border border-lol-crimson/40 border-t-[3px] border-t-lol-gold bg-[radial-gradient(circle_at_top_right,rgba(201,164,92,0.08),transparent_42%),linear-gradient(145deg,#0c0e11_0%,#090b0d_48%,#060809_100%)] shadow-[0_0_3px_rgba(150,30,30,0.55),0_0_10px_rgba(90,15,15,0.35),0_0_20px_rgba(60,10,10,0.20)] ring-1 ring-inset ring-white/[0.03] overflow-hidden">
+            <div className="rounded-2xl border border-lol-border border-t-[3px] border-t-lol-gold bg-[radial-gradient(circle_at_top_right,rgba(201,164,92,0.08),transparent_42%),linear-gradient(160deg,var(--theme-card-hover),var(--theme-card))] shadow-[inset_0_1px_0_rgba(255,255,255,0.06),0_14px_34px_-18px_rgba(0,0,0,0.8)] overflow-hidden">
               <table className="w-full">
                 <thead className="border-b border-lol-border/40 bg-lol-dark/50">
                   <tr>
@@ -594,7 +594,7 @@ export default function GlobalStats() {
             <h2 className="relative mb-3 pl-4 text-xs font-bold uppercase tracking-wider text-lol-gold before:absolute before:left-0 before:top-1/2 before:h-2 before:w-2 before:-translate-y-1/2 before:rotate-45 before:bg-lol-crimson">
               Augments
             </h2>
-            <div className="rounded-lg border border-lol-crimson/40 border-t-[3px] border-t-[#3B82F6] bg-[radial-gradient(circle_at_top_right,rgba(59,130,246,0.08),transparent_42%),linear-gradient(145deg,#0c0e11_0%,#090b0d_48%,#060809_100%)] shadow-[0_0_3px_rgba(150,30,30,0.55),0_0_10px_rgba(90,15,15,0.35),0_0_20px_rgba(60,10,10,0.20)] ring-1 ring-inset ring-white/[0.03] overflow-hidden">
+            <div className="rounded-2xl border border-lol-border border-t-[3px] border-t-[#3B82F6] bg-[radial-gradient(circle_at_top_right,rgba(59,130,246,0.08),transparent_42%),linear-gradient(160deg,var(--theme-card-hover),var(--theme-card))] shadow-[inset_0_1px_0_rgba(255,255,255,0.06),0_14px_34px_-18px_rgba(0,0,0,0.8)] overflow-hidden">
               <table className="w-full">
                 <thead className="border-b border-lol-border/40 bg-lol-dark/50">
                   <tr>

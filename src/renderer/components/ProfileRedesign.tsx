@@ -1,7 +1,11 @@
+import { useEffect, useState } from "react";
 import type { ReactNode } from "react";
 import type { AccountListItem, ChampionData, HomeTimePeriod } from "../../shared/api";
 import { shortRegion } from "../../shared/regions";
+import { useChampionData } from "../hooks/useChampions";
+import { CHAMPION_SPLASH_URL } from "../lib/constants";
 import { formatTimeAgo } from "../lib/format";
+import { useScopedQueue } from "../lib/historyScope";
 import type { ProfileData, ProfileRankedEntry } from "../lib/types";
 import { ChampionMasteryExp } from "./ChampionMasteryExp";
 import { Panel } from "./Panel";
@@ -71,6 +75,27 @@ export function ProfileHeaderRedesign({
   timePeriod: HomeTimePeriod;
   onTimePeriodChange: (period: HomeTimePeriod) => void;
 }) {
+  const queue = useScopedQueue(undefined);
+  const champData = useChampionData();
+  const [topChampionId, setTopChampionId] = useState<number | null>(null);
+
+  // Splash art of the most played champion for the current scope and mode.
+  useEffect(() => {
+    let cancelled = false;
+    window.api
+      .getHomeDashboard(activePuuid ?? "all", "full", queue)
+      .then((data) => {
+        if (!cancelled) setTopChampionId(data.topChampions[0]?.championId ?? null);
+      })
+      .catch(() => {
+        if (!cancelled) setTopChampionId(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [activePuuid, queue]);
+
+  const splashKey = topChampionId != null ? champData[topChampionId]?.key : undefined;
   const isLive = mode === "single" && activePuuid !== null && activePuuid === livePuuid;
   const progress = totalCount > 0 ? Math.min(100, (scannedCount / totalCount) * 100) : 0;
   const sortedAccounts = [...accounts].sort((a, b) => {
@@ -82,7 +107,16 @@ export function ProfileHeaderRedesign({
 
   return (
     <div className="flex flex-col gap-3">
-      <section className="flex min-h-[162px] flex-wrap items-center gap-6 rounded-[18px] border border-lol-border bg-[radial-gradient(900px_500px_at_85%_-8%,var(--theme-crimson-glow),transparent_70%),linear-gradient(to_bottom,var(--theme-bg-deep),var(--theme-bg-base))] p-6">
+      <section
+        className="flex min-h-[162px] flex-wrap items-center gap-6 rounded-[18px] border border-lol-border bg-[radial-gradient(900px_500px_at_85%_-8%,var(--theme-crimson-glow),transparent_70%),linear-gradient(to_bottom,var(--theme-bg-deep),var(--theme-bg-base))] bg-cover bg-[position:50%_22%] p-6 shadow-[0_24px_60px_-28px_var(--theme-crimson-glow)]"
+        style={
+          splashKey
+            ? {
+                backgroundImage: `linear-gradient(90deg, var(--theme-bg-deep) 4%, rgba(0,0,0,0.15) 55%, rgba(0,0,0,0.5) 100%), radial-gradient(720px 380px at 92% -12%, var(--theme-crimson-glow), transparent 70%), url(${CHAMPION_SPLASH_URL(splashKey)})`,
+              }
+            : undefined
+        }
+      >
         {mode === "single" ? (
           <div className="relative shrink-0">
             <SummonerIcon

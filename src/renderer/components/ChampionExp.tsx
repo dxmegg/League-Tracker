@@ -95,7 +95,7 @@ function KpiTile({
 }) {
   if (flat) {
     return (
-      <div className="rounded-[14px] border border-lol-border bg-[var(--theme-card)] p-5">
+      <div className="rounded-[14px] glass-card p-5">
         <span className="mb-3 block h-0.5 w-6 rounded-full bg-lol-crimson" />
         <div className="text-[11px] font-bold uppercase tracking-widest text-lol-text">{label}</div>
         <div className="mt-1 font-display text-[32px] font-bold leading-tight text-lol-text-bright">
@@ -143,10 +143,7 @@ function HighlightCard({
 }) {
   if (flat) {
     return (
-      <div
-        className="flex items-center gap-4 rounded-[14px] border border-lol-border bg-[var(--theme-card)] p-5"
-        title={emptyTitle}
-      >
+      <div className="flex items-center gap-4 rounded-[14px] glass-card p-5" title={emptyTitle}>
         {champion ? (
           <ChampionIcon
             championId={champion.champion_id}

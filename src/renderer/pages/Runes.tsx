@@ -48,7 +48,7 @@ export default function Runes({ queue }: { queue?: number }) {
       );
     });
     return (
-      <section className="rounded-lg border border-lol-crimson/40 bg-[linear-gradient(145deg,#0c0e11_0%,#090b0d_48%,#060809_100%)] shadow-[0_0_3px_rgba(150,30,30,0.55),0_0_10px_rgba(90,15,15,0.35),0_0_20px_rgba(60,10,10,0.20)] ring-1 ring-inset ring-white/[0.03] overflow-hidden p-4">
+      <section className="glass-surface rounded-2xl overflow-hidden p-4">
         <h2 className="mb-3 text-xs font-bold uppercase tracking-wider text-lol-gold">{title}</h2>
         <div className="overflow-hidden">
           <table className="w-full">
@@ -102,7 +102,7 @@ export default function Runes({ queue }: { queue?: number }) {
   }
   if (loading)
     return (
-      <div className="flex items-center justify-center rounded-lg border border-lol-crimson/40 bg-[linear-gradient(145deg,#0c0e11_0%,#090b0d_48%,#060809_100%)] p-12">
+      <div className="flex items-center justify-center glass-surface rounded-2xl p-12">
         <p className="text-sm text-lol-text">Loading...</p>
       </div>
     );
@@ -138,14 +138,14 @@ export default function Runes({ queue }: { queue?: number }) {
       {renderGroup("Keystones", "keystone")}
       {renderGroup("Secondaries", "secondary")}
       {!data?.runes?.length && (
-        <div className="rounded-lg border border-lol-crimson/40 bg-[linear-gradient(145deg,#0c0e11_0%,#090b0d_48%,#060809_100%)] shadow-[0_0_3px_rgba(150,30,30,0.55),0_0_10px_rgba(90,15,15,0.35),0_0_20px_rgba(60,10,10,0.20)] ring-1 ring-inset ring-white/[0.03] p-12 text-center">
+        <div className="glass-surface rounded-2xl p-12 text-center">
           <p className="text-sm text-lol-text">
             No rune data is available in the archived match payloads for this history scope.
           </p>
         </div>
       )}
 
-      <section className="rounded-lg border border-lol-crimson/40 bg-[linear-gradient(145deg,#0c0e11_0%,#090b0d_48%,#060809_100%)] shadow-[0_0_3px_rgba(150,30,30,0.55),0_0_10px_rgba(90,15,15,0.35),0_0_20px_rgba(60,10,10,0.20)] ring-1 ring-inset ring-white/[0.03] overflow-hidden p-4">
+      <section className="glass-surface rounded-2xl overflow-hidden p-4">
         <h2 className="mb-3 text-xs font-bold uppercase tracking-wider text-lol-gold">
           Champions and most-used keystones
         </h2>

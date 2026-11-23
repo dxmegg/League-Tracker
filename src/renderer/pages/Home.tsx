@@ -609,7 +609,7 @@ export default function Home() {
   const setAccount = (next: HomeAccountFilter) => {
     setActiveAccountRaw(next === "all" || next === undefined ? ALL_ACCOUNTS_SENTINEL : next);
   };
-  const [timePeriod, setTimePeriod] = useViewState<HomeTimePeriod>("home.timePeriod", "7d");
+  const [timePeriod, setTimePeriod] = useViewState<HomeTimePeriod>("home.timePeriod", "30d");
   const [localQueue, setQueue] = useViewState<number | undefined>("home.queue", undefined);
   const queue = useScopedQueue(localQueue);
   const [dashboard, setDashboard] = useState<HomeDashboardPayload | null>(null);

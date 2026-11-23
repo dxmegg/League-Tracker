@@ -96,9 +96,12 @@ function Section({
 }) {
   return (
     <section
-      className={`relative flex flex-col rounded-lg p-5 xl:p-6 2xl:p-7 bg-[linear-gradient(145deg,#0c0e11_0%,#090b0d_48%,#060809_100%)] border border-lol-crimson/40 shadow-[0_0_3px_rgba(150,30,30,0.55),0_0_10px_rgba(90,15,15,0.35),0_0_20px_rgba(60,10,10,0.20)] ring-1 ring-inset ring-white/[0.03] ${className}`}
+      className={`relative flex flex-col rounded-2xl p-5 xl:p-6 2xl:p-7 bg-[linear-gradient(160deg,var(--theme-card-hover),var(--theme-card))] border border-lol-border shadow-[inset_0_1px_0_rgba(255,255,255,0.06),0_14px_34px_-18px_rgba(0,0,0,0.8)] ${className}`}
     >
-      <h2 className="text-xs font-bold uppercase tracking-wider text-lol-gold mb-4">{title}</h2>
+      <h2 className="mb-4 flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-lol-gold">
+        <i className="block h-3 w-[3px] rounded-full bg-lol-crimson" aria-hidden="true" />
+        {title}
+      </h2>
       <div className="flex flex-col gap-3">{children}</div>
     </section>
   );

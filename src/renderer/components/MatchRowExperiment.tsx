@@ -24,8 +24,8 @@ const STYLE = `
   gap: 8px 14px;
   padding: 12px 16px 12px 18px;
   border: 1px solid var(--theme-border);
-  border-radius: 12px;
-  box-shadow: inset 2px 0 0 var(--edge);
+  border-radius: 14px;
+  box-shadow: inset 3px 0 0 var(--edge), 0 10px 24px -18px rgba(0,0,0,0.85);
   border-bottom: 1px solid rgba(255,255,255,0.04);
   transition: background-color 120ms ease, box-shadow 120ms ease;
   --edge: var(--theme-win);
@@ -36,13 +36,13 @@ const STYLE = `
 }
 .match-row[data-win="false"] { --edge: var(--theme-loss); }
 .match-row[data-win="true"] {
-  background: linear-gradient(90deg, rgba(56,214,162,0.10) 0%, transparent 55%), var(--theme-card);
+  background: linear-gradient(90deg, rgba(56,214,162,0.14) 0%, transparent 60%), linear-gradient(180deg, rgba(255,255,255,0.03), transparent 50%), var(--theme-card);
 }
 .match-row[data-win="false"] {
-  background: linear-gradient(90deg, rgba(240,86,110,0.11) 0%, transparent 55%), var(--theme-card);
+  background: linear-gradient(90deg, rgba(240,86,110,0.15) 0%, transparent 60%), linear-gradient(180deg, rgba(255,255,255,0.03), transparent 50%), var(--theme-card);
 }
 .match-row:hover {
-  box-shadow: inset 3px 0 0 var(--edge);
+  box-shadow: inset 4px 0 0 var(--edge), 0 14px 30px -16px color-mix(in srgb, var(--edge) 45%, transparent);
   background: rgba(255,255,255,0.02);
 }
 .match-row[data-polish="matches"] {

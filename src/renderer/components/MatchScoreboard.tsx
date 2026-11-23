@@ -223,7 +223,7 @@ function ArenaTeamBlock({
   );
 
   return (
-    <div className="rounded-lg border border-lol-crimson/30 bg-[linear-gradient(145deg,#0c0e11_0%,#090b0d_48%,#060809_100%)] shadow-[0_0_3px_rgba(150,30,30,0.35),0_0_10px_rgba(90,15,15,0.25)] ring-1 ring-inset ring-white/[0.02] overflow-hidden">
+    <div className="rounded-2xl border border-lol-border bg-[linear-gradient(160deg,var(--theme-card-hover),var(--theme-card))] shadow-[inset_0_1px_0_rgba(255,255,255,0.06),0_14px_34px_-18px_rgba(0,0,0,0.8)] overflow-hidden">
       <div
         className={`px-4 py-2 flex flex-wrap items-baseline gap-x-4 gap-y-1 ${
           isTopThree
@@ -458,7 +458,7 @@ function TeamScoreboard({
   const totals = useMemo(() => computeTeamTotals(players, scores), [players, scores]);
 
   return (
-    <div className="rounded-lg border border-lol-crimson/30 bg-[linear-gradient(145deg,#0c0e11_0%,#090b0d_48%,#060809_100%)] shadow-[0_0_3px_rgba(150,30,30,0.35),0_0_10px_rgba(90,15,15,0.25)] ring-1 ring-inset ring-white/[0.02] overflow-hidden">
+    <div className="rounded-2xl border border-lol-border bg-[linear-gradient(160deg,var(--theme-card-hover),var(--theme-card))] shadow-[inset_0_1px_0_rgba(255,255,255,0.06),0_14px_34px_-18px_rgba(0,0,0,0.8)] overflow-hidden">
       {/* Team header: name on the left, team totals filling the rest of the bar */}
       <div
         className={`px-4 py-2 flex flex-wrap items-baseline gap-x-4 gap-y-1 ${isWin ? "bg-gradient-to-r from-lol-win/15 via-lol-win/5 to-transparent" : "bg-gradient-to-r from-lol-loss/15 via-lol-loss/5 to-transparent"}`}

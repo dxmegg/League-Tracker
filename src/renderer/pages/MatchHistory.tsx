@@ -1172,7 +1172,7 @@ function ProfileCard({
               g.is_remake === 1 ? "bg-lol-text/30" : g.win === 1 ? "bg-[#15803d]" : "bg-[#a51e1e]";
             return (
               <span key={g.game_id} className={`group relative h-2 w-2 rounded-full ${color}`}>
-                <div className="pointer-events-none absolute bottom-full left-1/2 z-50 mb-1.5 hidden -translate-x-1/2 flex-col items-center gap-1 rounded-md border border-lol-crimson/40 bg-[linear-gradient(145deg,#0c0e11_0%,#090b0d_48%,#060809_100%)] px-2.5 py-1.5 shadow-[0_0_4px_rgba(150,30,30,0.35),0_0_12px_rgba(90,15,15,0.20)] ring-1 ring-inset ring-white/[0.03] group-hover:flex">
+                <div className="pointer-events-none absolute bottom-full left-1/2 z-50 mb-1.5 hidden -translate-x-1/2 flex-col items-center gap-1 rounded-md border border-lol-border bg-[linear-gradient(160deg,var(--theme-card-hover),var(--theme-card))] px-2.5 py-1.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.06),0_14px_34px_-18px_rgba(0,0,0,0.8)] group-hover:flex">
                   <div className="flex items-center gap-1.5 whitespace-nowrap">
                     <ChampionIcon championId={g.champion_id} size={18} />
                     <span
