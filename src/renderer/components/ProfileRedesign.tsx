@@ -302,7 +302,7 @@ export function ProfileRedesign({
           // Always a panel, so the row keeps its height across accounts and while loading
           leading={
             single ? (
-              <Panel>
+              <Panel variant="tile">
                 <SectionTitle
                   aside={
                     <span className="text-[13px] text-lol-text">
@@ -322,7 +322,7 @@ export function ProfileRedesign({
                 )}
               </Panel>
             ) : (
-              <Panel className="flex flex-col">
+              <Panel variant="tile" className="flex flex-col">
                 <SectionTitle
                   aside={<span className="text-[13px] text-lol-text">{accounts.length} saved</span>}
                 >

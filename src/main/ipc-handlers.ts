@@ -1051,6 +1051,8 @@ export function registerIpcHandlers() {
     return lcu.getStatus();
   });
 
+  ipcMain.handle("lcu:live-full", () => lcu.fetchLiveFull());
+
   ipcMain.handle("lcu:live-game", async () => {
     return lcu.fetchLiveGameData();
   });
@@ -1450,7 +1452,7 @@ export function registerIpcHandlers() {
     const options = {
       title: mayhemOnly ? "Export Mayhem Games Only" : "Export All Games",
       defaultPath: `${mayhemOnly ? "mayhem" : "all"}-backup-${new Date().toISOString().slice(0, 10)}.json.gz`,
-      filters: [{ name: "League Tracker backup", extensions: ["json.gz", "gz"] }],
+      filters: [{ name: "Rift Records backup", extensions: ["json.gz", "gz"] }],
     };
     // Parented to the window when there is one, so the dialog is modal
     const result = win
@@ -1485,7 +1487,7 @@ export function registerIpcHandlers() {
     const win = senderWindow(event);
     const options = {
       title: "Import Games (all modes)",
-      filters: [{ name: "League Tracker backup", extensions: ["json.gz", "gz", "json"] }],
+      filters: [{ name: "Rift Records backup", extensions: ["json.gz", "gz", "json"] }],
       properties: ["openFile" as const],
     };
     const dialogResult = win

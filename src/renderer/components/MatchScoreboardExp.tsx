@@ -394,16 +394,8 @@ function ArenaPlayerRow({
         </div>
       </div>
 
-      <ScoreboardBar
-        value={p.totalDamageDealtToChampions}
-        max={maxStats.dmg}
-        color="bg-gradient-to-r from-lol-loss/40 to-lol-loss/85"
-      />
-      <ScoreboardBar
-        value={p.totalDamageTaken}
-        max={maxStats.taken}
-        color="bg-gradient-to-r from-lol-assist/40 to-lol-assist/85"
-      />
+      <ScoreboardBar value={p.totalDamageDealtToChampions} max={maxStats.dmg} color="bg-lol-loss" />
+      <ScoreboardBar value={p.totalDamageTaken} max={maxStats.taken} color="bg-lol-assist" />
 
       <div className="text-right font-display text-[12.5px] font-semibold text-lol-gold">
         {p.goldEarned >= 1000 ? `${(p.goldEarned / 1000).toFixed(1)}k` : p.goldEarned}
@@ -608,18 +600,20 @@ function TeamStat({ label, children }: { label: string; children: ReactNode }) {
   );
 }
 
+// Value on top, a thin bar under it: the number stays readable at any fill and the columns line up.
 function ScoreboardBar({ value, max, color }: { value: number; max: number; color: string }) {
   const pct = max > 0 ? Math.round((value / max) * 100) : 0;
   return (
-    <div className="relative h-5 overflow-hidden rounded-full bg-black/30 ring-1 ring-lol-border/40">
-      <div className={`h-full rounded-full ${color}`} style={{ width: `${pct}%` }} />
-      <span className="absolute inset-0 flex items-center justify-end pr-1 font-display text-[10.5px] font-semibold text-white leading-none">
+    <div className="flex flex-col gap-1">
+      <span className="text-right font-display text-[12px] font-semibold tabular-nums text-lol-text-bright">
         {value >= 1000 ? `${(value / 1000).toFixed(1)}k` : value}
       </span>
+      <div className="h-1 overflow-hidden rounded-full bg-white/[0.07]">
+        <div className={`h-full rounded-full ${color}`} style={{ width: `${pct}%` }} />
+      </div>
     </div>
   );
 }
-
 function PlayerRow({
   player: p,
   maxStats,
@@ -712,18 +706,10 @@ function PlayerRow({
       </div>
 
       {/* Damage dealt */}
-      <ScoreboardBar
-        value={p.totalDamageDealtToChampions}
-        max={maxStats.dmg}
-        color="bg-gradient-to-r from-lol-loss/40 to-lol-loss/85"
-      />
+      <ScoreboardBar value={p.totalDamageDealtToChampions} max={maxStats.dmg} color="bg-lol-loss" />
 
       {/* Damage taken */}
-      <ScoreboardBar
-        value={p.totalDamageTaken}
-        max={maxStats.taken}
-        color="bg-gradient-to-r from-lol-assist/40 to-lol-assist/85"
-      />
+      <ScoreboardBar value={p.totalDamageTaken} max={maxStats.taken} color="bg-lol-assist" />
 
       {/* Gold */}
       <div className="text-right font-display text-[12.5px] font-semibold text-lol-gold">

@@ -1614,6 +1614,129 @@ export interface LiveSessionData {
   } | null;
 }
 
+// ---- Full live game snapshot (Live Client Data API + gameflow session) ----
+
+export type LiveAbilityKey = "Passive" | "Q" | "W" | "E" | "R";
+
+export interface LiveAbility {
+  key: LiveAbilityKey;
+  name: string;
+  // Rank the player has put into it; 0 for the passive, which has no ranks
+  level: number;
+}
+
+export interface LiveRuneRef {
+  id: number;
+  name: string;
+}
+
+export interface LiveItem {
+  id: number;
+  name: string;
+  count: number;
+  // Shop price of one copy; gold value of an inventory is the sum of price x count
+  price: number;
+  slot: number;
+  consumable: boolean;
+  canUse: boolean;
+}
+
+export interface LiveSpell {
+  name: string;
+  // Resolved from the gameflow session when the client is connected
+  id: number | null;
+}
+
+export interface LivePlayer {
+  riotId: string;
+  gameName: string;
+  tagLine: string;
+  summonerName: string;
+  championName: string;
+  // Resolved from the gameflow session or by name; null when neither knows it
+  championId: number | null;
+  team: string;
+  // "TOP" | "JUNGLE" | "MIDDLE" | "BOTTOM" | "UTILITY", or "" in modes without lanes
+  position: string;
+  level: number;
+  isBot: boolean;
+  isDead: boolean;
+  respawnTimer: number;
+  skinId: number;
+  skinName: string;
+  kills: number;
+  deaths: number;
+  assists: number;
+  creepScore: number;
+  wardScore: number;
+  items: LiveItem[];
+  itemValue: number;
+  spellOne: LiveSpell;
+  spellTwo: LiveSpell;
+  keystone: LiveRuneRef | null;
+  primaryTree: LiveRuneRef | null;
+  secondaryTree: LiveRuneRef | null;
+  isMe: boolean;
+  puuid: string | null;
+}
+
+export interface LiveEvent {
+  id: number;
+  name: string;
+  time: number;
+  killer: string | null;
+  victim: string | null;
+  assisters: string[];
+  dragonType: string | null;
+  stolen: boolean;
+  turret: string | null;
+  inhib: string | null;
+  acer: string | null;
+  acingTeam: string | null;
+  killStreak: number | null;
+  recipient: string | null;
+  // Every field the API sent that has no named slot above, so nothing is dropped
+  extra: Record<string, unknown>;
+}
+
+export interface LiveActivePlayer {
+  riotId: string;
+  summonerName: string;
+  level: number;
+  currentGold: number;
+  // championStats exactly as sent: numbers, plus resourceType as a string
+  stats: Record<string, number | string>;
+  abilities: LiveAbility[];
+  keystone: LiveRuneRef | null;
+  primaryTree: LiveRuneRef | null;
+  secondaryTree: LiveRuneRef | null;
+  generalRunes: LiveRuneRef[];
+  statRunes: LiveRuneRef[];
+  teamRelativeColors: boolean | null;
+}
+
+export interface LiveGameInfo {
+  mode: string;
+  mapName: string;
+  mapNumber: number;
+  mapTerrain: string;
+  timeSec: number;
+  queueId: number | null;
+  gameId: number | null;
+}
+
+export interface LiveFull {
+  fetchedAt: number;
+  // "no-game" means the Live Client port is closed or answered nothing usable
+  state: "in-game" | "no-game";
+  gameflowPhase: string | null;
+  game: LiveGameInfo | null;
+  me: LiveActivePlayer | null;
+  players: LivePlayer[];
+  events: LiveEvent[];
+  // The untouched allgamedata payload, for the raw viewer
+  raw: unknown;
+}
 export interface BackfillProgress {
   current: number;
   total: number;
@@ -2188,6 +2311,7 @@ export interface ElectronAPI {
   getLcuStatus: () => Promise<LcuStatus>;
   getLiveGame: () => Promise<LiveGameData | null>;
   getLiveSession: () => Promise<LiveSessionData | null>;
+  getLiveFull: () => Promise<LiveFull>;
   getChampionDataVersion: () => Promise<string>;
   getChampionData: () => Promise<ChampionData>;
   getAugmentData: (patch?: string) => Promise<AugmentData>;

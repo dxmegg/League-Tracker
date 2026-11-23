@@ -139,7 +139,7 @@ export function ProfileAugments({
   const visible = showAll ? rows : rows.slice(0, AUGMENTS_COLLAPSED);
 
   return (
-    <Panel className="flex flex-col">
+    <Panel variant="tile" accent="var(--color-lol-gold)" className="flex flex-col">
       <Title aside={<span className="text-[13px] text-lol-text">{stats?.length ?? 0} unique</span>}>
         Augments
       </Title>
@@ -474,7 +474,7 @@ export function ProfilePlayInsights({
 
   return (
     <div className="grid grid-cols-1 gap-5 xl:grid-cols-[1.3fr_1fr]">
-      <Panel>
+      <Panel variant="tile" accent="var(--color-lol-assist)">
         <Title
           aside={
             <span
@@ -502,7 +502,7 @@ export function ProfilePlayInsights({
       </Panel>
 
       <div className="flex flex-col gap-5">
-        <Panel>
+        <Panel variant="tile" accent="var(--color-lol-win)">
           <Title
             aside={
               <span className="text-[13px] text-lol-text">
@@ -548,7 +548,7 @@ export function ProfilePlayInsights({
           )}
         </Panel>
 
-        <Panel className="flex flex-1 flex-col">
+        <Panel variant="tile" accent="var(--color-lol-violet)" className="flex flex-1 flex-col">
           <Title
             aside={
               bestSlot && (

@@ -12,7 +12,20 @@ import { BrowserWindow } from "electron";
 import https from "https";
 import * as db from "./db";
 import { invalidateDashboardCache } from "./db/dashboard-cache";
-import type { CurrentSummoner, LcuStatus, ProfileExtras, RankEntry } from "../shared/api";
+import type {
+  CurrentSummoner,
+  LcuStatus,
+  LiveAbility,
+  LiveActivePlayer,
+  LiveEvent,
+  LiveFull,
+  LiveItem,
+  LivePlayer,
+  LiveRuneRef,
+  LiveSpell,
+  ProfileExtras,
+  RankEntry,
+} from "../shared/api";
 import { QUEUE_ID_MAYHEM_CUSTOM } from "../shared/queues";
 import { accountByRiotId, regionalRoute } from "./riot-api";
 
@@ -1380,31 +1393,33 @@ export interface LiveGameData {
   };
 }
 
-export async function fetchLiveGameData(): Promise<LiveGameData | null> {
-  // Live Client Data API on 127.0.0.1:2999 uses a self-signed cert. This is a
-  // localhost-only service so skipping verification here is acceptable.
-  const get = (path: string) =>
-    new Promise<string>((resolve, reject) => {
-      const req = https.get(
-        { host: "127.0.0.1", port: 2999, path, rejectUnauthorized: false, timeout: 1500 },
-        (res) => {
-          if (res.statusCode !== 200) {
-            res.resume();
-            reject(new Error(`status ${res.statusCode}`));
-            return;
-          }
-          let body = "";
-          res.setEncoding("utf8");
-          res.on("data", (chunk) => (body += chunk));
-          res.on("end", () => resolve(body));
-        },
-      );
-      req.on("error", reject);
-      req.on("timeout", () => {
-        req.destroy(new Error("timeout"));
-      });
+// Live Client Data API on 127.0.0.1:2999 uses a self-signed cert. This is a
+// localhost-only service so skipping verification here is acceptable.
+function liveClientGet(path: string): Promise<string> {
+  return new Promise<string>((resolve, reject) => {
+    const req = https.get(
+      { host: "127.0.0.1", port: 2999, path, rejectUnauthorized: false, timeout: 1500 },
+      (res) => {
+        if (res.statusCode !== 200) {
+          res.resume();
+          reject(new Error(`status ${res.statusCode}`));
+          return;
+        }
+        let body = "";
+        res.setEncoding("utf8");
+        res.on("data", (chunk) => (body += chunk));
+        res.on("end", () => resolve(body));
+      },
+    );
+    req.on("error", reject);
+    req.on("timeout", () => {
+      req.destroy(new Error("timeout"));
     });
+  });
+}
 
+export async function fetchLiveGameData(): Promise<LiveGameData | null> {
+  const get = liveClientGet;
   try {
     const allRaw = await get("/liveclientdata/allgamedata");
     const all = JSON.parse(allRaw) as {
@@ -1481,6 +1496,232 @@ export async function fetchLiveGameData(): Promise<LiveGameData | null> {
   }
 }
 
+// ---- Full live snapshot ----
+
+const str = (v: unknown): string => (typeof v === "string" ? v : v == null ? "" : String(v));
+const num = (v: unknown): number => {
+  const x = Number(v);
+  return Number.isFinite(x) ? x : 0;
+};
+const rec = (v: unknown): Record<string, any> =>
+  v && typeof v === "object" && !Array.isArray(v) ? (v as Record<string, any>) : {};
+const list = (v: unknown): any[] => (Array.isArray(v) ? v : []);
+
+function runeRef(v: unknown): LiveRuneRef | null {
+  const r = rec(v);
+  const id = num(r.id);
+  if (!id && !r.displayName) return null;
+  return { id, name: str(r.displayName) };
+}
+
+function liveSpell(v: unknown, id: number | null): LiveSpell {
+  return { name: str(rec(v).displayName), id };
+}
+
+// Names in the Live Client API carry no tag line in older clients, so compare on the game name only.
+const nameKey = (v: unknown): string => str(v).split("#")[0].trim().toLowerCase();
+
+// The gameflow session knows ids and puuids the Live Client API leaves out (champion id, summoner spell
+// ids, puuid), so players are matched to it by name. It is only reachable while the LCU is connected.
+async function readGameSession(): Promise<{
+  phase: string | null;
+  queueId: number | null;
+  gameId: number | null;
+  byName: Map<string, { championId: number; spell1: number; spell2: number; puuid: string | null }>;
+}> {
+  const empty = { phase: null, queueId: null, gameId: null, byName: new Map() };
+  if (!isClientConnected()) return empty;
+  try {
+    const session = rec(await lcuRequest("/lol-gameflow/v1/session"));
+    const gameData = rec(session.gameData);
+    const byName = new Map<
+      string,
+      { championId: number; spell1: number; spell2: number; puuid: string | null }
+    >();
+    for (const p of [...list(gameData.teamOne), ...list(gameData.teamTwo)]) {
+      const entry = {
+        championId: num(p.championId),
+        spell1: num(p.spell1Id),
+        spell2: num(p.spell2Id),
+        puuid: p.puuid ? str(p.puuid) : null,
+      };
+      for (const key of [p.summonerName, p.riotIdGameName, p.summonerInternalName]) {
+        if (key) byName.set(nameKey(key), entry);
+      }
+    }
+    return {
+      phase: session.phase ? str(session.phase) : null,
+      queueId: typeof rec(gameData.queue).id === "number" ? rec(gameData.queue).id : null,
+      gameId: gameData.gameId ? num(gameData.gameId) : null,
+      byName,
+    };
+  } catch {
+    return empty;
+  }
+}
+
+export async function fetchLiveFull(): Promise<LiveFull> {
+  const fetchedAt = Date.now();
+  const noGame: LiveFull = {
+    fetchedAt,
+    state: "no-game",
+    gameflowPhase: null,
+    game: null,
+    me: null,
+    players: [],
+    events: [],
+    raw: null,
+  };
+
+  let raw: Record<string, any>;
+  try {
+    raw = rec(JSON.parse(await liveClientGet("/liveclientdata/allgamedata")));
+  } catch {
+    // Not in a match, or the game client hasn't opened the port yet.
+    const session = await readGameSession();
+    return { ...noGame, gameflowPhase: session.phase };
+  }
+  if (!raw.gameData) return noGame;
+
+  const session = await readGameSession();
+  const gd = rec(raw.gameData);
+  const ap = rec(raw.activePlayer);
+  const activeKey = nameKey(ap.riotId || ap.summonerName);
+
+  const players: LivePlayer[] = list(raw.allPlayers).map((p) => {
+    const id = session.byName.get(nameKey(p.riotId || p.summonerName)) ?? null;
+    const scores = rec(p.scores);
+    const runes = rec(p.runes);
+    const items: LiveItem[] = list(p.items)
+      .filter((it) => num(it.itemID) > 0)
+      .map((it) => ({
+        id: num(it.itemID),
+        name: str(it.displayName),
+        count: Math.max(1, num(it.count)),
+        price: num(it.price),
+        slot: num(it.slot),
+        consumable: Boolean(it.consumable),
+        canUse: Boolean(it.canUse),
+      }));
+    const spells = rec(p.summonerSpells);
+    const riotId = str(p.riotId);
+    return {
+      riotId,
+      gameName: str(p.riotIdGameName) || riotId.split("#")[0],
+      tagLine: str(p.riotIdTagLine) || riotId.split("#")[1] || "",
+      summonerName: str(p.summonerName),
+      championName: str(p.championName),
+      championId: id && id.championId > 0 ? id.championId : null,
+      team: str(p.team),
+      position: str(p.position),
+      level: num(p.level),
+      isBot: Boolean(p.isBot),
+      isDead: Boolean(p.isDead),
+      respawnTimer: num(p.respawnTimer),
+      skinId: num(p.skinID),
+      skinName: str(p.skinName),
+      kills: num(scores.kills),
+      deaths: num(scores.deaths),
+      assists: num(scores.assists),
+      creepScore: num(scores.creepScore),
+      wardScore: num(scores.wardScore),
+      items,
+      itemValue: items.reduce((sum, it) => sum + it.price * it.count, 0),
+      spellOne: liveSpell(spells.summonerSpellOne, id ? id.spell1 || null : null),
+      spellTwo: liveSpell(spells.summonerSpellTwo, id ? id.spell2 || null : null),
+      keystone: runeRef(runes.keystone),
+      primaryTree: runeRef(runes.primaryRuneTree),
+      secondaryTree: runeRef(runes.secondaryRuneTree),
+      isMe: nameKey(p.riotId || p.summonerName) === activeKey,
+      puuid: id?.puuid ?? null,
+    };
+  });
+
+  const abilities: LiveAbility[] = (["Passive", "Q", "W", "E", "R"] as const).map((key) => {
+    const a = rec(rec(ap.abilities)[key]);
+    return { key, name: str(a.displayName), level: num(a.abilityLevel) };
+  });
+  const full = rec(ap.fullRunes);
+  const me: LiveActivePlayer | null = raw.activePlayer
+    ? {
+        riotId: str(ap.riotId),
+        summonerName: str(ap.summonerName),
+        level: num(ap.level),
+        currentGold: num(ap.currentGold),
+        stats: Object.fromEntries(
+          Object.entries(rec(ap.championStats)).filter(
+            ([, v]) => typeof v === "number" || typeof v === "string",
+          ),
+        ) as Record<string, number | string>,
+        abilities,
+        keystone: runeRef(full.keystone),
+        primaryTree: runeRef(full.primaryRuneTree),
+        secondaryTree: runeRef(full.secondaryRuneTree),
+        generalRunes: list(full.generalRunes)
+          .map(runeRef)
+          .filter((r): r is LiveRuneRef => r !== null),
+        statRunes: list(full.statRunes)
+          .map((r) => ({ id: num(rec(r).id), name: str(rec(r).rawDescription) }))
+          .filter((r) => r.id > 0),
+        teamRelativeColors:
+          typeof ap.teamRelativeColors === "boolean" ? ap.teamRelativeColors : null,
+      }
+    : null;
+
+  // Events keep every field they arrive with: the named ones feed the feed, the rest go to `extra`.
+  const known = new Set([
+    "EventID",
+    "EventName",
+    "EventTime",
+    "KillerName",
+    "VictimName",
+    "Assisters",
+    "DragonType",
+    "Stolen",
+    "TurretKilled",
+    "InhibKilled",
+    "Acer",
+    "AcingTeam",
+    "KillStreak",
+    "Recipient",
+  ]);
+  const events: LiveEvent[] = list(rec(raw.events).Events).map((e) => ({
+    id: num(e.EventID),
+    name: str(e.EventName),
+    time: num(e.EventTime),
+    killer: e.KillerName ? str(e.KillerName) : null,
+    victim: e.VictimName ? str(e.VictimName) : null,
+    assisters: list(e.Assisters).map(str),
+    dragonType: e.DragonType ? str(e.DragonType) : null,
+    stolen: str(e.Stolen).toLowerCase() === "true",
+    turret: e.TurretKilled ? str(e.TurretKilled) : null,
+    inhib: e.InhibKilled ? str(e.InhibKilled) : null,
+    acer: e.Acer ? str(e.Acer) : null,
+    acingTeam: e.AcingTeam ? str(e.AcingTeam) : null,
+    killStreak: e.KillStreak != null ? num(e.KillStreak) : null,
+    recipient: e.Recipient ? str(e.Recipient) : null,
+    extra: Object.fromEntries(Object.entries(rec(e)).filter(([k]) => !known.has(k))),
+  }));
+
+  return {
+    fetchedAt,
+    state: "in-game",
+    gameflowPhase: session.phase,
+    game: {
+      mode: str(gd.gameMode),
+      mapName: str(gd.mapName),
+      mapNumber: num(gd.mapNumber),
+      mapTerrain: str(gd.mapTerrain),
+      timeSec: num(gd.gameTime),
+      queueId: session.queueId,
+      gameId: session.gameId,
+    },
+    me,
+    players,
+    events,
+    raw,
+  };
+}
 export interface LiveSessionData {
   phase: string;
   queueId: number | null;

@@ -46,7 +46,7 @@ const cherryBinUrl = (branch) => `${CDRAGON}/${branch}/game/maps/modespecificdat
 
 async function fetchJson(url, label) {
   process.stdout.write(`  ${label} … `);
-  const res = await fetch(url, { headers: { "User-Agent": "MayhemTracker-build/1.0" } });
+  const res = await fetch(url, { headers: { "User-Agent": "RiftRecords-build/1.0" } });
   if (!res.ok) throw new Error(`${res.status} ${res.statusText} for ${url}`);
   const text = await res.text();
   console.log(`${(text.length / 1e6).toFixed(1)}MB`);

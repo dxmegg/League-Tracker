@@ -37,7 +37,7 @@ const PAGE_TITLES: Record<string, string> = {
   settings: "Settings",
   history: "History",
   match: "Match",
-  test: "Test",
+  test: "Live game",
 };
 
 export function TopBar() {

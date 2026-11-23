@@ -118,7 +118,7 @@ export async function cacheDragonAsset(remoteUrl: string): Promise<string | null
     for (let attempt = 0; attempt < MAX_FETCH_ATTEMPTS; attempt++) {
       try {
         const response = await fetch(remoteUrl, {
-          headers: { "User-Agent": "RiftRecords/1.0.6" },
+          headers: { "User-Agent": "RiftRecords/1.1.0" },
           signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
         });
         if (!response.ok) {

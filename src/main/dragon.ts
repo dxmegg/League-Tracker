@@ -33,7 +33,7 @@ async function fetchJson(url: string, options: FetchJsonOptions = {}): Promise<a
     let res: Response;
     try {
       res = await fetch(url, {
-        headers: { "User-Agent": "RiftRecords/1.0.6" },
+        headers: { "User-Agent": "RiftRecords/1.1.0" },
         signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
       });
     } catch (error) {
@@ -819,7 +819,7 @@ async function probeUrl(url: string): Promise<IconProbe> {
   try {
     const res = await fetch(url, {
       method: "HEAD",
-      headers: { "User-Agent": "RiftRecords/1.0.6" },
+      headers: { "User-Agent": "RiftRecords/1.1.0" },
       signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
     });
     if (res.ok) return "ok";

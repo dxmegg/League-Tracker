@@ -22,6 +22,7 @@ import Trends from "./pages/Trends";
 import Records from "./pages/Records";
 import MatchDetailPage from "./pages/MatchDetailPage";
 import GlobalStats from "./pages/GlobalStats";
+import Live from "./pages/Live";
 import { useActiveMode } from "./hooks/useActiveMode";
 import { useActiveTheme } from "./hooks/useActiveTheme";
 
@@ -154,7 +155,7 @@ export default function App() {
           <Route path="/history/aram" element={<MatchHistory scope="aram" />} />
           <Route path="/history/arena" element={<MatchHistory scope="arena" />} />
           <Route path="/settings" element={<Settings />} />
-          <Route path="/test" element={<div />} />
+          <Route path="/test" element={<Live />} />
           <Route path="/home" element={<Home />} />
           <Route
             path="/local"

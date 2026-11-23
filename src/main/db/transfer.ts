@@ -361,7 +361,7 @@ export async function importData(
     const raw = await fs.promises.readFile(filePath, "utf8");
     const data = JSON.parse(raw);
     if (!data || typeof data !== "object" || !Array.isArray(data.games)) {
-      throw new Error("That file isn't a Mayhem Tracker backup");
+      throw new Error("That file isn't a Rift Records backup");
     }
     const result = importLegacyData(data);
     const repairedScores = repairDerivedScores().repaired;
@@ -545,7 +545,7 @@ export async function importData(
     }
     if (!headerSeen) {
       if (record.type !== "header" || typeof record.version !== "number" || record.version < 6) {
-        throw new Error("That file isn't a supported League Tracker v6 backup");
+        throw new Error("That file isn't a supported Rift Records v6 backup");
       }
       headerSeen = true;
       reportProgress("reading", "Reading backup", true);
@@ -620,7 +620,7 @@ export async function importData(
   if (pending.length > MAX_IMPORT_LINE_BYTES)
     throw new Error("Backup line exceeds the 50 MB limit");
   if (pending.length > 0) processLine(pending.toString("utf8"));
-  if (!headerSeen) throw new Error("That file isn't a League Tracker backup");
+  if (!headerSeen) throw new Error("That file isn't a Rift Records backup");
   flushGames();
   flushStatuses();
   flushFrames();

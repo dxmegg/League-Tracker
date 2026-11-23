@@ -186,9 +186,6 @@ export function MatchRowExperiment({
   const runeIds = parseRuneIds(match.rune_ids);
   const statShardIds = parseRuneIds(match.stat_shard_ids);
   const runeSetup = splitRuneSelections(runeIds, match.primary_style, match.secondary_style);
-  const secondaryLabel = isAugmentQueue(match.queue_id)
-    ? "Augments unavailable"
-    : "Runes unavailable";
 
   return (
     <div>
@@ -310,8 +307,8 @@ export function MatchRowExperiment({
           })}
         </div>
 
-        <div className="m-items" title={secondaryLabel}>
-          <div className="flex items-center justify-center shrink-0">
+        <div className="m-items">
+          <div className="flex w-[76px] shrink-0 items-center justify-center">
             {isAugmentQueue(match.queue_id) ? (
               <AugmentGrid augmentIds={augmentIds} patch={match.game_version} />
             ) : (

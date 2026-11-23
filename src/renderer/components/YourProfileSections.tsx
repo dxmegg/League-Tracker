@@ -272,7 +272,7 @@ export function YourProfileSections({
         </div>
       )}
 
-      <Panel>
+      <Panel variant="tile" accent="var(--color-lol-win)">
         <HomeHero
           dashboard={chart}
           loading={!chart}
@@ -295,7 +295,7 @@ export function YourProfileSections({
       <ProfileAugments account={account} timePeriod={timePeriod} />
       <ProfilePlayInsights account={account} timePeriod={timePeriod} />
 
-      <Panel>
+      <Panel variant="tile">
         <div className="mb-3 flex flex-wrap items-baseline justify-between gap-3">
           <h2 className="font-display text-[16px] font-semibold text-lol-text-bright">
             <i className="mr-2 inline-block h-1.5 w-1.5 rounded-full bg-lol-crimson" />

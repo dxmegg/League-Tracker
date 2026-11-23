@@ -175,7 +175,7 @@ export async function downloadAndInstall(
     return { success: false, error: `Failed to create temp dir: ${err.message}` };
   }
 
-  const newExe = path.join(tmpDir, "mayhem-tracker-update.exe");
+  const newExe = path.join(tmpDir, "riftrecords-update.exe");
   // Rearmed on every chunk, so the download is only abandoned once it has
   // genuinely stopped rather than merely being slow.
   const controller = new AbortController();
