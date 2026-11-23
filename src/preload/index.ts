@@ -161,8 +161,9 @@ const api: ElectronAPI = {
   getActivityHeatmap: (
     account?: string,
     timePeriod?: HomeTimePeriod,
+    queue?: number,
   ): Promise<ActivityHeatmapDay[]> =>
-    ipcRenderer.invoke("db:activity-heatmap", account, timePeriod),
+    ipcRenderer.invoke("db:activity-heatmap", account, timePeriod, queue),
 
   getChampionDetailStats: (
     championId: number | null,

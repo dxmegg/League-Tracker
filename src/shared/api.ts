@@ -1874,6 +1874,7 @@ export interface ElectronAPI {
   getActivityHeatmap: (
     account?: string,
     timePeriod?: HomeTimePeriod,
+    queue?: number,
   ) => Promise<ActivityHeatmapDay[]>;
   getChampionDetailStats: (
     championId: number | null,

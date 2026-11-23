@@ -32,6 +32,7 @@ import { useViewState } from "../hooks/useViewState";
 import { ALL_ACCOUNTS_SENTINEL } from "../lib/accountsEvent";
 import { formatDuration, formatNumber, formatPlain, formatPlaytime } from "../lib/format";
 import { useScopedQueue } from "../lib/historyScope";
+import { useActiveMode } from "../hooks/useActiveMode";
 import AugmentIcon from "./AugmentIcon";
 import ChampionIcon from "./ChampionIcon";
 import ItemIcon from "./ItemIcon";
@@ -155,6 +156,7 @@ export function ChampionDetailRedesign() {
   const [timePeriod, setTimePeriod] = useViewState<HomeTimePeriod>("champions.timePeriod", "full");
   const [queue, setQueue] = useViewState<number | undefined>("champions.queue", undefined);
   const scopedQueue = useScopedQueue(queue);
+  const [dataMode] = useActiveMode();
   const [activeAccountRaw] = useActiveAccount();
   const account = activeAccountRaw === ALL_ACCOUNTS_SENTINEL ? "all" : activeAccountRaw;
 
@@ -368,20 +370,22 @@ export function ChampionDetailRedesign() {
       </div>
 
       <div className="flex flex-wrap items-center gap-2">
-        <FilterSelect
-          value={queue != null ? String(queue) : undefined}
-          onChange={(v) => setQueue(v === undefined ? undefined : Number(v))}
-          placeholder="All queues"
-          allowClear
-          title="Queue"
-          options={[
-            { value: "420", label: "Ranked Solo" },
-            { value: "440", label: "Ranked Flex" },
-            { value: "450", label: "ARAM" },
-            { value: "400", label: "Normal" },
-            { value: "1700", label: "Arena" },
-          ]}
-        />
+        {dataMode !== "mayhem" && (
+          <FilterSelect
+            value={queue != null ? String(queue) : undefined}
+            onChange={(v) => setQueue(v === undefined ? undefined : Number(v))}
+            placeholder="All queues"
+            allowClear
+            title="Queue"
+            options={[
+              { value: "420", label: "Ranked Solo" },
+              { value: "440", label: "Ranked Flex" },
+              { value: "450", label: "ARAM" },
+              { value: "400", label: "Normal" },
+              { value: "1700", label: "Arena" },
+            ]}
+          />
+        )}
         <div className="inline-flex h-9 items-center rounded-md border border-lol-border/60 bg-lol-card/40 p-[3px]">
           {(["24h", "7d", "30d", "full"] as const).map((period) => (
             <button

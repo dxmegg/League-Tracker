@@ -199,15 +199,18 @@ export function Sidebar() {
           )}
         </div>
 
-        <SegmentedControl<DataMode>
-          label="Data mode"
-          value={mode}
-          onChange={(next) => next && setMode(next)}
-          options={[
-            { value: "all", label: "All matches" },
-            { value: "mayhem", label: "Mayhem" },
-          ]}
-        />
+        {/* shrink-0: the control has overflow-x-auto, so in a short window flex would collapse it to 0 height */}
+        <div className="shrink-0">
+          <SegmentedControl<DataMode>
+            label="Data mode"
+            value={mode}
+            onChange={(next) => next && setMode(next)}
+            options={[
+              { value: "all", label: "All matches" },
+              { value: "mayhem", label: "Mayhem" },
+            ]}
+          />
+        </div>
 
         <nav aria-label="Main navigation" className="flex flex-col gap-4">
           {NAV_GROUPS.map(({ title, paths }) => (
@@ -216,7 +219,10 @@ export function Sidebar() {
                 {title}
               </h2>
               {tabs
-                .filter((tab) => paths.includes(tab.to))
+                // Mayhem has no runes, so the tab disappears in that mode
+                .filter(
+                  (tab) => paths.includes(tab.to) && !(mode === "mayhem" && tab.to === "/runes"),
+                )
                 .map(({ to, label }) => (
                   <NavLink
                     key={to}

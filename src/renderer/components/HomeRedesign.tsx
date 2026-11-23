@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import type { ReactNode, SVGProps } from "react";
 import { Link } from "react-router-dom";
+import { useActiveMode } from "../hooks/useActiveMode";
 import type {
   AccountListItem,
   HomeAccountFilter,
@@ -161,6 +162,8 @@ export function HomeRedesign({
 }) {
   const champData = useChampionData();
   const lcuStatus = useLcuStatus();
+  const [dataMode] = useActiveMode();
+  const isMayhem = dataMode === "mayhem";
   const [lastMatch, setLastMatch] = useState<MatchListItem | null>(null);
   const [allTimeGames, setAllTimeGames] = useState(0);
   const [friends, setFriends] = useState<TeammateStats[]>([]);
@@ -254,7 +257,7 @@ export function HomeRedesign({
     { to: "/runes", label: "Runes", Icon: ZapIcon },
     { to: "/records", label: "Records", Icon: TrophyIcon },
     { to: "/trends", label: "Trends", Icon: TrendingUpIcon },
-  ];
+  ].filter((tile) => !(isMayhem && tile.to === "/runes"));
 
   return (
     <div
@@ -358,8 +361,9 @@ export function HomeRedesign({
 
       {/* 2. Mode and period filters */}
       <div className="flex flex-wrap items-center justify-between gap-3">
+        {/* Mayhem mode pins the queue globally, so the per-queue buttons are hidden */}
         <div className="flex flex-wrap items-center gap-2">
-          {MODES.map((m) => (
+          {(isMayhem ? [] : MODES).map((m) => (
             <button
               key={m.label}
               type="button"
@@ -620,7 +624,11 @@ export function HomeRedesign({
           )}
         </HubCard>
 
-        <HubCard title="Augments & runes" to="/augments" linkLabel="Open augments">
+        <HubCard
+          title={isMayhem ? "Augments" : "Augments & runes"}
+          to="/augments"
+          linkLabel="Open augments"
+        >
           {lastMatchAugments.length > 0 ? (
             <>
               <div className="flex flex-wrap gap-2">
@@ -638,9 +646,11 @@ export function HomeRedesign({
           ) : (
             <div className="text-[13px] text-lol-text">No augments in your last game.</div>
           )}
-          <Link to="/runes" className="mt-auto pt-3 text-[12px] font-semibold text-lol-text">
-            Rune statistics →
-          </Link>
+          {!isMayhem && (
+            <Link to="/runes" className="mt-auto pt-3 text-[12px] font-semibold text-lol-text">
+              Rune statistics →
+            </Link>
+          )}
         </HubCard>
 
         <HubCard title="Live data & patch" to="/data" linkLabel="Open data">

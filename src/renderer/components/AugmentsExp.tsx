@@ -4,6 +4,7 @@ import { useIpc } from "../hooks/useIpc";
 import { useActiveAccount } from "../hooks/useActiveAccount";
 import { useAugmentData, getAugmentName } from "../hooks/useChampions";
 import { useScopedQueue } from "../lib/historyScope";
+import { useActiveMode } from "../hooks/useActiveMode";
 import { useViewState } from "../hooks/useViewState";
 import AugmentIcon from "./AugmentIcon";
 import { Tile } from "./Tile";
@@ -128,6 +129,7 @@ export function AugmentsExp() {
   const [patch, setPatch] = useViewState<string | undefined>("augments.patch", undefined);
   const [queue, setQueue] = useViewState<number | undefined>("augments.queue", undefined);
   const scopedQueue = useScopedQueue(queue);
+  const [dataMode] = useActiveMode();
   const [activeAccountRaw] = useActiveAccount();
   const account = activeAccountRaw === ALL_ACCOUNTS_SENTINEL ? "all" : activeAccountRaw;
   const augmentData = useAugmentData(patch);
@@ -189,7 +191,11 @@ export function AugmentsExp() {
           <h1 className="relative pl-4 font-display text-[30px] font-bold leading-tight tracking-[0.2px] text-lol-text-bright before:absolute before:left-1 before:top-1/2 before:h-2 before:w-2 before:-translate-y-1/2 before:rotate-45 before:bg-lol-crimson after:absolute after:bottom-[-8px] after:left-4 after:h-px after:w-28 after:bg-gradient-to-r after:from-lol-crimson/70 after:to-transparent">
             Augments
           </h1>
-          <p className="mt-1.5 text-lol-text">Pick rate and win rate in ARAM Mayhem and Arena</p>
+          <p className="mt-1.5 text-lol-text">
+            {dataMode === "mayhem"
+              ? "Pick rate and win rate in ARAM Mayhem"
+              : "Pick rate and win rate in ARAM Mayhem and Arena"}
+          </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <QueueSelect value={queue} onChange={setQueue} filter={(id) => isAugmentQueue(id)} />

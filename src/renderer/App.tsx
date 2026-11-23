@@ -22,6 +22,7 @@ import Trends from "./pages/Trends";
 import Records from "./pages/Records";
 import MatchDetailPage from "./pages/MatchDetailPage";
 import GlobalStats from "./pages/GlobalStats";
+import { useActiveMode } from "./hooks/useActiveMode";
 import { useActiveTheme } from "./hooks/useActiveTheme";
 
 function ChampionsDetailRoute() {
@@ -42,6 +43,12 @@ function ItemDetailRoute() {
 function RedirectInRedesign({ children }: { children: ReactNode }) {
   const isRedesign = useActiveTheme({ exact: true }) === "redesign";
   return isRedesign ? <Navigate to="/profile" replace /> : children;
+}
+
+// Mayhem has no runes; a stale /runes URL or link falls back to Home in that mode
+function HiddenInMayhem({ children }: { children: ReactNode }) {
+  const [mode] = useActiveMode();
+  return mode === "mayhem" ? <Navigate to="/home" replace /> : children;
 }
 
 function ScopedFriendDetail() {
@@ -163,7 +170,14 @@ export default function App() {
           <Route path="/items" element={<FullHistorySection section="items" />} />
           <Route path="/items/:itemId" element={<ItemDetailRoute />} />
           <Route path="/augments" element={<FullHistorySection section="augments" />} />
-          <Route path="/runes" element={<FullHistorySection section="runes" />} />
+          <Route
+            path="/runes"
+            element={
+              <HiddenInMayhem>
+                <FullHistorySection section="runes" />
+              </HiddenInMayhem>
+            }
+          />
           <Route path="/friends" element={<FullHistorySection section="friends" />} />
           <Route path="/friends/:key" element={<FriendDetail />} />
           <Route path="/trends" element={<FullHistorySection section="trends" />} />

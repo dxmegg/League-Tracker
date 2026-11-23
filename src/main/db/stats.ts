@@ -164,8 +164,9 @@ const HEATMAP_WINDOW_DAYS = { "24h": 2, "7d": 182, "30d": 760, full: 182 } as co
 export function getActivityHeatmap(
   account?: string,
   timePeriod?: "24h" | "7d" | "30d" | "full",
+  queue?: number,
 ): ActivityHeatmapDay[] {
-  console.log("[db] getActivityHeatmap called:", { account, timePeriod });
+  console.log("[db] getActivityHeatmap called:", { account, timePeriod, queue });
   const statsPlaceholders = NO_STATS_QUEUE_IDS.map(() => "?").join(",");
   const where = [
     "g.is_remake = 0",
@@ -184,6 +185,8 @@ export function getActivityHeatmap(
   } else {
     where.push("mp.puuid = g.puuid");
   }
+  // Only when a queue is chosen: with none, applyQueueFilter would also drop hidden queues and change the unfiltered counts.
+  if (queue != null) applyQueueFilter(where, params, queue);
 
   // Hourly tiles are bucketed in the renderer's local time, so 24h returns one
   // ISO timestamp per game instead of UTC-day counts.

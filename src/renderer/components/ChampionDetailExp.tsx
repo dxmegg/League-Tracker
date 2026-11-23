@@ -50,6 +50,7 @@ import {
   formatTimeAgo,
 } from "../lib/format";
 import { useScopedQueue } from "../lib/historyScope";
+import { useActiveMode } from "../hooks/useActiveMode";
 import AugmentIcon from "./AugmentIcon";
 import ChampionIcon from "./ChampionIcon";
 import { DonutChart } from "./DonutChart";
@@ -166,6 +167,7 @@ export function ChampionDetailExp() {
   const [itemSort, setItemSort] = useState<RateSort>("count");
   const [keystoneSort, setKeystoneSort] = useState<RateSort>("count");
   const scopedQueue = useScopedQueue(queue);
+  const [dataMode] = useActiveMode();
   const [activeAccountRaw] = useActiveAccount();
   const account = activeAccountRaw === ALL_ACCOUNTS_SENTINEL ? "all" : activeAccountRaw;
   const overviewActive = activeTab === "ov";
@@ -655,19 +657,21 @@ export function ChampionDetailExp() {
         </div>
       </div>
       <div className="flex flex-wrap items-center gap-2">
-        <SegmentedControl
-          value={queue}
-          onChange={setQueue}
-          label="Queue"
-          options={[
-            { value: undefined, label: "All queues" },
-            { value: 420, label: "Ranked Solo" },
-            { value: 440, label: "Ranked Flex" },
-            { value: 450, label: "ARAM" },
-            { value: 400, label: "Normal" },
-            { value: 1700, label: "Arena" },
-          ]}
-        />
+        {dataMode !== "mayhem" && (
+          <SegmentedControl
+            value={queue}
+            onChange={setQueue}
+            label="Queue"
+            options={[
+              { value: undefined, label: "All queues" },
+              { value: 420, label: "Ranked Solo" },
+              { value: 440, label: "Ranked Flex" },
+              { value: 450, label: "ARAM" },
+              { value: 400, label: "Normal" },
+              { value: 1700, label: "Arena" },
+            ]}
+          />
+        )}
         <PatchSelect value={patch} onChange={setPatch} />
       </div>
 

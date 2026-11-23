@@ -28,6 +28,8 @@ import { ArrowDownIcon } from "./icons";
 import { MatchRowExperiment } from "./MatchRowExperiment";
 import { Panel } from "./Panel";
 import { queueLabel } from "./QueueSelect";
+import { useActiveMode } from "../hooks/useActiveMode";
+import { useScopedQueue } from "../lib/historyScope";
 
 // The list loads this many games per request, first page and every scroll after
 const PAGE_SIZE = 25;
@@ -107,7 +109,9 @@ export function YourProfileSections({
 }) {
   const [championFilter, setChampionFilter] = useState<number | undefined>(undefined);
   const [patchFilter, setPatchFilter] = useState<string | undefined>(undefined);
-  const [queueFilter, setQueueFilter] = useState<number | undefined>(undefined);
+  const [localQueue, setQueueFilter] = useState<number | undefined>(undefined);
+  const queueFilter = useScopedQueue(localQueue);
+  const [dataMode] = useActiveMode();
   const [sort, setSort] = useState<MatchSort | undefined>(undefined);
   const [sortDir, setSortDir] = useState<MatchSortDir>("desc");
   const [filterOptions, setFilterOptions] = useState<MatchFilterOptions>({
@@ -152,8 +156,8 @@ export function YourProfileSections({
     [account, timePeriod, queueFilter],
   );
   const { data: activityRows } = useIpc<ActivityHeatmapDay[]>(
-    () => window.api.getActivityHeatmap(account, timePeriod),
-    [account, timePeriod],
+    () => window.api.getActivityHeatmap(account, timePeriod, queueFilter),
+    [account, timePeriod, queueFilter],
   );
 
   useEffect(() => {
@@ -284,17 +288,21 @@ export function YourProfileSections({
                 label: `Patch ${formatPatch(patch)}`,
               }))}
             />
-            <FilterSelect
-              title="Filter by queue type"
-              value={queueFilter}
-              onChange={(value) => setQueueFilter(value === undefined ? undefined : Number(value))}
-              placeholder="Queue Type"
-              className="h-8 px-3 text-[12.5px]"
-              options={filterOptions.queues.map((q) => ({
-                value: q,
-                label: q === QUEUE_GROUP_ARENA ? "All Arena" : queueLabel(q),
-              }))}
-            />
+            {dataMode !== "mayhem" && (
+              <FilterSelect
+                title="Filter by queue type"
+                value={queueFilter}
+                onChange={(value) =>
+                  setQueueFilter(value === undefined ? undefined : Number(value))
+                }
+                placeholder="Queue Type"
+                className="h-8 px-3 text-[12.5px]"
+                options={filterOptions.queues.map((q) => ({
+                  value: q,
+                  label: q === QUEUE_GROUP_ARENA ? "All Arena" : queueLabel(q),
+                }))}
+              />
+            )}
             <div className="flex items-center gap-1">
               <FilterSelect
                 value={sort}

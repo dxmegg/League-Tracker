@@ -847,17 +847,21 @@ export default function MatchHistory({
                 label: `Patch ${formatPatch(patch)}`,
               }))}
             />
-            <FilterSelect
-              title="Filter by queue type"
-              value={queueFilter}
-              onChange={(value) => setQueueFilter(value === undefined ? undefined : Number(value))}
-              placeholder="Queue Type"
-              className="h-8 px-3 text-[12.5px]"
-              options={filterOptions.queues.map((q) => ({
-                value: q,
-                label: q === QUEUE_GROUP_ARENA ? "All Arena" : queueLabel(q),
-              }))}
-            />
+            {mode !== "mayhem" && (
+              <FilterSelect
+                title="Filter by queue type"
+                value={queueFilter}
+                onChange={(value) =>
+                  setQueueFilter(value === undefined ? undefined : Number(value))
+                }
+                placeholder="Queue Type"
+                className="h-8 px-3 text-[12.5px]"
+                options={filterOptions.queues.map((q) => ({
+                  value: q,
+                  label: q === QUEUE_GROUP_ARENA ? "All Arena" : queueLabel(q),
+                }))}
+              />
+            )}
             <div className="flex items-center gap-1">
               <FilterSelect
                 value={sort}
@@ -929,16 +933,20 @@ export default function MatchHistory({
                 label: `Patch ${formatPatch(patch)}`,
               }))}
             />
-            <FilterSelect
-              title="Filter by queue type"
-              value={queueFilter}
-              onChange={(value) => setQueueFilter(value === undefined ? undefined : Number(value))}
-              placeholder="Queue Type"
-              options={filterOptions.queues.map((q) => ({
-                value: q,
-                label: q === QUEUE_GROUP_ARENA ? "All Arena" : queueLabel(q),
-              }))}
-            />
+            {mode !== "mayhem" && (
+              <FilterSelect
+                title="Filter by queue type"
+                value={queueFilter}
+                onChange={(value) =>
+                  setQueueFilter(value === undefined ? undefined : Number(value))
+                }
+                placeholder="Queue Type"
+                options={filterOptions.queues.map((q) => ({
+                  value: q,
+                  label: q === QUEUE_GROUP_ARENA ? "All Arena" : queueLabel(q),
+                }))}
+              />
+            )}
             <div className="flex items-center gap-1">
               <FilterSelect
                 value={sort}

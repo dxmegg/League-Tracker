@@ -262,9 +262,9 @@ export function registerIpcHandlers() {
 
   ipcMain.handle(
     "db:activity-heatmap",
-    (_event, account?: string, timePeriod?: "24h" | "7d" | "30d" | "full") => {
-      console.log("[db] activity-heatmap handler called:", { account, timePeriod });
-      const result = db.getActivityHeatmap(account, timePeriod);
+    (_event, account?: string, timePeriod?: "24h" | "7d" | "30d" | "full", queue?: number) => {
+      console.log("[db] activity-heatmap handler called:", { account, timePeriod, queue });
+      const result = db.getActivityHeatmap(account, timePeriod, queue);
       console.log("[db] activity-heatmap handler done:", { count: result.length });
       return result;
     },
