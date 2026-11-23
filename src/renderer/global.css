@@ -485,6 +485,11 @@ html[data-theme="test"] #root {
       box-shadow 0.2s ease;
   }
 
+  /* backdrop-filter traps children in their own stacking context, so an open dropdown would sit under the next card */
+  .glass-card:focus-within {
+    z-index: 20;
+  }
+
   .glass-card:hover {
     border-color: color-mix(in oklab, var(--theme-crimson) 48%, var(--theme-border));
     box-shadow:

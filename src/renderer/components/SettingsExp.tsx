@@ -12,6 +12,7 @@ import { queueLabel } from "../components/QueueSelect";
 import { FilterSelect } from "../components/FilterSelect";
 import { setRemembering } from "../lib/viewState";
 import { useActiveTheme } from "../hooks/useActiveTheme";
+import { useActiveMode } from "../hooks/useActiveMode";
 import type { BackupInfo } from "../lib/types";
 import {
   RIOT_ACCOUNT_PLATFORMS,
@@ -376,7 +377,8 @@ export function SettingsExp() {
     stop: stopTimelineBackfill,
   } = useTimelineBackfill();
   const anyRunning = backfilling || timelineBackfilling;
-  const activeTheme = useActiveTheme({ exact: true }) || "experiment";
+  const activeTheme = useActiveTheme({ exact: true }) || "redesign";
+  const [mode] = useActiveMode();
   const [autoStart, setAutoStart] = useState(false);
   // Only the packaged program has a path worth registering, so the switch says
   // so instead of pretending in a dev build
@@ -998,7 +1000,7 @@ export function SettingsExp() {
               void window.api.setSetting("theme", value);
               document.documentElement.setAttribute("data-theme", value);
             }}
-            placeholder="First Theme"
+            placeholder="Redesign"
             title="Theme"
             className="w-48"
             options={[...THEME_OPTIONS]}
@@ -1263,9 +1265,13 @@ export function SettingsExp() {
         <div className="space-y-4">
           <div className="flex items-center justify-between gap-4 border-b border-lol-border/40 px-3 py-2 transition-colors duration-[120ms] hover:bg-white/[0.02] last:border-b-0 xl:px-4 xl:py-3">
             <div>
-              <p className="text-[13.5px] text-lol-text-bright">Export data</p>
+              <p className="text-[13.5px] text-lol-text-bright">
+                {mode === "mayhem" ? "Export Mayhem games only" : "Export all games"}
+              </p>
               <p className="text-[12.5px] text-lol-text">
-                Save all match data to a JSON file for backup.
+                {mode === "mayhem"
+                  ? "Save Mayhem match data to a file for backup."
+                  : "Save all match data to a file for backup."}
               </p>
             </div>
             <Button

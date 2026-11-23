@@ -8,6 +8,7 @@ import { getSetting, setSetting } from "./settings";
 import { rebuildDerivedStats, repairDerivedScores } from "./scoring";
 import { rebuildParticipantsFromPayloads } from "./schema";
 import type { ExportProgress, ImportProgress } from "../../shared/api";
+import { MAYHEM_QUEUE_IDS } from "../../shared/queues";
 
 // ---- Export / Import ----
 
@@ -19,7 +20,14 @@ const TIMELINE_PAGE_SIZE = 5000;
 export async function writeExportTo(
   filePath: string,
   onProgress?: (progress: ExportProgress) => void,
+  mayhemOnly = false,
 ): Promise<{ games: number }> {
+  // Queue ids are numeric constants, so inlining them is safe
+  const mayhemIds = MAYHEM_QUEUE_IDS.join(",");
+  const gamesWhere = mayhemOnly ? ` AND queue_id IN (${mayhemIds})` : "";
+  const timelineWhere = mayhemOnly
+    ? ` AND game_id IN (SELECT game_id FROM games WHERE queue_id IN (${mayhemIds}))`
+    : "";
   const out = fs.createWriteStream(filePath);
   const gz = zlib.createGzip();
   gz.pipe(out);
@@ -31,19 +39,19 @@ export async function writeExportTo(
   let count = 0;
   try {
     const totalGames = (
-      db.prepare("SELECT COUNT(*) AS count FROM games WHERE raw_gz IS NOT NULL").get() as {
-        count: number;
-      }
+      db
+        .prepare(`SELECT COUNT(*) AS count FROM games WHERE raw_gz IS NOT NULL${gamesWhere}`)
+        .get() as { count: number }
     ).count;
-    const totalStatuses = (
-      db.prepare("SELECT COUNT(*) AS count FROM match_timeline_status").get() as { count: number }
-    ).count;
-    const totalFrames = (
-      db.prepare("SELECT COUNT(*) AS count FROM match_timeline_frames").get() as { count: number }
-    ).count;
-    const totalEvents = (
-      db.prepare("SELECT COUNT(*) AS count FROM match_timeline_events").get() as { count: number }
-    ).count;
+    const countTimeline = (table: string) =>
+      (
+        db.prepare(`SELECT COUNT(*) AS count FROM ${table} WHERE 1=1${timelineWhere}`).get() as {
+          count: number;
+        }
+      ).count;
+    const totalStatuses = countTimeline("match_timeline_status");
+    const totalFrames = countTimeline("match_timeline_frames");
+    const totalEvents = countTimeline("match_timeline_events");
     const summoners = db.prepare("SELECT * FROM summoner").all();
     const settings = db.prepare("SELECT key, value FROM settings").all();
     const ignoredGames = db.prepare("SELECT game_id FROM ignored_games").all();
@@ -67,7 +75,7 @@ export async function writeExportTo(
     const page = db.prepare(`
       SELECT game_id, raw_gz, puuid, favorite, source
       FROM games
-      WHERE raw_gz IS NOT NULL AND game_id > ?
+      WHERE raw_gz IS NOT NULL AND game_id > ?${gamesWhere}
       ORDER BY game_id
       LIMIT ?
     `);
@@ -106,7 +114,7 @@ export async function writeExportTo(
     const statusPage = db.prepare(`
       SELECT game_id, fetched_at, frame_count, event_count, fetch_error, raw_gz
       FROM match_timeline_status
-      WHERE game_id > ?
+      WHERE game_id > ?${timelineWhere}
       ORDER BY game_id
       LIMIT ?
     `);
@@ -146,7 +154,7 @@ export async function writeExportTo(
              position_x, position_y, attack_damage, ability_power, armor, magic_resist,
              attack_speed, ability_haste, move_speed, max_health, current_health
       FROM match_timeline_frames
-      WHERE (game_id, frame_index, participant_id) > (?, ?, ?)
+      WHERE (game_id, frame_index, participant_id) > (?, ?, ?)${timelineWhere}
       ORDER BY game_id, frame_index, participant_id
       LIMIT ?
     `);
@@ -183,7 +191,7 @@ export async function writeExportTo(
              team_id, item_id, skill_slot, level_up_type, ward_type, building_type,
              monster_type, monster_subtype, raw_json
       FROM match_timeline_events
-      WHERE (game_id, event_index) > (?, ?)
+      WHERE (game_id, event_index) > (?, ?)${timelineWhere}
       ORDER BY game_id, event_index
       LIMIT ?
     `);

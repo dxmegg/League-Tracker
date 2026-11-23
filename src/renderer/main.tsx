@@ -36,7 +36,7 @@ Promise.resolve(window.api?.getDebugEnabled?.())
           stored === "experiment5" ||
           stored === "redesign"
             ? stored
-            : "experiment";
+            : "redesign";
         document.documentElement.setAttribute("data-theme", valid);
       })
       .finally(() => {

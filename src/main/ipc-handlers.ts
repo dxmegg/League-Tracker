@@ -1442,9 +1442,11 @@ export function registerIpcHandlers() {
   // Data export/import
   ipcMain.handle("data:export", async (event) => {
     const win = senderWindow(event);
+    // Mirrors parseMode in the renderer: anything but an explicit "all" means Mayhem
+    const mayhemOnly = db.getSetting("active_mode") !== "all";
     const options = {
-      title: "Export Mayhem Data",
-      defaultPath: `mayhem-backup-${new Date().toISOString().slice(0, 10)}.json.gz`,
+      title: mayhemOnly ? "Export Mayhem Games Only" : "Export All Games",
+      defaultPath: `${mayhemOnly ? "mayhem" : "all"}-backup-${new Date().toISOString().slice(0, 10)}.json.gz`,
       filters: [{ name: "League Tracker backup", extensions: ["json.gz", "gz"] }],
     };
     // Parented to the window when there is one, so the dialog is modal
@@ -1453,11 +1455,15 @@ export function registerIpcHandlers() {
       : await dialog.showSaveDialog(options);
     if (result.canceled || !result.filePath) return { success: false };
     try {
-      const exportResult = await db.writeExportTo(result.filePath, (progress) => {
-        if (win && !win.isDestroyed()) {
-          win.webContents.send("data:export-progress", progress);
-        }
-      });
+      const exportResult = await db.writeExportTo(
+        result.filePath,
+        (progress) => {
+          if (win && !win.isDestroyed()) {
+            win.webContents.send("data:export-progress", progress);
+          }
+        },
+        mayhemOnly,
+      );
       return { success: true, path: result.filePath, games: exportResult.games };
     } catch (err: any) {
       // A partial file would still look like a backup, so don't leave one
@@ -1475,7 +1481,7 @@ export function registerIpcHandlers() {
   ipcMain.handle("data:import", async (event) => {
     const win = senderWindow(event);
     const options = {
-      title: "Import Mayhem Data",
+      title: "Import Games (all modes)",
       filters: [{ name: "League Tracker backup", extensions: ["json.gz", "gz", "json"] }],
       properties: ["openFile" as const],
     };

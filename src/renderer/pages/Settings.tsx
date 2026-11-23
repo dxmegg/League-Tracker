@@ -111,7 +111,7 @@ export default function Settings() {
   // Shared so a backfill started automatically on first connect shows here too
   const { running: backfilling } = useBackfill();
   const [theme, setTheme] = useState<string>(
-    () => document.documentElement.getAttribute("data-theme") ?? "experiment",
+    () => document.documentElement.getAttribute("data-theme") ?? "redesign",
   );
   const [autoStart, setAutoStart] = useState(false);
   // Only the packaged program has a path worth registering, so the switch says
