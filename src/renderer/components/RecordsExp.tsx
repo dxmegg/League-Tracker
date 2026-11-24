@@ -341,7 +341,7 @@ export function RecordsExp({
   if (error) {
     const errorMessage = error;
     return (
-      <div className="mx-auto flex min-h-full w-full max-w-[1320px] flex-col gap-5">
+      <div className="flex min-h-full w-full flex-col gap-5">
         <div className="relative rounded-xl border border-lol-border border-t-[3px] border-t-lol-crimson bg-[radial-gradient(circle_at_top_right,color-mix(in_oklab,var(--theme-crimson)_10%,transparent),transparent_46%),linear-gradient(180deg,var(--theme-card-hover),var(--theme-card))] px-5 py-4">
           <div className="flex flex-wrap items-start justify-between gap-4">
             <div>
@@ -368,7 +368,7 @@ export function RecordsExp({
 
   if (!data) {
     return (
-      <div className="mx-auto flex min-h-full w-full max-w-[1320px] flex-col gap-5">
+      <div className="flex min-h-full w-full flex-col gap-5">
         <div className="relative rounded-xl border border-lol-border border-t-[3px] border-t-lol-crimson bg-[radial-gradient(circle_at_top_right,color-mix(in_oklab,var(--theme-crimson)_10%,transparent),transparent_46%),linear-gradient(180deg,var(--theme-card-hover),var(--theme-card))] px-5 py-4">
           <div className="flex flex-wrap items-start justify-between gap-4">
             <div>
@@ -387,7 +387,7 @@ export function RecordsExp({
 
   if (data.totalGames === 0) {
     return (
-      <div className="mx-auto flex min-h-full w-full max-w-[1320px] flex-col gap-5">
+      <div className="flex min-h-full w-full flex-col gap-5">
         <div className="relative rounded-xl border border-lol-border border-t-[3px] border-t-lol-crimson bg-[radial-gradient(circle_at_top_right,color-mix(in_oklab,var(--theme-crimson)_10%,transparent),transparent_46%),linear-gradient(180deg,var(--theme-card-hover),var(--theme-card))] px-5 py-4">
           <div className="flex flex-wrap items-start justify-between gap-4">
             <div>
@@ -525,7 +525,7 @@ export function RecordsExp({
     survivalTiles.length + (data.fastestPentakill ? 1 : 0) + (data.flawlessAce ? 1 : 0);
 
   return (
-    <div className="mx-auto flex min-h-full w-full max-w-[1320px] flex-col gap-5">
+    <div className="flex min-h-full w-full flex-col gap-5">
       <div className="shrink-0 rounded-xl border border-lol-border border-t-[3px] border-t-lol-crimson bg-[radial-gradient(circle_at_top_right,color-mix(in_oklab,var(--theme-crimson)_10%,transparent),transparent_46%),linear-gradient(180deg,var(--theme-card-hover),var(--theme-card))] px-5 py-4">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>

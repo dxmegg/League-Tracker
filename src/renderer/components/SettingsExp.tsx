@@ -984,7 +984,7 @@ export function SettingsExp() {
   if (loading) return null;
 
   return (
-    <div className="mx-auto flex min-h-full w-full max-w-[1320px] flex-col gap-5">
+    <div className="flex min-h-full w-full flex-col gap-5">
       <div>
         <h1 className="font-display text-[30px] font-bold leading-tight tracking-[0.2px] text-lol-text-bright">
           Settings

@@ -534,7 +534,7 @@ export default function Records() {
   if (error) {
     const errorMessage = error;
     return (
-      <div className="mx-auto flex min-h-full w-full max-w-[1320px] flex-col gap-5">
+      <div className="flex min-h-full w-full flex-col gap-5">
         {header}
         <div className="rounded-xl border border-lol-border bg-lol-card p-12 text-center">
           <p className="text-sm font-semibold text-lol-text-bright">Failed to load records.</p>
@@ -553,7 +553,7 @@ export default function Records() {
 
   if (!data) {
     return (
-      <div className="mx-auto flex min-h-full w-full max-w-[1320px] flex-col gap-5">
+      <div className="flex min-h-full w-full flex-col gap-5">
         {header}
         <div className="rounded-xl border border-lol-border bg-lol-card p-12 text-center">
           <p className="text-sm text-lol-text">Loading records…</p>
@@ -564,7 +564,7 @@ export default function Records() {
 
   if (data.totalGames === 0) {
     return (
-      <div className="mx-auto flex min-h-full w-full max-w-[1320px] flex-col gap-5">
+      <div className="flex min-h-full w-full flex-col gap-5">
         {header}
         <div className="relative overflow-hidden rounded-xl border border-lol-border border-t-[3px] border-t-lol-crimson bg-[linear-gradient(180deg,var(--theme-card-hover),var(--theme-card))] p-12 text-center">
           <p className="text-sm font-semibold text-lol-text-bright">No records yet</p>
@@ -582,7 +582,7 @@ export default function Records() {
     cards.push(streakCard(data.lossStreak, false));
   }
   return (
-    <div className="mx-auto flex min-h-full w-full max-w-[1320px] flex-col gap-5">
+    <div className="flex min-h-full w-full flex-col gap-5">
       {header}
       <div>
         <SectionHeading title="Personal bests" />

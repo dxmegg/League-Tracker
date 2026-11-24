@@ -240,7 +240,7 @@ export function FriendsExp() {
   const championTableClass = `${tableClass} ${CHAMPION_GRID}`;
 
   return (
-    <div className="mx-auto flex min-h-full w-full max-w-[1320px] flex-col gap-5">
+    <div className="flex min-h-full w-full flex-col gap-5">
       <div className="flex flex-wrap items-center gap-3">
         <label className="relative w-56">
           <span className="sr-only">Search players and champions</span>

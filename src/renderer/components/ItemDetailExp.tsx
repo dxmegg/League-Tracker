@@ -145,7 +145,7 @@ export function ItemDetailExp() {
 
   if (loading || !data) {
     return (
-      <div className="mx-auto flex min-h-full w-full max-w-[1320px] items-center justify-center rounded-[14px] border border-lol-border p-12 text-sm text-lol-text">
+      <div className="flex min-h-full w-full items-center justify-center rounded-[14px] border border-lol-border p-12 text-sm text-lol-text">
         Loading item details…
       </div>
     );
@@ -157,7 +157,7 @@ export function ItemDetailExp() {
   const buildRate = data.totalGames ? (data.picks / data.totalGames) * 100 : 0;
 
   return (
-    <div className="mx-auto flex min-h-full w-full max-w-[1320px] flex-col gap-5">
+    <div className="flex min-h-full w-full flex-col gap-5">
       <Link
         to={back}
         className="w-fit text-xs font-semibold text-lol-text transition-colors duration-120 hover:text-lol-text-bright"

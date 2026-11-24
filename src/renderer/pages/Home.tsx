@@ -692,7 +692,7 @@ export default function Home() {
 
   if (isExperiment) {
     return (
-      <div className="mx-auto flex min-h-full w-full max-w-[1320px] flex-col gap-5">
+      <div className="flex min-h-full w-full flex-col gap-5">
         {/* Page head + time toggle */}
         <div className="flex flex-wrap items-end justify-between gap-4">
           <div>

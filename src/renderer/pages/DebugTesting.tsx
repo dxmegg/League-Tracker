@@ -12,7 +12,7 @@ const GLOW_CARD =
 
 export default function DebugTesting() {
   return (
-    <div className="mx-auto grid w-full max-w-[1320px] grid-cols-1 gap-5 md:grid-cols-2">
+    <div className="grid w-full grid-cols-1 gap-5 md:grid-cols-2">
       {[1, 2, 3, 4].map((n) => (
         <Card key={n} className={GLOW_CARD}>
           <CardContent className="font-display text-[22px] font-bold text-lol-text-bright">

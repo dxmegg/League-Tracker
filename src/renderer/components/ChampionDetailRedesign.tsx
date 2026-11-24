@@ -289,7 +289,7 @@ export function ChampionDetailRedesign() {
 
   if (allStatsLoading && !allStats) {
     return (
-      <div className="mx-auto flex w-full max-w-[1320px] flex-col gap-5">
+      <div className="flex w-full flex-col gap-5">
         {backButton}
         <p className="py-10 text-center text-sm text-lol-text">Loading…</p>
       </div>
@@ -297,7 +297,7 @@ export function ChampionDetailRedesign() {
   }
   if (!stats || stats.games === 0) {
     return (
-      <div className="mx-auto flex w-full max-w-[1320px] flex-col gap-5">
+      <div className="flex w-full flex-col gap-5">
         {backButton}
         <p className="py-10 text-center text-sm text-lol-text">
           No games with this champion for the selected filters.
@@ -313,7 +313,7 @@ export function ChampionDetailRedesign() {
   const pct = (v: number | null | undefined) => (v == null ? "—" : `${(v * 100).toFixed(1)}%`);
 
   return (
-    <div className="mx-auto flex w-full max-w-[1320px] flex-col gap-5">
+    <div className="flex w-full flex-col gap-5">
       {backButton}
 
       <div className="relative overflow-hidden rounded-[14px] glass-card p-6">

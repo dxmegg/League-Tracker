@@ -525,7 +525,7 @@ export function TrendsExp({
   );
 
   return (
-    <div className="mx-auto flex min-h-full w-full max-w-[1320px] flex-col gap-6">
+    <div className="flex min-h-full w-full flex-col gap-6">
       <section aria-labelledby="trends-overview" className="flex flex-col gap-6">
         <h2
           id="trends-overview"

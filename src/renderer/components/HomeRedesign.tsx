@@ -822,7 +822,7 @@ export function HomeRedesign({
 
   return (
     <div
-      className={`mx-auto flex min-h-full w-full max-w-[1320px] flex-col gap-5 transition-opacity [&>*]:shrink-0 ${loading ? "opacity-70" : ""}`}
+      className={`flex min-h-full w-full flex-col gap-5 transition-opacity [&>*]:shrink-0 ${loading ? "opacity-70" : ""}`}
     >
       {/* 1. Hero: splash-art banner with identity, quick launch and stat tiles */}
       <section className="relative overflow-hidden rounded-[22px] border border-lol-border/70 shadow-[0_24px_60px_-28px_var(--theme-crimson-glow)]">

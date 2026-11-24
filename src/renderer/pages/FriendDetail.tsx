@@ -96,7 +96,7 @@ export default function FriendDetail() {
 
   if (!data) {
     return (
-      <div className="mx-auto flex min-h-full w-full max-w-[1320px] flex-col gap-5">
+      <div className="flex min-h-full w-full flex-col gap-5">
         <div className="flex flex-wrap items-center gap-2">
           <Link
             to={scope ? `/history/${scope}/${enemies ? "enemies" : "friends"}` : "/friends"}
@@ -230,7 +230,7 @@ export default function FriendDetail() {
     .slice(0, 8);
 
   return (
-    <div className="mx-auto flex min-h-full w-full max-w-[1320px] flex-col gap-5">
+    <div className="flex min-h-full w-full flex-col gap-5">
       <div className="flex flex-wrap items-center gap-2">
         <Link
           to={scope ? `/history/${scope}/${enemies ? "enemies" : "friends"}` : "/friends"}

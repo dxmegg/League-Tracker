@@ -221,7 +221,7 @@ export default function Live() {
   );
 
   return (
-    <div className="mx-auto flex min-h-full w-full max-w-[1320px] flex-col gap-5">
+    <div className="flex min-h-full w-full flex-col gap-5">
       <Panel variant="tile" accent={inGame ? "var(--color-lol-loss)" : "var(--color-lol-text)"}>
         <div className="flex flex-wrap items-center justify-between gap-x-8 gap-y-4">
           <div className="min-w-0">
