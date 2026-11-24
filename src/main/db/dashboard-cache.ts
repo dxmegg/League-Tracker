@@ -1,7 +1,9 @@
 import type { HomeDashboardPayload } from "../../shared/api";
 import { invalidateAllCaches } from "./cache";
 
-const DASHBOARD_CACHE_TTL_MS = 60_000;
+// Computing a dashboard blocks the main process (sync SQLite), so a miss freezes the whole window.
+// Writes invalidate the cache explicitly; the TTL only has to cover rolling windows like "24h".
+const DASHBOARD_CACHE_TTL_MS = 10 * 60_000;
 const MAX_CACHE_ENTRIES = 20;
 
 interface DashboardCacheEntry {

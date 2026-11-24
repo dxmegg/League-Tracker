@@ -1,13 +1,13 @@
 import { Card, CardContent } from "@/components/ui/card";
 
-// Tinted by --theme-crimson, which is the violet accent in Mayhem mode. The slow transition on
+// Fixed violet (not theme-tinted) so the cards stay purple in every mode. The slow transition on
 // hover leaves the glow fading out behind the cursor (the "afterglow").
 const GLOW_CARD =
-  "rounded-2xl border border-lol-crimson/50 p-6 " +
-  "bg-[radial-gradient(circle_at_top_right,color-mix(in_oklab,var(--theme-crimson)_22%,transparent),transparent_60%),linear-gradient(160deg,color-mix(in_oklab,var(--theme-crimson)_10%,var(--theme-card-hover)),var(--theme-card))] " +
-  "shadow-[inset_0_0_14px_-4px_var(--theme-crimson-glow),0_0_14px_-2px_var(--theme-crimson-glow),0_0_42px_-8px_var(--theme-crimson-glow)] " +
+  "rounded-2xl border border-violet-500/30 p-6 " +
+  "bg-[radial-gradient(circle_at_top_right,rgb(139_92_246/0.14),transparent_55%),linear-gradient(160deg,rgb(46_16_101/0.45),var(--theme-card)_70%)] " +
+  "shadow-[inset_0_1px_0_0_rgb(196_181_253/0.06),0_0_24px_-10px_rgb(139_92_246/0.35)] " +
   "transition-[box-shadow,border-color] duration-700 ease-out " +
-  "hover:border-lol-crimson-bright/80 hover:shadow-[inset_0_0_22px_-4px_var(--theme-crimson-glow),0_0_22px_0_var(--theme-crimson-glow),0_0_64px_-4px_var(--theme-crimson-glow)] " +
+  "hover:border-violet-400/55 hover:shadow-[inset_0_1px_0_0_rgb(196_181_253/0.1),0_0_28px_-6px_rgb(139_92_246/0.5)] " +
   "hover:duration-150";
 
 export default function DebugTesting() {

@@ -606,6 +606,7 @@ export function registerIpcHandlers() {
           );
         }
       }
+      const startedAt = Date.now();
       const dashboard = db.getDashboardData({ account, queue }, timePeriod) as DashboardData & {
         avgDamageDealt: number;
         avgDamageTaken: number;
@@ -709,6 +710,7 @@ export function registerIpcHandlers() {
       };
 
       setCachedDashboard(cacheKey, result);
+      console.log("[db] home-dashboard computed:", { cacheKey, ms: Date.now() - startedAt });
       return result;
     },
   );
