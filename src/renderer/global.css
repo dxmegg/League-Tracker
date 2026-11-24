@@ -1,4 +1,32 @@
 @import "tailwindcss";
+@import "tw-animate-css";
+
+/* shadcn/ui semantic tokens, mapped onto the app's own --theme-* variables so every
+   theme switch also restyles shadcn components. `inline` keeps the var() reference
+   live instead of resolving it once at build time.
+   Deliberately left out: shadcn's --radius-* scale and its global `* { border-color }`
+   / body base layer, because both would change the look of existing screens.
+   `accent` is already the gold theme accent above; shadcn components that use
+   bg-accent (hover rows) must be edited to bg-surface-hover when they are added. */
+@theme inline {
+  --color-background: var(--theme-bg);
+  --color-foreground: var(--theme-text-bright);
+  --color-card: var(--theme-card);
+  --color-card-foreground: var(--theme-text-bright);
+  --color-popover: var(--theme-card);
+  --color-popover-foreground: var(--theme-text-bright);
+  --color-primary: var(--theme-crimson);
+  --color-primary-foreground: #ffffff;
+  --color-secondary: var(--theme-card-hover);
+  --color-secondary-foreground: var(--theme-text-bright);
+  --color-muted: var(--theme-card-hover);
+  --color-muted-foreground: var(--theme-text);
+  --color-accent-foreground: var(--theme-text-bright);
+  --color-destructive: var(--theme-loss);
+  --color-border: var(--theme-border);
+  --color-input: var(--theme-border);
+  --color-ring: var(--theme-crimson);
+}
 
 @theme {
   --color-lol-dark: #0b0e14;
