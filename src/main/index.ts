@@ -1,4 +1,5 @@
-import { app, BrowserWindow, Tray, Menu, nativeImage, screen } from "electron";
+import { app, BrowserWindow, Tray, Menu, nativeImage, screen, dialog } from "electron";
+import fs from "fs";
 import path from "path";
 import {
   closeDatabase,
@@ -66,6 +67,36 @@ const iconPath = path.join(app.getAppPath(), "assets/icon.png");
 
 // Set by the login item when auto-start is on: come up in the tray only.
 const launchedHidden = process.argv.includes(HIDDEN_FLAG);
+
+// Without this a failed start is a process that quietly disappears, and nobody has anything to
+// report. The reason goes to a file next to the database and into a dialog.
+function reportFatal(where: string, err: unknown): void {
+  const detail = err instanceof Error ? (err.stack ?? err.message) : String(err);
+  const logPath = path.join(app.getPath("userData"), "startup.log");
+  try {
+    fs.appendFileSync(logPath, `${new Date().toISOString()} ${where}\n${detail}\n\n`);
+  } catch {
+    // The folder may be the very thing that is broken; the dialog below still shows the reason.
+  }
+  console.error(where, err);
+  dialog.showErrorBox("Rift Records could not start", `${where}\n\n${detail}\n\nLog: ${logPath}`);
+}
+
+// A broken graphics driver can kill the GPU process before the first frame, which looks exactly
+// like "nothing opens". The first time that happens, start again once with software rendering.
+const SOFTWARE_RENDER_FLAG = "--software-render";
+const softwareRender = process.argv.includes(SOFTWARE_RENDER_FLAG);
+if (softwareRender) app.disableHardwareAcceleration();
+app.on("child-process-gone", (_event, details) => {
+  if (details.type !== "GPU" || softwareRender) return;
+  console.error("GPU process gone, restarting with software rendering:", details.reason);
+  app.relaunch({
+    // The portable build runs from a temp copy that is deleted on exit; relaunch the real exe
+    execPath: process.env.PORTABLE_EXECUTABLE_FILE ?? process.execPath,
+    args: [...process.argv.slice(1), SOFTWARE_RENDER_FLAG],
+  });
+  app.exit(0);
+});
 
 function createWindow(): BrowserWindow {
   const { width: workAreaWidth } = screen.getPrimaryDisplay().workAreaSize;
@@ -202,131 +233,138 @@ function createTray() {
   });
 }
 
-app.whenReady().then(async () => {
-  void fetch(
-    `${PROXY_BASE_URL}/proxy/riot/account/v1/accounts/by-riot-id/test/test?platform=europe`,
-  )
-    .then((res) => {
-      if (res.status === 401 || res.status === 403) {
-        console.warn("[startup] Proxy reached, but the Riot API key appears invalid.");
-      } else if (res.status >= 500) {
-        console.error("[startup] Cannot reach the Riot API proxy. Profile lookups will fail.");
-      } else if (res.status === 200) {
-        return res
-          .json()
-          .then((body: unknown) => {
-            const isObject = typeof body === "object" && body !== null;
-            const record = isObject ? (body as Record<string, unknown>) : null;
-            const status = record?.status;
-            const hasStatusCode =
-              typeof status === "object" && status !== null && "status_code" in status;
-            const hasPuuid = record !== null && "puuid" in record;
-            const isEmpty = isObject && Object.keys(body).length === 0;
-            if (hasPuuid || hasStatusCode || isEmpty) {
-              console.log("[startup] Proxy is reachable and the Riot API key is working.");
-            } else {
+app
+  .whenReady()
+  .then(async () => {
+    void fetch(
+      `${PROXY_BASE_URL}/proxy/riot/account/v1/accounts/by-riot-id/test/test?platform=europe`,
+    )
+      .then((res) => {
+        if (res.status === 401 || res.status === 403) {
+          console.warn("[startup] Proxy reached, but the Riot API key appears invalid.");
+        } else if (res.status >= 500) {
+          console.error("[startup] Cannot reach the Riot API proxy. Profile lookups will fail.");
+        } else if (res.status === 200) {
+          return res
+            .json()
+            .then((body: unknown) => {
+              const isObject = typeof body === "object" && body !== null;
+              const record = isObject ? (body as Record<string, unknown>) : null;
+              const status = record?.status;
+              const hasStatusCode =
+                typeof status === "object" && status !== null && "status_code" in status;
+              const hasPuuid = record !== null && "puuid" in record;
+              const isEmpty = isObject && Object.keys(body).length === 0;
+              if (hasPuuid || hasStatusCode || isEmpty) {
+                console.log("[startup] Proxy is reachable and the Riot API key is working.");
+              } else {
+                console.warn("[startup] Proxy returned an unexpected body.");
+              }
+            })
+            .catch(() => {
               console.warn("[startup] Proxy returned an unexpected body.");
-            }
-          })
-          .catch(() => {
-            console.warn("[startup] Proxy returned an unexpected body.");
-          });
-      } else {
-        console.warn("[startup] Unexpected proxy response:", res.status);
-      }
-    })
-    .catch((err) => {
-      console.error("[startup] Cannot reach the Riot API proxy. Profile lookups will fail.", err);
-    });
-
-  // Windows groups taskbar entries and attributes notifications by this id;
-  // without it the app is identified by the Electron executable instead.
-  app.setAppUserModelId("com.dxmegg.leaguetracker");
-
-  // Pairs with that id: gives the taskbar a durable shortcut to pin in place of
-  // the temp exe the portable launcher runs from.
-  ensureStartMenuShortcut();
-
-  // Before any window exists, so no web contents escapes the policy
-  applySecurityPolicy();
-
-  // Initialize the database first. Through the backup module rather than
-  // directly: a database that has been deleted or damaged since the last launch
-  // is restored from the newest good snapshot here, before anything reads it.
-  try {
-    await initDatabaseWithRecovery();
-  } catch (err: unknown) {
-    // Recovery handles expected missing/corrupt databases. Keep an unexpected
-    // migration failure from becoming an unhandled rejection in whenReady.
-    console.error("Database initialization failed:", err);
-    app.quit();
-    return;
-  }
-
-  try {
-    const result = repairDerivedScores();
-    console.log(`[db] repaired ${result.repaired} stale derived scores`);
-  } catch (err: unknown) {
-    console.error("[db] Failed to repair stale derived scores:", err);
-  }
-
-  try {
-    reconcileOwnerPuuids();
-    backfillMissingTrackedRows();
-  } catch (err: unknown) {
-    console.error("[startup] Failed to run tracked-row diagnostic:", err);
-  }
-
-  // Needs the database, which holds the answer. Keeps the login item pointing at
-  // the portable exe wherever it has been moved to since the last launch.
-  syncAutoStart();
-
-  // Load assets in background
-  loadChampionData();
-  loadAugmentData().catch((err) => console.error("Failed to load augment data:", err));
-
-  // Recompute stored scores once champion class data is available, so the
-  // backfill uses the same class weights as insert-time scoring.
-  waitForChampionData()
-    .then(() => {
-      runScoreBackfillIfNeeded((done, total) => {
-        mainWindow?.webContents.send("lcu:participant-score-progress", {
-          phase: "scores",
-          done,
-          total,
-        });
+            });
+        } else {
+          console.warn("[startup] Unexpected proxy response:", res.status);
+        }
+      })
+      .catch((err) => {
+        console.error("[startup] Cannot reach the Riot API proxy. Profile lookups will fail.", err);
       });
-      if (checkScoreBackfill()) {
-        console.log("[score] formula changed, stored scores recomputed");
-        invalidateDashboardCache();
-        mainWindow?.webContents.send("lcu:games-updated");
-      }
-    })
-    .catch((err: unknown) => console.error("[score] startup rescore failed:", err));
 
-  // Registered once, outside createWindow: ipcMain.handle throws if the same
-  // channel is claimed twice, which a second createWindow would have done.
-  seedDefaultRiotAccounts();
-  registerIpcHandlers();
-  registerDragonAssetProtocol();
+    // Windows groups taskbar entries and attributes notifications by this id;
+    // without it the app is identified by the Electron executable instead.
+    app.setAppUserModelId("com.dxmegg.leaguetracker");
 
-  const win = createWindow();
-  createTray();
+    // Pairs with that id: gives the taskbar a durable shortcut to pin in place of
+    // the temp exe the portable launcher runs from.
+    ensureStartMenuShortcut();
 
-  startPolling(win);
-  startAccountWatcher();
-  startBackupSchedule();
-  setTimeout(() => {
+    // Before any window exists, so no web contents escapes the policy
+    applySecurityPolicy();
+
+    // Initialize the database first. Through the backup module rather than
+    // directly: a database that has been deleted or damaged since the last launch
+    // is restored from the newest good snapshot here, before anything reads it.
     try {
-      const result = reconcileAllParticipantNames();
-      console.log(
-        `[startup-reconcile] updated ${result.rows} participant names across ${result.accounts} accounts`,
-      );
-    } catch (err) {
-      console.warn("[startup-reconcile] failed:", err);
+      await initDatabaseWithRecovery();
+    } catch (err: unknown) {
+      // Recovery handles expected missing/corrupt databases. Keep an unexpected
+      // migration failure from becoming an unhandled rejection in whenReady.
+      reportFatal("Database initialization failed", err);
+      app.quit();
+      return;
     }
-  }, 10_000);
-});
+
+    try {
+      const result = repairDerivedScores();
+      console.log(`[db] repaired ${result.repaired} stale derived scores`);
+    } catch (err: unknown) {
+      console.error("[db] Failed to repair stale derived scores:", err);
+    }
+
+    try {
+      reconcileOwnerPuuids();
+      backfillMissingTrackedRows();
+    } catch (err: unknown) {
+      console.error("[startup] Failed to run tracked-row diagnostic:", err);
+    }
+
+    // Needs the database, which holds the answer. Keeps the login item pointing at
+    // the portable exe wherever it has been moved to since the last launch.
+    syncAutoStart();
+
+    // Load assets in background
+    loadChampionData();
+    loadAugmentData().catch((err) => console.error("Failed to load augment data:", err));
+
+    // Recompute stored scores once champion class data is available, so the
+    // backfill uses the same class weights as insert-time scoring.
+    waitForChampionData()
+      .then(() => {
+        runScoreBackfillIfNeeded((done, total) => {
+          mainWindow?.webContents.send("lcu:participant-score-progress", {
+            phase: "scores",
+            done,
+            total,
+          });
+        });
+        if (checkScoreBackfill()) {
+          console.log("[score] formula changed, stored scores recomputed");
+          invalidateDashboardCache();
+          mainWindow?.webContents.send("lcu:games-updated");
+        }
+      })
+      .catch((err: unknown) => console.error("[score] startup rescore failed:", err));
+
+    // Registered once, outside createWindow: ipcMain.handle throws if the same
+    // channel is claimed twice, which a second createWindow would have done.
+    seedDefaultRiotAccounts();
+    registerIpcHandlers();
+    registerDragonAssetProtocol();
+
+    const win = createWindow();
+    createTray();
+
+    startPolling(win);
+    startAccountWatcher();
+    startBackupSchedule();
+    setTimeout(() => {
+      try {
+        const result = reconcileAllParticipantNames();
+        console.log(
+          `[startup-reconcile] updated ${result.rows} participant names across ${result.accounts} accounts`,
+        );
+      } catch (err) {
+        console.warn("[startup-reconcile] failed:", err);
+      }
+    }, 10_000);
+  })
+  .catch((err: unknown) => {
+    // Anything thrown while starting up (before the window) would otherwise be an unhandled rejection
+    reportFatal("Startup failed", err);
+    app.quit();
+  });
 
 app.on("before-quit", async (event) => {
   isQuitting = true;
