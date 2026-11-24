@@ -3,6 +3,7 @@ import type { LiveFull } from "../../shared/api";
 import { LiveEvents } from "../components/live/LiveEvents";
 import { LiveMe } from "../components/live/LiveMe";
 import { LiveTeamStrip, LiveTeamTable } from "../components/live/LiveTeams";
+import { LiveTrends } from "../components/live/LiveTrends";
 import { Pill, Title } from "../components/live/shared";
 import { Panel } from "../components/Panel";
 import { useLiveFull } from "../hooks/useLiveFull";
@@ -129,6 +130,10 @@ function WaitingState({
   const features = [
     ["Live scoreboard", "Kills, items, CS, levels and gold value for both teams"],
     ["Your champion", "Every stat, ability rank, rune and your inventory"],
+    [
+      "Game flow",
+      "Kill, item value and CS lead over time, plus kill participation and gold per minute",
+    ],
     ["Event feed", "Kills, multikills, towers, inhibitors and objectives as they happen"],
     ["Raw payload", "The complete API response, copyable and saveable"],
   ];
@@ -144,7 +149,8 @@ function WaitingState({
         </h2>
         <p className="mt-2 text-[14px] leading-relaxed text-lol-text">
           Start a match and this tab fills in by itself. It reads the League client&apos;s Live
-          Client Data API on this computer, once a second, and nothing leaves your machine.
+          Client Data API on this computer, every couple of seconds, and nothing leaves your
+          machine.
         </p>
         {phase && phase !== "None" && (
           <Pill className="mt-4 border-lol-gold/40 bg-lol-gold/10 text-lol-gold">
@@ -180,7 +186,7 @@ function WaitingState({
 export default function Live() {
   const [paused, setPaused] = useState(false);
   const [demo, setDemo] = useState(false);
-  const { snapshot, error } = useLiveFull({ paused, demo });
+  const { snapshot, error, history } = useLiveFull({ paused, demo });
   const clockSec = useGameClock(snapshot, paused);
 
   const inGame = snapshot?.state === "in-game" && snapshot.game != null;
@@ -270,14 +276,20 @@ export default function Live() {
       ) : (
         <>
           <LiveTeamStrip ally={ally} enemy={enemy} />
-          {snapshot.me && <LiveMe me={snapshot.me} player={meRow} clockSec={clockSec} />}
+          {!demo && (
+            <LiveTrends history={history} allyTeam={allyTeam === "CHAOS" ? "CHAOS" : "ORDER"} />
+          )}
+          {snapshot.me && (
+            <LiveMe me={snapshot.me} player={meRow} clockSec={clockSec} teamKills={ally.kills} />
+          )}
           <LiveTeamTable team={ally} ally clockSec={clockSec} />
           <LiveTeamTable team={enemy} ally={false} clockSec={clockSec} />
           <LiveEvents events={snapshot.events} players={snapshot.players} allyTeam={allyTeam} />
           <RawPanel snapshot={snapshot} />
           <p className="pb-2 text-center text-[11.5px] text-lol-text/60">
             Source: Live Client Data API (127.0.0.1:2999) and the client&apos;s gameflow session ·
-            refreshed every second · last update {new Date(snapshot.fetchedAt).toLocaleTimeString()}
+            refreshed every few seconds, CS in steps of 2 · last update{" "}
+            {new Date(snapshot.fetchedAt).toLocaleTimeString()}
           </p>
         </>
       )}

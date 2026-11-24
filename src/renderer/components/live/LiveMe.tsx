@@ -77,10 +77,12 @@ export function LiveMe({
   me,
   player,
   clockSec,
+  teamKills,
 }: {
   me: LiveActivePlayer;
   player: LivePlayer | undefined;
   clockSec: number;
+  teamKills: number;
 }) {
   const { championId, runeData } = useLiveResolvers();
   const stats = me.stats;
@@ -149,6 +151,22 @@ export function LiveMe({
                   <b className="font-display text-[15px] text-lol-text-bright">{cs}</b> CS ·{" "}
                   {(cs / minutes).toFixed(1)}/min
                 </span>
+                {teamKills > 0 && (
+                  <span title="Share of your team's kills you took part in">
+                    <b className="font-display text-[15px] text-lol-text-bright">
+                      {Math.round(((k + a) / teamKills) * 100)}%
+                    </b>{" "}
+                    kill participation
+                  </span>
+                )}
+                {player && player.itemValue > 0 && (
+                  <span title="Items owned plus unspent gold, per minute of game time">
+                    <b className="font-display text-[15px] text-lol-gold">
+                      {Math.round((player.itemValue + me.currentGold) / minutes).toLocaleString()}
+                    </b>{" "}
+                    gold/min
+                  </span>
+                )}
                 {player && player.wardScore > 0 && (
                   <span>
                     <b className="font-display text-[15px] text-lol-text-bright">
@@ -189,43 +207,46 @@ export function LiveMe({
             ))}
           </div>
 
-          <div className="rounded-xl border border-lol-border/60 bg-black/25 p-3">
-            <div className="mb-2 font-display text-[10px] font-bold uppercase tracking-widest text-lol-text">
-              Runes
-            </div>
-            <div className="flex flex-wrap items-center gap-x-5 gap-y-2.5">
-              <div className="flex items-center gap-2.5">
-                <RuneChip rune={me.keystone} size={44} />
-                <div className="leading-tight">
-                  <div className="font-display text-[13px] font-semibold text-lol-text-bright">
-                    {me.keystone?.name || "—"}
-                  </div>
-                  <div className="text-[11.5px] text-lol-text">
-                    {[me.primaryTree?.name, me.secondaryTree?.name].filter(Boolean).join(" + ")}
+          {/* Some modes send no rune page at all; an empty box would only show a dash */}
+          {(me.keystone || me.generalRunes.length > 0 || me.statRunes.length > 0) && (
+            <div className="rounded-xl border border-lol-border/60 bg-black/25 p-3">
+              <div className="mb-2 font-display text-[10px] font-bold uppercase tracking-widest text-lol-text">
+                Runes
+              </div>
+              <div className="flex flex-wrap items-center gap-x-5 gap-y-2.5">
+                <div className="flex items-center gap-2.5">
+                  <RuneChip rune={me.keystone} size={44} />
+                  <div className="leading-tight">
+                    <div className="font-display text-[13px] font-semibold text-lol-text-bright">
+                      {me.keystone?.name || "—"}
+                    </div>
+                    <div className="text-[11.5px] text-lol-text">
+                      {[me.primaryTree?.name, me.secondaryTree?.name].filter(Boolean).join(" + ")}
+                    </div>
                   </div>
                 </div>
-              </div>
-              <div className="flex flex-wrap items-center gap-1.5">
-                {me.generalRunes
-                  .filter((r) => r.id !== me.keystone?.id)
-                  .map((r) => (
-                    <RuneChip key={r.id} rune={r} size={28} />
-                  ))}
-              </div>
-              {me.statRunes.length > 0 && (
-                <div className="flex flex-wrap gap-1.5">
-                  {me.statRunes.map((r, i) => (
-                    <span
-                      key={`${r.id}-${i}`}
-                      className="rounded-md border border-lol-border/60 bg-white/[0.05] px-2 py-0.5 text-[11px] text-lol-text-bright"
-                    >
-                      {runeData[r.id]?.name || prettyShard(r.name)}
-                    </span>
-                  ))}
+                <div className="flex flex-wrap items-center gap-1.5">
+                  {me.generalRunes
+                    .filter((r) => r.id !== me.keystone?.id)
+                    .map((r) => (
+                      <RuneChip key={r.id} rune={r} size={28} />
+                    ))}
                 </div>
-              )}
+                {me.statRunes.length > 0 && (
+                  <div className="flex flex-wrap gap-1.5">
+                    {me.statRunes.map((r, i) => (
+                      <span
+                        key={`${r.id}-${i}`}
+                        className="rounded-md border border-lol-border/60 bg-white/[0.05] px-2 py-0.5 text-[11px] text-lol-text-bright"
+                      >
+                        {runeData[r.id]?.name || prettyShard(r.name)}
+                      </span>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
-          </div>
+          )}
 
           {player && (
             <div className="rounded-xl border border-lol-border/60 bg-black/25 p-3">

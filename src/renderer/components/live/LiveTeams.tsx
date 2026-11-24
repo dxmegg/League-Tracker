@@ -118,9 +118,19 @@ export function LiveTeamStrip({ ally, enemy }: { ally: TeamSummary; enemy: TeamS
 
 // ---- Team tables --------------------------------------------------------------------------------
 
-const COLS = "grid-cols-[minmax(190px,1.5fr)_56px_64px_104px_74px_52px_minmax(250px,2fr)]";
+const COLS = "grid-cols-[minmax(190px,1.5fr)_56px_64px_140px_74px_52px_minmax(250px,2fr)]";
 
-function PlayerRow({ p, ally, clockSec }: { p: LivePlayer; ally: boolean; clockSec: number }) {
+function PlayerRow({
+  p,
+  ally,
+  clockSec,
+  teamKills,
+}: {
+  p: LivePlayer;
+  ally: boolean;
+  clockSec: number;
+  teamKills: number;
+}) {
   const { championId } = useLiveResolvers();
   const id = championId(p);
   const minutes = Math.max(clockSec / 60, 1 / 60);
@@ -201,6 +211,12 @@ function PlayerRow({ p, ally, clockSec }: { p: LivePlayer; ally: boolean; clockS
           className={`text-[11px] ${kdaRatio(p.kills, p.deaths, p.assists) >= 4 ? "text-lol-gold" : "text-lol-text"}`}
         >
           {kdaRatio(p.kills, p.deaths, p.assists).toFixed(2)} KDA
+          {teamKills > 0 && (
+            <span title="Kill participation">
+              {" "}
+              · {Math.round(((p.kills + p.assists) / teamKills) * 100)}% KP
+            </span>
+          )}
         </div>
       </div>
 
@@ -232,8 +248,14 @@ function PlayerRow({ p, ally, clockSec }: { p: LivePlayer; ally: boolean; clockS
             </span>
           ))}
         </div>
-        <span className="shrink-0 font-display text-[12px] font-semibold text-lol-gold">
+        <span className="shrink-0 text-right font-display text-[12px] font-semibold text-lol-gold">
           {compact(p.itemValue)}
+          <span
+            className="block text-[10.5px] font-normal text-lol-text"
+            title="Item value per minute of game time"
+          >
+            {compact(p.itemValue / minutes)}/min
+          </span>
         </span>
       </div>
     </div>
@@ -290,7 +312,13 @@ export function LiveTeamTable({
         <span>Items</span>
       </div>
       {team.players.map((p) => (
-        <PlayerRow key={p.riotId || p.summonerName} p={p} ally={ally} clockSec={clockSec} />
+        <PlayerRow
+          key={p.riotId || p.summonerName}
+          p={p}
+          ally={ally}
+          clockSec={clockSec}
+          teamKills={team.kills}
+        />
       ))}
       {team.players.length === 0 && (
         <p className="px-4 py-6 text-center text-sm text-lol-text">
