@@ -30,6 +30,7 @@ import {
 } from "../hooks/useChampions";
 import { useLcuStatus } from "../hooks/useLcuStatus";
 import { useLiveGame } from "../hooks/useLiveGame";
+import { PRESENCE_LABEL } from "./live/ClientState";
 import { CHAMPION_SPLASH_URL } from "../lib/constants";
 import { formatNumber, formatTimeAgo } from "../lib/format";
 import AugmentIcon from "./AugmentIcon";
@@ -537,6 +538,16 @@ function StatRow({
         {label}
       </span>
       <b className="font-display text-[17px] font-bold text-lol-gold-light">{value}</b>
+    </div>
+  );
+}
+
+// Small label/value pair for text values that would be too loud in a StatRow
+function MiniRow({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex items-baseline justify-between gap-2 border-b border-lol-border/30 py-1">
+      <span className="text-[12px] text-lol-text">{label}</span>
+      <b className="truncate text-[12.5px] font-semibold text-lol-text-bright">{value}</b>
     </div>
   );
 }
@@ -1287,7 +1298,7 @@ export function HomeRedesign({
           )}
         </HubCard>
 
-        <HubCard title="Live status" to="/data" linkLabel="Open data">
+        <HubCard title="Live status" to="/test" linkLabel="Open live tab">
           <div className="flex items-center gap-3">
             <span
               className={`h-3 w-3 shrink-0 rounded-full shadow-[0_0_10px_currentColor] ${liveStyle.dot}`}
@@ -1299,15 +1310,60 @@ export function HomeRedesign({
               <div className="truncate text-[13.5px] text-lol-text">{liveStatus.detail}</div>
             </div>
           </div>
-          <div className="mt-4 rounded-xl bg-white/[0.04] px-3 py-2.5 text-[12.5px] leading-snug text-lol-text">
-            Reads your League client: lobby, queue, champion select and the match you are in.
-            Updates every second while the client is open.
-          </div>
+
+          {live.session?.profile ? (
+            <div className="mt-4 flex flex-col gap-3">
+              <div className="flex items-center gap-3 rounded-xl bg-white/[0.04] px-3 py-2.5">
+                <SummonerIcon
+                  iconId={live.session.profile.profileIconId}
+                  size={38}
+                  className="rounded-lg"
+                />
+                <div className="min-w-0 flex-1">
+                  <div className="truncate text-[14px] font-semibold text-lol-text-bright">
+                    {live.session.profile.gameName}
+                    <span className="text-lol-text/60">#{live.session.profile.tagLine}</span>
+                  </div>
+                  <div className="mt-1 flex items-center gap-2 text-[11.5px] text-lol-text">
+                    <span>Lv {live.session.profile.level}</span>
+                    <i className="relative h-1.5 flex-1 overflow-hidden rounded-full bg-white/10">
+                      <i
+                        className="absolute inset-y-0 left-0 rounded-full bg-lol-assist"
+                        style={{ width: `${live.session.profile.xpPercent}%` }}
+                      />
+                    </i>
+                    <span>{live.session.profile.xpPercent}%</span>
+                  </div>
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-x-4 text-[12.5px] text-lol-text">
+                <MiniRow
+                  label="Presence"
+                  value={PRESENCE_LABEL[live.session.profile.presence] ?? "—"}
+                />
+                <MiniRow label="Region" value={live.session.profile.region || "—"} />
+                <MiniRow
+                  label="Blue Essence"
+                  value={live.session.profile.blueEssence?.toLocaleString() ?? "—"}
+                />
+                <MiniRow
+                  label="Client patch"
+                  value={live.session.profile.patch || patchOf(lastMatch?.game_version) || "—"}
+                />
+              </div>
+            </div>
+          ) : (
+            <div className="mt-4 rounded-xl bg-white/[0.04] px-3 py-2.5 text-[12.5px] leading-snug text-lol-text">
+              Start the League client and its state shows up here: lobby, queue, champion select and
+              your profile.
+            </div>
+          )}
+
           <div className="mt-auto flex items-center justify-between pt-4 text-[12.5px] text-lol-text">
             <span>
-              {patchOf(lastMatch?.game_version)
-                ? `Latest tracked patch ${patchOf(lastMatch?.game_version)}`
-                : "No patch data yet"}
+              {live.session?.members.length
+                ? `${live.session.members.length} in your lobby`
+                : "Everything the client reports is on the live tab"}
             </span>
             {!isMayhem && (
               <Link

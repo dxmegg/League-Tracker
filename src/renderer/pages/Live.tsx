@@ -1,12 +1,15 @@
 import { useEffect, useMemo, useState } from "react";
 import type { LiveFull } from "../../shared/api";
 import { LiveEvents } from "../components/live/LiveEvents";
+import { LiveLastGame } from "../components/live/LiveLastGame";
 import { LiveMe } from "../components/live/LiveMe";
 import { LiveTeamStrip, LiveTeamTable } from "../components/live/LiveTeams";
 import { LiveTrends } from "../components/live/LiveTrends";
 import { Pill, Title } from "../components/live/shared";
 import { Panel } from "../components/Panel";
 import { useLiveFull } from "../hooks/useLiveFull";
+import { useLiveGame } from "../hooks/useLiveGame";
+import { ClientStatePanel } from "../components/live/ClientState";
 import { fmtClock, mapLabel, modeLabel, summarizeTeams } from "../lib/live";
 
 // Local interpolation between polls so the clock runs smoothly instead of ticking once a second late
@@ -186,7 +189,8 @@ function WaitingState({
 export default function Live() {
   const [paused, setPaused] = useState(false);
   const [demo, setDemo] = useState(false);
-  const { snapshot, error, history } = useLiveFull({ paused, demo });
+  const { snapshot, error, history, peaks } = useLiveFull({ paused, demo });
+  const { session } = useLiveGame();
   const clockSec = useGameClock(snapshot, paused);
 
   const inGame = snapshot?.state === "in-game" && snapshot.game != null;
@@ -268,11 +272,15 @@ export default function Live() {
       </Panel>
 
       {!inGame || !snapshot || !ally || !enemy ? (
-        <WaitingState
-          phase={snapshot?.gameflowPhase ?? null}
-          error={error}
-          onDemo={() => setDemo(true)}
-        />
+        <>
+          <ClientStatePanel session={session} />
+          <LiveLastGame />
+          <WaitingState
+            phase={snapshot?.gameflowPhase ?? null}
+            error={error}
+            onDemo={() => setDemo(true)}
+          />
+        </>
       ) : (
         <>
           <LiveTeamStrip ally={ally} enemy={enemy} />
@@ -280,7 +288,13 @@ export default function Live() {
             <LiveTrends history={history} allyTeam={allyTeam === "CHAOS" ? "CHAOS" : "ORDER"} />
           )}
           {snapshot.me && (
-            <LiveMe me={snapshot.me} player={meRow} clockSec={clockSec} teamKills={ally.kills} />
+            <LiveMe
+              me={snapshot.me}
+              player={meRow}
+              clockSec={clockSec}
+              teamKills={ally.kills}
+              peaks={peaks}
+            />
           )}
           <LiveTeamTable team={ally} ally clockSec={clockSec} />
           <LiveTeamTable team={enemy} ally={false} clockSec={clockSec} />

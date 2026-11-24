@@ -23,6 +23,8 @@ import type {
   LivePlayer,
   LiveRuneRef,
   LiveSpell,
+  LiveSessionData,
+  ClientProfile,
   ProfileExtras,
   RankEntry,
 } from "../shared/api";
@@ -1317,6 +1319,7 @@ export async function pollTick(win: BrowserWindow) {
 
 export function startPolling(win: BrowserWindow, firstAttempt = true) {
   pollingStopped = false;
+  if (!recorderTimer) recorderTimer = setInterval(() => void recordTick(), RECORD_INTERVAL_MS);
 
   // Show "connecting" only on the very first attempt after app launch
   setStatus(firstAttempt ? "connecting" : "disconnected", win);
@@ -1367,6 +1370,12 @@ export function startPolling(win: BrowserWindow, firstAttempt = true) {
 
 export function stopPolling() {
   pollingStopped = true;
+  if (recorderTimer) {
+    clearInterval(recorderTimer);
+    recorderTimer = null;
+  }
+  // A game still being recorded when the app closes keeps what it has
+  persistRecording();
   if (pollTimer) {
     clearInterval(pollTimer);
     pollTimer = null;
@@ -1723,20 +1732,112 @@ export async function fetchLiveFull(): Promise<LiveFull> {
     raw,
   };
 }
-export interface LiveSessionData {
-  phase: string;
-  queueId: number | null;
-  queueLabel: string | null;
-  lobbySize: number | null;
-  lobbyMaxSize: number | null;
-  queueStartedAt: number | null;
-  champSelect: {
-    myChampionId: number | null;
-    myTeam: Array<{ summonerName: string; championId: number; isMe: boolean }>;
-    bench: Array<{ championId: number }>;
-    isMyTurn: boolean;
-    timeLeftMs: number | null;
-  } | null;
+// ---- Recording your champion's stats during a game ----
+//
+// Runs in the main process so it works with the Live tab closed. It samples the same snapshot the tab
+// shows, keeps the highest value of every stat and writes them to the database, so records like "most AP
+// on Karthus" can be answered later. Sampling is every few seconds, so a buff that lasts less than that
+// can slip through.
+
+const RECORD_INTERVAL_MS = 3_000;
+const CHECKPOINT_MS = 30_000;
+// Consecutive samples without a game before it counts as over (a few seconds, not one dropped request)
+const MISSES_BEFORE_END = 3;
+// Momentary readings that say nothing about how strong the champion is
+const SKIP_STATS = new Set(["currentHealth", "resourceValue", "resourceType"]);
+
+type Recording = db.LiveStatRecording & { lastSave: number; dirty: boolean; misses: number };
+let recording: Recording | null = null;
+let recorderTimer: ReturnType<typeof setInterval> | null = null;
+let recordBusy = false;
+
+function persistRecording() {
+  if (!recording) return;
+  try {
+    db.saveLiveStatPeaks(recording);
+    recording.dirty = false;
+    recording.lastSave = Date.now();
+  } catch (err) {
+    console.log("Saving live stats failed:", err);
+  }
+}
+
+function statSample(snap: LiveFull): Record<string, number> | null {
+  const me = snap.me;
+  if (!me) return null;
+  const row = snap.players.find((p) => p.isMe);
+  const out: Record<string, number> = {};
+  for (const [key, value] of Object.entries(me.stats)) {
+    if (typeof value === "number" && !SKIP_STATS.has(key)) out[key] = value;
+  }
+  const hp = out.maxHealth ?? 0;
+  out.effectiveHpPhysical = hp * (1 + (out.armor ?? 0) / 100);
+  out.effectiveHpMagic = hp * (1 + (out.magicResist ?? 0) / 100);
+  out.level = me.level;
+  out.gold = me.currentGold;
+  if (row) {
+    out.kills = row.kills;
+    out.deaths = row.deaths;
+    out.assists = row.assists;
+    out.creepScore = row.creepScore;
+    out.wardScore = row.wardScore;
+    out.itemValue = row.itemValue;
+  }
+  return out;
+}
+
+async function recordTick() {
+  // Nothing to do outside a game, unless a finished one still has to be written out
+  if (recordBusy || (status !== "ingame" && !recording)) return;
+  recordBusy = true;
+  try {
+    const snap = await fetchLiveFull();
+    const gameId = snap.game?.gameId ?? null;
+    const sample = snap.state === "in-game" && gameId != null ? statSample(snap) : null;
+
+    if (!sample || gameId == null) {
+      if (recording && ++recording.misses >= MISSES_BEFORE_END) {
+        persistRecording();
+        recording = null;
+      }
+      return;
+    }
+
+    if (recording && recording.gameId !== gameId) {
+      persistRecording();
+      recording = null;
+    }
+    if (!recording) {
+      const row = snap.players.find((p) => p.isMe);
+      const puuid = row?.puuid ?? (await getCurrentSummoner().catch(() => null))?.puuid;
+      if (!puuid) return;
+      recording = {
+        gameId,
+        puuid,
+        championId: row?.championId ?? null,
+        championName: row?.championName ?? "",
+        queueId: snap.game?.queueId ?? null,
+        peaks: {},
+        finals: {},
+        lastSave: 0,
+        dirty: false,
+        misses: 0,
+      };
+    }
+    recording.misses = 0;
+    for (const [key, value] of Object.entries(sample)) {
+      recording.finals[key] = value;
+      if (!(key in recording.peaks) || value > recording.peaks[key]) {
+        recording.peaks[key] = value;
+        recording.dirty = true;
+      }
+    }
+    if (recording.dirty && Date.now() - recording.lastSave >= CHECKPOINT_MS) persistRecording();
+  } catch (err) {
+    console.log("Live stat recording failed:", err);
+  } finally {
+    recordBusy = false;
+  }
 }
 
 const QUEUE_LABEL_BY_ID: Record<number, string> = {
@@ -1790,20 +1891,60 @@ export async function fetchLiveSessionData(): Promise<LiveSessionData | null> {
 
   let lobbySize: number | null = null;
   let lobbyMaxSize: number | null = null;
+  let gameMode: string | null = null;
+  let mapId: number | null = null;
+  let isCustom = false;
+  let canStart: boolean | null = null;
+  let members: LiveSessionData["members"] = [];
+  let search: LiveSessionData["search"] = null;
+  let readyCheck: LiveSessionData["readyCheck"] = null;
   if (phase === "Lobby" || phase === "Matchmaking" || phase === "ReadyCheck") {
     try {
-      const lobby = (await lcuRequest("/lol-lobby/v2/lobby")) as {
-        members?: unknown;
-        gameConfig?: { maxLobbySize?: unknown; queueId?: unknown };
-      };
-      lobbySize = Array.isArray(lobby?.members) ? lobby.members.length : null;
-      lobbyMaxSize =
-        typeof lobby?.gameConfig?.maxLobbySize === "number" ? lobby.gameConfig.maxLobbySize : null;
-      if (queueId == null && typeof lobby?.gameConfig?.queueId === "number") {
-        queueId = lobby.gameConfig.queueId;
-      }
+      const lobby = rec(await lcuRequest("/lol-lobby/v2/lobby"));
+      const config = rec(lobby.gameConfig);
+      const localPuuid = str(rec(lobby.localMember).puuid);
+      members = list(lobby.members).map((m) => ({
+        name: str(m.summonerName) || str(m.gameName) || "Player",
+        isLeader: Boolean(m.isLeader),
+        ready: Boolean(m.ready),
+        isMe: !!localPuuid && str(m.puuid) === localPuuid,
+      }));
+      lobbySize = members.length;
+      lobbyMaxSize = typeof config.maxLobbySize === "number" ? config.maxLobbySize : null;
+      gameMode = config.gameMode ? str(config.gameMode) : null;
+      mapId = typeof config.mapId === "number" ? config.mapId : null;
+      isCustom = Boolean(config.isCustom);
+      canStart =
+        typeof rec(lobby.localMember).allowedStartActivity === "boolean"
+          ? Boolean(rec(lobby.localMember).allowedStartActivity)
+          : null;
+      if (queueId == null && typeof config.queueId === "number") queueId = config.queueId;
     } catch {
       // Lobby endpoint may fail in transitional phases.
+    }
+
+    if (phase === "Matchmaking" || phase === "ReadyCheck") {
+      try {
+        const s = rec(await lcuRequest("/lol-matchmaking/v1/search"));
+        const low = rec(s.lowPriorityData);
+        const rc = rec(s.readyCheck);
+        search = {
+          state: str(s.searchState),
+          estimatedSec: typeof s.estimatedQueueTime === "number" ? s.estimatedQueueTime : null,
+          elapsedSec: typeof s.timeInQueue === "number" ? s.timeInQueue : null,
+          penaltySec: num(low.penaltyTimeRemaining) > 0 ? num(low.penaltyTimeRemaining) : null,
+          dodgeWarning: rc.dodgeWarning && rc.dodgeWarning !== "None" ? str(rc.dodgeWarning) : null,
+        };
+        if (phase === "ReadyCheck") {
+          readyCheck = {
+            response: str(rc.playerResponse),
+            timerSec: typeof rc.timer === "number" ? rc.timer : null,
+            state: str(rc.state),
+          };
+        }
+      } catch {
+        // Search resource only exists while the player is queued.
+      }
     }
   }
 
@@ -1836,7 +1977,10 @@ export async function fetchLiveSessionData(): Promise<LiveSessionData | null> {
         const localCellId = Number(session.localPlayerCellId ?? -1);
         const myTeam = Array.isArray(session.myTeam)
           ? session.myTeam.map((member) => ({
-              summonerName: String(member.summonerId ?? member.cellId ?? ""),
+              summonerName:
+                str(rec(member).gameName) ||
+                str(rec(member).summonerName) ||
+                String(member.summonerId ?? member.cellId ?? ""),
               championId: Number(member.championId ?? 0),
               isMe: Number(member.cellId) === localCellId,
             }))
@@ -1870,25 +2014,114 @@ export async function fetchLiveSessionData(): Promise<LiveSessionData | null> {
         if (typeof session.gameData?.queue?.id === "number") {
           queueId = session.gameData.queue.id;
         }
-        champSelect = { myChampionId, myTeam, bench, isMyTurn, timeLeftMs };
+        const timer = rec((session as { timer?: unknown }).timer);
+        const bans = rec((session as { bans?: unknown }).bans);
+        const toIds = (v: unknown) =>
+          list(v)
+            .map(num)
+            .filter((id) => id > 0);
+        const rerolls = (session as { rerollsRemaining?: unknown }).rerollsRemaining;
+        champSelect = {
+          myChampionId,
+          myTeam,
+          bench,
+          isMyTurn,
+          timeLeftMs: timeLeftMs ?? (num(timer.adjustedTimeLeftInPhase) || null),
+          timerPhase: timer.phase ? str(timer.phase) : null,
+          bans: { mine: toIds(bans.myTeamBans), theirs: toIds(bans.theirTeamBans) },
+          rerollsRemaining: typeof rerolls === "number" ? rerolls : null,
+        };
       }
     } catch {
       // Champ-select endpoint may be unavailable during a transition.
     }
   }
 
-  if (phase === "None" && queueId == null && lobbySize == null && champSelect == null) {
-    return null;
-  }
-
-  const result = {
+  return {
     phase,
     queueId,
     queueLabel: queueId != null ? (QUEUE_LABEL_BY_ID[queueId] ?? `Queue ${queueId}`) : null,
     lobbySize,
     lobbyMaxSize,
     queueStartedAt: matchmakingStartedAt,
+    gameMode,
+    mapId,
+    isCustom,
+    members,
+    canStart,
+    search,
+    readyCheck,
     champSelect,
+    profile: await fetchClientProfile(),
   };
-  return result;
+}
+
+// What the client knows about the signed-in player changes slowly, so it is read at most twice a minute
+// instead of with every poll of the lobby state.
+const PROFILE_TTL_MS = 30_000;
+let profileCache: { at: number; value: ClientProfile | null } | null = null;
+
+const RANKED_QUEUE_LABEL: Record<string, string> = {
+  RANKED_SOLO_5x5: "Ranked Solo",
+  RANKED_FLEX_SR: "Ranked Flex",
+  RANKED_TFT: "TFT Ranked",
+};
+
+async function fetchClientProfile(): Promise<ClientProfile | null> {
+  if (profileCache && Date.now() - profileCache.at < PROFILE_TTL_MS) return profileCache.value;
+
+  const ask = async (url: string) => {
+    try {
+      return await lcuRequest(url);
+    } catch {
+      return null;
+    }
+  };
+  const [summoner, chat, honor, wallet, rankedRaw, region, version] = await Promise.all([
+    ask("/lol-summoner/v1/current-summoner"),
+    ask("/lol-chat/v1/me"),
+    ask("/lol-honor-v2/v1/profile"),
+    ask("/lol-inventory/v1/wallet?currencyTypes=%5B%22RP%22%2C%22lol_blue_essence%22%5D"),
+    ask("/lol-ranked/v1/current-ranked-stats"),
+    ask("/riotclient/region-locale"),
+    ask("/lol-patch/v1/game-version"),
+  ]);
+
+  const s = rec(summoner);
+  let value: ClientProfile | null = null;
+  if (s.puuid) {
+    const lol = rec(rec(chat).lol);
+    const w = rec(wallet);
+    const queues = rec(rec(rankedRaw).queueMap);
+    const ranked = Object.entries(queues)
+      .map(([key, q]) => ({ key, q: rec(q) }))
+      .filter(({ q }) => str(q.tier) && str(q.tier) !== "NONE")
+      .map(({ key, q }) => ({
+        queue: RANKED_QUEUE_LABEL[key] ?? key,
+        tier: str(q.tier),
+        division: str(q.division) === "NA" ? "" : str(q.division),
+        lp: num(q.leaguePoints),
+        wins: num(q.wins),
+        losses: num(q.losses),
+      }));
+    value = {
+      gameName: str(s.gameName) || str(s.displayName),
+      tagLine: str(s.tagLine),
+      level: num(s.summonerLevel),
+      xpPercent: num(s.percentCompleteForNextLevel),
+      profileIconId: num(s.profileIconId),
+      region: str(rec(region).region),
+      patch: str(version).split(".").slice(0, 2).join("."),
+      honorLevel: typeof rec(honor).honorLevel === "number" ? rec(honor).honorLevel : null,
+      presence: str(rec(chat).availability),
+      statusMessage: str(rec(chat).statusMessage),
+      blueEssence: typeof w.lol_blue_essence === "number" ? w.lol_blue_essence : null,
+      rp: typeof w.RP === "number" ? w.RP : null,
+      challengePoints: lol.challengePoints ? num(lol.challengePoints) : null,
+      challengeLevel: lol.challengeCrystalLevel ? str(lol.challengeCrystalLevel) : null,
+      ranked,
+    };
+  }
+  profileCache = { at: Date.now(), value };
+  return value;
 }

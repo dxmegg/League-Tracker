@@ -14,6 +14,8 @@ import {
 } from "./schema";
 
 export { getDbPath } from "./connection";
+export { saveLiveStatPeaks, getStatRecords, getGameStatPeaks } from "./live-stats";
+export type { LiveStatRecording } from "./live-stats";
 export {
   checkScoreBackfill,
   getMissingScoreCount,

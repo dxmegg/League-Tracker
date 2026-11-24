@@ -25,6 +25,7 @@ const NAV_ICONS: Record<string, NavIcon> = {
   "/local": UserIcon,
   "/profile": UserIcon,
   "/history": MedalIcon,
+  "/match-history": MedalIcon,
   "/champions": ShieldIcon,
   "/items": CoinsIcon,
   "/augments": SparklesIcon,
@@ -55,12 +56,13 @@ const redesignTabs = [
   { to: "/test", label: "TEST" },
   { to: "/home", label: "HOME" },
   { to: "/profile", label: "YOUR PROFILE" },
+  { to: "/match-history", label: "MATCH HISTORY" },
   ...mainTabs.filter((tab) => !["/test", "/home", "/local", "/history"].includes(tab.to)),
 ];
 
 // Each tab appears in exactly one group; tabs a theme doesn't have are simply skipped.
 const NAV_GROUPS = [
-  { title: "Main", paths: ["/test", "/home", "/profile", "/local", "/history"] },
+  { title: "Main", paths: ["/test", "/home", "/profile", "/match-history", "/local", "/history"] },
   { title: "Analytics", paths: ["/champions", "/items", "/augments", "/runes"] },
   { title: "Community & progress", paths: ["/friends", "/trends", "/records", "/data"] },
 ];

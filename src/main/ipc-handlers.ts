@@ -1061,6 +1061,16 @@ export function registerIpcHandlers() {
     return lcu.fetchLiveSessionData();
   });
 
+  ipcMain.handle(
+    "stats:records",
+    (_event, filters?: { championId?: number; stat?: string; queueId?: number }) =>
+      db.getStatRecords(filters),
+  );
+
+  ipcMain.handle("stats:game-peaks", (_event, gameId: number) =>
+    db.getGameStatPeaks(Number(gameId)),
+  );
+
   ipcMain.handle("lcu:current-puuid", async () => {
     console.log("[lcu] current puuid handler called:", {});
     if (!lcu.isClientConnected()) {

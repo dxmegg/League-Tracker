@@ -50,7 +50,74 @@ export const kdaRatio = (k: number, d: number, a: number): number => (k + a) / M
 const asPercent = (v: number): number => (v <= 1 ? v * 100 : v);
 const penFromMultiplier = (v: number): number => (v > 0 && v <= 1 ? (1 - v) * 100 : 0);
 
-export type StatRow = { label: string; value: string; hint?: string; accent?: string };
+// `icon` is a key of STAT_ICON_FILES; rows without one get a lettered badge instead
+export type StatRow = {
+  label: string;
+  value: string;
+  hint?: string;
+  accent?: string;
+  icon?: string;
+  // Highest value this game, only set when it is above the current one
+  peak?: string;
+};
+
+// Stat icons from CommunityDragon's rune stat-mod art; the game has no icons for the rest of the stats
+const STAT_ICON_FILES: Record<string, string> = {
+  attackDamage: "statmodsattackdamageicon",
+  abilityPower: "statmodsabilitypowericon",
+  attackSpeed: "statmodsattackspeedicon",
+  abilityHaste: "statmodscdrscalingicon",
+  armor: "statmodsarmoricon",
+  magicResist: "statmodsmagicresicon",
+  maxHealth: "statmodshealthplusicon",
+  moveSpeed: "statmodsmovementspeedicon",
+  tenacity: "statmodstenacityicon",
+};
+
+export const statIconUrl = (key: string | undefined): string | null =>
+  key && STAT_ICON_FILES[key]
+    ? `https://raw.communitydragon.org/latest/game/assets/perks/statmods/${STAT_ICON_FILES[key]}.png`
+    : null;
+
+// Keys statGroups already shows (or the meters on the champion panel use); anything else goes to "Other"
+const SHOWN_STATS = new Set([
+  "attackDamage",
+  "abilityPower",
+  "attackSpeed",
+  "critChance",
+  "critDamage",
+  "abilityHaste",
+  "physicalLethality",
+  "magicLethality",
+  "armorPenetrationFlat",
+  "armorPenetrationPercent",
+  "bonusArmorPenetrationPercent",
+  "magicPenetrationFlat",
+  "magicPenetrationPercent",
+  "bonusMagicPenetrationPercent",
+  "lifeSteal",
+  "physicalVamp",
+  "spellVamp",
+  "omnivamp",
+  "armor",
+  "magicResist",
+  "maxHealth",
+  "healthRegenRate",
+  "tenacity",
+  "healShieldPower",
+  "moveSpeed",
+  "attackRange",
+  "resourceRegenRate",
+  "currentHealth",
+  "resourceValue",
+  "resourceMax",
+  "resourceType",
+]);
+
+const prettyKey = (key: string): string => {
+  const spaced = key.replace(/([A-Z])/g, " $1").trim();
+  return spaced.charAt(0).toUpperCase() + spaced.slice(1);
+};
 
 const n = (stats: Record<string, number | string>, key: string): number => {
   const v = stats[key];
@@ -66,7 +133,13 @@ const pct = (v: number) => `${f1(v)}%`;
 
 export function statGroups(
   stats: Record<string, number | string>,
+  peaks: Record<string, number> = {},
 ): Array<{ title: string; rows: StatRow[] }> {
+  // The highest value this game, shown only once it is above what the champion has now
+  const pk = (key: string, fmt: (v: number) => string): string | undefined => {
+    const p = peaks[key];
+    return p !== undefined && p > n(stats, key) * 1.001 + 0.001 ? fmt(p) : undefined;
+  };
   const crit = asPercent(n(stats, "critChance"));
   const critDmg = n(stats, "critDamage");
   const as = n(stats, "attackSpeed");
@@ -81,12 +154,35 @@ export function statGroups(
   const autoDps = ad * as * (1 + (crit / 100) * (critMult - 1));
 
   const offense: StatRow[] = [
-    { label: "Attack damage", value: f0(ad), accent: "text-[#ff8c66]" },
-    { label: "Ability power", value: f0(n(stats, "abilityPower")), accent: "text-[#4ab3f5]" },
-    { label: "Attack speed", value: f2(as) },
-    { label: "Crit chance", value: pct(crit) },
-    { label: "Crit damage", value: pct(critMult * 100) },
-    { label: "Ability haste", value: f0(n(stats, "abilityHaste")), accent: "text-[#7fd4c1]" },
+    {
+      label: "Attack damage",
+      value: f0(ad),
+      accent: "text-[#ff8c66]",
+      icon: "attackDamage",
+      peak: pk("attackDamage", f0),
+    },
+    {
+      label: "Ability power",
+      value: f0(n(stats, "abilityPower")),
+      accent: "text-[#4ab3f5]",
+      icon: "abilityPower",
+      peak: pk("abilityPower", f0),
+    },
+    { label: "Attack speed", value: f2(as), icon: "attackSpeed", peak: pk("attackSpeed", f2) },
+    {
+      label: "Crit chance",
+      value: pct(crit),
+      icon: "critChance",
+      peak: pk("critChance", (v) => pct(asPercent(v))),
+    },
+    { label: "Crit damage", value: pct(critMult * 100), icon: "critDamage" },
+    {
+      label: "Ability haste",
+      value: f0(n(stats, "abilityHaste")),
+      accent: "text-[#7fd4c1]",
+      icon: "abilityHaste",
+      peak: pk("abilityHaste", f0),
+    },
   ];
   const lethality = n(stats, "physicalLethality") || n(stats, "magicLethality");
   const penRows: Array<[string, number, (v: number) => string]> = [
@@ -98,7 +194,8 @@ export function statGroups(
     ["Magic pen", penFromMultiplier(n(stats, "magicPenetrationPercent")), pct],
     ["Bonus magic pen", penFromMultiplier(n(stats, "bonusMagicPenetrationPercent")), pct],
   ];
-  for (const [label, v, fmt] of penRows) if (v > 0) offense.push({ label, value: fmt(v) });
+  for (const [label, v, fmt] of penRows)
+    if (v > 0) offense.push({ label, value: fmt(v), icon: label });
   const sustain: Array<[string, number]> = [
     ["Life steal", asPercent(n(stats, "lifeSteal"))],
     ["Physical vamp", asPercent(n(stats, "physicalVamp"))],
@@ -106,12 +203,31 @@ export function statGroups(
     ["Omnivamp", asPercent(n(stats, "omnivamp"))],
   ];
   for (const [label, v] of sustain)
-    if (v > 0) offense.push({ label, value: pct(v), accent: "text-lol-win" });
+    if (v > 0) offense.push({ label, value: pct(v), accent: "text-lol-win", icon: label });
 
   const defense: StatRow[] = [
-    { label: "Armor", value: f0(armor), accent: "text-[#f5d76e]" },
-    { label: "Magic resist", value: f0(mr), accent: "text-[#b0a0f0]" },
-    { label: "Health regen / 5s", value: f1(n(stats, "healthRegenRate") * 5) },
+    {
+      label: "Max health",
+      value: f0(hp),
+      accent: "text-lol-win",
+      icon: "maxHealth",
+      peak: pk("maxHealth", f0),
+    },
+    {
+      label: "Armor",
+      value: f0(armor),
+      accent: "text-[#f5d76e]",
+      icon: "armor",
+      peak: pk("armor", f0),
+    },
+    {
+      label: "Magic resist",
+      value: f0(mr),
+      accent: "text-[#b0a0f0]",
+      icon: "magicResist",
+      peak: pk("magicResist", f0),
+    },
+    { label: "Health regen / 5s", value: f1(n(stats, "healthRegenRate") * 5), icon: "regen" },
     {
       label: "Effective HP (physical)",
       value: f0(ehpPhys),
@@ -120,16 +236,35 @@ export function statGroups(
     { label: "Effective HP (magic)", value: f0(ehpMagic), hint: "Max health against magic damage" },
   ];
   const tenacity = asPercent(n(stats, "tenacity"));
-  if (tenacity > 0) defense.push({ label: "Tenacity", value: pct(tenacity) });
+  if (tenacity > 0) defense.push({ label: "Tenacity", value: pct(tenacity), icon: "tenacity" });
   const hsp = asPercent(n(stats, "healShieldPower"));
   if (hsp > 0)
-    defense.push({ label: "Heal & shield power", value: pct(hsp), accent: "text-lol-win" });
+    defense.push({
+      label: "Heal & shield power",
+      value: pct(hsp),
+      accent: "text-lol-win",
+      icon: "healShield",
+    });
 
   const utility: StatRow[] = [
-    { label: "Move speed", value: f0(n(stats, "moveSpeed")), accent: "text-[#78d6b0]" },
-    { label: "Attack range", value: f0(n(stats, "attackRange")) },
-    { label: "Resource regen / 5s", value: f1(n(stats, "resourceRegenRate") * 5) },
+    {
+      label: "Move speed",
+      value: f0(n(stats, "moveSpeed")),
+      accent: "text-[#78d6b0]",
+      icon: "moveSpeed",
+      peak: pk("moveSpeed", f0),
+    },
+    { label: "Attack range", value: f0(n(stats, "attackRange")), icon: "range" },
+    {
+      label: "Resource regen / 5s",
+      value: f1(n(stats, "resourceRegenRate") * 5),
+      icon: "resourceRegen",
+    },
   ];
+  // Whatever else the game reports for your champion, so nothing it sends is left out
+  const other: StatRow[] = Object.entries(stats)
+    .filter(([key, v]) => typeof v === "number" && !SHOWN_STATS.has(key))
+    .map(([key, v]) => ({ label: prettyKey(key), value: f2(v as number), icon: key }));
 
   const derived: StatRow[] = [
     {
@@ -149,6 +284,7 @@ export function statGroups(
     { title: "Defense", rows: defense },
     { title: "Utility", rows: utility },
     { title: "Derived", rows: derived },
+    ...(other.length ? [{ title: "Other", rows: other }] : []),
   ];
 }
 

@@ -37,10 +37,17 @@ export function useLiveFull({ paused, demo }: { paused: boolean; demo: boolean }
   snapshot: LiveFull | null;
   error: string | null;
   history: LiveHistoryPoint[];
+  // Highest value of each of your stats seen in this game, so a buff that wore off is still visible
+  peaks: Record<string, number>;
 } {
   const [live, setLive] = useState<LiveFull | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [history, setHistory] = useState<LiveHistoryPoint[]>([]);
+  const [peaks, setPeaks] = useState<Record<string, number>>({});
+  const peaksRef = useRef<{ game: string | null; values: Record<string, number> }>({
+    game: null,
+    values: {},
+  });
   const inGame = useRef(false);
   const gameKey = useRef<string | null>(null);
 
@@ -56,6 +63,20 @@ export function useLiveFull({ paused, demo }: { paused: boolean; demo: boolean }
         inGame.current = next.state === "in-game";
         setLive(next);
         setError(null);
+
+        if (next.state === "in-game" && next.me) {
+          const game = String(next.game?.gameId ?? "");
+          if (peaksRef.current.game !== game) peaksRef.current = { game, values: {} };
+          let changed = false;
+          for (const [key, value] of Object.entries(next.me.stats)) {
+            const known = peaksRef.current.values[key];
+            if (typeof value === "number" && (known === undefined || value > known)) {
+              peaksRef.current.values[key] = value;
+              changed = true;
+            }
+          }
+          if (changed) setPeaks({ ...peaksRef.current.values });
+        }
 
         if (next.state === "in-game" && next.game) {
           const point = toPoint(next);
@@ -88,5 +109,10 @@ export function useLiveFull({ paused, demo }: { paused: boolean; demo: boolean }
   // Rebuilt only when demo is switched on, so its clock keeps running from that moment
   const demoSnapshot = useMemo(() => (demo ? makeDemoSnapshot() : null), [demo]);
 
-  return { snapshot: demo ? demoSnapshot : live, error, history: demo ? [] : history };
+  return {
+    snapshot: demo ? demoSnapshot : live,
+    error,
+    history: demo ? [] : history,
+    peaks: demo ? {} : peaks,
+  };
 }

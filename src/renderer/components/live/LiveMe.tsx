@@ -3,7 +3,7 @@ import { compact, kdaRatio, statGroups } from "../../lib/live";
 import ChampionIcon from "../ChampionIcon";
 import ItemIcon from "../ItemIcon";
 import { Panel } from "../Panel";
-import { Meter, RuneChip, SpellPair, Title, useLiveResolvers } from "./shared";
+import { Meter, RuneChip, SpellPair, StatIcon, Title, useLiveResolvers } from "./shared";
 
 const RESOURCE_COLORS: Record<string, string> = {
   MANA: "bg-gradient-to-r from-sky-700 to-sky-400",
@@ -78,11 +78,13 @@ export function LiveMe({
   player,
   clockSec,
   teamKills,
+  peaks,
 }: {
   me: LiveActivePlayer;
   player: LivePlayer | undefined;
   clockSec: number;
   teamKills: number;
+  peaks: Record<string, number>;
 }) {
   const { championId, runeData } = useLiveResolvers();
   const stats = me.stats;
@@ -283,7 +285,7 @@ export function LiveMe({
         </div>
 
         <div className="grid min-w-0 grid-cols-1 gap-3 sm:grid-cols-2">
-          {statGroups(stats).map((group) => (
+          {statGroups(stats, peaks).map((group) => (
             <div
               key={group.title}
               className="rounded-xl border border-lol-border/60 bg-black/25 p-3"
@@ -298,12 +300,25 @@ export function LiveMe({
                     title={row.hint}
                     className="flex items-baseline justify-between gap-3 border-b border-lol-border/25 py-1 last:border-b-0"
                   >
-                    <span className="text-[12px] text-lol-text">{row.label}</span>
-                    <b
-                      className={`font-display text-[13px] font-semibold tabular-nums ${row.accent ?? "text-lol-text-bright"}`}
-                    >
-                      {row.value}
-                    </b>
+                    <span className="flex items-center gap-2 text-[12px] text-lol-text">
+                      <StatIcon iconKey={row.icon} label={row.label} />
+                      {row.label}
+                    </span>
+                    <span className="flex items-baseline gap-2">
+                      {row.peak && (
+                        <span
+                          className="text-[10.5px] text-lol-text/60"
+                          title="Highest value in this game"
+                        >
+                          peak {row.peak}
+                        </span>
+                      )}
+                      <b
+                        className={`font-display text-[13px] font-semibold tabular-nums ${row.accent ?? "text-lol-text-bright"}`}
+                      >
+                        {row.value}
+                      </b>
+                    </span>
                   </div>
                 ))}
               </div>

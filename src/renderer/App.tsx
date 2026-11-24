@@ -36,6 +36,7 @@ const Records = lazy(() => import("./pages/Records"));
 const MatchDetailPage = lazy(() => import("./pages/MatchDetailPage"));
 const GlobalStats = lazy(() => import("./pages/GlobalStats"));
 const Live = lazy(() => import("./pages/Live"));
+const MatchHistoryTab = lazy(() => import("./pages/MatchHistoryTab"));
 
 function ChampionsDetailRoute() {
   const activeTheme = useActiveTheme();
@@ -177,6 +178,7 @@ export default function App() {
             }
           />
           <Route path="/profile" element={<Profile />} />
+          <Route path="/match-history" element={<MatchHistoryTab />} />
           <Route path="/champions" element={<FullHistorySection section="champions" />} />
           <Route path="/champions/:championId" element={<ChampionsDetailRoute />} />
           <Route path="/items" element={<FullHistorySection section="items" />} />

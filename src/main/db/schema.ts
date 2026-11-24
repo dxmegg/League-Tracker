@@ -345,6 +345,22 @@ export function createTables() {
       last_match_id TEXT,
       complete     INTEGER NOT NULL DEFAULT 0
     );
+
+    -- Your champion's stats as the live game reported them, one row per stat and game: the highest value
+    -- seen and the last one. No foreign key to games, since the row is written before the game is stored.
+    CREATE TABLE IF NOT EXISTS live_stat_peaks (
+      game_id       INTEGER NOT NULL,
+      puuid         TEXT NOT NULL,
+      champion_id   INTEGER,
+      champion_name TEXT NOT NULL DEFAULT '',
+      queue_id      INTEGER,
+      stat          TEXT NOT NULL,
+      peak          REAL NOT NULL,
+      final         REAL NOT NULL,
+      recorded_at   INTEGER NOT NULL,
+      PRIMARY KEY (game_id, puuid, stat)
+    );
+    CREATE INDEX IF NOT EXISTS idx_live_stat_peaks_stat ON live_stat_peaks(stat, champion_id);
   `);
 }
 

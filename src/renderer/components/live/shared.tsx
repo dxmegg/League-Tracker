@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import type { LivePlayer, LiveSpell } from "../../../shared/api";
 import {
   findChampionIdByName,
@@ -6,7 +6,7 @@ import {
   useRuneData,
   useSummonerSpellData,
 } from "../../hooks/useChampions";
-import { spellIdByName } from "../../lib/live";
+import { spellIdByName, statIconUrl } from "../../lib/live";
 import ChampionIcon from "../ChampionIcon";
 import RuneIcon from "../RuneIcon";
 import SummonerSpellIcon from "../SummonerSpellIcon";
@@ -76,6 +76,39 @@ export function Meter({
         </span>
       )}
     </div>
+  );
+}
+
+// The game's own art where it has some; otherwise a small badge with the stat's initials
+export function StatIcon({ iconKey, label }: { iconKey?: string; label: string }) {
+  const [failed, setFailed] = useState(false);
+  const url = statIconUrl(iconKey);
+  if (url && !failed) {
+    return (
+      <img
+        src={url}
+        alt=""
+        width={18}
+        height={18}
+        loading="lazy"
+        onError={() => setFailed(true)}
+        className="h-[18px] w-[18px] shrink-0"
+      />
+    );
+  }
+  const initials = label
+    .split(/[\s/&]+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((w) => w[0].toUpperCase())
+    .join("");
+  return (
+    <span
+      aria-hidden="true"
+      className="flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-md bg-white/10 font-display text-[8.5px] font-bold text-lol-text-bright"
+    >
+      {initials}
+    </span>
   );
 }
 

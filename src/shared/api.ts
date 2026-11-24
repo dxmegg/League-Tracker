@@ -1622,6 +1622,46 @@ export interface LiveGameData {
   };
 }
 
+// The best value of one stat across the recorded games (see live_stat_peaks)
+export interface LiveStatRecord {
+  stat: string;
+  peak: number;
+  gameId: number;
+  championId: number | null;
+  championName: string;
+  recordedAt: number;
+}
+
+// Who is signed in to the League client and what the client knows about them, independent of any game
+export interface ClientProfile {
+  gameName: string;
+  tagLine: string;
+  level: number;
+  // 0-100 progress to the next summoner level
+  xpPercent: number;
+  profileIconId: number;
+  region: string;
+  // "16.23" taken from the client's game version
+  patch: string;
+  honorLevel: number | null;
+  // Chat presence: "chat" (online), "away", "dnd" (in a game or queue), "mobile", "offline"
+  presence: string;
+  statusMessage: string;
+  blueEssence: number | null;
+  rp: number | null;
+  challengePoints: number | null;
+  challengeLevel: string | null;
+  // Only queues the account has a rank in
+  ranked: Array<{
+    queue: string;
+    tier: string;
+    division: string;
+    lp: number;
+    wins: number;
+    losses: number;
+  }>;
+}
+
 export interface LiveSessionData {
   phase: string;
   queueId: number | null;
@@ -1629,13 +1669,32 @@ export interface LiveSessionData {
   lobbySize: number | null;
   lobbyMaxSize: number | null;
   queueStartedAt: number | null;
+  gameMode: string | null;
+  mapId: number | null;
+  isCustom: boolean;
+  // Lobby members; empty outside a lobby
+  members: Array<{ name: string; isLeader: boolean; ready: boolean; isMe: boolean }>;
+  // Whether the local player can press the start / find match button
+  canStart: boolean | null;
+  search: {
+    state: string;
+    estimatedSec: number | null;
+    elapsedSec: number | null;
+    penaltySec: number | null;
+    dodgeWarning: string | null;
+  } | null;
+  readyCheck: { response: string; timerSec: number | null; state: string } | null;
   champSelect: {
     myChampionId: number | null;
     myTeam: Array<{ summonerName: string; championId: number; isMe: boolean }>;
     bench: Array<{ championId: number }>;
     isMyTurn: boolean;
     timeLeftMs: number | null;
+    timerPhase: string | null;
+    bans: { mine: number[]; theirs: number[] };
+    rerollsRemaining: number | null;
   } | null;
+  profile: ClientProfile | null;
 }
 
 // ---- Full live game snapshot (Live Client Data API + gameflow session) ----
@@ -2335,6 +2394,14 @@ export interface ElectronAPI {
   getLcuStatus: () => Promise<LcuStatus>;
   getLiveGame: () => Promise<LiveGameData | null>;
   getLiveSession: () => Promise<LiveSessionData | null>;
+  getStatRecords: (filters?: {
+    championId?: number;
+    stat?: string;
+    queueId?: number;
+  }) => Promise<LiveStatRecord[]>;
+  getGameStatPeaks: (
+    gameId: number,
+  ) => Promise<Array<{ stat: string; peak: number; final: number }>>;
   getLiveFull: () => Promise<LiveFull>;
   getChampionDataVersion: () => Promise<string>;
   getChampionData: () => Promise<ChampionData>;
