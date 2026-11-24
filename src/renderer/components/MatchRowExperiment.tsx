@@ -121,18 +121,18 @@ const STYLE = `
 .match-row .m-time span { color: var(--theme-foreground-muted); font-size: 12.5px; }
 
 @container (max-width: 1100px) {
+  /* Two compact rows with the same column widths as the full layout, so nothing
+     stretches edge to edge; the spare width goes to the last column */
   .match-row {
-    grid-template-columns: 72px minmax(0, 1fr) auto auto;
+    grid-template-columns: 72px minmax(172px, 260px) 106px 58px 62px minmax(68px, 1fr);
     grid-template-areas:
-      "res champ score time"
-      "res kda cs cs"
-      "res bars bars bars"
-      "res items multi multi";
+      "res champ kda cs score time"
+      "res bars items items multi multi";
   }
-  .match-row .m-score { text-align: right; }
+  .match-row .m-multi { max-width: none; padding-left: 0; }
 }
 
-@container (max-width: 560px) {
+@container (max-width: 640px) {
   .match-row {
     grid-template-columns: minmax(0, 1fr) auto;
     grid-template-areas:
