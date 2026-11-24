@@ -1,5 +1,6 @@
+import { gunzipSync, gzipSync } from "node:zlib";
 import { db } from "../db";
-import type { LiveStatRecord } from "../../shared/api";
+import type { LiveStatRecord, StoredLiveBody, StoredLiveGame } from "../../shared/api";
 
 export interface LiveStatRecording {
   gameId: number;
@@ -41,6 +42,34 @@ export function saveLiveStatPeaks(rec: LiveStatRecording): void {
       );
     }
   })();
+}
+
+// One row per game, overwritten by every checkpoint so the last write is the final state
+export function saveLiveGameData(
+  gameId: number,
+  puuid: string,
+  data: StoredLiveBody,
+): void {
+  const payload = gzipSync(JSON.stringify(data));
+  db.prepare(
+    `INSERT INTO live_game_data (game_id, puuid, duration_s, payload, recorded_at)
+     VALUES (?, ?, ?, ?, ?)
+     ON CONFLICT(game_id, puuid) DO UPDATE SET
+       duration_s = excluded.duration_s,
+       payload = excluded.payload,
+       recorded_at = excluded.recorded_at`,
+  ).run(gameId, puuid, Math.round(data.snapshot.game?.timeSec ?? 0), payload, Date.now());
+}
+
+export function getLiveGameData(gameId: number): StoredLiveGame | null {
+  const row = db
+    .prepare(
+      "SELECT duration_s, payload, recorded_at FROM live_game_data WHERE game_id = ? ORDER BY recorded_at DESC LIMIT 1",
+    )
+    .get(gameId) as { duration_s: number; payload: Buffer; recorded_at: number } | undefined;
+  if (!row) return null;
+  const data = JSON.parse(gunzipSync(row.payload).toString("utf8")) as StoredLiveBody;
+  return { ...data, gameId, durationSec: row.duration_s, recordedAt: row.recorded_at };
 }
 
 // The best value of every stat, with the game and champion it happened on. Filter to one champion to

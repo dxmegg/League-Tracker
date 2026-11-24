@@ -19,6 +19,8 @@ import type {
   LiveActivePlayer,
   LiveEvent,
   LiveFull,
+  LiveSeriesPoint,
+  StoredLiveBody,
   LiveItem,
   LivePlayer,
   LiveRuneRef,
@@ -1746,7 +1748,69 @@ const MISSES_BEFORE_END = 3;
 // Momentary readings that say nothing about how strong the champion is
 const SKIP_STATS = new Set(["currentHealth", "resourceValue", "resourceType"]);
 
-type Recording = db.LiveStatRecording & { lastSave: number; dirty: boolean; misses: number };
+// Game seconds between two points of the stored flow series
+const SERIES_STEP_SEC = 5;
+
+type Recording = db.LiveStatRecording & {
+  lastSave: number;
+  dirty: boolean;
+  misses: number;
+  // The latest full snapshot and the flow series, written with the peaks so they end up with the match
+  snapshot: LiveFull | null;
+  series: LiveSeriesPoint[];
+  firstSampleSec: number | null;
+  playerIds: string[];
+  itemLog: NonNullable<StoredLiveBody["itemLog"]>;
+  skillLog: NonNullable<StoredLiveBody["skillLog"]>;
+  statSeries: NonNullable<StoredLiveBody["statSeries"]>;
+  champSelect: StoredLiveBody["champSelect"];
+  // Last seen state, to turn snapshots into change logs
+  prevItems: Map<string, Map<number, number>>;
+  prevSkills: Record<string, number>;
+};
+
+// The last champion select seen by the lobby poll, attached to the game that follows it
+let lastChampSelect: { at: number; value: NonNullable<LiveSessionData["champSelect"]> } | null =
+  null;
+const CHAMP_SELECT_MAX_AGE_MS = 30 * 60_000;
+const STAT_SERIES_STEP_SEC = 15;
+
+const playerKey = (p: LivePlayer) => p.riotId || `${p.summonerName}|${p.championName}`;
+
+// Turns one snapshot into the per-player series point, inventory changes, skill order and stat series
+function collectExtras(rec: Recording, snap: LiveFull, t: number, sample: Record<string, number>) {
+  rec.firstSampleSec ??= t;
+  if (rec.playerIds.length === 0) rec.playerIds = snap.players.map(playerKey);
+
+  for (const p of snap.players) {
+    const key = playerKey(p);
+    const now = new Map<number, number>();
+    for (const it of p.items) now.set(it.id, (now.get(it.id) ?? 0) + it.count);
+    const before = rec.prevItems.get(key) ?? new Map<number, number>();
+    for (const id of new Set([...now.keys(), ...before.keys()])) {
+      const d = (now.get(id) ?? 0) - (before.get(id) ?? 0);
+      if (d !== 0) {
+        rec.itemLog.push({ t, p: key, id, d });
+        rec.dirty = true;
+      }
+    }
+    rec.prevItems.set(key, now);
+  }
+
+  for (const a of snap.me?.abilities ?? []) {
+    if (a.key !== "Passive" && a.level > (rec.prevSkills[a.key] ?? 0)) {
+      rec.skillLog.push({ t, key: a.key, level: a.level });
+      rec.dirty = true;
+    }
+    rec.prevSkills[a.key] = a.level;
+  }
+
+  const lastStat = rec.statSeries[rec.statSeries.length - 1];
+  if (!lastStat || t < lastStat.t || t - lastStat.t >= STAT_SERIES_STEP_SEC) {
+    rec.statSeries.push({ t, stats: sample });
+  }
+}
+
 let recording: Recording | null = null;
 let recorderTimer: ReturnType<typeof setInterval> | null = null;
 let recordBusy = false;
@@ -1755,6 +1819,18 @@ function persistRecording() {
   if (!recording) return;
   try {
     db.saveLiveStatPeaks(recording);
+    if (recording.snapshot) {
+      db.saveLiveGameData(recording.gameId, recording.puuid, {
+        snapshot: recording.snapshot,
+        series: recording.series,
+        firstSampleSec: recording.firstSampleSec ?? undefined,
+        playerIds: recording.playerIds,
+        itemLog: recording.itemLog,
+        skillLog: recording.skillLog,
+        statSeries: recording.statSeries,
+        champSelect: recording.champSelect,
+      });
+    }
     recording.dirty = false;
     recording.lastSave = Date.now();
   } catch (err) {
@@ -1822,9 +1898,49 @@ async function recordTick() {
         lastSave: 0,
         dirty: false,
         misses: 0,
+        snapshot: null,
+        series: [],
+        firstSampleSec: null,
+        playerIds: [],
+        itemLog: [],
+        skillLog: [],
+        statSeries: [],
+        champSelect:
+          lastChampSelect && Date.now() - lastChampSelect.at < CHAMP_SELECT_MAX_AGE_MS
+            ? lastChampSelect.value
+            : null,
+        prevItems: new Map(),
+        prevSkills: {},
       };
     }
     recording.misses = 0;
+    recording.snapshot = snap;
+    const t = snap.game?.timeSec ?? 0;
+    collectExtras(recording, snap, t, sample);
+    const lastPoint = recording.series[recording.series.length - 1];
+    if (!lastPoint || t < lastPoint.t || t - lastPoint.t >= SERIES_STEP_SEC) {
+      const team = (name: string) => {
+        const ps = snap.players.filter((p) => p.team === name);
+        return {
+          kills: ps.reduce((s, p) => s + p.kills, 0),
+          cs: ps.reduce((s, p) => s + p.creepScore, 0),
+          itemValue: ps.reduce((s, p) => s + p.itemValue, 0),
+        };
+      };
+      recording.series.push({
+        t,
+        ORDER: team("ORDER"),
+        CHAOS: team("CHAOS"),
+        gold: snap.me?.currentGold ?? 0,
+        players: recording.playerIds.map((id) => {
+          const p = snap.players.find((x) => playerKey(x) === id);
+          return p
+            ? [p.kills, p.deaths, p.assists, p.creepScore, p.itemValue, p.level]
+            : [0, 0, 0, 0, 0, 0];
+        }),
+      });
+      recording.dirty = true;
+    }
     for (const [key, value] of Object.entries(sample)) {
       recording.finals[key] = value;
       if (!(key in recording.peaks) || value > recording.peaks[key]) {
@@ -2031,6 +2147,7 @@ export async function fetchLiveSessionData(): Promise<LiveSessionData | null> {
           bans: { mine: toIds(bans.myTeamBans), theirs: toIds(bans.theirTeamBans) },
           rerollsRemaining: typeof rerolls === "number" ? rerolls : null,
         };
+        lastChampSelect = { at: Date.now(), value: champSelect };
       }
     } catch {
       // Champ-select endpoint may be unavailable during a transition.

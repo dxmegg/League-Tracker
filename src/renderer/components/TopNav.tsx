@@ -23,7 +23,7 @@ const statusLabels: Record<LcuStatus, string> = {
 };
 
 const mainTabs = [
-  { to: "/test", label: "TEST" },
+  { to: "/test", label: "LIVE GAME" },
   { to: "/home", label: "HOME" },
   { to: "/local", label: "LOCAL ACCOUNT" },
   { to: "/history", label: "HISTORY" },

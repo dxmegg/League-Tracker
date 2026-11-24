@@ -4,6 +4,7 @@ import { LiveEvents } from "../components/live/LiveEvents";
 import { LiveLastGame } from "../components/live/LiveLastGame";
 import { LiveMe } from "../components/live/LiveMe";
 import { LiveRecords } from "../components/live/LiveRecords";
+import { LiveSavedGames } from "../components/live/LiveSavedGames";
 import { LiveTeamStrip, LiveTeamTable } from "../components/live/LiveTeams";
 import { LiveTrends } from "../components/live/LiveTrends";
 import { Pill, Title } from "../components/live/shared";
@@ -87,7 +88,7 @@ function RawPanel({ snapshot }: { snapshot: LiveFull }) {
     a.href = url;
     a.download = `live-game-${new Date().toISOString().replace(/[:.]/g, "-")}.json`;
     a.click();
-    URL.revokeObjectURL(url);
+    window.setTimeout(() => URL.revokeObjectURL(url), 1000);
   };
 
   return (
@@ -192,7 +193,8 @@ export default function Live() {
   const [demo, setDemo] = useState(false);
   const { snapshot, error, history, peaks } = useLiveFull({ paused, demo });
   const { session } = useLiveGame();
-  const clockSec = useGameClock(snapshot, paused);
+  // The pause button is hidden in demo mode, so a leftover pause must not freeze the demo clock
+  const clockSec = useGameClock(snapshot, paused && !demo);
 
   const inGame = snapshot?.state === "in-game" && snapshot.game != null;
   const teams = useMemo(
@@ -282,6 +284,7 @@ export default function Live() {
             error={error}
             onDemo={() => setDemo(true)}
           />
+          <LiveSavedGames />
         </>
       ) : (
         <>
@@ -303,11 +306,17 @@ export default function Live() {
           <LiveEvents events={snapshot.events} players={snapshot.players} allyTeam={allyTeam} />
           <LiveRecords />
           <RawPanel snapshot={snapshot} />
+          <LiveSavedGames />
           <p className="pb-2 text-center text-[11.5px] text-lol-text/60">
             Source: Live Client Data API (127.0.0.1:2999) and the client&apos;s gameflow session ·
             refreshed every few seconds, CS in steps of 2 · last update{" "}
             {new Date(snapshot.fetchedAt).toLocaleTimeString()}
           </p>
+          {error && !demo && (
+            <p className="-mt-3 pb-2 text-center text-[12px] text-lol-loss">
+              Last poll failed, showing the previous data: {error}
+            </p>
+          )}
         </>
       )}
     </div>

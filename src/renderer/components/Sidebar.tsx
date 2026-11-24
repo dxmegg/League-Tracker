@@ -37,7 +37,7 @@ const NAV_ICONS: Record<string, NavIcon> = {
 };
 
 const mainTabs = [
-  { to: "/test", label: "TEST" },
+  { to: "/test", label: "LIVE GAME" },
   { to: "/home", label: "HOME" },
   { to: "/local", label: "LOCAL ACCOUNT" },
   { to: "/history", label: "HISTORY" },
@@ -53,7 +53,7 @@ const mainTabs = [
 
 // Redesign merges Local Account and History into one page
 const redesignTabs = [
-  { to: "/test", label: "TEST" },
+  { to: "/test", label: "LIVE GAME" },
   { to: "/home", label: "HOME" },
   { to: "/profile", label: "YOUR PROFILE" },
   { to: "/match-history", label: "MATCH HISTORY" },

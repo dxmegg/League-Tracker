@@ -1808,6 +1808,41 @@ export interface LiveGameInfo {
   gameId: number | null;
 }
 
+// One point of the game-flow series kept for a finished game (team totals every few game seconds)
+export interface LiveSeriesPoint {
+  t: number;
+  ORDER: { kills: number; cs: number; itemValue: number };
+  CHAOS: { kills: number; cs: number; itemValue: number };
+  gold: number;
+  // Per player, in the order of `playerIds`: [kills, deaths, assists, cs, itemValue, level]
+  players?: number[][];
+}
+
+// What was extracted from a game while it ran. Everything past `snapshot` and `series` is optional
+// because older rows were written before it was collected.
+export interface StoredLiveBody {
+  snapshot: LiveFull;
+  series: LiveSeriesPoint[];
+  // Game second of the first sample; the logs below are incomplete before it when the app joined late
+  firstSampleSec?: number;
+  playerIds?: string[];
+  // Inventory changes of every player: d > 0 item gained, d < 0 item lost or sold
+  itemLog?: Array<{ t: number; p: string; id: number; d: number }>;
+  // Your ability ranks as they were put in, in order
+  skillLog?: Array<{ t: number; key: string; level: number }>;
+  // Your champion stats every ~15 game seconds
+  statSeries?: Array<{ t: number; stats: Record<string, number> }>;
+  // Draft info captured in champion select, when the app was watching it
+  champSelect?: NonNullable<LiveSessionData["champSelect"]> | null;
+}
+
+// What the live tab showed for a game, as stored with the match
+export interface StoredLiveGame extends StoredLiveBody {
+  gameId: number;
+  durationSec: number;
+  recordedAt: number;
+}
+
 export interface LiveFull {
   fetchedAt: number;
   // "no-game" means the Live Client port is closed or answered nothing usable
@@ -2402,6 +2437,7 @@ export interface ElectronAPI {
   getGameStatPeaks: (
     gameId: number,
   ) => Promise<Array<{ stat: string; peak: number; final: number }>>;
+  getGameLiveData: (gameId: number) => Promise<StoredLiveGame | null>;
   getLiveFull: () => Promise<LiveFull>;
   getChampionDataVersion: () => Promise<string>;
   getChampionData: () => Promise<ChampionData>;

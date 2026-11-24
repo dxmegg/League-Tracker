@@ -1,6 +1,7 @@
 import { useNavigate, useParams } from "react-router-dom";
 import { useIpc } from "../hooks/useIpc";
 import { useChampionData } from "../hooks/useChampions";
+import { LiveGameData } from "../components/live/LiveGameData";
 import MatchScoreboard from "../components/MatchScoreboard";
 import type { MatchDetail } from "../lib/types";
 
@@ -39,6 +40,7 @@ export default function MatchDetailPage() {
           </p>
         )}
       </div>
+      {validGameId && <LiveGameData gameId={parsedGameId} />}
     </div>
   );
 }

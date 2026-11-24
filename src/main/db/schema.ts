@@ -361,6 +361,17 @@ export function createTables() {
       PRIMARY KEY (game_id, puuid, stat)
     );
     CREATE INDEX IF NOT EXISTS idx_live_stat_peaks_stat ON live_stat_peaks(stat, champion_id);
+
+    -- Everything the live tab showed for a game: the last full snapshot (both teams, events, your stats,
+    -- raw payload) and the flow series, as one gzipped JSON blob. Same no-FK reason as above.
+    CREATE TABLE IF NOT EXISTS live_game_data (
+      game_id     INTEGER NOT NULL,
+      puuid       TEXT NOT NULL,
+      duration_s  INTEGER NOT NULL DEFAULT 0,
+      payload     BLOB NOT NULL,
+      recorded_at INTEGER NOT NULL,
+      PRIMARY KEY (game_id, puuid)
+    );
   `);
 }
 
