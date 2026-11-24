@@ -1325,7 +1325,7 @@ export function getDashboardData(
   FROM games g
   JOIN ${source.table} ${source.alias} ON g.game_id = ${source.alias}.game_id
   JOIN match_participants owner
-    ON owner.game_id = g.game_id AND owner.puuid = ${source.alias}.puuid
+    ON owner.game_id = g.game_id AND owner.puuid = ${filters?.account ? "ps.puuid" : "g.puuid"}
   JOIN (
     SELECT game_id, team_id, SUM(kills) AS kills, SUM(total_damage_dealt) AS dmg
     FROM match_participants

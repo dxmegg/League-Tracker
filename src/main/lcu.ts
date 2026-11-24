@@ -1307,8 +1307,9 @@ export async function pollTick(win: BrowserWindow) {
     await syncGames(win);
   } catch (err) {
     console.log("Poll fetch error:", err);
-    // Lost connection, restart connect loop
-    restartConnectLoop(win);
+    // Only a client that stops answering is a lost connection; a failure in our own
+    // code (e.g. a SQL error) must not flip the status to "disconnected" every tick
+    if ((await fetchGameflowPhase()) === null) restartConnectLoop(win);
   } finally {
     syncing = false;
   }
