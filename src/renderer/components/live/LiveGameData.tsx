@@ -132,8 +132,9 @@ export function LiveGameData({ gameId }: { gameId: number }) {
   useEffect(() => {
     let cancelled = false;
     setData(null);
-    window.api
-      .getGameLiveData(gameId)
+    // Wrapped so a missing method (stale preload) is a rejection instead of a render crash
+    Promise.resolve()
+      .then(() => window.api.getGameLiveData(gameId))
       .then((d) => {
         if (!cancelled) setData(d);
       })
