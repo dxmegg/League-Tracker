@@ -28,6 +28,19 @@
   --color-ring: var(--theme-crimson);
 }
 
+/* Core brand palette: the only colours new code should use. Follows the active theme.
+   Spacing = Tailwind's default 4px scale. One radius for the whole app (8px).
+   shortcut: legacy lol-*, fg-*, crimson, accent tokens below stay until their ~2800 usages are migrated. */
+@theme inline {
+  --color-brand-bg: var(--theme-bg);
+  --color-brand-text: var(--theme-text-bright);
+  --color-brand-primary: var(--theme-crimson);
+  --color-brand-accent: var(--theme-gold);
+  --color-brand-win: var(--theme-win);
+  --color-brand-loss: var(--theme-loss);
+  --radius-app: 0.5rem;
+}
+
 @theme {
   --color-lol-dark: #0b0e14;
   --color-lol-card: #141924;
@@ -153,8 +166,8 @@ html[data-theme="experiment"] {
   --theme-crimson-glow: rgba(210, 43, 71, 0.48);
   --theme-victory: #38d6a2;
   --theme-win: #38d6a2;
-  --theme-defeat: #f0566e;
-  --theme-loss: #f0566e;
+  --theme-defeat: #ff6a4d;
+  --theme-loss: #ff6a4d;
   --theme-assist: #4db8ff;
   --theme-violet: #a98bff;
   --theme-flint: #75646c;
@@ -196,8 +209,8 @@ html[data-theme="redesign"] {
   --theme-crimson-glow: rgba(210, 43, 71, 0.48);
   --theme-victory: #38d6a2;
   --theme-win: #38d6a2;
-  --theme-defeat: #f0566e;
-  --theme-loss: #f0566e;
+  --theme-defeat: #ff6a4d;
+  --theme-loss: #ff6a4d;
   --theme-assist: #4db8ff;
   --theme-violet: #a98bff;
   --theme-flint: #75646c;

@@ -1,9 +1,10 @@
-import { type ReactNode, useCallback, useEffect, useRef, useState } from "react";
+import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type {
   ActivityHeatmapDay,
   ChampionData,
   HomeDashboardPayload,
   HomeTimePeriod,
+  MatchListItem,
 } from "../../shared/api";
 import { QUEUE_GROUP_ARENA } from "../../shared/queues";
 import { getChampionName } from "../hooks/useChampions";
@@ -12,7 +13,6 @@ import { useMatches } from "../hooks/useMatches";
 import { formatPatch } from "../lib/format";
 import type {
   DashboardData,
-  MatchDetail,
   MatchFilterOptions,
   MatchSort,
   MatchSortDir,
@@ -25,7 +25,9 @@ import { FilterSelect, ResultTabs } from "./MatchFilters";
 import { HistoryStatRow } from "./HistoryStatRow";
 import { HomeHero } from "./HomeHero";
 import { ArrowDownIcon } from "./icons";
-import { MatchRowExperiment } from "./MatchRowExperiment";
+import { MatchCard, MatchCardHeader } from "./MatchCard";
+import { DayHeader, SessionHeader } from "./MatchGroupHeaders";
+import { groupDaysAndSessions } from "../lib/matchSessions";
 import { Panel } from "./Panel";
 import { ProfileAugments, ProfilePlayInsights } from "./ProfileInsights";
 import { queueLabel } from "./QueueSelect";
@@ -132,10 +134,6 @@ export function YourProfileSections({
     accounts: [],
     hasFavorites: false,
   });
-  const [expandedId, setExpandedId] = useState<number | null>(null);
-  const [detail, setDetail] = useState<MatchDetail | null>(null);
-  const [detailLoading, setDetailLoading] = useState(false);
-  const [puuids, setPuuids] = useState<string[] | null>(null);
   const sentinelRef = useRef<HTMLDivElement>(null);
 
   const { matches, total, loading, error, hasMore, loadMore } = useMatches(
@@ -172,10 +170,6 @@ export function YourProfileSections({
     [account, timePeriod, queueFilter],
   );
 
-  useEffect(() => {
-    window.api.getAllSummonerPuuids().then(setPuuids);
-  }, []);
-
   // Dropdown options come from player_stats, which has no per-account rows for "all"
   const fetchOptions = useCallback(
     () =>
@@ -204,7 +198,6 @@ export function YourProfileSections({
     setPatchFilter(undefined);
     setQueueFilter(undefined);
     setResultFilter(undefined);
-    setExpandedId(null);
   }, [account]);
 
   useEffect(() => {
@@ -220,22 +213,18 @@ export function YourProfileSections({
     return () => observer.disconnect();
   }, [loadMore]);
 
-  const toggleExpand = useCallback(
-    async (gameId: number) => {
-      if (expandedId === gameId) {
-        setExpandedId(null);
-        setDetail(null);
-        return;
-      }
-      setExpandedId(gameId);
-      setDetailLoading(true);
-      try {
-        setDetail(await window.api.getMatchDetail(gameId));
-      } finally {
-        setDetailLoading(false);
-      }
-    },
-    [expandedId],
+  // Days and sessions only read right when the list is in time order
+  const days = useMemo(
+    () => (!sort || sort === "date" ? groupDaysAndSessions(matches) : null),
+    [sort, matches],
+  );
+  const renderCard = (match: MatchListItem, index: number) => (
+    <MatchCard
+      // The combined view can list one game once per tracked account
+      key={`${match.game_id}-${index}`}
+      match={match}
+      championName={getChampionName(champData, match.champion_id)}
+    />
   );
 
   const hasTiles = dashboard !== null && dashboard.totalGames > 0;
@@ -386,21 +375,33 @@ export function YourProfileSections({
           </p>
         )}
 
-        <div className="match-list-exp" style={{ containerType: "inline-size" }}>
-          {matches.map((match, index) => (
-            <MatchRowExperiment
-              // The combined view can list one game once per tracked account
-              key={`${match.game_id}-${index}`}
-              match={match}
-              championName={getChampionName(champData, match.champion_id)}
-              champData={champData}
-              expanded={expandedId === match.game_id}
-              detail={expandedId === match.game_id ? detail : null}
-              detailLoading={expandedId === match.game_id && detailLoading}
-              puuids={puuids}
-              onToggle={() => toggleExpand(match.game_id)}
-            />
-          ))}
+        {/* Narrower than the Match History tab: MatchCard's own container query picks the two-row layout */}
+        <div className="overflow-x-auto pb-1">
+          <div className="@container min-w-[760px]">
+            {!days && matches.length > 0 && <MatchCardHeader />}
+            {days ? (
+              <div className="flex flex-col gap-6">
+                {days.map((day) => (
+                  <section key={day.key}>
+                    <DayHeader day={day} />
+                    <div className="flex flex-col gap-4">
+                      {day.sessions.map((session) => (
+                        <div key={session.key}>
+                          <SessionHeader session={session} total={day.sessions.length} />
+                          <MatchCardHeader />
+                          <div className="flex flex-col gap-2">
+                            {session.matches.map(renderCard)}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </section>
+                ))}
+              </div>
+            ) : (
+              <div className="flex flex-col gap-2">{matches.map(renderCard)}</div>
+            )}
+          </div>
         </div>
 
         {hasMore && <div ref={sentinelRef} className="h-1" />}

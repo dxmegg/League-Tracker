@@ -432,7 +432,7 @@ function Delta({
       : "bg-lol-loss/15 text-lol-loss";
   return (
     <span
-      className={`whitespace-nowrap rounded-md px-1.5 py-0.5 font-display text-[11.5px] font-semibold ${tone}`}
+      className={`whitespace-nowrap rounded-md px-2 py-1 font-display text-[13px] font-semibold ${tone}`}
     >
       {up ? "▲" : "▼"} {Math.abs(value).toFixed(digits)}
       {suffix}
@@ -549,41 +549,30 @@ export function ProfilePlayInsights({
     fmt: (n: number) => string,
     opts: { suffix?: string; digits?: number; lowerBetter?: boolean; neutral?: boolean } = {},
   ) => {
-    const top = Math.max(cur ?? 0, prev ?? 0, 0.0001);
-    const bar = (v: number | null, cls: string) => (
-      <div className="h-1 overflow-hidden rounded-full bg-white/[0.05]">
-        <i
-          className={`block h-full rounded-full ${cls}`}
-          style={{ width: `${((v ?? 0) / top) * 100}%` }}
-        />
-      </div>
-    );
+    // The two bars were near-identical in length and told nothing; now vs was is plain text.
     return (
-      <div key={label} className="border-b border-lol-border/30 py-2.5 last:border-b-0">
-        <div className="grid grid-cols-[1fr_auto_auto] items-baseline gap-x-3">
-          <span className="text-[13px] text-lol-text">{label}</span>
-          <span className="font-display text-[16px] font-semibold text-lol-text-bright">
+      <div
+        key={label}
+        className="grid grid-cols-[1fr_auto_auto] items-center gap-x-4 border-b border-lol-border/30 py-3 last:border-b-0"
+      >
+        <span className="text-[14px] text-lol-text-bright">{label}</span>
+        <span className="text-right">
+          <span className="block font-display text-[20px] font-semibold leading-tight text-lol-text-bright">
             {cur != null ? fmt(cur) : "—"}
           </span>
-          <span className="w-[88px] text-right">
-            <Delta
-              value={cur != null && prev != null ? cur - prev : null}
-              suffix={opts.suffix}
-              digits={opts.digits}
-              lowerBetter={opts.lowerBetter}
-              neutral={opts.neutral}
-            />
-          </span>
-        </div>
-        <div className="mt-1.5 grid grid-cols-[1fr_auto] items-center gap-x-3 gap-y-1">
-          <div className="flex flex-col gap-1">
-            {bar(cur, "bg-lol-assist")}
-            {bar(prev, "bg-white/25")}
-          </div>
-          <span className="w-[88px] text-right text-[11px] text-lol-text">
+          <span className="block text-[12px] text-lol-text">
             was {prev != null ? fmt(prev) : "—"}
           </span>
-        </div>
+        </span>
+        <span className="w-[88px] text-right">
+          <Delta
+            value={cur != null && prev != null ? cur - prev : null}
+            suffix={opts.suffix}
+            digits={opts.digits}
+            lowerBetter={opts.lowerBetter}
+            neutral={opts.neutral}
+          />
+        </span>
       </div>
     );
   };
