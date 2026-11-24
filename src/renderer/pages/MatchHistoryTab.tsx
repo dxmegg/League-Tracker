@@ -112,7 +112,7 @@ export default function MatchHistoryTab() {
 
   return (
     <div className="flex min-h-full w-full flex-col gap-5 pr-4">
-      <Panel variant="tile" accent="var(--color-lol-gold)">
+      <Panel variant="featured">
         <div className="mb-3 flex flex-wrap items-baseline justify-between gap-3">
           <h1 className="font-display text-[22px] font-bold text-lol-text-bright">
             Match History

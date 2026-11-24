@@ -76,6 +76,8 @@
 }
 
 :root {
+  --tile-radius: 16px;
+  --tile-padding: 1.25rem;
   --theme-bg: #0b0e14;
   --theme-card: #141924;
   --theme-card-hover: #1b2130;
@@ -310,8 +312,11 @@ html[data-theme="test"] #root {
 @layer components {
   /* Shared glass surface for cards: lit top edge, soft depth, accent-tinted border that wakes on hover.
      Lives in the components layer so any utility class on the element still wins. */
+  /* .app-tile is THE tile style: edit it (and --tile-radius / --tile-padding in :root) and every tile follows.
+     .app-tile-featured adds the coloured top edge and corner glow for the one tile that should stand out. */
   .glass-card,
-  .glass-surface {
+  .glass-surface,
+  .app-tile {
     position: relative;
     border: 1px solid color-mix(in oklab, var(--theme-crimson) 16%, var(--theme-border));
     background:
@@ -331,11 +336,30 @@ html[data-theme="test"] #root {
   }
 
   /* backdrop-filter traps children in their own stacking context, so an open dropdown would sit under the next card */
-  .glass-card:focus-within {
+  .glass-card:focus-within,
+  .app-tile:focus-within {
     z-index: 20;
   }
 
-  .glass-card:hover {
+  .app-tile {
+    border-radius: var(--tile-radius);
+    padding: var(--tile-padding);
+  }
+
+  /* Match lists: dark on the page background, gold top edge and a faint gold corner glow */
+  .app-tile-featured {
+    border-color: var(--theme-border);
+    border-top: 3px solid var(--theme-gold);
+    background: radial-gradient(
+      circle at top right,
+      color-mix(in oklab, var(--theme-gold) 10%, transparent),
+      transparent 55%
+    );
+    backdrop-filter: none;
+  }
+
+  .glass-card:hover,
+  .app-tile:hover {
     border-color: color-mix(in oklab, var(--theme-crimson) 48%, var(--theme-border));
     box-shadow:
       inset 0 1px 0 rgba(255, 255, 255, 0.09),

@@ -43,8 +43,8 @@ export function useLiveResolvers() {
 export function Title({ children, aside }: { children: ReactNode; aside?: ReactNode }) {
   return (
     <div className="mb-4 flex h-8 flex-wrap items-center justify-between gap-3">
-      <h2 className="font-display text-[16px] font-semibold text-lol-text-bright">
-        <i className="mr-2 inline-block h-1.5 w-1.5 rounded-full bg-lol-crimson" />
+      <h2 className="flex items-center gap-2 font-display text-[12px] font-bold uppercase tracking-widest text-lol-gold">
+        <i className="block h-3.5 w-[3px] rounded-full bg-lol-crimson" aria-hidden="true" />
         {children}
       </h2>
       {aside}

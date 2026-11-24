@@ -1170,8 +1170,9 @@ export function getDashboardData(
            AVG(CASE WHEN g.queue_id NOT IN (${EXCLUDED_STATS_SQL}) THEN ps.score END) as avgScore,
            AVG(CASE WHEN g.queue_id NOT IN (${EXCLUDED_STATS_SQL}) AND ps.win = 1 THEN ps.score END) as avgScoreWins,
            AVG(CASE WHEN g.queue_id NOT IN (${EXCLUDED_STATS_SQL}) AND ps.win = 0 THEN ps.score END) as avgScoreLosses,
-           MAX(CASE WHEN g.queue_id NOT IN (${EXCLUDED_STATS_SQL}) THEN ps.score END) as bestScore,
-           MIN(CASE WHEN g.queue_id NOT IN (${EXCLUDED_STATS_SQL}) THEN ps.score END) as worstScore,
+           -- score_raw is the unrounded, unclamped value; ps.score is rounded to 0.1 and held to 1..10
+           MAX(CASE WHEN g.queue_id NOT IN (${EXCLUDED_STATS_SQL}) THEN COALESCE(ps.score_raw, ps.score) END) as bestScore,
+           MIN(CASE WHEN g.queue_id NOT IN (${EXCLUDED_STATS_SQL}) THEN COALESCE(ps.score_raw, ps.score) END) as worstScore,
            SUM(CASE WHEN g.queue_id NOT IN (${EXCLUDED_STATS_SQL}) AND ps.score_badge = 'MVP' THEN 1 ELSE 0 END) as mvps,
            SUM(CASE WHEN g.queue_id NOT IN (${EXCLUDED_STATS_SQL}) AND ps.score_badge = 'ACE' THEN 1 ELSE 0 END) as aces,
            SUM(CASE WHEN ps.score IS NOT NULL AND ps.win = 1 THEN 1 ELSE 0 END) as scoredWins,

@@ -1,4 +1,11 @@
-import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  type ReactNode,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import type {
   ActivityHeatmapDay,
   ChampionData,
@@ -45,7 +52,13 @@ const HEATMAP_UNIT: Record<HomeTimePeriod, HeatmapUnit> = {
   full: "day",
 };
 
-function StatTiles({ dashboard, tiles }: { dashboard: DashboardData; tiles: "score" | "kda" }) {
+function StatTiles({
+  dashboard,
+  tiles,
+}: {
+  dashboard: DashboardData;
+  tiles: "score" | "kda";
+}) {
   const games = dashboard.totalGames;
   const share = (count: number) => (games > 0 ? (count / games) * 100 : 0);
   const mk = dashboard.multikills;
@@ -71,7 +84,8 @@ function StatTiles({ dashboard, tiles }: { dashboard: DashboardData; tiles: "sco
       avgAssists={dashboard.avgAssists}
       kdaRatio={
         games > 0
-          ? (dashboard.totalKills + dashboard.totalAssists) / Math.max(dashboard.totalDeaths, 1)
+          ? (dashboard.totalKills + dashboard.totalAssists) /
+            Math.max(dashboard.totalDeaths, 1)
           : 0
       }
       killsTotal={dashboard.totalKills}
@@ -119,14 +133,18 @@ export function YourProfileSections({
   // Panel placed first in the KDA and Multikills row
   leading?: ReactNode;
 }) {
-  const [championFilter, setChampionFilter] = useState<number | undefined>(undefined);
+  const [championFilter, setChampionFilter] = useState<number | undefined>(
+    undefined,
+  );
   const [patchFilter, setPatchFilter] = useState<string | undefined>(undefined);
   const [localQueue, setQueueFilter] = useState<number | undefined>(undefined);
   const queueFilter = useScopedQueue(localQueue);
   const [dataMode] = useActiveMode();
   const [sort, setSort] = useState<MatchSort | undefined>(undefined);
   const [sortDir, setSortDir] = useState<MatchSortDir>("desc");
-  const [resultFilter, setResultFilter] = useState<"win" | "loss" | undefined>(undefined);
+  const [resultFilter, setResultFilter] = useState<"win" | "loss" | undefined>(
+    undefined,
+  );
   const [filterOptions, setFilterOptions] = useState<MatchFilterOptions>({
     patches: [],
     champions: [],
@@ -275,20 +293,29 @@ export function YourProfileSections({
         className={`grid grid-cols-1 gap-5 ${hasTiles ? "xl:grid-cols-[minmax(0,0.9fr)_minmax(0,2fr)]" : ""}`}
       >
         {hasTiles && <StatTiles dashboard={dashboard} tiles="score" />}
-        <div className="min-w-0">
-          <ActivityHeatmap days={activityRows ?? []} fluid unit={HEATMAP_UNIT[timePeriod]} />
+        <div className="flex min-w-0 flex-col [&>section]:flex-1">
+          <ActivityHeatmap
+            days={activityRows ?? []}
+            fluid
+            unit={HEATMAP_UNIT[timePeriod]}
+          />
         </div>
       </div>
 
       <ProfileAugments account={account} timePeriod={timePeriod} />
       <ProfilePlayInsights account={account} timePeriod={timePeriod} />
 
-      <Panel variant="tile">
+      <Panel variant="featured">
         <div className="mb-3 flex flex-wrap items-baseline justify-between gap-3">
-          <h2 className="font-display text-[16px] font-semibold text-lol-text-bright">
-            <i className="mr-2 inline-block h-1.5 w-1.5 rounded-full bg-lol-crimson" />
+          <h2 className="flex items-center gap-2 font-display text-[12px] font-bold uppercase tracking-widest text-lol-gold">
+            <i
+              className="block h-3.5 w-[3px] rounded-full bg-lol-crimson"
+              aria-hidden="true"
+            />
             Full match history
-            <span className="ml-3 text-[13px] font-normal text-lol-text">{total} games</span>
+            <span className="ml-3 text-[13px] font-normal text-lol-text">
+              {total} games
+            </span>
           </h2>
           {filtersActive && (
             <button
@@ -302,7 +329,11 @@ export function YourProfileSections({
         </div>
 
         <div className="mb-4 flex flex-wrap items-center gap-x-3 gap-y-2 rounded-xl border border-lol-border/60 bg-black/20 p-2">
-          <ResultTabs value={resultFilter} onChange={setResultFilter} className="h-auto" />{" "}
+          <ResultTabs
+            value={resultFilter}
+            onChange={setResultFilter}
+            className="h-auto"
+          />{" "}
           <ChampionCombobox
             value={championFilter ?? null}
             onChange={(value) => setChampionFilter(value ?? undefined)}
@@ -323,7 +354,9 @@ export function YourProfileSections({
             <FilterSelect
               title="Filter by queue type"
               value={queueFilter}
-              onChange={(value) => setQueueFilter(value === undefined ? undefined : Number(value))}
+              onChange={(value) =>
+                setQueueFilter(value === undefined ? undefined : Number(value))
+              }
               placeholder="Queue Type"
               className="h-8 px-3 text-[12.5px]"
               options={filterOptions.queues.map((q) => ({
@@ -349,7 +382,11 @@ export function YourProfileSections({
             />
             <FilterChip
               onClick={() => setSortDir((d) => (d === "desc" ? "asc" : "desc"))}
-              title={sortDir === "desc" ? "Highest or newest first" : "Lowest or oldest first"}
+              title={
+                sortDir === "desc"
+                  ? "Highest or newest first"
+                  : "Lowest or oldest first"
+              }
               icon={
                 <ArrowDownIcon
                   className={`h-3.5 w-3.5 transition-transform ${sortDir === "asc" ? "rotate-180" : ""}`}
@@ -362,7 +399,9 @@ export function YourProfileSections({
           </div>
         </div>
         {loading && matches.length === 0 && (
-          <p className="py-8 text-center text-sm text-lol-text">Loading matches...</p>
+          <p className="py-8 text-center text-sm text-lol-text">
+            Loading matches...
+          </p>
         )}
         {!loading && error && matches.length === 0 && (
           <p className="py-8 text-center text-sm text-lol-loss">
@@ -387,7 +426,10 @@ export function YourProfileSections({
                     <div className="flex flex-col gap-4">
                       {day.sessions.map((session) => (
                         <div key={session.key}>
-                          <SessionHeader session={session} total={day.sessions.length} />
+                          <SessionHeader
+                            session={session}
+                            total={day.sessions.length}
+                          />
                           <MatchCardHeader />
                           <div className="flex flex-col gap-2">
                             {session.matches.map(renderCard)}
@@ -399,14 +441,18 @@ export function YourProfileSections({
                 ))}
               </div>
             ) : (
-              <div className="flex flex-col gap-2">{matches.map(renderCard)}</div>
+              <div className="flex flex-col gap-2">
+                {matches.map(renderCard)}
+              </div>
             )}
           </div>
         </div>
 
         {hasMore && <div ref={sentinelRef} className="h-1" />}
         {loading && matches.length > 0 && (
-          <div className="py-3 text-center text-sm text-lol-text">Loading...</div>
+          <div className="py-3 text-center text-sm text-lol-text">
+            Loading...
+          </div>
         )}
       </Panel>
     </div>

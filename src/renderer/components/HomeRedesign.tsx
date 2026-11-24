@@ -513,7 +513,7 @@ function HubCard({
   children: ReactNode;
 }) {
   return (
-    <Card className={`glass-card min-w-0 rounded-[16px] p-5 ${className}`}>
+    <Card className={`app-tile min-w-0 rounded-[var(--tile-radius)] p-[var(--tile-padding)] ${className}`}>
       <CardHeader className="mb-3">
         <CardTitle className="flex items-center gap-2 font-display text-[12px] font-bold uppercase tracking-widest text-lol-gold">
           <i className="block h-3.5 w-[3px] rounded-full bg-lol-crimson" aria-hidden="true" />
