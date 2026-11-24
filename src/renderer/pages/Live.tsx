@@ -3,6 +3,7 @@ import type { LiveFull } from "../../shared/api";
 import { LiveEvents } from "../components/live/LiveEvents";
 import { LiveLastGame } from "../components/live/LiveLastGame";
 import { LiveMe } from "../components/live/LiveMe";
+import { LiveRecords } from "../components/live/LiveRecords";
 import { LiveTeamStrip, LiveTeamTable } from "../components/live/LiveTeams";
 import { LiveTrends } from "../components/live/LiveTrends";
 import { Pill, Title } from "../components/live/shared";
@@ -275,6 +276,7 @@ export default function Live() {
         <>
           <ClientStatePanel session={session} />
           <LiveLastGame />
+          <LiveRecords />
           <WaitingState
             phase={snapshot?.gameflowPhase ?? null}
             error={error}
@@ -299,6 +301,7 @@ export default function Live() {
           <LiveTeamTable team={ally} ally clockSec={clockSec} />
           <LiveTeamTable team={enemy} ally={false} clockSec={clockSec} />
           <LiveEvents events={snapshot.events} players={snapshot.players} allyTeam={allyTeam} />
+          <LiveRecords />
           <RawPanel snapshot={snapshot} />
           <p className="pb-2 text-center text-[11.5px] text-lol-text/60">
             Source: Live Client Data API (127.0.0.1:2999) and the client&apos;s gameflow session ·

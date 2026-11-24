@@ -50,7 +50,7 @@ const PLATFORM_LABELS: Record<string, string> = {
   vn2: "VN",
 };
 
-import { THEME_OPTIONS } from "../lib/themes";
+import { THEME_OPTIONS, resolveTheme } from "../lib/themes";
 
 function formatSize(bytes: number): string {
   return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
@@ -442,8 +442,7 @@ export function SettingsExp() {
       window.api.getSetting("remember_filters"),
       window.api.getSetting("theme"),
     ]).then(([startup, startupSupported, tray, hidden, remakes, backup, remember, storedTheme]) => {
-      const persistedTheme =
-        THEME_OPTIONS.find((option) => option.value === storedTheme)?.value ?? "experiment";
+      const persistedTheme = resolveTheme(storedTheme);
       document.documentElement.setAttribute("data-theme", persistedTheme);
       setAutoStart(startup === "true");
       setAutoStartSupported(startupSupported);

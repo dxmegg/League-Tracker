@@ -5,6 +5,7 @@ import { FilterSelect } from "../components/FilterSelect";
 import { setRemembering } from "../lib/viewState";
 import type { BackupInfo } from "../lib/types";
 import { useActiveTheme } from "../hooks/useActiveTheme";
+import { THEME_OPTIONS } from "../lib/themes";
 import { SettingsExp } from "../components/SettingsExp";
 
 const BACKUP_REASONS: Record<string, string> = {
@@ -521,32 +522,15 @@ export default function Settings() {
           <FilterSelect
             value={theme}
             onChange={(value) => {
-              if (
-                value !== "test" &&
-                value !== "experiment" &&
-                value !== "experiment2" &&
-                value !== "experiment3" &&
-                value !== "experiment4" &&
-                value !== "experiment5" &&
-                value !== "redesign"
-              )
-                return;
+              if (!value || !THEME_OPTIONS.some((o) => o.value === value)) return;
               setTheme(value);
               void window.api.setSetting("theme", value);
               document.documentElement.setAttribute("data-theme", value);
             }}
-            placeholder="First Theme"
+            placeholder="Redesign"
             title="Theme"
             className="w-48"
-            options={[
-              { value: "experiment", label: "First Theme" },
-              { value: "test", label: "Second Theme" },
-              { value: "experiment2", label: "Third Theme" },
-              { value: "experiment3", label: "Fourth Theme" },
-              { value: "experiment4", label: "Fifth Theme" },
-              { value: "experiment5", label: "Sixth Theme" },
-              { value: "redesign", label: "Redesign" },
-            ]}
+            options={[...THEME_OPTIONS]}
           />
         </div>
       </Section>

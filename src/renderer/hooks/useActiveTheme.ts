@@ -18,11 +18,6 @@ export function useActiveTheme({ exact = false }: { exact?: boolean } = {}): str
 
   if (exact) return theme;
 
-  return theme === "experiment2" ||
-    theme === "experiment3" ||
-    theme === "experiment4" ||
-    theme === "experiment5" ||
-    theme === "redesign"
-    ? "experiment"
-    : theme;
+  // Redesign shares the Legacy theme's layouts; exact: true tells them apart
+  return theme === "redesign" ? "experiment" : theme;
 }

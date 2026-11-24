@@ -3,38 +3,13 @@ import type { LiveStatRecord, MatchListItem } from "../../../shared/api";
 import { QUEUE_LABELS } from "../../../shared/queues";
 import { formatNumber, formatTimeAgo } from "../../lib/format";
 import { fmtClock, kdaRatio } from "../../lib/live";
+import { PEAK_ROWS, formatPeak } from "../../lib/liveStats";
 import AugmentIcon from "../AugmentIcon";
 import { parseAugmentIds } from "../AugmentGrid";
 import ChampionIcon from "../ChampionIcon";
 import ItemIcon from "../ItemIcon";
 import { Panel } from "../Panel";
 import { StatIcon, Title } from "./shared";
-
-// Stats worth showing for a finished game, in this order, with how to print them. Values that the API
-// reports as fractions (crit chance, tenacity) are shown as percentages.
-const PEAK_ROWS: Array<{ key: string; label: string; fmt: "int" | "pct" | "dec" }> = [
-  { key: "attackDamage", label: "Attack damage", fmt: "int" },
-  { key: "abilityPower", label: "Ability power", fmt: "int" },
-  { key: "attackSpeed", label: "Attack speed", fmt: "dec" },
-  { key: "abilityHaste", label: "Ability haste", fmt: "int" },
-  { key: "critChance", label: "Crit chance", fmt: "pct" },
-  { key: "armor", label: "Armor", fmt: "int" },
-  { key: "magicResist", label: "Magic resist", fmt: "int" },
-  { key: "maxHealth", label: "Max health", fmt: "int" },
-  { key: "effectiveHpPhysical", label: "Effective HP (phys)", fmt: "int" },
-  { key: "effectiveHpMagic", label: "Effective HP (magic)", fmt: "int" },
-  { key: "moveSpeed", label: "Move speed", fmt: "int" },
-  { key: "lifeSteal", label: "Life steal", fmt: "pct" },
-  { key: "omnivamp", label: "Omnivamp", fmt: "pct" },
-  { key: "tenacity", label: "Tenacity", fmt: "pct" },
-  { key: "gold", label: "Gold held", fmt: "int" },
-];
-
-function formatPeak(value: number, fmt: "int" | "pct" | "dec"): string {
-  if (fmt === "pct") return `${Math.round(value <= 1 ? value * 100 : value)}%`;
-  if (fmt === "dec") return (Math.round(value * 100) / 100).toString();
-  return Math.round(value).toLocaleString();
-}
 
 function Metric({ label, value, tone = "" }: { label: string; value: string; tone?: string }) {
   return (
