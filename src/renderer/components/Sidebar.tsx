@@ -34,6 +34,7 @@ const NAV_ICONS: Record<string, NavIcon> = {
   "/trends": TrendingUpIcon,
   "/records": TrophyIcon,
   "/data": GlobeIcon,
+  "/debug": SettingsIcon,
 };
 
 const mainTabs = [
@@ -49,6 +50,7 @@ const mainTabs = [
   { to: "/trends", label: "TRENDS" },
   { to: "/records", label: "RECORDS" },
   { to: "/data", label: "DATA" },
+  { to: "/debug", label: "DEBUG TESTING" },
 ];
 
 // Redesign merges Local Account and History into one page
@@ -64,7 +66,7 @@ const redesignTabs = [
 const NAV_GROUPS = [
   { title: "Main", paths: ["/test", "/home", "/profile", "/match-history", "/local", "/history"] },
   { title: "Analytics", paths: ["/champions", "/items", "/augments", "/runes"] },
-  { title: "Community & progress", paths: ["/friends", "/trends", "/records", "/data"] },
+  { title: "Community & progress", paths: ["/friends", "/trends", "/records", "/data", "/debug"] },
 ];
 
 const ACTIVE_TAIL: Record<string, string> = {

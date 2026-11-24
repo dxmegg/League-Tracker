@@ -21,7 +21,7 @@ import { SORT_OPTIONS } from "../pages/MatchHistory";
 import ActivityHeatmap, { type HeatmapUnit } from "./ActivityHeatmap";
 import { ChampionCombobox } from "./ChampionCombobox";
 import { FilterChip } from "./FilterChip";
-import { FilterSelect } from "./FilterSelect";
+import { FilterSelect, ResultTabs } from "./MatchFilters";
 import { HistoryStatRow } from "./HistoryStatRow";
 import { HomeHero } from "./HomeHero";
 import { ArrowDownIcon } from "./icons";
@@ -34,12 +34,6 @@ import { useScopedQueue } from "../lib/historyScope";
 
 // The list loads this many games per request, first page and every scroll after
 const PAGE_SIZE = 25;
-
-const RESULT_OPTIONS: Array<{ label: string; value: "win" | "loss" | undefined }> = [
-  { label: "All", value: undefined },
-  { label: "Wins", value: "win" },
-  { label: "Losses", value: "loss" },
-];
 
 // The period filter also sets what one heatmap tile covers
 const HEATMAP_UNIT: Record<HomeTimePeriod, HeatmapUnit> = {
@@ -319,26 +313,7 @@ export function YourProfileSections({
         </div>
 
         <div className="mb-4 flex flex-wrap items-center gap-x-3 gap-y-2 rounded-xl border border-lol-border/60 bg-black/20 p-2">
-          <div className="inline-flex rounded-lg border border-lol-border bg-lol-card p-[3px]">
-            {RESULT_OPTIONS.map((option) => (
-              <button
-                key={option.label}
-                type="button"
-                onClick={() => setResultFilter(option.value)}
-                className={`rounded-md px-3 py-1 font-display text-[12px] font-semibold transition-colors ${
-                  resultFilter === option.value
-                    ? option.value === "loss"
-                      ? "bg-lol-loss text-white"
-                      : option.value === "win"
-                        ? "bg-lol-win text-[#04271b]"
-                        : "bg-lol-crimson text-white"
-                    : "text-lol-text hover:text-lol-text-bright"
-                }`}
-              >
-                {option.label}
-              </button>
-            ))}
-          </div>
+          <ResultTabs value={resultFilter} onChange={setResultFilter} className="h-auto" />{" "}
           <ChampionCombobox
             value={championFilter ?? null}
             onChange={(value) => setChampionFilter(value ?? undefined)}

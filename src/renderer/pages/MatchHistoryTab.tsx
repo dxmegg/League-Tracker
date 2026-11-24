@@ -5,7 +5,7 @@ import { groupDaysAndSessions } from "../lib/matchSessions";
 import { QUEUE_GROUP_ARENA } from "../../shared/queues";
 import { ChampionCombobox } from "../components/ChampionCombobox";
 import { FilterChip } from "../components/FilterChip";
-import { FilterSelect } from "../components/FilterSelect";
+import { FilterSelect, ResultTabs } from "../components/MatchFilters";
 import { ArrowDownIcon } from "../components/icons";
 import { MATCH_LIST_CLASS, MatchCard, MatchCardHeader } from "../components/MatchCard";
 import { Panel } from "../components/Panel";
@@ -22,13 +22,7 @@ import { SORT_OPTIONS } from "./MatchHistory";
 const PAGE_SIZE = 25;
 
 // Every toolbar control is 38px tall with the same radius as the search box and tabs
-const SELECT_CLASS = "[&>button]:h-[38px] [&>button]:rounded-lg [&>button]:px-3.5";
-
-const RESULT_OPTIONS: Array<{ label: string; value: "win" | "loss" | undefined }> = [
-  { label: "All", value: undefined },
-  { label: "Wins", value: "win" },
-  { label: "Losses", value: "loss" },
-];
+const SELECT_CLASS = "h-[38px] rounded-lg px-3.5";
 
 export default function MatchHistoryTab() {
   const champData = useChampionData();
@@ -127,37 +121,18 @@ export default function MatchHistoryTab() {
         </div>
 
         <div className="mb-4 flex flex-wrap items-center gap-2 rounded-xl border border-lol-border/60 bg-black/20 p-2">
-          <div className="inline-flex h-[38px] items-center rounded-lg border border-lol-border bg-lol-card p-[3px]">
-            {RESULT_OPTIONS.map((option) => (
-              <button
-                key={option.label}
-                type="button"
-                onClick={() => setResultFilter(option.value)}
-                className={`rounded-md px-3 py-1 font-display text-[12px] font-semibold transition-colors ${
-                  resultFilter === option.value
-                    ? option.value === "loss"
-                      ? "bg-lol-loss text-white"
-                      : option.value === "win"
-                        ? "bg-lol-win text-[#04271b]"
-                        : "bg-lol-crimson text-white"
-                    : "text-lol-text hover:text-lol-text-bright"
-                }`}
-              >
-                {option.label}
-              </button>
-            ))}
-          </div>
+          <ResultTabs value={resultFilter} onChange={setResultFilter} className="h-[38px]" />
           <ChampionCombobox
             value={championFilter ?? null}
             onChange={(value) => setChampionFilter(value ?? undefined)}
             placeholder="Search champion"
           />
           <FilterSelect
+            className={SELECT_CLASS}
             value={patchFilter}
             onChange={setPatchFilter}
             placeholder="All Patches"
             title="Patch"
-            className={SELECT_CLASS}
             options={filterOptions.patches.map((patch) => ({
               value: patch,
               label: `Patch ${formatPatch(patch)}`,
@@ -165,11 +140,11 @@ export default function MatchHistoryTab() {
           />
           {dataMode !== "mayhem" && (
             <FilterSelect
+              className={SELECT_CLASS}
               title="Filter by queue type"
               value={queueFilter}
               onChange={(value) => setQueueFilter(value === undefined ? undefined : Number(value))}
               placeholder="Queue Type"
-              className={SELECT_CLASS}
               options={filterOptions.queues.map((q) => ({
                 value: q,
                 label: q === QUEUE_GROUP_ARENA ? "All Arena" : queueLabel(q),
@@ -179,6 +154,7 @@ export default function MatchHistoryTab() {
           <span className="mx-1 h-6 w-px bg-lol-border" aria-hidden="true" />
           <div className="flex items-center gap-2">
             <FilterSelect
+              className={SELECT_CLASS}
               value={sort}
               onChange={(value) => {
                 setSort(value);
@@ -186,7 +162,6 @@ export default function MatchHistoryTab() {
               }}
               placeholder="Sort: Date"
               title="Sort by"
-              className={SELECT_CLASS}
               options={SORT_OPTIONS}
             />
             <FilterChip

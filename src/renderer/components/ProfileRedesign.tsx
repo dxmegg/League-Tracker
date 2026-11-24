@@ -6,6 +6,10 @@ import { useChampionData } from "../hooks/useChampions";
 import { formatTimeAgo } from "../lib/format";
 import { useScopedQueue } from "../lib/historyScope";
 import type { ProfileData, ProfileRankedEntry } from "../lib/types";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Progress } from "@/components/ui/progress";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ChampionMasteryExp } from "./ChampionMasteryExp";
 import { Panel } from "./Panel";
 import { RankCardExp } from "./RankCardExp";
@@ -131,9 +135,12 @@ export function ProfileHeaderRedesign({
               size={112}
               className="rounded-2xl border border-lol-crimson/40 bg-lol-dark object-cover"
             />
-            <span className="absolute -bottom-2 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-full border border-lol-border bg-lol-card px-2.5 py-0.5 font-display text-[11px] font-bold text-lol-text-bright">
+            <Badge
+              variant="outline"
+              className="absolute -bottom-2 left-1/2 -translate-x-1/2 rounded-full border-lol-border bg-lol-card px-2.5 font-display text-[11px] font-bold text-lol-text-bright"
+            >
               Lv {level ?? "—"}
-            </span>
+            </Badge>
           </div>
         ) : (
           <div className="flex shrink-0 -space-x-3">
@@ -177,8 +184,9 @@ export function ProfileHeaderRedesign({
               <span>{accounts.length} saved accounts</span>
             )}
             {streak !== 0 && (
-              <span
-                className={`rounded-full border px-2 py-px font-display text-[11px] font-bold ${
+              <Badge
+                variant="outline"
+                className={`rounded-full px-2 py-px font-display text-[11px] font-bold ${
                   streak > 0
                     ? "border-lol-win/50 bg-lol-win/10 text-lol-win"
                     : "border-lol-loss/50 bg-lol-loss/10 text-lol-loss"
@@ -186,7 +194,7 @@ export function ProfileHeaderRedesign({
               >
                 {streak > 0 ? "W" : "L"}
                 {Math.abs(streak)} streak
-              </span>
+              </Badge>
             )}
           </div>
         </div>
@@ -206,38 +214,36 @@ export function ProfileHeaderRedesign({
             onChange={updateSplash}
             onReset={resetSplash}
           />
-          <div className="inline-flex rounded-[10px] border border-lol-border bg-lol-card p-[3px]">
-            {TIME_PERIODS.map((period) => (
-              <button
-                key={period}
-                type="button"
-                onClick={() => onTimePeriodChange(period)}
-                className={`rounded-[7px] px-3 py-1 font-display text-[12px] font-semibold transition-colors ${
-                  period === timePeriod
-                    ? "bg-lol-crimson text-white"
-                    : "text-lol-text hover:text-lol-text-bright"
-                }`}
-              >
-                {period === "full" ? "Full" : period}
-              </button>
-            ))}
-          </div>
-          <button
-            type="button"
+          <Tabs
+            value={timePeriod}
+            onValueChange={(period) => onTimePeriodChange(period as HomeTimePeriod)}
+          >
+            <TabsList className="h-auto rounded-[10px] border border-lol-border bg-lol-card p-[3px]">
+              {TIME_PERIODS.map((period) => (
+                <TabsTrigger
+                  key={period}
+                  value={period}
+                  className="rounded-[7px] px-3 py-1 font-display text-[12px] font-semibold text-lol-text data-[state=active]:bg-lol-crimson data-[state=active]:text-white"
+                >
+                  {period === "full" ? "Full" : period}
+                </TabsTrigger>
+              ))}
+            </TabsList>
+          </Tabs>
+          <Button
             onClick={onRefresh}
             disabled={refreshing}
-            className="rounded-lg bg-lol-crimson px-5 py-2 font-display text-[13px] font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-50"
+            className="h-auto rounded-lg bg-lol-crimson px-5 py-2 font-display text-[13px] font-semibold text-white transition-opacity hover:bg-lol-crimson hover:opacity-90 disabled:opacity-50"
           >
             {refreshing ? "Refreshing..." : "Refresh"}
-          </button>
+          </Button>
           {refreshing && (
             <div className="flex w-56 flex-col items-end gap-1">
-              <div className="h-1.5 w-full overflow-hidden rounded-full bg-lol-border/60">
-                <div
-                  className="h-full bg-lol-gold transition-all duration-300"
-                  style={{ width: `${progress}%` }}
-                />
-              </div>
+              <Progress
+                value={progress}
+                className="h-1.5 bg-lol-border/60"
+                indicatorClassName="bg-lol-gold duration-300"
+              />
               <span className="text-[11px] tabular-nums text-lol-text">
                 {scannedCount} out of {totalCount || "?"} games scanned
               </span>
@@ -372,14 +378,11 @@ export function ProfileRedesign({
                               {wr.toFixed(0)}%
                             </b>
                           </div>
-                          <div className="mt-2 h-1 overflow-hidden rounded-full bg-white/[0.06]">
-                            <i
-                              className="block h-full rounded-full bg-lol-crimson"
-                              style={{
-                                width: `${(saved.gameCount / Math.max(1, top[0].gameCount)) * 100}%`,
-                              }}
-                            />
-                          </div>
+                          <Progress
+                            value={(saved.gameCount / Math.max(1, top[0].gameCount)) * 100}
+                            className="mt-2 h-1 bg-white/[0.06]"
+                            indicatorClassName="rounded-full bg-lol-crimson"
+                          />
                         </div>
                       );
                     })}{" "}

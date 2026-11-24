@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { cn } from "@/lib/utils";
 import { PROFILE_ICON_URL } from "../lib/constants";
 
 interface SummonerIconProps {
@@ -17,27 +18,14 @@ export default function SummonerIcon({
   className = "",
   title,
 }: SummonerIconProps) {
-  const [failed, setFailed] = useState(false);
-
-  if (iconId == null || failed) {
-    return (
-      <div
-        style={{ width: size, height: size }}
-        className={`rounded-full bg-lol-border/60 shrink-0 ${className}`}
-        title={title}
-      />
-    );
-  }
-
   return (
-    <img
-      src={PROFILE_ICON_URL(iconId)}
-      alt=""
-      width={size}
-      height={size}
-      className={`rounded-full shrink-0 ${className}`}
+    <Avatar
+      style={{ width: size, height: size }}
+      className={cn("rounded-full", className)}
       title={title}
-      onError={() => setFailed(true)}
-    />
+    >
+      {iconId != null && <AvatarImage src={PROFILE_ICON_URL(iconId)} alt="" />}
+      <AvatarFallback className="bg-lol-border/60" />
+    </Avatar>
   );
 }

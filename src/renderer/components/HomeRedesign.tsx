@@ -33,6 +33,13 @@ import { useLiveGame } from "../hooks/useLiveGame";
 import { PRESENCE_LABEL } from "./live/ClientState";
 import { CHAMPION_SPLASH_URL } from "../lib/constants";
 import { formatNumber, formatTimeAgo } from "../lib/format";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Progress } from "@/components/ui/progress";
+import { Separator } from "@/components/ui/separator";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import AugmentIcon from "./AugmentIcon";
 import { parseAugmentIds } from "./AugmentGrid";
 import ChampionIcon from "./ChampionIcon";
@@ -81,7 +88,7 @@ const LIVE_MODE_LABEL: Record<string, string> = {
 
 const LABEL = "font-display text-[10px] font-bold uppercase tracking-widest text-lol-text";
 const LINK_BUTTON =
-  "rounded-md border border-lol-border px-3 py-1 text-[12px] font-semibold text-lol-text-bright transition-colors hover:border-lol-crimson/50";
+  "h-auto border-lol-border py-1 text-[12px] font-semibold text-lol-text-bright hover:border-lol-crimson/50 hover:bg-transparent";
 
 function compact(value: number): string {
   return value >= 1000 ? `${(value / 1000).toFixed(1)}K` : `${Math.round(value)}`;
@@ -267,18 +274,20 @@ function HeroStat({
   const valueColor =
     tone === "win" ? "text-lol-win" : tone === "loss" ? "text-lol-loss" : "text-lol-text-bright";
   return (
-    <div className="glass-card relative flex flex-col overflow-hidden rounded-[14px] px-4 pb-3 pt-3.5">
-      <div className="font-display text-[11px] font-bold uppercase tracking-widest text-lol-gold">
+    <Card className="glass-card relative overflow-hidden rounded-[14px] px-4 pb-3 pt-3.5">
+      <CardTitle className="font-display text-[11px] font-bold uppercase tracking-widest text-lol-gold">
         {label}
-      </div>
-      <div className={`mt-1 font-display text-[30px] font-bold leading-none ${valueColor}`}>
-        {value}
-      </div>
-      <div className="mt-2.5">
-        <TileChartView chart={chart} color={color} />
-      </div>
-      <div className="mt-1.5 text-[10.5px] leading-tight text-lol-text/80">{chart.caption}</div>
-    </div>
+      </CardTitle>
+      <CardContent>
+        <div className={`mt-1 font-display text-[30px] font-bold leading-none ${valueColor}`}>
+          {value}
+        </div>
+        <div className="mt-2.5">
+          <TileChartView chart={chart} color={color} />
+        </div>
+        <div className="mt-1.5 text-[10.5px] leading-tight text-lol-text/80">{chart.caption}</div>
+      </CardContent>
+    </Card>
   );
 }
 
@@ -504,21 +513,22 @@ function HubCard({
   children: ReactNode;
 }) {
   return (
-    <div className={`glass-card flex min-w-0 flex-col rounded-[16px] p-5 ${className}`}>
-      <div className="mb-3 flex items-center justify-between gap-2">
-        <span className="flex items-center gap-2 font-display text-[12px] font-bold uppercase tracking-widest text-lol-gold">
+    <Card className={`glass-card min-w-0 rounded-[16px] p-5 ${className}`}>
+      <CardHeader className="mb-3">
+        <CardTitle className="flex items-center gap-2 font-display text-[12px] font-bold uppercase tracking-widest text-lol-gold">
           <i className="block h-3.5 w-[3px] rounded-full bg-lol-crimson" aria-hidden="true" />
           {title}
-        </span>
-        <Link
-          to={to}
-          className="text-[13px] font-semibold text-lol-text-bright/70 transition-colors hover:text-lol-crimson"
+        </CardTitle>
+        <Button
+          asChild
+          variant="ghost"
+          className="h-auto p-0 text-[13px] font-semibold text-lol-text-bright/70 hover:bg-transparent hover:text-lol-crimson"
         >
-          {linkLabel} →
-        </Link>
-      </div>
-      <div className="flex flex-1 flex-col">{children}</div>
-    </div>
+          <Link to={to}>{linkLabel} →</Link>
+        </Button>
+      </CardHeader>
+      <CardContent className="flex flex-1 flex-col">{children}</CardContent>
+    </Card>
   );
 }
 
@@ -862,32 +872,44 @@ export function HomeRedesign({
                     : `${savedAccounts.length} ${savedAccounts.length === 1 ? "account" : "accounts"} tracked`}
                 </div>
                 <div className="mt-3 flex flex-wrap items-center gap-2">
-                  <span className="rounded-full border border-lol-crimson/50 bg-lol-crimson/15 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-lol-text-bright">
+                  <Badge
+                    variant="outline"
+                    className="rounded-full border-lol-crimson/50 bg-lol-crimson/15 px-2.5 text-[10px] font-bold uppercase tracking-wider text-lol-text-bright"
+                  >
                     {isMayhem ? "ARAM Mayhem" : mode.label}
-                  </span>
-                  <span className="rounded-full border border-lol-border/70 bg-black/30 px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-lol-text">
+                  </Badge>
+                  <Badge
+                    variant="outline"
+                    className="rounded-full border-lol-border/70 bg-black/30 px-2.5 text-[10px] font-semibold uppercase tracking-wider text-lol-text"
+                  >
                     {periodText}
-                  </span>
-                  <span className="flex items-center gap-1.5 rounded-full border border-lol-border/70 bg-black/30 px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-lol-text">
+                  </Badge>
+                  <Badge
+                    variant="outline"
+                    className="gap-1.5 rounded-full border-lol-border/70 bg-black/30 px-2.5 text-[10px] font-semibold uppercase tracking-wider text-lol-text"
+                  >
                     <span
                       className={`h-1.5 w-1.5 rounded-full ${connected ? "bg-lol-win" : "bg-lol-text/40"}`}
                     />
                     {connected ? "Live" : "Offline"}
-                  </span>
+                  </Badge>
                 </div>
               </div>
             </div>
 
             <div className="flex flex-wrap gap-2">
               {quickLaunch.map(({ to, label, Icon }) => (
-                <Link
+                <Button
                   key={label}
-                  to={to}
-                  className="inline-flex items-center gap-2 rounded-xl border border-lol-border/70 bg-black/35 px-3.5 py-2 font-display text-[12px] font-semibold text-lol-text-bright backdrop-blur transition-all hover:-translate-y-0.5 hover:border-lol-crimson/60 hover:bg-lol-crimson/15"
+                  asChild
+                  variant="outline"
+                  className="h-auto rounded-xl border-lol-border/70 bg-black/35 px-3.5 py-2 font-display text-[12px] font-semibold text-lol-text-bright backdrop-blur transition-all hover:-translate-y-0.5 hover:border-lol-crimson/60 hover:bg-lol-crimson/15"
                 >
-                  <Icon className="h-4 w-4 text-lol-crimson" />
-                  {label}
-                </Link>
+                  <Link to={to}>
+                    <Icon className="h-4 w-4 text-lol-crimson" />
+                    {label}
+                  </Link>
+                </Button>
               ))}
             </div>
           </div>
@@ -907,42 +929,45 @@ export function HomeRedesign({
       {/* 2. Mode and period filters */}
       <div className="flex flex-wrap items-center justify-between gap-3">
         {/* Mayhem mode pins the queue globally, so the per-queue buttons are hidden */}
-        <div className="flex flex-wrap items-center gap-2">
-          {(isMayhem ? [] : MODES).map((m) => (
-            <button
-              key={m.label}
-              type="button"
-              onClick={() => onQueueChange(m.queue)}
-              className={`rounded-lg border px-4 py-2 font-display text-[12px] font-semibold transition-colors ${
-                m.queue === queue
-                  ? "border-lol-crimson/60 bg-lol-crimson/20 text-lol-text-bright"
-                  : "border-lol-border bg-lol-card text-lol-text hover:text-lol-text-bright"
-              }`}
-            >
-              {m.label}
-            </button>
-          ))}
-        </div>
-        <div className="inline-flex rounded-[10px] border border-lol-border bg-lol-card p-[3px]">
-          {TIME_PERIODS.map((period) => (
-            <button
-              key={period}
-              type="button"
-              onClick={() => onTimePeriodChange(period)}
-              className={`rounded-[7px] px-3 py-1 font-display text-[12px] font-semibold transition-colors ${
-                period === timePeriod
-                  ? "bg-lol-crimson text-white"
-                  : "text-lol-text hover:text-lol-text-bright"
-              }`}
-            >
-              {period === "full" ? "Full" : period}
-            </button>
-          ))}
-        </div>
+        {!isMayhem && (
+          <Tabs
+            value={mode.label}
+            onValueChange={(label) => onQueueChange(MODES.find((m) => m.label === label)?.queue)}
+          >
+            <TabsList className="h-auto flex-wrap gap-2 bg-transparent p-0">
+              {MODES.map((m) => (
+                <TabsTrigger
+                  key={m.label}
+                  value={m.label}
+                  className="rounded-lg border border-lol-border bg-lol-card px-4 py-2 font-display text-[12px] font-semibold text-lol-text data-[state=active]:border-lol-crimson/60 data-[state=active]:bg-lol-crimson/20 data-[state=active]:text-lol-text-bright"
+                >
+                  {m.label}
+                </TabsTrigger>
+              ))}
+            </TabsList>
+          </Tabs>
+        )}
+        <Tabs
+          value={timePeriod}
+          onValueChange={(period) => onTimePeriodChange(period as HomeTimePeriod)}
+          className="ml-auto"
+        >
+          <TabsList className="h-auto rounded-[10px] border border-lol-border bg-lol-card p-[3px]">
+            {TIME_PERIODS.map((period) => (
+              <TabsTrigger
+                key={period}
+                value={period}
+                className="rounded-[7px] px-3 py-1 font-display text-[12px] font-semibold text-lol-text data-[state=active]:bg-lol-crimson data-[state=active]:text-white"
+              >
+                {period === "full" ? "Full" : period}
+              </TabsTrigger>
+            ))}
+          </TabsList>
+        </Tabs>
       </div>
 
       {/* 3. Win record banner */}
-      <div className="flex flex-wrap items-center justify-between gap-3 rounded-[14px] glass-card px-5 py-3">
+      <Card className="glass-card flex-row flex-wrap items-center justify-between gap-3 rounded-[14px] px-5 py-3">
         <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1">
           <span className="font-display text-[10px] font-bold uppercase tracking-widest text-lol-gold">
             Your record
@@ -955,10 +980,10 @@ export function HomeRedesign({
             {formatNumber(games)} games, {periodText}
           </span>
         </div>
-        <Link to="/data" className={LINK_BUTTON}>
-          Open stats →
-        </Link>
-      </div>
+        <Button asChild variant="outline" size="sm" className={LINK_BUTTON}>
+          <Link to="/data">Open stats →</Link>
+        </Button>
+      </Card>
 
       {/* 4. Four-column stats and quick access grid; Trends spans both rows in column 4 */}
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4 lg:grid-rows-[auto_auto]">
@@ -973,15 +998,15 @@ export function HomeRedesign({
                     className={`rounded-2xl border-2 ${lastMatch.win ? "border-lol-win/70 shadow-[0_0_18px_rgba(56,214,162,0.25)]" : "border-lol-loss/70 shadow-[0_0_18px_rgba(240,86,110,0.25)]"}`}
                   />
                   {lastMatch.score_badge && (
-                    <span
-                      className={`absolute -bottom-1.5 left-1/2 -translate-x-1/2 rounded-full px-2 py-px text-[9px] font-extrabold tracking-wider ${
+                    <Badge
+                      className={`absolute -bottom-1.5 left-1/2 -translate-x-1/2 rounded-full border-0 px-2 py-px text-[9px] font-extrabold tracking-wider ${
                         lastMatch.score_badge === "MVP"
                           ? "bg-lol-gold text-[#241705]"
                           : "bg-[var(--theme-violet)] text-[#150c33]"
                       }`}
                     >
                       {lastMatch.score_badge}
-                    </span>
+                    </Badge>
                   )}
                 </div>
                 <div className="min-w-0">
@@ -999,7 +1024,8 @@ export function HomeRedesign({
                   </div>
                 </div>
               </div>
-              <div className="flex items-end justify-between gap-2 border-t border-lol-border/40 pt-3">
+              <Separator className="bg-lol-border/40" />
+              <div className="flex items-end justify-between gap-2">
                 <div>
                   <div className="font-display text-[22px] font-bold leading-none text-lol-text-bright">
                     {lastMatch.kills}
@@ -1029,23 +1055,26 @@ export function HomeRedesign({
                   </div>
                 )}
               </div>
-              <div className="mt-auto grid grid-cols-3 gap-2 border-t border-lol-border/40 pt-3">
-                <div>
-                  <div className={LABEL}>Damage</div>
-                  <div className="font-display text-[16px] font-bold text-lol-text-bright">
-                    {compact(lastMatch.total_damage_dealt)}
+              <div className="mt-auto flex flex-col gap-3">
+                <Separator className="bg-lol-border/40" />
+                <div className="grid grid-cols-3 gap-2">
+                  <div>
+                    <div className={LABEL}>Damage</div>
+                    <div className="font-display text-[16px] font-bold text-lol-text-bright">
+                      {compact(lastMatch.total_damage_dealt)}
+                    </div>
                   </div>
-                </div>
-                <div>
-                  <div className={LABEL}>Gold</div>
-                  <div className="font-display text-[16px] font-bold text-lol-gold-light">
-                    {compact(lastMatch.gold_earned)}
+                  <div>
+                    <div className={LABEL}>Gold</div>
+                    <div className="font-display text-[16px] font-bold text-lol-gold-light">
+                      {compact(lastMatch.gold_earned)}
+                    </div>
                   </div>
-                </div>
-                <div>
-                  <div className={LABEL}>OP score</div>
-                  <div className="font-display text-[16px] font-bold text-lol-text-bright">
-                    {lastMatch.score != null ? lastMatch.score.toFixed(1) : "—"}
+                  <div>
+                    <div className={LABEL}>OP score</div>
+                    <div className="font-display text-[16px] font-bold text-lol-text-bright">
+                      {lastMatch.score != null ? lastMatch.score.toFixed(1) : "—"}
+                    </div>
                   </div>
                 </div>
               </div>
@@ -1106,16 +1135,21 @@ export function HomeRedesign({
                 const height =
                   game.score != null ? Math.max(6, Math.min(100, game.score * 10)) : 30;
                 return (
-                  <i
-                    key={game.game_id}
-                    title={`${getChampionName(champData, game.champion_id)} · ${game.win ? "Win" : "Loss"} · score ${game.score != null ? game.score.toFixed(1) : "n/a"}`}
-                    className={`block flex-1 rounded-t-[5px] ${
-                      game.win
-                        ? "bg-[linear-gradient(to_top,color-mix(in_oklab,var(--theme-win)_62%,black),var(--theme-win))] shadow-[0_0_14px_color-mix(in_oklab,var(--theme-win)_60%,transparent)]"
-                        : "bg-[linear-gradient(to_top,color-mix(in_oklab,var(--theme-loss)_62%,black),var(--theme-loss))] shadow-[0_0_14px_color-mix(in_oklab,var(--theme-loss)_60%,transparent)]"
-                    }`}
-                    style={{ height: `${height}%` }}
-                  />
+                  <Tooltip key={game.game_id}>
+                    <TooltipTrigger asChild>
+                      <i
+                        className={`block flex-1 rounded-t-[5px] ${
+                          game.win
+                            ? "bg-[linear-gradient(to_top,color-mix(in_oklab,var(--theme-win)_62%,black),var(--theme-win))] shadow-[0_0_14px_color-mix(in_oklab,var(--theme-win)_60%,transparent)]"
+                            : "bg-[linear-gradient(to_top,color-mix(in_oklab,var(--theme-loss)_62%,black),var(--theme-loss))] shadow-[0_0_14px_color-mix(in_oklab,var(--theme-loss)_60%,transparent)]"
+                        }`}
+                        style={{ height: `${height}%` }}
+                      />
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      {`${getChampionName(champData, game.champion_id)} · ${game.win ? "Win" : "Loss"} · score ${game.score != null ? game.score.toFixed(1) : "n/a"}`}
+                    </TooltipContent>
+                  </Tooltip>
                 );
               })}
             </div>
@@ -1123,8 +1157,9 @@ export function HomeRedesign({
           <div className="mt-3 flex items-center justify-between text-[12.5px] text-lol-text">
             <span>Last {recentForm.length} games</span>
             {summary && summary.recentStreak !== 0 && (
-              <span
-                className={`rounded-full border px-2.5 py-0.5 font-display text-[12px] font-bold ${
+              <Badge
+                variant="outline"
+                className={`rounded-full px-2.5 py-0.5 font-display text-[12px] font-bold ${
                   summary.recentStreak > 0
                     ? "border-lol-win/50 bg-lol-win/15 text-lol-win"
                     : "border-lol-loss/50 bg-lol-loss/15 text-lol-loss"
@@ -1132,10 +1167,11 @@ export function HomeRedesign({
               >
                 {summary.recentStreak > 0 ? "W" : "L"}
                 {Math.abs(summary.recentStreak)} streak
-              </span>
+              </Badge>
             )}
           </div>
-          <div className="mt-4 grid grid-cols-2 gap-x-4 gap-y-3 border-t border-lol-border/50 pt-4">
+          <Separator className="mt-4 bg-lol-border/50" />
+          <div className="mt-4 grid grid-cols-2 gap-x-4 gap-y-3">
             <BigStatMini
               label="Win rate"
               value={games > 0 ? `${winRate.toFixed(1)}%` : "—"}
@@ -1219,12 +1255,11 @@ export function HomeRedesign({
               <div className="text-[13px] text-lol-text">
                 {formatNumber(nextMilestone - allTimeGames)} to go in {modeName}
               </div>
-              <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-white/[0.06]">
-                <i
-                  className="block h-full rounded-full bg-lol-gold"
-                  style={{ width: `${milestonePct}%` }}
-                />
-              </div>
+              <Progress
+                value={milestonePct}
+                className="mt-3 h-1.5 bg-white/[0.06]"
+                indicatorClassName="rounded-full bg-lol-gold"
+              />
               <div className="mt-2 text-[12px] text-lol-text">
                 {formatNumber(allTimeGames)} / {formatNumber(nextMilestone)}
               </div>
@@ -1326,12 +1361,11 @@ export function HomeRedesign({
                   </div>
                   <div className="mt-1 flex items-center gap-2 text-[11.5px] text-lol-text">
                     <span>Lv {live.session.profile.level}</span>
-                    <i className="relative h-1.5 flex-1 overflow-hidden rounded-full bg-white/10">
-                      <i
-                        className="absolute inset-y-0 left-0 rounded-full bg-lol-assist"
-                        style={{ width: `${live.session.profile.xpPercent}%` }}
-                      />
-                    </i>
+                    <Progress
+                      value={live.session.profile.xpPercent}
+                      className="h-1.5 flex-1 bg-white/10"
+                      indicatorClassName="rounded-full bg-lol-assist"
+                    />
                     <span>{live.session.profile.xpPercent}%</span>
                   </div>
                 </div>
@@ -1366,12 +1400,13 @@ export function HomeRedesign({
                 : "Everything the client reports is on the live tab"}
             </span>
             {!isMayhem && (
-              <Link
-                to="/runes"
-                className="font-semibold text-lol-text-bright/70 hover:text-lol-crimson"
+              <Button
+                asChild
+                variant="ghost"
+                className="h-auto p-0 text-[12.5px] font-semibold text-lol-text-bright/70 hover:bg-transparent hover:text-lol-crimson"
               >
-                Rune statistics →
-              </Link>
+                <Link to="/runes">Rune statistics →</Link>
+              </Button>
             )}
           </div>
         </HubCard>

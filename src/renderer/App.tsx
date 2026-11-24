@@ -37,6 +37,7 @@ const MatchDetailPage = lazy(() => import("./pages/MatchDetailPage"));
 const GlobalStats = lazy(() => import("./pages/GlobalStats"));
 const Live = lazy(() => import("./pages/Live"));
 const MatchHistoryTab = lazy(() => import("./pages/MatchHistoryTab"));
+const DebugTesting = lazy(() => import("./pages/DebugTesting"));
 
 function ChampionsDetailRoute() {
   const activeTheme = useActiveTheme();
@@ -197,6 +198,7 @@ export default function App() {
           <Route path="/trends" element={<FullHistorySection section="trends" />} />
           <Route path="/records" element={<FullHistorySection section="records" />} />
           <Route path="/data" element={<FullHistorySection section="total-stats" />} />
+          <Route path="/debug" element={<DebugTesting />} />
         </Route>
       </Routes>
     </HashRouter>

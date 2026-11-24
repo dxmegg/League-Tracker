@@ -35,6 +35,7 @@ const mainTabs = [
   { to: "/trends", label: "TRENDS" },
   { to: "/records", label: "RECORDS" },
   { to: "/data", label: "DATA" },
+  { to: "/debug", label: "DEBUG TESTING" },
 ];
 
 const ACTIVE_TAIL: Record<string, string> = {
