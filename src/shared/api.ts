@@ -192,9 +192,31 @@ export interface MatchFilterOptions {
   hasFavorites: boolean;
 }
 
+// Per-player numbers for the match Stats tab; every one may be missing on games stored before they were kept.
+export interface ParticipantDetailStats {
+  largestCriticalStrike?: number | null;
+  trueDamageToChampions?: number | null;
+  physicalDamageToChampions?: number | null;
+  magicDamageToChampions?: number | null;
+  totalDamageDealtAll?: number | null;
+  damageToTurrets?: number | null;
+  physicalDamageTaken?: number | null;
+  magicDamageTaken?: number | null;
+  trueDamageTaken?: number | null;
+  damageSelfMitigated?: number | null;
+  wardsPlaced?: number | null;
+  wardsKilled?: number | null;
+  visionWardsBought?: number | null;
+  goldSpent?: number | null;
+  minionsKilled?: number | null;
+  neutralMinionsKilled?: number | null;
+  turretKills?: number | null;
+  inhibitorKills?: number | null;
+}
+
 // One row per player, straight from match_participants — the scoreboard no
 // longer reconstructs these from a raw match payload.
-export interface MatchParticipantRecord {
+export interface MatchParticipantRecord extends ParticipantDetailStats {
   participantId: number;
   puuid: string | null;
   gameName: string | null;
@@ -1543,7 +1565,7 @@ export interface GlobalChampionDetail {
   augments: AugmentStats[];
 }
 
-export interface ParsedParticipant {
+export interface ParsedParticipant extends ParticipantDetailStats {
   participantId: number;
   championId: number;
   teamId: number;

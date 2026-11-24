@@ -3,6 +3,10 @@ import { useNavigate, useParams } from "react-router-dom";
 import { useIpc } from "../hooks/useIpc";
 import { getChampionName, useChampionData } from "../hooks/useChampions";
 import { LiveGameData } from "../components/live/LiveGameData";
+import { PeakStats } from "../components/live/PeakStats";
+import { Title } from "../components/live/shared";
+import { Panel } from "../components/Panel";
+import { SegmentedControl } from "../components/SegmentedControl";
 import ChampionIcon from "../components/ChampionIcon";
 import { MatchCompareTable } from "../components/MatchCompareTable";
 import MatchScoreboardExp from "../components/MatchScoreboardExp";
@@ -11,6 +15,12 @@ import { computeMatchScoreBreakdowns, scoreColor } from "../../shared/opScore";
 import { formatDuration, formatNumber, formatTimeAgo, kdaRatio } from "../lib/format";
 import { parseParticipants, scoreInputsFor } from "../lib/participants";
 import type { MatchDetail } from "../lib/types";
+
+type MatchTab = "overview" | "stats";
+const TABS = [
+  { value: "overview", label: "Overview" },
+  { value: "stats", label: "Stats" },
+] as const;
 
 function Tile({ label, children, sub }: { label: string; children: ReactNode; sub?: string }) {
   return (
@@ -30,6 +40,7 @@ export default function MatchDetailPage() {
   const parsedGameId = Number(gameId);
   const validGameId = Number.isInteger(parsedGameId) && parsedGameId > 0;
   const champData = useChampionData();
+  const [tab, setTab] = useState<MatchTab>("overview");
   const [puuids, setPuuids] = useState<string[] | null>(null);
   const { data: detail } = useIpc<MatchDetail>(
     () =>
@@ -71,21 +82,25 @@ export default function MatchDetailPage() {
 
   return (
     <div className="flex min-h-full w-full flex-col gap-5 pr-4">
-      <button
-        type="button"
-        onClick={() => navigate(-1)}
-        className="w-fit rounded-lg border border-lol-border/60 bg-lol-card/40 px-3.5 py-2 text-xs font-bold uppercase tracking-wider text-lol-text transition-colors hover:border-lol-gold/60 hover:text-lol-text-bright"
-      >
-        ← Back
-      </button>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <button
+          type="button"
+          onClick={() => navigate(-1)}
+          className="w-fit rounded-lg border border-lol-border/60 bg-lol-card/40 px-3.5 py-2 text-xs font-bold uppercase tracking-wider text-lol-text transition-colors hover:border-lol-crimson/60 hover:text-lol-text-bright"
+        >
+          ← Back
+        </button>
+        <SegmentedControl
+          label="Match view"
+          value={tab}
+          onChange={(v) => v && setTab(v)}
+          options={TABS}
+        />
+      </div>
 
       {detail ? (
         <>
-          <header
-            className={`flex shrink-0 flex-wrap items-stretch overflow-hidden rounded-2xl border bg-lol-card ${
-              win ? "border-lol-win/30" : "border-lol-loss/30"
-            }`}
-          >
+          <header className="app-tile flex shrink-0 flex-wrap items-stretch overflow-hidden p-0">
             <div
               className={`flex w-[112px] flex-col items-center justify-center gap-0.5 border-r px-2 text-center ${
                 win
@@ -185,8 +200,25 @@ export default function MatchDetailPage() {
             </div>
           </header>
 
-          <MatchScoreboardExp detail={detail} champData={champData} puuids={puuids} />
-          {players.length > 0 && <MatchCompareTable players={players} />}
+          {tab === "overview" ? (
+            <MatchScoreboardExp detail={detail} champData={champData} puuids={puuids} />
+          ) : (
+            <>
+              {players.length > 0 && <MatchCompareTable players={players} />}
+              <Panel variant="tile">
+                <Title
+                  aside={
+                    <span className="text-[13px] text-lol-text">
+                      Recorded live while you played
+                    </span>
+                  }
+                >
+                  Your highest values this game
+                </Title>
+                <PeakStats gameId={parsedGameId} championId={detail.stats.champion_id} />
+              </Panel>
+            </>
+          )}
         </>
       ) : (
         <p className="text-sm text-lol-text">
@@ -194,7 +226,7 @@ export default function MatchDetailPage() {
         </p>
       )}
 
-      {validGameId && <LiveGameData gameId={parsedGameId} />}
+      {validGameId && tab === "overview" && <LiveGameData gameId={parsedGameId} />}
     </div>
   );
 }

@@ -456,7 +456,11 @@ export function getMatchParticipants(gameId: number): any[] {
              summoner1_casts, summoner2_casts,
              total_heal_on_teammates, total_damage_shielded_on_teammates,
              team_position, vision_score, time_cc_others, damage_to_objectives,
-             first_blood_kill, objectives_stolen
+             first_blood_kill, objectives_stolen,
+             largest_critical_strike, true_damage_dealt, physical_damage_dealt, magic_damage_dealt,
+             total_damage_dealt_all, damage_to_turrets, physical_damage_taken, magic_damage_taken,
+             true_damage_taken, damage_self_mitigated, wards_placed, wards_killed, vision_wards_bought,
+             gold_spent, total_minions_killed, neutral_minions_killed, turret_kills, inhibitor_kills
       FROM match_participants
       WHERE game_id = ?
       ORDER BY participant_id
@@ -544,6 +548,24 @@ export function getMatchParticipants(gameId: number): any[] {
       damageToObjectives: r.damage_to_objectives ?? null,
       firstBloodKill: r.first_blood_kill === 1,
       objectivesStolen: r.objectives_stolen ?? null,
+      largestCriticalStrike: r.largest_critical_strike ?? null,
+      trueDamageToChampions: r.true_damage_dealt ?? null,
+      physicalDamageToChampions: r.physical_damage_dealt ?? null,
+      magicDamageToChampions: r.magic_damage_dealt ?? null,
+      totalDamageDealtAll: r.total_damage_dealt_all ?? null,
+      damageToTurrets: r.damage_to_turrets ?? null,
+      physicalDamageTaken: r.physical_damage_taken ?? null,
+      magicDamageTaken: r.magic_damage_taken ?? null,
+      trueDamageTaken: r.true_damage_taken ?? null,
+      damageSelfMitigated: r.damage_self_mitigated ?? null,
+      wardsPlaced: r.wards_placed ?? null,
+      wardsKilled: r.wards_killed ?? null,
+      visionWardsBought: r.vision_wards_bought ?? null,
+      goldSpent: r.gold_spent ?? null,
+      minionsKilled: r.total_minions_killed ?? null,
+      neutralMinionsKilled: r.neutral_minions_killed ?? null,
+      turretKills: r.turret_kills ?? null,
+      inhibitorKills: r.inhibitor_kills ?? null,
       challenges: challenges.get(r.participant_id),
       items: [r.item0, r.item1, r.item2, r.item3, r.item4, r.item5, r.item6].map((i) => i ?? 0),
       augments: augments.get(r.participant_id) ?? [],

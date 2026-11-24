@@ -12,8 +12,9 @@ import ItemIcon from "./ItemIcon";
 import { RuneSetupGrid } from "./RuneSetup";
 import SummonerSpellIcon from "./SummonerSpellIcon";
 
+// player | score | KDA | damage | healed | tanked | gold | CS | build | augments or runes
 const GRID_COLS =
-  "grid-cols-[58px_minmax(130px,200px)_50px_84px_minmax(92px,160px)_minmax(92px,160px)_50px_50px_52px_204px_minmax(136px,220px)_minmax(0,1fr)]";
+  "grid-cols-[minmax(230px,1.5fr)_64px_minmax(110px,0.8fr)_minmax(100px,1fr)_minmax(90px,0.9fr)_minmax(90px,0.9fr)_minmax(80px,0.7fr)_minmax(56px,0.5fr)_150px_minmax(120px,0.8fr)]";
 
 export default function MatchScoreboardExp({
   detail,
@@ -217,7 +218,7 @@ function ArenaTeamBlock({
   );
 
   return (
-    <div className="overflow-hidden rounded-2xl border border-t-[3px] border-lol-border border-t-lol-crimson bg-[linear-gradient(180deg,var(--theme-card-hover),var(--theme-card))] shadow-[0_18px_40px_-24px_rgba(0,0,0,0.9)]">
+    <div className="app-tile overflow-hidden p-0">
       <div
         className={`px-4 py-2 flex flex-wrap items-baseline gap-x-4 gap-y-1 ${
           isTopThree
@@ -452,9 +453,7 @@ function TeamScoreboard({
   const totals = useMemo(() => computeTeamTotals(players, scores), [players, scores]);
 
   return (
-    <div
-      className={`overflow-hidden rounded-2xl border border-t-[3px] border-lol-border bg-[linear-gradient(180deg,var(--theme-card-hover),var(--theme-card))] shadow-[0_18px_40px_-24px_rgba(0,0,0,0.9)] ${isWin ? "border-t-lol-win" : "border-t-lol-loss"}`}
-    >
+    <div className="app-tile overflow-hidden p-0">
       {/* Team header: name on the left, team totals filling the rest of the bar */}
       <div
         className={`px-4 py-3 flex flex-wrap items-center gap-x-4 gap-y-2 ${isWin ? "bg-gradient-to-r from-lol-win/15 via-lol-win/5 to-transparent" : "bg-gradient-to-r from-lol-loss/15 via-lol-loss/5 to-transparent"}`}
@@ -517,37 +516,38 @@ function TeamScoreboard({
       />
 
       {/* Column headers */}
-      <div
-        className={`px-4 py-1.5 border-b border-lol-border/40 grid ${GRID_COLS} gap-2 items-center text-[10px] font-bold text-lol-text uppercase tracking-wider bg-white/[0.015]`}
-      >
-        <span></span>
-        <span className="text-left">Player</span>
-        <span className="text-center">Score</span>
-        <span className="text-center">KDA</span>
-        <span className="text-right">Damage</span>
-        <span className="text-right">Taken</span>
-        <span className="text-right">Gold</span>
-        <span className="text-right">Heal</span>
-        <span className="text-right">CS</span>
-        <span className="text-center">Items</span>
-        <span className="text-center">{showAugments ? "Augments" : "Runes"}</span>
-        <span aria-hidden="true" />
-      </div>
+      <div className="p-3 pt-2">
+        <div
+          className={`mb-2 grid ${GRID_COLS} items-center gap-x-3 px-3 text-[10.5px] font-bold uppercase tracking-widest text-lol-text`}
+        >
+          <span>Player</span>
+          <span className="text-center">Score</span>
+          <span>KDA</span>
+          <span>Damage</span>
+          <span>Healed</span>
+          <span>Tanked</span>
+          <span>Gold</span>
+          <span>CS</span>
+          <span>Build</span>
+          <span>{showAugments ? "Augments" : "Runes"}</span>
+        </div>
 
-      {/* Player rows */}
-      {players.map((p) => (
-        <PlayerRow
-          key={p.participantId}
-          player={p}
-          maxStats={maxStats}
-          champData={champData}
-          score={scores.get(p.participantId)}
-          patch={patch}
-          gameDuration={gameDuration}
-          showAugments={showAugments}
-          onPlayerClick={onPlayerClick}
-        />
-      ))}
+        <div className="flex flex-col gap-2">
+          {players.map((p) => (
+            <PlayerRow
+              key={p.participantId}
+              player={p}
+              maxStats={maxStats}
+              champData={champData}
+              score={scores.get(p.participantId)}
+              patch={patch}
+              gameDuration={gameDuration}
+              showAugments={showAugments}
+              onPlayerClick={onPlayerClick}
+            />
+          ))}
+        </div>
+      </div>
     </div>
   );
 }
@@ -609,6 +609,49 @@ function ScoreboardBar({ value, max, color }: { value: number; max: number; colo
     </div>
   );
 }
+
+// Same card look as the Match History list: dark card, value on top, a coloured line scaled to the
+// best player in the game, per-minute rate underneath.
+const CARD_CLASS =
+  "grid items-center gap-x-3 rounded-xl border border-lol-border bg-[linear-gradient(180deg,rgba(255,255,255,0.02),transparent_60%),color-mix(in_oklab,var(--theme-card)_40%,black)] px-3 py-2.5 transition-colors hover:border-lol-border-hover";
+
+function scoreClass(score: number) {
+  if (score >= 8) return "bg-lol-win/15 text-lol-win";
+  if (score >= 7) return "bg-lol-gold/15 text-lol-gold";
+  if (score >= 5) return "bg-white/[0.06] text-lol-text-bright";
+  return "bg-lol-loss/15 text-lol-loss";
+}
+
+function BarStat({
+  total,
+  max,
+  perMin,
+  unit,
+  color,
+}: {
+  total: number;
+  max: number;
+  perMin: string;
+  unit: string;
+  color: string;
+}) {
+  const pct = max > 0 ? Math.min(100, (total / max) * 100) : 0;
+  return (
+    <div className="pr-2">
+      <div className="font-display text-[16px] font-bold tabular-nums text-lol-text-bright">
+        {formatNumber(total)}
+      </div>
+      <div className="my-1.5 h-1.5 overflow-hidden rounded-full bg-white/[0.08]">
+        <div className={`h-full rounded-full ${color}`} style={{ width: `${pct}%` }} />
+      </div>
+      <div className="text-[12px] tabular-nums text-lol-text">
+        {perMin}
+        <span className="ml-1 text-[10px] font-semibold uppercase tracking-wide">{unit}</span>
+      </div>
+    </div>
+  );
+}
+
 function PlayerRow({
   player: p,
   maxStats,
@@ -634,120 +677,134 @@ function PlayerRow({
 }) {
   const kda = kdaRatio(p.kills, p.deaths, p.assists);
   const runeData = useRuneData();
+  const minutes = Math.max(gameDuration / 60, 1 / 60);
+  const perMin = (v: number) => formatNumber(Math.round(v / minutes));
 
   return (
     <div
-      className={`px-4 py-2.5 border-b border-lol-border/20 last:border-b-0 grid ${GRID_COLS} gap-2 items-center transition-colors hover:bg-white/[0.04] ${
+      className={`${CARD_CLASS} ${GRID_COLS} ${
         p.isSelf
-          ? "bg-[linear-gradient(90deg,color-mix(in_srgb,var(--color-lol-gold)_16%,transparent),transparent_55%)] shadow-[inset_3px_0_0_var(--color-lol-gold)]"
+          ? "!border-lol-gold/60 shadow-[0_0_0_1px_color-mix(in_srgb,var(--theme-gold)_25%,transparent)]"
           : ""
       }`}
     >
-      {/* Champion + spells; two 15px spells and the 2px gap match the 32px portrait */}
-      <div className="flex items-center gap-0.5">
+      {/* Champion, summoner spells and names */}
+      <div className="flex min-w-0 items-center gap-3">
         <ChampionIcon
           championId={p.championId}
-          size={34}
-          className="rounded-lg ring-1 ring-lol-border"
+          size={56}
+          className="h-14 w-14 shrink-0 rounded-lg border border-lol-border-hover object-cover"
         />
-        <div className="flex flex-col gap-0.5">
-          <div className="rounded-md border border-lol-border/50 bg-black/30 p-0.5">
-            <SummonerSpellIcon spellId={p.spell1Id} size={15} />
-          </div>
-          <div className="rounded-md border border-lol-border/50 bg-black/30 p-0.5">
-            <SummonerSpellIcon spellId={p.spell2Id} size={15} />
+        <div className="flex shrink-0 flex-col gap-1">
+          {[p.spell1Id, p.spell2Id].map((spell, i) => (
+            <div key={i} className="rounded-md border border-lol-border/50 bg-black/30 p-0.5">
+              <SummonerSpellIcon spellId={spell} size={22} />
+            </div>
+          ))}
+        </div>
+        <div className="min-w-0">
+          <button
+            type="button"
+            onClick={() => {
+              if (!onPlayerClick) return;
+              onPlayerClick({
+                puuid: p.puuid,
+                gameName: p.gameName ?? null,
+                tagLine: p.tagLine ?? null,
+              });
+            }}
+            disabled={!onPlayerClick || !p.puuid}
+            className={`block max-w-full truncate text-left font-display text-[15px] font-semibold transition-colors ${
+              p.isSelf ? "text-lol-gold" : "text-lol-text-bright hover:text-lol-gold"
+            } ${onPlayerClick && p.puuid ? "cursor-pointer" : "cursor-default"}`}
+            title={p.gameName && p.tagLine ? `${p.gameName}#${p.tagLine}` : undefined}
+          >
+            {p.summonerName}
+          </button>
+          <div className="truncate text-[12px] text-lol-text">
+            {getChampionName(champData, p.championId)}
           </div>
         </div>
       </div>
 
-      {/* Player name */}
-      <div className="min-w-0">
-        <button
-          type="button"
-          onClick={() => {
-            if (!onPlayerClick) return;
-            onPlayerClick({
-              puuid: p.puuid,
-              gameName: p.gameName ?? null,
-              tagLine: p.tagLine ?? null,
-            });
-          }}
-          disabled={!onPlayerClick || !p.puuid}
-          className={`text-xs font-display truncate text-left max-w-full transition-colors ${
-            p.isSelf ? "text-lol-gold font-semibold" : "text-lol-text-bright hover:text-lol-gold"
-          } ${onPlayerClick && p.puuid ? "cursor-pointer" : "cursor-default"}`}
-          title={p.gameName && p.tagLine ? `${p.gameName}#${p.tagLine}` : undefined}
-        >
-          {p.summonerName}
-        </button>
-        <div className="text-[10px] font-display text-lol-text truncate transition-colors hover:text-lol-gold">
-          {getChampionName(champData, p.championId)}
-        </div>
-      </div>
-
-      {/* Score */}
       <ScoreCell score={score} />
 
-      {/* KDA */}
-      <div className="text-center">
-        <div className="whitespace-nowrap font-display text-[13px] font-semibold text-lol-text-bright">
-          {formatKDA(p.kills, p.deaths, p.assists)}
+      <div>
+        <div className="whitespace-nowrap font-display text-[18px] font-bold tabular-nums text-lol-text-bright">
+          {p.kills} / <span className="text-lol-loss">{p.deaths}</span> / {p.assists}
         </div>
         <div
-          className={`text-[11px] ${parseFloat(kda) >= 3 || kda === "Perfect" ? "text-lol-gold" : "text-lol-text"}`}
+          className={`text-[12.5px] font-semibold ${
+            parseFloat(kda) >= 4 || kda === "Perfect" ? "text-lol-gold" : "text-lol-text"
+          }`}
         >
-          {kda}
+          {kda} KDA
         </div>
       </div>
 
-      {/* Damage dealt */}
-      <ScoreboardBar value={p.totalDamageDealtToChampions} max={maxStats.dmg} color="bg-lol-loss" />
+      <BarStat
+        total={p.totalDamageDealtToChampions}
+        max={maxStats.dmg}
+        perMin={perMin(p.totalDamageDealtToChampions)}
+        unit="dpm"
+        color="bg-red-500"
+      />
+      <BarStat
+        total={p.totalHeal}
+        max={maxStats.heal}
+        perMin={perMin(p.totalHeal)}
+        unit="hpm"
+        color="bg-emerald-400"
+      />
+      <BarStat
+        total={p.totalDamageTaken}
+        max={maxStats.taken}
+        perMin={perMin(p.totalDamageTaken)}
+        unit="tpm"
+        color="bg-sky-400"
+      />
 
-      {/* Damage taken */}
-      <ScoreboardBar value={p.totalDamageTaken} max={maxStats.taken} color="bg-lol-assist" />
-
-      {/* Gold */}
-      <div className="text-right font-display text-[12.5px] font-semibold text-lol-gold">
-        {p.goldEarned >= 1000 ? `${(p.goldEarned / 1000).toFixed(1)}k` : p.goldEarned}
-      </div>
-
-      {/* Heal */}
-      <div className="text-right font-display text-[12.5px] font-semibold text-lol-win">
-        {p.totalHeal >= 1000 ? `${(p.totalHeal / 1000).toFixed(1)}k` : p.totalHeal}
-      </div>
-
-      {/* CS */}
-      <div className="text-right font-display text-[12.5px] font-semibold text-lol-text-bright">
-        <div>{p.cs}</div>
-        <div className="text-[9px] text-lol-text">
-          {p.cs / Math.max(gameDuration / 60, 1) > 0
-            ? `${(p.cs / Math.max(gameDuration / 60, 1)).toFixed(1)} /min`
-            : "CS"}
+      <div>
+        <div className="font-display text-[16px] font-bold tabular-nums text-lol-gold">
+          {formatNumber(p.goldEarned)}
+        </div>
+        <div className="mt-1 text-[12px] tabular-nums text-lol-text">
+          {perMin(p.goldEarned)}
+          <span className="ml-1 text-[10px] font-semibold uppercase tracking-wide">gpm</span>
         </div>
       </div>
 
-      {/* Items */}
-      <div className="flex gap-0.5 justify-center">
-        {p.items.slice(0, 6).map((itemId, i) => (
-          <div key={i} className="rounded-md border border-lol-border/50 bg-black/30 p-0.5">
-            <ItemIcon itemId={itemId} size={22} patch={patch} />
-          </div>
-        ))}
-        <div className="ml-0.5 rounded-md border border-lol-border/50 bg-black/30 p-0.5">
-          <ItemIcon itemId={p.items[6] ?? 0} size={22} patch={patch} />
+      <div>
+        <div className="font-display text-[16px] font-bold tabular-nums text-lol-text-bright">
+          {p.cs}
         </div>
+        <div className="mt-1 text-[12px] tabular-nums text-lol-text">
+          {(p.cs / minutes).toFixed(1)}/min
+        </div>
+      </div>
+
+      {/* Six items in two rows of three, trinket on its own beside them */}
+      <div className="flex items-center gap-2">
+        <div className="grid grid-cols-3 gap-1">
+          {p.items.slice(0, 6).map((itemId, i) => (
+            <ItemIcon key={i} itemId={itemId} size={30} patch={patch} />
+          ))}
+        </div>
+        <ItemIcon itemId={p.items[6] ?? 0} size={30} patch={patch} />
       </div>
 
       {/* Runes for standard queues; Arena/Mayhem show Augments instead — those
           modes have no rune page at all, so falling back to "runes present?"
           per player would silently show an empty grid for the whole lobby. */}
-      <div className="flex items-center gap-1 justify-center">
+      <div className="flex items-center gap-1">
         {showAugments ? (
-          p.augments.map((augId, i) => (
-            <div key={i} className="rounded-md border border-lol-border/50 bg-black/30 p-0.5">
-              <AugmentIcon augmentId={augId} size={22} patch={patch} />
-            </div>
-          ))
+          <div className="grid grid-cols-[repeat(3,36px)] gap-1">
+            {p.augments.map((augId, i) => (
+              <div key={i} className="h-9 w-9 overflow-hidden rounded-lg border border-lol-gold/40">
+                <AugmentIcon augmentId={augId} size={36} patch={patch} />
+              </div>
+            ))}
+          </div>
         ) : (
           <RuneSetupGrid
             runeIds={p.runeIds}
@@ -759,7 +816,6 @@ function PlayerRow({
           />
         )}
       </div>
-      <div aria-hidden="true" />
     </div>
   );
 }
@@ -769,25 +825,25 @@ function ScoreCell({ score }: { score?: ScoreBreakdown }) {
 
   return (
     <div
-      className={`text-center ${score ? "cursor-help" : ""}`}
+      className={`flex flex-col items-center gap-1 ${score ? "cursor-help" : ""}`}
       onMouseEnter={(e) => setAnchor(e.currentTarget.getBoundingClientRect())}
       onMouseLeave={() => setAnchor(null)}
     >
-      <div
-        className={`text-[15px] font-display font-bold ${score ? scoreColor(score.score) : "text-lol-text"}`}
+      <span
+        className={`w-14 rounded-lg py-1.5 text-center font-display text-[18px] font-bold tabular-nums ${
+          score ? scoreClass(score.score) : "text-lol-text"
+        }`}
       >
-        {score ? score.score.toFixed(1) : "-"}
-      </div>
+        {score ? score.score.toFixed(1) : "—"}
+      </span>
       {score?.badge && (
-        <div
-          className={`text-[9px] font-display font-bold leading-[15px] px-1.5 py-0.5 rounded w-fit mx-auto ${
-            score.badge === "MVP"
-              ? "bg-amber-400/20 text-amber-300"
-              : "bg-purple-500/20 text-purple-400"
+        <span
+          className={`rounded px-1.5 py-px font-display text-[10px] font-bold tracking-wide ${
+            score.badge === "MVP" ? "bg-lol-gold text-[#241705]" : "bg-violet-400 text-[#150c33]"
           }`}
         >
           {score.badge}
-        </div>
+        </span>
       )}
       {score && anchor && <ScoreBreakdownTooltip breakdown={score} anchor={anchor} />}
     </div>

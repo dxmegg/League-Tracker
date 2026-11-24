@@ -1,15 +1,15 @@
 import { useEffect, useState } from "react";
-import type { LiveStatRecord, MatchListItem } from "../../../shared/api";
+import type { MatchListItem } from "../../../shared/api";
 import { QUEUE_LABELS } from "../../../shared/queues";
 import { formatNumber, formatTimeAgo } from "../../lib/format";
 import { fmtClock, kdaRatio } from "../../lib/live";
-import { PEAK_ROWS, formatPeak } from "../../lib/liveStats";
+import { PeakStats } from "./PeakStats";
 import AugmentIcon from "../AugmentIcon";
 import { parseAugmentIds } from "../AugmentGrid";
 import ChampionIcon from "../ChampionIcon";
 import ItemIcon from "../ItemIcon";
 import { Panel } from "../Panel";
-import { StatIcon, Title } from "./shared";
+import { Title } from "./shared";
 
 function Metric({ label, value, tone = "" }: { label: string; value: string; tone?: string }) {
   return (
@@ -30,7 +30,6 @@ function Metric({ label, value, tone = "" }: { label: string; value: string; ton
 // plus how strong your champion got in it, as recorded while it was being played.
 export function LiveLastGame() {
   const [match, setMatch] = useState<MatchListItem | null>(null);
-  const [peaks, setPeaks] = useState<Array<{ stat: string; peak: number; final: number }>>([]);
 
   useEffect(() => {
     let cancelled = false;
@@ -49,45 +48,6 @@ export function LiveLastGame() {
     };
   }, []);
 
-  const gameId = match?.game_id;
-  useEffect(() => {
-    if (gameId == null) return;
-    let cancelled = false;
-    let tries = 0;
-    let timer: number | undefined;
-    // The stats are written a few seconds after the game ends, so an empty answer is retried for a while
-    const load = async () => {
-      const rows = await window.api.getGameStatPeaks(gameId).catch(() => []);
-      if (cancelled) return;
-      setPeaks(rows);
-      if (rows.length === 0 && ++tries < 6) timer = window.setTimeout(load, 10_000);
-    };
-    setPeaks([]);
-    void load();
-    return () => {
-      cancelled = true;
-      window.clearTimeout(timer);
-    };
-  }, [gameId]);
-
-  // Your best value of each stat on this champion, to tell whether this game set a record
-  const championId = match?.champion_id;
-  const [records, setRecords] = useState<Map<string, LiveStatRecord>>(new Map());
-  useEffect(() => {
-    if (championId == null) return;
-    let cancelled = false;
-    window.api
-      .getStatRecords({ championId })
-      .then((rows) => {
-        if (!cancelled) setRecords(new Map(rows.map((r) => [r.stat, r])));
-      })
-      .catch(() => {});
-    return () => {
-      cancelled = true;
-    };
-    // Re-read once this game's stats arrive, since they may be the new record
-  }, [championId, peaks.length]);
-
   if (!match) return null;
   const augments = parseAugmentIds(match.augment_ids);
   const items = [
@@ -99,7 +59,6 @@ export function LiveLastGame() {
     match.item5,
     match.item6,
   ].filter((id): id is number => typeof id === "number" && id > 0);
-  const peakBy = new Map(peaks.map((r) => [r.stat, r.peak]));
   const win = match.win === 1;
   const minutes = Math.max(match.game_duration / 60, 1 / 60);
 
@@ -179,47 +138,7 @@ export function LiveLastGame() {
         <div className="mb-2 font-display text-[10px] font-bold uppercase tracking-widest text-lol-text">
           Your highest values this game
         </div>
-        {peakBy.size === 0 ? (
-          <p className="text-[12.5px] text-lol-text">
-            Not recorded for this game. Stats are saved while a game is played with the app open.
-          </p>
-        ) : (
-          <div className="grid grid-cols-1 gap-x-6 sm:grid-cols-2 lg:grid-cols-3">
-            {PEAK_ROWS.filter((r) => peakBy.has(r.key)).map((r) => (
-              <div
-                key={r.key}
-                className="flex items-center justify-between gap-3 border-b border-lol-border/25 py-1"
-              >
-                <span className="flex items-center gap-2 text-[12px] text-lol-text">
-                  <StatIcon iconKey={r.key} label={r.label} />
-                  {r.label}
-                </span>
-                <span className="flex items-baseline gap-2">
-                  {(() => {
-                    const rec = records.get(r.key);
-                    if (!rec) return null;
-                    // The record row is this very game, so it either is the record or ties it
-                    return rec.gameId === match.game_id ? (
-                      <span className="rounded bg-lol-gold px-1.5 text-[9.5px] font-bold uppercase tracking-wider text-[#241705]">
-                        Record
-                      </span>
-                    ) : (
-                      <span
-                        className="text-[10.5px] text-lol-text/60"
-                        title={`Your best on this champion, game ${rec.gameId}`}
-                      >
-                        best {formatPeak(rec.peak, r.fmt)}
-                      </span>
-                    );
-                  })()}
-                  <b className="font-display text-[13px] tabular-nums text-lol-text-bright">
-                    {formatPeak(peakBy.get(r.key) ?? 0, r.fmt)}
-                  </b>
-                </span>
-              </div>
-            ))}
-          </div>
-        )}
+        <PeakStats gameId={match.game_id} championId={match.champion_id} />
       </div>
     </Panel>
   );

@@ -17,6 +17,11 @@ export const PEAK_ROWS: Array<{ key: string; label: string; fmt: PeakFormat }> =
   { key: "lifeSteal", label: "Life steal", fmt: "pct" },
   { key: "omnivamp", label: "Omnivamp", fmt: "pct" },
   { key: "tenacity", label: "Tenacity", fmt: "pct" },
+  { key: "physicalLethality", label: "Lethality", fmt: "int" },
+  { key: "magicPenetrationFlat", label: "Magic penetration", fmt: "int" },
+  { key: "healthRegenRate", label: "Health regen", fmt: "dec" },
+  { key: "attackRange", label: "Attack range", fmt: "int" },
+  { key: "level", label: "Level", fmt: "int" },
   { key: "itemValue", label: "Item value", fmt: "int" },
   { key: "gold", label: "Gold held", fmt: "int" },
 ];

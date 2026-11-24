@@ -74,10 +74,34 @@ const STAT_ICON_FILES: Record<string, string> = {
   tenacity: "statmodstenacityicon",
 };
 
-export const statIconUrl = (key: string | undefined): string | null =>
-  key && STAT_ICON_FILES[key]
-    ? `https://raw.communitydragon.org/latest/game/assets/perks/statmods/${STAT_ICON_FILES[key]}.png`
-    : null;
+// The match-history client art covers gold and minions
+const CLIENT_ICON_URL =
+  "https://raw.communitydragon.org/latest/plugins/rcp-fe-lol-match-history/global/default";
+const STAT_EXTRA_ICON_URLS: Record<string, string> = {
+  gold: `${CLIENT_ICON_URL}/icon_gold.png`,
+  itemValue: `${CLIENT_ICON_URL}/icon_gold.png`,
+};
+
+export const statIconUrl = (key: string | undefined): string | null => {
+  if (!key) return null;
+  if (STAT_ICON_FILES[key])
+    return `https://raw.communitydragon.org/latest/game/assets/perks/statmods/${STAT_ICON_FILES[key]}.png`;
+  return STAT_EXTRA_ICON_URLS[key] ?? null;
+};
+
+// Stats with no official art get the icon of an item that stands for them; shown without the item tooltip
+export const STAT_ITEM_ICONS: Record<string, number> = {
+  critChance: 3031, // Infinity Edge
+  lifeSteal: 3072, // Bloodthirster
+  omnivamp: 3146, // Hextech Gunblade
+  effectiveHpPhysical: 3075, // Thornmail
+  effectiveHpMagic: 3156, // Maw of Malmortius
+  physicalLethality: 3142, // Youmuu's Ghostblade
+  magicPenetrationFlat: 3135, // Void Staff
+  healthRegenRate: 3083, // Warmog's Armor
+  attackRange: 3085, // Runaan's Hurricane
+  level: 3041, // Mejai's Soulstealer
+};
 
 // Keys statGroups already shows (or the meters on the champion panel use); anything else goes to "Other"
 const SHOWN_STATS = new Set([

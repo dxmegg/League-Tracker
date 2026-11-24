@@ -1,12 +1,13 @@
-import { useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import type { LivePlayer, LiveSpell } from "../../../shared/api";
 import {
   findChampionIdByName,
+  getChampionDataVersion,
   useChampionData,
   useRuneData,
   useSummonerSpellData,
 } from "../../hooks/useChampions";
-import { spellIdByName, statIconUrl } from "../../lib/live";
+import { STAT_ITEM_ICONS, spellIdByName, statIconUrl } from "../../lib/live";
 import ChampionIcon from "../ChampionIcon";
 import RuneIcon from "../RuneIcon";
 import SummonerSpellIcon from "../SummonerSpellIcon";
@@ -79,7 +80,53 @@ export function Meter({
   );
 }
 
-// The game's own art where it has some; otherwise a small badge with the stat's initials
+function InitialsBadge({ label }: { label: string }) {
+  const initials = label
+    .split(/[\s/&]+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((w) => w[0].toUpperCase())
+    .join("");
+  return (
+    <span
+      aria-hidden="true"
+      className="flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-md bg-white/10 font-display text-[8.5px] font-bold text-lol-text-bright"
+    >
+      {initials}
+    </span>
+  );
+}
+
+// A representative item's icon, cached through the main process like every other dragon asset
+function StatItemIcon({ itemId, label }: { itemId: number; label: string }) {
+  const [src, setSrc] = useState<string | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      const version = await getChampionDataVersion();
+      if (!version || version === "none") return;
+      const cached = await window.api.cacheDragonAsset(
+        `https://ddragon.leagueoflegends.com/cdn/${version}/img/item/${itemId}.png`,
+      );
+      if (!cancelled && cached) setSrc(cached);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [itemId]);
+  if (!src) return <InitialsBadge label={label} />;
+  return (
+    <img
+      src={src}
+      alt=""
+      width={18}
+      height={18}
+      className="h-[18px] w-[18px] shrink-0 rounded-[4px]"
+    />
+  );
+}
+
+// The game's own art where it has some, then a stand-in item icon, then a badge with the stat's initials
 export function StatIcon({ iconKey, label }: { iconKey?: string; label: string }) {
   const [failed, setFailed] = useState(false);
   const url = statIconUrl(iconKey);
@@ -96,20 +143,8 @@ export function StatIcon({ iconKey, label }: { iconKey?: string; label: string }
       />
     );
   }
-  const initials = label
-    .split(/[\s/&]+/)
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((w) => w[0].toUpperCase())
-    .join("");
-  return (
-    <span
-      aria-hidden="true"
-      className="flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-md bg-white/10 font-display text-[8.5px] font-bold text-lol-text-bright"
-    >
-      {initials}
-    </span>
-  );
+  const itemId = iconKey ? STAT_ITEM_ICONS[iconKey] : undefined;
+  return itemId ? <StatItemIcon itemId={itemId} label={label} /> : <InitialsBadge label={label} />;
 }
 
 export function Pill({ children, className = "" }: { children: ReactNode; className?: string }) {
