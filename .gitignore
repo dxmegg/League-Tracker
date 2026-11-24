@@ -6,3 +6,6 @@ backups/
 .env
 
 HANDOFF*
+
+# Local Claude Code files (briefs, worktrees)
+.claude/
