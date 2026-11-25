@@ -30,7 +30,8 @@ function recordDate(ts: number): string {
 function formatValue(key: string, value: number): string {
   if (DURATION_KEYS.has(key)) return formatDuration(value);
   if (key === "score" || key === "flawlessAce") return Math.min(value, 10).toFixed(1);
-  if (key === "kda" || key === "csPerMinute") return value.toFixed(2);
+  if (key === "kda" || key === "csPerMinute" || key === "damagePerGold") return value.toFixed(2);
+  if (key === "ccTime") return formatDuration(Math.round(value));
   if (key === "winStreak" || key === "lossStreak") return `${value} games`;
   return formatNumber(Math.round(value));
 }
@@ -116,6 +117,8 @@ function buildGroups(data: RecordsData): Group[] {
         stat("gold", "Most gold", "earned in one game", bests.gold),
         stat("cs", "Most CS", "creeps killed", bests.cs),
         stat("csPerMinute", "Best CS/min", "farming pace", bests.csPerMinute),
+        stat("goldPerMinute", "Best gold/min", "income pace", data.goldPerMinute),
+        stat("damagePerGold", "Best damage per gold", "to champions", data.damagePerGold),
       ],
     },
     {
@@ -127,6 +130,8 @@ function buildGroups(data: RecordsData): Group[] {
         stat("turretDamage", "Most turret damage", "to towers", data.turretDamage),
         stat("objectiveDamage", "Most objective damage", "all objectives", data.objectiveDamage),
         stat("visionScore", "Highest vision score", "in one game", data.visionScore),
+        stat("turretKills", "Most turrets destroyed", "in one game", data.turretKills),
+        stat("ccTime", "Most crowd control", "time spent on others", data.ccTime),
         stat("wardsPlaced", "Most wards placed", "in one game", data.wardsPlaced),
       ],
     },
@@ -302,46 +307,6 @@ const MULTIKILLS = [
   ["quadras", "Quadra kills", "#ff9f43"],
   ["pentakills", "Pentakills", "#ff6b57"],
 ] as const;
-
-function Cabinet({ achievements }: { achievements: NonNullable<RecordsData["achievements"]> }) {
-  return (
-    <section className="app-tile min-w-0">
-      <Title
-        aside={aside(
-          `${achievements.filter((a) => a.unlocked).length} of ${achievements.length} unlocked`,
-        )}
-      >
-        Trophy cabinet
-      </Title>
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-3 min-[106rem]:grid-cols-6">
-        {achievements.map((a) => (
-          <div
-            key={a.key}
-            className={`flex min-w-0 flex-col rounded-xl border p-3 ${
-              a.unlocked ? "border-lol-gold/60 bg-lol-gold/10" : "border-lol-border/50 bg-black/25"
-            }`}
-          >
-            <div
-              className={`font-display text-[14px] font-bold ${a.unlocked ? "text-lol-gold" : "text-lol-text-bright"}`}
-            >
-              {a.label}
-            </div>
-            <div className="mb-3 text-[11px] text-lol-text">{a.description}</div>
-            <div className="mt-auto h-1.5 overflow-hidden rounded-full bg-white/[0.08]">
-              <div
-                className={`h-full rounded-full ${a.unlocked ? "bg-lol-gold" : "bg-lol-crimson"}`}
-                style={{ width: `${Math.min(100, (a.current / a.target) * 100)}%` }}
-              />
-            </div>
-            <div className="mt-1 text-[11px] font-semibold tabular-nums text-lol-text">
-              {a.unlocked ? "Unlocked" : `${formatNumber(a.current)} / ${formatNumber(a.target)}`}
-            </div>
-          </div>
-        ))}
-      </div>
-    </section>
-  );
-}
 
 function Message({ title, children }: { title: string; children?: ReactNode }) {
   return (
@@ -596,10 +561,6 @@ export function RecordsExp({
                 </div>
               </div>
             </section>
-          )}
-
-          {data.achievements && data.achievements.length > 0 && (
-            <Cabinet achievements={data.achievements} />
           )}
         </>
       )}

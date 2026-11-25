@@ -4964,7 +4964,7 @@ export function getRecords(
              ps.total_damage_dealt_all, ps.true_damage_dealt, ps.cs, ps.largest_critical_strike,
              ps.double_kills, ps.triple_kills, ps.quadra_kills, ps.penta_kills,
              mp.vision_score, mp.wards_placed, mp.damage_to_turrets, mp.damage_to_objectives,
-             mp.pentakill_time
+             mp.pentakill_time, mp.turret_kills, mp.time_cc_others
       FROM games g
       JOIN ${source.table} ps ON g.game_id = ps.game_id
       LEFT JOIN match_participants mp ON mp.game_id = ps.game_id AND mp.puuid = ps.puuid
@@ -5037,6 +5037,10 @@ export function getRecords(
       let turretDamage: StatRecord | undefined;
       let objectiveDamage: StatRecord | undefined;
       let fastestPentakill: StatRecord | undefined;
+      let goldPerMinute: StatRecord | undefined;
+      let damagePerGold: StatRecord | undefined;
+      let turretKills: StatRecord | undefined;
+      let ccTime: StatRecord | undefined;
       let flawlessAce: StatRecord | undefined;
       let bestScoreRaw = -Infinity;
       let bestDeathlessRaw = -Infinity;
@@ -5131,6 +5135,15 @@ export function getRecords(
         multikillTotals.quadras += r.quadra_kills ?? 0;
         multikillTotals.pentakills += r.penta_kills ?? 0;
         visionScore = trackExtra(visionScore, r.vision_score, r);
+        // Rates need a real game: a few seconds would post absurd numbers
+        if (r.game_duration >= 300) {
+          goldPerMinute = trackExtra(goldPerMinute, r.gold_earned / (r.game_duration / 60), r);
+          if (r.gold_earned > 0) {
+            damagePerGold = trackExtra(damagePerGold, r.total_damage_dealt / r.gold_earned, r);
+          }
+        }
+        turretKills = trackExtra(turretKills, r.turret_kills, r);
+        ccTime = trackExtra(ccTime, r.time_cc_others, r);
         wardsPlaced = trackExtra(wardsPlaced, r.wards_placed, r);
         turretDamage = trackExtra(turretDamage, r.damage_to_turrets, r);
         objectiveDamage = trackExtra(objectiveDamage, r.damage_to_objectives, r);
@@ -5318,6 +5331,10 @@ export function getRecords(
       addRecent("longestGame", "Longest game", bests.longestGame);
       addRecent("criticalStrike", "Biggest crit", bests.criticalStrike);
       addRecent("visionScore", "Highest vision score", visionScore);
+      addRecent("goldPerMinute", "Best gold/min", goldPerMinute);
+      addRecent("damagePerGold", "Best damage per gold", damagePerGold);
+      addRecent("turretKills", "Most turrets destroyed", turretKills);
+      addRecent("ccTime", "Most crowd control", ccTime);
       addRecent("wardsPlaced", "Most wards placed", wardsPlaced);
       addRecent("turretDamage", "Most turret damage", turretDamage);
       addRecent("objectiveDamage", "Most objective damage", objectiveDamage);
@@ -5402,6 +5419,10 @@ export function getRecords(
         winStreak,
         lossStreak,
         visionScore,
+        goldPerMinute,
+        damagePerGold,
+        turretKills,
+        ccTime,
         wardsPlaced,
         turretDamage,
         objectiveDamage,

@@ -1518,6 +1518,10 @@ export interface RecordsData {
   winStreak: StreakRecord | null;
   lossStreak: StreakRecord | null;
   visionScore?: StatRecord;
+  goldPerMinute?: StatRecord;
+  damagePerGold?: StatRecord;
+  turretKills?: StatRecord;
+  ccTime?: StatRecord;
   wardsPlaced?: StatRecord;
   turretDamage?: StatRecord;
   objectiveDamage?: StatRecord;
