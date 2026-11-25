@@ -6,6 +6,7 @@ import {
   QUEUE_LABELS,
 } from "../../shared/queues";
 import { FilterSelect } from "./FilterSelect";
+import { useActiveMode } from "../hooks/useActiveMode";
 import { useHistoryScopeQueue } from "../lib/historyScope";
 
 export function queueLabel(queueId: number): string {
@@ -28,6 +29,7 @@ export default function QueueSelect({
 }) {
   const [queues, setQueues] = useState<number[]>([]);
   const scopedQueue = useHistoryScopeQueue();
+  const [mode] = useActiveMode();
   const visibleQueues = queues.filter(
     (queueId) => !HIDDEN_QUEUE_IDS.includes(queueId) && (!filter || filter(queueId)),
   );
@@ -47,7 +49,8 @@ export default function QueueSelect({
     }
   }, [visibleQueues, value, onChange]);
 
-  if (visibleQueues.length < 2) return null;
+  // Mayhem mode pins the queue globally, so a queue picker would only mislead.
+  if (mode === "mayhem" || visibleQueues.length < 2) return null;
 
   return (
     <FilterSelect

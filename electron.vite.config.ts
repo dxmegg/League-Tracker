@@ -64,6 +64,10 @@ export default defineConfig({
   },
   renderer: {
     root: resolve("src/renderer"),
+    resolve: {
+      // Same alias as tsconfig.web.json; the shadcn/ui components import from "@/..."
+      alias: { "@": resolve("src/renderer") },
+    },
     build: {
       rollupOptions: {
         input: resolve("src/renderer/index.html"),

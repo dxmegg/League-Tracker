@@ -1,4 +1,4 @@
-// One-off converter for legacy League Tracker exports (v3/v4/v5) to the
+// One-off converter for legacy Rift Records (formerly League Tracker) exports (v3/v4/v5) to the
 // current v6 NDJSON gzip format. Run once, then import the output via
 // Settings → Data Management → Import.
 //   node scripts/convert-legacy-export.mjs <input.json> <output.json.gz>

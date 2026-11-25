@@ -49,7 +49,8 @@ import {
   formatPlaytime,
   formatTimeAgo,
 } from "../lib/format";
-import { useHistoryScopeQueue } from "../lib/historyScope";
+import { useScopedQueue } from "../lib/historyScope";
+import { useActiveMode } from "../hooks/useActiveMode";
 import AugmentIcon from "./AugmentIcon";
 import ChampionIcon from "./ChampionIcon";
 import { DonutChart } from "./DonutChart";
@@ -165,7 +166,8 @@ export function ChampionDetailExp() {
   const [augmentSort, setAugmentSort] = useState<RateSort>("count");
   const [itemSort, setItemSort] = useState<RateSort>("count");
   const [keystoneSort, setKeystoneSort] = useState<RateSort>("count");
-  const scopedQueue = queue ?? useHistoryScopeQueue();
+  const scopedQueue = useScopedQueue(queue);
+  const [dataMode] = useActiveMode();
   const [activeAccountRaw] = useActiveAccount();
   const account = activeAccountRaw === ALL_ACCOUNTS_SENTINEL ? "all" : activeAccountRaw;
   const overviewActive = activeTab === "ov";
@@ -604,7 +606,7 @@ export function ChampionDetailExp() {
 
   if ((!isSummary && !championStats) || games === 0) {
     return (
-      <div className="mx-auto flex min-h-full w-full max-w-[1320px] flex-col gap-5">
+      <div className="flex min-h-full w-full flex-col gap-5">
         <button
           type="button"
           onClick={() => navigate("/champions")}
@@ -624,7 +626,7 @@ export function ChampionDetailExp() {
   }
 
   return (
-    <div className="mx-auto flex min-h-full w-full max-w-[1320px] flex-col gap-5">
+    <div className="flex min-h-full w-full flex-col gap-5">
       <button
         type="button"
         onClick={() => navigate("/champions")}
@@ -655,19 +657,21 @@ export function ChampionDetailExp() {
         </div>
       </div>
       <div className="flex flex-wrap items-center gap-2">
-        <SegmentedControl
-          value={queue}
-          onChange={setQueue}
-          label="Queue"
-          options={[
-            { value: undefined, label: "All queues" },
-            { value: 420, label: "Ranked Solo" },
-            { value: 440, label: "Ranked Flex" },
-            { value: 450, label: "ARAM" },
-            { value: 400, label: "Normal" },
-            { value: 1700, label: "Arena" },
-          ]}
-        />
+        {dataMode !== "mayhem" && (
+          <SegmentedControl
+            value={queue}
+            onChange={setQueue}
+            label="Queue"
+            options={[
+              { value: undefined, label: "All queues" },
+              { value: 420, label: "Ranked Solo" },
+              { value: 440, label: "Ranked Flex" },
+              { value: 450, label: "ARAM" },
+              { value: 400, label: "Normal" },
+              { value: 1700, label: "Arena" },
+            ]}
+          />
+        )}
         <PatchSelect value={patch} onChange={setPatch} />
       </div>
 

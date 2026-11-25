@@ -3,8 +3,19 @@ import type { MatchFilters, MatchListItem, MultikillType } from "../lib/types";
 
 const PAGE_SIZE = 20;
 
-export function useMatches(filters: MatchFilters = {}) {
-  const { championId, patch, queue, account, sort, sortDir, multikills, favorites } = filters;
+export function useMatches(filters: MatchFilters = {}, pageSize = PAGE_SIZE) {
+  const {
+    championId,
+    patch,
+    queue,
+    account,
+    sort,
+    sortDir,
+    multikills,
+    favorites,
+    result: resultFilter,
+    timePeriod,
+  } = filters;
   // Arrays are recreated each render, so the joined string is what the hook
   // actually depends on. The list is rebuilt from it below rather than closing
   // over the array, which keeps every dependency here a primitive.
@@ -19,14 +30,20 @@ export function useMatches(filters: MatchFilters = {}) {
   // matches.length so that appending a page doesn't change `load`'s identity —
   // if it did, the effect below would re-run on every page and reset the list.
   const offsetRef = useRef(0);
+  // Only the newest request may write state: a slow response for an old filter
+  // must not replace, or be appended to, the list for the current one
+  const requestId = useRef(0);
 
   const load = useCallback(
     async (reset = false) => {
+      const id = ++requestId.current;
+      // A filter change invalidates the offset even if its response never lands
+      if (reset) offsetRef.current = 0;
       setLoading(true);
       setError(null);
       const offset = reset ? 0 : offsetRef.current;
       try {
-        const result = await window.api.getMatchHistory(PAGE_SIZE, offset, {
+        const result = await window.api.getMatchHistory(pageSize, offset, {
           championId,
           patch,
           queue,
@@ -34,9 +51,12 @@ export function useMatches(filters: MatchFilters = {}) {
           sort,
           sortDir,
           favorites,
+          result: resultFilter,
+          timePeriod,
           // Safe to narrow: the key was joined from these same values
           multikills: multikillsKey ? (multikillsKey.split(",") as MultikillType[]) : [],
         });
+        if (id !== requestId.current) return;
         if (reset) {
           setMatches(result.matches);
         } else {
@@ -46,12 +66,25 @@ export function useMatches(filters: MatchFilters = {}) {
         setTotal(result.total);
         setHasMore(offset + result.matches.length < result.total);
       } catch (err) {
+        if (id !== requestId.current) return;
         setError(err instanceof Error ? err : new Error(String(err)));
       } finally {
-        setLoading(false);
+        if (id === requestId.current) setLoading(false);
       }
     },
-    [championId, patch, queue, account, sort, sortDir, multikillsKey, favorites],
+    [
+      championId,
+      patch,
+      queue,
+      account,
+      sort,
+      sortDir,
+      multikillsKey,
+      favorites,
+      resultFilter,
+      timePeriod,
+      pageSize,
+    ],
   );
 
   // `load` changes only when a filter changes, so this both loads the first

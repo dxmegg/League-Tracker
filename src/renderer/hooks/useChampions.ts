@@ -24,12 +24,18 @@ function hasData<T extends object>(obj: T | null): obj is T {
 }
 
 export function getChampionDataVersion(): Promise<string> {
-  championDataVersionPromise ??= window.api.getChampionDataVersion();
+  championDataVersionPromise ??= window.api.getChampionDataVersion().catch((err) => {
+    championDataVersionPromise = null;
+    throw err;
+  });
   return championDataVersionPromise;
 }
 
 export function getAccountsWithData(): Promise<AccountListItem[]> {
-  accountsWithDataPromise ??= window.api.listAccountsWithData();
+  accountsWithDataPromise ??= window.api.listAccountsWithData().catch((err) => {
+    accountsWithDataPromise = null;
+    throw err;
+  });
   return accountsWithDataPromise;
 }
 
@@ -197,7 +203,7 @@ export function findChampionIdByName(data: ChampionData, name: string): number |
 }
 
 export function getAugmentName(data: AugmentData, id: number): string {
-  return data[id]?.name || `Augment ${id}`;
+  return data[id]?.name?.trim() || `Augment ${id}`;
 }
 
 export function getItemName(data: ItemData, id: number): string {

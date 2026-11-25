@@ -24,26 +24,29 @@ const STYLE = `
   gap: 8px 14px;
   padding: 12px 16px 12px 18px;
   border: 1px solid var(--theme-border);
-  border-radius: 12px;
-  box-shadow: inset 2px 0 0 var(--edge);
+  border-radius: 14px;
+  box-shadow: inset 3px 0 0 var(--edge), 0 10px 24px -18px rgba(0,0,0,0.85);
   border-bottom: 1px solid rgba(255,255,255,0.04);
   transition: background-color 120ms ease, box-shadow 120ms ease;
   --edge: var(--theme-win);
   container-type: inline-size;
-  grid-template-columns: 76px minmax(170px, 1.1fr) 106px 58px 62px 172px 138px minmax(0, 1fr) 68px;
+  grid-template-columns: 76px minmax(170px, 1.1fr) 106px 58px 62px 172px 172px minmax(0, 1fr) 68px;
   grid-template-areas: "res champ kda cs score bars items multi time";
-  background: linear-gradient(90deg, var(--theme-surface) 0%, transparent 55%), var(--theme-card);
+  background: linear-gradient(160deg, var(--theme-card-hover), var(--theme-card));
 }
 .match-row[data-win="false"] { --edge: var(--theme-loss); }
-.match-row[data-win="true"] {
-  background: linear-gradient(90deg, rgba(56,214,162,0.10) 0%, transparent 55%), var(--theme-card);
-}
+.match-row[data-win="true"],
 .match-row[data-win="false"] {
-  background: linear-gradient(90deg, rgba(240,86,110,0.11) 0%, transparent 55%), var(--theme-card);
+  border-color: color-mix(in srgb, var(--edge) 20%, var(--theme-border));
+  background:
+    linear-gradient(90deg, color-mix(in srgb, var(--edge) 13%, transparent) 0%, transparent 34%),
+    linear-gradient(180deg, rgba(255,255,255,0.045), transparent 45%),
+    linear-gradient(160deg, var(--theme-card-hover), var(--theme-card));
 }
 .match-row:hover {
-  box-shadow: inset 3px 0 0 var(--edge);
-  background: rgba(255,255,255,0.02);
+  border-color: color-mix(in srgb, var(--edge) 45%, var(--theme-border));
+  box-shadow: inset 4px 0 0 var(--edge), 0 14px 30px -16px color-mix(in srgb, var(--edge) 45%, transparent);
+  filter: brightness(1.08);
 }
 .match-row[data-polish="matches"] {
   padding-top: 2px;
@@ -117,19 +120,19 @@ const STYLE = `
 .match-row .m-time b { display: block; font-family: var(--theme-font-display); font-size: 14px; font-weight: 600; }
 .match-row .m-time span { color: var(--theme-foreground-muted); font-size: 12.5px; }
 
-@container (max-width: 1060px) {
+@container (max-width: 1100px) {
+  /* Two compact rows with the same column widths as the full layout, so nothing
+     stretches edge to edge; the spare width goes to the last column */
   .match-row {
-    grid-template-columns: 72px minmax(0, 1fr) auto auto;
+    grid-template-columns: 72px minmax(172px, 260px) 106px 58px 62px minmax(68px, 1fr);
     grid-template-areas:
-      "res champ score time"
-      "res kda cs cs"
-      "res bars bars bars"
-      "res items multi multi";
+      "res champ kda cs score time"
+      "res bars items items multi multi";
   }
-  .match-row .m-score { text-align: right; }
+  .match-row .m-multi { max-width: none; padding-left: 0; }
 }
 
-@container (max-width: 560px) {
+@container (max-width: 640px) {
   .match-row {
     grid-template-columns: minmax(0, 1fr) auto;
     grid-template-areas:
@@ -183,9 +186,6 @@ export function MatchRowExperiment({
   const runeIds = parseRuneIds(match.rune_ids);
   const statShardIds = parseRuneIds(match.stat_shard_ids);
   const runeSetup = splitRuneSelections(runeIds, match.primary_style, match.secondary_style);
-  const secondaryLabel = isAugmentQueue(match.queue_id)
-    ? "Augments unavailable"
-    : "Runes unavailable";
 
   return (
     <div>
@@ -307,8 +307,8 @@ export function MatchRowExperiment({
           })}
         </div>
 
-        <div className="m-items" title={secondaryLabel}>
-          <div className="flex items-center justify-center shrink-0">
+        <div className="m-items">
+          <div className="flex w-[76px] shrink-0 items-center justify-center">
             {isAugmentQueue(match.queue_id) ? (
               <AugmentGrid augmentIds={augmentIds} patch={match.game_version} />
             ) : (

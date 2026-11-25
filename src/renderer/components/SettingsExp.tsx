@@ -1,3 +1,8 @@
+import { FilterChip } from "./FilterChip";
+import SummonerIcon from "./SummonerIcon";
+import { useActiveAccount } from "../hooks/useActiveAccount";
+import { invalidateAccountsCache } from "../hooks/useChampions";
+import { ALL_ACCOUNTS_SENTINEL } from "../lib/accountsEvent";
 import {
   useState,
   useEffect,
@@ -9,9 +14,10 @@ import {
 import { useBackfill } from "../hooks/useBackfill";
 import { useTimelineBackfill } from "../hooks/useTimelineBackfill";
 import { queueLabel } from "../components/QueueSelect";
-import { FilterSelect } from "../components/FilterSelect";
 import { setRemembering } from "../lib/viewState";
 import { useActiveTheme } from "../hooks/useActiveTheme";
+import { useActiveMode } from "../hooks/useActiveMode";
+import { useDevMode } from "../hooks/useDevMode";
 import type { BackupInfo } from "../lib/types";
 import {
   RIOT_ACCOUNT_PLATFORMS,
@@ -20,7 +26,8 @@ import {
   type RiotAccountConfig,
   type RiotSyncProgress,
 } from "../../shared/api";
-import { Panel } from "./Panel";
+import { Title } from "./live/shared";
+import { XIcon } from "./icons";
 
 const BACKUP_REASONS: Record<string, string> = {
   auto: "Scheduled",
@@ -49,14 +56,7 @@ const PLATFORM_LABELS: Record<string, string> = {
   vn2: "VN",
 };
 
-const THEME_OPTIONS = [
-  { value: "experiment", label: "First Theme" },
-  { value: "test", label: "Second Theme" },
-  { value: "experiment2", label: "Third Theme" },
-  { value: "experiment3", label: "Fourth Theme" },
-  { value: "experiment4", label: "Fifth Theme" },
-  { value: "experiment5", label: "Sixth Theme" },
-] as const;
+import { THEME_OPTIONS, resolveTheme } from "../lib/themes";
 
 function formatSize(bytes: number): string {
   return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
@@ -293,28 +293,93 @@ type ButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & {
 
 function Button({ variant = "primary", children, className = "", ...props }: ButtonProps) {
   const variantClasses = {
-    primary: "border border-lol-crimson bg-lol-crimson text-white hover:bg-lol-crimson/90",
-    secondary: "border border-lol-border bg-lol-card text-lol-text-bright hover:border-lol-crimson",
-    subtle: "border border-lol-border/70 bg-transparent text-lol-text hover:border-lol-crimson",
-    neutral: "border border-lol-border bg-lol-card text-lol-text-bright hover:border-lol-crimson",
-    destructive: "border border-lol-loss/60 text-lol-loss hover:border-lol-loss",
+    primary: "border-lol-crimson/70 bg-lol-crimson/25 text-lol-text-bright hover:bg-lol-crimson/45",
+    secondary:
+      "border-lol-border/70 bg-lol-card/60 text-lol-text-bright hover:border-lol-crimson/60",
+    subtle:
+      "border-lol-border/50 bg-lol-card/40 text-lol-text hover:border-lol-crimson/50 hover:text-lol-text-bright",
+    neutral:
+      "border-lol-border/50 bg-lol-card/40 text-lol-text hover:border-lol-crimson/50 hover:text-lol-text-bright",
+    destructive: "border-lol-loss/50 bg-lol-loss/10 text-lol-loss hover:bg-lol-loss/20",
   };
 
   return (
     <button
       {...props}
-      className={`inline-flex items-center gap-1.5 rounded-lg px-4 py-2 text-sm font-medium transition-colors duration-[120ms] disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-lol-crimson/60 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--theme-bg-deep)] ${variantClasses[variant]} ${className}`}
+      className={`inline-flex h-9 items-center justify-center gap-1.5 rounded-lg border px-3.5 text-xs font-bold uppercase tracking-wider transition-colors disabled:cursor-not-allowed disabled:opacity-40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-lol-crimson/60 ${variantClasses[variant]} ${className}`}
     >
       {children}
     </button>
   );
 }
 
+const INPUT_CLASS =
+  "h-9 rounded-lg border border-lol-border/60 bg-black/30 px-3 text-[13px] text-lol-text-bright outline-none transition-colors hover:border-lol-crimson/40 focus:border-lol-crimson/70";
+
+// One account in either list: picture, name, a line under it and its controls
+function AccountCard({
+  icon,
+  name,
+  detail,
+  dimmed = false,
+  children,
+}: {
+  icon: number | null;
+  name: string;
+  detail: ReactNode;
+  dimmed?: boolean;
+  children: ReactNode;
+}) {
+  const [game, tag] = name.split("#");
+  return (
+    <div className="group flex min-w-0 items-center gap-3 rounded-xl border border-lol-border/50 bg-black/25 px-3 py-2.5 transition-colors hover:border-lol-crimson/50 hover:bg-white/[0.04]">
+      <span
+        className={`flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full border border-lol-crimson/50 bg-lol-card ${dimmed ? "opacity-40 grayscale" : ""}`}
+      >
+        {icon == null ? (
+          <span className="font-display text-[13px] font-bold text-lol-text">
+            {game.slice(0, 2).toUpperCase()}
+          </span>
+        ) : (
+          <SummonerIcon iconId={icon} size={40} />
+        )}
+      </span>
+      <div className={`min-w-0 flex-1 ${dimmed ? "opacity-50" : ""}`}>
+        <p
+          className="truncate font-display text-[14px] font-bold text-lol-text-bright"
+          title={name}
+        >
+          {game}
+          {tag && <span className="ml-1 text-[12px] font-medium text-lol-text">#{tag}</span>}
+        </p>
+        <p className="flex items-center gap-2 text-[11px] text-lol-text">{detail}</p>
+      </div>
+      {children}
+    </div>
+  );
+}
+
+function RemoveButton({ label, onClick }: { label: string; onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      aria-label={label}
+      title={label}
+      onClick={onClick}
+      className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-lol-text/60 transition-colors hover:bg-lol-loss/15 hover:text-lol-loss focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-lol-loss/60"
+    >
+      <XIcon className="h-3.5 w-3.5" />
+    </button>
+  );
+}
+
 function Switch({
+  label,
   checked,
   onChange,
   disabled = false,
 }: {
+  label?: string;
   checked: boolean;
   onChange: () => void;
   disabled?: boolean;
@@ -323,16 +388,17 @@ function Switch({
     <button
       type="button"
       role="switch"
+      aria-label={label}
       aria-checked={checked}
       disabled={disabled}
       onClick={onChange}
-      className={`relative inline-flex h-6 w-11 shrink-0 rounded-full border-2 border-transparent transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-lol-gold/60 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--theme-bg-deep)] ${
+      className={`relative inline-flex h-6 w-11 shrink-0 rounded-full border-2 border-transparent transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-lol-crimson/60 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--theme-bg-deep)] ${
         disabled ? "cursor-not-allowed opacity-40" : "cursor-pointer"
-      } ${checked ? "bg-lol-gold shadow-[0_0_8px_var(--theme-accent-glow)]" : "bg-lol-border/60"}`}
+      } ${checked ? "bg-lol-crimson shadow-[0_0_10px_var(--theme-crimson-glow)]" : "bg-white/10"}`}
     >
       <span
         className={`pointer-events-none inline-block h-5 w-5 rounded-full transform transition-transform duration-200 ${
-          checked ? "bg-lol-gold-light shadow-sm" : "bg-white shadow"
+          checked ? "bg-white shadow-sm" : "bg-lol-text shadow"
         } ${checked ? "translate-x-5" : "translate-x-0"}`}
       />
     </button>
@@ -351,19 +417,44 @@ function Section({
   action?: ReactNode;
 }) {
   return (
-    <Panel
-      className={`relative border-t-2 border-lol-crimson before:pointer-events-none before:absolute before:right-0 before:top-0 before:h-32 before:w-40 before:bg-[radial-gradient(circle_at_top_right,rgba(225,29,72,0.08),transparent_70%)] ${className}`}
-    >
-      <h2 className="relative z-10 mb-4 font-display text-[16px] font-semibold text-lol-text-bright before:mr-2 before:inline-block before:h-1.5 before:w-1.5 before:rounded-full before:bg-lol-crimson after:mt-2 after:block after:h-px after:w-24 after:bg-gradient-to-r after:from-lol-crimson/70 after:to-transparent">
-        {title}
-      </h2>
-      {action && <div className="absolute right-4 top-4 z-10">{action}</div>}
+    <section className={`app-tile min-w-0 ${className}`}>
+      <Title aside={action}>{title}</Title>
       <div className="flex flex-col gap-3">{children}</div>
-    </Panel>
+    </section>
   );
 }
 
+// One thing you can run: what it does on the left, its button on the right
+function ActionRow({
+  name,
+  description,
+  children,
+}: {
+  name: string;
+  description: ReactNode;
+  children: ReactNode;
+}) {
+  return (
+    <div className="flex items-center justify-between gap-4 rounded-xl border border-lol-border/50 bg-black/25 px-4 py-3 transition-colors hover:border-lol-crimson/40">
+      <div className="min-w-0">
+        <p className="font-display text-[14px] font-bold text-lol-text-bright">{name}</p>
+        <p className="text-[12px] text-lol-text">{description}</p>
+      </div>
+      <div className="flex shrink-0 gap-2">{children}</div>
+    </div>
+  );
+}
+
+const SETTINGS_TABS = [
+  { id: "general", label: "General", hint: "Look, startup behaviour and which games count" },
+  { id: "accounts", label: "Accounts", hint: "Riot accounts to sync and accounts already saved" },
+  { id: "sync", label: "Sync & repair", hint: "Fetch history, timelines and fix stored data" },
+  { id: "data", label: "Backups", hint: "Export, import and database snapshots" },
+  { id: "about", label: "About", hint: "What is stored per game, and credits" },
+] as const;
+
 export function SettingsExp() {
+  const [tab, setTab] = useState<(typeof SETTINGS_TABS)[number]["id"]>("general");
   // Shared so a backfill started automatically on first connect shows here too
   const { running: backfilling } = useBackfill();
   const {
@@ -375,7 +466,9 @@ export function SettingsExp() {
     stop: stopTimelineBackfill,
   } = useTimelineBackfill();
   const anyRunning = backfilling || timelineBackfilling;
-  const activeTheme = useActiveTheme({ exact: true }) || "experiment";
+  const activeTheme = useActiveTheme({ exact: true }) || "redesign";
+  const [mode] = useActiveMode();
+  const [devMode, setDevMode] = useDevMode();
   const [autoStart, setAutoStart] = useState(false);
   // Only the packaged program has a path worth registering, so the switch says
   // so instead of pretending in a dev build
@@ -402,6 +495,7 @@ export function SettingsExp() {
     route: string;
   } | null>(null);
   const [repairing, setRepairing] = useState(false);
+  const [recalculating, setRecalculating] = useState(false);
   const [restoring, setRestoring] = useState(false);
   const [backups, setBackups] = useState<BackupInfo[]>([]);
   const [backupStatus, setBackupStatus] = useState<string | null>(null);
@@ -430,6 +524,8 @@ export function SettingsExp() {
     }>
   >([]);
   const [confirmDeleteSummoner, setConfirmDeleteSummoner] = useState<string | null>(null);
+  const [hiddenAccounts, setHiddenAccounts] = useState<Set<string>>(new Set());
+  const [activeAccount, setActiveAccount] = useActiveAccount();
   const [summonerStatus, setSummonerStatus] = useState<string | null>(null);
   const [mergingDuplicates, setMergingDuplicates] = useState(false);
   const [timelineLimit, setTimelineLimit] = useState(100);
@@ -445,19 +541,22 @@ export function SettingsExp() {
       window.api.getSetting("auto_backup"),
       window.api.getSetting("remember_filters"),
       window.api.getSetting("theme"),
-    ]).then(([startup, startupSupported, tray, hidden, remakes, backup, remember, storedTheme]) => {
-      const persistedTheme =
-        THEME_OPTIONS.find((option) => option.value === storedTheme)?.value ?? "experiment";
-      document.documentElement.setAttribute("data-theme", persistedTheme);
-      setAutoStart(startup === "true");
-      setAutoStartSupported(startupSupported);
-      setMinimizeToTray(tray !== "false");
-      setHiddenQueues(new Set(hidden ? hidden.split(",").map(Number) : []));
-      setHideRemakes(remakes === "true");
-      setAutoBackup(backup !== "false");
-      setRememberFilters(remember === "true");
-      setLoading(false);
-    });
+      window.api.getSetting("hidden_accounts"),
+    ]).then(
+      ([startup, startupSupported, tray, hidden, remakes, backup, remember, storedTheme, off]) => {
+        setHiddenAccounts(new Set(off ? (JSON.parse(off) as string[]) : []));
+        const persistedTheme = resolveTheme(storedTheme);
+        document.documentElement.setAttribute("data-theme", persistedTheme);
+        setAutoStart(startup === "true");
+        setAutoStartSupported(startupSupported);
+        setMinimizeToTray(tray !== "false");
+        setHiddenQueues(new Set(hidden ? hidden.split(",").map(Number) : []));
+        setHideRemakes(remakes === "true");
+        setAutoBackup(backup !== "false");
+        setRememberFilters(remember === "true");
+        setLoading(false);
+      },
+    );
   }, []);
 
   useEffect(() => {
@@ -675,6 +774,23 @@ export function SettingsExp() {
     }
   }, []);
 
+  const handleRecalculateScores = useCallback(async () => {
+    setRecalculating(true);
+    setBackfillStatus("Recalculating scores...");
+    try {
+      const result = await window.api.recalculateScores();
+      setBackfillStatus(
+        "error" in result
+          ? `Error: ${result.error}`
+          : `Recalculated scores for ${result.games.toLocaleString()} game(s) in ${(result.ms / 1000).toFixed(1)} s`,
+      );
+    } catch (err: unknown) {
+      setBackfillStatus(`Error: ${err instanceof Error ? err.message : String(err)}`);
+    } finally {
+      setRecalculating(false);
+    }
+  }, []);
+
   const handleRestoreOlderGames = useCallback(async () => {
     setRestoring(true);
     setBackfillStatus("Restoring ignored games...");
@@ -743,6 +859,19 @@ export function SettingsExp() {
       await window.api.setSetting("hidden_queues", [...next].join(","));
     },
     [hiddenQueues],
+  );
+
+  const handleAccountToggle = useCallback(
+    async (puuid: string) => {
+      const next = new Set(hiddenAccounts);
+      if (!next.delete(puuid)) next.add(puuid);
+      setHiddenAccounts(next);
+      await window.api.setSetting("hidden_accounts", JSON.stringify([...next]));
+      invalidateAccountsCache();
+      // A hidden account can't stay the one being looked at
+      if (next.has(activeAccount)) setActiveAccount(ALL_ACCOUNTS_SENTINEL);
+    },
+    [hiddenAccounts, activeAccount, setActiveAccount],
   );
 
   const handleHideRemakesToggle = useCallback(async () => {
@@ -972,800 +1101,862 @@ export function SettingsExp() {
   if (loading) return null;
 
   return (
-    <div className="mx-auto flex min-h-full w-full max-w-[1320px] flex-col gap-5">
-      <div>
-        <h1 className="font-display text-[30px] font-bold leading-tight tracking-[0.2px] text-lol-text-bright">
+    <div className="flex min-h-full w-full flex-col gap-5">
+      <div className="shrink-0">
+        <h1 className="font-display text-[28px] font-bold leading-none text-lol-text-bright">
           Settings
         </h1>
-        <p className="mt-1.5 text-lol-text">
-          Control synchronization, storage, and application behavior
+        <p className="mt-2 text-[13px] text-lol-text">
+          {SETTINGS_TABS.find((t) => t.id === tab)?.hint}
         </p>
       </div>
+      <div
+        role="tablist"
+        className="flex w-fit shrink-0 flex-wrap gap-1 rounded-xl border border-lol-border/60 bg-black/30 p-1"
+      >
+        {SETTINGS_TABS.map((t) => (
+          <button
+            key={t.id}
+            type="button"
+            role="tab"
+            aria-selected={tab === t.id}
+            onClick={() => setTab(t.id)}
+            className={`h-9 rounded-lg px-5 text-xs font-bold uppercase tracking-wider transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-lol-crimson/60 ${
+              tab === t.id
+                ? "bg-lol-crimson/35 text-lol-text-bright"
+                : "text-lol-text hover:bg-white/5 hover:text-lol-text-bright"
+            }`}
+          >
+            {t.label}
+          </button>
+        ))}
+      </div>
 
-      <Section
-        title="Appearance"
-        className="[&>h2]:before:bg-lol-crimson border-t-lol-crimson before:bg-[radial-gradient(circle_at_top_right,rgba(225,29,72,0.08),transparent_70%)]"
-      >
-        <div className="flex items-center justify-between gap-4 border-b border-lol-border/40 py-2.5 transition-colors duration-[120ms] hover:bg-white/[0.02] last:border-b-0">
-          <label htmlFor="theme-select" className="text-[13.5px] text-lol-text-bright">
-            Theme
-          </label>
-          <FilterSelect
-            value={activeTheme}
-            onChange={(value) => {
-              if (!value || !THEME_OPTIONS.some((option) => option.value === value)) return;
-              void window.api.setSetting("theme", value);
-              document.documentElement.setAttribute("data-theme", value);
-            }}
-            placeholder="First Theme"
-            title="Theme"
-            className="w-48"
-            options={[...THEME_OPTIONS]}
-          />
-        </div>
-      </Section>
-      <Section
-        title="Riot Accounts"
-        className="[&>h2]:before:bg-lol-violet border-t-lol-violet before:bg-[radial-gradient(circle_at_top_right,rgba(139,92,246,0.08),transparent_70%)]"
-      >
-        <p className="text-[12.5px] text-lol-text">
-          Accounts included when Match-V5 sync searches for recent League matches.
-        </p>
-        {riotAccounts.length === 0 ? (
-          <p className="text-[12.5px] text-lol-text">No Riot accounts configured.</p>
-        ) : (
-          <div className="overflow-hidden rounded-lg border border-lol-border">
-            {riotAccounts.map((account) => (
-              <div
-                key={account.id}
-                className="flex items-center justify-between gap-4 border-b border-lol-border/40 px-3 py-2 last:border-b-0"
-              >
-                <div className="min-w-0">
-                  <p className="truncate text-[13px] text-lol-text-bright">
-                    {account.gameName}#{account.tagLine}
-                  </p>
-                  <p className="text-[11px] uppercase tracking-wide text-lol-text">
-                    {PLATFORM_LABELS[account.platform] ?? account.platform}
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  aria-label={`Remove ${account.gameName}#${account.tagLine}`}
-                  className="shrink-0 rounded border border-lol-loss/60 px-2 py-1 text-sm text-lol-loss hover:border-lol-loss"
-                  onClick={() => void handleRemoveRiotAccount(account.id)}
-                >
-                  X
-                </button>
+      <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-2">
+        {tab === "accounts" && (
+          <Section title="Riot Accounts" className="lg:col-span-2">
+            <p className="text-[12.5px] text-lol-text">
+              Accounts included when Match-V5 sync searches for recent League matches.
+            </p>
+            {riotAccounts.length === 0 ? (
+              <p className="text-[12.5px] text-lol-text">No Riot accounts configured.</p>
+            ) : (
+              <div className="grid grid-cols-1 gap-2 md:grid-cols-2 xl:grid-cols-3">
+                {riotAccounts.map((account) => {
+                  const name = `${account.gameName}#${account.tagLine}`;
+                  // The picture and game count come from the saved account of the same Riot ID
+                  const saved = savedSummoners.find(
+                    (row) =>
+                      `${row.game_name}#${row.tag_line}`.toLowerCase() === name.toLowerCase(),
+                  );
+                  return (
+                    <AccountCard
+                      key={account.id}
+                      icon={saved?.profile_icon ?? null}
+                      name={name}
+                      detail={
+                        <>
+                          <span className="rounded border border-lol-border/60 px-1.5 py-px text-[10px] font-bold uppercase tracking-wider">
+                            {PLATFORM_LABELS[account.platform] ?? account.platform}
+                          </span>
+                          {saved ? `${saved.games} games` : "not synced yet"}
+                        </>
+                      }
+                    >
+                      <RemoveButton
+                        label={`Remove ${name}`}
+                        onClick={() => void handleRemoveRiotAccount(account.id)}
+                      />
+                    </AccountCard>
+                  );
+                })}
               </div>
-            ))}
-          </div>
-        )}
-        <form
-          className="grid gap-3 md:grid-cols-[1fr_1fr_10rem_auto]"
-          onSubmit={handleAddRiotAccount}
-        >
-          <label className="flex flex-col gap-1 text-[11px] text-lol-text">
-            Game Name
-            <input
-              value={riotGameName}
-              onChange={(event) => setRiotGameName(event.target.value)}
-              className="rounded border border-lol-border bg-lol-card px-3 py-2 text-[13px] text-lol-text-bright outline-none focus:border-lol-crimson"
-              required
-            />
-          </label>
-          <label className="flex flex-col gap-1 text-[11px] text-lol-text">
-            Tag Line
-            <input
-              value={riotTagLine}
-              onChange={(event) => setRiotTagLine(event.target.value)}
-              className="rounded border border-lol-border bg-lol-card px-3 py-2 text-[13px] text-lol-text-bright outline-none focus:border-lol-crimson"
-              required
-            />
-          </label>
-          <label className="flex flex-col gap-1 text-[11px] text-lol-text">
-            Platform
-            <select
-              value={riotPlatform}
-              onChange={(event) => setRiotPlatform(event.target.value)}
-              className="rounded border border-lol-border bg-lol-card px-3 py-2 text-[13px] text-lol-text-bright outline-none focus:border-lol-crimson"
-            >
-              {RIOT_ACCOUNT_PLATFORMS.map((platform) => (
-                <option key={platform} value={platform}>
-                  {PLATFORM_LABELS[platform] ?? platform}
-                </option>
-              ))}
-            </select>
-          </label>
-          <Button type="submit" className="self-end">
-            Add account
-          </Button>
-        </form>
-        {riotAccountStatus && <p className="text-xs text-lol-text">{riotAccountStatus}</p>}
-      </Section>
-
-      <Section
-        title="League history sync"
-        className="[&>h2]:before:bg-lol-gold border-t-lol-gold before:bg-[radial-gradient(circle_at_top_right,rgba(234,179,8,0.08),transparent_70%)]"
-      >
-        <div className="flex items-center gap-2 mt-3">
-          <Button variant="primary" onClick={handleBackfill} disabled={anyRunning}>
-            {backfilling ? "Working..." : "Backfill"}
-          </Button>
-          <Button
-            variant="secondary"
-            onClick={handleForceFullBackfill}
-            disabled={anyRunning}
-            title="Walk the entire Riot history from page 0, ignoring the cached completion flag. Use this to test whether the current cap is our page limit or Riot's own cutoff."
-          >
-            Force Backfill
-          </Button>
-          <Button
-            variant="subtle"
-            type="button"
-            onClick={handleRestoreOlderGames}
-            disabled={restoring}
-          >
-            {restoring ? "Restoring..." : "Restore older games"}
-          </Button>
-          <Button variant="subtle" type="button" onClick={handleRepair} disabled={repairing}>
-            {repairing ? "Repairing..." : "Repair"}
-          </Button>
-          <Button
-            variant="subtle"
-            type="button"
-            onClick={handleTeamsBackfill}
-            disabled={anyRunning}
-          >
-            Backfill teams/bans (local)
-          </Button>
-          <Button
-            variant="subtle"
-            type="button"
-            onClick={handleTimelineFieldsBackfill}
-            disabled={anyRunning}
-          >
-            Backfill timeline fields (local)
-          </Button>
-        </div>
-        {backfillStatus && <p className="text-[12.5px] text-lol-text mt-2">{backfillStatus}</p>}
-        <div className="flex items-center justify-between gap-3 py-2">
-          <div>
-            <p className="text-sm font-medium text-lol-text-bright">Riot Match-V5 sync</p>
-            <p className="text-xs text-lol-text">
-              Pull the latest matches through the Riot API to capture pings, spell casts, and
-              challenge metrics that LCU does not provide. Only works for accounts with a configured
-              Riot ID.
-            </p>
-            <p className="mt-1 text-[11px] text-amber-300">
-              Re-fetches existing games to backfill pings, casts, and challenges. May take several
-              minutes.
-            </p>
-            <p className="mt-1 text-[11px] text-lol-text">
-              Platform:{" "}
-              {resolvedPlatform
-                ? `${resolvedPlatform.platform} → ${resolvedPlatform.route}`
-                : "not configured"}
-            </p>
-          </div>
-          <div className="flex flex-wrap justify-end gap-2">
-            <button
-              className="rounded border border-lol-border px-3 py-1.5 text-xs text-lol-text-bright hover:bg-white/5"
-              onClick={handleRiotSync}
-              disabled={riotSyncing}
-            >
-              {riotSyncing ? "Syncing..." : "Sync now"}
-            </button>
-            <button
-              className="rounded border border-amber-400/50 px-3 py-1.5 text-xs text-amber-200 hover:bg-amber-400/10"
-              onClick={handleRiotRefresh}
-              disabled={riotSyncing}
-            >
-              {riotSyncing ? "Refreshing..." : "Refresh existing (Match-V5)"}
-            </button>
-            {riotSyncing && (
-              <button
-                className="rounded border border-lol-loss/60 px-3 py-1.5 text-xs text-lol-loss hover:border-lol-loss"
-                onClick={handleRiotCancel}
-              >
-                Stop
-              </button>
             )}
-          </div>
-        </div>
-        {riotSyncing && (
-          <div className="mt-2 space-y-1">
-            <div className="flex items-center justify-between text-xs text-lol-text">
-              <span>{riotSyncProgress?.currentAccount ?? "Starting..."}</span>
-              <span>
-                {riotSyncProgress
-                  ? `${riotSyncProgress.currentGame} / ${riotSyncProgress.totalGames} games`
-                  : ""}
-              </span>
-            </div>
-            <div className="h-1.5 w-full overflow-hidden rounded bg-black/30">
-              <div
-                className="h-full bg-emerald-500 transition-all"
-                style={{
-                  width: `${riotSyncProgress ? (riotSyncProgress.currentGame / Math.max(1, riotSyncProgress.totalGames)) * 100 : 0}%`,
-                }}
-              />
-            </div>
-          </div>
+            <form
+              className="grid gap-3 md:grid-cols-[1fr_1fr_10rem_auto]"
+              onSubmit={handleAddRiotAccount}
+            >
+              <label className="flex flex-col gap-1 text-[11px] text-lol-text">
+                Game Name
+                <input
+                  value={riotGameName}
+                  onChange={(event) => setRiotGameName(event.target.value)}
+                  className={INPUT_CLASS}
+                  required
+                />
+              </label>
+              <label className="flex flex-col gap-1 text-[11px] text-lol-text">
+                Tag Line
+                <input
+                  value={riotTagLine}
+                  onChange={(event) => setRiotTagLine(event.target.value)}
+                  className={INPUT_CLASS}
+                  required
+                />
+              </label>
+              <label className="flex flex-col gap-1 text-[11px] text-lol-text">
+                Platform
+                <select
+                  value={riotPlatform}
+                  onChange={(event) => setRiotPlatform(event.target.value)}
+                  className={INPUT_CLASS}
+                >
+                  {RIOT_ACCOUNT_PLATFORMS.map((platform) => (
+                    <option key={platform} value={platform}>
+                      {PLATFORM_LABELS[platform] ?? platform}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <Button type="submit" className="self-end">
+                Add account
+              </Button>
+            </form>
+            {riotAccountStatus && <p className="text-xs text-lol-text">{riotAccountStatus}</p>}
+          </Section>
         )}
-        {riotSyncStatus && <p className="mt-1 text-xs text-lol-text">{riotSyncStatus}</p>}
-      </Section>
 
-      <Section
-        title="Timeline backfill"
-        className="[&>h2]:before:bg-[#10b981] border-t-[#10b981] before:bg-[radial-gradient(circle_at_top_right,rgba(16,185,129,0.08),transparent_70%)]"
-      >
-        <p className="text-[12.5px] text-lol-text">
-          Fetches detailed timeline data (gold, items, abilities over time) for stored matches.
-          Skips Arena and Mayhem automatically.
-        </p>
-        <Panel className="flex flex-col gap-3 border-t-2 border-t-[#10b981] bg-[radial-gradient(circle_at_top_right,rgba(16,185,129,0.08),transparent_70%)]">
-          <label className="flex items-center justify-between gap-4 text-[13.5px] text-lol-text-bright">
-            <span>Games to scan</span>
-            <input
-              type="number"
-              min={1}
-              max={5000}
-              value={timelineLimit}
-              disabled={timelineBackfilling}
-              onChange={(event) =>
-                setTimelineLimit(Math.min(5000, Math.max(1, Number(event.target.value) || 1)))
+        {tab === "sync" && (
+          <Section title="League history sync">
+            <ActionRow name="Backfill" description="Fetch games the client knows and we don't yet.">
+              <Button onClick={handleBackfill} disabled={anyRunning} className="w-28">
+                {backfilling ? "Working..." : "Run"}
+              </Button>
+            </ActionRow>
+            <ActionRow
+              name="Force full backfill"
+              description="Walk the whole Riot history again, ignoring that it was done before."
+            >
+              <Button
+                variant="subtle"
+                onClick={handleForceFullBackfill}
+                disabled={anyRunning}
+                className="w-28"
+              >
+                Run
+              </Button>
+            </ActionRow>
+            <ActionRow
+              name="Riot Match-V5 sync"
+              description={
+                <>
+                  Adds pings, spell casts and challenge metrics the client doesn't provide.{" "}
+                  {resolvedPlatform
+                    ? `Platform: ${resolvedPlatform.platform} → ${resolvedPlatform.route}`
+                    : "No platform configured."}
+                </>
               }
-              className="w-24 rounded-lg border border-lol-border bg-lol-card px-3 py-2 text-right text-sm text-lol-text-bright outline-none transition-colors duration-[120ms] hover:border-lol-border/80 focus:border-lol-crimson"
-            />
-          </label>
-          <div className="flex items-center gap-2">
-            <Button variant="primary" onClick={handleTimelineStart} disabled={timelineBackfilling}>
-              {timelineBackfilling ? "Working..." : "Start backfill"}
-            </Button>
-            <Button
-              variant="secondary"
-              onClick={handleTimelineStop}
-              disabled={!timelineBackfilling}
             >
-              Stop
-            </Button>
-          </div>
-          {timelineProgress && (
-            <div className="space-y-2 text-[12.5px] text-lol-text">
-              <div className="h-[5px] overflow-hidden rounded-full bg-white/[0.05]">
-                <i
-                  className="block h-full rounded-full bg-lol-gold"
-                  style={{ width: `${timelinePercent}%` }}
-                />
-              </div>
-              <p>
-                {timelineProgress.current} of {timelineProgress.total} scanned · succeeded{" "}
-                {timelineProgress.succeeded} · failed {timelineProgress.failed} · skipped{" "}
-                {timelineProgress.skipped}
-              </p>
-              {timelineProgress.currentGameId !== null && (
-                <p className="text-[11.5px]">Current game: {timelineProgress.currentGameId}</p>
+              {riotSyncing ? (
+                <Button variant="destructive" onClick={handleRiotCancel} className="w-28">
+                  Stop
+                </Button>
+              ) : (
+                <Button onClick={handleRiotSync} className="w-28">
+                  Sync now
+                </Button>
               )}
-              {timelinePercent > 0 && timelineEtaMs !== null && (
-                <p>ETA: {formatDuration(timelineEtaMs)}</p>
-              )}
-            </div>
-          )}
-          {timelineMessage && <p className="text-[12.5px] text-lol-text">{timelineMessage}</p>}
-        </Panel>
-      </Section>
-
-      <Section
-        title="Data Management"
-        className="[&>h2]:before:bg-[#3b82f6] border-t-[#3b82f6] before:bg-[radial-gradient(circle_at_top_right,rgba(59,130,246,0.08),transparent_70%)]"
-      >
-        <div className="space-y-4">
-          <div className="flex items-center justify-between gap-4 border-b border-lol-border/40 px-3 py-2 transition-colors duration-[120ms] hover:bg-white/[0.02] last:border-b-0 xl:px-4 xl:py-3">
-            <div>
-              <p className="text-[13.5px] text-lol-text-bright">Export data</p>
-              <p className="text-[12.5px] text-lol-text">
-                Save all match data to a JSON file for backup.
-              </p>
-            </div>
-            <Button
-              variant="primary"
-              type="button"
-              onClick={handleExportData}
-              disabled={exporting}
-              className="shrink-0"
+            </ActionRow>
+            <ActionRow
+              name="Refresh existing games"
+              description="Fetch stored games again through Match-V5. May take several minutes."
             >
-              {exporting ? "Exporting…" : "Export"}
-            </Button>
-          </div>
-          {exportStatus && (
-            <p className={`text-xs ${exportStatus.error ? "text-red-300" : "text-green-300"}`}>
-              {exportStatus.message}
+              <Button
+                variant="subtle"
+                onClick={handleRiotRefresh}
+                disabled={riotSyncing}
+                className="w-28"
+              >
+                {riotSyncing ? "Working..." : "Refresh"}
+              </Button>
+            </ActionRow>
+
+            <p className="mt-2 text-[10px] font-bold uppercase tracking-widest text-lol-gold">
+              Fix stored data
             </p>
-          )}
-          {exporting && exportProgress && (
-            <div className="space-y-2 text-[12.5px] text-lol-text">
-              <div className="h-[5px] overflow-hidden rounded-full bg-white/[0.05]">
-                <i
-                  className={`block h-full rounded-full bg-lol-gold ${
-                    exportProgress.total === 0 ? "w-full animate-pulse" : ""
-                  }`}
-                  style={
-                    exportProgress.total > 0
-                      ? {
-                          width: `${Math.min(
-                            100,
-                            (exportProgress.current / exportProgress.total) * 100,
-                          )}%`,
-                        }
-                      : undefined
-                  }
-                />
-              </div>
-              <div className="flex items-center justify-between gap-3">
-                <p>
-                  {exportProgress.current.toLocaleString()}
-                  {exportProgress.total > 0 && `/${exportProgress.total.toLocaleString()}`}{" "}
-                  {EXPORT_PROGRESS_LABELS[exportProgress.phase]}
-                </p>
-                {exportStartedAt &&
-                  exportProgress.current > 0 &&
-                  exportProgress.total > exportProgress.current && (
-                    <p className="shrink-0">
-                      ETA:{" "}
-                      {formatDuration(
-                        ((Date.now() - exportStartedAt) / exportProgress.current) *
-                          (exportProgress.total - exportProgress.current),
-                      )}
-                    </p>
-                  )}
-              </div>
-            </div>
-          )}
-
-          <div className="border-t border-lol-border/40" />
-
-          <div className="flex items-center justify-between gap-4 border-b border-lol-border/40 px-3 py-2 transition-colors duration-[120ms] hover:bg-white/[0.02] last:border-b-0 xl:px-4 xl:py-3">
-            <div>
-              <p className="text-[13.5px] text-lol-text-bright">Import data</p>
-              <p className="text-[12.5px] text-lol-text">
-                Load match data from a previously exported file.
-              </p>
-            </div>
-            <Button
-              variant="primary"
-              type="button"
-              onClick={handleImportData}
-              disabled={importing}
-              className="shrink-0"
+            <ActionRow
+              name="Repair"
+              description="Reassign games to your accounts and rebuild stats."
             >
-              {importing ? "Importing…" : "Import"}
-            </Button>
-          </div>
-          {importStatus && (
-            <p className={`text-xs ${importStatus.error ? "text-red-300" : "text-green-300"}`}>
-              {importStatus.message}
-            </p>
-          )}
-          {importing && importProgress && (
-            <div className="space-y-2 text-[12.5px] text-lol-text">
-              <div className="h-[5px] overflow-hidden rounded-full bg-white/[0.05]">
-                <i className="block h-full w-full animate-pulse rounded-full bg-lol-gold" />
-              </div>
-              <p>
-                {importProgress.current.toLocaleString()}{" "}
-                {IMPORT_PROGRESS_LABELS[importProgress.phase]}
-              </p>
-            </div>
-          )}
-        </div>
-      </Section>
-
-      <Section
-        title="Saved accounts"
-        action={
-          <Button
-            variant="neutral"
-            onClick={() => void handleMergeDuplicateAccounts()}
-            disabled={mergingDuplicates}
-          >
-            {mergingDuplicates ? "Merging..." : "Merge duplicate accounts"}
-          </Button>
-        }
-        className="[&>h2]:before:bg-lol-violet border-t-lol-violet before:bg-[radial-gradient(circle_at_top_right,rgba(139,92,246,0.08),transparent_70%)]"
-      >
-        <p className="text-[12.5px] text-lol-text mb-4">
-          Accounts that can appear in the Local Account and Match History views. Deleting one
-          removes its summoner row and every game stored for it; games still owned by another saved
-          account are kept.
-        </p>
-        {savedSummoners.length === 0 ? (
-          <p className="text-[12.5px] text-lol-text">No saved accounts yet.</p>
-        ) : (
-          <div className="space-y-2">
-            {savedSummoners.map((summoner) => {
-              const name =
-                summoner.game_name && summoner.tag_line
-                  ? `${summoner.game_name}#${summoner.tag_line}`
-                  : (summoner.game_name ?? summoner.puuid);
-              const confirming = confirmDeleteSummoner === summoner.puuid;
-              return (
-                <div
-                  key={summoner.puuid}
-                  className="flex items-center justify-between gap-4 gap-3 rounded-lg border border-lol-border bg-lol-card px-3 py-2 transition-colors duration-[120ms] hover:bg-white/[0.02] last:border-b-0 xl:px-4 xl:py-3"
-                >
-                  <div className="min-w-0">
-                    <p className="text-[12.5px] text-lol-text-bright truncate">{name}</p>
-                    <p className="text-[11px] text-lol-text">
-                      {summoner.games} game{summoner.games === 1 ? "" : "s"} stored
-                    </p>
-                  </div>
-                  {confirming ? (
-                    <div className="flex items-center gap-2 shrink-0">
-                      <span className="text-[11px] text-lol-text">Delete all data?</span>
-                      <Button
-                        variant="destructive"
-                        onClick={async () => {
-                          await handleDeleteSummoner(summoner.puuid);
-                        }}
-                      >
-                        Delete
-                      </Button>
-                      <Button variant="neutral" onClick={() => setConfirmDeleteSummoner(null)}>
-                        Cancel
-                      </Button>
-                    </div>
-                  ) : (
-                    <Button
-                      variant="destructive"
-                      onClick={() => setConfirmDeleteSummoner(summoner.puuid)}
-                      className="shrink-0"
-                    >
-                      Delete
-                    </Button>
-                  )}
+              <Button variant="subtle" onClick={handleRepair} disabled={repairing} className="w-28">
+                {repairing ? "Working..." : "Repair"}
+              </Button>
+            </ActionRow>
+            <ActionRow
+              name="Recalculate scores"
+              description="Rescore every game with the current system."
+            >
+              <Button
+                variant="subtle"
+                onClick={handleRecalculateScores}
+                disabled={recalculating || anyRunning}
+                className="w-28"
+              >
+                {recalculating ? "Working..." : "Run"}
+              </Button>
+            </ActionRow>
+            <ActionRow
+              name="Restore older games"
+              description="Look again at games skipped earlier."
+            >
+              <Button
+                variant="subtle"
+                onClick={handleRestoreOlderGames}
+                disabled={restoring}
+                className="w-28"
+              >
+                {restoring ? "Working..." : "Restore"}
+              </Button>
+            </ActionRow>
+            <ActionRow name="Teams and bans" description="Rebuild them from the stored match data.">
+              <Button
+                variant="subtle"
+                onClick={handleTeamsBackfill}
+                disabled={anyRunning}
+                className="w-28"
+              >
+                Rebuild
+              </Button>
+            </ActionRow>
+            <ActionRow name="Timeline fields" description="Rebuild them from the stored timelines.">
+              <Button
+                variant="subtle"
+                onClick={handleTimelineFieldsBackfill}
+                disabled={anyRunning}
+                className="w-28"
+              >
+                Rebuild
+              </Button>
+            </ActionRow>
+            {backfillStatus && <p className="text-[12.5px] text-lol-text">{backfillStatus}</p>}
+            {riotSyncing && (
+              <div className="mt-2 space-y-1">
+                <div className="flex items-center justify-between text-xs text-lol-text">
+                  <span>{riotSyncProgress?.currentAccount ?? "Starting..."}</span>
+                  <span>
+                    {riotSyncProgress
+                      ? `${riotSyncProgress.currentGame} / ${riotSyncProgress.totalGames} games`
+                      : ""}
+                  </span>
                 </div>
-              );
-            })}
-          </div>
+                <div className="h-1.5 w-full overflow-hidden rounded bg-black/30">
+                  <div
+                    className="h-full bg-lol-crimson transition-all"
+                    style={{
+                      width: `${riotSyncProgress ? (riotSyncProgress.currentGame / Math.max(1, riotSyncProgress.totalGames)) * 100 : 0}%`,
+                    }}
+                  />
+                </div>
+              </div>
+            )}
+            {riotSyncStatus && <p className="mt-1 text-xs text-lol-text">{riotSyncStatus}</p>}
+          </Section>
         )}
-        <Button
-          variant="neutral"
-          onClick={async () => {
-            setSummonerStatus(null);
-            const removed = await window.api.deleteSearchedSummoners();
-            setSummonerStatus(
-              removed.removed > 0
-                ? `Removed ${removed.removed} searched account(s) and ${removed.games} game(s)`
-                : "No searched accounts to remove",
-            );
-            await refreshSavedSummoners();
-          }}
-          className="mt-3"
-        >
-          Clean up searched accounts
-        </Button>
-        {summonerStatus && <p className="mt-3 text-[12.5px] text-lol-text">{summonerStatus}</p>}
-      </Section>
 
-      {/* General */}
-      <Section
-        title="General"
-        className="[&>h2]:before:bg-[#94a3b8] border-t-[#94a3b8] before:bg-[radial-gradient(circle_at_top_right,rgba(148,163,184,0.08),transparent_70%)]"
-      >
-        <div className="space-y-4">
-          <div className="flex items-center justify-between gap-4 border-b border-lol-border/40 py-2.5 transition-colors duration-[120ms] hover:bg-white/[0.02] last:border-b-0">
-            <div>
-              <p className="text-[13.5px] text-lol-text-bright">Start with Windows</p>
-              <p className="text-[12.5px] text-lol-text">
-                Open the program in the system tray when you sign in to Windows, so your games are
-                recorded without having to remember to start it.
-                {!autoStartSupported && " Only available in the packaged program."}
-              </p>
+        {tab === "sync" && (
+          <Section title="Timeline backfill">
+            <p className="text-[12.5px] text-lol-text">
+              Fetches detailed timeline data (gold, items, abilities over time) for stored matches.
+              Skips Arena and Mayhem automatically.
+            </p>
+            <div className="flex flex-col gap-3 rounded-xl border border-lol-border/50 bg-black/25 p-4">
+              <label className="flex items-center justify-between gap-4 text-[13.5px] text-lol-text-bright">
+                <span>Games to scan</span>
+                <input
+                  type="number"
+                  min={1}
+                  max={5000}
+                  value={timelineLimit}
+                  disabled={timelineBackfilling}
+                  onChange={(event) =>
+                    setTimelineLimit(Math.min(5000, Math.max(1, Number(event.target.value) || 1)))
+                  }
+                  className={`${INPUT_CLASS} w-24 text-right`}
+                />
+              </label>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="primary"
+                  onClick={handleTimelineStart}
+                  disabled={timelineBackfilling}
+                >
+                  {timelineBackfilling ? "Working..." : "Start backfill"}
+                </Button>
+                <Button
+                  variant="secondary"
+                  onClick={handleTimelineStop}
+                  disabled={!timelineBackfilling}
+                >
+                  Stop
+                </Button>
+              </div>
+              {timelineProgress && (
+                <div className="space-y-2 text-[12.5px] text-lol-text">
+                  <div className="h-[5px] overflow-hidden rounded-full bg-white/[0.05]">
+                    <i
+                      className="block h-full rounded-full bg-lol-crimson"
+                      style={{ width: `${timelinePercent}%` }}
+                    />
+                  </div>
+                  <p>
+                    {timelineProgress.current} of {timelineProgress.total} scanned · succeeded{" "}
+                    {timelineProgress.succeeded} · failed {timelineProgress.failed} · skipped{" "}
+                    {timelineProgress.skipped}
+                  </p>
+                  {timelineProgress.currentGameId !== null && (
+                    <p className="text-[11.5px]">Current game: {timelineProgress.currentGameId}</p>
+                  )}
+                  {timelinePercent > 0 && timelineEtaMs !== null && (
+                    <p>ETA: {formatDuration(timelineEtaMs)}</p>
+                  )}
+                </div>
+              )}
+              {timelineMessage && <p className="text-[12.5px] text-lol-text">{timelineMessage}</p>}
             </div>
-            <Switch
-              checked={autoStart}
-              onChange={handleAutoStartToggle}
-              disabled={!autoStartSupported}
-            />
-          </div>
+          </Section>
+        )}
 
-          <div className="border-t border-lol-border/40" />
-
-          <div className="flex items-center justify-between gap-4 border-b border-lol-border/40 py-2.5 transition-colors duration-[120ms] hover:bg-white/[0.02] last:border-b-0">
-            <div>
-              <p className="text-[13.5px] text-lol-text-bright">Minimize to tray on close</p>
-              <p className="text-[12.5px] text-lol-text">
-                When enabled, the program can keep storing your games even when the window is
-                closed. You can still close the program from the system tray.
-              </p>
-            </div>
-            <Switch checked={minimizeToTray} onChange={handleToggle} />
-          </div>
-
-          <div className="border-t border-lol-border/40" />
-
-          <div className="flex items-center justify-between gap-4 border-b border-lol-border/40 py-2.5 transition-colors duration-[120ms] hover:bg-white/[0.02] last:border-b-0">
-            <div>
-              <p className="text-[13.5px] text-lol-text-bright">Remember filters and sorting</p>
-              <p className="text-[12.5px] text-lol-text">
-                Reopen every page with the filters, search, and sort order you last used. When off,
-                each page starts on its defaults again every time the program opens.
-              </p>
-            </div>
-            <Switch checked={rememberFilters} onChange={handleRememberFiltersToggle} />
-          </div>
-
-          <div className="border-t border-lol-border/40" />
-
-          <div className="flex items-center justify-between gap-4 border-b border-lol-border/40 py-2.5 transition-colors duration-[120ms] hover:bg-white/[0.02] last:border-b-0">
-            <div>
-              <p className="text-[13.5px] text-lol-text-bright">Hide remakes</p>
-              <p className="text-[12.5px] text-lol-text">
-                Leave remade games out of the match history. They are still recorded, and were never
-                counted toward your stats either way.
-              </p>
-            </div>
-            <Switch checked={hideRemakes} onChange={handleHideRemakesToggle} />
-          </div>
-
-          {/* A single queue has nothing to choose between, so the whole block
-              waits until a second one shows up in the database */}
-          {queues.length > 1 && (
-            <>
-              <div className="border-t border-lol-border/40" />
-
-              <div>
-                <div className="h-px bg-gradient-to-r from-lol-gold/30 via-lol-gold/10 to-transparent" />
-                <p className="text-xs font-bold uppercase tracking-wider text-lol-text">
-                  Queues to include
+        {tab === "data" && (
+          <Section title="Data Management">
+            <div className="space-y-4">
+              <div className="flex items-center justify-between gap-4 rounded-xl border border-lol-border/50 bg-black/25 px-4 py-3 text-xs transition-colors hover:border-lol-crimson/40">
+                <div>
+                  <p className="text-[13.5px] text-lol-text-bright">
+                    {mode === "mayhem" ? "Export Mayhem games only" : "Export all games"}
+                  </p>
+                  <p className="text-[12.5px] text-lol-text">
+                    {mode === "mayhem"
+                      ? "Save Mayhem match data to a file for backup."
+                      : "Save all match data to a file for backup."}
+                  </p>
+                </div>
+                <Button
+                  variant="primary"
+                  type="button"
+                  onClick={handleExportData}
+                  disabled={exporting}
+                  className="shrink-0"
+                >
+                  {exporting ? "Exporting…" : "Export"}
+                </Button>
+              </div>
+              {exportStatus && (
+                <p className={`text-xs ${exportStatus.error ? "text-red-300" : "text-green-300"}`}>
+                  {exportStatus.message}
                 </p>
-                <p className="text-[12.5px] text-lol-text">
-                  Stats and match history only count the queues switched on here. Games from the
-                  others are still recorded, and can be counted again by switching their queue back
-                  on.
+              )}
+              {exporting && exportProgress && (
+                <div className="space-y-2 text-[12.5px] text-lol-text">
+                  <div className="h-[5px] overflow-hidden rounded-full bg-white/[0.05]">
+                    <i
+                      className={`block h-full rounded-full bg-lol-crimson ${
+                        exportProgress.total === 0 ? "w-full animate-pulse" : ""
+                      }`}
+                      style={
+                        exportProgress.total > 0
+                          ? {
+                              width: `${Math.min(
+                                100,
+                                (exportProgress.current / exportProgress.total) * 100,
+                              )}%`,
+                            }
+                          : undefined
+                      }
+                    />
+                  </div>
+                  <div className="flex items-center justify-between gap-3">
+                    <p>
+                      {exportProgress.current.toLocaleString()}
+                      {exportProgress.total > 0 && `/${exportProgress.total.toLocaleString()}`}{" "}
+                      {EXPORT_PROGRESS_LABELS[exportProgress.phase]}
+                    </p>
+                    {exportStartedAt &&
+                      exportProgress.current > 0 &&
+                      exportProgress.total > exportProgress.current && (
+                        <p className="shrink-0">
+                          ETA:{" "}
+                          {formatDuration(
+                            ((Date.now() - exportStartedAt) / exportProgress.current) *
+                              (exportProgress.total - exportProgress.current),
+                          )}
+                        </p>
+                      )}
+                  </div>
+                </div>
+              )}
+
+              <div className="flex items-center justify-between gap-4 rounded-xl border border-lol-border/50 bg-black/25 px-4 py-3 text-xs transition-colors hover:border-lol-crimson/40">
+                <div>
+                  <p className="text-[13.5px] text-lol-text-bright">Import data</p>
+                  <p className="text-[12.5px] text-lol-text">
+                    Load match data from a previously exported file.
+                  </p>
+                </div>
+                <Button
+                  variant="primary"
+                  type="button"
+                  onClick={handleImportData}
+                  disabled={importing}
+                  className="shrink-0"
+                >
+                  {importing ? "Importing…" : "Import"}
+                </Button>
+              </div>
+              {importStatus && (
+                <p className={`text-xs ${importStatus.error ? "text-red-300" : "text-green-300"}`}>
+                  {importStatus.message}
                 </p>
-                <div className="mt-3 space-y-3">
-                  {queues.map((q, _i, all) => {
-                    const shown = !hiddenQueues.has(q);
-                    const shownCount = all.filter((id) => !hiddenQueues.has(id)).length;
-                    return (
-                      <div
-                        key={q}
-                        className="flex items-center justify-between gap-4 border-b border-lol-border/40 py-1.5 transition-colors duration-[120ms] hover:bg-white/[0.02] last:border-b-0 xl:py-2"
-                      >
-                        <p className="text-sm text-lol-text">{queueLabel(q)}</p>
-                        {/* Switching off the last one would empty every page */}
-                        <Switch
-                          checked={shown}
-                          disabled={shown && shownCount === 1}
-                          onChange={() => handleQueueToggle(q)}
-                        />
-                      </div>
-                    );
-                  })}
+              )}
+              {importing && importProgress && (
+                <div className="space-y-2 text-[12.5px] text-lol-text">
+                  <div className="h-[5px] overflow-hidden rounded-full bg-white/[0.05]">
+                    <i className="block h-full w-full animate-pulse rounded-full bg-lol-crimson" />
+                  </div>
+                  <p>
+                    {importProgress.current.toLocaleString()}{" "}
+                    {IMPORT_PROGRESS_LABELS[importProgress.phase]}
+                  </p>
+                </div>
+              )}
+            </div>
+          </Section>
+        )}
+
+        {tab === "accounts" && (
+          <Section
+            title="Saved accounts"
+            action={
+              <Button
+                variant="neutral"
+                onClick={() => void handleMergeDuplicateAccounts()}
+                disabled={mergingDuplicates}
+              >
+                {mergingDuplicates ? "Merging..." : "Merge duplicate accounts"}
+              </Button>
+            }
+            className="lg:col-span-2"
+          >
+            <p className="text-[12.5px] text-lol-text mb-4">
+              The switch shows or hides an account's games everywhere; nothing is removed. Deleting
+              one removes its summoner row and every game stored for it; games still owned by
+              another saved account are kept.
+            </p>
+            {savedSummoners.length === 0 ? (
+              <p className="text-[12.5px] text-lol-text">No saved accounts yet.</p>
+            ) : (
+              <div className="grid grid-cols-1 gap-2 md:grid-cols-2 xl:grid-cols-3">
+                {savedSummoners.map((summoner) => {
+                  const name =
+                    summoner.game_name && summoner.tag_line
+                      ? `${summoner.game_name}#${summoner.tag_line}`
+                      : (summoner.game_name ?? summoner.puuid);
+                  const confirming = confirmDeleteSummoner === summoner.puuid;
+                  const shown = !hiddenAccounts.has(summoner.puuid);
+                  const shownCount = savedSummoners.filter(
+                    (other) => !hiddenAccounts.has(other.puuid),
+                  ).length;
+                  return (
+                    <AccountCard
+                      key={summoner.puuid}
+                      icon={summoner.profile_icon}
+                      name={name}
+                      dimmed={!shown}
+                      detail={
+                        confirming
+                          ? "Delete all its data?"
+                          : `${summoner.games} game${summoner.games === 1 ? "" : "s"}${shown ? "" : " · hidden"}`
+                      }
+                    >
+                      {confirming ? (
+                        <>
+                          <Button
+                            variant="destructive"
+                            className="!h-7 !px-2"
+                            onClick={() => void handleDeleteSummoner(summoner.puuid)}
+                          >
+                            Delete
+                          </Button>
+                          <Button
+                            variant="neutral"
+                            className="!h-7 !px-2"
+                            onClick={() => setConfirmDeleteSummoner(null)}
+                          >
+                            Cancel
+                          </Button>
+                        </>
+                      ) : (
+                        <>
+                          {/* Hiding the last one would empty every page */}
+                          <Switch
+                            label={`Show data from ${name}`}
+                            checked={shown}
+                            disabled={shown && shownCount === 1}
+                            onChange={() => void handleAccountToggle(summoner.puuid)}
+                          />
+                          <RemoveButton
+                            label={`Delete ${name} and its games`}
+                            onClick={() => setConfirmDeleteSummoner(summoner.puuid)}
+                          />
+                        </>
+                      )}
+                    </AccountCard>
+                  );
+                })}
+              </div>
+            )}
+            <Button
+              variant="neutral"
+              onClick={async () => {
+                setSummonerStatus(null);
+                const removed = await window.api.deleteSearchedSummoners();
+                setSummonerStatus(
+                  removed.removed > 0
+                    ? `Removed ${removed.removed} searched account(s) and ${removed.games} game(s)`
+                    : "No searched accounts to remove",
+                );
+                await refreshSavedSummoners();
+              }}
+              className="mt-3"
+            >
+              Clean up searched accounts
+            </Button>
+            {summonerStatus && <p className="mt-3 text-[12.5px] text-lol-text">{summonerStatus}</p>}
+          </Section>
+        )}
+
+        {/* General */}
+        {tab === "general" && (
+          <Section title="General">
+            <div className="space-y-4">
+              <div className="flex items-center justify-between gap-4 border-b border-lol-border/40 py-2.5 transition-colors duration-[120ms] hover:bg-white/[0.02] last:border-b-0">
+                <p className="text-[13.5px] text-lol-text-bright">Theme</p>
+                <div role="group" aria-label="Theme" className="flex flex-wrap justify-end gap-2">
+                  {THEME_OPTIONS.map((option) => (
+                    <FilterChip
+                      key={option.value}
+                      active={activeTheme === option.value}
+                      onClick={() => {
+                        void window.api.setSetting("theme", option.value);
+                        document.documentElement.setAttribute("data-theme", option.value);
+                      }}
+                      className="h-8 px-3"
+                    >
+                      {option.label}
+                    </FilterChip>
+                  ))}
                 </div>
               </div>
-            </>
-          )}
-        </div>
-      </Section>
+              <div className="flex items-center justify-between gap-4 border-b border-lol-border/40 py-2.5 transition-colors duration-[120ms] hover:bg-white/[0.02] last:border-b-0">
+                <div>
+                  <p className="text-[13.5px] text-lol-text-bright">Start with Windows</p>
+                  <p className="text-[12.5px] text-lol-text">
+                    Open the program in the system tray when you sign in to Windows, so your games
+                    are recorded without having to remember to start it.
+                    {!autoStartSupported && " Only available in the packaged program."}
+                  </p>
+                </div>
+                <Switch
+                  checked={autoStart}
+                  onChange={handleAutoStartToggle}
+                  disabled={!autoStartSupported}
+                />
+              </div>
 
-      {/* Backups */}
-      <Section
-        title="Backups"
-        className="[&>h2]:before:bg-lol-crimson border-t-lol-crimson before:bg-[radial-gradient(circle_at_top_right,rgba(225,29,72,0.08),transparent_70%)]"
-      >
-        <div className="space-y-4">
-          <div className="flex items-center justify-between gap-4 border-b border-lol-border/40 py-2.5 transition-colors duration-[120ms] hover:bg-white/[0.02] last:border-b-0">
-            <div>
-              <p className="text-[13.5px] text-lol-text-bright">Automatic backups</p>
-              <p className="text-[12.5px] text-lol-text">
-                Keep a daily copy of your database on this computer, plus one before any import or
-                repair. Older copies thin out to weekly and monthly. If the database ever goes
-                missing or won't open, the newest working copy is restored on startup.
-              </p>
+              <div className="flex items-center justify-between gap-4 border-b border-lol-border/40 py-2.5 transition-colors duration-[120ms] hover:bg-white/[0.02] last:border-b-0">
+                <div>
+                  <p className="text-[13.5px] text-lol-text-bright">Minimize to tray on close</p>
+                  <p className="text-[12.5px] text-lol-text">
+                    When enabled, the program can keep storing your games even when the window is
+                    closed. You can still close the program from the system tray.
+                  </p>
+                </div>
+                <Switch checked={minimizeToTray} onChange={handleToggle} />
+              </div>
+
+              <div className="flex items-center justify-between gap-4 border-b border-lol-border/40 py-2.5 transition-colors duration-[120ms] hover:bg-white/[0.02] last:border-b-0">
+                <div>
+                  <p className="text-[13.5px] text-lol-text-bright">Remember filters and sorting</p>
+                  <p className="text-[12.5px] text-lol-text">
+                    Reopen every page with the filters, search, and sort order you last used. When
+                    off, each page starts on its defaults again every time the program opens.
+                  </p>
+                </div>
+                <Switch checked={rememberFilters} onChange={handleRememberFiltersToggle} />
+              </div>
+
+              <div className="flex items-center justify-between gap-4 border-b border-lol-border/40 py-2.5 transition-colors duration-[120ms] hover:bg-white/[0.02] last:border-b-0">
+                <div>
+                  <p className="text-[13.5px] text-lol-text-bright">Hide remakes</p>
+                  <p className="text-[12.5px] text-lol-text">
+                    Leave remade games out of the match history. They are still recorded, and were
+                    never counted toward your stats either way.
+                  </p>
+                </div>
+                <Switch checked={hideRemakes} onChange={handleHideRemakesToggle} />
+              </div>
+
+              <div className="flex items-center justify-between gap-4 border-b border-lol-border/40 py-2.5 transition-colors duration-[120ms] hover:bg-white/[0.02] last:border-b-0">
+                <div>
+                  <p className="text-[13.5px] text-lol-text-bright">Developer mode</p>
+                  <p className="text-[12.5px] text-lol-text">
+                    Show testing tools: the Debug Testing tab and sample data on Live Game. Off
+                    again after every launch.
+                  </p>
+                </div>
+                <Switch
+                  label="Developer mode"
+                  checked={devMode}
+                  onChange={() => setDevMode(!devMode)}
+                />
+              </div>
             </div>
-            <Switch checked={autoBackup} onChange={handleAutoBackupToggle} />
-          </div>
+          </Section>
+        )}
 
-          <div className="border-t border-lol-border/40" />
-
-          {backups.length === 0 ? (
-            <p className="text-[12.5px] text-lol-text">No backups yet.</p>
-          ) : (
-            <div className="space-y-1">
-              {backups.map((backup) => (
-                <div
-                  key={backup.file}
-                  className="flex items-center justify-between gap-4 gap-3 border-b border-lol-border/40 px-3 py-2 text-xs transition-colors duration-[120ms] hover:bg-white/[0.02] last:border-b-0 xl:px-4 xl:py-3"
-                >
-                  <div className="min-w-0">
-                    <p className="text-lol-text-bright">{formatTaken(backup.created)}</p>
-                    <p className="text-lol-text">
-                      {BACKUP_REASONS[backup.reason] ?? backup.reason} ·{" "}
-                      {backup.games === null ? "unreadable" : `${backup.games} games`} ·{" "}
-                      {formatSize(backup.size)}
-                    </p>
+        {/* A single queue has nothing to choose between */}
+        {tab === "general" && queues.length > 1 && (
+          <Section title="Queues to include">
+            <p className="text-[12.5px] text-lol-text">
+              Stats and match history only count the queues switched on here. Games from the others
+              are still recorded, and can be counted again by switching their queue back on.
+            </p>
+            <div className="mt-1 grid grid-cols-1 gap-x-6 xl:grid-cols-2">
+              {queues.map((q, _i, all) => {
+                const shown = !hiddenQueues.has(q);
+                const shownCount = all.filter((id) => !hiddenQueues.has(id)).length;
+                return (
+                  <div
+                    key={q}
+                    className="flex items-center justify-between gap-4 border-b border-lol-border/40 py-1.5 transition-colors duration-[120ms] hover:bg-white/[0.02] last:border-b-0 xl:py-2"
+                  >
+                    <p className="text-sm text-lol-text">{queueLabel(q)}</p>
+                    {/* Switching off the last one would empty every page */}
+                    <Switch
+                      checked={shown}
+                      disabled={shown && shownCount === 1}
+                      onChange={() => handleQueueToggle(q)}
+                    />
                   </div>
-                  {confirmRestore === backup.file ? (
-                    <div className="flex items-center gap-2 shrink-0">
-                      <span className="text-lol-text">Replace current data?</span>
-                      <Button
-                        variant="destructive"
-                        onClick={() => handleRestore(backup.file)}
-                        disabled={backupBusy}
-                      >
-                        Restore
-                      </Button>
-                      <Button variant="neutral" onClick={() => setConfirmRestore(null)}>
-                        Cancel
-                      </Button>
-                    </div>
-                  ) : (
-                    <Button
-                      variant="primary"
-                      onClick={() => setConfirmRestore(backup.file)}
-                      disabled={backupBusy || backup.games === null}
-                      className="shrink-0"
+                );
+              })}
+            </div>
+          </Section>
+        )}
+
+        {/* Backups */}
+        {tab === "data" && (
+          <Section title="Backups">
+            <div className="space-y-4">
+              <div className="flex items-center justify-between gap-4 rounded-xl border border-lol-border/50 bg-black/25 px-4 py-3 text-xs transition-colors hover:border-lol-crimson/40">
+                <div>
+                  <p className="text-[13.5px] text-lol-text-bright">Automatic backups</p>
+                  <p className="text-[12.5px] text-lol-text">
+                    Keep a daily copy of your database on this computer, plus one before any import
+                    or repair. Older copies thin out to weekly and monthly. If the database ever
+                    goes missing or won't open, the newest working copy is restored on startup.
+                  </p>
+                </div>
+                <Switch checked={autoBackup} onChange={handleAutoBackupToggle} />
+              </div>
+
+              {backups.length === 0 ? (
+                <p className="text-[12.5px] text-lol-text">No backups yet.</p>
+              ) : (
+                <div className="space-y-1">
+                  {backups.map((backup) => (
+                    <div
+                      key={backup.file}
+                      className="flex items-center justify-between gap-4 rounded-xl border border-lol-border/50 bg-black/25 px-4 py-3 text-xs transition-colors hover:border-lol-crimson/40"
                     >
-                      Restore
-                    </Button>
-                  )}
+                      <div className="min-w-0">
+                        <p className="text-lol-text-bright">{formatTaken(backup.created)}</p>
+                        <p className="text-lol-text">
+                          {BACKUP_REASONS[backup.reason] ?? backup.reason} ·{" "}
+                          {backup.games === null ? "unreadable" : `${backup.games} games`} ·{" "}
+                          {formatSize(backup.size)}
+                        </p>
+                      </div>
+                      {confirmRestore === backup.file ? (
+                        <div className="flex items-center gap-2 shrink-0">
+                          <span className="text-lol-text">Replace current data?</span>
+                          <Button
+                            variant="destructive"
+                            onClick={() => handleRestore(backup.file)}
+                            disabled={backupBusy}
+                          >
+                            Restore
+                          </Button>
+                          <Button variant="neutral" onClick={() => setConfirmRestore(null)}>
+                            Cancel
+                          </Button>
+                        </div>
+                      ) : (
+                        <Button
+                          variant="subtle"
+                          onClick={() => setConfirmRestore(backup.file)}
+                          disabled={backupBusy || backup.games === null}
+                          className="shrink-0"
+                        >
+                          Restore
+                        </Button>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              <div className="flex items-center gap-2">
+                <Button variant="primary" onClick={handleBackupNow} disabled={backupBusy}>
+                  {backupBusy ? "Working..." : "Back up now"}
+                </Button>
+                <Button variant="neutral" onClick={() => window.api.openBackupFolder()}>
+                  Open folder
+                </Button>
+              </div>
+              {backupStatus && <p className="text-[12.5px] text-lol-text">{backupStatus}</p>}
+            </div>
+          </Section>
+        )}
+
+        {tab === "about" && (
+          <Section title="Stored Data / Payload Information" className="lg:col-span-2">
+            <p className="text-xs text-lol-text mb-3">
+              Fields stored per game from LCU / Riot Match-V5 ingestion. Use this to see what data
+              is available for analysis.
+            </p>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              {PAYLOAD_INFO.map((group) => (
+                <div
+                  key={group.category}
+                  className="rounded-xl border border-lol-border/50 bg-black/25 p-3"
+                >
+                  <h4 className="text-sm font-semibold text-lol-text-bright mb-1">
+                    {group.category}
+                  </h4>
+                  <p className="text-[11px] text-lol-text mb-2">{group.description}</p>
+                  <ul className="flex flex-wrap gap-1.5">
+                    {group.fields.map((field) => (
+                      <li
+                        key={field}
+                        className="rounded border border-lol-border/50 bg-black/30 px-1.5 py-0.5 text-[10px] text-lol-text-bright tabular-nums"
+                      >
+                        {field}
+                      </li>
+                    ))}
+                  </ul>
                 </div>
               ))}
             </div>
-          )}
+          </Section>
+        )}
 
-          <div className="flex items-center gap-2">
-            <Button variant="primary" onClick={handleBackupNow} disabled={backupBusy}>
-              {backupBusy ? "Working..." : "Back up now"}
-            </Button>
-            <Button variant="neutral" onClick={() => window.api.openBackupFolder()}>
-              Open folder
-            </Button>
-          </div>
-          {backupStatus && <p className="text-[12.5px] text-lol-text">{backupStatus}</p>}
-        </div>
-      </Section>
-
-      <Section
-        title="Stored Data / Payload Information"
-        className="[&>h2]:before:bg-[#a855f7] border-t-[#a855f7] before:bg-[radial-gradient(circle_at_top_right,rgba(168,85,247,0.08),transparent_70%)]"
-      >
-        <p className="text-xs text-lol-text mb-3">
-          Fields stored per game from LCU / Riot Match-V5 ingestion. Use this to see what data is
-          available for analysis.
-        </p>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-          {PAYLOAD_INFO.map((group) => (
-            <div
-              key={group.category}
-              className="rounded-lg border border-lol-border bg-black/20 p-3"
-            >
-              <h4 className="text-sm font-semibold text-lol-text-bright mb-1">{group.category}</h4>
-              <p className="text-[11px] text-lol-text mb-2">{group.description}</p>
-              <ul className="flex flex-wrap gap-1.5">
-                {group.fields.map((field) => (
-                  <li
-                    key={field}
-                    className="rounded border border-lol-border/50 bg-black/30 px-1.5 py-0.5 text-[10px] text-lol-text-bright tabular-nums"
-                  >
-                    {field}
-                  </li>
-                ))}
-              </ul>
+        {/* Credits */}
+        {tab === "about" && (
+          <Section title="Credits & Acknowledgements">
+            <div className="space-y-3 text-sm text-lol-text leading-relaxed">
+              <p>
+                <a
+                  href="https://github.com/dxmegg/League-Tracker"
+                  onClick={(event) => {
+                    event.preventDefault();
+                    window.api.openUrl("https://github.com/dxmegg/League-Tracker");
+                  }}
+                  className="text-lol-gold hover:underline"
+                >
+                  Rift Records
+                </a>{" "}
+                - By{" "}
+                <a
+                  href="https://github.com/dxmegg"
+                  onClick={(event) => {
+                    event.preventDefault();
+                    window.api.openUrl("https://github.com/dxmegg");
+                  }}
+                  className="text-lol-gold hover:underline"
+                >
+                  me
+                </a>
+                , for{" "}
+                <a
+                  href="https://github.com/dxmegg"
+                  onClick={(event) => {
+                    event.preventDefault();
+                    window.api.openUrl("https://github.com/dxmegg");
+                  }}
+                  className="text-lol-gold hover:underline"
+                >
+                  me
+                </a>
+              </p>
+              <p>
+                This project is a fork of{" "}
+                <a
+                  href="https://github.com/Yhprum/mayhem-tracker"
+                  onClick={(event) => {
+                    event.preventDefault();
+                    window.api.openUrl("https://github.com/Yhprum/mayhem-tracker");
+                  }}
+                  className="text-lol-gold hover:underline"
+                >
+                  Mayhem Tracker
+                </a>{" "}
+                by{" "}
+                <a
+                  href="https://github.com/Yhprum"
+                  onClick={(event) => {
+                    event.preventDefault();
+                    window.api.openUrl("https://github.com/Yhprum");
+                  }}
+                  className="text-lol-gold hover:underline"
+                >
+                  Yhprum
+                </a>
+                .
+              </p>
+              <p>
+                Huge thanks to{" "}
+                <a
+                  href="https://github.com/Yhprum"
+                  onClick={(event) => {
+                    event.preventDefault();
+                    window.api.openUrl("https://github.com/Yhprum");
+                  }}
+                  className="text-lol-gold hover:underline"
+                >
+                  Yhprum
+                </a>{" "}
+                for creating the original Mayhem Tracker. The original project inspired me to build
+                this fork and adapt it for my own needs. Without{" "}
+                <a
+                  href="https://github.com/Yhprum"
+                  onClick={(event) => {
+                    event.preventDefault();
+                    window.api.openUrl("https://github.com/Yhprum");
+                  }}
+                  className="text-lol-gold hover:underline"
+                >
+                  Yhprum
+                </a>
+                's work, this wouldn&apos;t exist.
+              </p>
+              <p>
+                If you&apos;re looking for the original, unmodified tracker, check out it{" "}
+                <a
+                  href="https://github.com/Yhprum/mayhem-tracker"
+                  onClick={(event) => {
+                    event.preventDefault();
+                    window.api.openUrl("https://github.com/Yhprum/mayhem-tracker");
+                  }}
+                  className="text-lol-gold hover:underline"
+                >
+                  here
+                </a>
+                .
+              </p>
             </div>
-          ))}
-        </div>
-      </Section>
-
-      {/* Credits */}
-      <Section
-        title="Credits & Acknowledgements"
-        className="[&>h2]:before:bg-lol-gold border-t-lol-gold before:bg-[radial-gradient(circle_at_top_right,rgba(234,179,8,0.08),transparent_70%)]"
-      >
-        <div className="space-y-3 text-sm text-lol-text leading-relaxed">
-          <p>
-            <a
-              href="https://github.com/dxmegg/League-Tracker"
-              onClick={(event) => {
-                event.preventDefault();
-                window.api.openUrl("https://github.com/dxmegg/League-Tracker");
-              }}
-              className="text-lol-gold hover:underline"
-            >
-              Rift Records
-            </a>{" "}
-            - By{" "}
-            <a
-              href="https://github.com/dxmegg"
-              onClick={(event) => {
-                event.preventDefault();
-                window.api.openUrl("https://github.com/dxmegg");
-              }}
-              className="text-lol-gold hover:underline"
-            >
-              me
-            </a>
-            , for{" "}
-            <a
-              href="https://github.com/dxmegg"
-              onClick={(event) => {
-                event.preventDefault();
-                window.api.openUrl("https://github.com/dxmegg");
-              }}
-              className="text-lol-gold hover:underline"
-            >
-              me
-            </a>
-          </p>
-          <p>
-            This project is a fork of{" "}
-            <a
-              href="https://github.com/Yhprum/mayhem-tracker"
-              onClick={(event) => {
-                event.preventDefault();
-                window.api.openUrl("https://github.com/Yhprum/mayhem-tracker");
-              }}
-              className="text-lol-gold hover:underline"
-            >
-              Mayhem Tracker
-            </a>{" "}
-            by{" "}
-            <a
-              href="https://github.com/Yhprum"
-              onClick={(event) => {
-                event.preventDefault();
-                window.api.openUrl("https://github.com/Yhprum");
-              }}
-              className="text-lol-gold hover:underline"
-            >
-              Yhprum
-            </a>
-            .
-          </p>
-          <p>
-            Huge thanks to{" "}
-            <a
-              href="https://github.com/Yhprum"
-              onClick={(event) => {
-                event.preventDefault();
-                window.api.openUrl("https://github.com/Yhprum");
-              }}
-              className="text-lol-gold hover:underline"
-            >
-              Yhprum
-            </a>{" "}
-            for creating the original Mayhem Tracker. The original project inspired me to build this
-            fork and adapt it for my own needs. Without{" "}
-            <a
-              href="https://github.com/Yhprum"
-              onClick={(event) => {
-                event.preventDefault();
-                window.api.openUrl("https://github.com/Yhprum");
-              }}
-              className="text-lol-gold hover:underline"
-            >
-              Yhprum
-            </a>
-            's work, this wouldn&apos;t exist.
-          </p>
-          <p>
-            If you&apos;re looking for the original, unmodified tracker, check out it{" "}
-            <a
-              href="https://github.com/Yhprum/mayhem-tracker"
-              onClick={(event) => {
-                event.preventDefault();
-                window.api.openUrl("https://github.com/Yhprum/mayhem-tracker");
-              }}
-              className="text-lol-gold hover:underline"
-            >
-              here
-            </a>
-            .
-          </p>
-        </div>
-      </Section>
+          </Section>
+        )}
+      </div>
     </div>
   );
 }

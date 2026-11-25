@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { useHistoryScopeQueue } from "../lib/historyScope";
+import { useScopedQueue } from "../lib/historyScope";
 import { useIpc } from "../hooks/useIpc";
 import { useViewState } from "../hooks/useViewState";
 import { useItemData, getItemName } from "../hooks/useChampions";
@@ -18,7 +18,7 @@ import { ItemsExp } from "../components/ItemsExp";
 export default function Items() {
   const [queue, setQueue] = useViewState<number | undefined>("items.queue", undefined);
   const [patch, setPatch] = useViewState<string | undefined>("items.patch", undefined);
-  const scopedQueue = queue ?? useHistoryScopeQueue();
+  const scopedQueue = useScopedQueue(queue);
   const navigate = useNavigate();
   const { scope } = useParams<{ scope?: string }>();
   const data = useItemData();
@@ -68,7 +68,7 @@ export default function Items() {
 
   if (loading || !stats)
     return (
-      <div className="flex items-center justify-center rounded-lg border border-lol-crimson/40 bg-[linear-gradient(145deg,#0c0e11_0%,#090b0d_48%,#060809_100%)] p-12">
+      <div className="flex items-center justify-center glass-surface rounded-2xl p-12">
         <p className="text-sm text-lol-text">Loading...</p>
       </div>
     );
@@ -87,7 +87,7 @@ export default function Items() {
           />
         </div>
       </div>
-      <div className="rounded-lg border border-lol-crimson/40 bg-[linear-gradient(145deg,#0c0e11_0%,#090b0d_48%,#060809_100%)] shadow-[0_0_3px_rgba(150,30,30,0.55),0_0_10px_rgba(90,15,15,0.35),0_0_20px_rgba(60,10,10,0.20)] ring-1 ring-inset ring-white/[0.03] overflow-hidden">
+      <div className="glass-surface rounded-2xl overflow-hidden">
         <table className="w-full">
           <thead className="border-b border-lol-border/40">
             <tr>

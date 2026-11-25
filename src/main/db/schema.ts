@@ -345,6 +345,33 @@ export function createTables() {
       last_match_id TEXT,
       complete     INTEGER NOT NULL DEFAULT 0
     );
+
+    -- Your champion's stats as the live game reported them, one row per stat and game: the highest value
+    -- seen and the last one. No foreign key to games, since the row is written before the game is stored.
+    CREATE TABLE IF NOT EXISTS live_stat_peaks (
+      game_id       INTEGER NOT NULL,
+      puuid         TEXT NOT NULL,
+      champion_id   INTEGER,
+      champion_name TEXT NOT NULL DEFAULT '',
+      queue_id      INTEGER,
+      stat          TEXT NOT NULL,
+      peak          REAL NOT NULL,
+      final         REAL NOT NULL,
+      recorded_at   INTEGER NOT NULL,
+      PRIMARY KEY (game_id, puuid, stat)
+    );
+    CREATE INDEX IF NOT EXISTS idx_live_stat_peaks_stat ON live_stat_peaks(stat, champion_id);
+
+    -- Everything the live tab showed for a game: the last full snapshot (both teams, events, your stats,
+    -- raw payload) and the flow series, as one gzipped JSON blob. Same no-FK reason as above.
+    CREATE TABLE IF NOT EXISTS live_game_data (
+      game_id     INTEGER NOT NULL,
+      puuid       TEXT NOT NULL,
+      duration_s  INTEGER NOT NULL DEFAULT 0,
+      payload     BLOB NOT NULL,
+      recorded_at INTEGER NOT NULL,
+      PRIMARY KEY (game_id, puuid)
+    );
   `);
 }
 
@@ -1436,15 +1463,7 @@ export function mergeDuplicateAccounts(): MergeDuplicateAccountsResult {
           count: number;
         }
       ).count;
-      const insertSql = `INSERT OR IGNORE INTO ${table} (${quotedColumns})
-           SELECT ${selectColumns} FROM ${table} WHERE puuid = ?`;
-      const inserted = runMergeSql(
-        table,
-        stalePuuid,
-        canonicalPuuid,
-        insertSql,
-        () => db.prepare(insertSql).run(canonicalPuuid, stalePuuid).changes,
-      );
+      // Counted before the copy: afterwards every copied row would look like an overlap too
       const overlapJoin = columns.includes("participant_id")
         ? "a.game_id = b.game_id AND a.participant_id = b.participant_id"
         : "a.game_id = b.game_id";
@@ -1459,6 +1478,15 @@ export function mergeDuplicateAccounts(): MergeDuplicateAccountsResult {
           )
           .get(stalePuuid, canonicalPuuid) as { count: number }
       ).count;
+      const insertSql = `INSERT OR IGNORE INTO ${table} (${quotedColumns})
+           SELECT ${selectColumns} FROM ${table} WHERE puuid = ?`;
+      const inserted = runMergeSql(
+        table,
+        stalePuuid,
+        canonicalPuuid,
+        insertSql,
+        () => db.prepare(insertSql).run(canonicalPuuid, stalePuuid).changes,
+      );
       const deleteSafe = inserted + overlap === sourceCount;
       console.log(
         `[merge] table=${table} source=${sourceCount} inserted=${inserted} overlap=${overlap} delete_safe=${deleteSafe}${deleteSafe ? "" : " SKIPPED_DELETE"}`,
@@ -1512,7 +1540,14 @@ export function mergeDuplicateAccounts(): MergeDuplicateAccountsResult {
       }
 
       const tracked = copyPuuidRows("tracked_game_stats", stalePuuid, canonicalPuuid);
-      const participants = copyPuuidRows("match_participants", stalePuuid, canonicalPuuid);
+      const participantsSql = "UPDATE match_participants SET puuid = ? WHERE puuid = ?";
+      const participants = runMergeSql(
+        "match_participants",
+        stalePuuid,
+        canonicalPuuid,
+        participantsSql,
+        () => db.prepare(participantsSql).run(canonicalPuuid, stalePuuid).changes,
+      );
 
       const staleSync = db
         .prepare(
@@ -1593,8 +1628,7 @@ export function mergeDuplicateAccounts(): MergeDuplicateAccountsResult {
       console.log("[migrate] moved rows:", {
         games: gamesMoved,
         tracked: tracked.inserted,
-        inserted: participants.inserted,
-        deleted: participants.deleted,
+        participants,
       });
       return {
         gameName,

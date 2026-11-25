@@ -13,6 +13,7 @@ import {
 } from "../../shared/queues";
 import {
   applyQueueFilter,
+  pushTimeFilter,
   applyTimeFilter,
   localGamesFilter,
   hideRemakes,
@@ -33,6 +34,13 @@ export const MATCH_SORT_COLUMNS: Record<string, string> = {
   damageDealt: "ps.total_damage_dealt",
   damageTaken: "ps.total_damage_taken",
   healing: "ps.total_heal",
+  deaths: "ps.deaths",
+  cs: "ps.cs",
+  gold: "ps.gold_earned",
+  doubles: "ps.double_kills",
+  triples: "ps.triple_kills",
+  quadras: "ps.quadra_kills",
+  pentas: "ps.penta_kills",
 };
 
 export function matchOrderBy(sort?: string, sortDir?: string): string {
@@ -65,6 +73,7 @@ export function getMatchHistory(
     sortDir?: string;
     multikills?: string[];
     favorites?: boolean;
+    result?: "win" | "loss";
     ignoreHiddenQueues?: boolean;
   },
   timePeriod?: "24h" | "7d" | "30d" | "full",
@@ -79,9 +88,12 @@ export function getMatchHistory(
   if (filters?.favorites) {
     where.push("g.favorite = 1");
   }
+  if (filters?.result === "win" || filters?.result === "loss") {
+    where.push(`${statsAlias}.win = ${filters.result === "win" ? 1 : 0}`);
+  }
   if (filters?.account) {
     if (filters.account === "all") {
-      where.push("tgs.puuid IN (SELECT puuid FROM summoner)");
+      where.push("tgs.puuid IN (SELECT puuid FROM visible_summoner)");
     } else {
       where.push("tgs.puuid = ?");
       params.push(filters.account);
@@ -334,7 +346,9 @@ export function getMatchFilterOptions(filters?: {
   const hasArena = queueRows.some((row) => ARENA_QUEUE_IDS.includes(row.queue_id));
   const queueIds = [
     ...(hasArena ? [QUEUE_GROUP_ARENA] : []),
-    ...queueRows.filter((row) => !ARENA_QUEUE_IDS.includes(row.queue_id)).map((row) => row.queue_id),
+    ...queueRows
+      .filter((row) => !ARENA_QUEUE_IDS.includes(row.queue_id))
+      .map((row) => row.queue_id),
   ];
 
   // Like the favorites toggle below, this list ignores the other filters: the
@@ -346,7 +360,7 @@ export function getMatchFilterOptions(filters?: {
     SELECT tgs.puuid, s.game_name, s.tag_line, s.profile_icon
     FROM tracked_game_stats tgs
     JOIN games g ON g.game_id = tgs.game_id
-    INNER JOIN summoner s ON s.puuid = tgs.puuid
+    INNER JOIN visible_summoner s ON s.puuid = tgs.puuid
     GROUP BY tgs.puuid
     ORDER BY MAX(g.game_creation) DESC
   `)
@@ -440,7 +454,13 @@ export function getMatchParticipants(gameId: number): any[] {
              all_in_pings, basic_pings, command_pings,
              spell1_casts, spell2_casts, spell3_casts, spell4_casts,
              summoner1_casts, summoner2_casts,
-             total_heal_on_teammates, total_damage_shielded_on_teammates
+             total_heal_on_teammates, total_damage_shielded_on_teammates,
+             team_position, vision_score, time_cc_others, damage_to_objectives,
+             first_blood_kill, objectives_stolen,
+             largest_critical_strike, true_damage_dealt, physical_damage_dealt, magic_damage_dealt,
+             total_damage_dealt_all, damage_to_turrets, physical_damage_taken, magic_damage_taken,
+             true_damage_taken, damage_self_mitigated, wards_placed, wards_killed, vision_wards_bought,
+             gold_spent, total_minions_killed, neutral_minions_killed, turret_kills, inhibitor_kills
       FROM match_participants
       WHERE game_id = ?
       ORDER BY participant_id
@@ -522,6 +542,30 @@ export function getMatchParticipants(gameId: number): any[] {
       summoner2Casts: r.summoner2_casts ?? null,
       totalHealOnTeammates: r.total_heal_on_teammates ?? null,
       totalDamageShieldedOnTeammates: r.total_damage_shielded_on_teammates ?? null,
+      teamPosition: r.team_position ?? null,
+      visionScore: r.vision_score ?? null,
+      timeCcOthers: r.time_cc_others ?? null,
+      damageToObjectives: r.damage_to_objectives ?? null,
+      firstBloodKill: r.first_blood_kill === 1,
+      objectivesStolen: r.objectives_stolen ?? null,
+      largestCriticalStrike: r.largest_critical_strike ?? null,
+      trueDamageToChampions: r.true_damage_dealt ?? null,
+      physicalDamageToChampions: r.physical_damage_dealt ?? null,
+      magicDamageToChampions: r.magic_damage_dealt ?? null,
+      totalDamageDealtAll: r.total_damage_dealt_all ?? null,
+      damageToTurrets: r.damage_to_turrets ?? null,
+      physicalDamageTaken: r.physical_damage_taken ?? null,
+      magicDamageTaken: r.magic_damage_taken ?? null,
+      trueDamageTaken: r.true_damage_taken ?? null,
+      damageSelfMitigated: r.damage_self_mitigated ?? null,
+      wardsPlaced: r.wards_placed ?? null,
+      wardsKilled: r.wards_killed ?? null,
+      visionWardsBought: r.vision_wards_bought ?? null,
+      goldSpent: r.gold_spent ?? null,
+      minionsKilled: r.total_minions_killed ?? null,
+      neutralMinionsKilled: r.neutral_minions_killed ?? null,
+      turretKills: r.turret_kills ?? null,
+      inhibitorKills: r.inhibitor_kills ?? null,
       challenges: challenges.get(r.participant_id),
       items: [r.item0, r.item1, r.item2, r.item3, r.item4, r.item5, r.item6].map((i) => i ?? 0),
       augments: augments.get(r.participant_id) ?? [],
@@ -569,6 +613,7 @@ export function getChampionMatchHistory(
   patch?: string,
   queue?: number,
   account?: string,
+  timePeriod?: "24h" | "7d" | "30d" | "full",
 ): { matches: any[]; total: number } {
   const source = statsSource(account);
   const hasConcreteAccount = account !== undefined && account !== "all";
@@ -581,6 +626,7 @@ export function getChampionMatchHistory(
     params.push(patch);
   }
   applyQueueFilter(where, params, queue);
+  pushTimeFilter(where, params, timePeriod);
   const whereSql = `WHERE ${where.join(" AND ")}`;
   const augmentIdsSql = account
     ? `(SELECT GROUP_CONCAT(augment_id, ',')

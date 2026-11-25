@@ -1,6 +1,7 @@
 import type { OwnedItemStats, OwnedItemStatsResult } from "../../shared/api";
 
-const DEFAULT_TTL_MS = 60_000;
+// Writes call invalidateAllCaches, so this only bounds how stale a missed path can get
+const DEFAULT_TTL_MS = 5 * 60_000;
 const MAX_ENTRIES = 200;
 
 interface Entry {

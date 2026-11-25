@@ -151,7 +151,14 @@ export type MatchSort =
   | "score"
   | "damageDealt"
   | "damageTaken"
-  | "healing";
+  | "healing"
+  | "deaths"
+  | "cs"
+  | "gold"
+  | "doubles"
+  | "triples"
+  | "quadras"
+  | "pentas";
 
 export type MatchSortDir = "asc" | "desc";
 
@@ -167,6 +174,8 @@ export interface MatchFilters {
   sortDir?: MatchSortDir;
   multikills?: MultikillType[];
   favorites?: boolean;
+  result?: "win" | "loss";
+  timePeriod?: HomeTimePeriod;
 }
 
 export interface TrackedAccount {
@@ -183,9 +192,31 @@ export interface MatchFilterOptions {
   hasFavorites: boolean;
 }
 
+// Per-player numbers for the match Stats tab; every one may be missing on games stored before they were kept.
+export interface ParticipantDetailStats {
+  largestCriticalStrike?: number | null;
+  trueDamageToChampions?: number | null;
+  physicalDamageToChampions?: number | null;
+  magicDamageToChampions?: number | null;
+  totalDamageDealtAll?: number | null;
+  damageToTurrets?: number | null;
+  physicalDamageTaken?: number | null;
+  magicDamageTaken?: number | null;
+  trueDamageTaken?: number | null;
+  damageSelfMitigated?: number | null;
+  wardsPlaced?: number | null;
+  wardsKilled?: number | null;
+  visionWardsBought?: number | null;
+  goldSpent?: number | null;
+  minionsKilled?: number | null;
+  neutralMinionsKilled?: number | null;
+  turretKills?: number | null;
+  inhibitorKills?: number | null;
+}
+
 // One row per player, straight from match_participants — the scoreboard no
 // longer reconstructs these from a raw match payload.
-export interface MatchParticipantRecord {
+export interface MatchParticipantRecord extends ParticipantDetailStats {
   participantId: number;
   puuid: string | null;
   gameName: string | null;
@@ -235,6 +266,13 @@ export interface MatchParticipantRecord {
   summoner2Casts?: number | null;
   totalHealOnTeammates?: number | null;
   totalDamageShieldedOnTeammates?: number | null;
+  // What the Rift and Arena score systems read on top of the damage/gold/heal totals
+  teamPosition?: string | null;
+  visionScore?: number | null;
+  timeCcOthers?: number | null;
+  damageToObjectives?: number | null;
+  firstBloodKill?: boolean;
+  objectivesStolen?: number | null;
   challenges?: Record<string, number>;
 }
 
@@ -752,6 +790,8 @@ export interface AugmentStats {
   deaths?: number;
   assists?: number;
   avgScore?: number | null;
+  // Five champions that took this augment most often
+  champions?: Array<{ champion_id: number; picks: number }>;
 }
 
 export interface ItemStats {
@@ -820,22 +860,54 @@ export interface ItemDetail {
   avgBuyTimeMs: number | null;
   patchBreakdown: { patch: string; games: number; wins: number }[];
   topPairings: { item_id: number; games: number; wins: number }[];
+  // Games in the same scope where the item was not built; averages are null when there are none
+  baseline: {
+    games: number;
+    wins: number;
+    kills: number;
+    deaths: number;
+    assists: number;
+    damage: number | null;
+    taken: number | null;
+    gold: number | null;
+    heal: number | null;
+    score: number | null;
+    duration: number | null;
+  };
   champions: {
     champion_id: number;
     games: number;
     championGames: number;
+    championWins: number;
     wins: number;
     matches: {
       game_id: number;
+      champion_id: number;
       game_creation: number;
       game_duration: number;
+      queue_id: number;
       win: number;
       kills: number;
       deaths: number;
       assists: number;
+      damage: number;
+      taken: number;
+      gold: number;
+      heal: number;
+      score: number | null;
     }[];
   }[];
 }
+
+export type AugmentDetail = Pick<
+  ItemDetail,
+  "picks" | "wins" | "totalGames" | "baseline" | "champions" | "patchBreakdown"
+> & {
+  augment_id: number;
+  // Other augments and items taken in the same games
+  pairings: { id: number; games: number; wins: number }[];
+  topItems: { id: number; games: number; wins: number }[];
+};
 
 export interface AugmentStatsDetailed {
   augment_id: number;
@@ -878,6 +950,16 @@ export interface DashboardData {
   avgGold: number;
   goldTotal: number;
   avgScore: number | null;
+  avgScoreWins: number | null;
+  avgScoreLosses: number | null;
+  bestScore: number | null;
+  worstScore: number | null;
+  // 0–1 shares averaged per game; null when no game has the team data
+  killParticipation: number | null;
+  damageShare: number | null;
+  longestGameSeconds: number | null;
+  // Deaths per game over the last period and the one before it
+  deathsTrend: { current: number | null; previous: number | null };
   teamAvgScore: number;
   mvps: number;
   aces: number;
@@ -908,6 +990,11 @@ export interface DashboardData {
     gamesWithTriples: number;
     gamesWithQuadras: number;
     gamesWithPentas: number;
+    // Champions with the most of each multikill, best first
+    topChampions: Record<
+      "double" | "triple" | "quadra" | "penta",
+      Array<{ champion_id: number; count: number }>
+    >;
   };
   topAugments: AugmentStats[];
 }
@@ -926,6 +1013,8 @@ export interface RoleBreakdown {
 export interface HomeDashboardPayload {
   summary: {
     totalGames: number;
+    // Remade games, which no stat counts
+    remakes: number;
     wins: number;
     losses: number;
     totalKills: number;
@@ -1264,6 +1353,18 @@ export interface TrendsData {
     assists: number;
   }[];
   dayHourMatrix: { weekday: number; hour: number; games: number; wins: number }[];
+  championMost: TrendsData["championTop"];
+  // Every game of the period, oldest first
+  timeline: { owner: string; time: number; duration: number; win: number }[];
+  // Totals of the period of the same length before this one; null for "all time"
+  previous: {
+    games: number;
+    wins: number;
+    kills: number;
+    deaths: number;
+    assists: number;
+    score: number | null;
+  } | null;
   insights: {
     winRateDiff: number;
     bestDay: { day: string; wr: number } | null;
@@ -1429,11 +1530,19 @@ export interface RecordsData {
   winStreak: StreakRecord | null;
   lossStreak: StreakRecord | null;
   visionScore?: StatRecord;
+  goldPerMinute?: StatRecord;
+  damagePerGold?: StatRecord;
+  turretKills?: StatRecord;
+  ccTime?: StatRecord;
   wardsPlaced?: StatRecord;
   turretDamage?: StatRecord;
   objectiveDamage?: StatRecord;
   fastestPentakill?: StatRecord;
   flawlessAce?: StatRecord;
+  // Further single-game bests, keyed by record name
+  extras?: Record<string, StatRecord>;
+  // Highest value of each champion stat reached in a game, keyed like the live tab's peak stats
+  rawStats?: Record<string, StatRecord>;
   topDamageGames?: Array<{
     gameId: string;
     championId: number;
@@ -1508,7 +1617,7 @@ export interface GlobalChampionDetail {
   augments: AugmentStats[];
 }
 
-export interface ParsedParticipant {
+export interface ParsedParticipant extends ParticipantDetailStats {
   participantId: number;
   championId: number;
   teamId: number;
@@ -1558,6 +1667,12 @@ export interface ParsedParticipant {
   summoner2Casts?: number | null;
   totalHealOnTeammates?: number | null;
   totalDamageShieldedOnTeammates?: number | null;
+  teamPosition?: string | null;
+  visionScore?: number | null;
+  timeCcOthers?: number | null;
+  damageToObjectives?: number | null;
+  firstBloodKill?: boolean;
+  objectivesStolen?: number | null;
   challenges?: Record<string, number>;
   win: boolean;
   isSelf: boolean;
@@ -1581,6 +1696,46 @@ export interface LiveGameData {
   };
 }
 
+// The best value of one stat across the recorded games (see live_stat_peaks)
+export interface LiveStatRecord {
+  stat: string;
+  peak: number;
+  gameId: number;
+  championId: number | null;
+  championName: string;
+  recordedAt: number;
+}
+
+// Who is signed in to the League client and what the client knows about them, independent of any game
+export interface ClientProfile {
+  gameName: string;
+  tagLine: string;
+  level: number;
+  // 0-100 progress to the next summoner level
+  xpPercent: number;
+  profileIconId: number;
+  region: string;
+  // "16.23" taken from the client's game version
+  patch: string;
+  honorLevel: number | null;
+  // Chat presence: "chat" (online), "away", "dnd" (in a game or queue), "mobile", "offline"
+  presence: string;
+  statusMessage: string;
+  blueEssence: number | null;
+  rp: number | null;
+  challengePoints: number | null;
+  challengeLevel: string | null;
+  // Only queues the account has a rank in
+  ranked: Array<{
+    queue: string;
+    tier: string;
+    division: string;
+    lp: number;
+    wins: number;
+    losses: number;
+  }>;
+}
+
 export interface LiveSessionData {
   phase: string;
   queueId: number | null;
@@ -1588,15 +1743,192 @@ export interface LiveSessionData {
   lobbySize: number | null;
   lobbyMaxSize: number | null;
   queueStartedAt: number | null;
+  gameMode: string | null;
+  mapId: number | null;
+  isCustom: boolean;
+  // Lobby members; empty outside a lobby
+  members: Array<{ name: string; isLeader: boolean; ready: boolean; isMe: boolean }>;
+  // Whether the local player can press the start / find match button
+  canStart: boolean | null;
+  search: {
+    state: string;
+    estimatedSec: number | null;
+    elapsedSec: number | null;
+    penaltySec: number | null;
+    dodgeWarning: string | null;
+  } | null;
+  readyCheck: { response: string; timerSec: number | null; state: string } | null;
   champSelect: {
     myChampionId: number | null;
     myTeam: Array<{ summonerName: string; championId: number; isMe: boolean }>;
     bench: Array<{ championId: number }>;
     isMyTurn: boolean;
     timeLeftMs: number | null;
+    timerPhase: string | null;
+    bans: { mine: number[]; theirs: number[] };
+    rerollsRemaining: number | null;
   } | null;
+  profile: ClientProfile | null;
 }
 
+// ---- Full live game snapshot (Live Client Data API + gameflow session) ----
+
+export type LiveAbilityKey = "Passive" | "Q" | "W" | "E" | "R";
+
+export interface LiveAbility {
+  key: LiveAbilityKey;
+  name: string;
+  // Rank the player has put into it; 0 for the passive, which has no ranks
+  level: number;
+}
+
+export interface LiveRuneRef {
+  id: number;
+  name: string;
+}
+
+export interface LiveItem {
+  id: number;
+  name: string;
+  count: number;
+  // Shop price of one copy; gold value of an inventory is the sum of price x count
+  price: number;
+  slot: number;
+  consumable: boolean;
+  canUse: boolean;
+}
+
+export interface LiveSpell {
+  name: string;
+  // Resolved from the gameflow session when the client is connected
+  id: number | null;
+}
+
+export interface LivePlayer {
+  riotId: string;
+  gameName: string;
+  tagLine: string;
+  summonerName: string;
+  championName: string;
+  // Resolved from the gameflow session or by name; null when neither knows it
+  championId: number | null;
+  team: string;
+  // "TOP" | "JUNGLE" | "MIDDLE" | "BOTTOM" | "UTILITY", or "" in modes without lanes
+  position: string;
+  level: number;
+  isBot: boolean;
+  isDead: boolean;
+  respawnTimer: number;
+  skinId: number;
+  skinName: string;
+  kills: number;
+  deaths: number;
+  assists: number;
+  creepScore: number;
+  wardScore: number;
+  items: LiveItem[];
+  itemValue: number;
+  spellOne: LiveSpell;
+  spellTwo: LiveSpell;
+  keystone: LiveRuneRef | null;
+  primaryTree: LiveRuneRef | null;
+  secondaryTree: LiveRuneRef | null;
+  isMe: boolean;
+  puuid: string | null;
+}
+
+export interface LiveEvent {
+  id: number;
+  name: string;
+  time: number;
+  killer: string | null;
+  victim: string | null;
+  assisters: string[];
+  dragonType: string | null;
+  stolen: boolean;
+  turret: string | null;
+  inhib: string | null;
+  acer: string | null;
+  acingTeam: string | null;
+  killStreak: number | null;
+  recipient: string | null;
+  // Every field the API sent that has no named slot above, so nothing is dropped
+  extra: Record<string, unknown>;
+}
+
+export interface LiveActivePlayer {
+  riotId: string;
+  summonerName: string;
+  level: number;
+  currentGold: number;
+  // championStats exactly as sent: numbers, plus resourceType as a string
+  stats: Record<string, number | string>;
+  abilities: LiveAbility[];
+  keystone: LiveRuneRef | null;
+  primaryTree: LiveRuneRef | null;
+  secondaryTree: LiveRuneRef | null;
+  generalRunes: LiveRuneRef[];
+  statRunes: LiveRuneRef[];
+  teamRelativeColors: boolean | null;
+}
+
+export interface LiveGameInfo {
+  mode: string;
+  mapName: string;
+  mapNumber: number;
+  mapTerrain: string;
+  timeSec: number;
+  queueId: number | null;
+  gameId: number | null;
+}
+
+// One point of the game-flow series kept for a finished game (team totals every few game seconds)
+export interface LiveSeriesPoint {
+  t: number;
+  ORDER: { kills: number; cs: number; itemValue: number };
+  CHAOS: { kills: number; cs: number; itemValue: number };
+  gold: number;
+  // Per player, in the order of `playerIds`: [kills, deaths, assists, cs, itemValue, level]
+  players?: number[][];
+}
+
+// What was extracted from a game while it ran. Everything past `snapshot` and `series` is optional
+// because older rows were written before it was collected.
+export interface StoredLiveBody {
+  snapshot: LiveFull;
+  series: LiveSeriesPoint[];
+  // Game second of the first sample; the logs below are incomplete before it when the app joined late
+  firstSampleSec?: number;
+  playerIds?: string[];
+  // Inventory changes of every player: d > 0 item gained, d < 0 item lost or sold
+  itemLog?: Array<{ t: number; p: string; id: number; d: number }>;
+  // Your ability ranks as they were put in, in order
+  skillLog?: Array<{ t: number; key: string; level: number }>;
+  // Your champion stats every ~15 game seconds
+  statSeries?: Array<{ t: number; stats: Record<string, number> }>;
+  // Draft info captured in champion select, when the app was watching it
+  champSelect?: NonNullable<LiveSessionData["champSelect"]> | null;
+}
+
+// What the live tab showed for a game, as stored with the match
+export interface StoredLiveGame extends StoredLiveBody {
+  gameId: number;
+  durationSec: number;
+  recordedAt: number;
+}
+
+export interface LiveFull {
+  fetchedAt: number;
+  // "no-game" means the Live Client port is closed or answered nothing usable
+  state: "in-game" | "no-game";
+  gameflowPhase: string | null;
+  game: LiveGameInfo | null;
+  me: LiveActivePlayer | null;
+  players: LivePlayer[];
+  events: LiveEvent[];
+  // The untouched allgamedata payload, for the raw viewer
+  raw: unknown;
+}
 export interface BackfillProgress {
   current: number;
   total: number;
@@ -1735,6 +2067,8 @@ export interface AccountListItem {
   summonerLevel: number | null;
   lastSeen: number | null;
   gameCount: number;
+  wins: number;
+  decidedGames: number;
 }
 
 export interface AccountSnapshot {
@@ -1811,6 +2145,77 @@ export interface UpdateInfo {
   error?: string;
 }
 
+export interface DbStats {
+  games: number;
+  sizeBytes: number;
+  freeBytes: number;
+  backupBytes: number;
+  imageBytes: number;
+  oldestGame: number | null;
+  newestGame: number | null;
+  tables: { name: string; rows: number }[];
+}
+
+export type AchievementTotals = Record<
+  | "games"
+  | "wins"
+  | "kills"
+  | "assists"
+  | "deaths"
+  | "damage"
+  | "damageTaken"
+  | "healing"
+  | "gold"
+  | "cs"
+  | "hours"
+  | "doubles"
+  | "triples"
+  | "quadras"
+  | "pentas"
+  | "champions"
+  | "championsWon"
+  | "bestKills"
+  | "bestAssists"
+  | "bestDamage"
+  | "bestSpree"
+  | "bestCrit"
+  | "deathlessWins"
+  | "greatScores"
+  | "mvps"
+  | "favorites"
+  | "bestStreak"
+  | "mainGames"
+  | "masteredChampions",
+  number
+>;
+
+export interface ClientChallenge {
+  id: number;
+  name: string;
+  description: string;
+  category: string;
+  // League tier name in capitals, or "NONE"
+  level: string;
+  value: number;
+  // Only the tiers this challenge has, lowest first: many have a single one
+  tiers: { level: string; value: number }[];
+  // Lower is better (a leaderboard-style division number)
+  reverse: boolean;
+  nextThreshold: number | null;
+  // Percent of players at or above you, 0..100; null while unranked
+  percentile: number | null;
+}
+
+export interface ChallengesData {
+  challenges: ClientChallenge[];
+  totalPoints: number;
+  totalLevel: string;
+  fetchedAt: number | null;
+  // false when this is the saved copy from an earlier session
+  live: boolean;
+  error?: string;
+}
+
 export interface BackupInfo {
   file: string;
   created: number;
@@ -1864,13 +2269,23 @@ export interface ElectronAPI {
     callback: (payload: { cancelled: boolean; progress: TimelineBackfillProgress | null }) => void,
   ) => () => void;
   toggleFavorite: (gameId: number) => Promise<boolean>;
-  getChampionStats: (patch?: string, queue?: number, account?: string) => Promise<ChampionStats[]>;
-  getActivityHeatmap: (account?: string) => Promise<ActivityHeatmapDay[]>;
+  getChampionStats: (
+    patch?: string,
+    queue?: number,
+    account?: string,
+    timePeriod?: HomeTimePeriod,
+  ) => Promise<ChampionStats[]>;
+  getActivityHeatmap: (
+    account?: string,
+    timePeriod?: HomeTimePeriod,
+    queue?: number,
+  ) => Promise<ActivityHeatmapDay[]>;
   getChampionDetailStats: (
     championId: number | null,
     patch?: string,
     queue?: number,
     account?: string,
+    timePeriod?: HomeTimePeriod,
   ) => Promise<ChampionDetailStats>;
   getChampionChallengeAggregates: (
     puuid: string,
@@ -1892,10 +2307,12 @@ export interface ElectronAPI {
     patch?: string,
     queue?: number,
     account?: string,
+    timePeriod?: HomeTimePeriod,
   ) => Promise<ChampionRoleStat[]>;
   getChampionKeystones: (
     championId: number | null,
     account?: string,
+    timePeriod?: HomeTimePeriod,
   ) => Promise<ChampionKeystoneStat[]>;
   getChampionRuneStats: (
     championId: number | null,
@@ -1943,12 +2360,14 @@ export interface ElectronAPI {
     patch?: string,
     queue?: number,
     account?: string,
+    timePeriod?: HomeTimePeriod,
   ) => Promise<ChampionMatchupRow[]>;
   getChampionAllyStats: (
     championId: number | null,
     patch?: string,
     queue?: number,
     account?: string,
+    timePeriod?: HomeTimePeriod,
   ) => Promise<ChampionAllyRow[]>;
   getChampionTeammateStats: (
     championId: number | null,
@@ -1961,14 +2380,21 @@ export interface ElectronAPI {
     patch?: string,
     queue?: number,
     account?: string,
+    timePeriod?: HomeTimePeriod,
   ) => Promise<AugmentStats[]>;
+  getAugmentDetail: (
+    augmentId: number,
+    patch?: string,
+    queue?: number,
+    account?: string,
+  ) => Promise<AugmentDetail>;
   getAugmentStatsDetailed: (
     patch?: string,
     queue?: number,
     account?: string,
   ) => Promise<AugmentStatsDetailedResult>;
   getDashboard: (
-    filters?: Pick<MatchFilters, "championId" | "patch" | "queue" | "account">,
+    filters?: Pick<MatchFilters, "championId" | "patch" | "queue" | "account" | "timePeriod">,
   ) => Promise<DashboardData>;
   getHomeDashboard: (
     account: HomeAccountFilter,
@@ -2028,12 +2454,14 @@ export interface ElectronAPI {
     patch?: string,
     queue?: number,
     account?: string,
+    timePeriod?: HomeTimePeriod,
   ) => Promise<{ matches: MatchListItem[]; total: number }>;
   getChampionRecords: (
     championId: number | null,
     patch?: string,
     queue?: number,
     account?: string,
+    timePeriod?: HomeTimePeriod,
   ) => Promise<ChampionRecordsResult>;
   getChampionItemStats: (
     championId: number | null,
@@ -2079,6 +2507,7 @@ export interface ElectronAPI {
     patch?: string,
     queue?: number,
     account?: string,
+    timePeriod?: HomeTimePeriod,
   ) => Promise<GlobalChampionDetail>;
   getSummonerPuuid: () => Promise<string | null>;
   getAllSummonerPuuids: () => Promise<string[]>;
@@ -2151,6 +2580,16 @@ export interface ElectronAPI {
   getLcuStatus: () => Promise<LcuStatus>;
   getLiveGame: () => Promise<LiveGameData | null>;
   getLiveSession: () => Promise<LiveSessionData | null>;
+  getStatRecords: (filters?: {
+    championId?: number;
+    stat?: string;
+    queueId?: number;
+  }) => Promise<LiveStatRecord[]>;
+  getGameStatPeaks: (
+    gameId: number,
+  ) => Promise<Array<{ stat: string; peak: number; final: number }>>;
+  getGameLiveData: (gameId: number) => Promise<StoredLiveGame | null>;
+  getLiveFull: () => Promise<LiveFull>;
   getChampionDataVersion: () => Promise<string>;
   getChampionData: () => Promise<ChampionData>;
   getAugmentData: (patch?: string) => Promise<AugmentData>;
@@ -2170,7 +2609,9 @@ export interface ElectronAPI {
     error?: string;
   }>;
   onExportProgress: (callback: (progress: ExportProgress) => void) => () => void;
-  getDbStats: () => Promise<{ games: number; sizeBytes: number }>;
+  getDbStats: () => Promise<DbStats>;
+  getAchievementTotals: (queue?: number, account?: string) => Promise<AchievementTotals>;
+  getChallenges: () => Promise<ChallengesData>;
   importData: () => Promise<{
     success: boolean;
     imported?: number;
@@ -2184,6 +2625,7 @@ export interface ElectronAPI {
     discoveredAccounts: number;
     rebuiltGames: number;
   }>;
+  recalculateScores: () => Promise<{ games: number; ms: number } | { error: string }>;
   restoreOlderGames: () => Promise<RestoreOlderGamesResult | { error: string }>;
   hasLocalAccount: () => Promise<boolean>;
   listBackups: () => Promise<BackupInfo[]>;

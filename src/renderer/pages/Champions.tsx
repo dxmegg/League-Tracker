@@ -14,7 +14,7 @@ import { FilterChip } from "../components/FilterChip";
 import { SearchInput } from "../components/SearchInput";
 import { formatKDA, formatDuration, formatTimeAgo, kdaRatio, kdaColor } from "../lib/format";
 import { scoreColor } from "../../shared/opScore";
-import { useHistoryScopeQueue } from "../lib/historyScope";
+import { useScopedQueue } from "../lib/historyScope";
 import { useActiveTheme } from "../hooks/useActiveTheme";
 import { ChampionExp } from "../components/ChampionExp";
 
@@ -50,11 +50,18 @@ function ChampionExpanded({
   const [matches, setMatches] = useState<MatchListItem[] | null>(null);
 
   useEffect(() => {
-    window.api.getAugmentStats(championId, patch, queue).then(setAugStats);
-    window.api.getChampionItemStats(championId, patch, queue).then(setItemStats);
+    // An answer for the previous patch or queue must not overwrite the current one
+    let stale = false;
+    window.api.getAugmentStats(championId, patch, queue).then((r) => !stale && setAugStats(r));
+    window.api
+      .getChampionItemStats(championId, patch, queue)
+      .then((r) => !stale && setItemStats(r));
     window.api
       .getChampionMatchHistory(championId, 5, 0, patch, queue)
-      .then((r) => setMatches(r.matches));
+      .then((r) => !stale && setMatches(r.matches));
+    return () => {
+      stale = true;
+    };
   }, [championId, patch, queue]);
 
   if (!augStats || !itemStats || !matches) {
@@ -172,7 +179,7 @@ export default function Champions() {
   const champData = useChampionData();
   const [patch, setPatch] = useViewState<string | undefined>("champions.patch", undefined);
   const [queue, setQueue] = useViewState<number | undefined>("champions.queue", undefined);
-  const scopedQueue = queue ?? useHistoryScopeQueue();
+  const scopedQueue = useScopedQueue(queue);
   const { data, refetch } = useIpc<ChampionStats[]>(
     () => window.api.getChampionStats(patch, scopedQueue),
     [patch, scopedQueue],
@@ -188,6 +195,7 @@ export default function Champions() {
   }, [refetch]);
 
   const activeTheme = useActiveTheme();
+  const exactTheme = useActiveTheme({ exact: true });
   const isExperiment = activeTheme === "experiment";
 
   const handleSort = (key: SortKey) => {
@@ -239,12 +247,13 @@ export default function Champions() {
   }, [data, search, sortKey, sortDir, champData]);
 
   if (isExperiment) {
-    return <ChampionExp />;
+    // useActiveTheme folds redesign into "experiment"; only the exact value tells them apart
+    return <ChampionExp redesign={exactTheme === "redesign"} />;
   }
 
   if (!data) {
     return (
-      <div className="flex items-center justify-center rounded-lg border border-lol-crimson/40 bg-[linear-gradient(145deg,#0c0e11_0%,#090b0d_48%,#060809_100%)] p-12">
+      <div className="flex items-center justify-center glass-surface rounded-2xl p-12">
         <p className="text-sm text-lol-text">Loading champions…</p>
       </div>
     );
@@ -306,7 +315,7 @@ export default function Champions() {
         </div>
       </div>
 
-      <div className="rounded-lg border border-lol-crimson/40 bg-[linear-gradient(145deg,#0c0e11_0%,#090b0d_48%,#060809_100%)] shadow-[0_0_3px_rgba(150,30,30,0.55),0_0_10px_rgba(90,15,15,0.35),0_0_20px_rgba(60,10,10,0.20)] ring-1 ring-inset ring-white/[0.03] overflow-hidden">
+      <div className="glass-surface rounded-2xl overflow-hidden">
         <table className="w-full">
           <thead className="border-b border-lol-border/40">
             <tr>
@@ -428,7 +437,7 @@ export default function Champions() {
           </tbody>
         </table>
         {sorted.length === 0 && (
-          <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-lol-crimson/40 bg-[linear-gradient(145deg,#0c0e11_0%,#090b0d_48%,#060809_100%)] p-12">
+          <div className="flex flex-col items-center justify-center gap-2 glass-surface rounded-2xl p-12">
             <p className="text-sm font-semibold text-lol-text-bright">
               No champions match your filters
             </p>

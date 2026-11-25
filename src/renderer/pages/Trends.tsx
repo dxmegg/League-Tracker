@@ -123,10 +123,10 @@ function Card({
 }) {
   const glow =
     accent === "gold"
-      ? "border-t-[3px] border-t-lol-gold bg-[radial-gradient(circle_at_top_right,rgba(201,164,92,0.08),transparent_38%),linear-gradient(145deg,#0c0e11_0%,#090b0d_48%,#060809_100%)]"
+      ? "border-t-[3px] border-t-lol-gold bg-[radial-gradient(circle_at_top_right,rgba(201,164,92,0.08),transparent_38%),linear-gradient(160deg,var(--theme-card-hover),var(--theme-card))]"
       : accent === "win"
-        ? "border-t-[3px] border-t-lol-win bg-[radial-gradient(circle_at_top_right,rgba(74,222,128,0.08),transparent_38%),linear-gradient(145deg,#0c0e11_0%,#090b0d_48%,#060809_100%)]"
-        : "border-t-[3px] border-t-lol-crimson bg-[radial-gradient(circle_at_top_right,rgba(165,15,21,0.08),transparent_38%),linear-gradient(145deg,#0c0e11_0%,#090b0d_48%,#060809_100%)]";
+        ? "border-t-[3px] border-t-lol-win bg-[radial-gradient(circle_at_top_right,rgba(74,222,128,0.08),transparent_38%),linear-gradient(160deg,var(--theme-card-hover),var(--theme-card))]"
+        : "border-t-[3px] border-t-lol-crimson bg-[radial-gradient(circle_at_top_right,rgba(165,15,21,0.08),transparent_38%),linear-gradient(160deg,var(--theme-card-hover),var(--theme-card))]";
 
   return (
     <div
@@ -228,7 +228,7 @@ export default function Trends() {
 
   if (!data) {
     return (
-      <div className="rounded-lg border border-lol-crimson/40 border-t-[3px] border-t-lol-crimson bg-[radial-gradient(circle_at_top_right,rgba(165,15,21,0.08),transparent_42%),linear-gradient(145deg,#0c0e11_0%,#090b0d_48%,#060809_100%)] shadow-[0_0_3px_rgba(150,30,30,0.55),0_0_10px_rgba(90,15,15,0.35),0_0_20px_rgba(60,10,10,0.20)] ring-1 ring-inset ring-white/[0.03] p-12 text-center">
+      <div className="rounded-2xl border border-lol-border border-t-[3px] border-t-lol-crimson bg-[radial-gradient(circle_at_top_right,rgba(165,15,21,0.08),transparent_42%),linear-gradient(160deg,var(--theme-card-hover),var(--theme-card))] shadow-[inset_0_1px_0_rgba(255,255,255,0.06),0_14px_34px_-18px_rgba(0,0,0,0.8)] p-12 text-center">
         <p className="text-sm text-lol-text">Loading trends…</p>
       </div>
     );
@@ -236,7 +236,7 @@ export default function Trends() {
 
   if (data.daily.length === 0) {
     return (
-      <div className="rounded-lg border border-lol-crimson/40 border-t-[3px] border-t-lol-crimson bg-[radial-gradient(circle_at_top_right,rgba(165,15,21,0.08),transparent_42%),linear-gradient(145deg,#0c0e11_0%,#090b0d_48%,#060809_100%)] shadow-[0_0_3px_rgba(150,30,30,0.55),0_0_10px_rgba(90,15,15,0.35),0_0_20px_rgba(60,10,10,0.20)] ring-1 ring-inset ring-white/[0.03] p-12 text-center">
+      <div className="rounded-2xl border border-lol-border border-t-[3px] border-t-lol-crimson bg-[radial-gradient(circle_at_top_right,rgba(165,15,21,0.08),transparent_42%),linear-gradient(160deg,var(--theme-card-hover),var(--theme-card))] shadow-[inset_0_1px_0_rgba(255,255,255,0.06),0_14px_34px_-18px_rgba(0,0,0,0.8)] p-12 text-center">
         <p className="text-sm font-semibold text-lol-text-bright">No trend data for this scope</p>
         <p className="text-xs text-lol-text mt-1">Try a different queue or sync more matches.</p>
       </div>

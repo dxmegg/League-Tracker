@@ -3,7 +3,7 @@ import type { RuneOverview } from "../lib/types";
 import { useIpc } from "../hooks/useIpc";
 import { useActiveAccount } from "../hooks/useActiveAccount";
 import { useRuneData } from "../hooks/useChampions";
-import { useHistoryScopeQueue } from "../lib/historyScope";
+import { useScopedQueue } from "../lib/historyScope";
 import { useViewState } from "../hooks/useViewState";
 import { ALL_ACCOUNTS_SENTINEL } from "../lib/accountsEvent";
 import RuneIcon from "./RuneIcon";
@@ -138,7 +138,7 @@ export function RunesExp() {
   const runeData = useRuneData();
   const [patch, setPatch] = useViewState<string | undefined>("runes.patch", undefined);
   const [queue, setQueue] = useViewState<number | undefined>("runes.queue", undefined);
-  const scopedQueue = queue ?? useHistoryScopeQueue();
+  const scopedQueue = useScopedQueue(queue);
   const [activeAccountRaw] = useActiveAccount();
   const account = activeAccountRaw === ALL_ACCOUNTS_SENTINEL ? "all" : activeAccountRaw;
   const [search, setSearch] = useState("");
@@ -195,7 +195,7 @@ export function RunesExp() {
   const mostUsedTree = [...treeTotals.entries()].sort((a, b) => b[1] - a[1])[0] ?? null;
 
   return (
-    <div className="mx-auto flex min-h-full w-full max-w-[1320px] flex-col gap-5">
+    <div className="flex min-h-full w-full flex-col gap-5">
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
           <h1 className="relative pl-4 font-display text-[30px] font-bold leading-tight tracking-[0.2px] text-lol-text-bright before:absolute before:left-1 before:top-1/2 before:h-2 before:w-2 before:-translate-y-1/2 before:rotate-45 before:bg-lol-crimson after:absolute after:bottom-[-8px] after:left-4 after:h-px after:w-28 after:bg-gradient-to-r after:from-lol-crimson/70 after:to-transparent">

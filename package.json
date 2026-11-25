@@ -1,6 +1,6 @@
 {
   "name": "league-tracker",
-  "version": "1.0.7",
+  "version": "1.1.0",
   "description": "League of Legends match history tracker",
   "license": "MIT",
   "main": "./out/main/index.js",
@@ -17,6 +17,7 @@
     "format": "oxfmt --ignore-path .oxfmtignore",
     "format:check": "oxfmt --check --ignore-path .oxfmtignore",
     "gen:augments": "node scripts/generate-augment-descriptions.mjs",
+    "check:scores": "node --no-warnings scripts/check-scores.mjs",
     "backfill:teams-local": "tsx src/main/db/backfill-teams-local.ts"
   },
   "dependencies": {
@@ -24,10 +25,16 @@
     "@fontsource/ibm-plex-sans": "^5.3.0",
     "@modelcontextprotocol/sdk": "^1.30.0",
     "better-sqlite3": "^12.6.2",
+    "class-variance-authority": "^0.7.1",
+    "clsx": "^2.1.1",
     "league-connect": "^6.0.0-rc13",
+    "lucide-react": "^1.79.0",
+    "radix-ui": "^1.8.1",
     "react": "^19.2.4",
     "react-dom": "^19.2.4",
-    "react-router-dom": "^7.13.1"
+    "react-router-dom": "^7.13.1",
+    "tailwind-merge": "^3.7.1",
+    "tw-animate-css": "^1.4.0"
   },
   "devDependencies": {
     "@electron-toolkit/preload": "^3.0.2",

@@ -44,6 +44,7 @@ const RENDERER_SETTINGS = new Set([
   "auto_start",
   "minimize_to_tray",
   "hidden_queues",
+  "hidden_accounts",
   "hide_remakes",
   "auto_backup",
   "remember_filters",
@@ -52,6 +53,8 @@ const RENDERER_SETTINGS = new Set([
   "riot_tag_line",
   "riot_platform",
   "active_account",
+  "active_mode",
+  "profile_splash",
 ]);
 
 // Registered once for the lifetime of the app — ipcMain.handle throws on a
@@ -97,9 +100,11 @@ export function registerIpcHandlers() {
         sortDir?: string;
         multikills?: string[];
         favorites?: boolean;
+        result?: "win" | "loss";
+        timePeriod?: "24h" | "7d" | "30d" | "full";
       },
     ) => {
-      return db.getMatchHistory(limit, offset, filters);
+      return db.getMatchHistory(limit, offset, filters, filters?.timePeriod);
     },
   );
 
@@ -133,6 +138,7 @@ export function registerIpcHandlers() {
     console.log("[db] repair-derived-scores handler called:", {});
     const result = db.repairDerivedScores();
     console.log("[db] repair-derived-scores handler done:", result);
+    invalidateDashboardCache();
     return result;
   });
 
@@ -253,22 +259,32 @@ export function registerIpcHandlers() {
 
   ipcMain.handle(
     "db:champion-stats",
-    (_event, patch?: string, queue?: number, account?: string) => {
-      return db.getChampionStatsAll(patch, queue, account);
+    (_event, patch?: string, queue?: number, account?: string, timePeriod?: HomeTimePeriod) => {
+      return db.getChampionStatsAll(patch, queue, account, timePeriod);
     },
   );
 
-  ipcMain.handle("db:activity-heatmap", (_event, account?: string) => {
-    console.log("[db] activity-heatmap handler called:", { account });
-    const result = db.getActivityHeatmap(account);
-    console.log("[db] activity-heatmap handler done:", { count: result.length });
-    return result;
-  });
+  ipcMain.handle(
+    "db:activity-heatmap",
+    (_event, account?: string, timePeriod?: "24h" | "7d" | "30d" | "full", queue?: number) => {
+      console.log("[db] activity-heatmap handler called:", { account, timePeriod, queue });
+      const result = db.getActivityHeatmap(account, timePeriod, queue);
+      console.log("[db] activity-heatmap handler done:", { count: result.length });
+      return result;
+    },
+  );
 
   ipcMain.handle(
     "db:champion-detail-stats",
-    (_event, championId: number | null, patch?: string, queue?: number, account?: string) => {
-      return db.getChampionDetailStats(championId, patch, queue, account);
+    (
+      _event,
+      championId: number | null,
+      patch?: string,
+      queue?: number,
+      account?: string,
+      timePeriod?: HomeTimePeriod,
+    ) => {
+      return db.getChampionDetailStats(championId, patch, queue, account, timePeriod);
     },
   );
 
@@ -336,9 +352,16 @@ export function registerIpcHandlers() {
 
   ipcMain.handle(
     "db:champion-records",
-    (_event, championId: number | null, patch?: string, queue?: number, account?: string) => {
+    (
+      _event,
+      championId: number | null,
+      patch?: string,
+      queue?: number,
+      account?: string,
+      timePeriod?: HomeTimePeriod,
+    ) => {
       console.log("[db] champion-records handler called:", { championId, patch, queue, account });
-      const result = db.getChampionRecords(championId, patch, queue, account);
+      const result = db.getChampionRecords(championId, patch, queue, account, timePeriod);
       console.log("[db] champion-records handler done:", { count: result.records.length });
       return result;
     },
@@ -404,22 +427,32 @@ export function registerIpcHandlers() {
 
   ipcMain.handle(
     "db:champion-role-stats",
-    (_event, championId: number | null, patch?: string, queue?: number, account?: string) => {
+    (
+      _event,
+      championId: number | null,
+      patch?: string,
+      queue?: number,
+      account?: string,
+      timePeriod?: HomeTimePeriod,
+    ) => {
       console.log("[db] champion-role-stats handler called:", {
         championId,
         patch,
         queue,
         account,
       });
-      const result = db.getChampionRoleStats(championId, patch, queue, account);
+      const result = db.getChampionRoleStats(championId, patch, queue, account, timePeriod);
       console.log("[db] champion-role-stats handler done:", { count: result.length });
       return result;
     },
   );
 
-  ipcMain.handle("db:champion-keystones", (_event, championId: number | null, account?: string) => {
-    return db.getChampionKeystones(championId, account);
-  });
+  ipcMain.handle(
+    "db:champion-keystones",
+    (_event, championId: number | null, account?: string, timePeriod?: HomeTimePeriod) => {
+      return db.getChampionKeystones(championId, account, timePeriod);
+    },
+  );
 
   ipcMain.handle(
     "db:champion-rune-stats",
@@ -451,15 +484,29 @@ export function registerIpcHandlers() {
 
   ipcMain.handle(
     "db:champion-matchup-list",
-    (_event, championId: number | null, patch?: string, queue?: number, account?: string) => {
-      return db.getChampionMatchupList(championId, patch, queue, account);
+    (
+      _event,
+      championId: number | null,
+      patch?: string,
+      queue?: number,
+      account?: string,
+      timePeriod?: HomeTimePeriod,
+    ) => {
+      return db.getChampionMatchupList(championId, patch, queue, account, timePeriod);
     },
   );
 
   ipcMain.handle(
     "db:champion-ally-stats",
-    (_event, championId: number | null, patch?: string, queue?: number, account?: string) => {
-      return db.getChampionAllyStats(championId, patch, queue, account);
+    (
+      _event,
+      championId: number | null,
+      patch?: string,
+      queue?: number,
+      account?: string,
+      timePeriod?: HomeTimePeriod,
+    ) => {
+      return db.getChampionAllyStats(championId, patch, queue, account, timePeriod);
     },
   );
 
@@ -472,8 +519,22 @@ export function registerIpcHandlers() {
 
   ipcMain.handle(
     "db:augment-stats",
-    (_event, championId?: number, patch?: string, queue?: number, account?: string) => {
-      return db.getAugmentStatsAll(championId, patch, queue, account);
+    (
+      _event,
+      championId?: number,
+      patch?: string,
+      queue?: number,
+      account?: string,
+      timePeriod?: HomeTimePeriod,
+    ) => {
+      return db.getAugmentStatsAll(championId, patch, queue, account, timePeriod);
+    },
+  );
+
+  ipcMain.handle(
+    "db:augment-detail",
+    (_event, augmentId: number, patch?: string, queue?: number, account?: string) => {
+      return db.getAugmentDetail(augmentId, patch, queue, account);
     },
   );
 
@@ -488,9 +549,15 @@ export function registerIpcHandlers() {
     "db:dashboard",
     (
       _event,
-      filters?: { championId?: number; patch?: string; queue?: number; account?: string },
+      filters?: {
+        championId?: number;
+        patch?: string;
+        queue?: number;
+        account?: string;
+        timePeriod?: "24h" | "7d" | "30d" | "full";
+      },
     ) => {
-      return db.getDashboardData(filters);
+      return db.getDashboardData(filters, filters?.timePeriod);
     },
   );
 
@@ -531,7 +598,8 @@ export function registerIpcHandlers() {
       timePeriod: HomeTimePeriod,
       queue: number | number[] | undefined,
     ): HomeDashboardPayload => {
-      const cacheKey = `${account ?? "all"}|${timePeriod}|${queue ?? "all"}`;
+      // No account and "all" read different tables, so they need different keys
+      const cacheKey = `${account ?? ""}|${timePeriod}|${queue ?? "all"}`;
       const cached = getCachedDashboard(cacheKey);
       if (cached) return cached;
       if (account !== undefined && typeof account !== "string") {
@@ -548,6 +616,7 @@ export function registerIpcHandlers() {
           );
         }
       }
+      const startedAt = Date.now();
       const dashboard = db.getDashboardData({ account, queue }, timePeriod) as DashboardData & {
         avgDamageDealt: number;
         avgDamageTaken: number;
@@ -581,6 +650,7 @@ export function registerIpcHandlers() {
       const result: HomeDashboardPayload = {
         summary: {
           totalGames: dashboard.totalGames,
+          remakes: (dashboard as { remakes?: number }).remakes ?? 0,
           wins: dashboard.wins,
           losses: dashboard.totalGames - dashboard.wins,
           totalKills: dashboard.totalKills,
@@ -650,6 +720,7 @@ export function registerIpcHandlers() {
       };
 
       setCachedDashboard(cacheKey, result);
+      console.log("[db] home-dashboard computed:", { cacheKey, ms: Date.now() - startedAt });
       return result;
     },
   );
@@ -679,12 +750,7 @@ export function registerIpcHandlers() {
   ipcMain.handle(
     "db:most-played-queue",
     (_event, puuid: string, _gameName: string, _tagLine: string) => {
-      let result = db.getMostPlayedQueue(puuid);
-      const _totalRows = db
-        .getDatabase()
-        .prepare("SELECT COUNT(*) AS n FROM match_participants WHERE puuid = ?")
-        .get(puuid) as { n: number };
-      return result;
+      return db.getMostPlayedQueue(puuid);
     },
   );
 
@@ -724,8 +790,17 @@ export function registerIpcHandlers() {
       patch?: string,
       queue?: number,
       account?: string,
+      timePeriod?: HomeTimePeriod,
     ) => {
-      return db.getChampionMatchHistory(championId, limit, offset, patch, queue, account);
+      return db.getChampionMatchHistory(
+        championId,
+        limit,
+        offset,
+        patch,
+        queue,
+        account,
+        timePeriod,
+      );
     },
   );
 
@@ -870,10 +945,12 @@ export function registerIpcHandlers() {
     "riot:import-recent",
     async (_event, puuid: string, platform: string, count: number) => {
       try {
-        const result = await riot.importRecentRiotMatches(puuid, platform, count);
-        return result;
+        return await riot.importRecentRiotMatches(puuid, platform, count);
       } catch (err) {
         return { error: riot.friendlyRiotError(err, "match") };
+      } finally {
+        // A failed import may still have written some games
+        invalidateDashboardCache();
       }
     },
   );
@@ -983,6 +1060,8 @@ export function registerIpcHandlers() {
     return lcu.getStatus();
   });
 
+  ipcMain.handle("lcu:live-full", () => lcu.fetchLiveFull());
+
   ipcMain.handle("lcu:live-game", async () => {
     return lcu.fetchLiveGameData();
   });
@@ -990,6 +1069,18 @@ export function registerIpcHandlers() {
   ipcMain.handle("lcu:live-session", async () => {
     return lcu.fetchLiveSessionData();
   });
+
+  ipcMain.handle(
+    "stats:records",
+    (_event, filters?: { championId?: number; stat?: string; queueId?: number }) =>
+      db.getStatRecords(filters),
+  );
+
+  ipcMain.handle("stats:game-peaks", (_event, gameId: number) =>
+    db.getGameStatPeaks(Number(gameId)),
+  );
+
+  ipcMain.handle("stats:game-live", (_event, gameId: number) => db.getLiveGameData(Number(gameId)));
 
   ipcMain.handle("lcu:current-puuid", async () => {
     console.log("[lcu] current puuid handler called:", {});
@@ -1189,8 +1280,15 @@ export function registerIpcHandlers() {
 
   ipcMain.handle(
     "db:global-champion-detail",
-    (_event, championId: number | null, patch?: string, queue?: number, account?: string) => {
-      return db.getGlobalChampionDetail(championId, patch, queue, account);
+    (
+      _event,
+      championId: number | null,
+      patch?: string,
+      queue?: number,
+      account?: string,
+      timePeriod?: HomeTimePeriod,
+    ) => {
+      return db.getGlobalChampionDetail(championId, patch, queue, account, timePeriod);
     },
   );
 
@@ -1257,6 +1355,7 @@ export function registerIpcHandlers() {
           total,
         });
       });
+      invalidateDashboardCache();
       return { ok: true, skipped: false, updated };
     } catch (err) {
       console.warn("[db] backfill-participant-scores handler failed:", err);
@@ -1282,7 +1381,11 @@ export function registerIpcHandlers() {
     return result;
   });
 
-  ipcMain.handle("db:restore-older-games", () => db.restoreOlderGames());
+  ipcMain.handle("db:restore-older-games", () => {
+    const result = db.restoreOlderGames();
+    invalidateDashboardCache();
+    return result;
+  });
 
   ipcMain.handle("db:summoner-puuid", () => {
     const s = db.getSummoner();
@@ -1309,7 +1412,12 @@ export function registerIpcHandlers() {
     // The one setting with a home outside the database: the login item has to be
     // rewritten to match, and only this handler knows the answer just changed.
     if (key === "auto_start") applyAutoStart(value === "true");
-    if (key === "active_account") invalidateDashboardCache();
+    // These decide which games every cached stat counts
+    if (["active_account", "hidden_queues", "hide_remakes", "hidden_accounts"].includes(key)) {
+      invalidateDashboardCache();
+    }
+    // The account list in the top bar has to drop or regain the account right away
+    if (key === "hidden_accounts") senderWindow(_event)?.webContents.send("lcu:games-updated");
   });
   ipcMain.handle("dbg:get", () => {
     const enabled = db.getSetting("debug_enabled") === "true";
@@ -1370,10 +1478,12 @@ export function registerIpcHandlers() {
   // Data export/import
   ipcMain.handle("data:export", async (event) => {
     const win = senderWindow(event);
+    // Mirrors parseMode in the renderer: anything but an explicit "all" means Mayhem
+    const mayhemOnly = db.getSetting("active_mode") !== "all";
     const options = {
-      title: "Export Mayhem Data",
-      defaultPath: `mayhem-backup-${new Date().toISOString().slice(0, 10)}.json.gz`,
-      filters: [{ name: "League Tracker backup", extensions: ["json.gz", "gz"] }],
+      title: mayhemOnly ? "Export Mayhem Games Only" : "Export All Games",
+      defaultPath: `${mayhemOnly ? "mayhem" : "all"}-backup-${new Date().toISOString().slice(0, 10)}.json.gz`,
+      filters: [{ name: "Rift Records backup", extensions: ["json.gz", "gz"] }],
     };
     // Parented to the window when there is one, so the dialog is modal
     const result = win
@@ -1381,11 +1491,15 @@ export function registerIpcHandlers() {
       : await dialog.showSaveDialog(options);
     if (result.canceled || !result.filePath) return { success: false };
     try {
-      const exportResult = await db.writeExportTo(result.filePath, (progress) => {
-        if (win && !win.isDestroyed()) {
-          win.webContents.send("data:export-progress", progress);
-        }
-      });
+      const exportResult = await db.writeExportTo(
+        result.filePath,
+        (progress) => {
+          if (win && !win.isDestroyed()) {
+            win.webContents.send("data:export-progress", progress);
+          }
+        },
+        mayhemOnly,
+      );
       return { success: true, path: result.filePath, games: exportResult.games };
     } catch (err: any) {
       // A partial file would still look like a backup, so don't leave one
@@ -1400,11 +1514,17 @@ export function registerIpcHandlers() {
 
   ipcMain.handle("data:get-db-stats", () => db.getDbStats());
 
+  ipcMain.handle("db:achievement-totals", (_event, queue?: number, account?: string) =>
+    db.getAchievementTotals(queue, account),
+  );
+
+  ipcMain.handle("lcu:challenges", () => lcu.getChallenges());
+
   ipcMain.handle("data:import", async (event) => {
     const win = senderWindow(event);
     const options = {
-      title: "Import Mayhem Data",
-      filters: [{ name: "League Tracker backup", extensions: ["json.gz", "gz", "json"] }],
+      title: "Import Games (all modes)",
+      filters: [{ name: "Rift Records backup", extensions: ["json.gz", "gz", "json"] }],
       properties: ["openFile" as const],
     };
     const dialogResult = win
@@ -1431,6 +1551,8 @@ export function registerIpcHandlers() {
         skipped: result.skipped,
       };
     } catch (err: any) {
+      // An import that stops halfway has still written games
+      invalidateDashboardCache();
       const reason = err instanceof SyntaxError ? "it isn't valid JSON" : err.message;
       return { success: false, error: `Import failed: ${reason}` };
     }
@@ -1443,7 +1565,22 @@ export function registerIpcHandlers() {
     // A repair reassigns game ownership and rewrites every derived stat, so
     // there is no undo for it short of the snapshot taken here.
     await backup.backupQuietly("pre-repair");
-    return db.repairPuuids();
+    const result = db.repairPuuids();
+    invalidateDashboardCache();
+    return result;
+  });
+
+  ipcMain.handle("data:recalculate-scores", async (event) => {
+    try {
+      // Scoring weights by champion class, so wait for the class data on a fresh launch
+      await dragon.waitForChampionData();
+      const result = db.recalculateAllScores();
+      invalidateDashboardCache();
+      senderWindow(event)?.webContents.send("lcu:games-updated");
+      return result;
+    } catch (err: any) {
+      return { error: err.message as string };
+    }
   });
 
   ipcMain.handle("db:has-local-account", () => {

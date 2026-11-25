@@ -40,10 +40,13 @@ const CDRAGON = "https://raw.communitydragon.org";
 const MAX_BRANCH_LOOKBACK = 12;
 
 const kiwiBinUrl = (branch) => `${CDRAGON}/${branch}/game/maps/modespecificdata/kiwi.bin.json`;
+// "Cherry" is Arena. Mayhem plays many Arena augments under their original ids, and those ids appear
+// in no Mayhem rotation list, so without this pass they would have no tooltip text at all.
+const cherryBinUrl = (branch) => `${CDRAGON}/${branch}/game/maps/modespecificdata/cherry.bin.json`;
 
 async function fetchJson(url, label) {
   process.stdout.write(`  ${label} … `);
-  const res = await fetch(url, { headers: { "User-Agent": "MayhemTracker-build/1.0" } });
+  const res = await fetch(url, { headers: { "User-Agent": "RiftRecords-build/1.0" } });
   if (!res.ok) throw new Error(`${res.status} ${res.statusText} for ${url}`);
   const text = await res.text();
   console.log(`${(text.length / 1e6).toFixed(1)}MB`);
@@ -227,6 +230,10 @@ async function main() {
   const latest = await fetchJson(kiwiBinUrl("latest"), "kiwi.bin (latest)");
   patch = String(latest.version ?? "").trim() || (await resolveLivePatch());
   let remaining = harvest(latest, "latest");
+
+  // Mayhem entries are harvested first, so an id both modes define keeps its Mayhem wording.
+  const cherryBin = await fetchJson(cherryBinUrl("latest"), "cherry.bin (latest)");
+  harvest(cherryBin, "cherry (latest)");
 
   if (remaining > 0) {
     // The live patch has its own numbered branch as well, holding what

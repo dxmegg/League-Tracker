@@ -8,6 +8,7 @@ import { getSetting, setSetting } from "./settings";
 import { rebuildDerivedStats, repairDerivedScores } from "./scoring";
 import { rebuildParticipantsFromPayloads } from "./schema";
 import type { ExportProgress, ImportProgress } from "../../shared/api";
+import { MAYHEM_QUEUE_IDS } from "../../shared/queues";
 
 // ---- Export / Import ----
 
@@ -19,7 +20,14 @@ const TIMELINE_PAGE_SIZE = 5000;
 export async function writeExportTo(
   filePath: string,
   onProgress?: (progress: ExportProgress) => void,
+  mayhemOnly = false,
 ): Promise<{ games: number }> {
+  // Queue ids are numeric constants, so inlining them is safe
+  const mayhemIds = MAYHEM_QUEUE_IDS.join(",");
+  const gamesWhere = mayhemOnly ? ` AND queue_id IN (${mayhemIds})` : "";
+  const timelineWhere = mayhemOnly
+    ? ` AND game_id IN (SELECT game_id FROM games WHERE queue_id IN (${mayhemIds}))`
+    : "";
   const out = fs.createWriteStream(filePath);
   const gz = zlib.createGzip();
   gz.pipe(out);
@@ -31,19 +39,19 @@ export async function writeExportTo(
   let count = 0;
   try {
     const totalGames = (
-      db.prepare("SELECT COUNT(*) AS count FROM games WHERE raw_gz IS NOT NULL").get() as {
-        count: number;
-      }
+      db
+        .prepare(`SELECT COUNT(*) AS count FROM games WHERE raw_gz IS NOT NULL${gamesWhere}`)
+        .get() as { count: number }
     ).count;
-    const totalStatuses = (
-      db.prepare("SELECT COUNT(*) AS count FROM match_timeline_status").get() as { count: number }
-    ).count;
-    const totalFrames = (
-      db.prepare("SELECT COUNT(*) AS count FROM match_timeline_frames").get() as { count: number }
-    ).count;
-    const totalEvents = (
-      db.prepare("SELECT COUNT(*) AS count FROM match_timeline_events").get() as { count: number }
-    ).count;
+    const countTimeline = (table: string) =>
+      (
+        db.prepare(`SELECT COUNT(*) AS count FROM ${table} WHERE 1=1${timelineWhere}`).get() as {
+          count: number;
+        }
+      ).count;
+    const totalStatuses = countTimeline("match_timeline_status");
+    const totalFrames = countTimeline("match_timeline_frames");
+    const totalEvents = countTimeline("match_timeline_events");
     const summoners = db.prepare("SELECT * FROM summoner").all();
     const settings = db.prepare("SELECT key, value FROM settings").all();
     const ignoredGames = db.prepare("SELECT game_id FROM ignored_games").all();
@@ -67,7 +75,7 @@ export async function writeExportTo(
     const page = db.prepare(`
       SELECT game_id, raw_gz, puuid, favorite, source
       FROM games
-      WHERE raw_gz IS NOT NULL AND game_id > ?
+      WHERE raw_gz IS NOT NULL AND game_id > ?${gamesWhere}
       ORDER BY game_id
       LIMIT ?
     `);
@@ -106,7 +114,7 @@ export async function writeExportTo(
     const statusPage = db.prepare(`
       SELECT game_id, fetched_at, frame_count, event_count, fetch_error, raw_gz
       FROM match_timeline_status
-      WHERE game_id > ?
+      WHERE game_id > ?${timelineWhere}
       ORDER BY game_id
       LIMIT ?
     `);
@@ -142,11 +150,9 @@ export async function writeExportTo(
     }
 
     const framePage = db.prepare(`
-      SELECT game_id, frame_index, timestamp_ms, participant_id, puuid, level, xp, gold, cs,
-             position_x, position_y, attack_damage, ability_power, armor, magic_resist,
-             attack_speed, ability_haste, move_speed, max_health, current_health
+      SELECT *
       FROM match_timeline_frames
-      WHERE (game_id, frame_index, participant_id) > (?, ?, ?)
+      WHERE (game_id, frame_index, participant_id) > (?, ?, ?)${timelineWhere}
       ORDER BY game_id, frame_index, participant_id
       LIMIT ?
     `);
@@ -179,11 +185,9 @@ export async function writeExportTo(
     }
 
     const eventPage = db.prepare(`
-      SELECT game_id, event_index, timestamp_ms, event_type, participant_id, killer_id, victim_id,
-             team_id, item_id, skill_slot, level_up_type, ward_type, building_type,
-             monster_type, monster_subtype, raw_json
+      SELECT *
       FROM match_timeline_events
-      WHERE (game_id, event_index) > (?, ?)
+      WHERE (game_id, event_index) > (?, ?)${timelineWhere}
       ORDER BY game_id, event_index
       LIMIT ?
     `);
@@ -206,6 +210,22 @@ export async function writeExportTo(
       });
       const last = rows[rows.length - 1];
       lastEvent = { game_id: last.game_id, event_index: last.event_index };
+    }
+    // Recorded during the game from the live client; nothing can rebuild these later
+    for (const row of db.prepare(`SELECT * FROM live_stat_peaks WHERE 1=1${timelineWhere}`).all()) {
+      await write({ type: "liveStatPeak", data: row });
+    }
+    const liveGames = db
+      .prepare(`SELECT game_id, puuid FROM live_game_data WHERE 1=1${timelineWhere}`)
+      .all() as Array<{ game_id: number; puuid: string }>;
+    const liveGame = db.prepare("SELECT * FROM live_game_data WHERE game_id = ? AND puuid = ?");
+    // One payload at a time: each is a whole game's recording
+    for (const key of liveGames) {
+      const row = liveGame.get(key.game_id, key.puuid) as { payload: Buffer };
+      await write({
+        type: "liveGameData",
+        data: { ...row, payload: row.payload.toString("base64") },
+      });
     }
     onProgress?.({ phase: "done", current: count, total: totalGames, label: "Export complete" });
   } finally {
@@ -333,6 +353,28 @@ function importLegacyData(data: any): ImportResult {
   return { imported, total, skipped: total - imported };
 }
 
+// Writes whichever of the table's columns the record carries. Column names come from the
+// database, never from the file, so older and newer backups both fit.
+type Statement = { run: (...values: any[]) => unknown };
+
+function rowRestorer(table: string): (data: Record<string, unknown>) => void {
+  const columns = (db.pragma(`table_info(${table})`) as { name: string }[]).map((c) => c.name);
+  // One prepared statement per set of columns: a backup holds millions of timeline rows
+  const statements = new Map<string, Statement>();
+  return (data) => {
+    const present = columns.filter((column) => data[column] !== undefined);
+    const key = present.join(", ");
+    let statement: Statement | undefined = statements.get(key);
+    if (!statement) {
+      statement = db.prepare(
+        `INSERT OR REPLACE INTO ${table} (${key}) VALUES (${present.map(() => "?").join(", ")})`,
+      ) as Statement;
+      statements.set(key, statement);
+    }
+    statement.run(...present.map((column) => data[column]));
+  };
+}
+
 const MAX_IMPORT_LINE_BYTES = 50 * 1024 * 1024;
 
 export async function importData(
@@ -353,7 +395,7 @@ export async function importData(
     const raw = await fs.promises.readFile(filePath, "utf8");
     const data = JSON.parse(raw);
     if (!data || typeof data !== "object" || !Array.isArray(data.games)) {
-      throw new Error("That file isn't a Mayhem Tracker backup");
+      throw new Error("That file isn't a Rift Records backup");
     }
     const result = importLegacyData(data);
     const repairedScores = repairDerivedScores().repaired;
@@ -379,20 +421,10 @@ export async function importData(
     `);
   const deleteTimelineFrames = db.prepare("DELETE FROM match_timeline_frames WHERE game_id = ?");
   const deleteTimelineEvents = db.prepare("DELETE FROM match_timeline_events WHERE game_id = ?");
-  const restoreFrame = db.prepare(`
-      INSERT OR REPLACE INTO match_timeline_frames (
-        game_id, frame_index, timestamp_ms, participant_id, puuid, level, xp, gold, cs,
-        position_x, position_y, attack_damage, ability_power, armor, magic_resist,
-        attack_speed, ability_haste, move_speed, max_health, current_health
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `);
-  const restoreEvent = db.prepare(`
-      INSERT OR REPLACE INTO match_timeline_events (
-        game_id, event_index, timestamp_ms, event_type, participant_id, killer_id,
-        victim_id, team_id, item_id, skill_slot, level_up_type, ward_type,
-        building_type, monster_type, monster_subtype, raw_json
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `);
+  const restoreFrame = rowRestorer("match_timeline_frames");
+  const restoreEvent = rowRestorer("match_timeline_events");
+  const restoreLivePeak = rowRestorer("live_stat_peaks");
+  const restoreLiveGame = rowRestorer("live_game_data");
 
   const games: Array<{ data: any }> = [];
   const statuses: Array<{ data: any }> = [];
@@ -457,28 +489,7 @@ export async function importData(
           deleteTimelineEvents.run(frame.game_id);
           clearedTimelineGameIds.add(frame.game_id);
         }
-        restoreFrame.run(
-          frame.game_id,
-          frame.frame_index,
-          frame.timestamp_ms,
-          frame.participant_id,
-          frame.puuid,
-          frame.level,
-          frame.xp,
-          frame.gold,
-          frame.cs,
-          frame.position_x,
-          frame.position_y,
-          frame.attack_damage,
-          frame.ability_power,
-          frame.armor,
-          frame.magic_resist,
-          frame.attack_speed,
-          frame.ability_haste,
-          frame.move_speed,
-          frame.max_health,
-          frame.current_health,
-        );
+        restoreFrame(frame);
       }
     });
     tx();
@@ -492,24 +503,7 @@ export async function importData(
           deleteTimelineEvents.run(event.game_id);
           clearedTimelineGameIds.add(event.game_id);
         }
-        restoreEvent.run(
-          event.game_id,
-          event.event_index,
-          event.timestamp_ms,
-          event.event_type,
-          event.participant_id,
-          event.killer_id,
-          event.victim_id,
-          event.team_id,
-          event.item_id,
-          event.skill_slot,
-          event.level_up_type,
-          event.ward_type,
-          event.building_type,
-          event.monster_type,
-          event.monster_subtype,
-          event.raw_json,
-        );
+        restoreEvent(event);
       }
     });
     tx();
@@ -537,7 +531,7 @@ export async function importData(
     }
     if (!headerSeen) {
       if (record.type !== "header" || typeof record.version !== "number" || record.version < 6) {
-        throw new Error("That file isn't a supported League Tracker v6 backup");
+        throw new Error("That file isn't a supported Rift Records v6 backup");
       }
       headerSeen = true;
       reportProgress("reading", "Reading backup", true);
@@ -588,6 +582,12 @@ export async function importData(
         progressPhase = "timeline-events";
         progressLabel = "Reading timeline events";
         break;
+      case "liveStatPeak":
+        restoreLivePeak(record.data);
+        break;
+      case "liveGameData":
+        restoreLiveGame({ ...record.data, payload: Buffer.from(record.data.payload, "base64") });
+        break;
       default:
         throw new Error(`Unknown record type on backup line ${lineNumber}`);
     }
@@ -612,7 +612,7 @@ export async function importData(
   if (pending.length > MAX_IMPORT_LINE_BYTES)
     throw new Error("Backup line exceeds the 50 MB limit");
   if (pending.length > 0) processLine(pending.toString("utf8"));
-  if (!headerSeen) throw new Error("That file isn't a League Tracker backup");
+  if (!headerSeen) throw new Error("That file isn't a Rift Records backup");
   flushGames();
   flushStatuses();
   flushFrames();
@@ -845,4 +845,44 @@ export function reconcileOwnerPuuids(): number {
     );
   }
   return updated;
+}
+
+// Riot API syncs used to store games under the API's id for an account the client knows by another
+// one. Such games have an owner with no summoner row, so nothing shows them. Runs at every start:
+// it is one indexed query when there is nothing to do.
+export function adoptOrphanedRiotRows(): number {
+  const orphans = db
+    .prepare(
+      `SELECT DISTINCT puuid FROM games
+       WHERE source = 'riot-sync' AND puuid != '' AND puuid NOT IN (SELECT puuid FROM summoner)`,
+    )
+    .all() as { puuid: string }[];
+  let adopted = 0;
+  db.transaction(() => {
+    for (const { puuid } of orphans) {
+      // Only an unambiguous Riot ID match: the same name on two servers is two accounts
+      const matches = db
+        .prepare(
+          `SELECT DISTINCT s.puuid
+             FROM match_participants p
+             JOIN summoner s
+               ON LOWER(TRIM(s.game_name)) = LOWER(TRIM(p.game_name))
+              AND LOWER(TRIM(s.tag_line)) = LOWER(TRIM(p.tag_line))
+            WHERE p.puuid = ?`,
+        )
+        .all(puuid) as { puuid: string }[];
+      if (matches.length !== 1) continue;
+      const owner = matches[0].puuid;
+      db.prepare("UPDATE OR IGNORE tracked_game_stats SET puuid = ? WHERE puuid = ?").run(
+        owner,
+        puuid,
+      );
+      db.prepare("DELETE FROM tracked_game_stats WHERE puuid = ?").run(puuid);
+      db.prepare("UPDATE match_participants SET puuid = ? WHERE puuid = ?").run(owner, puuid);
+      db.prepare("UPDATE match_timeline_frames SET puuid = ? WHERE puuid = ?").run(owner, puuid);
+      adopted += db.prepare("UPDATE games SET puuid = ? WHERE puuid = ?").run(owner, puuid).changes;
+    }
+  })();
+  if (adopted > 0) console.log(`[db] adopted ${adopted} game(s) stored under a Riot API id`);
+  return adopted;
 }

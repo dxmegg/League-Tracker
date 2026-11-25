@@ -6,7 +6,9 @@ import "@fontsource/ibm-plex-sans/500.css";
 import "@fontsource/ibm-plex-sans/600.css";
 import { createRoot } from "react-dom/client";
 import App from "./App";
+import { ErrorBoundary } from "./components/ErrorBoundary";
 import { initViewState } from "./lib/viewState";
+import { resolveTheme } from "./lib/themes";
 import { dbg } from "../shared/debug";
 import "./global.css";
 
@@ -27,18 +29,16 @@ Promise.resolve(window.api?.getDebugEnabled?.())
     return Promise.resolve(themeSetting)
       .catch(() => null)
       .then((stored) => {
-        const valid =
-          stored === "test" ||
-          stored === "experiment" ||
-          stored === "experiment2" ||
-          stored === "experiment3" ||
-          stored === "experiment4" ||
-          stored === "experiment5"
-            ? stored
-            : "experiment";
+        const valid = resolveTheme(stored);
+        // Someone who had one of the removed themes is moved to the main one for good
+        if (stored && stored !== valid) void window.api?.setSetting?.("theme", valid);
         document.documentElement.setAttribute("data-theme", valid);
       })
       .finally(() => {
-        root.render(<App />);
+        root.render(
+          <ErrorBoundary>
+            <App />
+          </ErrorBoundary>,
+        );
       });
   });

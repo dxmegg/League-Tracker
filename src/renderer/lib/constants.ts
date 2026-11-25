@@ -46,3 +46,8 @@ export const CANISBACK_PERK_ICON_URL = (iconPath: string): string => {
 };
 
 export { QUEUE_ID_MAYHEM, QUEUE_ID_MAYHEM_CLASSIC, QUEUE_LABELS } from "../../shared/queues";
+
+// Base-skin splash art from Data Dragon. Unversioned path, keyed by the champion key string
+// ("MissFortune"), never the numeric id.
+export const CHAMPION_SPLASH_URL = (key: string): string =>
+  `https://ddragon.leagueoflegends.com/cdn/img/champion/splash/${key}_0.jpg`;

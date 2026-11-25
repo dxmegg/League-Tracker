@@ -6,6 +6,7 @@ import { useLcuStatus } from "../hooks/useLcuStatus";
 import { useBackfill } from "../hooks/useBackfill";
 import { useViewState } from "../hooks/useViewState";
 import { useActiveAccount } from "../hooks/useActiveAccount";
+import { useActiveMode } from "../hooks/useActiveMode";
 import type {
   MatchListItem,
   MatchDetail,
@@ -81,14 +82,21 @@ function emptyStateMessage(
 }
 
 // The unselected state is the default sort (date), so it isn't listed here
-const SORT_OPTIONS: { value: MatchSort; label: string }[] = [
+export const SORT_OPTIONS: { value: MatchSort; label: string }[] = [
   { value: "score", label: "Score" },
   { value: "kda", label: "KDA" },
   { value: "kills", label: "Kills" },
-  { value: "duration", label: "Duration" },
+  { value: "deaths", label: "Deaths" },
   { value: "damageDealt", label: "Damage Dealt" },
   { value: "damageTaken", label: "Damage Taken" },
   { value: "healing", label: "Healing" },
+  { value: "duration", label: "Duration" },
+  { value: "cs", label: "CS" },
+  { value: "gold", label: "Gold" },
+  { value: "doubles", label: "Double Kills" },
+  { value: "triples", label: "Triple Kills" },
+  { value: "quadras", label: "Quadra Kills" },
+  { value: "pentas", label: "Penta Kills" },
 ];
 
 // A session is a day of play, but the day doesn't end at midnight: games before
@@ -253,6 +261,7 @@ export default function MatchHistory({
     `matches.queue.${scope ?? "full"}`,
     undefined,
   );
+  const [mode] = useActiveMode();
   const scopedQueue =
     scope === "mayhem"
       ? (queueFilter ?? QUEUE_SCOPE_MAYHEM)
@@ -264,7 +273,9 @@ export default function MatchHistory({
             ? (queueFilter ?? QUEUE_SCOPE_ARAM)
             : scope === "arena"
               ? (queueFilter ?? QUEUE_SCOPE_ARENA)
-              : queueFilter;
+              : mode === "mayhem"
+                ? QUEUE_SCOPE_MAYHEM
+                : queueFilter;
   const [activeAccountRaw] = useActiveAccount();
   const accountFilter: string | undefined =
     activeAccountRaw === ALL_ACCOUNTS_SENTINEL ? undefined : activeAccountRaw;
@@ -843,17 +854,21 @@ export default function MatchHistory({
                 label: `Patch ${formatPatch(patch)}`,
               }))}
             />
-            <FilterSelect
-              title="Filter by queue type"
-              value={queueFilter}
-              onChange={(value) => setQueueFilter(value === undefined ? undefined : Number(value))}
-              placeholder="Queue Type"
-              className="h-8 px-3 text-[12.5px]"
-              options={filterOptions.queues.map((q) => ({
-                value: q,
-                label: q === QUEUE_GROUP_ARENA ? "All Arena" : queueLabel(q),
-              }))}
-            />
+            {mode !== "mayhem" && (
+              <FilterSelect
+                title="Filter by queue type"
+                value={queueFilter}
+                onChange={(value) =>
+                  setQueueFilter(value === undefined ? undefined : Number(value))
+                }
+                placeholder="Queue Type"
+                className="h-8 px-3 text-[12.5px]"
+                options={filterOptions.queues.map((q) => ({
+                  value: q,
+                  label: q === QUEUE_GROUP_ARENA ? "All Arena" : queueLabel(q),
+                }))}
+              />
+            )}
             <div className="flex items-center gap-1">
               <FilterSelect
                 value={sort}
@@ -925,16 +940,20 @@ export default function MatchHistory({
                 label: `Patch ${formatPatch(patch)}`,
               }))}
             />
-            <FilterSelect
-              title="Filter by queue type"
-              value={queueFilter}
-              onChange={(value) => setQueueFilter(value === undefined ? undefined : Number(value))}
-              placeholder="Queue Type"
-              options={filterOptions.queues.map((q) => ({
-                value: q,
-                label: q === QUEUE_GROUP_ARENA ? "All Arena" : queueLabel(q),
-              }))}
-            />
+            {mode !== "mayhem" && (
+              <FilterSelect
+                title="Filter by queue type"
+                value={queueFilter}
+                onChange={(value) =>
+                  setQueueFilter(value === undefined ? undefined : Number(value))
+                }
+                placeholder="Queue Type"
+                options={filterOptions.queues.map((q) => ({
+                  value: q,
+                  label: q === QUEUE_GROUP_ARENA ? "All Arena" : queueLabel(q),
+                }))}
+              />
+            )}
             <div className="flex items-center gap-1">
               <FilterSelect
                 value={sort}
@@ -1160,7 +1179,7 @@ function ProfileCard({
               g.is_remake === 1 ? "bg-lol-text/30" : g.win === 1 ? "bg-[#15803d]" : "bg-[#a51e1e]";
             return (
               <span key={g.game_id} className={`group relative h-2 w-2 rounded-full ${color}`}>
-                <div className="pointer-events-none absolute bottom-full left-1/2 z-50 mb-1.5 hidden -translate-x-1/2 flex-col items-center gap-1 rounded-md border border-lol-crimson/40 bg-[linear-gradient(145deg,#0c0e11_0%,#090b0d_48%,#060809_100%)] px-2.5 py-1.5 shadow-[0_0_4px_rgba(150,30,30,0.35),0_0_12px_rgba(90,15,15,0.20)] ring-1 ring-inset ring-white/[0.03] group-hover:flex">
+                <div className="pointer-events-none absolute bottom-full left-1/2 z-50 mb-1.5 hidden -translate-x-1/2 flex-col items-center gap-1 rounded-md border border-lol-border bg-[linear-gradient(160deg,var(--theme-card-hover),var(--theme-card))] px-2.5 py-1.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.06),0_14px_34px_-18px_rgba(0,0,0,0.8)] group-hover:flex">
                   <div className="flex items-center gap-1.5 whitespace-nowrap">
                     <ChampionIcon championId={g.champion_id} size={18} />
                     <span

@@ -324,7 +324,7 @@ export function getChampionTimelineAverages(
       params.push(...participant.params);
       if (championId !== null) params.push(championId);
       if (account === "all") {
-        where.push("mp.puuid IN (SELECT puuid FROM summoner)");
+        where.push("mp.puuid IN (SELECT puuid FROM visible_summoner)");
       } else if (account) {
         where.push("mp.puuid = ?");
         params.push(account);
@@ -572,10 +572,10 @@ export function getChampionKillDeathPositions(
     const cappedLimit = Math.min(Math.max(Math.trunc(limit), 1), 5000);
     const ownerScope =
       account === "all"
-        ? "mp.puuid IN (SELECT puuid FROM summoner)"
+        ? "mp.puuid IN (SELECT puuid FROM visible_summoner)"
         : account
           ? "mp.puuid = ?"
-          : "mp.puuid IN (SELECT puuid FROM summoner)";
+          : "mp.puuid IN (SELECT puuid FROM visible_summoner)";
     const params: Array<number | string> = [championId];
     if (account && account !== "all") params.push(account);
 

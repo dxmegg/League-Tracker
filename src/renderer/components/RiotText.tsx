@@ -226,11 +226,17 @@ const BR = String.raw`<br\s*\/?>`;
 const INLINE_ICON = /%i:[A-Za-z0-9_]+%/g;
 
 function normalize(markup: string): string {
-  return markup
-    .replace(INLINE_ICON, "")
-    .replace(/^\s*<mainText>/i, "")
-    .replace(new RegExp(String.raw`^(?:\s|<stats>\s*<\/stats>|${BR})+`, "i"), "")
-    .replace(new RegExp(String.raw`(?:${BR}\s*){3,}`, "gi"), "<br><br>");
+  return (
+    markup
+      .replace(INLINE_ICON, "")
+      // A value that scales with level or stats has no single number in the bundled
+      // text, which leaves "Gain % Heal" and "()" behind; mark the blank instead.
+      .replace(/\(\s*\)/g, "")
+      .replace(/(^|[\s>(+])%/g, "$1X%")
+      .replace(/^\s*<mainText>/i, "")
+      .replace(new RegExp(String.raw`^(?:\s|<stats>\s*<\/stats>|${BR})+`, "i"), "")
+      .replace(new RegExp(String.raw`(?:${BR}\s*){3,}`, "gi"), "<br><br>")
+  );
 }
 
 export default function RiotText({ markup }: { markup: string }) {

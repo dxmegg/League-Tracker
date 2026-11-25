@@ -217,11 +217,16 @@ export function normalizeTeamPosition(raw: any, stats: any): string | null {
 
   const lane = raw?.timeline?.lane ?? stats?.timeline?.lane;
   const role = raw?.timeline?.role ?? stats?.timeline?.role;
-  if (typeof lane !== "string" || !lane || lane === "NONE") return null;
+  if (typeof lane !== "string" || !lane) return null;
 
   // Bot lane is the only lane whose role disambiguates the position: support
-  // is reported as UTILITY by Match-V5, carry as BOTTOM.
-  if (lane === "BOTTOM" && role === "DUO_SUPPORT") return "UTILITY";
+  // is reported as UTILITY by Match-V5, carry as BOTTOM. The client spells the
+  // support role "SUPPORT" (older builds "DUO_SUPPORT"), and a roaming support is
+  // often given no lane at all, so that pair counts too.
+  if (role === "SUPPORT" || role === "DUO_SUPPORT") {
+    if (lane === "BOTTOM" || lane === "NONE") return "UTILITY";
+  }
+  if (typeof lane !== "string" || !lane || lane === "NONE") return null;
   return lane;
 }
 

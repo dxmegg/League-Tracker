@@ -55,152 +55,6 @@ function duplicateSummonerRows(
   }[];
 }
 
-function quotedTableColumns(table: string): string[] {
-  return (db.pragma(`table_info(${table})`) as { name: string }[]).map((column) => column.name);
-}
-
-function mergeSummonerReferences(
-  stalePuuid: string,
-  canonicalPuuid: string,
-): { gamesMoved: number; trackedRowsMoved: number } {
-  const merge = db.transaction(() => {
-    const staleGames = db.prepare("SELECT game_id FROM games WHERE puuid = ?").all(stalePuuid) as {
-      game_id: number;
-    }[];
-    let gamesMoved = 0;
-    for (const game of staleGames) {
-      const ownedByCanonical = db
-        .prepare("SELECT 1 FROM games WHERE game_id = ? AND puuid = ?")
-        .get(game.game_id, canonicalPuuid);
-      if (!ownedByCanonical) {
-        gamesMoved += db
-          .prepare("UPDATE games SET puuid = ? WHERE game_id = ? AND puuid = ?")
-          .run(canonicalPuuid, game.game_id, stalePuuid).changes;
-      }
-    }
-
-    let trackedRowsMoved = 0;
-    for (const table of ["tracked_game_stats", "match_participants"]) {
-      const columns = quotedTableColumns(table);
-      const quotedColumns = columns.map((column) => `"${column}"`).join(", ");
-      const selectColumns = columns
-        .map((column) => (column === "puuid" ? "?" : `"${column}"`))
-        .join(", ");
-      const sourceCount = (
-        db.prepare(`SELECT COUNT(*) AS count FROM ${table} WHERE puuid = ?`).get(stalePuuid) as {
-          count: number;
-        }
-      ).count;
-      const inserted = db
-        .prepare(
-          `INSERT OR IGNORE INTO ${table} (${quotedColumns})
-           SELECT ${selectColumns} FROM ${table} WHERE puuid = ?`,
-        )
-        .run(canonicalPuuid, stalePuuid).changes;
-      const overlap = columns.includes("participant_id")
-        ? (
-            db
-              .prepare(
-                `SELECT COUNT(*) AS count
-                 FROM ${table} a
-                 JOIN ${table} b
-                   ON a.game_id = b.game_id
-                  AND a.participant_id = b.participant_id
-                 WHERE a.puuid = ? AND b.puuid = ?`,
-              )
-              .get(stalePuuid, canonicalPuuid) as { count: number }
-          ).count
-        : 0;
-      const deleteSafe = inserted + overlap === sourceCount;
-      console.log(
-        `[merge] table=${table} source=${sourceCount} inserted=${inserted} overlap=${overlap} delete_safe=${deleteSafe}${deleteSafe ? "" : " SKIPPED_DELETE"}`,
-      );
-      if (!deleteSafe) {
-        console.error("[merge] refusing destructive PUUID merge:", {
-          table,
-          stalePuuid,
-          canonicalPuuid,
-          sourceCount,
-          inserted,
-          overlap,
-        });
-        throw new Error(`Unsafe PUUID merge for ${table}: source rows were not preserved`);
-      }
-      if (table === "tracked_game_stats") trackedRowsMoved += inserted;
-      const deleted = db.prepare(`DELETE FROM ${table} WHERE puuid = ?`).run(stalePuuid);
-      console.log("[db] merged rows:", {
-        table,
-        inserted,
-        deleted: deleted.changes,
-      });
-    }
-
-    const staleSync = db
-      .prepare(
-        "SELECT platform, last_sync_at, last_match_id, complete FROM riot_sync_state WHERE puuid = ?",
-      )
-      .get(stalePuuid) as
-      | {
-          platform: string;
-          last_sync_at: number | null;
-          last_match_id: string | null;
-          complete: number;
-        }
-      | undefined;
-    const canonicalSync = db
-      .prepare(
-        "SELECT platform, last_sync_at, last_match_id, complete FROM riot_sync_state WHERE puuid = ?",
-      )
-      .get(canonicalPuuid);
-    if (staleSync && !canonicalSync) {
-      db.prepare("UPDATE riot_sync_state SET puuid = ? WHERE puuid = ?").run(
-        canonicalPuuid,
-        stalePuuid,
-      );
-    } else if (staleSync) {
-      const currentCanonical = canonicalSync as {
-        platform: string;
-        last_sync_at: number | null;
-        last_match_id: string | null;
-        complete: number;
-      };
-      if ((staleSync.last_sync_at ?? 0) > (currentCanonical.last_sync_at ?? 0)) {
-        db.prepare(
-          `INSERT OR REPLACE INTO riot_sync_state
-             (puuid, platform, last_sync_at, last_match_id, complete)
-           VALUES (?, ?, ?, ?, ?)`,
-        ).run(
-          canonicalPuuid,
-          staleSync.platform,
-          staleSync.last_sync_at,
-          staleSync.last_match_id,
-          staleSync.complete,
-        );
-      }
-      const result = db.prepare("DELETE FROM riot_sync_state WHERE puuid = ?").run(stalePuuid);
-      console.log("[db] merged rows:", { table: "riot_sync_state", count: result.changes });
-    }
-
-    const staleSetting = `backfill_complete_${stalePuuid}`;
-    const canonicalSetting = `backfill_complete_${canonicalPuuid}`;
-    const staleComplete = db
-      .prepare("SELECT value FROM settings WHERE key = ?")
-      .get(staleSetting) as { value: string } | undefined;
-    if (staleComplete) {
-      if (!db.prepare("SELECT 1 FROM settings WHERE key = ?").get(canonicalSetting)) {
-        db.prepare("INSERT INTO settings (key, value) VALUES (?, ?)").run(
-          canonicalSetting,
-          staleComplete.value,
-        );
-      }
-      db.prepare("DELETE FROM settings WHERE key = ?").run(staleSetting);
-    }
-
-    return { gamesMoved, trackedRowsMoved };
-  });
-  return merge();
-}
-
 export function upsertSummoner(
   summoner: {
     puuid: string;
@@ -237,26 +91,14 @@ export function upsertSummoner(
   const summonerLevel = summoner.summonerLevel ?? summoner.summoner_level ?? null;
 
   const platform = summoner.platform?.trim() || null;
-  const duplicates = duplicateSummonerRows(gameName, tagLine, platform, summoner.puuid);
-  if (duplicates.length > 0 && source === "lcu") {
-    console.log("[db] upsertSummoner reused existing PUUID:", {
-      requestedPuuid: summoner.puuid,
-      existingPuuid: duplicates[0].puuid,
-    });
-    return duplicates[0].puuid;
-  }
-  if (duplicates.length > 0 && source === "riot") {
-    for (const duplicate of duplicates) {
-      const moved = mergeSummonerReferences(duplicate.puuid, summoner.puuid);
-      const result = db.prepare("DELETE FROM summoner WHERE puuid = ?").run(duplicate.puuid);
-      console.log("[db] merged duplicate summoner:", {
-        stalePuuid: duplicate.puuid,
-        canonicalPuuid: summoner.puuid,
-        deleted: result.changes,
-        ...moved,
-      });
-    }
-  }
+  // The client and the Riot API can call one account by different ids. History is keyed by the id
+  // that already has a row, so a second id for the same Riot ID is folded into it.
+  const known = db.prepare("SELECT 1 FROM summoner WHERE puuid = ?").get(summoner.puuid);
+  const puuid =
+    source !== "import" && !known
+      ? (duplicateSummonerRows(gameName, tagLine, platform, summoner.puuid)[0]?.puuid ??
+        summoner.puuid)
+      : summoner.puuid;
 
   db.prepare(`
     INSERT INTO summoner (
@@ -283,7 +125,7 @@ export function upsertSummoner(
       updated_at = excluded.updated_at,
       last_seen = excluded.last_seen
   `).run(
-    summoner.puuid,
+    puuid,
     gameName,
     tagLine,
     summonerId,
@@ -294,8 +136,8 @@ export function upsertSummoner(
     summonerLevel,
     now,
   );
-  console.log("[db] upsertSummoner done:", { puuid: summoner.puuid });
-  return summoner.puuid;
+  console.log("[db] upsertSummoner done:", { puuid });
+  return puuid;
 }
 
 export function getResolvedPlatform(): string | null {
@@ -386,7 +228,7 @@ export function saveAccountSnapshot(snapshot: {
 }): void {
   console.log("[db] saveAccountSnapshot called:", { puuid: snapshot.puuid });
   const tx = db.transaction(() => {
-    upsertSummoner(
+    const puuid = upsertSummoner(
       {
         puuid: snapshot.puuid,
         gameName: snapshot.gameName,
@@ -420,7 +262,7 @@ export function saveAccountSnapshot(snapshot: {
       rankedFlexJson,
       masteryJson,
       Date.now(),
-      snapshot.puuid,
+      puuid,
     );
   });
 
@@ -542,6 +384,9 @@ export function listAccountsWithData(): Array<{
   summonerLevel: number | null;
   lastSeen: number | null;
   gameCount: number;
+  // Decided games only: remakes are neither a win nor a loss
+  wins: number;
+  decidedGames: number;
 }> {
   console.log("[db] listAccountsWithData called:", {});
   const rows = db
@@ -554,9 +399,12 @@ export function listAccountsWithData(): Array<{
         s.platform,
         s.summoner_level,
         s.last_seen,
-        COUNT(tgs.game_id) AS game_count
-      FROM summoner s
+        COUNT(tgs.game_id) AS game_count,
+        COALESCE(SUM(CASE WHEN g.is_remake = 0 THEN tgs.win ELSE 0 END), 0) AS wins,
+        COUNT(CASE WHEN g.is_remake = 0 THEN 1 END) AS decided_games
+      FROM visible_summoner s
       INNER JOIN tracked_game_stats tgs ON tgs.puuid = s.puuid
+      INNER JOIN games g ON g.game_id = tgs.game_id
       GROUP BY s.puuid
       HAVING COUNT(tgs.game_id) > 0
       ORDER BY s.last_seen DESC
@@ -570,6 +418,8 @@ export function listAccountsWithData(): Array<{
     summoner_level: number | null;
     last_seen: number | null;
     game_count: number;
+    wins: number;
+    decided_games: number;
   }>;
 
   console.log("[db] listAccountsWithData done:", { count: rows.length });
@@ -582,6 +432,8 @@ export function listAccountsWithData(): Array<{
     summonerLevel: row.summoner_level,
     lastSeen: row.last_seen,
     gameCount: row.game_count,
+    wins: row.wins,
+    decidedGames: row.decided_games,
   }));
 }
 
@@ -661,6 +513,11 @@ export function getAllPuuids(): string[] {
   return rows.map((r) => r.puuid);
 }
 
+export function getVisiblePuuids(): string[] {
+  const rows = db.prepare("SELECT puuid FROM visible_summoner").all() as { puuid: string }[];
+  return rows.map((r) => r.puuid);
+}
+
 export function listSavedSummoners(): Array<{
   puuid: string;
   game_name: string | null;
@@ -688,6 +545,46 @@ export function listSavedSummoners(): Array<{
     updated_at: number;
     games: number;
   }>;
+}
+
+// Games this account owned that another saved account also played. Left alone they would keep an
+// owner that no longer exists, which hides them from every owner-based view.
+function handOverOwnedGames(puuid: string): void {
+  const shared = db
+    .prepare(
+      `SELECT g.game_id, MIN(t.puuid) AS heir
+         FROM games g
+         JOIN tracked_game_stats t ON t.game_id = g.game_id
+        WHERE g.puuid = ? AND t.puuid IN (SELECT puuid FROM summoner WHERE puuid != ?)
+        GROUP BY g.game_id`,
+    )
+    .all(puuid, puuid) as { game_id: number; heir: string }[];
+  if (shared.length === 0) return;
+
+  // player_stats and tracked_game_stats share every column but the account id
+  const columns = (db.pragma("table_info(player_stats)") as { name: string }[])
+    .map((column) => column.name)
+    .join(", ");
+  const setOwner = db.prepare("UPDATE games SET puuid = ? WHERE game_id = ?");
+  const setStats = db.prepare(
+    `INSERT OR REPLACE INTO player_stats (${columns})
+     SELECT ${columns} FROM tracked_game_stats WHERE game_id = ? AND puuid = ?`,
+  );
+  const clearAugments = db.prepare("DELETE FROM game_augments WHERE game_id = ?");
+  const setAugments = db.prepare(
+    `INSERT OR IGNORE INTO game_augments (game_id, slot, augment_id)
+     SELECT a.game_id, a.slot, a.augment_id
+       FROM match_participant_augments a
+       JOIN match_participants p
+         ON p.game_id = a.game_id AND p.participant_id = a.participant_id
+      WHERE a.game_id = ? AND p.puuid = ?`,
+  );
+  for (const { game_id, heir } of shared) {
+    setOwner.run(heir, game_id);
+    setStats.run(game_id, heir);
+    clearAugments.run(game_id);
+    setAugments.run(game_id, heir);
+  }
 }
 
 export function deleteSavedSummoner(puuid: string): {
@@ -734,31 +631,29 @@ export function deleteSavedSummoner(puuid: string): {
 
       if (orphanIds.length > 0) {
         const orphanPlaceholders = orphanIds.map(() => "?").join(", ");
-        const deletedPlayerStats = db
-          .prepare(`DELETE FROM player_stats WHERE game_id IN (${orphanPlaceholders})`)
-          .run(...orphanIds).changes;
-        console.log("[db] delete player_stats", deletedPlayerStats);
-        const deletedGameAugments = db
-          .prepare(`DELETE FROM game_augments WHERE game_id IN (${orphanPlaceholders})`)
-          .run(...orphanIds).changes;
-        console.log("[db] delete game_augments", deletedGameAugments);
-        const deletedParticipantAugments = db
-          .prepare(
-            `DELETE FROM match_participant_augments WHERE game_id IN (${orphanPlaceholders})`,
-          )
-          .run(...orphanIds).changes;
-        console.log("[db] delete match_participant_augments", deletedParticipantAugments);
-        const deletedParticipants = db
-          .prepare(`DELETE FROM match_participants WHERE game_id IN (${orphanPlaceholders})`)
-          .run(...orphanIds).changes;
-        console.log("[db] delete match_participants", deletedParticipants);
-        const deletedGameRows = db
-          .prepare(`DELETE FROM games WHERE game_id IN (${orphanPlaceholders})`)
-          .run(...orphanIds).changes;
-        console.log("[db] delete games", deletedGameRows);
+        // match_teams, match_bans and challenges follow through ON DELETE CASCADE
+        for (const table of [
+          "player_stats",
+          "game_augments",
+          "match_participant_augments",
+          "match_participants",
+          "match_timeline_status",
+          "match_timeline_frames",
+          "match_timeline_events",
+          "live_stat_peaks",
+          "live_game_data",
+          "games",
+        ]) {
+          const removed = db
+            .prepare(`DELETE FROM ${table} WHERE game_id IN (${orphanPlaceholders})`)
+            .run(...orphanIds).changes;
+          console.log(`[db] delete ${table}`, removed);
+        }
       }
       deletedGames = orphanIds.length;
     }
+
+    handOverOwnedGames(puuid);
 
     const deletedSummonerRows = db
       .prepare("DELETE FROM summoner WHERE puuid = ?")
@@ -783,6 +678,15 @@ export function deleteSearchedSummoners(): { removed: number; games: number } {
           FROM tracked_game_stats t
           JOIN games g ON g.game_id = t.game_id
           WHERE g.source = 'search-import'
+        )
+        AND NOT EXISTS (
+          SELECT 1
+          FROM tracked_game_stats t
+          JOIN games g ON g.game_id = t.game_id
+          WHERE t.puuid = s.puuid AND g.source != 'search-import'
+        )
+        AND NOT EXISTS (
+          SELECT 1 FROM games g WHERE g.puuid = s.puuid AND g.source != 'search-import'
         )`,
     )
     .all() as { puuid: string; games: number }[];

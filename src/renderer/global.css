@@ -1,4 +1,45 @@
 @import "tailwindcss";
+@import "tw-animate-css";
+
+/* shadcn/ui semantic tokens, mapped onto the app's own --theme-* variables so every
+   theme switch also restyles shadcn components. `inline` keeps the var() reference
+   live instead of resolving it once at build time.
+   Deliberately left out: shadcn's --radius-* scale and its global `* { border-color }`
+   / body base layer, because both would change the look of existing screens.
+   `accent` is already the gold theme accent above; shadcn components that use
+   bg-accent (hover rows) must be edited to bg-surface-hover when they are added. */
+@theme inline {
+  --color-background: var(--theme-bg);
+  --color-foreground: var(--theme-text-bright);
+  --color-card: var(--theme-card);
+  --color-card-foreground: var(--theme-text-bright);
+  --color-popover: var(--theme-card);
+  --color-popover-foreground: var(--theme-text-bright);
+  --color-primary: var(--theme-crimson);
+  --color-primary-foreground: #ffffff;
+  --color-secondary: var(--theme-card-hover);
+  --color-secondary-foreground: var(--theme-text-bright);
+  --color-muted: var(--theme-card-hover);
+  --color-muted-foreground: var(--theme-text);
+  --color-accent-foreground: var(--theme-text-bright);
+  --color-destructive: var(--theme-loss);
+  --color-border: var(--theme-border);
+  --color-input: var(--theme-border);
+  --color-ring: var(--theme-crimson);
+}
+
+/* Core brand palette: the only colours new code should use. Follows the active theme.
+   Spacing = Tailwind's default 4px scale. One radius for the whole app (8px).
+   shortcut: legacy lol-*, fg-*, crimson, accent tokens below stay until their ~2800 usages are migrated. */
+@theme inline {
+  --color-brand-bg: var(--theme-bg);
+  --color-brand-text: var(--theme-text-bright);
+  --color-brand-primary: var(--theme-crimson);
+  --color-brand-accent: var(--theme-gold);
+  --color-brand-win: var(--theme-win);
+  --color-brand-loss: var(--theme-loss);
+  --radius-app: 0.5rem;
+}
 
 @theme {
   --color-lol-dark: #0b0e14;
@@ -35,6 +76,8 @@
 }
 
 :root {
+  --tile-radius: 16px;
+  --tile-padding: 1.25rem;
   --theme-bg: #0b0e14;
   --theme-card: #141924;
   --theme-card-hover: #1b2130;
@@ -125,8 +168,8 @@ html[data-theme="experiment"] {
   --theme-crimson-glow: rgba(210, 43, 71, 0.48);
   --theme-victory: #38d6a2;
   --theme-win: #38d6a2;
-  --theme-defeat: #f0566e;
-  --theme-loss: #f0566e;
+  --theme-defeat: #ff6a4d;
+  --theme-loss: #ff6a4d;
   --theme-assist: #4db8ff;
   --theme-violet: #a98bff;
   --theme-flint: #75646c;
@@ -134,146 +177,45 @@ html[data-theme="experiment"] {
   --theme-font-body: "IBM Plex Sans", "Segoe UI", system-ui, sans-serif;
 }
 
-html[data-theme="experiment2"] {
-  /* Third theme — royal purple + gold */
-  --theme-bg-deep: #0a0612;
-  --theme-bg-base: #120a1e;
-  --theme-bg-elevated: #1c0f2e;
-  --theme-bg: #120a1e;
-  --theme-card: #1c0f2e;
-  --theme-card-hover: #26163d;
-  --theme-border: #3d2b56;
-  --theme-border-hover: #5f4a7d;
-  --theme-surface: rgba(180, 140, 220, 0.06);
-  --theme-surface-hover: rgba(180, 140, 220, 0.11);
-  --theme-foreground: #f0e6f5;
-  --theme-foreground-muted: #b8a5c8;
-  --theme-foreground-subtle: rgba(240, 230, 245, 0.6);
-  --theme-text: #b8a5c8;
-  --theme-text-bright: #f0e6f5;
-  --theme-accent: #d4af37;
-  --theme-accent-bright: #f5d97a;
-  --theme-accent-glow: rgba(212, 175, 55, 0.45);
-  --theme-gold: #d4af37;
-  --theme-gold-light: #f5d97a;
-  --theme-crimson: #9333ea;
-  --theme-crimson-bright: #b794f6;
-  --theme-crimson-glow: rgba(147, 51, 234, 0.5);
-  --theme-victory: #57c97e;
-  --theme-win: #57c97e;
-  --theme-defeat: #e05252;
-  --theme-loss: #e05252;
-  --theme-assist: #7dd3fc;
-  --theme-violet: #c4b5fd;
-  --theme-flint: #8a7fa8;
-  --theme-font-display: "Chakra Petch", "Rajdhani", "Segoe UI", system-ui, sans-serif;
-  --theme-font-body: "IBM Plex Sans", "Segoe UI", system-ui, sans-serif;
+/* Mayhem mode swaps the crimson accent for violet; extra attribute beats the theme blocks on specificity */
+html[data-mode="mayhem"][data-theme] {
+  --theme-crimson: #8b5cf6;
+  --theme-crimson-bright: #a78bfa;
+  --theme-crimson-glow: rgba(139, 92, 246, 0.48);
 }
 
-html[data-theme="experiment3"] {
-  /* Fourth theme — Emerald / Hextech green */
-  --theme-bg-deep: #04110c;
-  --theme-bg-base: #081a14;
-  --theme-bg-elevated: #0f2620;
-  --theme-bg: #081a14;
-  --theme-card: #0f2620;
-  --theme-card-hover: #16362c;
-  --theme-border: #1e4638;
-  --theme-border-hover: #2f6f5a;
-  --theme-surface: rgba(16, 185, 129, 0.06);
-  --theme-surface-hover: rgba(16, 185, 129, 0.11);
-  --theme-foreground: #e6f5ec;
-  --theme-foreground-muted: #94b8a8;
-  --theme-foreground-subtle: rgba(230, 245, 236, 0.6);
-  --theme-text: #94b8a8;
-  --theme-text-bright: #e6f5ec;
-  --theme-accent: #c9a24d;
-  --theme-accent-bright: #e8c46a;
-  --theme-accent-glow: rgba(201, 162, 77, 0.45);
-  --theme-gold: #c9a24d;
-  --theme-gold-light: #e8c46a;
-  --theme-crimson: #10b981;
-  --theme-crimson-bright: #34d399;
-  --theme-crimson-glow: rgba(16, 185, 129, 0.5);
-  --theme-victory: #4ade80;
-  --theme-win: #4ade80;
-  --theme-defeat: #ef4444;
-  --theme-loss: #ef4444;
-  --theme-assist: #67e8f9;
-  --theme-violet: #34d399;
-  --theme-flint: #6b9182;
-  --theme-font-display: "Chakra Petch", "Rajdhani", "Segoe UI", system-ui, sans-serif;
-  --theme-font-body: "IBM Plex Sans", "Segoe UI", system-ui, sans-serif;
-}
-
-html[data-theme="experiment4"] {
-  /* Fifth theme — Arcane blue */
-  --theme-bg-deep: #04091c;
-  --theme-bg-base: #08122e;
-  --theme-bg-elevated: #0f1c44;
-  --theme-bg: #08122e;
-  --theme-card: #0f1c44;
-  --theme-card-hover: #16265c;
-  --theme-border: #1e3472;
-  --theme-border-hover: #2f4d9c;
-  --theme-surface: rgba(96, 165, 250, 0.06);
-  --theme-surface-hover: rgba(96, 165, 250, 0.11);
-  --theme-foreground: #e6ecff;
-  --theme-foreground-muted: #a3b3d9;
-  --theme-foreground-subtle: rgba(230, 236, 255, 0.6);
-  --theme-text: #a3b3d9;
-  --theme-text-bright: #e6ecff;
+html[data-theme="redesign"] {
+  /* Redesign — structural clone of the experiment palette; diverge from here */
+  --theme-bg-deep: #08050a;
+  --theme-bg-base: #0d080c;
+  --theme-bg-elevated: #171017;
+  --theme-bg: #0d080c;
+  --theme-card: #171017;
+  --theme-card-hover: #20151d;
+  --theme-border: #35222c;
+  --theme-border-hover: #4a2e3d;
+  --theme-surface: rgba(210, 43, 71, 0.06);
+  --theme-surface-hover: rgba(210, 43, 71, 0.11);
+  --theme-foreground: #f4ebee;
+  --theme-foreground-muted: #a5939b;
+  --theme-foreground-subtle: #75646c;
+  --theme-text: #a5939b;
+  --theme-text-bright: #f4ebee;
   --theme-accent: #e6bc63;
-  --theme-accent-bright: #f5d97a;
+  --theme-accent-bright: #f5e0a8;
   --theme-accent-glow: rgba(230, 188, 99, 0.45);
   --theme-gold: #e6bc63;
-  --theme-gold-light: #f5d97a;
-  --theme-crimson: #3b82f6;
-  --theme-crimson-bright: #60a5fa;
-  --theme-crimson-glow: rgba(59, 130, 246, 0.5);
-  --theme-victory: #34d399;
-  --theme-win: #34d399;
-  --theme-defeat: #f43f5e;
-  --theme-loss: #f43f5e;
-  --theme-assist: #60a5fa;
-  --theme-violet: #a78bfa;
-  --theme-flint: #7c8bb8;
-  --theme-font-display: "Chakra Petch", "Rajdhani", "Segoe UI", system-ui, sans-serif;
-  --theme-font-body: "IBM Plex Sans", "Segoe UI", system-ui, sans-serif;
-}
-
-html[data-theme="experiment5"] {
-  /* Sixth theme — Obsidian */
-  --theme-bg-deep: #000000;
-  --theme-bg-base: #0a0a0a;
-  --theme-bg-elevated: #141414;
-  --theme-bg: #0a0a0a;
-  --theme-card: #141414;
-  --theme-card-hover: #1c1c1c;
-  --theme-border: #2a2a2a;
-  --theme-border-hover: #404040;
-  --theme-surface: rgba(255, 255, 255, 0.05);
-  --theme-surface-hover: rgba(255, 255, 255, 0.08);
-  --theme-foreground: #ededed;
-  --theme-foreground-muted: #a1a1a1;
-  --theme-foreground-subtle: rgba(237, 237, 237, 0.6);
-  --theme-text: #a1a1a1;
-  --theme-text-bright: #ededed;
-  --theme-accent: #d4d4d4;
-  --theme-accent-bright: #f5f5f5;
-  --theme-accent-glow: rgba(212, 212, 212, 0.35);
-  --theme-gold: #d4d4d4;
-  --theme-gold-light: #f5f5f5;
-  --theme-crimson: #737373;
-  --theme-crimson-bright: #a3a3a3;
-  --theme-crimson-glow: rgba(115, 115, 115, 0.4);
-  --theme-victory: #84cc16;
-  --theme-win: #84cc16;
-  --theme-defeat: #dc2626;
-  --theme-loss: #dc2626;
-  --theme-assist: #60a5fa;
-  --theme-violet: #a78bfa;
-  --theme-flint: #737373;
+  --theme-gold-light: #f5e0a8;
+  --theme-crimson: #d22b47;
+  --theme-crimson-bright: #e85068;
+  --theme-crimson-glow: rgba(210, 43, 71, 0.48);
+  --theme-victory: #38d6a2;
+  --theme-win: #38d6a2;
+  --theme-defeat: #ff6a4d;
+  --theme-loss: #ff6a4d;
+  --theme-assist: #4db8ff;
+  --theme-violet: #a98bff;
+  --theme-flint: #75646c;
   --theme-font-display: "Chakra Petch", "Rajdhani", "Segoe UI", system-ui, sans-serif;
   --theme-font-body: "IBM Plex Sans", "Segoe UI", system-ui, sans-serif;
 }
@@ -290,18 +232,9 @@ body {
 html[data-theme="experiment"] h1,
 html[data-theme="experiment"] h2,
 html[data-theme="experiment"] h3,
-html[data-theme="experiment2"] h1,
-html[data-theme="experiment2"] h2,
-html[data-theme="experiment2"] h3,
-html[data-theme="experiment3"] h1,
-html[data-theme="experiment3"] h2,
-html[data-theme="experiment3"] h3,
-html[data-theme="experiment4"] h1,
-html[data-theme="experiment4"] h2,
-html[data-theme="experiment4"] h3,
-html[data-theme="experiment5"] h1,
-html[data-theme="experiment5"] h2,
-html[data-theme="experiment5"] h3 {
+html[data-theme="redesign"] h1,
+html[data-theme="redesign"] h2,
+html[data-theme="redesign"] h3 {
   font-family: var(
     --theme-font-display,
     -apple-system,
@@ -330,37 +263,7 @@ html[data-theme="experiment"] body {
   -moz-osx-font-smoothing: grayscale;
 }
 
-html[data-theme="experiment2"] body {
-  position: relative;
-  background-color: var(--theme-bg-base);
-  background-image:
-    radial-gradient(900px 500px at 85% -8%, var(--theme-crimson-glow), transparent 70%),
-    linear-gradient(to bottom, var(--theme-bg-deep), var(--theme-bg-base));
-  color: var(--theme-foreground);
-  -moz-osx-font-smoothing: grayscale;
-}
-
-html[data-theme="experiment3"] body {
-  position: relative;
-  background-color: var(--theme-bg-base);
-  background-image:
-    radial-gradient(900px 500px at 85% -8%, var(--theme-crimson-glow), transparent 70%),
-    linear-gradient(to bottom, var(--theme-bg-deep), var(--theme-bg-base));
-  color: var(--theme-foreground);
-  -moz-osx-font-smoothing: grayscale;
-}
-
-html[data-theme="experiment4"] body {
-  position: relative;
-  background-color: var(--theme-bg-base);
-  background-image:
-    radial-gradient(900px 500px at 85% -8%, var(--theme-crimson-glow), transparent 70%),
-    linear-gradient(to bottom, var(--theme-bg-deep), var(--theme-bg-base));
-  color: var(--theme-foreground);
-  -moz-osx-font-smoothing: grayscale;
-}
-
-html[data-theme="experiment5"] body {
+html[data-theme="redesign"] body {
   position: relative;
   background-color: var(--theme-bg-base);
   background-image:
@@ -407,6 +310,63 @@ html[data-theme="test"] #root {
 }
 
 @layer components {
+  /* Shared glass surface for cards: lit top edge, soft depth, accent-tinted border that wakes on hover.
+     Lives in the components layer so any utility class on the element still wins. */
+  /* .app-tile is THE tile style: edit it (and --tile-radius / --tile-padding in :root) and every tile follows.
+     .app-tile-featured adds the coloured top edge and corner glow for the one tile that should stand out. */
+  .glass-card,
+  .glass-surface,
+  .app-tile {
+    position: relative;
+    border: 1px solid color-mix(in oklab, var(--theme-crimson) 16%, var(--theme-border));
+    background:
+      linear-gradient(180deg, rgba(255, 255, 255, 0.045), transparent 42%),
+      linear-gradient(
+        160deg,
+        color-mix(in oklab, var(--theme-card-hover) 90%, transparent),
+        color-mix(in oklab, var(--theme-card) 96%, transparent)
+      );
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.06),
+      0 14px 34px -18px rgba(0, 0, 0, 0.8);
+    backdrop-filter: blur(10px);
+    transition:
+      border-color 0.2s ease,
+      box-shadow 0.2s ease;
+  }
+
+  /* backdrop-filter traps children in their own stacking context, so an open dropdown would sit under the next card */
+  .glass-card:focus-within,
+  .app-tile:focus-within {
+    z-index: 20;
+  }
+
+  .app-tile {
+    border-radius: var(--tile-radius);
+    padding: var(--tile-padding);
+  }
+
+  /* Match lists: dark on the page background, a coloured top edge and a faint corner glow.
+     The colour is --tile-accent (gold unless an element sets it, e.g. win/loss green/red). */
+  .app-tile-featured {
+    border-color: var(--theme-border);
+    border-top: 3px solid var(--tile-accent, var(--theme-gold));
+    background: radial-gradient(
+      circle at top right,
+      color-mix(in oklab, var(--tile-accent, var(--theme-gold)) 12%, transparent),
+      transparent 55%
+    );
+    backdrop-filter: none;
+  }
+
+  .glass-card:hover,
+  .app-tile:hover {
+    border-color: color-mix(in oklab, var(--theme-crimson) 48%, var(--theme-border));
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.09),
+      0 18px 40px -16px var(--theme-crimson-glow);
+  }
+
   .select {
     appearance: none;
     background-color: var(--color-lol-card);
@@ -563,17 +523,25 @@ html[data-theme="test"] #root {
     --tile-accent: #e5483f;
     position: relative;
     overflow: hidden;
-    border: 1px solid var(--theme-border);
+    border: 1px solid color-mix(in oklab, var(--tile-accent) 14%, var(--theme-border));
     border-top: 3px solid var(--tile-accent);
-    border-radius: 12px;
+    border-radius: 14px;
     padding: 14px;
     background:
+      linear-gradient(180deg, rgba(255, 255, 255, 0.04), transparent 40%),
       radial-gradient(
         circle at 100% 0,
-        color-mix(in srgb, var(--tile-accent) 8%, transparent),
+        color-mix(in srgb, var(--tile-accent) 10%, transparent),
         transparent 58%
       ),
-      rgba(0, 0, 0, 0.12);
+      color-mix(in oklab, var(--theme-card) 80%, transparent);
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.05),
+      0 12px 28px -18px rgba(0, 0, 0, 0.8);
+    transition:
+      transform 0.18s ease,
+      box-shadow 0.18s ease,
+      border-color 0.18s ease;
     display: flex;
     flex-direction: column;
     gap: 6px;
@@ -587,7 +555,10 @@ html[data-theme="test"] #root {
         transparent 58%
       ),
       rgba(255, 255, 255, 0.02);
-    box-shadow: 0 0 12px color-mix(in srgb, var(--tile-accent) 10%, transparent);
+    transform: translateY(-2px);
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.08),
+      0 16px 32px -16px color-mix(in srgb, var(--tile-accent) 38%, transparent);
   }
 
   .tile-icon {
@@ -695,6 +666,32 @@ html[data-theme="test"] #root {
   }
 }
 
+@keyframes page-enter {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.page-enter {
+  animation: page-enter 0.28s ease-out both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .page-enter {
+    animation: none;
+  }
+}
+
+::selection {
+  background: color-mix(in oklab, var(--theme-crimson) 45%, transparent);
+  color: #fff;
+}
+
 /* Scrollbar styling */
 ::-webkit-scrollbar {
   width: 6px;
@@ -710,7 +707,7 @@ html[data-theme="test"] #root {
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #3a4457;
+  background: color-mix(in oklab, var(--theme-crimson) 55%, var(--color-lol-border));
 }
 
 .scroll-themed {
@@ -720,6 +717,7 @@ html[data-theme="test"] #root {
 
 .scroll-themed::-webkit-scrollbar {
   width: 6px;
+  height: 6px;
 }
 
 .scroll-themed::-webkit-scrollbar-track {

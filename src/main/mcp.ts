@@ -9,7 +9,7 @@ export async function fetchSummonerGameHistory(
   tagLine: string,
   region: string,
 ): Promise<unknown> {
-  const client = new Client({ name: "league-tracker", version: "1.0.0" });
+  const client = new Client({ name: "rift-records", version: "1.0.0" });
   try {
     const transport = new StreamableHTTPClientTransport(new URL("https://mcp-api.op.gg/mcp"));
     await client.connect(transport);

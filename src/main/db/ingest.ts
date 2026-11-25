@@ -8,7 +8,13 @@ import {
   writeParticipants,
   type RawParticipantRow,
 } from "./payloads";
-import { computeOwnerScore, detectRemake, parsePatch, type ScoreRow } from "./scoring";
+import {
+  computeOwnerScore,
+  detectRemake,
+  parsePatch,
+  SCORE_EXTRA_COLUMNS,
+  type ScoreRow,
+} from "./scoring";
 
 // The game's owner among its participant rows. participantRowsFromRaw has
 // already folded participantIdentities into each row's puuid, so one lookup
@@ -46,9 +52,10 @@ export function insertTrackedStatsOnly(gameId: number, puuid: string): TrackedOn
              kills, deaths, assists,
              double_kills, triple_kills, quadra_kills, penta_kills,
              total_damage_dealt, total_damage_taken, gold_earned, total_heal,
-             largest_killing_spree, total_damage_dealt_all, true_damage_dealt, cs,
+             largest_killing_spree, total_damage_dealt_all, true_damage_dealt,
              largest_critical_strike, spell1, spell2,
-             item0, item1, item2, item3, item4, item5, item6
+             item0, item1, item2, item3, item4, item5, item6,
+             ${SCORE_EXTRA_COLUMNS}
       FROM match_participants
       WHERE game_id = ?
     `)
@@ -183,12 +190,17 @@ export function insertGameFull(
 
   let ownerScore: PlayerScore | null = null;
   if (!isRemake) {
-    ownerScore = computeOwnerScore(rows, puuid, {
-      champion_id: owner.champion_id,
-      kills: owner.kills,
-      deaths: owner.deaths,
-      assists: owner.assists,
-    });
+    ownerScore = computeOwnerScore(
+      rows,
+      puuid,
+      {
+        champion_id: owner.champion_id,
+        kills: owner.kills,
+        deaths: owner.deaths,
+        assists: owner.assists,
+      },
+      { queueId: gameData.queueId, gameDuration: gameData.gameDuration },
+    );
   }
 
   const gameVersion = parsePatch(gameData.gameVersion);

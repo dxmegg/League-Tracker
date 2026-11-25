@@ -2,6 +2,7 @@ import type { ChampionData, HomeDashboardPayload, HomeTimePeriod } from "../../s
 import ChampionIcon from "./ChampionIcon";
 import { getChampionName } from "../hooks/useChampions";
 import { formatNumber } from "../lib/format";
+import { scoreColor } from "../../shared/opScore";
 
 function periodLabel(period: HomeTimePeriod): string {
   if (period === "24h") return "Last 24 hours";
@@ -9,6 +10,13 @@ function periodLabel(period: HomeTimePeriod): string {
   if (period === "full") return "All time";
   return "Last 7 days";
 }
+
+const OLDEST_AGO: Record<HomeTimePeriod, string> = {
+  "24h": "24 HOURS AGO",
+  "7d": "7 DAYS AGO",
+  "30d": "30 DAYS AGO",
+  full: "",
+};
 
 function formatPlayTime(seconds: number): string {
   if (seconds < 60) return "less than a minute";
@@ -26,15 +34,22 @@ export function HomeHero({
   loading,
   timePeriod,
   champData,
+  flat = false,
+  chartOnly = false,
 }: {
   dashboard: HomeDashboardPayload | null;
   loading: boolean;
   timePeriod: HomeTimePeriod;
   champData: ChampionData;
+  // Drops the corner glow, whose edge shows as a hard box inside a panel
+  flat?: boolean;
+  // Chart only: drops the totals grid under the chart
+  chartOnly?: boolean;
 }) {
   const totalGames = dashboard?.summary.totalGames ?? 0;
   const wins = dashboard?.summary.wins ?? 0;
   const losses = dashboard?.summary.losses ?? 0;
+  const remakes = dashboard?.summary.remakes ?? 0;
   const winRate = totalGames > 0 ? Math.round((wins / totalGames) * 100) : 0;
   const recentStreak = dashboard?.summary.recentStreak ?? 0;
   const totalTimeSeconds =
@@ -45,7 +60,11 @@ export function HomeHero({
 
   return (
     <div
-      className={`relative overflow-hidden rounded-[10px] bg-[radial-gradient(circle_at_top_right,rgba(34,197,94,0.10),transparent_42%)] transition-opacity ${loading ? "opacity-50" : ""}`}
+      className={`relative rounded-[10px] transition-opacity ${
+        flat
+          ? ""
+          : "overflow-hidden bg-[radial-gradient(circle_at_top_right,rgba(34,197,94,0.10),transparent_42%)]"
+      } ${loading ? "opacity-50" : ""}`}
     >
       <div className="flex flex-wrap items-center justify-between gap-4 border-b border-lol-border/50 pb-4">
         <div className="flex flex-wrap items-center gap-x-5 gap-y-2">
@@ -54,14 +73,24 @@ export function HomeHero({
               {periodLabel(timePeriod)}
             </div>
             <div className="flex items-baseline gap-2.5 font-display text-[42px] font-bold leading-none tracking-[-1px]">
-              <span className="text-[#00ff9d]">{formatNumber(wins)}</span>
+              <span className="text-lol-win">{formatNumber(wins)}</span>
               <span className="font-medium text-lol-text/60">–</span>
-              <span className="text-[#ff3366]">{formatNumber(losses)}</span>
+              <span className="text-lol-loss">{formatNumber(losses)}</span>
             </div>
           </div>
           <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[13px] text-lol-text">
             <span>{formatNumber(totalGames)} games played</span>
             {totalGames > 0 && <span>{formatPlayTime(totalTimeSeconds)} played</span>}
+            {remakes > 0 && (
+              <span
+                title="Remade games are left out of every statistic"
+                className="inline-flex items-center gap-1.5 rounded-full border border-lol-border/70 bg-white/[0.04] px-2.5 py-0.5 text-[11.5px]"
+              >
+                <i className="h-1.5 w-1.5 rounded-full bg-lol-text/60" />
+                {formatNumber(remakes)} {remakes === 1 ? "remake" : "remakes"}
+                <span className="text-lol-text/60">not counted</span>
+              </span>
+            )}
           </div>
         </div>
         <div className="flex items-center gap-3">
@@ -73,7 +102,7 @@ export function HomeHero({
           {recentStreak !== 0 && (
             <span
               className={`rounded-md border border-white/10 bg-black/20 px-2.5 py-1 font-display text-[11px] font-bold uppercase tracking-wider ${
-                recentStreak > 0 ? "bg-lol-win/15 text-[#00ff9d]" : "bg-lol-loss/15 text-[#ff3366]"
+                recentStreak > 0 ? "bg-lol-win/15 text-lol-win" : "bg-lol-loss/15 text-lol-loss"
               }`}
             >
               {recentStreak > 0 ? `W${recentStreak}` : `L${Math.abs(recentStreak)}`} STREAK
@@ -88,23 +117,48 @@ export function HomeHero({
       >
         <span className="pointer-events-none absolute inset-x-0 top-[60px] border-t border-lol-border" />
         {ribbonData.map((game, i) => {
+          // Bars near either end anchor the card to that edge so it never leaves the panel
+          const edge =
+            i < 9 ? "left-0" : i > ribbonData.length - 10 ? "right-0" : "left-1/2 -translate-x-1/2";
+          const kda = (game.kills + game.assists) / Math.max(1, game.deaths);
           const tooltip = (
-            <span className="pointer-events-none absolute bottom-full left-1/2 z-50 mb-2 hidden -translate-x-1/2 whitespace-nowrap rounded-md border border-lol-border bg-lol-card px-2.5 py-1.5 text-left shadow-lg group-hover:block">
-              <span className="flex items-center gap-1.5">
-                <ChampionIcon championId={game.champion_id} size={18} className="rounded" />
-                <span className="font-display text-[11px] font-semibold text-lol-text-bright">
-                  {getChampionName(champData, game.champion_id)}
+            <span
+              className={`pointer-events-none absolute bottom-full z-50 mb-3 hidden w-[190px] overflow-hidden rounded-xl border border-lol-border bg-lol-card text-left shadow-[0_18px_40px_-10px_rgba(0,0,0,0.9)] group-hover:block ${edge}`}
+            >
+              <span className={`block h-[3px] ${game.win ? "bg-lol-win" : "bg-lol-loss"}`} />
+              <span className="flex items-center gap-2.5 px-3 pt-2.5">
+                <ChampionIcon
+                  championId={game.champion_id}
+                  size={34}
+                  className={`rounded-lg ring-2 ${game.win ? "ring-lol-win/70" : "ring-lol-loss/70"}`}
+                />
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate font-display text-[13px] font-semibold text-lol-text-bright">
+                    {getChampionName(champData, game.champion_id)}
+                  </span>
+                  <span
+                    className={`font-display text-[10px] font-bold uppercase tracking-widest ${game.win ? "text-lol-win" : "text-lol-loss"}`}
+                  >
+                    {game.win ? "Victory" : "Defeat"}
+                  </span>
                 </span>
+                {game.score != null && (
+                  <b
+                    className={`rounded-md bg-black/30 px-1.5 py-0.5 font-display text-[14px] ${scoreColor(game.score)}`}
+                  >
+                    {game.score.toFixed(1)}
+                  </b>
+                )}
               </span>
-              <span className="mt-0.5 block text-[11px] text-lol-text">
-                <span className="text-[#00ff9d]">{game.kills}</span>
-                <span className="mx-0.5">/</span>
-                <span className="text-[#ff3366]">{game.deaths}</span>
-                <span className="mx-0.5">/</span>
-                <span className="text-[#00f2ff]">{game.assists}</span>
-                <span className="ml-2 font-display font-semibold text-lol-gold">
-                  {(game.score ?? 0).toFixed(1)}
+              <span className="mt-2 flex items-center justify-between border-t border-lol-border/50 bg-black/20 px-3 py-1.5 font-display text-[12px]">
+                <span>
+                  <span className="text-lol-gold">{game.kills}</span>
+                  <span className="mx-1 text-lol-text/50">/</span>
+                  <span className="text-lol-loss">{game.deaths}</span>
+                  <span className="mx-1 text-lol-text/50">/</span>
+                  <span className="text-lol-assist">{game.assists}</span>
                 </span>
+                <span className="text-[11px] text-lol-text">{kda.toFixed(2)} KDA</span>
               </span>
             </span>
           );
@@ -134,65 +188,67 @@ export function HomeHero({
         })}
       </div>
       <div className="mt-2 flex justify-between gap-3 text-[12px] text-lol-text/60">
-        <span>OLDEST (7 DAYS AGO)</span>
+        <span>OLDEST{OLDEST_AGO[timePeriod] && ` (${OLDEST_AGO[timePeriod]})`}</span>
         <span className="text-center">WINS ABOVE AXIS / LOSSES BELOW</span>
-        <span>LATEST (TODAY)</span>
+        <span>LATEST</span>
       </div>
 
-      <div className="mt-5 grid grid-cols-1 divide-y divide-white/10 border-t border-lol-border/40 pt-1 sm:grid-cols-2 sm:divide-x sm:divide-y-0 lg:grid-cols-4">
-        <div className="px-3 py-3 first:pl-0">
-          <span className="block text-[10px] font-bold uppercase tracking-wider text-lol-text">
-            Kills / Deaths / Assists
-          </span>
-          <b className="mt-1 block font-display text-[20px] font-bold tabular-nums">
-            <span className="text-[#ffb700]">
-              {formatNumber(dashboard?.summary.totalKills ?? 0)}
+      {!chartOnly && (
+        <div className="mt-5 grid grid-cols-1 divide-y divide-white/10 border-t border-lol-border/40 pt-1 sm:grid-cols-2 sm:divide-x sm:divide-y-0 lg:grid-cols-4">
+          <div className="px-3 py-3 first:pl-0">
+            <span className="block text-[10px] font-bold uppercase tracking-wider text-lol-text">
+              Kills / Deaths / Assists
             </span>
-            <span className="text-lol-text/50"> / </span>
-            <span className="text-[#ff3366]">
-              {formatNumber(dashboard?.summary.totalDeaths ?? 0)}
-            </span>
-            <span className="text-lol-text/50"> / </span>
-            <span className="text-[#00f2ff]">
-              {formatNumber(dashboard?.summary.totalAssists ?? 0)}
-            </span>
-          </b>
-        </div>
-        <div className="px-3 py-3">
-          <span className="block text-[10px] font-bold uppercase tracking-wider text-lol-text">
-            AVG KDA RATIO
-          </span>
-          <b className="mt-1 block font-display text-[20px] font-bold tabular-nums text-[#00ff9d]">
-            {(dashboard?.summary.avgKda ?? 0).toFixed(2)} : 1
-          </b>
-        </div>
-        <div className="px-3 py-3">
-          <span className="block text-[10px] font-bold uppercase tracking-wider text-lol-text">
-            AVG DAMAGE TO CHAMPS
-          </span>
-          <b className="mt-1 block font-display text-[20px] font-bold tabular-nums text-[#ffb700]">
-            {dashboard?.summary.statsEligibleGames
-              ? formatNumber(Math.round(dashboard.summary.avgDamageDealt))
-              : "—"}
-          </b>
-        </div>
-        <div className="px-3 py-3 last:pr-0">
-          <span className="block text-[10px] font-bold uppercase tracking-wider text-lol-text">
-            AVG CS / GOLD
-          </span>
-          <b className="mt-1 block font-display text-[20px] font-bold tabular-nums text-lol-text-bright">
-            {dashboard?.summary.statsEligibleGames
-              ? `${formatNumber(Math.round(dashboard.summary.avgCs))} CS`
-              : "—"}
-            {dashboard?.summary.statsEligibleGames && (
-              <span className="text-lol-text/60">
-                {" "}
-                • {formatAverageGold(dashboard.summary.avgGold)}
+            <b className="mt-1 block font-display text-[20px] font-bold tabular-nums">
+              <span className="text-[#ffb700]">
+                {formatNumber(dashboard?.summary.totalKills ?? 0)}
               </span>
-            )}
-          </b>
+              <span className="text-lol-text/50"> / </span>
+              <span className="text-[#ff3366]">
+                {formatNumber(dashboard?.summary.totalDeaths ?? 0)}
+              </span>
+              <span className="text-lol-text/50"> / </span>
+              <span className="text-[#00f2ff]">
+                {formatNumber(dashboard?.summary.totalAssists ?? 0)}
+              </span>
+            </b>
+          </div>
+          <div className="px-3 py-3">
+            <span className="block text-[10px] font-bold uppercase tracking-wider text-lol-text">
+              AVG KDA RATIO
+            </span>
+            <b className="mt-1 block font-display text-[20px] font-bold tabular-nums text-[#00ff9d]">
+              {(dashboard?.summary.avgKda ?? 0).toFixed(2)} : 1
+            </b>
+          </div>
+          <div className="px-3 py-3">
+            <span className="block text-[10px] font-bold uppercase tracking-wider text-lol-text">
+              AVG DAMAGE TO CHAMPS
+            </span>
+            <b className="mt-1 block font-display text-[20px] font-bold tabular-nums text-[#ffb700]">
+              {dashboard?.summary.statsEligibleGames
+                ? formatNumber(Math.round(dashboard.summary.avgDamageDealt))
+                : "—"}
+            </b>
+          </div>
+          <div className="px-3 py-3 last:pr-0">
+            <span className="block text-[10px] font-bold uppercase tracking-wider text-lol-text">
+              AVG CS / GOLD
+            </span>
+            <b className="mt-1 block font-display text-[20px] font-bold tabular-nums text-lol-text-bright">
+              {dashboard?.summary.statsEligibleGames
+                ? `${formatNumber(Math.round(dashboard.summary.avgCs))} CS`
+                : "—"}
+              {dashboard?.summary.statsEligibleGames && (
+                <span className="text-lol-text/60">
+                  {" "}
+                  • {formatAverageGold(dashboard.summary.avgGold)}
+                </span>
+              )}
+            </b>
+          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 }

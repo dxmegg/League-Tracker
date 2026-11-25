@@ -5,6 +5,7 @@ import { FilterSelect } from "../components/FilterSelect";
 import { setRemembering } from "../lib/viewState";
 import type { BackupInfo } from "../lib/types";
 import { useActiveTheme } from "../hooks/useActiveTheme";
+import { THEME_OPTIONS } from "../lib/themes";
 import { SettingsExp } from "../components/SettingsExp";
 
 const BACKUP_REASONS: Record<string, string> = {
@@ -96,9 +97,12 @@ function Section({
 }) {
   return (
     <section
-      className={`relative flex flex-col rounded-lg p-5 xl:p-6 2xl:p-7 bg-[linear-gradient(145deg,#0c0e11_0%,#090b0d_48%,#060809_100%)] border border-lol-crimson/40 shadow-[0_0_3px_rgba(150,30,30,0.55),0_0_10px_rgba(90,15,15,0.35),0_0_20px_rgba(60,10,10,0.20)] ring-1 ring-inset ring-white/[0.03] ${className}`}
+      className={`relative flex flex-col rounded-2xl p-5 xl:p-6 2xl:p-7 bg-[linear-gradient(160deg,var(--theme-card-hover),var(--theme-card))] border border-lol-border shadow-[inset_0_1px_0_rgba(255,255,255,0.06),0_14px_34px_-18px_rgba(0,0,0,0.8)] ${className}`}
     >
-      <h2 className="text-xs font-bold uppercase tracking-wider text-lol-gold mb-4">{title}</h2>
+      <h2 className="mb-4 flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-lol-gold">
+        <i className="block h-3 w-[3px] rounded-full bg-lol-crimson" aria-hidden="true" />
+        {title}
+      </h2>
       <div className="flex flex-col gap-3">{children}</div>
     </section>
   );
@@ -108,7 +112,7 @@ export default function Settings() {
   // Shared so a backfill started automatically on first connect shows here too
   const { running: backfilling } = useBackfill();
   const [theme, setTheme] = useState<string>(
-    () => document.documentElement.getAttribute("data-theme") ?? "experiment",
+    () => document.documentElement.getAttribute("data-theme") ?? "redesign",
   );
   const [autoStart, setAutoStart] = useState(false);
   // Only the packaged program has a path worth registering, so the switch says
@@ -124,6 +128,7 @@ export default function Settings() {
   const [loading, setLoading] = useState(true);
   const [backfillStatus, setBackfillStatus] = useState<string | null>(null);
   const [repairing, setRepairing] = useState(false);
+  const [recalculating, setRecalculating] = useState(false);
   const [restoring, setRestoring] = useState(false);
   const [backups, setBackups] = useState<BackupInfo[]>([]);
   const [backupStatus, setBackupStatus] = useState<string | null>(null);
@@ -235,6 +240,23 @@ export default function Settings() {
       setBackfillStatus(`Error: ${err instanceof Error ? err.message : String(err)}`);
     } finally {
       setRepairing(false);
+    }
+  }, []);
+
+  const handleRecalculateScores = useCallback(async () => {
+    setRecalculating(true);
+    setBackfillStatus("Recalculating scores...");
+    try {
+      const result = await window.api.recalculateScores();
+      setBackfillStatus(
+        "error" in result
+          ? `Error: ${result.error}`
+          : `Recalculated scores for ${result.games.toLocaleString()} game(s) in ${(result.ms / 1000).toFixed(1)} s`,
+      );
+    } catch (err: unknown) {
+      setBackfillStatus(`Error: ${err instanceof Error ? err.message : String(err)}`);
+    } finally {
+      setRecalculating(false);
     }
   }, []);
 
@@ -500,30 +522,15 @@ export default function Settings() {
           <FilterSelect
             value={theme}
             onChange={(value) => {
-              if (
-                value !== "test" &&
-                value !== "experiment" &&
-                value !== "experiment2" &&
-                value !== "experiment3" &&
-                value !== "experiment4" &&
-                value !== "experiment5"
-              )
-                return;
+              if (!value || !THEME_OPTIONS.some((o) => o.value === value)) return;
               setTheme(value);
               void window.api.setSetting("theme", value);
               document.documentElement.setAttribute("data-theme", value);
             }}
-            placeholder="First Theme"
+            placeholder="Redesign"
             title="Theme"
             className="w-48"
-            options={[
-              { value: "experiment", label: "First Theme" },
-              { value: "test", label: "Second Theme" },
-              { value: "experiment2", label: "Third Theme" },
-              { value: "experiment3", label: "Fourth Theme" },
-              { value: "experiment4", label: "Fifth Theme" },
-              { value: "experiment5", label: "Sixth Theme" },
-            ]}
+            options={[...THEME_OPTIONS]}
           />
         </div>
       </Section>
@@ -554,6 +561,15 @@ export default function Settings() {
           </Button>
           <Button variant="subtle" type="button" onClick={handleRepair} disabled={repairing}>
             {repairing ? "Repairing..." : "Repair"}
+          </Button>
+          <Button
+            variant="subtle"
+            type="button"
+            onClick={handleRecalculateScores}
+            disabled={recalculating}
+            title="Rescore every game in the database with the current scoring system."
+          >
+            {recalculating ? "Recalculating..." : "Recalculate score"}
           </Button>
         </div>
         {backfillStatus && <p className="text-xs text-lol-text mt-2">{backfillStatus}</p>}

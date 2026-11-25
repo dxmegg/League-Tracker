@@ -19,6 +19,7 @@ import ChampionIcon from "../components/ChampionIcon";
 import { ChampCard } from "../components/ChampCard";
 import { EmptyState } from "../components/EmptyState";
 import { HomeHero } from "../components/HomeHero";
+import { HomeRedesign } from "../components/HomeRedesign";
 import { HomeCard } from "../components/HomeCard";
 import { LiveGameTile } from "../components/LiveGameTile";
 import { MatchRowExperiment } from "../components/MatchRowExperiment";
@@ -26,11 +27,13 @@ import { Panel } from "../components/Panel";
 import { RecordTile } from "../components/RecordTile";
 import SummonerIcon from "../components/SummonerIcon";
 import { useActiveAccount } from "../hooks/useActiveAccount";
+import { useActiveMode } from "../hooks/useActiveMode";
 import { useActiveTheme } from "../hooks/useActiveTheme";
 import { getAccountsWithData, getChampionName, useChampionData } from "../hooks/useChampions";
 import { useLiveGame } from "../hooks/useLiveGame";
 import { useViewState } from "../hooks/useViewState";
 import { ALL_ACCOUNTS_SENTINEL } from "../lib/accountsEvent";
+import { useScopedQueue } from "../lib/historyScope";
 import { NavLink } from "react-router-dom";
 import { GameRow } from "./MatchHistory";
 
@@ -418,6 +421,9 @@ export function QueueFilterChips({
   value: number | undefined;
   onChange: (queue: number | undefined) => void;
 }) {
+  const [mode] = useActiveMode();
+  // Mayhem mode pins the queue globally, so the per-page chips would be misleading.
+  if (mode === "mayhem") return null;
   return (
     <div className="ml-auto flex items-center gap-2">
       {QUEUE_FILTERS.map((filter) => {
@@ -594,6 +600,8 @@ function MatchListPanel({
 export default function Home() {
   const activeTheme = useActiveTheme();
   const isExperiment = activeTheme === "experiment";
+  // useActiveTheme folds redesign into "experiment"; only the exact value tells them apart
+  const isRedesign = useActiveTheme({ exact: true }) === "redesign";
   const live = useLiveGame();
   const [activeAccountRaw, setActiveAccountRaw] = useActiveAccount();
   const account: HomeAccountFilter =
@@ -601,8 +609,9 @@ export default function Home() {
   const setAccount = (next: HomeAccountFilter) => {
     setActiveAccountRaw(next === "all" || next === undefined ? ALL_ACCOUNTS_SENTINEL : next);
   };
-  const [timePeriod, setTimePeriod] = useViewState<HomeTimePeriod>("home.timePeriod", "7d");
-  const [queue, setQueue] = useViewState<number | undefined>("home.queue", undefined);
+  const [timePeriod, setTimePeriod] = useViewState<HomeTimePeriod>("home.timePeriod", "30d");
+  const [localQueue, setQueue] = useViewState<number | undefined>("home.queue", undefined);
+  const queue = useScopedQueue(localQueue);
   const [dashboard, setDashboard] = useState<HomeDashboardPayload | null>(null);
   const [roleBreakdown, setRoleBreakdown] = useState<RoleBreakdown[]>([]);
   const [loading, setLoading] = useState(false);
@@ -665,9 +674,25 @@ export default function Home() {
     };
   }, [account, timePeriod, queue]);
 
+  if (isRedesign) {
+    return (
+      <HomeRedesign
+        account={account}
+        queue={queue}
+        onQueueChange={setQueue}
+        timePeriod={timePeriod}
+        onTimePeriodChange={setTimePeriod}
+        dashboard={dashboard}
+        loading={loading}
+        liveGame={live.game}
+        savedAccounts={savedAccounts}
+      />
+    );
+  }
+
   if (isExperiment) {
     return (
-      <div className="mx-auto flex min-h-full w-full max-w-[1320px] flex-col gap-5">
+      <div className="flex min-h-full w-full flex-col gap-5">
         {/* Page head + time toggle */}
         <div className="flex flex-wrap items-end justify-between gap-4">
           <div>

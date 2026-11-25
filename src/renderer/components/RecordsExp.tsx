@@ -1,3 +1,5 @@
+import type { ReactNode } from "react";
+import { Link } from "react-router-dom";
 import type {
   AccountListItem,
   RecordMatchRef,
@@ -5,38 +7,56 @@ import type {
   StatRecord,
   StreakRecord,
 } from "../lib/types";
-import { formatDuration } from "../lib/format";
+import { getChampionName, useChampionData } from "../hooks/useChampions";
+import { CHAMPION_SPLASH_URL } from "../lib/constants";
+import { formatDuration, formatKDA, formatNumber } from "../lib/format";
 import ChampionIcon from "./ChampionIcon";
-import { RecordTile } from "./RecordTile";
-import QueueSelect from "./QueueSelect";
 import { FilterSelect } from "./FilterSelect";
-import { Panel } from "./Panel";
-import { SectionHeading } from "./SectionHeading";
-import { FlameIcon, HourglassIcon, ShieldIcon, StarIcon, TimerIcon, TrophyIcon } from "./icons";
+import QueueSelect, { queueLabel } from "./QueueSelect";
+import { HeroTile, PageHero } from "./SplashHero";
+import { Title } from "./live/shared";
+import { PEAK_ROWS, formatPeak } from "../lib/liveStats";
 
-function DecimalRecordTile({
-  label,
-  value,
-  match,
-  perfect = false,
-}: {
-  label: string;
-  value: number;
-  match: RecordMatchRef;
-  perfect?: boolean;
-}) {
-  return (
-    <RecordTile
-      label={label}
-      value={value}
-      championId={match.champion_id}
-      win={match.win}
-      gameCreation={match.game_creation}
-      gameId={String(match.game_id)}
-      formatValue={(raw) => (perfect ? "Perfect" : Number.isFinite(raw) ? raw.toFixed(2) : "—")}
-    />
-  );
-}
+const ROW = "rounded-xl border border-lol-border/40 bg-black/25";
+const DURATION_KEYS = new Set([
+  "fastestWin",
+  "fastestLoss",
+  "longestGame",
+  "fastestPentakill",
+  "longestAlive",
+]);
+
+// Champion stats for the Raw Numbers group, headline ones first. Penetration multipliers and the
+// scoreboard counters (kills, level, CS...) are left out.
+const RAW_STATS = [
+  "abilityPower",
+  "attackDamage",
+  "lifeSteal",
+  "omnivamp",
+  "moveSpeed",
+  "attackSpeed",
+  "abilityHaste",
+  "maxHealth",
+  "armor",
+  "magicResist",
+  "critChance",
+  "critDamage",
+  "physicalLethality",
+  "magicLethality",
+  "magicPenetrationFlat",
+  "effectiveHpPhysical",
+  "effectiveHpMagic",
+  "tenacity",
+  "physicalVamp",
+  "spellVamp",
+  "healShieldPower",
+  "healthRegenRate",
+  "attackRange",
+  "resourceMax",
+  "resourceRegenRate",
+  "itemValue",
+  "gold",
+];
 
 function recordDate(ts: number): string {
   return new Date(ts).toLocaleDateString("en-GB", {
@@ -46,255 +66,325 @@ function recordDate(ts: number): string {
   });
 }
 
-function StreakTile({ label, streak }: { label: string; streak: StreakRecord }) {
-  const range = `${recordDate(streak.start)} → ${recordDate(streak.end)}`;
-  return (
-    <div className="flex flex-col rounded-xl border border-lol-border border-t-[3px] border-t-lol-violet bg-[radial-gradient(circle_at_top_right,rgba(168,85,247,0.08),transparent_55%),linear-gradient(180deg,var(--theme-card-hover),var(--theme-card))] px-3.5 py-3 transition-colors duration-[120ms]">
-      <span className="text-[12.5px] uppercase tracking-wider text-lol-text">{label}</span>
-      <b className="my-0.5 font-display text-[28px] font-bold leading-tight text-lol-text-bright">
-        {streak.length} games
-      </b>
-      <div className="flex items-center gap-2 text-[12.5px] text-lol-text">
-        <ChampionIcon championId={streak.match.champion_id} size={26} className="rounded-full" />
-        <i
-          className={`font-semibold not-italic ${
-            streak.match.win ? "text-lol-win" : "text-lol-loss"
-          }`}
-        >
-          {streak.match.win ? "WIN" : "LOSS"}
-        </i>
-        <span>{range}</span>
-      </div>
-    </div>
-  );
+function formatValue(key: string, value: number): string {
+  if (DURATION_KEYS.has(key)) return formatDuration(value);
+  if (key === "score" || key === "flawlessAce") return Math.min(value, 10).toFixed(1);
+  if (key === "kda" || key === "csPerMinute" || key === "damagePerGold") return value.toFixed(2);
+  if (key === "ccTime") return formatDuration(Math.round(value));
+  if (key === "winStreak" || key === "lossStreak") return `${value} games`;
+  return formatNumber(Math.round(value));
 }
 
-function StandardRecordTile({
-  label,
-  record,
-  formatValue,
-}: {
+type Entry = {
+  key: string;
   label: string;
-  record: StatRecord;
-  formatValue?: (value: number) => string;
-}) {
-  return (
-    <RecordTile
-      label={label}
-      value={record.value}
-      championId={record.match.champion_id}
-      win={record.match.win}
-      gameCreation={record.match.game_creation}
-      gameId={String(record.match.game_id)}
-      formatValue={formatValue}
-    />
-  );
+  hint: string;
+  value: string;
+  match: RecordMatchRef;
+  // Streaks span several games, so they show a range instead of one date
+  when?: string;
+};
+
+type Group = { id: string; title: string; note: string; color: string; entries: Entry[] };
+
+function buildGroups(data: RecordsData): Group[] {
+  const { bests } = data;
+  // A record of zero ("most wards placed: 0") is not a record
+  const stat = (
+    key: string,
+    label: string,
+    hint: string,
+    record: StatRecord | null | undefined,
+  ): Entry | null =>
+    record && record.value != null && record.value > 0
+      ? { key, label, hint, value: formatValue(key, record.value), match: record.match }
+      : null;
+  const streak = (
+    key: string,
+    label: string,
+    hint: string,
+    record: StreakRecord | null,
+  ): Entry | null =>
+    record && record.length > 1
+      ? {
+          key,
+          label,
+          hint,
+          value: formatValue(key, record.length),
+          match: record.match,
+          when: `${recordDate(record.start)} – ${recordDate(record.end)}`,
+        }
+      : null;
+  const kda = stat("kda", "Best KDA", "kills and assists per death", bests.kda);
+  if (kda && bests.kda?.perfect) kda.value = "Perfect";
+  const extra = (key: string, label: string, hint: string) =>
+    stat(key, label, hint, data.extras?.[key]);
+  const raw = RAW_STATS.map((key): Entry | null => {
+    const row = PEAK_ROWS.find((r) => r.key === key)!;
+    const record = data.rawStats?.[key];
+    return record && record.value > 0
+      ? {
+          key: `raw:${key}`,
+          label: `Highest ${row.label.toLowerCase()}`,
+          hint: "peak reached in a game",
+          value: formatPeak(record.value, row.fmt),
+          match: record.match,
+        }
+      : null;
+  });
+
+  const groups: Array<Omit<Group, "entries"> & { entries: Array<Entry | null> }> = [
+    {
+      id: "combat",
+      title: "Combat",
+      note: "Fighting in a single game",
+      color: "#ff6b57",
+      entries: [
+        stat("kills", "Most kills", "in one game", bests.kills),
+        stat("assists", "Most assists", "in one game", bests.assists),
+        kda,
+        stat("killingSpree", "Longest killing spree", "kills without dying", bests.killingSpree),
+        stat("score", "Highest score", "out of 10", bests.score),
+        stat("deaths", "Most deaths", "we don't talk about it", bests.deaths),
+        extra("takedowns", "Most takedowns", "kills + assists"),
+        extra("doubleKills", "Most double kills", "in one game"),
+        extra("tripleKills", "Most triple kills", "in one game"),
+        extra("quadraKills", "Most quadra kills", "in one game"),
+        extra("pentaKills", "Most pentakills", "in one game"),
+        extra("longestAlive", "Longest time alive", "without dying"),
+      ],
+    },
+    {
+      id: "damage",
+      title: "Damage & durability",
+      note: "Dealt, soaked and healed",
+      color: "#b07cff",
+      entries: [
+        stat("damage", "Most damage", "to champions", bests.damage),
+        stat("totalDamage", "Most total damage", "everything you hit", bests.totalDamage),
+        stat("trueDamage", "Most true damage", "ignores resistances", bests.trueDamage),
+        stat("criticalStrike", "Biggest crit", "single hit", bests.criticalStrike),
+        stat("damageTaken", "Most damage taken", "front line work", bests.damageTaken),
+        stat("healing", "Most healing", "in one game", bests.healing),
+        extra("selfMitigated", "Most damage mitigated", "blocked by resistances and shields"),
+        extra("damagePerMinute", "Best damage/min", "to champions"),
+        extra("takenPerMinute", "Most damage taken/min", "front line pace"),
+      ],
+    },
+    {
+      id: "economy",
+      title: "Economy & farming",
+      note: "Gold and creeps",
+      color: "#e0b65c",
+      entries: [
+        stat("gold", "Most gold", "earned in one game", bests.gold),
+        stat("cs", "Most CS", "creeps killed", bests.cs),
+        stat("csPerMinute", "Best CS/min", "farming pace", bests.csPerMinute),
+        stat("goldPerMinute", "Best gold/min", "income pace", data.goldPerMinute),
+        stat("damagePerGold", "Best damage per gold", "to champions", data.damagePerGold),
+      ],
+    },
+    {
+      id: "objectives",
+      title: "Vision & objectives",
+      note: "Map play",
+      color: "#4db8ff",
+      entries: [
+        stat("turretDamage", "Most turret damage", "to towers", data.turretDamage),
+        stat("objectiveDamage", "Most objective damage", "all objectives", data.objectiveDamage),
+        stat("visionScore", "Highest vision score", "in one game", data.visionScore),
+        stat("turretKills", "Most turrets destroyed", "in one game", data.turretKills),
+        stat("ccTime", "Most crowd control", "time spent on others", data.ccTime),
+        stat("wardsPlaced", "Most wards placed", "in one game", data.wardsPlaced),
+        extra("wardsKilled", "Most wards destroyed", "in one game"),
+      ],
+    },
+    {
+      id: "time",
+      title: "Streaks & game length",
+      note: "Runs, marathons and stomps",
+      color: "#3ddc97",
+      entries: [
+        streak("winStreak", "Longest win streak", "wins in a row", data.winStreak),
+        streak("lossStreak", "Longest loss streak", "losses in a row", data.lossStreak),
+        stat("fastestWin", "Fastest win", "shortest victory", bests.fastestWin),
+        stat("fastestLoss", "Fastest loss", "shortest defeat", bests.fastestLoss),
+        stat("longestGame", "Longest game", "either result", bests.longestGame),
+        stat("fastestPentakill", "Fastest pentakill", "game time", data.fastestPentakill),
+        stat("flawlessAce", "Deathless defeat", "best score without dying", data.flawlessAce),
+      ],
+    },
+    {
+      id: "raw",
+      title: "Raw Numbers",
+      note: "Highest champion stats, from games played with the app open",
+      color: "#ff7ac3",
+      entries: raw,
+    },
+  ];
+  return groups
+    .map((group) => ({ ...group, entries: group.entries.filter((e): e is Entry => e !== null) }))
+    .filter((group) => group.entries.length > 0);
 }
 
-function FlawlessAceTile({ record }: { record: StatRecord }) {
+function RecordCard({ entry, color }: { entry: Entry; color: string }) {
+  const champions = useChampionData();
+  const { match } = entry;
+  const splash = champions[match.champion_id]?.key;
   return (
-    <RecordTile
-      label="Flawless Ace"
-      value={record.value}
-      championId={record.match.champion_id}
-      win={record.match.win}
-      gameCreation={record.match.game_creation}
-      gameId={String(record.match.game_id)}
-      formatValue={(value) => value.toFixed(2)}
-    />
-  );
-}
-
-function QueueRecordCell({
-  record,
-  formatValue,
-}: {
-  record: StatRecord;
-  formatValue: (record: StatRecord) => string;
-}) {
-  return (
-    <div className="flex min-w-[100px] items-center gap-2">
-      <ChampionIcon championId={record.match.champion_id} size={26} className="rounded-full" />
-      <span className="tabular-nums text-lol-text-bright">{formatValue(record)}</span>
-    </div>
-  );
-}
-
-function BestByQueueTable({ records }: { records: NonNullable<RecordsData["bestByQueue"]> }) {
-  const numberValue = (record: StatRecord) => record.value.toLocaleString();
-  const kdaValue = (record: StatRecord) =>
-    record.match.deaths === 0 ? "Perfect" : record.value.toFixed(2);
-  return (
-    <Panel>
-      <div className="overflow-x-auto">
-        <table className="w-full min-w-[720px] text-left text-xs">
-          <thead className="border-b border-lol-border/60 text-[11px] uppercase tracking-wider text-lol-text">
-            <tr>
-              <th className="px-3.5 py-3 font-semibold">Queue</th>
-              <th className="px-3.5 py-3 font-semibold">Most kills</th>
-              <th className="px-3.5 py-3 font-semibold">Highest KDA</th>
-              <th className="px-3.5 py-3 font-semibold">Most damage</th>
-              <th className="px-3.5 py-3 text-right font-semibold">Best win streak</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-lol-border/50">
-            {records.map((record) => (
-              <tr key={record.queueLabel} className="text-lol-text">
-                <th className="px-3.5 py-3 font-semibold text-lol-text-bright">
-                  {record.queueLabel}
-                </th>
-                <td className="px-3.5 py-3">
-                  <QueueRecordCell record={record.mostKills} formatValue={numberValue} />
-                </td>
-                <td className="px-3.5 py-3">
-                  <QueueRecordCell record={record.highestKda} formatValue={kdaValue} />
-                </td>
-                <td className="px-3.5 py-3">
-                  <QueueRecordCell record={record.mostDamage} formatValue={numberValue} />
-                </td>
-                <td className="px-3.5 py-3 text-right tabular-nums text-lol-text-bright">
-                  {record.bestWinStreak.count} games
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+    <Link
+      to={`/match/${match.game_id}`}
+      title="Open the match"
+      className="group relative flex min-w-0 flex-col gap-3 overflow-hidden rounded-2xl border border-lol-border/60 bg-black/30 p-4 transition-colors hover:border-lol-border-hover"
+      style={{ boxShadow: `inset 0 3px 0 ${color}` }}
+    >
+      {splash && (
+        <img
+          src={CHAMPION_SPLASH_URL(splash)}
+          alt=""
+          loading="lazy"
+          className="pointer-events-none absolute inset-y-0 right-0 h-full w-3/5 object-cover object-[50%_20%] opacity-25 transition-opacity [mask-image:linear-gradient(90deg,transparent,black_70%)] group-hover:opacity-45"
+          onError={(e) => {
+            e.currentTarget.style.display = "none";
+          }}
+        />
+      )}
+      <div className="relative">
+        <div className="font-display text-[11px] font-bold uppercase tracking-widest text-lol-text-bright">
+          {entry.label}
+        </div>
+        <div className="text-[11px] text-lol-text">{entry.hint}</div>
       </div>
-    </Panel>
+      <div
+        className="relative font-display text-[36px] font-bold leading-none tabular-nums"
+        style={{ color }}
+      >
+        {entry.value}
+      </div>
+      <div className="relative flex items-center gap-2.5">
+        <ChampionIcon championId={match.champion_id} size={36} className="rounded-lg" />
+        <div className="min-w-0 flex-1">
+          <div className="truncate text-[13px] font-semibold text-lol-text-bright">
+            {getChampionName(champions, match.champion_id)}
+            <span className="ml-2 font-normal tabular-nums text-lol-text">
+              {formatKDA(match.kills, match.deaths, match.assists)}
+            </span>
+          </div>
+          <div className="truncate text-[11px] text-lol-text">
+            {entry.when ?? `${recordDate(match.game_creation)} · ${queueLabel(match.queue_id)}`}
+          </div>
+        </div>
+        {!entry.when && (
+          <span
+            className={`rounded-md px-1.5 py-0.5 text-[10px] font-bold ${
+              match.win ? "bg-lol-win/15 text-lol-win" : "bg-lol-loss/15 text-lol-loss"
+            }`}
+          >
+            {match.win ? "WIN" : "LOSS"}
+          </span>
+        )}
+      </div>
+    </Link>
   );
 }
 
-function MilestonesList({ milestones }: { milestones: NonNullable<RecordsData["milestones"]> }) {
+function aside(text: string) {
+  return <span className="text-[12px] text-lol-text">{text}</span>;
+}
+
+// Which champions own the most records
+function RecordHolders({ groups }: { groups: Group[] }) {
+  const champions = useChampionData();
+  const held = new Map<number, string[]>();
+  for (const entry of groups.flatMap((g) => g.entries)) {
+    held.set(entry.match.champion_id, [...(held.get(entry.match.champion_id) ?? []), entry.label]);
+  }
+  const top = [...held.entries()].sort((a, b) => b[1].length - a[1].length).slice(0, 5);
   return (
-    <Panel>
-      <div className="divide-y divide-lol-border/50">
-        {milestones.map((milestone) => (
-          <div key={milestone.key} className="flex items-center gap-3 px-3.5 py-3">
-            <span aria-hidden="true" className="text-lol-crimson">
-              ◆
+    <section className="app-tile min-w-0">
+      <Title aside={aside("champions with the most records")}>Record holders</Title>
+      <div className="flex flex-col gap-1.5">
+        {top.map(([id, labels], index) => (
+          <Link
+            key={id}
+            to={`/champions/${id}`}
+            className={`flex items-center gap-3 px-3 py-2 transition-colors hover:bg-white/[0.04] ${ROW}`}
+          >
+            <span className="w-4 font-display text-[13px] font-bold text-lol-text/60">
+              {index + 1}
             </span>
-            {milestone.championId !== undefined ? (
-              <ChampionIcon championId={milestone.championId} size={30} className="rounded-full" />
-            ) : (
-              <span className="h-[30px] w-[30px] rounded-full border border-lol-border/60" />
-            )}
+            <ChampionIcon championId={id} size={38} className="rounded-lg" />
             <div className="min-w-0 flex-1">
-              <div className="font-semibold text-lol-text-bright">{milestone.label}</div>
-              <div className="text-xs text-lol-text">{recordDate(milestone.gameCreation)}</div>
+              <div className="truncate font-display text-[14px] font-bold text-lol-text-bright">
+                {getChampionName(champions, id)}
+              </div>
+              <div className="truncate text-[11px] text-lol-text">{labels.join(" · ")}</div>
             </div>
-          </div>
+            <span className="font-display text-[20px] font-bold tabular-nums text-lol-gold">
+              {labels.length}
+            </span>
+          </Link>
         ))}
       </div>
-    </Panel>
+    </section>
   );
 }
 
-function RecentlyBrokenPanel({ records }: { records: NonNullable<RecordsData["recentlyBroken"]> }) {
-  return (
-    <Panel className="border-t-[3px] border-t-lol-gold">
-      <div className="overflow-x-auto">
-        <table className="w-full min-w-[520px] text-left text-xs">
-          <thead className="border-b border-lol-border/60 text-[11px] uppercase tracking-wider text-lol-text">
-            <tr>
-              <th className="px-3.5 py-3 font-semibold">Record</th>
-              <th className="px-3.5 py-3 font-semibold">Value</th>
-              <th className="px-3.5 py-3 text-right font-semibold">Date broken</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-lol-border/50">
-            {records.map((record) => (
-              <tr key={record.key} className="text-lol-text">
-                <th className="px-3.5 py-3 font-semibold text-lol-text-bright">{record.label}</th>
-                <td className="px-3.5 py-3 tabular-nums text-lol-text-bright">
-                  {["fastestWin", "fastestLoss", "longestGame", "fastestPentakill"].includes(
-                    record.key,
-                  )
-                    ? formatDuration(record.value)
-                    : record.value.toLocaleString()}
-                </td>
-                <td className="px-3.5 py-3 text-right">{recordDate(record.gameCreation)}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    </Panel>
-  );
-}
-
-function SectionCount({ count }: { count: number }) {
-  return (
-    <span className="rounded-full border border-lol-border/70 px-2 py-0.5 text-[10px] font-semibold tracking-normal text-lol-text">
-      {count} records
-    </span>
-  );
-}
-
-function AchievementCabinet({
-  achievements,
+function ListRow({
+  gameId,
+  championId,
+  title,
+  sub,
+  value,
 }: {
-  achievements: NonNullable<RecordsData["achievements"]>;
+  gameId?: string;
+  championId?: number;
+  title: string;
+  sub: string;
+  value?: ReactNode;
 }) {
-  const icons = [TrophyIcon, HourglassIcon, ShieldIcon, FlameIcon, StarIcon, TimerIcon];
-  return (
-    <Panel>
-      <div className="grid grid-cols-3 gap-2.5 2xl:grid-cols-6">
-        {achievements.map((achievement, index) => {
-          const Icon = icons[index] ?? TrophyIcon;
-          const progress = Math.min(100, (achievement.current / achievement.target) * 100);
-          return (
-            <div
-              key={achievement.key}
-              className={`flex min-w-0 flex-col rounded-lg border p-3 transition-colors ${
-                achievement.unlocked
-                  ? "border-lol-gold/60 bg-lol-gold/10"
-                  : "border-lol-border/60 bg-black/10"
-              }`}
-            >
-              <div
-                className={`mb-2 flex h-8 w-8 items-center justify-center rounded-full border ${
-                  achievement.unlocked
-                    ? "border-lol-gold/70 bg-lol-gold/15 text-lol-gold"
-                    : "border-lol-border/70 bg-lol-border/20 text-lol-text"
-                }`}
-              >
-                <Icon className="h-4 w-4" />
-              </div>
-              <div
-                className={`truncate text-xs font-bold ${
-                  achievement.unlocked ? "text-lol-text-bright" : "text-lol-text"
-                }`}
-                title={achievement.label}
-              >
-                {achievement.label}
-              </div>
-              <div className="mt-1 min-h-[2rem] text-[10px] leading-snug text-lol-text">
-                {achievement.description}
-              </div>
-              <div className="mt-auto pt-2">
-                <div className="h-1.5 overflow-hidden rounded-full bg-lol-border/60">
-                  <div
-                    className={`h-full transition-all ${
-                      achievement.unlocked ? "bg-lol-gold" : "bg-lol-crimson/70"
-                    }`}
-                    style={{ width: `${progress}%` }}
-                  />
-                </div>
-                <div
-                  className={`mt-1 text-[10px] font-semibold tabular-nums ${
-                    achievement.unlocked ? "text-lol-gold" : "text-lol-text"
-                  }`}
-                >
-                  {achievement.unlocked
-                    ? "Unlocked"
-                    : `${achievement.current.toLocaleString()} / ${achievement.target.toLocaleString()}`}
-                </div>
-              </div>
-            </div>
-          );
-        })}
+  const body = (
+    <>
+      {championId !== undefined ? (
+        <ChampionIcon championId={championId} size={38} className="rounded-lg" />
+      ) : (
+        <span className="h-[38px] w-[38px] shrink-0 rounded-lg border border-lol-border/60" />
+      )}
+      <div className="min-w-0 flex-1">
+        <div className="truncate font-display text-[14px] font-bold text-lol-text-bright">
+          {title}
+        </div>
+        <div className="text-[11px] text-lol-text">{sub}</div>
       </div>
-    </Panel>
+      {value}
+    </>
+  );
+  const className = `flex items-center gap-3 px-3 py-2 ${ROW}`;
+  return gameId ? (
+    <Link
+      to={`/match/${gameId}`}
+      className={`${className} transition-colors hover:bg-white/[0.04]`}
+    >
+      {body}
+    </Link>
+  ) : (
+    <div className={className}>{body}</div>
+  );
+}
+
+const MULTIKILLS = [
+  ["doubles", "Double kills", "#4db8ff"],
+  ["triples", "Triple kills", "#e0b65c"],
+  ["quadras", "Quadra kills", "#ff9f43"],
+  ["pentakills", "Pentakills", "#ff6b57"],
+] as const;
+
+function Message({ title, children }: { title: string; children?: ReactNode }) {
+  return (
+    <div className="app-tile text-center">
+      <p className="text-sm font-semibold text-lol-text-bright">{title}</p>
+      {children}
+    </div>
   );
 }
 
@@ -319,41 +409,83 @@ export function RecordsExp({
   accounts: AccountListItem[];
   onAccountChange: (account: string | undefined) => void;
 }) {
-  const accountOptions = accounts.map((item) => ({
-    value: item.puuid,
-    label: `${item.gameName ?? "Unknown account"}${item.tagLine ? `#${item.tagLine}` : ""}`,
-  }));
-  const controls = (
-    <div className="flex shrink-0 flex-wrap items-center justify-end gap-2">
-      <QueueSelect value={queue} onChange={onQueueChange} variant="segmented" />
-      <FilterSelect
-        value={account}
-        onChange={onAccountChange}
-        placeholder="All Accounts"
-        title="Account"
-        options={accountOptions}
-        allowClear
-        variant="segmented"
-      />
-    </div>
-  );
+  const champions = useChampionData();
+  const ready = !!data && data.totalGames > 0 && !error;
+  const groups = ready ? buildGroups(data) : [];
+  const count = groups.reduce((n, g) => n + g.entries.length, 0);
+  const latest = ready ? data.recentlyBroken?.[0] : undefined;
 
-  if (error) {
-    const errorMessage = error;
-    return (
-      <div className="mx-auto flex min-h-full w-full max-w-[1320px] flex-col gap-5">
-        <div className="relative rounded-xl border border-lol-border border-t-[3px] border-t-lol-crimson bg-[radial-gradient(circle_at_top_right,color-mix(in_oklab,var(--theme-crimson)_10%,transparent),transparent_46%),linear-gradient(180deg,var(--theme-card-hover),var(--theme-card))] px-5 py-4">
-          <div className="flex flex-wrap items-start justify-between gap-4">
-            <div>
-              <h1 className="font-display text-[30px] font-bold text-lol-text-bright">Records</h1>
-              <p className="mt-1.5 text-lol-text">Personal bests across all accounts</p>
-            </div>
-            {controls}
-          </div>
+  return (
+    <div className="flex min-h-full w-full flex-col gap-5">
+      <PageHero
+        title="Records"
+        subtitle={
+          accountName ? `Personal bests for ${accountName}` : "Personal bests across all accounts"
+        }
+      >
+        <HeroTile
+          label="Records held"
+          value={ready ? String(count) : "—"}
+          sub={ready ? `from ${formatNumber(data.totalGames)} games` : undefined}
+        />
+        <HeroTile
+          label="Pentakills"
+          value={ready ? formatNumber(data.multikillTotals?.pentakills ?? 0) : "—"}
+          sub="lifetime"
+          valueClass="text-lol-loss"
+        />
+        <HeroTile
+          label="Best win streak"
+          value={ready && data.winStreak ? String(data.winStreak.length) : "—"}
+          sub="games in a row"
+          valueClass="text-lol-win"
+        />
+        <HeroTile
+          label="Latest record"
+          value={latest ? latest.label : "—"}
+          sub={latest ? recordDate(latest.gameCreation) : undefined}
+          valueClass="!text-[18px] text-lol-gold"
+        />
+      </PageHero>
+
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <nav className="flex flex-wrap gap-2" aria-label="Record groups">
+          {groups.map((group) => (
+            <button
+              type="button"
+              key={group.id}
+              onClick={() =>
+                document
+                  .getElementById(`records-${group.id}`)
+                  ?.scrollIntoView({ behavior: "smooth", block: "start" })
+              }
+              className="flex items-center gap-2 rounded-lg border border-lol-border/60 bg-lol-card/40 px-3 py-1.5 text-xs font-semibold text-lol-text transition-colors hover:text-lol-text-bright"
+            >
+              <i className="h-2 w-2 rounded-full" style={{ backgroundColor: group.color }} />
+              {group.title}
+            </button>
+          ))}
+        </nav>
+        <div className="ml-auto flex flex-wrap items-center gap-2">
+          <QueueSelect value={queue} onChange={onQueueChange} variant="segmented" />
+          <FilterSelect
+            value={account}
+            onChange={onAccountChange}
+            placeholder="All Accounts"
+            title="Account"
+            options={accounts.map((item) => ({
+              value: item.puuid,
+              label: `${item.gameName ?? "Unknown account"}${item.tagLine ? `#${item.tagLine}` : ""}`,
+            }))}
+            allowClear
+            variant="segmented"
+          />
         </div>
-        <div className="rounded-xl border border-lol-border bg-lol-card p-12 text-center">
-          <p className="text-sm font-semibold text-lol-text-bright">Failed to load records.</p>
-          {errorMessage && <p className="mt-1 text-xs text-lol-text">{errorMessage}</p>}
+      </div>
+
+      {error ? (
+        <Message title="Failed to load records.">
+          <p className="mt-1 text-xs text-lol-text">{error}</p>
           <button
             type="button"
             onClick={() => void onRetry()}
@@ -361,293 +493,155 @@ export function RecordsExp({
           >
             Retry
           </button>
-        </div>
-      </div>
-    );
-  }
+        </Message>
+      ) : !data ? (
+        <Message title="Loading records…" />
+      ) : data.totalGames === 0 ? (
+        <Message title="No records yet">
+          <p className="mt-1 text-xs text-lol-text">Play more matches to set personal bests.</p>
+        </Message>
+      ) : (
+        <>
+          {groups.map((group) => (
+            <section key={group.id} id={`records-${group.id}`} className="app-tile min-w-0">
+              <Title aside={aside(`${group.note} · ${group.entries.length} records`)}>
+                <span style={{ color: group.color }}>{group.title}</span>
+              </Title>
+              <div className="grid grid-cols-[repeat(auto-fill,minmax(300px,1fr))] gap-3">
+                {group.entries.map((entry) => (
+                  <RecordCard key={entry.key} entry={entry} color={group.color} />
+                ))}
+              </div>
+            </section>
+          ))}
 
-  if (!data) {
-    return (
-      <div className="mx-auto flex min-h-full w-full max-w-[1320px] flex-col gap-5">
-        <div className="relative rounded-xl border border-lol-border border-t-[3px] border-t-lol-crimson bg-[radial-gradient(circle_at_top_right,color-mix(in_oklab,var(--theme-crimson)_10%,transparent),transparent_46%),linear-gradient(180deg,var(--theme-card-hover),var(--theme-card))] px-5 py-4">
-          <div className="flex flex-wrap items-start justify-between gap-4">
-            <div>
-              <h1 className="font-display text-[30px] font-bold text-lol-text-bright">Records</h1>
-              <p className="mt-1.5 text-lol-text">Personal bests across all accounts</p>
-            </div>
-            {controls}
-          </div>
-        </div>
-        <div className="rounded-xl border border-lol-border bg-lol-card p-12 text-center">
-          <p className="relative text-sm text-lol-text">Loading records…</p>
-        </div>
-      </div>
-    );
-  }
+          {!groups.some((g) => g.id === "raw") && (
+            <Message title="Raw Numbers: nothing recorded yet">
+              <p className="mt-1 text-xs text-lol-text">
+                Champion stats are saved while a game is played with the app open.
+              </p>
+            </Message>
+          )}
 
-  if (data.totalGames === 0) {
-    return (
-      <div className="mx-auto flex min-h-full w-full max-w-[1320px] flex-col gap-5">
-        <div className="relative rounded-xl border border-lol-border border-t-[3px] border-t-lol-crimson bg-[radial-gradient(circle_at_top_right,color-mix(in_oklab,var(--theme-crimson)_10%,transparent),transparent_46%),linear-gradient(180deg,var(--theme-card-hover),var(--theme-card))] px-5 py-4">
-          <div className="flex flex-wrap items-start justify-between gap-4">
-            <div>
-              <h1 className="font-display text-[30px] font-bold text-lol-text-bright">Records</h1>
-              <p className="mt-1.5 text-lol-text">Personal bests across all accounts</p>
-            </div>
-            {controls}
-          </div>
-        </div>
-        <div className="relative overflow-hidden rounded-xl border border-lol-border border-t-[3px] border-t-lol-crimson bg-[linear-gradient(180deg,var(--theme-card-hover),var(--theme-card))] p-12 text-center">
-          <p className="relative text-sm font-semibold text-lol-text-bright">No records yet</p>
-          <p className="relative mt-1 text-xs text-lol-text">
-            Play more matches to set personal bests.
-          </p>
-        </div>
-      </div>
-    );
-  }
-
-  const { bests } = data;
-  const combatTiles = [
-    bests.kills && <StandardRecordTile key="kills" label="Most kills" record={bests.kills} />,
-    bests.deaths && <StandardRecordTile key="deaths" label="Most deaths" record={bests.deaths} />,
-    bests.assists && (
-      <StandardRecordTile key="assists" label="Most assists" record={bests.assists} />
-    ),
-    bests.kda && (
-      <DecimalRecordTile
-        key="kda"
-        label="Best KDA"
-        value={bests.kda.value}
-        match={bests.kda.match}
-        perfect={bests.kda.perfect}
-      />
-    ),
-    bests.score && <StandardRecordTile key="score" label="Highest score" record={bests.score} />,
-    bests.damage && <StandardRecordTile key="damage" label="Most damage" record={bests.damage} />,
-    bests.damageTaken && (
-      <StandardRecordTile key="damageTaken" label="Most damage taken" record={bests.damageTaken} />
-    ),
-    bests.totalDamage && (
-      <StandardRecordTile key="totalDamage" label="Most total damage" record={bests.totalDamage} />
-    ),
-    bests.trueDamage && (
-      <StandardRecordTile key="trueDamage" label="Most true damage" record={bests.trueDamage} />
-    ),
-    bests.killingSpree && (
-      <StandardRecordTile
-        key="killingSpree"
-        label="Longest killing spree"
-        record={bests.killingSpree}
-      />
-    ),
-    bests.criticalStrike && (
-      <StandardRecordTile key="criticalStrike" label="Biggest crit" record={bests.criticalStrike} />
-    ),
-  ].filter((tile): tile is React.ReactElement => Boolean(tile));
-  const economyTiles = [
-    bests.cs && <StandardRecordTile key="cs" label="Most CS" record={bests.cs} />,
-    bests.csPerMinute && (
-      <DecimalRecordTile
-        key="csPerMinute"
-        label="Best CS/min"
-        value={bests.csPerMinute.value}
-        match={bests.csPerMinute.match}
-      />
-    ),
-    bests.gold && <StandardRecordTile key="gold" label="Most gold" record={bests.gold} />,
-    bests.healing && (
-      <StandardRecordTile key="healing" label="Most healing" record={bests.healing} />
-    ),
-  ].filter((tile): tile is React.ReactElement => Boolean(tile));
-  const visionTiles = [
-    data.visionScore && (
-      <StandardRecordTile
-        key="visionScore"
-        label="Highest vision score"
-        record={data.visionScore}
-      />
-    ),
-    data.wardsPlaced && (
-      <StandardRecordTile key="wardsPlaced" label="Most wards placed" record={data.wardsPlaced} />
-    ),
-    data.turretDamage && (
-      <StandardRecordTile
-        key="turretDamage"
-        label="Most turret damage"
-        record={data.turretDamage}
-      />
-    ),
-    data.objectiveDamage && (
-      <StandardRecordTile
-        key="objectiveDamage"
-        label="Most objective damage"
-        record={data.objectiveDamage}
-      />
-    ),
-  ].filter((tile): tile is React.ReactElement => Boolean(tile));
-  const survivalTiles = [
-    bests.longestGame && (
-      <StandardRecordTile
-        key="longestGame"
-        label="Longest game"
-        record={bests.longestGame}
-        formatValue={formatDuration}
-      />
-    ),
-    bests.fastestWin && (
-      <StandardRecordTile
-        key="fastestWin"
-        label="Fastest win"
-        record={bests.fastestWin}
-        formatValue={formatDuration}
-      />
-    ),
-    bests.fastestLoss && (
-      <StandardRecordTile
-        key="fastestLoss"
-        label="Fastest loss"
-        record={bests.fastestLoss}
-        formatValue={formatDuration}
-      />
-    ),
-    data.winStreak && (
-      <StreakTile key="winStreak" label="Longest win streak" streak={data.winStreak} />
-    ),
-    data.lossStreak && data.lossStreak.length > 1 && (
-      <StreakTile key="lossStreak" label="Longest loss streak" streak={data.lossStreak} />
-    ),
-  ].filter((tile): tile is React.ReactElement => Boolean(tile));
-  const combatCount = combatTiles.length;
-  const economyCount = economyTiles.length;
-  const visionCount = visionTiles.length;
-  const survivalCount =
-    survivalTiles.length + (data.fastestPentakill ? 1 : 0) + (data.flawlessAce ? 1 : 0);
-
-  return (
-    <div className="mx-auto flex min-h-full w-full max-w-[1320px] flex-col gap-5">
-      <div className="shrink-0 rounded-xl border border-lol-border border-t-[3px] border-t-lol-crimson bg-[radial-gradient(circle_at_top_right,color-mix(in_oklab,var(--theme-crimson)_10%,transparent),transparent_46%),linear-gradient(180deg,var(--theme-card-hover),var(--theme-card))] px-5 py-4">
-        <div className="flex flex-wrap items-start justify-between gap-4">
-          <div>
-            <h1 className="relative pl-4 font-display text-[30px] font-bold leading-tight tracking-[0.2px] text-lol-text-bright before:absolute before:left-0 before:top-1/2 before:h-2.5 before:w-2.5 before:-translate-y-1/2 before:rotate-45 before:bg-lol-crimson">
-              Records
-            </h1>
-            <p className="relative mt-1.5 pl-4 text-lol-text">
-              {accountName
-                ? `Personal bests for ${accountName}`
-                : "Personal bests across all accounts"}
-            </p>
-          </div>
-          {controls}
-        </div>
-      </div>
-      {data.achievements && data.achievements.length > 0 && (
-        <div>
-          <SectionHeading title="TROPHY CABINET" aside={<SectionCount count={6} />} />
-          <AchievementCabinet achievements={data.achievements} />
-        </div>
-      )}
-      {combatTiles.length > 0 && (
-        <div>
-          <SectionHeading title="COMBAT" aside={<SectionCount count={combatCount} />} />
-          <Panel>
-            <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 [&>*]:!border-t-lol-crimson">
-              {combatTiles}
-            </div>
-          </Panel>
-        </div>
-      )}
-      {data.multikillTotals && (
-        <div>
-          <SectionHeading title="MULTIKILLS" aside={<SectionCount count={4} />} />
-          <Panel>
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-              {[
-                ["Lifetime doubles", data.multikillTotals.doubles, "text-lol-assist"],
-                ["Lifetime triples", data.multikillTotals.triples, "text-[var(--theme-gold)]"],
-                ["Lifetime quadras", data.multikillTotals.quadras, "text-orange-400"],
-                ["Lifetime pentakills", data.multikillTotals.pentakills, "text-lol-crimson"],
-              ].map(([label, value, color]) => (
-                <div
-                  key={label}
-                  className="rounded-lg border border-lol-border/60 border-t-[3px] border-t-orange-500 bg-black/10 p-3"
-                >
-                  <div className="text-[10px] font-bold uppercase tracking-wider text-lol-text">
-                    {label}
+          {data.multikillTotals && (
+            <section className="app-tile min-w-0">
+              <Title aside={aside("lifetime totals")}>Multikills</Title>
+              <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+                {MULTIKILLS.map(([key, label, color]) => (
+                  <div key={key} className={`p-4 text-center ${ROW}`}>
+                    <div
+                      className="font-display text-[38px] font-bold leading-none tabular-nums"
+                      style={{ color }}
+                    >
+                      {formatNumber(data.multikillTotals![key])}
+                    </div>
+                    <div className="mt-2 text-[11px] font-bold uppercase tracking-widest text-lol-text">
+                      {label}
+                    </div>
+                    <div className="mt-1 text-[11px] text-lol-text/70">
+                      {(data.multikillTotals![key] / data.totalGames).toFixed(2)} per game
+                    </div>
                   </div>
-                  <div className={`mt-1 font-display text-2xl font-bold tabular-nums ${color}`}>
-                    {Number(value).toLocaleString()}
+                ))}
+              </div>
+            </section>
+          )}
+
+          <div className="grid grid-cols-1 gap-5 lg:grid-cols-3">
+            <RecordHolders groups={groups} />
+            <section className="app-tile min-w-0">
+              <Title aside={aside("newest first")}>Recently broken</Title>
+              <div className="flex flex-col gap-1.5">
+                {(data.recentlyBroken ?? []).map((record) => {
+                  const entry = groups.flatMap((g) => g.entries).find((e) => e.key === record.key);
+                  return (
+                    <ListRow
+                      key={record.key}
+                      gameId={record.gameId}
+                      championId={entry?.match.champion_id}
+                      title={entry?.label ?? record.label}
+                      sub={recordDate(record.gameCreation)}
+                      value={
+                        <span className="font-display text-[17px] font-bold tabular-nums text-lol-gold">
+                          {entry?.value ?? formatValue(record.key, record.value)}
+                        </span>
+                      }
+                    />
+                  );
+                })}
+              </div>
+            </section>
+            <section className="app-tile min-w-0">
+              <Title aside={aside("career moments")}>Milestones</Title>
+              <div className="flex flex-col gap-1.5">
+                {(data.milestones ?? []).map((milestone) => (
+                  <ListRow
+                    key={milestone.key}
+                    gameId={milestone.gameId}
+                    championId={milestone.championId}
+                    title={milestone.label}
+                    sub={recordDate(milestone.gameCreation)}
+                  />
+                ))}
+              </div>
+            </section>
+          </div>
+
+          {data.bestByQueue && data.bestByQueue.length > 0 && (
+            <section className="app-tile min-w-0">
+              <Title aside={aside("click a value to open the match")}>Best by queue</Title>
+              <div className="overflow-x-auto">
+                <div className="flex min-w-[820px] flex-col gap-1.5">
+                  <div className="grid grid-cols-[minmax(160px,1.2fr)_repeat(3,minmax(170px,1fr))_110px] gap-3 px-3 text-[10px] font-bold uppercase tracking-widest text-lol-text">
+                    <span>Queue</span>
+                    <span>Most kills</span>
+                    <span>Best KDA</span>
+                    <span>Most damage</span>
+                    <span className="text-right">Win streak</span>
                   </div>
+                  {data.bestByQueue.map((row) => (
+                    <div
+                      key={row.queueLabel}
+                      className={`grid grid-cols-[minmax(160px,1.2fr)_repeat(3,minmax(170px,1fr))_110px] items-center gap-3 px-3 py-2 ${ROW}`}
+                    >
+                      <b className="truncate font-display text-[14px] text-lol-text-bright">
+                        {row.queueLabel}
+                      </b>
+                      {(
+                        [
+                          ["kills", row.mostKills],
+                          ["kda", row.highestKda],
+                          ["damage", row.mostDamage],
+                        ] as const
+                      ).map(([key, record]) => (
+                        <Link
+                          key={key}
+                          to={`/match/${record.match.game_id}`}
+                          className="flex items-center gap-2.5 rounded-lg px-1 py-0.5 hover:bg-white/[0.06]"
+                          title={getChampionName(champions, record.match.champion_id)}
+                        >
+                          <ChampionIcon
+                            championId={record.match.champion_id}
+                            size={30}
+                            className="rounded-md"
+                          />
+                          <span className="font-display text-[15px] font-bold tabular-nums text-lol-text-bright">
+                            {key === "kda" && record.match.deaths === 0
+                              ? "Perfect"
+                              : formatValue(key, record.value)}
+                          </span>
+                        </Link>
+                      ))}
+                      <span className="text-right font-display text-[15px] font-bold tabular-nums text-lol-win">
+                        {row.bestWinStreak.count}
+                      </span>
+                    </div>
+                  ))}
                 </div>
-              ))}
-            </div>
-          </Panel>
-        </div>
-      )}
-      {economyTiles.length > 0 && (
-        <div>
-          <SectionHeading title="ECONOMY & FARMING" aside={<SectionCount count={economyCount} />} />
-          <Panel>
-            <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 [&>*]:!border-t-[var(--theme-win)]">
-              {economyTiles}
-            </div>
-          </Panel>
-        </div>
-      )}
-      {visionTiles.length > 0 && (
-        <div>
-          <SectionHeading
-            title="VISION & OBJECTIVES"
-            aside={<SectionCount count={visionCount} />}
-          />
-          <Panel>
-            <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 [&>*]:!border-t-lol-assist">
-              {visionTiles}
-            </div>
-          </Panel>
-        </div>
-      )}
-      {(survivalTiles.length > 0 || data.fastestPentakill || data.flawlessAce) && (
-        <div>
-          <SectionHeading
-            title="SURVIVAL & GAME LENGTH"
-            aside={<SectionCount count={survivalCount} />}
-          />
-          <Panel>
-            <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 [&>*]:!border-t-lol-violet">
-              {data.fastestPentakill && (
-                <StandardRecordTile
-                  label="Fastest pentakill"
-                  record={data.fastestPentakill}
-                  formatValue={formatDuration}
-                />
-              )}
-              {data.flawlessAce && <FlawlessAceTile record={data.flawlessAce} />}
-              {survivalTiles}
-            </div>
-          </Panel>
-        </div>
-      )}
-      {data.bestByQueue && data.bestByQueue.length > 0 && (
-        <div>
-          <SectionHeading title="Best records by queue" />
-          <BestByQueueTable records={data.bestByQueue} />
-        </div>
-      )}
-      {data.milestones && data.milestones.length > 0 && (
-        <div>
-          <SectionHeading title="Milestones" />
-          <MilestonesList milestones={data.milestones} />
-        </div>
-      )}
-      {data.recentlyBroken && data.recentlyBroken.length > 0 && (
-        <div>
-          <SectionHeading
-            title="RECENTLY BROKEN"
-            aside={<SectionCount count={data.recentlyBroken.length} />}
-          />
-          <RecentlyBrokenPanel records={data.recentlyBroken} />
-        </div>
+              </div>
+            </section>
+          )}
+        </>
       )}
     </div>
   );

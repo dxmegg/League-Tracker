@@ -1,3 +1,5 @@
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { cn } from "@/lib/utils";
 import { CHAMPION_ICON_URL } from "../lib/constants";
 
 interface ChampionIconProps {
@@ -8,15 +10,10 @@ interface ChampionIconProps {
 
 export default function ChampionIcon({ championId, size = 32, className = "" }: ChampionIconProps) {
   return (
-    <img
-      src={CHAMPION_ICON_URL(championId)}
-      alt=""
-      width={size}
-      height={size}
-      className={`rounded-full ${className}`}
-      onError={(e) => {
-        (e.target as HTMLImageElement).style.display = "none";
-      }}
-    />
+    <Avatar style={{ width: size, height: size }} className={cn("rounded-full", className)}>
+      <AvatarImage src={CHAMPION_ICON_URL(championId)} alt="" />
+      {/* Empty on purpose: a missing icon keeps its slot instead of collapsing the row */}
+      <AvatarFallback />
+    </Avatar>
   );
 }

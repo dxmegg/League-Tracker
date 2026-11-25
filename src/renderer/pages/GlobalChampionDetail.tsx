@@ -20,7 +20,7 @@ import PatchSelect from "../components/PatchSelect";
 import QueueSelect from "../components/QueueSelect";
 import RarityFilter, { type Rarity } from "../components/RarityFilter";
 import { kdaRatio } from "../lib/format";
-import { useHistoryScopeQueue } from "../lib/historyScope";
+import { useScopedQueue } from "../lib/historyScope";
 
 type SortKey = "picks" | "winRate" | "name";
 type SortDir = "asc" | "desc";
@@ -302,7 +302,7 @@ export default function GlobalChampionDetailPage() {
   const queueParam = searchParams.get("queue");
   const queue = queueParam ? Number(queueParam) : undefined;
   const { scope } = useParams<{ scope?: string }>();
-  const scopedQueue = queue ?? useHistoryScopeQueue(scope);
+  const scopedQueue = useScopedQueue(queue, scope);
 
   // Filters live in the URL so the back link returns to the same view
   const setFilter = useCallback(

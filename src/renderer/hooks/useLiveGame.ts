@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import type { LiveGameData, LiveSessionData } from "../../shared/api";
 import { useLcuStatus } from "./useLcuStatus";
 
-const POLL_MS = 1_000;
+const POLL_MS = 2_000;
 
 export function useLiveGame(): {
   game: LiveGameData | null;
