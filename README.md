@@ -72,7 +72,7 @@ npm run dist      # Build the Windows portable executable (dist/RiftRecords.exe)
 
 ## If the app does not start
 
-The executable is not code-signed, so Windows may treat a fresh download with suspicion:
+The executable is not signed by a trusted certificate authority, so Windows may treat a fresh download with suspicion:
 
 - If a blue "Windows protected your PC" screen appears, click **More info → Run anyway**.
 - If nothing happens at all, right-click `RiftRecords.exe` → **Properties** → tick **Unblock** → OK, then run it again. Also check Windows Security → Protection history, in case antivirus quarantined it.

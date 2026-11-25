@@ -46,7 +46,12 @@ jobs:
       - name: Rebuild native modules for Electron
         run: npm run rebuild
 
+      # Signs the exe when the secrets exist (scripts/create-signing-cert.ps1);
+      # empty values leave it unsigned
       - run: npm run dist
+        env:
+          CSC_LINK: ${{ secrets.CSC_LINK }}
+          CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
 
       - name: Create GitHub release
         env:
