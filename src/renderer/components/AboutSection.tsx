@@ -7,7 +7,6 @@ import { REPOSITORY_URL as REPO_URL } from "../../shared/version";
 
 const LINKS = [
   { label: "GitHub", url: REPO_URL },
-  { label: "Changelog", url: `${REPO_URL}/blob/main/CHANGELOG.md` },
   { label: "License (MIT)", url: `${REPO_URL}/blob/main/LICENSE` },
 ];
 

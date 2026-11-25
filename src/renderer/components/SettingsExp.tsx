@@ -29,6 +29,7 @@ import {
 import { Title } from "./live/shared";
 import { XIcon } from "./icons";
 import { AboutSection } from "./AboutSection";
+import { ChangelogSection } from "./ChangelogSection";
 
 const BACKUP_REASONS: Record<string, string> = {
   auto: "Scheduled",
@@ -260,6 +261,7 @@ const SETTINGS_TABS = [
   { id: "accounts", label: "Accounts", hint: "Riot accounts to sync and accounts already saved" },
   { id: "sync", label: "Sync & repair", hint: "Fetch history, timelines and fix stored data" },
   { id: "data", label: "Backups", hint: "Export, import and database snapshots" },
+  { id: "changelog", label: "What's new", hint: "Changes in every release" },
   { id: "about", label: "About", hint: "Version, your data, legal notices and licenses" },
 ] as const;
 
@@ -1628,6 +1630,7 @@ export function SettingsExp() {
           </Section>
         )}
 
+        {tab === "changelog" && <ChangelogSection />}
         {tab === "about" && <AboutSection />}
       </div>
     </div>

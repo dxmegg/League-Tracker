@@ -8,6 +8,7 @@ import { useActiveTheme } from "../hooks/useActiveTheme";
 import { THEME_OPTIONS } from "../lib/themes";
 import { SettingsExp } from "../components/SettingsExp";
 import { AboutSection } from "../components/AboutSection";
+import { ChangelogSection } from "../components/ChangelogSection";
 
 const BACKUP_REASONS: Record<string, string> = {
   auto: "Scheduled",
@@ -875,6 +876,7 @@ export default function Settings() {
         </div>
       </Section>
 
+      <ChangelogSection />
       <AboutSection />
     </div>
   );

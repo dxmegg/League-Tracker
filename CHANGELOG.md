@@ -1,7 +1,8 @@
 # Changelog
 
-## Unreleased
+## 1.2.1 (2026-11-26)
 
+- New What's new tab in Settings with the changes of every release
 - Update window in the top bar: check on start, optional automatic install, download progress and speed
 - Fixed two-part version tags such as `v1.1` never being offered as an update
 - New icon; flat violet-black panels and no glow in Mayhem mode
