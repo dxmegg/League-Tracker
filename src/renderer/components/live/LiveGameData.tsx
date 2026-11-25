@@ -5,7 +5,7 @@ import { fmtClock } from "../../lib/live";
 import ChampionIcon from "../ChampionIcon";
 import ItemIcon from "../ItemIcon";
 import { Panel } from "../Panel";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../ui/Select";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../ui/select";
 import { LiveEvents } from "./LiveEvents";
 import { LivePulse } from "./LivePulse";
 import { LiveTrends } from "./LiveTrends";

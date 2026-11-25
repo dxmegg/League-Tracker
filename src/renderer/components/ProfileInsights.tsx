@@ -201,7 +201,7 @@ export function ProfileAugments({
         row: weakest,
         detail: `${rate(weakest.wins, weakest.picks).toFixed(0)}% win rate over ${weakest.picks} picks`,
       },
-    ].filter((h): h is NonNullable<typeof h> => Boolean(h));
+    ].filter((h): h is Exclude<typeof h, false | undefined> => Boolean(h));
   }, [stats]);
   const rarityPicks = useMemo(() => {
     const rows = RARITIES.map((r) => ({
