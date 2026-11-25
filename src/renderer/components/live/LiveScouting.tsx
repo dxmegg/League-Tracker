@@ -10,8 +10,6 @@ import { formatTimeAgo } from "../../lib/format";
 import { Panel } from "../Panel";
 import { SIDE, Title, Who, useLiveResolvers } from "./shared";
 
-type Relation = "friends" | "enemies";
-
 const pct = (wins: number, games: number) => (games > 0 ? Math.round((wins / games) * 100) : 0);
 const wrTone = (rate: number) => (rate >= 50 ? "text-lol-win" : "text-lol-loss");
 
