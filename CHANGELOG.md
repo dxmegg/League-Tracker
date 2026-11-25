@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Update window in the top bar: check on start, optional automatic install, download progress and speed
+- Fixed two-part version tags such as `v1.1` never being offered as an update
+- New icon; flat violet-black panels and no glow in Mayhem mode
 - Rebuilt Settings → About: version and links, where your data goes, legal notices, collapsible stored-data reference
 
 ## 1.1 (2026-11-25)

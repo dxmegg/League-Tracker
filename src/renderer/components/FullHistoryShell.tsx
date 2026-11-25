@@ -1,4 +1,4 @@
-import { Suspense } from "react";
+import { Suspense, useEffect } from "react";
 import { Outlet, useLocation } from "react-router-dom";
 import { useActiveTheme } from "../hooks/useActiveTheme";
 import { Sidebar } from "./Sidebar";
@@ -7,6 +7,7 @@ import { HistorySideNav } from "./HistorySideNav";
 import RecoveryBanner from "./RecoveryBanner";
 import { Rail } from "./Rail";
 import { TopBar } from "./TopBar";
+import { startUpdater } from "../hooks/useUpdater";
 
 export function FullHistoryShell() {
   const { pathname } = useLocation();
@@ -17,6 +18,10 @@ export function FullHistoryShell() {
   const scope = scopeFromPath ?? "full";
   const activeTheme = useActiveTheme();
   const showSidebar = activeTheme === "experiment";
+
+  useEffect(() => {
+    void startUpdater();
+  }, []);
 
   if (showSidebar) {
     return (

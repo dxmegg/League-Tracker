@@ -568,8 +568,9 @@ const api: ElectronAPI = {
 
   downloadUpdate: (assetUrl: string) => ipcRenderer.invoke("app:download-update", assetUrl),
 
-  onUpdateProgress: (callback: (percent: number) => void) => {
-    const handler = (_event: unknown, percent: number) => callback(percent);
+  onUpdateProgress: (callback: (progress: import("../shared/api").UpdateProgress) => void) => {
+    const handler = (_event: unknown, progress: import("../shared/api").UpdateProgress) =>
+      callback(progress);
     ipcRenderer.on("update:progress", handler);
     return () => ipcRenderer.removeListener("update:progress", handler);
   },

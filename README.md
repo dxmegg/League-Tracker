@@ -2,7 +2,7 @@
 
 A Windows desktop app that keeps your League of Legends match history on your own computer and turns it into dashboards: champions, items, augments, trends, records and live game data. ARAM Mayhem comes first, every other queue is tracked too.
 
-**[Download the latest release](https://github.com/dxmegg/League-Tracker/releases/latest)** · [Changelog](CHANGELOG.md)
+**[Download the latest release](https://github.com/dxmegg/Rift-Records/releases/latest)** · [Changelog](CHANGELOG.md)
 
 ![Home dashboard](docs/screenshots/home.png)
 
@@ -22,11 +22,12 @@ A Windows desktop app that keeps your League of Legends match history on your ow
 - **Achievements and Challenges**: tiers from Iron to Challenger, plus challenges read from the League client
 - **Multiple accounts**: sync, show, hide or merge them
 - **Your data stays yours**: local database, automatic backups, export and import
+- **Updates**: checks GitHub Releases on start, can install automatically, with download progress
 - **Themes**: Redesign (default), Legacy and Ancient
 
 ## Install
 
-Windows 10/11 (64-bit). The app is portable: download `RiftRecords.exe` from [Releases](https://github.com/dxmegg/League-Tracker/releases) and run it.
+Windows 10/11 (64-bit). The app is portable: download `RiftRecords.exe` from [Releases](https://github.com/dxmegg/Rift-Records/releases) and run it.
 
 ### If the app does not start
 

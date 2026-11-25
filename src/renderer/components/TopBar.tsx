@@ -1,6 +1,7 @@
 import { useCallback, useState } from "react";
 import { NavLink, useLocation } from "react-router-dom";
 import { AccountMenu } from "./AccountMenu";
+import { UpdateButton } from "./UpdateButton";
 import { useActiveMode } from "../hooks/useActiveMode";
 import { useBackfill } from "../hooks/useBackfill";
 import { useLcuStatus } from "../hooks/useLcuStatus";
@@ -105,6 +106,7 @@ export function TopBar() {
       <div className="titlebar-no-drag ml-auto flex items-center gap-2 pr-2">
         <ThemeMenu />
         <AccountMenu />
+        <UpdateButton />
         <NavLink
           to="/settings"
           title="Settings"

@@ -205,7 +205,10 @@ function createWindow(): BrowserWindow {
 }
 
 function createTray() {
-  const trayIcon = nativeImage.createFromPath(iconPath).resize({ width: 16, height: 16 });
+  // The tray slot is tiny, so it gets the die without the frame to fill it
+  const trayIcon = nativeImage
+    .createFromPath(path.join(app.getAppPath(), "assets/tray.png"))
+    .resize({ width: 32, height: 32, quality: "best" });
   tray = new Tray(trayIcon);
 
   const contextMenu = Menu.buildFromTemplate([

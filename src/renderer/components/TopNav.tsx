@@ -6,8 +6,9 @@ import { useDevMode } from "../hooks/useDevMode";
 import type { LcuStatus } from "../lib/types";
 import { FolderIcon } from "./SidebarIcons";
 import { MinusIcon, MaximizeIcon, RefreshIcon, RestoreIcon, SettingsIcon, XIcon } from "./icons";
-
-const AVATAR_SOURCE = "https://avatars.githubusercontent.com/u/116650859?v=4";
+import icon from "../../../assets/icon.png";
+import { REPOSITORY_URL } from "../../shared/version";
+import { UpdateButton } from "./UpdateButton";
 
 const statusColors: Record<LcuStatus, string> = {
   connected: "bg-lol-win",
@@ -104,15 +105,11 @@ export default function TopNav() {
     <nav className="titlebar-drag h-14 w-full shrink-0 border-b border-lol-border/60 bg-lol-card/60 flex items-center">
       <button
         type="button"
-        onClick={() => window.api.openUrl("https://github.com/dxmegg/League-Tracker")}
+        onClick={() => window.api.openUrl(REPOSITORY_URL)}
         aria-label="Open Rift Records GitHub repository"
         className="titlebar-no-drag flex h-full shrink-0 items-center gap-2.5 px-3 transition-opacity hover:opacity-80 focus:outline-none focus:ring-2 focus:ring-lol-gold/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-lol-gold/60 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--theme-bg-deep)]"
       >
-        <img
-          src={AVATAR_SOURCE}
-          alt="Rift Records avatar"
-          className="h-8 w-8 rounded-full object-cover"
-        />
+        <img src={icon} alt="" className="h-8 w-8" />
         <span className="hidden 2xl:flex flex-col justify-center text-left leading-none">
           <span className="font-bold text-[13px] tracking-[0.02em] text-lol-text-bright">
             Rift Records
@@ -154,6 +151,7 @@ export default function TopNav() {
       </div>
 
       <div className="titlebar-no-drag flex shrink-0 items-center gap-1 px-1.5">
+        <UpdateButton />
         <NavLink
           to="/settings"
           title="Settings"

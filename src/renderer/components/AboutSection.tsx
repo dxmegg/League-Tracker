@@ -3,11 +3,10 @@ import type { ReactNode } from "react";
 import icon from "../../../assets/icon.png";
 import { useIpc } from "../hooks/useIpc";
 import { Title } from "./live/shared";
-
-const REPO_URL = "https://github.com/dxmegg/League-Tracker";
+import { REPOSITORY_URL as REPO_URL } from "../../shared/version";
 
 const LINKS = [
-  { label: "Source code", url: REPO_URL },
+  { label: "GitHub", url: REPO_URL },
   { label: "Changelog", url: `${REPO_URL}/blob/main/CHANGELOG.md` },
   { label: "License (MIT)", url: `${REPO_URL}/blob/main/LICENSE` },
 ];
@@ -256,8 +255,8 @@ export function AboutSection() {
 
       <Panel title="Your data">
         <p className="mb-3 text-[12.5px] leading-relaxed text-lol-text">
-          Match history is stored in a database on this computer. There is no Rift Records account
-          or server. The app goes online only for these services:
+          Match history is stored in a database on this computer. There is no Rift Records account.
+          The app goes online for these services:
         </p>
         <dl className="divide-y divide-lol-border/30">
           {SOURCES.map(({ name, use }) => (

@@ -2,6 +2,7 @@ import type { SVGProps } from "react";
 import { useActiveMode } from "../hooks/useActiveMode";
 import type { DataMode } from "../lib/dataMode";
 import { LayersIcon, SparklesIcon } from "./icons";
+import icon from "../../../assets/icon.png";
 
 type RailIcon = (props: SVGProps<SVGSVGElement>) => React.JSX.Element;
 
@@ -29,15 +30,7 @@ export function Rail() {
 
   return (
     <aside className="relative z-20 flex w-[76px] shrink-0 flex-col items-center gap-3 border-r border-lol-border/50 bg-black/35 py-4 backdrop-blur">
-      <svg
-        aria-hidden="true"
-        className="h-9 w-9 shrink-0 text-lol-crimson drop-shadow-[0_0_10px_var(--theme-crimson-glow)]"
-        viewBox="0 0 36 36"
-        fill="none"
-      >
-        <path d="M18 2 32 10v16L18 34 4 26V10L18 2Z" stroke="currentColor" strokeWidth="1.5" />
-        <path d="m18 9 8 5v8l-8 5-8-5v-8l8-5Z" fill="currentColor" />
-      </svg>
+      <img src={icon} alt="" className="h-14 w-14 shrink-0" />
 
       <div className="mt-2 text-[9px] font-bold uppercase tracking-[0.24em] text-lol-text/50">
         Mode

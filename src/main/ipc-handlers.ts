@@ -47,6 +47,8 @@ const RENDERER_SETTINGS = new Set([
   "hidden_accounts",
   "hide_remakes",
   "auto_backup",
+  "auto_update",
+  "update_attempted",
   "remember_filters",
   "theme",
   "riot_game_name",

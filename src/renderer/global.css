@@ -184,6 +184,27 @@ html[data-mode="mayhem"][data-theme] {
   --theme-crimson-glow: rgba(139, 92, 246, 0.48);
 }
 
+/* Mayhem: flat violet-black surfaces like the sidebar, and no accent glow */
+html[data-mode="mayhem"][data-theme="redesign"] {
+  --theme-card: #100f15;
+  --theme-card-hover: #14121e;
+  --theme-bg-elevated: #0c0b11;
+  --theme-crimson-glow: transparent;
+  --theme-border: #2a2640;
+}
+
+html[data-mode="mayhem"][data-theme="redesign"] .app-tile {
+  border-width: 2px;
+}
+
+html[data-mode="mayhem"][data-theme="redesign"] .app-tile-featured {
+  border-top-width: 3px;
+}
+
+html[data-mode="mayhem"][data-theme="redesign"] .app-tile-featured {
+  background: var(--theme-card);
+}
+
 html[data-theme="redesign"] {
   /* Redesign — structural clone of the experiment palette; diverge from here */
   --theme-bg-deep: #08050a;

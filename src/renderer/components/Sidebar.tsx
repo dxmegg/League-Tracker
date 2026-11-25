@@ -115,9 +115,6 @@ export function Sidebar() {
               </span>
             )}
           </div>
-          <div className="mt-1 text-[11px] leading-snug text-lol-text/60">
-            Local match history tracker
-          </div>
         </div>
 
         <nav aria-label="Main navigation" className="flex flex-col gap-4">

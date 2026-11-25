@@ -2143,6 +2143,16 @@ export interface UpdateInfo {
   // True when there are skipped releases beyond the page the check fetched
   moreVersions?: boolean;
   error?: string;
+  // False outside the portable exe, where there is no file to swap
+  canInstall?: boolean;
+}
+
+export interface UpdateProgress {
+  phase: "downloading" | "verifying" | "installing";
+  percent: number;
+  received: number;
+  total: number;
+  bytesPerSecond: number;
 }
 
 export interface DbStats {
@@ -2636,7 +2646,7 @@ export interface ElectronAPI {
   getVersion: () => Promise<string>;
   checkForUpdate: () => Promise<UpdateInfo>;
   downloadUpdate: (assetUrl: string) => Promise<{ success: boolean; error?: string }>;
-  onUpdateProgress: (callback: (percent: number) => void) => () => void;
+  onUpdateProgress: (callback: (progress: UpdateProgress) => void) => () => void;
   openUrl: (url: string) => Promise<void>;
   minimizeWindow: () => Promise<void>;
   toggleMaximizeWindow: () => Promise<void>;

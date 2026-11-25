@@ -6,9 +6,11 @@ import os from "os";
 import path from "path";
 import { once } from "events";
 import { finished } from "stream/promises";
+import { compareVersions, REPOSITORY as UPDATE_REPOSITORY } from "../shared/version";
+import { HIDDEN_FLAG } from "./autostart";
+import type { UpdateProgress } from "../shared/api";
 
 const CHECK_TIMEOUT_MS = 10_000;
-const UPDATE_REPOSITORY = "dxmegg/League-Tracker";
 const UPDATE_API_URL = `https://api.github.com/repos/${UPDATE_REPOSITORY}/releases`;
 const UPDATE_DOWNLOAD_URL_PREFIX = `https://github.com/${UPDATE_REPOSITORY}/`;
 // One page covers any realistic gap between installs, and costs the same single
@@ -44,33 +46,14 @@ export interface UpdateInfo {
   // there are skipped releases the dialog cannot show.
   moreVersions?: boolean;
   error?: string;
+  // False outside the portable exe, where there is no file to swap
+  canInstall?: boolean;
 }
 
 // The expected hash never leaves the main process: the renderer only echoes
 // back an asset URL, so trusting a digest it supplied would verify nothing.
 type CachedAsset = { assetUrl: string; sha256: string | null };
 let lastCheckedAsset: CachedAsset | null = null;
-
-function parseVersion(version: string): number[] | null {
-  const m = version
-    .trim()
-    .replace(/^v/, "")
-    .match(/^(\d+)\.(\d+)\.(\d+)/);
-  return m ? [Number(m[1]), Number(m[2]), Number(m[3])] : null;
-}
-
-// Positive when a is newer than b, negative when older, 0 when equal. An
-// unparseable tag sorts as older, so a malformed release can never present
-// itself as an update.
-function compareVersions(a: string, b: string): number {
-  const pa = parseVersion(a);
-  const pb = parseVersion(b);
-  if (!pa || !pb) return pa ? 1 : pb ? -1 : 0;
-  for (let i = 0; i < 3; i++) {
-    if (pa[i] !== pb[i]) return pa[i] - pb[i];
-  }
-  return 0;
-}
 
 function toReleaseNote(release: any): ReleaseNote {
   const body = String(release.body ?? "")
@@ -100,7 +83,7 @@ export async function checkForUpdate(): Promise<UpdateInfo> {
       headers: { "User-Agent": "rift-records" },
       signal: AbortSignal.timeout(CHECK_TIMEOUT_MS),
     });
-    if (!res.ok) return { hasUpdate: false, error: "No releases found" };
+    if (!res.ok) return { hasUpdate: false, error: `GitHub answered HTTP ${res.status}` };
     const page = (await res.json()) as any;
     // Unlike /releases/latest, this endpoint includes drafts and prereleases,
     // which were never meant to be offered as an update.
@@ -125,6 +108,7 @@ export async function checkForUpdate(): Promise<UpdateInfo> {
     const missed = hasUpdate
       ? published.filter((r) => compareVersions(r.tag_name, current) > 0)
       : [];
+    const canInstall = Boolean(process.env.PORTABLE_EXECUTABLE_FILE);
     // Reaching a release at or below the installed version proves the page went
     // back far enough for the missed list to be complete. A short page means the
     // repo had nothing older to give, which proves it just as well — otherwise a
@@ -141,13 +125,32 @@ export async function checkForUpdate(): Promise<UpdateInfo> {
       assetSize: asset?.size,
       releases: missed.map(toReleaseNote),
       moreVersions: hasUpdate && !reachedCurrent,
+      canInstall,
     };
   } catch {
     return { hasUpdate: false, error: "Failed to check for updates" };
   }
 }
 
+// A second download would race the first for the same target exe
+let installing = false;
+
 export async function downloadAndInstall(
+  win: BrowserWindow,
+  assetUrl: string,
+): Promise<{ success: boolean; error?: string }> {
+  if (installing) return { success: false, error: "An update is already in progress" };
+  installing = true;
+  const result = await runUpdate(win, assetUrl).catch((err: Error) => ({
+    success: false,
+    error: `Update failed: ${err.message}`,
+  }));
+  // Stays set after success: the app is quitting
+  if (!result.success) installing = false;
+  return result;
+}
+
+async function runUpdate(
   win: BrowserWindow,
   assetUrl: string,
 ): Promise<{ success: boolean; error?: string }> {
@@ -206,6 +209,21 @@ export async function downloadAndInstall(
     const reader = res.body.getReader();
     const hash = crypto.createHash("sha256");
     let received = 0;
+    let speed = 0;
+    let sampledAt = Date.now();
+    let sampledBytes = 0;
+    const report = (phase: UpdateProgress["phase"]) => {
+      if (win.isDestroyed()) return;
+      const progress: UpdateProgress = {
+        phase,
+        percent: total ? Math.min(100, Math.round((received / total) * 100)) : 0,
+        received,
+        total,
+        bytesPerSecond: speed,
+      };
+      win.webContents.send("update:progress", progress);
+    };
+    report("downloading");
     while (true) {
       const { done, value } = await reader.read();
       if (done) break;
@@ -215,13 +233,18 @@ export async function downloadAndInstall(
       if (!out.write(Buffer.from(value))) {
         await once(out, "drain");
       }
-      if (total) {
-        win.webContents.send("update:progress", Math.round((received / total) * 100));
+      const elapsed = Date.now() - sampledAt;
+      if (elapsed >= 250) {
+        speed = Math.round(((received - sampledBytes) / elapsed) * 1000);
+        sampledAt = Date.now();
+        sampledBytes = received;
+        report("downloading");
       }
     }
     clearTimeout(stallTimer);
     out.end();
     await finished(out);
+    report("verifying");
     if (total && received !== total) {
       fs.rmSync(tmpDir, { recursive: true, force: true });
       return { success: false, error: "Download incomplete, please try again" };
@@ -239,6 +262,7 @@ export async function downloadAndInstall(
     } else {
       console.warn("Release asset has no digest; skipping hash verification");
     }
+    report("installing");
   } catch (err: any) {
     clearTimeout(stallTimer);
     fs.rmSync(tmpDir, { recursive: true, force: true });
@@ -260,6 +284,8 @@ export async function downloadAndInstall(
   // staged copy is in place, and ping is used as the delay because timeout errors
   // out when stdin is redirected.
   const script = path.join(tmpDir, "update.cmd");
+  // An update during a tray-only startup must not pop the window up
+  const relaunchArgs = process.argv.includes(HIDDEN_FLAG) ? ` ${HIDDEN_FLAG}` : "";
   fs.writeFileSync(
     script,
     [
@@ -274,7 +300,7 @@ export async function downloadAndInstall(
       `del /f "${portableExe}" >nul 2>&1`,
       `if exist "${portableExe}" goto wait`,
       `move /y "${stagedExe}" "${targetExe}" >nul 2>&1`,
-      `start "" "${targetExe}"`,
+      `start "" "${targetExe}"${relaunchArgs}`,
       "goto cleanup",
       ":fail",
       `del /f "${stagedExe}" >nul 2>&1`,
