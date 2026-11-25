@@ -5010,7 +5010,8 @@ export function getRecords(
              ps.total_damage_dealt_all, ps.true_damage_dealt, ps.cs, ps.largest_critical_strike,
              ps.double_kills, ps.triple_kills, ps.quadra_kills, ps.penta_kills,
              mp.vision_score, mp.wards_placed, mp.damage_to_turrets, mp.damage_to_objectives,
-             mp.pentakill_time, mp.turret_kills, mp.time_cc_others
+             mp.pentakill_time, mp.turret_kills, mp.time_cc_others,
+             mp.damage_self_mitigated, mp.longest_alive, mp.wards_killed
       FROM games g
       JOIN ${source.table} ps ON g.game_id = ps.game_id
       LEFT JOIN match_participants mp ON mp.game_id = ps.game_id AND mp.puuid = ps.puuid
@@ -5088,6 +5089,28 @@ export function getRecords(
       let turretKills: StatRecord | undefined;
       let ccTime: StatRecord | undefined;
       let flawlessAce: StatRecord | undefined;
+      const extras: Record<string, StatRecord> = {};
+      const trackNamed = (
+        into: Record<string, StatRecord>,
+        key: string,
+        value: number | null,
+        row: any,
+      ) => {
+        const next = trackExtra(into[key], value, row);
+        if (next) into[key] = next;
+      };
+      // Peaks recorded by the live tab, matched to the filtered rows below so the account, queue and
+      // remake filters apply to them too
+      const peaksByRow = new Map<string, Array<{ stat: string; peak: number }>>();
+      for (const p of db
+        .prepare("SELECT game_id, puuid, stat, peak FROM live_stat_peaks")
+        .all() as Array<{ game_id: number; puuid: string; stat: string; peak: number }>) {
+        const key = `${p.game_id}:${p.puuid}`;
+        const list = peaksByRow.get(key);
+        if (list) list.push(p);
+        else peaksByRow.set(key, [p]);
+      }
+      const rawStats: Record<string, StatRecord> = {};
       let bestScoreRaw = -Infinity;
       let bestDeathlessRaw = -Infinity;
       const multikillTotals = {
@@ -5181,6 +5204,22 @@ export function getRecords(
         multikillTotals.quadras += r.quadra_kills ?? 0;
         multikillTotals.pentakills += r.penta_kills ?? 0;
         visionScore = trackExtra(visionScore, r.vision_score, r);
+        trackNamed(extras, "takedowns", r.kills + r.assists, r);
+        trackNamed(extras, "doubleKills", r.double_kills, r);
+        trackNamed(extras, "tripleKills", r.triple_kills, r);
+        trackNamed(extras, "quadraKills", r.quadra_kills, r);
+        trackNamed(extras, "pentaKills", r.penta_kills, r);
+        trackNamed(extras, "selfMitigated", r.damage_self_mitigated, r);
+        trackNamed(extras, "longestAlive", r.longest_alive, r);
+        trackNamed(extras, "wardsKilled", r.wards_killed, r);
+        if (r.game_duration >= 300) {
+          const minutes = r.game_duration / 60;
+          trackNamed(extras, "damagePerMinute", r.total_damage_dealt / minutes, r);
+          trackNamed(extras, "takenPerMinute", r.total_damage_taken / minutes, r);
+        }
+        for (const p of peaksByRow.get(`${r.game_id}:${r.puuid}`) ?? []) {
+          trackNamed(rawStats, p.stat, p.peak, r);
+        }
         // Rates need a real game: a few seconds would post absurd numbers
         if (r.game_duration >= 300) {
           goldPerMinute = trackExtra(goldPerMinute, r.gold_earned / (r.game_duration / 60), r);
@@ -5386,6 +5425,9 @@ export function getRecords(
       addRecent("objectiveDamage", "Most objective damage", objectiveDamage);
       addRecent("fastestPentakill", "Fastest pentakill", fastestPentakill);
       addRecent("flawlessAce", "Flawless ace", flawlessAce);
+      addRecent("takedowns", "Most takedowns", extras.takedowns);
+      addRecent("damagePerMinute", "Best damage/min", extras.damagePerMinute);
+      addRecent("selfMitigated", "Most damage mitigated", extras.selfMitigated);
       if (winStreak) {
         recentlyBrokenCandidates.push({
           key: "winStreak",
@@ -5474,6 +5516,8 @@ export function getRecords(
         objectiveDamage,
         fastestPentakill,
         flawlessAce,
+        extras,
+        rawStats,
         topDamageGames: topDamageGames.slice(0, 5),
         bestByQueue,
         milestones,

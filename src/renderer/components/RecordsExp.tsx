@@ -15,9 +15,48 @@ import { FilterSelect } from "./FilterSelect";
 import QueueSelect, { queueLabel } from "./QueueSelect";
 import { HeroTile, PageHero } from "./SplashHero";
 import { Title } from "./live/shared";
+import { PEAK_ROWS, formatPeak } from "../lib/liveStats";
 
 const ROW = "rounded-xl border border-lol-border/40 bg-black/25";
-const DURATION_KEYS = new Set(["fastestWin", "fastestLoss", "longestGame", "fastestPentakill"]);
+const DURATION_KEYS = new Set([
+  "fastestWin",
+  "fastestLoss",
+  "longestGame",
+  "fastestPentakill",
+  "longestAlive",
+]);
+
+// Champion stats for the Raw Numbers group, headline ones first. Penetration multipliers and the
+// scoreboard counters (kills, level, CS...) are left out.
+const RAW_STATS = [
+  "abilityPower",
+  "attackDamage",
+  "lifeSteal",
+  "omnivamp",
+  "moveSpeed",
+  "attackSpeed",
+  "abilityHaste",
+  "maxHealth",
+  "armor",
+  "magicResist",
+  "critChance",
+  "critDamage",
+  "physicalLethality",
+  "magicLethality",
+  "magicPenetrationFlat",
+  "effectiveHpPhysical",
+  "effectiveHpMagic",
+  "tenacity",
+  "physicalVamp",
+  "spellVamp",
+  "healShieldPower",
+  "healthRegenRate",
+  "attackRange",
+  "resourceMax",
+  "resourceRegenRate",
+  "itemValue",
+  "gold",
+];
 
 function recordDate(ts: number): string {
   return new Date(ts).toLocaleDateString("en-GB", {
@@ -78,6 +117,21 @@ function buildGroups(data: RecordsData): Group[] {
       : null;
   const kda = stat("kda", "Best KDA", "kills and assists per death", bests.kda);
   if (kda && bests.kda?.perfect) kda.value = "Perfect";
+  const extra = (key: string, label: string, hint: string) =>
+    stat(key, label, hint, data.extras?.[key]);
+  const raw = RAW_STATS.map((key): Entry | null => {
+    const row = PEAK_ROWS.find((r) => r.key === key)!;
+    const record = data.rawStats?.[key];
+    return record && record.value > 0
+      ? {
+          key: `raw:${key}`,
+          label: `Highest ${row.label.toLowerCase()}`,
+          hint: "peak reached in a game",
+          value: formatPeak(record.value, row.fmt),
+          match: record.match,
+        }
+      : null;
+  });
 
   const groups: Array<Omit<Group, "entries"> & { entries: Array<Entry | null> }> = [
     {
@@ -92,6 +146,12 @@ function buildGroups(data: RecordsData): Group[] {
         stat("killingSpree", "Longest killing spree", "kills without dying", bests.killingSpree),
         stat("score", "Highest score", "out of 10", bests.score),
         stat("deaths", "Most deaths", "we don't talk about it", bests.deaths),
+        extra("takedowns", "Most takedowns", "kills + assists"),
+        extra("doubleKills", "Most double kills", "in one game"),
+        extra("tripleKills", "Most triple kills", "in one game"),
+        extra("quadraKills", "Most quadra kills", "in one game"),
+        extra("pentaKills", "Most pentakills", "in one game"),
+        extra("longestAlive", "Longest time alive", "without dying"),
       ],
     },
     {
@@ -106,6 +166,9 @@ function buildGroups(data: RecordsData): Group[] {
         stat("criticalStrike", "Biggest crit", "single hit", bests.criticalStrike),
         stat("damageTaken", "Most damage taken", "front line work", bests.damageTaken),
         stat("healing", "Most healing", "in one game", bests.healing),
+        extra("selfMitigated", "Most damage mitigated", "blocked by resistances and shields"),
+        extra("damagePerMinute", "Best damage/min", "to champions"),
+        extra("takenPerMinute", "Most damage taken/min", "front line pace"),
       ],
     },
     {
@@ -133,6 +196,7 @@ function buildGroups(data: RecordsData): Group[] {
         stat("turretKills", "Most turrets destroyed", "in one game", data.turretKills),
         stat("ccTime", "Most crowd control", "time spent on others", data.ccTime),
         stat("wardsPlaced", "Most wards placed", "in one game", data.wardsPlaced),
+        extra("wardsKilled", "Most wards destroyed", "in one game"),
       ],
     },
     {
@@ -149,6 +213,13 @@ function buildGroups(data: RecordsData): Group[] {
         stat("fastestPentakill", "Fastest pentakill", "game time", data.fastestPentakill),
         stat("flawlessAce", "Deathless defeat", "best score without dying", data.flawlessAce),
       ],
+    },
+    {
+      id: "raw",
+      title: "Raw Numbers",
+      note: "Highest champion stats, from games played with the app open",
+      color: "#ff7ac3",
+      entries: raw,
     },
   ];
   return groups
@@ -443,6 +514,14 @@ export function RecordsExp({
               </div>
             </section>
           ))}
+
+          {!groups.some((g) => g.id === "raw") && (
+            <Message title="Raw Numbers: nothing recorded yet">
+              <p className="mt-1 text-xs text-lol-text">
+                Champion stats are saved while a game is played with the app open.
+              </p>
+            </Message>
+          )}
 
           {data.multikillTotals && (
             <section className="app-tile min-w-0">

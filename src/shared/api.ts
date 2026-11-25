@@ -1539,6 +1539,10 @@ export interface RecordsData {
   objectiveDamage?: StatRecord;
   fastestPentakill?: StatRecord;
   flawlessAce?: StatRecord;
+  // Further single-game bests, keyed by record name
+  extras?: Record<string, StatRecord>;
+  // Highest value of each champion stat reached in a game, keyed like the live tab's peak stats
+  rawStats?: Record<string, StatRecord>;
   topDamageGames?: Array<{
     gameId: string;
     championId: number;
