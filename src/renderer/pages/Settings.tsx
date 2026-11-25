@@ -7,6 +7,7 @@ import type { BackupInfo } from "../lib/types";
 import { useActiveTheme } from "../hooks/useActiveTheme";
 import { THEME_OPTIONS } from "../lib/themes";
 import { SettingsExp } from "../components/SettingsExp";
+import { AboutSection } from "../components/AboutSection";
 
 const BACKUP_REASONS: Record<string, string> = {
   auto: "Scheduled",
@@ -874,110 +875,7 @@ export default function Settings() {
         </div>
       </Section>
 
-      {/* Credits */}
-      <Section title="Credits & Acknowledgements">
-        <div className="space-y-3 text-sm text-lol-text leading-relaxed">
-          <p>
-            <a
-              href="https://github.com/dxmegg/League-Tracker"
-              onClick={(event) => {
-                event.preventDefault();
-                window.api.openUrl("https://github.com/dxmegg/League-Tracker");
-              }}
-              className="text-lol-gold hover:underline"
-            >
-              Rift Records
-            </a>{" "}
-            - By{" "}
-            <a
-              href="https://github.com/dxmegg"
-              onClick={(event) => {
-                event.preventDefault();
-                window.api.openUrl("https://github.com/dxmegg");
-              }}
-              className="text-lol-gold hover:underline"
-            >
-              me
-            </a>
-            , for{" "}
-            <a
-              href="https://github.com/dxmegg"
-              onClick={(event) => {
-                event.preventDefault();
-                window.api.openUrl("https://github.com/dxmegg");
-              }}
-              className="text-lol-gold hover:underline"
-            >
-              me
-            </a>
-          </p>
-          <p>
-            This project is a fork of{" "}
-            <a
-              href="https://github.com/Yhprum/mayhem-tracker"
-              onClick={(event) => {
-                event.preventDefault();
-                window.api.openUrl("https://github.com/Yhprum/mayhem-tracker");
-              }}
-              className="text-lol-gold hover:underline"
-            >
-              Mayhem Tracker
-            </a>{" "}
-            by{" "}
-            <a
-              href="https://github.com/Yhprum"
-              onClick={(event) => {
-                event.preventDefault();
-                window.api.openUrl("https://github.com/Yhprum");
-              }}
-              className="text-lol-gold hover:underline"
-            >
-              Yhprum
-            </a>
-            .
-          </p>
-          <p>
-            Huge thanks to{" "}
-            <a
-              href="https://github.com/Yhprum"
-              onClick={(event) => {
-                event.preventDefault();
-                window.api.openUrl("https://github.com/Yhprum");
-              }}
-              className="text-lol-gold hover:underline"
-            >
-              Yhprum
-            </a>{" "}
-            for creating the original Mayhem Tracker. The original project inspired me to build this
-            fork and adapt it for my own needs. Without{" "}
-            <a
-              href="https://github.com/Yhprum"
-              onClick={(event) => {
-                event.preventDefault();
-                window.api.openUrl("https://github.com/Yhprum");
-              }}
-              className="text-lol-gold hover:underline"
-            >
-              Yhprum
-            </a>
-            's work, this wouldn&apos;t exist.
-          </p>
-          <p>
-            If you&apos;re looking for the original, unmodified tracker, check out it{" "}
-            <a
-              href="https://github.com/Yhprum/mayhem-tracker"
-              onClick={(event) => {
-                event.preventDefault();
-                window.api.openUrl("https://github.com/Yhprum/mayhem-tracker");
-              }}
-              className="text-lol-gold hover:underline"
-            >
-              here
-            </a>
-            .
-          </p>
-        </div>
-      </Section>
+      <AboutSection />
     </div>
   );
 }

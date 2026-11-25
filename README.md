@@ -1,58 +1,44 @@
 # Rift Records
 
-Desktop app for tracking complete League of Legends match history locally. It can connect to the League Client (LCU) for automatic detection. It was made solely for myself—for my own use—though I did want to share it with a specific person, which is why it is here.
+A Windows desktop app that keeps your League of Legends match history on your own computer and turns it into dashboards: champions, items, augments, trends, records and live game data. ARAM Mayhem comes first, every other queue is tracked too.
 
-## Important
+**[Download the latest release](https://github.com/dxmegg/League-Tracker/releases/latest)** · [Changelog](CHANGELOG.md)
 
-This is really work in progress, be aware that some functions can be buggy, or not working at all.
+![Home dashboard](docs/screenshots/home.png)
 
-Original project can be found here: [https://github.com/Yhprum/mayhem-tracker](https://github.com/Yhprum/mayhem-tracker)
-
-## Features
-
-- Automatic match detection via League Client API
-- Imports all queues by default, including ARAM Mayhem
-- Match history with detailed game breakdowns
-- Champion, augment, and friend stats with win rates
-- Aggregate statistics from all players in your games
-- Item and Runes statistics
-- More
-
-# Rift Records
-
-A desktop companion for League of Legends players who want a clear and convenient way to review their match history and track their progress.
-
-Rift Records stores your match data locally and turns it into an easy-to-read dashboard. View your recent games, champion performance, queue statistics, win rates, KDA, damage, items, runes, multikills, champion mastery, and more — all in one place.
+|                                                  |                                            |
+| ------------------------------------------------ | ------------------------------------------ |
+| ![Match history](docs/screenshots/match-history.png) | ![Champions](docs/screenshots/champions.png) |
+| ![Augments](docs/screenshots/augments.png)       | ![Trends](docs/screenshots/trends.png)     |
 
 ## Features
 
-- Local account overview with summoner level, champion mastery, and ranked information
+- **Automatic tracking**: detects the League client and stores games as you play, also from the system tray
+- **Live Game**: scoreboard, game flow charts, events and peak stats while a match is running
+- **Match history**: grouped by day and session, with a detailed page per match (items, runes, augments, per-player stats)
+- **Champions, Items, Augments, Runes**: win rates, KDA, damage, gold, multikills and detailed breakdowns
+- **Scoring**: separate systems for ARAM, Summoner's Rift and Arena, with MVP/ACE badges and a score breakdown on hover
+- **Your Profile, Friends & Foes, Trends, Records**: habits, time-of-day patterns, who you play with and your best games
+- **Achievements and Challenges**: tiers from Iron to Challenger, plus challenges read from the League client
+- **Multiple accounts**: sync, show, hide or merge them
+- **Your data stays yours**: local database, automatic backups, export and import
+- **Themes**: Redesign (default), Legacy and Ancient
 
-- Recent match history with detailed game results
+## Install
 
-- Separate views for ARAM Mayhem, ARAM, Arena, Ranked, Normal, and other queues
+Windows 10/11 (64-bit). The app is portable: download `RiftRecords.exe` from [Releases](https://github.com/dxmegg/League-Tracker/releases) and run it.
 
-- Champion statistics, win rates, KDA, and performance trends
+### If the app does not start
 
-- Detailed match breakdowns including items, spells, runes, damage, healing, and multikills
+The executable is not signed by a trusted certificate authority, so Windows may treat a fresh download with suspicion:
 
-- Your Profile page with augment, multikill, session, and time-of-day insights
+- If a blue "Windows protected your PC" screen appears, click **More info → Run anyway**.
+- If nothing happens at all, right-click `RiftRecords.exe` → **Properties** → tick **Unblock** → OK, then run it again. Also check Windows Security → Protection history, in case antivirus quarantined it.
+- If the app opens an error window, or `%APPDATA%\league-tracker\startup.log` exists, include that text in your report.
 
-- Live game tab that shows everything the game exposes while a match is running
+## Data and network
 
-- Separate scoring systems for ARAM, Summoner's Rift, and Arena, with MVP/ACE badges and a score breakdown on hover (Settings → Recalculate score rescores stored games)
-
-- Local data storage with export and import support
-
-- Automatic synchronization with the League of Legends client
-
-- Dark, League-inspired interface designed for quick browsing, with a theme switcher in the top bar
-
-## Important
-
-This project is still a work in progress. Some features may be incomplete, buggy, or not work as expected.
-
-Rift Records is a personal fork of the original [Mayhem Tracker](https://github.com/Yhprum/mayhem-tracker).
+Match history is stored in `%APPDATA%\league-tracker`. There is no Rift Records account. The app talks to the League client, the Riot Games API (through a small proxy that holds the API key), Data Dragon and CommunityDragon (game art), OP.GG (player lookups) and GitHub (update checks).
 
 ## Development
 
@@ -60,34 +46,15 @@ Rift Records is a personal fork of the original [Mayhem Tracker](https://github.
 npm install
 npm run rebuild   # Rebuild native modules for Electron
 npm run dev       # Start the application in development mode
-
-```
-
-## Build
-
-```
 npm run dist      # Build the Windows portable executable (dist/RiftRecords.exe)
-
 ```
 
-## If the app does not start
+## Legal
 
-The executable is not signed by a trusted certificate authority, so Windows may treat a fresh download with suspicion:
+Rift Records was created under Riot Games' ["Legal Jibber Jabber" policy](https://www.riotgames.com/en/legal) using assets owned by Riot Games. Riot Games does not endorse or sponsor this project.
 
-- If a blue "Windows protected your PC" screen appears, click **More info → Run anyway**.
-- If nothing happens at all, right-click `RiftRecords.exe` → **Properties** → tick **Unblock** → OK, then run it again. Also check Windows Security → Protection history, in case antivirus quarantined it.
-- If the app opens an error window, or `%APPDATA%\league-tracker\startup.log` exists, send me that text.
+Rift Records isn't endorsed by Riot Games and doesn't reflect the views or opinions of Riot Games or anyone officially involved in producing or managing Riot Games properties. Riot Games and all associated properties are trademarks or registered trademarks of Riot Games, Inc.
 
-## Disclaimer
+## License
 
-Rift Records was created under Riot Games' ["Legal Jibber Jabber" policy](https://www.riotgames.com/en/legal-jibber-jabber) using assets owned by Riot Games. Riot Games does not endorse or sponsor this project.
-
-## Credits & Acknowledgements
-
-This project is a fork of [Mayhem Tracker](https://github.com/Yhprum/mayhem-tracker) by [Yhprum](https://github.com/Yhprum).
-
-Huge thanks to Yhprum for creating the original Mayhem Tracker. The original project inspired me to build this fork and adapt it for my own needs. Without Yhprum's work, this project would not exist.
-
-If you are looking for the original, unmodified tracker, you can find it here:
-
-[https://github.com/Yhprum/mayhem-tracker](https://github.com/Yhprum/mayhem-tracker)
+[MIT](LICENSE)

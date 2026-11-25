@@ -118,7 +118,7 @@ export default function TopNav() {
             Rift Records
           </span>
           <span className="mt-1 text-[8px] font-semibold uppercase tracking-[0.25em] text-lol-gold/80">
-            WIP - FORKED FROM YHPRUM
+            Match history tracker
           </span>
         </span>
       </button>
