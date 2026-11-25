@@ -4316,9 +4316,9 @@ export function getTrendsData(
     const topDuos = db
       .prepare(`
     SELECT teammate.puuid as puuid,
-           COALESCE(account.game_name, teammate.game_name, 'Unknown') as gameName,
-           COALESCE(account.tag_line, teammate.tag_line, '') as tagLine,
-           COALESCE(account.profile_icon, teammate.profile_icon) as profileIcon,
+           COALESCE(MAX(account.game_name), MAX(teammate.game_name), 'Unknown') as gameName,
+           COALESCE(MAX(account.tag_line), MAX(teammate.tag_line), '') as tagLine,
+           COALESCE(MAX(account.profile_icon), MAX(teammate.profile_icon)) as profileIcon,
            COUNT(DISTINCT g.game_id) as games,
            COUNT(DISTINCT CASE WHEN ps.win = 1 THEN g.game_id END) as wins,
            COUNT(DISTINCT CASE WHEN ps.win = 1 THEN g.game_id END) * 100.0 /
@@ -4331,12 +4331,10 @@ export function getTrendsData(
      AND teammate.puuid != mp.puuid
     LEFT JOIN summoner account ON account.puuid = teammate.puuid
     ${whereSql}
-    GROUP BY teammate.puuid,
-             COALESCE(account.game_name, teammate.game_name, 'Unknown'),
-             COALESCE(account.tag_line, teammate.tag_line, ''),
-             COALESCE(account.profile_icon, teammate.profile_icon)
+    -- One row per player: a changed icon or name must not split them in two
+    GROUP BY teammate.puuid
     ORDER BY games DESC, winRate DESC
-    LIMIT 3
+    LIMIT 6
     `)
       .all(...params) as TrendsData["topDuos"];
 
@@ -4356,6 +4354,51 @@ export function getTrendsData(
     LIMIT 6
     `)
       .all(...params) as TrendsData["championTop"];
+
+    const championMost = db
+      .prepare(`
+    SELECT ps.champion_id as championId,
+           COUNT(*) as games,
+           SUM(ps.win) as wins,
+           SUM(ps.kills) as kills,
+           SUM(ps.deaths) as deaths,
+           SUM(ps.assists) as assists
+    ${fromSql}
+    ${whereSql}
+    GROUP BY ps.champion_id
+    ORDER BY games DESC
+    LIMIT 6
+    `)
+      .all(...params) as TrendsData["championTop"];
+
+    // One compact row per game; the renderer derives session, length and rolling figures
+    const timeline = db
+      .prepare(`
+      SELECT ${ownerPuuidSql} as owner, g.game_creation as time, g.game_duration as duration,
+             ps.win as win
+      ${fromSql}
+      ${whereSql}
+      ORDER BY g.game_creation, g.game_id
+    `)
+      .all(...params) as TrendsData["timeline"];
+
+    // The same length of time right before the selected one; "all" has nothing before it
+    const previous =
+      timeDays === null
+        ? null
+        : (db
+            .prepare(`
+      SELECT COUNT(*) as games, TOTAL(ps.win) as wins, TOTAL(ps.kills) as kills,
+             TOTAL(ps.deaths) as deaths, TOTAL(ps.assists) as assists,
+             AVG(ps.score) as score
+      ${fromSql}
+      WHERE ${baseWhere.join(" AND ")} AND g.game_creation >= ? AND g.game_creation < ?
+    `)
+            .get(
+              ...baseParams,
+              Date.now() - 2 * timeDays * 86400000,
+              Date.now() - timeDays * 86400000,
+            ) as TrendsData["previous"]);
 
     const dayHourMatrix = db
       .prepare(`
@@ -4697,6 +4740,9 @@ export function getTrendsData(
       roleBreakdown,
       queueBreakdown,
       championTop,
+      championMost,
+      timeline,
+      previous,
       dayHourMatrix,
       insights,
       streaks,

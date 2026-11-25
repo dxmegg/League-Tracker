@@ -12,7 +12,8 @@ function patchBarColor(rate: number): string {
 export function PatchBars({ patches }: { patches: TrendsData["patches"] }) {
   const { ref, width } = useContainerWidth<HTMLDivElement>();
   const [hover, setHover] = useState<number | null>(null);
-  const barPitch = Math.max(56, patches.length > 0 ? width / patches.length : 56);
+  // The 16px of side padding comes out of the pitch, or the chart scrolls with nothing to scroll to
+  const barPitch = Math.max(56, patches.length > 0 ? (width - 16) / patches.length : 56);
   const chartWidth = Math.max(width, patches.length * barPitch + 16);
   const top = 18;
   const plotHeight = 110;

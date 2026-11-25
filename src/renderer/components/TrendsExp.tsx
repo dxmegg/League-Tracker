@@ -2,6 +2,7 @@ import { useState, type ReactNode } from "react";
 import { Link } from "react-router-dom";
 import type { TrendsData, TrendsDay } from "../lib/types";
 import { getChampionName, useChampionData } from "../hooks/useChampions";
+import { byLength, rollingWinRate, sessionEffects, standouts, type Split } from "../lib/trendStats";
 import { formatDuration, formatNumber, formatTimeAgo } from "../lib/format";
 import { isArenaQueue } from "../../shared/queues";
 import { ActivityHeatmap } from "./ActivityHeatmap";
@@ -13,7 +14,6 @@ import { queueLabel } from "./QueueSelect";
 import { HeroTile, PageHero } from "./SplashHero";
 import SummonerIcon from "./SummonerIcon";
 import { clockPoint, TimeSeriesChart, type SeriesPoint } from "./TimeSeriesChart";
-import WinRateBar from "./WinRateBar";
 import { Title } from "./live/shared";
 
 export type TimeRange = "4w" | "12w" | "6m" | "all";
@@ -32,6 +32,7 @@ const WEEKDAY_FULL = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "F
 const ROLE_ORDER = ["TOP", "JUNGLE", "MIDDLE", "BOTTOM", "SUPPORT"];
 const SECTIONS = [
   { id: "form", title: "Form", color: "#3ddc97" },
+  { id: "habits", title: "Habits", color: "#ff6b57" },
   { id: "activity", title: "When you play", color: "#b07cff" },
   { id: "performance", title: "Performance", color: "#e0b65c" },
   { id: "history", title: "Queues, patches & sessions", color: "#4db8ff" },
@@ -69,8 +70,10 @@ function buildWeeks(daily: TrendsDay[], range: TimeRange): Week[] {
   const sorted = [...daily].sort((a, b) => a.day.localeCompare(b.day));
   const last = mondayOf(parseDay(sorted[sorted.length - 1].day));
   const wanted = RANGE_WEEKS[range];
-  const first = wanted ? new Date(last) : mondayOf(parseDay(sorted[0].day));
-  if (wanted) first.setDate(first.getDate() - (wanted - 1) * 7);
+  let first = mondayOf(parseDay(sorted[0].day));
+  const padded = new Date(last);
+  padded.setDate(padded.getDate() - (wanted - 1) * 7);
+  if (wanted && padded < first) first = padded;
   const count = Math.round((last.getTime() - first.getTime()) / WEEK_MS) + 1;
   const weeks: Week[] = Array.from({ length: count }, (_, index) => {
     const monday = new Date(first);
@@ -181,9 +184,11 @@ function Empty({ text = "Not enough data" }: { text?: string }) {
 
 // ---- Form ----
 
-type Metric = "winRate" | "score" | "kda" | "kills";
+type Metric = "winRate" | "rolling" | "score" | "kda" | "kills";
+const ROLLING_GAMES = 20;
 const METRICS: { value: Metric; label: string }[] = [
   { value: "winRate", label: "Win rate" },
+  { value: "rolling", label: `Last ${ROLLING_GAMES} games` },
   { value: "score", label: "Score" },
   { value: "kda", label: "KDA" },
   { value: "kills", label: "K / D / A" },
@@ -233,6 +238,8 @@ function OverTime({ weeks, data }: { weeks: Week[]; data: TrendsData }) {
     }, null);
   const best = extreme(1);
   const worst = extreme(-1);
+  const rolling = rollingWinRate(data.timeline, ROLLING_GAMES);
+  const rates = rolling.map((p) => p.rate);
 
   return (
     <Tile
@@ -260,6 +267,22 @@ function OverTime({ weeks, data }: { weeks: Week[]; data: TrendsData }) {
     >
       {played.length === 0 ? (
         <Empty />
+      ) : metric === "rolling" ? (
+        rolling.length < 2 ? (
+          <Empty text={`Needs more than ${ROLLING_GAMES} games in this period`} />
+        ) : (
+          <LineChartExp
+            values={rates}
+            format={(v) => `${v.toFixed(0)}%`}
+            color="var(--theme-win)"
+            xLabels={rolling.map((p) => shortDate(new Date(p.time)))}
+            yFormat={(v) => `${v.toFixed(0)}%`}
+            min={0}
+            max={100}
+            baseline={50}
+            height={260}
+          />
+        )
       ) : metric === "kills" ? (
         <LineChartExp
           values={kdaLines[0].values}
@@ -282,7 +305,25 @@ function OverTime({ weeks, data }: { weeks: Week[]; data: TrendsData }) {
         />
       )}
       <div className="mt-4 grid grid-cols-2 gap-2.5 md:grid-cols-4">
-        {metric === "kills" ? (
+        {metric === "rolling" ? (
+          <>
+            <Fact
+              label="Highest"
+              value={rates.length ? `${Math.max(...rates).toFixed(0)}%` : "—"}
+              className="text-lol-win"
+            />
+            <Fact
+              label="Lowest"
+              value={rates.length ? `${Math.min(...rates).toFixed(0)}%` : "—"}
+              className="text-lol-loss"
+            />
+            <Fact
+              label="Right now"
+              value={rates.length ? `${rates[rates.length - 1].toFixed(0)}%` : "—"}
+            />
+            <Fact label="Games" value={formatNumber(data.timeline.length)} />
+          </>
+        ) : metric === "kills" ? (
           <>
             <Fact label="Avg kills" value={data.summaryStats.avgKills.toFixed(1)} />
             <Fact label="Avg deaths" value={data.summaryStats.avgDeaths.toFixed(1)} />
@@ -414,6 +455,163 @@ function Balance({ weeks }: { weeks: Week[] }) {
   );
 }
 
+// Win rate with a bar bright enough to read on the dark rows
+function Rate({ wins, games }: { wins: number; games: number }) {
+  const value = rate(wins, games);
+  return (
+    <div className="flex items-center gap-2.5">
+      <div className="h-1.5 min-w-0 flex-1 overflow-hidden rounded-full bg-white/[0.08]">
+        <div
+          className={`h-full rounded-full ${value >= 50 ? "bg-lol-win" : "bg-lol-loss"}`}
+          style={{ width: `${value}%` }}
+        />
+      </div>
+      <b className={`w-14 text-right font-display text-[15px] tabular-nums ${tone(value)}`}>
+        {value.toFixed(1)}%
+      </b>
+    </div>
+  );
+}
+
+// ---- Takeaways ----
+
+type Takeaway = { good: boolean; title: string; detail: string };
+
+// The page's findings in words, so nobody has to read every chart to get them
+function Takeaways({ items }: { items: Takeaway[] }) {
+  if (items.length === 0) return null;
+  return (
+    <Tile title="What stands out" note="compared with your win rate in this period">
+      <div className="grid grid-cols-1 gap-2.5 md:grid-cols-2 xl:grid-cols-3">
+        {items.map((item) => (
+          <div
+            key={item.title}
+            className={`flex items-start gap-3 px-3.5 py-3 ${ROW}`}
+            style={{
+              boxShadow: `inset 4px 0 0 var(${item.good ? "--theme-win" : "--theme-loss"})`,
+            }}
+          >
+            <span
+              className={`font-display text-[18px] font-bold leading-6 ${item.good ? "text-lol-win" : "text-lol-loss"}`}
+              aria-label={item.good ? "Strength" : "Weakness"}
+            >
+              {item.good ? "▲" : "▼"}
+            </span>
+            <div className="min-w-0">
+              <div className="font-display text-[14px] font-bold text-lol-text-bright">
+                {item.title}
+              </div>
+              <div className="text-[12px] text-lol-text">{item.detail}</div>
+            </div>
+          </div>
+        ))}
+      </div>
+    </Tile>
+  );
+}
+
+// ---- Champions ----
+
+function ChampionList({
+  title,
+  note,
+  rows,
+}: {
+  title: string;
+  note: string;
+  rows: TrendsData["championTop"];
+}) {
+  const champions = useChampionData();
+  return (
+    <Tile title={title} note={note}>
+      {rows.length === 0 ? (
+        <Empty />
+      ) : (
+        <div className="flex flex-col gap-1.5">
+          {rows.map((c) => (
+            <Link
+              key={c.championId}
+              to={`/champions/${c.championId}`}
+              className={`flex items-center gap-3 px-3 py-2 transition-colors hover:bg-white/[0.04] ${ROW}`}
+            >
+              <ChampionIcon championId={c.championId} size={36} className="rounded-lg" />
+              <div className="min-w-0 flex-1">
+                <div className="truncate font-display text-[14px] font-bold text-lol-text-bright">
+                  {getChampionName(champions, c.championId)}
+                </div>
+                <div className="text-[11px] text-lol-text">
+                  {c.games} games · {kdaOf(c.kills, c.deaths, c.assists).toFixed(2)} KDA
+                </div>
+              </div>
+              <div className="w-44 shrink-0">
+                <Rate wins={c.wins} games={c.games} />
+              </div>
+            </Link>
+          ))}
+        </div>
+      )}
+    </Tile>
+  );
+}
+
+// ---- Habits ----
+
+// Win rate per group, each compared with the win rate of the whole period
+function SplitTile({
+  title,
+  note,
+  splits,
+  average,
+}: {
+  title: string;
+  note: string;
+  splits: Split[];
+  average: number;
+}) {
+  return (
+    <Tile title={title} note={note}>
+      <div className="flex flex-col gap-1.5">
+        {splits.map((split) => {
+          const value = rate(split.wins, split.games);
+          const delta = value - average;
+          return (
+            <div key={split.label} className={`px-3 py-2.5 ${ROW}`}>
+              <div className="flex items-baseline justify-between gap-3">
+                <span className="whitespace-nowrap text-[13px] text-lol-text-bright">
+                  {split.label}
+                </span>
+                <span className="ml-auto whitespace-nowrap text-[11px] tabular-nums text-lol-text">
+                  {formatNumber(split.games)} games
+                </span>
+                <b
+                  className={`w-14 text-right font-display text-[17px] tabular-nums ${!split.games ? "text-lol-text" : delta >= 0 ? "text-lol-win" : "text-lol-loss"}`}
+                >
+                  {split.games ? `${value.toFixed(0)}%` : "—"}
+                </b>
+                <span
+                  className={`w-12 text-right text-[11px] tabular-nums ${delta >= 0 ? "text-lol-win" : "text-lol-loss"}`}
+                >
+                  {split.games ? `${delta >= 0 ? "+" : ""}${delta.toFixed(1)}` : ""}
+                </span>
+              </div>
+              <div className="relative mt-1.5 h-1.5 overflow-hidden rounded-full bg-white/[0.08]">
+                <div
+                  className={`h-full rounded-full ${value >= average ? "bg-lol-win" : "bg-lol-loss"}`}
+                  style={{ width: `${value}%` }}
+                />
+                <i
+                  className="absolute inset-y-0 w-px bg-white/70"
+                  style={{ left: `${average}%` }}
+                />
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </Tile>
+  );
+}
+
 // ---- When you play ----
 
 const MATRIX_COLS = "grid grid-cols-[40px_repeat(24,minmax(0,1fr))] items-center gap-1";
@@ -489,31 +687,45 @@ export function TrendsExp({
   const wins = total((d) => d.wins);
   const scored = total((d) => d.scored_games);
 
+  const before = ready ? data.previous : null;
+  const versus = (now: number, then: number | null | undefined, digits: number, unit = "") => {
+    if (then == null || !before?.games) return undefined;
+    const delta = now - then;
+    return `${delta >= 0 ? "▲" : "▼"} ${Math.abs(delta).toFixed(digits)}${unit} vs the ${rangeLabel} before`;
+  };
+  const kdaNow = kdaOf(
+    total((d) => d.kills),
+    total((d) => d.deaths),
+    total((d) => d.assists),
+  );
+  const scoreNow = scored ? total((d) => d.score_sum ?? 0) / scored : null;
+
   const header = (
     <PageHero title="Trends" subtitle={`How your ${rangeLabel} look`}>
-      <HeroTile label="Matches" value={ready ? formatNumber(games) : "—"} />
+      <HeroTile
+        label="Matches"
+        value={ready ? formatNumber(games) : "—"}
+        sub={versus(games, before?.games, 0)}
+      />
       <HeroTile
         label="Win rate"
         value={ready ? `${rate(wins, games).toFixed(1)}%` : "—"}
-        sub={ready ? `${formatNumber(wins)}W ${formatNumber(games - wins)}L` : undefined}
+        sub={
+          versus(rate(wins, games), before ? rate(before.wins, before.games) : null, 1, " pp") ??
+          (ready ? `${formatNumber(wins)}W ${formatNumber(games - wins)}L` : undefined)
+        }
         valueClass={tone(rate(wins, games))}
       />
       <HeroTile
         label="KDA"
-        value={
-          ready
-            ? kdaOf(
-                total((d) => d.kills),
-                total((d) => d.deaths),
-                total((d) => d.assists),
-              ).toFixed(2)
-            : "—"
-        }
+        value={ready ? kdaNow.toFixed(2) : "—"}
+        sub={versus(kdaNow, before ? kdaOf(before.kills, before.deaths, before.assists) : null, 2)}
         valueClass="text-lol-assist"
       />
       <HeroTile
         label="Score"
-        value={scored ? (total((d) => d.score_sum ?? 0) / scored).toFixed(1) : "—"}
+        value={scoreNow != null ? scoreNow.toFixed(1) : "—"}
+        sub={scoreNow != null ? versus(scoreNow, before?.score, 1) : undefined}
         valueClass="text-lol-gold"
       />
       <HeroTile
@@ -521,13 +733,9 @@ export function TrendsExp({
         value={ready ? `${Math.round(total((d) => d.duration_sum) / 3600)}h` : "—"}
       />
       <HeroTile
-        label="Win rate change"
-        value={
-          ready
-            ? `${data.insights.winRateDiff > 0 ? "+" : ""}${data.insights.winRateDiff.toFixed(1)} pp`
-            : "—"
-        }
-        valueClass={ready && data.insights.winRateDiff < 0 ? "text-lol-loss" : "text-lol-win"}
+        label="Per day played"
+        value={ready ? (games / data.daily.length).toFixed(1) : "—"}
+        sub={ready ? `games, over ${data.daily.length} days` : undefined}
       />
     </PageHero>
   );
@@ -606,6 +814,10 @@ export function TrendsExp({
 
   const weeks = buildWeeks(data.daily, timeRange);
   const { summaryStats: summary, insights, combatEconomy: combat } = data;
+  const average = rate(wins, games);
+  const sessions = sessionEffects(data.timeline);
+  // The weekday with the most games overall, not the weekday of the single busiest date
+  const busiest = [...data.weekdays].sort((a, b) => b.games - a.games)[0];
 
   const roleStats = new Map(
     data.roleBreakdown.map((r) => [r.role === "UTILITY" ? "SUPPORT" : r.role, r]),
@@ -651,6 +863,40 @@ export function TrendsExp({
       ]
     : [];
 
+  const minGames = Math.max(10, Math.round(games * 0.03));
+  const takeaways: Takeaway[] = [];
+  const addSplit = (splits: Split[], describe: (label: string) => string) => {
+    const found = standouts(splits, average, minGames);
+    for (const split of [found.best, found.worst]) {
+      // Two points either way is noise, not a habit
+      if (!split || Math.abs(split.delta) < 2) continue;
+      takeaways.push({
+        good: split.delta > 0,
+        title: describe(split.label),
+        detail: `${rate(split.wins, split.games).toFixed(1)}% over ${formatNumber(split.games)} games (${split.delta > 0 ? "+" : ""}${split.delta.toFixed(1)} pp)`,
+      });
+    }
+  };
+  addSplit(sessions.after, (label) => label);
+  addSplit(sessions.slots, (label) => `${label} of a sitting`);
+  addSplit(byLength(data.timeline), (label) => `Games: ${label.toLowerCase()}`);
+  addSplit(
+    data.weekdays.map((w) => ({
+      label: WEEKDAY_FULL[w.weekday],
+      games: w.games,
+      wins: w.wins,
+    })),
+    (label) => `${label}s`,
+  );
+  addSplit(
+    data.championMost.map((c) => ({
+      label: getChampionName(champions, c.championId),
+      games: c.games,
+      wins: c.wins,
+    })),
+    (label) => `Playing ${label}`,
+  );
+
   const highlights = [
     {
       label: "Strongest day",
@@ -668,8 +914,8 @@ export function TrendsExp({
     },
     {
       label: "Most active day",
-      value: summary.mostActiveDay || "—",
-      detail: `longest daily streak ${summary.longestActiveStreak} days`,
+      value: busiest ? WEEKDAY_FULL[busiest.weekday] : "—",
+      detail: `${formatNumber(busiest?.games ?? 0)} games · longest daily streak ${summary.longestActiveStreak} days`,
     },
     {
       label: "Last played",
@@ -683,20 +929,43 @@ export function TrendsExp({
       {header}
       {controls}
 
+      <Takeaways items={takeaways} />
+
       <Section {...SECTIONS[0]}>
         <div className="grid grid-cols-1 gap-5 xl:grid-cols-3">
           <OverTime weeks={weeks} data={data} />
           <RecentForm data={data} />
         </div>
-        <div className="grid grid-cols-1 gap-5 xl:grid-cols-3">
-          <div className="min-w-0 xl:col-span-2">
-            <Balance weeks={weeks} />
-          </div>
-          <WinningConditions data={data} />
-        </div>
+        <Balance weeks={weeks} />
       </Section>
 
       <Section {...SECTIONS[1]}>
+        <div className="grid grid-cols-1 gap-5 xl:grid-cols-3">
+          <SplitTile
+            title="Game in a sitting"
+            note="a 2 h break starts a new one"
+            splits={sessions.slots}
+            average={average}
+          />
+          <div className="flex min-w-0 flex-col gap-5">
+            <SplitTile
+              title="After the previous game"
+              note="same sitting"
+              splits={sessions.after}
+              average={average}
+            />
+            <WinningConditions data={data} />
+          </div>
+          <SplitTile
+            title="Game length"
+            note="vs your average"
+            splits={byLength(data.timeline)}
+            average={average}
+          />
+        </div>
+      </Section>
+
+      <Section {...SECTIONS[2]}>
         <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
           {highlights.map((h) => (
             <div key={h.label} className="app-tile min-w-0">
@@ -710,7 +979,10 @@ export function TrendsExp({
             </div>
           ))}
         </div>
-        <Tile title="Activity" note="games per day">
+        <Tile
+          title="Activity"
+          note={`games per day · last 12 months, filled for the ${rangeLabel} selected`}
+        >
           <div className="flex w-full justify-center">
             <ActivityHeatmap daily={data.daily} />
           </div>
@@ -758,7 +1030,7 @@ export function TrendsExp({
         </div>
       </Section>
 
-      <Section {...SECTIONS[2]}>
+      <Section {...SECTIONS[3]}>
         {combatRows.length > 0 && (
           <div
             className={`grid grid-cols-2 gap-3 md:grid-cols-3 ${combatRows.length > 5 ? "xl:grid-cols-6" : "xl:grid-cols-5"}`}
@@ -775,38 +1047,13 @@ export function TrendsExp({
             ))}
           </div>
         )}
-        <div className="grid grid-cols-1 gap-5 xl:grid-cols-3">
-          <Tile title="Champions" note="best this period">
-            {data.championTop.length === 0 ? (
-              <Empty />
-            ) : (
-              <div className="flex flex-col gap-1.5">
-                {data.championTop.map((c) => (
-                  <Link
-                    key={c.championId}
-                    to={`/champions/${c.championId}`}
-                    className={`flex items-center gap-3 px-3 py-2 transition-colors hover:bg-white/[0.04] ${ROW}`}
-                  >
-                    <ChampionIcon championId={c.championId} size={36} className="rounded-lg" />
-                    <div className="min-w-0 flex-1">
-                      <div className="truncate font-display text-[14px] font-bold text-lol-text-bright">
-                        {getChampionName(champions, c.championId)}
-                      </div>
-                      <div className="text-[11px] text-lol-text">
-                        {c.games} games · {kdaOf(c.kills, c.deaths, c.assists).toFixed(2)} KDA
-                        {c.games < 5 ? " · low sample" : ""}
-                      </div>
-                    </div>
-                    <span
-                      className={`font-display text-[17px] font-bold tabular-nums ${tone(rate(c.wins, c.games))}`}
-                    >
-                      {rate(c.wins, c.games).toFixed(0)}%
-                    </span>
-                  </Link>
-                ))}
-              </div>
-            )}
-          </Tile>
+        <div className="grid grid-cols-1 gap-5 xl:grid-cols-2">
+          <ChampionList title="Most played" note="this period" rows={data.championMost} />
+          <ChampionList title="Best win rate" note="min 10 games" rows={data.championTop} />
+        </div>
+        <div
+          className={`grid grid-cols-1 gap-5 ${objectives.length > 0 ? "xl:grid-cols-3" : "xl:grid-cols-2"}`}
+        >
           <Tile title="Duo partners" note="most played with">
             {data.topDuos.length === 0 ? (
               <Empty text="No duo data" />
@@ -831,8 +1078,8 @@ export function TrendsExp({
               </div>
             )}
           </Tile>
-          <div className="flex min-w-0 flex-col gap-5">
-            <Tile title="Damage split" className={objectives.length > 0 ? "" : "flex-1"}>
+          <>
+            <Tile title="Damage split">
               <div className="flex justify-center">
                 <DonutChart
                   segments={[
@@ -843,11 +1090,13 @@ export function TrendsExp({
                   showLegend
                   centerLabel="Damage"
                   centerSub="Total"
+                  size={200}
+                  thickness={22}
                 />
               </div>
             </Tile>
             {objectives.length > 0 && (
-              <Tile title="Objectives" note="average in wins vs losses" className="flex-1">
+              <Tile title="Objectives" note="average in wins vs losses">
                 <div className="flex flex-col gap-1.5">
                   {objectives.map(([label, values]) => {
                     const won = Number(values.win);
@@ -874,7 +1123,7 @@ export function TrendsExp({
                 </div>
               </Tile>
             )}
-          </div>
+          </>
         </div>
         {roles.length > 0 && (
           <Tile title="Roles" note="games with an assigned position">
@@ -897,30 +1146,30 @@ export function TrendsExp({
         )}
       </Section>
 
-      <Section {...SECTIONS[3]}>
-        <div className="grid grid-cols-1 gap-5 xl:grid-cols-2">
-          <Tile title="Queues">
-            <div className="flex flex-col gap-1.5">
-              {[...queues.entries()]
-                .sort((a, b) => b[1].games - a[1].games)
-                .map(([label, q]) => (
-                  <div key={label} className={`flex items-center gap-3 px-3 py-2.5 ${ROW}`}>
-                    <div className="min-w-0 flex-1">
-                      <div className="truncate font-display text-[14px] font-bold text-lol-text-bright">
-                        {label}
-                      </div>
-                      <div className="text-[11px] text-lol-text">
-                        {q.games} games · {kdaOf(q.k, q.d, q.a).toFixed(2)} KDA ·{" "}
-                        {formatDuration(Math.round(q.duration / q.games))} avg
-                      </div>
+      <Section {...SECTIONS[4]}>
+        <Tile title="Queues">
+          <div className={`grid grid-cols-1 gap-1.5 ${queues.size > 1 ? "xl:grid-cols-2" : ""}`}>
+            {[...queues.entries()]
+              .sort((a, b) => b[1].games - a[1].games)
+              .map(([label, q]) => (
+                <div key={label} className={`flex items-center gap-3 px-3 py-2.5 ${ROW}`}>
+                  <div className="min-w-0 flex-1">
+                    <div className="truncate font-display text-[14px] font-bold text-lol-text-bright">
+                      {label}
                     </div>
-                    <div className="w-40 shrink-0">
-                      <WinRateBar wins={q.wins} total={q.games} />
+                    <div className="text-[11px] text-lol-text">
+                      {q.games} games · {kdaOf(q.k, q.d, q.a).toFixed(2)} KDA ·{" "}
+                      {formatDuration(Math.round(q.duration / q.games))} avg
                     </div>
                   </div>
-                ))}
-            </div>
-          </Tile>
+                  <div className="w-48 shrink-0">
+                    <Rate wins={q.wins} games={q.games} />
+                  </div>
+                </div>
+              ))}
+          </div>
+        </Tile>
+        <div className="grid grid-cols-1 gap-5 xl:grid-cols-2">
           <Tile title="Recent sessions" note="latest first">
             <div className="flex flex-col gap-1.5">
               {data.recentSessions.map((s) => (
@@ -949,10 +1198,10 @@ export function TrendsExp({
               ))}
             </div>
           </Tile>
+          <Tile title={patch ? "Win rate for this patch" : "Win rate by patch"} note={rangeLabel}>
+            <PatchBars patches={data.patches} />
+          </Tile>
         </div>
-        <Tile title={patch ? "Win rate for this patch" : "Win rate by patch"} note={rangeLabel}>
-          <PatchBars patches={data.patches} />
-        </Tile>
       </Section>
     </div>
   );

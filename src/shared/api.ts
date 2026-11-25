@@ -1353,6 +1353,18 @@ export interface TrendsData {
     assists: number;
   }[];
   dayHourMatrix: { weekday: number; hour: number; games: number; wins: number }[];
+  championMost: TrendsData["championTop"];
+  // Every game of the period, oldest first
+  timeline: { owner: string; time: number; duration: number; win: number }[];
+  // Totals of the period of the same length before this one; null for "all time"
+  previous: {
+    games: number;
+    wins: number;
+    kills: number;
+    deaths: number;
+    assists: number;
+    score: number | null;
+  } | null;
   insights: {
     winRateDiff: number;
     bestDay: { day: string; wr: number } | null;
