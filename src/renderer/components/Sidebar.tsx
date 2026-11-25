@@ -2,6 +2,7 @@ import type { SVGProps } from "react";
 import { NavLink, useLocation } from "react-router-dom";
 import { useActiveMode } from "../hooks/useActiveMode";
 import { useDevMode } from "../hooks/useDevMode";
+import { useIpc } from "../hooks/useIpc";
 import { useActiveTheme } from "../hooks/useActiveTheme";
 import {
   CoinsIcon,
@@ -87,6 +88,7 @@ export function Sidebar() {
   const tabs = useActiveTheme({ exact: true }) === "redesign" ? redesignTabs : mainTabs;
   const [mode] = useActiveMode();
   const [devMode] = useDevMode();
+  const { data: version } = useIpc(() => window.api.getVersion(), []);
 
   const isLinkActive = (to: string) => {
     if (to === "/history") return pathname === "/history" || pathname === "/";
@@ -107,6 +109,11 @@ export function Sidebar() {
         <div className="min-w-0 px-1">
           <div className="font-display text-[18px] font-bold leading-tight text-lol-text-bright">
             Rift Records
+            {version && (
+              <span className="ml-1.5 text-[11px] font-semibold text-lol-text/60">
+                v{version.replace(/\.0$/, "")}
+              </span>
+            )}
           </div>
           <div className="mt-1 text-[11px] leading-snug text-lol-text/60">
             Local match history tracker
