@@ -5,6 +5,8 @@ import zlib from "zlib";
 import { NO_STATS_QUEUE_IDS } from "../../shared/queues";
 import { computeMatchScores } from "../../shared/opScore";
 import type {
+  ItemDetail,
+  AugmentDetail,
   ChampionAllyRow,
   ChampionSkillOrder,
   ChampionSkillOrdersResult,
@@ -1573,6 +1575,156 @@ export function getAugmentStatsWithChampions(
   });
 }
 
+// Everything the augment detail page shows. The scope is every stat line with at least one augment, so
+// "without it" compares against games where an augment could have been this one.
+export function getAugmentDetail(
+  augmentId: number,
+  patch?: string,
+  queue?: number,
+  account?: string,
+): AugmentDetail {
+  return cachedQuery("getAugmentDetail", [augmentId, patch, queue, account], 30_000, () => {
+    const source = statsSource(account);
+    const where = ["g.is_remake = 0", source.accountFilter];
+    const params: any[] = account && account !== "all" ? [account] : [];
+    if (patch) {
+      where.push("g.game_version = ?");
+      params.push(patch);
+    }
+    applyQueueFilter(where, params, queue);
+    where.push(`g.queue_id NOT IN (${EXCLUDED_STATS_SQL})`);
+    const augmentColumn = account ? "mpa.augment_id" : "ga.augment_id";
+    const augmentSource = account
+      ? `FROM match_participant_augments mpa
+         JOIN match_participants mp
+           ON mp.game_id = mpa.game_id
+          AND mp.participant_id = mpa.participant_id
+          AND mp.puuid = ps.puuid
+         JOIN ${source.table} ${source.alias} ON mpa.game_id = ps.game_id
+         JOIN games g ON mpa.game_id = g.game_id`
+      : `FROM game_augments ga
+         JOIN ${source.table} ${source.alias} ON ga.game_id = ps.game_id
+         JOIN games g ON ga.game_id = g.game_id`;
+    type Line = AugmentDetail["champions"][number]["matches"][number] & {
+      augment_id: number;
+      patch: string | null;
+    } & Record<`item${0 | 1 | 2 | 3 | 4 | 5 | 6}`, number | null>;
+    const rows = db
+      .prepare(
+        `SELECT ${augmentColumn} AS augment_id, ps.game_id, ps.champion_id, g.game_creation,
+                g.game_duration, g.queue_id, g.game_version AS patch, ps.win, ps.kills, ps.deaths,
+                ps.assists, ps.total_damage_dealt AS damage, ps.total_damage_taken AS taken,
+                ps.gold_earned AS gold, ps.total_heal AS heal, ps.score,
+                ps.item0, ps.item1, ps.item2, ps.item3, ps.item4, ps.item5, ps.item6
+         ${augmentSource}
+         WHERE ${where.join(" AND ")}
+         ORDER BY g.game_creation DESC`,
+      )
+      .all(...params) as Line[];
+
+    // One entry per player in a game, with every augment that player took
+    const lines = new Map<string, { line: Line; augments: Set<number> }>();
+    for (const row of rows) {
+      const key = `${row.game_id}:${row.champion_id}`;
+      const entry = lines.get(key) ?? { line: row, augments: new Set<number>() };
+      entry.augments.add(row.augment_id);
+      lines.set(key, entry);
+    }
+    const all = [...lines.values()];
+    const withIt = all.filter((entry) => entry.augments.has(augmentId));
+    const without = all.filter((entry) => !entry.augments.has(augmentId)).map((e) => e.line);
+
+    const sum = (list: Line[], pick: (line: Line) => number) =>
+      list.reduce((total, line) => total + pick(line), 0);
+    const average = (list: Line[], pick: (line: Line) => number) =>
+      list.length ? sum(list, pick) / list.length : null;
+    const scored = without.filter((line) => line.score != null);
+
+    const championTotals = new Map<number, { games: number; wins: number }>();
+    for (const { line } of all) {
+      const total = championTotals.get(line.champion_id) ?? { games: 0, wins: 0 };
+      total.games++;
+      total.wins += line.win;
+      championTotals.set(line.champion_id, total);
+    }
+
+    const champions = new Map<number, AugmentDetail["champions"][number]>();
+    const patches = new Map<string, { patch: string; games: number; wins: number }>();
+    const pairs = new Map<number, { games: number; wins: number }>();
+    const items = new Map<number, { games: number; wins: number }>();
+    const skipItems = new Set<number>([...TRINKET_ITEM_IDS, ...EXCLUDED_ITEM_IDS]);
+    const count = (map: Map<number, { games: number; wins: number }>, id: number, win: number) => {
+      const entry = map.get(id) ?? { games: 0, wins: 0 };
+      entry.games++;
+      entry.wins += win;
+      map.set(id, entry);
+    };
+
+    for (const { line, augments } of withIt) {
+      const total = championTotals.get(line.champion_id)!;
+      const champion = champions.get(line.champion_id) ?? {
+        champion_id: line.champion_id,
+        games: 0,
+        wins: 0,
+        championGames: total.games,
+        championWins: total.wins,
+        matches: [],
+      };
+      champion.games++;
+      champion.wins += line.win;
+      champion.matches.push(line);
+      champions.set(line.champion_id, champion);
+
+      if (line.patch) {
+        const row = patches.get(line.patch) ?? { patch: line.patch, games: 0, wins: 0 };
+        row.games++;
+        row.wins += line.win;
+        patches.set(line.patch, row);
+      }
+      for (const other of augments) if (other !== augmentId) count(pairs, other, line.win);
+      const built = new Set(
+        [0, 1, 2, 3, 4, 5, 6].map((i) => line[`item${i as 0}`] ?? 0).filter((id) => id > 0),
+      );
+      for (const id of built) if (!skipItems.has(id)) count(items, id, line.win);
+    }
+
+    const top = (map: Map<number, { games: number; wins: number }>) =>
+      [...map.entries()]
+        .map(([id, value]) => ({ id, ...value }))
+        .sort((a, b) => b.games - a.games || a.id - b.id)
+        .slice(0, 8);
+
+    return {
+      augment_id: augmentId,
+      picks: withIt.length,
+      wins: sum(
+        withIt.map((e) => e.line),
+        (line) => line.win,
+      ),
+      totalGames: all.length,
+      baseline: {
+        games: without.length,
+        wins: sum(without, (l) => l.win),
+        kills: sum(without, (l) => l.kills),
+        deaths: sum(without, (l) => l.deaths),
+        assists: sum(without, (l) => l.assists),
+        damage: average(without, (l) => l.damage),
+        taken: average(without, (l) => l.taken),
+        gold: average(without, (l) => l.gold),
+        heal: average(without, (l) => l.heal),
+        score: average(scored, (l) => l.score!),
+        duration: average(without, (l) => l.game_duration),
+      },
+      champions: [...champions.values()].sort((a, b) => b.games - a.games),
+      patchBreakdown: [...patches.values()]
+        .sort((a, b) => b.patch.localeCompare(a.patch, undefined, { numeric: true }))
+        .slice(0, 8),
+      pairings: top(pairs),
+      topItems: top(items),
+    };
+  });
+}
+
 export function getChampionItemStats(
   championId: number | null,
   patch?: string,
@@ -2292,17 +2444,26 @@ export function getOwnedItemDetail(itemId: number, patch?: string, queue?: numbe
     applyQueueFilter(where, params, queue);
     const rows = db
       .prepare(
-        `SELECT ps.game_id, ps.champion_id, g.game_creation, g.game_duration, ps.win, ps.kills, ps.deaths, ps.assists FROM player_stats ps JOIN games g ON g.game_id = ps.game_id WHERE ${where.join(" AND ")} ORDER BY g.game_creation DESC`,
+        `SELECT ps.game_id, ps.champion_id, g.game_creation, g.game_duration, g.queue_id, ps.win, ps.kills, ps.deaths, ps.assists,
+                ps.total_damage_dealt AS damage, ps.total_damage_taken AS taken, ps.gold_earned AS gold, ps.total_heal AS heal, ps.score
+         FROM player_stats ps JOIN games g ON g.game_id = ps.game_id
+         WHERE ${where.join(" AND ")} ORDER BY g.game_creation DESC`,
       )
       .all(...params) as {
       game_id: number;
       champion_id: number;
       game_creation: number;
       game_duration: number;
+      queue_id: number;
       win: number;
       kills: number;
       deaths: number;
       assists: number;
+      damage: number;
+      taken: number;
+      gold: number;
+      heal: number;
+      score: number | null;
     }[];
     const totalWhere = ["g.is_remake = 0"];
     totalWhere.push(localGamesFilter("g"));
@@ -2329,13 +2490,28 @@ export function getOwnedItemDetail(itemId: number, patch?: string, queue?: numbe
     }
     const championTotals = db
       .prepare(
-        `SELECT ps.champion_id, COUNT(*) games
+        `SELECT ps.champion_id, COUNT(*) games, SUM(ps.win) wins
        FROM player_stats ps JOIN games g ON g.game_id = ps.game_id
        WHERE ${totalWhere.join(" AND ")}
        GROUP BY ps.champion_id`,
       )
-      .all(...totalParams) as { champion_id: number; games: number }[];
-    const totalByChampion = new Map(championTotals.map((row) => [row.champion_id, row.games]));
+      .all(...totalParams) as { champion_id: number; games: number; wins: number }[];
+    const totalByChampion = new Map(championTotals.map((row) => [row.champion_id, row]));
+    // Same scope, games without this item: what the item is compared against
+    const baseline = db
+      .prepare(
+        `SELECT COUNT(*) AS games, TOTAL(ps.win) AS wins, TOTAL(ps.kills) AS kills,
+                TOTAL(ps.deaths) AS deaths, TOTAL(ps.assists) AS assists,
+                AVG(ps.total_damage_dealt) AS damage, AVG(ps.total_damage_taken) AS taken,
+                AVG(ps.gold_earned) AS gold, AVG(ps.total_heal) AS heal, AVG(ps.score) AS score,
+                AVG(g.game_duration) AS duration
+         FROM player_stats ps JOIN games g ON g.game_id = ps.game_id
+         WHERE ${totalWhere.join(" AND ")}
+           AND ? NOT IN (IFNULL(ps.item0, 0), IFNULL(ps.item1, 0), IFNULL(ps.item2, 0),
+                         IFNULL(ps.item3, 0), IFNULL(ps.item4, 0), IFNULL(ps.item5, 0),
+                         IFNULL(ps.item6, 0))`,
+      )
+      .get(...totalParams, itemId) as ItemDetail["baseline"];
     const matchingGameIds = [...new Set(rows.map((row) => row.game_id))];
     let avgBuyTimeMs: number | null = null;
     let patchBreakdown: { patch: string; games: number; wins: number }[] = [];
@@ -2461,11 +2637,13 @@ export function getOwnedItemDetail(itemId: number, patch?: string, queue?: numbe
       avgBuyTimeMs,
       patchBreakdown,
       topPairings,
+      baseline,
       champions: [...champions.entries()]
         .map(([champion_id, value]) => ({
           champion_id,
           ...value,
-          championGames: totalByChampion.get(champion_id) ?? value.games,
+          championGames: totalByChampion.get(champion_id)?.games ?? value.games,
+          championWins: totalByChampion.get(champion_id)?.wins ?? value.wins,
         }))
         .sort((a, b) => b.games - a.games),
     };
@@ -4860,6 +5038,8 @@ export function getRecords(
       let objectiveDamage: StatRecord | undefined;
       let fastestPentakill: StatRecord | undefined;
       let flawlessAce: StatRecord | undefined;
+      let bestScoreRaw = -Infinity;
+      let bestDeathlessRaw = -Infinity;
       const multikillTotals = {
         doubles: 0,
         triples: 0,
@@ -4923,7 +5103,10 @@ export function getRecords(
         // Deathless games rank by kills+assists rather than dividing by zero; the
         // renderer still labels them "Perfect"
         track("kda", (r.kills + r.assists) / Math.max(r.deaths, 1), r, higher, r.deaths === 0);
-        track("score", r.score_raw, r);
+        if (r.score_raw != null && r.score_raw > bestScoreRaw) {
+          bestScoreRaw = r.score_raw;
+          bests.score = { value: r.score, match: matchOf(r) };
+        }
         track("killingSpree", r.largest_killing_spree, r);
         track("damage", r.total_damage_dealt, r);
         track("damageTaken", r.total_damage_taken, r);
@@ -4954,8 +5137,9 @@ export function getRecords(
         if (r.penta_kills >= 1 && r.pentakill_time != null) {
           fastestPentakill = trackExtra(fastestPentakill, r.pentakill_time, r, lower);
         }
-        if (!r.win && r.deaths === 0) {
-          flawlessAce = trackExtra(flawlessAce, r.score_raw, r);
+        if (!r.win && r.deaths === 0 && r.score_raw != null && r.score_raw > bestDeathlessRaw) {
+          bestDeathlessRaw = r.score_raw;
+          flawlessAce = { value: r.score, match: matchOf(r) };
         }
         topDamageGames.push({
           gameId: String(r.game_id),

@@ -197,7 +197,7 @@ export function findChampionIdByName(data: ChampionData, name: string): number |
 }
 
 export function getAugmentName(data: AugmentData, id: number): string {
-  return data[id]?.name || `Augment ${id}`;
+  return data[id]?.name?.trim() || `Augment ${id}`;
 }
 
 export function getItemName(data: ItemData, id: number): string {

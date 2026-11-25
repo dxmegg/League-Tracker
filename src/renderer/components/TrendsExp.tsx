@@ -14,9 +14,8 @@ import { getChampionName, useChampionData } from "../hooks/useChampions";
 import { FilterChip } from "./FilterChip";
 import { CrosshairIcon, StarIcon, SwordsIcon } from "./icons";
 import SummonerIcon from "./SummonerIcon";
+import { HeroTile, PageHero } from "./SplashHero";
 
-const PANEL_HOVER_CLASSES =
-  "rounded-xl border-lol-border transition-colors hover:border-lol-crimson/50 hover:bg-white/[0.02]";
 const WEEKDAY_ORDER = [1, 2, 3, 4, 5, 6, 0];
 const WEEKDAY_LABELS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 const WEEKDAY_FULL = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
@@ -349,7 +348,7 @@ export function TrendsExp({
 
   if (error) {
     return (
-      <div className="rounded-xl border border-lol-border border-t-[3px] border-t-[var(--theme-crimson)] bg-[var(--theme-card)] p-12 text-center">
+      <div className="rounded-xl border border-lol-border bg-[var(--theme-card)] p-12 text-center">
         <p className="text-sm font-semibold text-lol-text-bright">Failed to load trends.</p>
         <p className="mt-1 text-xs text-lol-text">{error}</p>
         <button
@@ -365,7 +364,7 @@ export function TrendsExp({
 
   if (!data) {
     return (
-      <div className="relative overflow-hidden rounded-xl border border-lol-border border-t-[3px] border-t-[var(--theme-crimson)] bg-[radial-gradient(circle_at_top_right,color-mix(in_oklab,var(--theme-crimson)_10%,transparent),transparent_46%),linear-gradient(180deg,var(--theme-card-hover),var(--theme-card))] p-12 text-center before:pointer-events-none before:absolute before:inset-x-0 before:top-0 before:h-10 before:bg-[linear-gradient(180deg,color-mix(in_oklab,var(--theme-crimson)_5%,transparent),transparent)]">
+      <div className="relative overflow-hidden rounded-xl border border-lol-border p-12 text-center before:pointer-events-none before:absolute before:inset-x-0 before:top-0 before:h-10 before:bg-[linear-gradient(180deg,color-mix(in_oklab,var(--theme-crimson)_5%,transparent),transparent)]">
         <p className="relative text-sm text-lol-text">Loading trends…</p>
       </div>
     );
@@ -373,7 +372,7 @@ export function TrendsExp({
 
   if (data.daily.length === 0) {
     return (
-      <div className="relative overflow-hidden rounded-xl border border-lol-border border-t-[3px] border-t-[var(--theme-crimson)] bg-[radial-gradient(circle_at_top_right,color-mix(in_oklab,var(--theme-crimson)_10%,transparent),transparent_46%),linear-gradient(180deg,var(--theme-card-hover),var(--theme-card))] p-12 text-center before:pointer-events-none before:absolute before:inset-x-0 before:top-0 before:h-10 before:bg-[linear-gradient(180deg,color-mix(in_oklab,var(--theme-crimson)_5%,transparent),transparent)]">
+      <div className="relative overflow-hidden rounded-xl border border-lol-border p-12 text-center before:pointer-events-none before:absolute before:inset-x-0 before:top-0 before:h-10 before:bg-[linear-gradient(180deg,color-mix(in_oklab,var(--theme-crimson)_5%,transparent),transparent)]">
         <p className="relative text-sm font-semibold text-lol-text-bright">
           No trend data for this scope
         </p>
@@ -499,12 +498,6 @@ export function TrendsExp({
   const kdaMax = kdaValues.length > 0 ? Math.ceil(Math.max(...kdaValues) + 1) : 1;
   const last20Wins = data.streaks.last20Games.filter(Boolean).length;
   const last20Losses = data.streaks.last20Games.length - last20Wins;
-  const streakBorderClass =
-    data.streaks.currentStreak.type === "W"
-      ? "border-t-[var(--theme-win)]"
-      : data.streaks.currentStreak.type === "L"
-        ? "border-t-[var(--theme-loss)]"
-        : "border-t-[var(--theme-gold)]";
   const weekdayByDay = new Map(data.weekdays.map((weekday) => [weekday.weekday, weekday]));
   const weekdayPoints = WEEKDAY_ORDER.map((weekday) =>
     clockPoint(
@@ -527,20 +520,33 @@ export function TrendsExp({
   return (
     <div className="flex min-h-full w-full flex-col gap-6">
       <section aria-labelledby="trends-overview" className="flex flex-col gap-6">
-        <h2
-          id="trends-overview"
-          className="mb-4 text-xs font-semibold uppercase tracking-wider text-slate-400"
-        >
+        <h2 id="trends-overview" className="sr-only">
           Overview
         </h2>
-        <div className="relative shrink-0 overflow-hidden rounded-xl border border-lol-border border-t-[3px] border-t-[var(--theme-crimson)] bg-[radial-gradient(circle_at_top_right,color-mix(in_oklab,var(--theme-crimson)_10%,transparent),transparent_46%),linear-gradient(180deg,var(--theme-card-hover),var(--theme-card))] px-5 py-4 before:pointer-events-none before:absolute before:inset-x-0 before:top-0 before:h-10 before:bg-[linear-gradient(180deg,color-mix(in_oklab,var(--theme-crimson)_5%,transparent),transparent)]">
-          <h1 className="relative pl-4 font-display text-[30px] font-bold leading-tight tracking-[0.2px] text-lol-text-bright before:absolute before:left-0 before:top-1/2 before:h-2.5 before:w-2.5 before:-translate-y-1/2 before:rotate-45 before:bg-[var(--theme-crimson)]">
-            Trends
-          </h1>
-          <p className="relative mt-1.5 pl-4 text-lol-text">
-            How your {timeRangeLabel.toLowerCase()} look
-          </p>
-        </div>
+        <PageHero title="Trends" subtitle={`How your ${timeRangeLabel.toLowerCase()} look`}>
+          <HeroTile label="Matches played" value={totalGames.toLocaleString()} />
+          <HeroTile
+            label="Total wins"
+            value={totalWins.toLocaleString()}
+            valueClass="text-lol-win"
+          />
+          <HeroTile
+            label="Win rate"
+            value={`${totalGames > 0 ? ((totalWins / totalGames) * 100).toFixed(1) : "0.0"}%`}
+            valueClass={totalWins * 2 >= totalGames ? "text-lol-win" : "text-lol-loss"}
+          />
+          <HeroTile
+            label="Avg KDA"
+            value={((totalKills + totalAssists) / Math.max(totalDeaths, 1)).toFixed(2)}
+            valueClass="text-lol-assist"
+          />
+          <HeroTile
+            label="Avg score"
+            value={totalScoredGames > 0 ? (totalScore / totalScoredGames).toFixed(1) : "—"}
+            valueClass="text-lol-gold"
+          />
+          <HeroTile label="Total playtime" value={`${Math.round(totalDuration / 3600)}h`} />
+        </PageHero>
 
         <div className="flex flex-wrap items-center gap-2" aria-label="Time range">
           {TIME_RANGES.map((range) => (
@@ -554,58 +560,6 @@ export function TrendsExp({
             >
               {range.label}
             </FilterChip>
-          ))}
-        </div>
-
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-6">
-          {[
-            {
-              label: "Matches Played",
-              value: totalGames.toLocaleString(),
-              className:
-                "border-t-[3px] border-t-[var(--theme-crimson)] bg-[radial-gradient(circle_at_top_right,color-mix(in_oklab,var(--theme-crimson)_8%,transparent),transparent_48%),linear-gradient(180deg,var(--theme-card-hover),var(--theme-card))]",
-            },
-            {
-              label: "Total Wins",
-              value: totalWins.toLocaleString(),
-              className:
-                "border-t-[3px] border-t-[var(--theme-win)] bg-[radial-gradient(circle_at_top_right,color-mix(in_oklab,var(--theme-win)_8%,transparent),transparent_48%),linear-gradient(180deg,var(--theme-card-hover),var(--theme-card))]",
-            },
-            {
-              label: "Win Rate",
-              value: `${totalGames > 0 ? ((totalWins / totalGames) * 100).toFixed(1) : "0.0"}%`,
-              className:
-                "border-t-[3px] border-t-[var(--theme-win)] bg-[radial-gradient(circle_at_top_right,color-mix(in_oklab,var(--theme-win)_8%,transparent),transparent_48%),linear-gradient(180deg,var(--theme-card-hover),var(--theme-card))]",
-            },
-            {
-              label: "Avg KDA",
-              value: `${((totalKills + totalAssists) / Math.max(totalDeaths, 1)).toFixed(2)}`,
-              className:
-                "border-t-[3px] border-t-[var(--theme-assist)] bg-[radial-gradient(circle_at_top_right,color-mix(in_oklab,var(--theme-assist)_8%,transparent),transparent_48%),linear-gradient(180deg,var(--theme-card-hover),var(--theme-card))]",
-            },
-            {
-              label: "Avg Score",
-              value: `${totalScoredGames > 0 ? (totalScore / totalScoredGames).toFixed(1) : "—"}`,
-              className:
-                "border-t-[3px] border-t-[var(--theme-gold)] bg-[radial-gradient(circle_at_top_right,color-mix(in_oklab,var(--theme-gold)_8%,transparent),transparent_48%),linear-gradient(180deg,var(--theme-card-hover),var(--theme-card))]",
-            },
-            {
-              label: "Total Playtime",
-              value: `${Math.round(totalDuration / 3600)}h`,
-              className:
-                "border-t-[3px] border-t-[var(--theme-violet)] bg-[radial-gradient(circle_at_top_right,color-mix(in_oklab,var(--theme-violet)_8%,transparent),transparent_48%),linear-gradient(180deg,var(--theme-card-hover),var(--theme-card))]",
-            },
-          ].map(({ label, value, className }) => (
-            <Panel
-              key={label}
-              variant="accent"
-              className={`${PANEL_HOVER_CLASSES} ${className} px-4 py-3`}
-            >
-              <div className="text-2xl font-semibold tabular-nums text-lol-text-bright">
-                {value}
-              </div>
-              <div className="mt-1 text-[10px] uppercase tracking-wider text-lol-text">{label}</div>
-            </Panel>
           ))}
         </div>
 
@@ -644,8 +598,9 @@ export function TrendsExp({
             },
           ].map((insight) => (
             <Panel
+              variant="tile"
               key={insight.label}
-              className={`${PANEL_HOVER_CLASSES} ${insight.className} flex items-center gap-3 px-4 py-3`}
+              className={` flex items-center gap-3 px-4 py-3`}
             >
               <span
                 className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-sm font-bold text-lol-card"
@@ -667,9 +622,9 @@ export function TrendsExp({
         </div>
 
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-          <Panel className={`${PANEL_HOVER_CLASSES} border-t-[3px] ${streakBorderClass}`}>
+          <Panel variant="tile">
             <div className="mb-4 flex items-baseline justify-between">
-              <h2 className="relative pl-4 font-display text-xl font-semibold text-lol-text-bright before:absolute before:left-0 before:top-1/2 before:h-2 before:w-2 before:-translate-y-1/2 before:rotate-45 before:bg-lol-crimson">
+              <h2 className="flex items-center gap-2 font-display text-[12px] font-bold uppercase tracking-widest text-lol-gold before:block before:h-3.5 before:w-[3px] before:shrink-0 before:rounded-full before:bg-lol-crimson">
                 Streaks &amp; Consistency
               </h2>
               <span className="text-xs uppercase tracking-wider text-lol-text">Last 20</span>
@@ -736,9 +691,9 @@ export function TrendsExp({
             </div>
           </Panel>
 
-          <Panel className={`${PANEL_HOVER_CLASSES} border-t-[3px] border-t-[var(--theme-gold)]`}>
+          <Panel variant="tile">
             <div className="mb-4 flex items-baseline justify-between">
-              <h2 className="relative pl-4 font-display text-xl font-semibold text-lol-text-bright before:absolute before:left-0 before:top-1/2 before:h-2 before:w-2 before:-translate-y-1/2 before:rotate-45 before:bg-lol-crimson">
+              <h2 className="flex items-center gap-2 font-display text-[12px] font-bold uppercase tracking-widest text-lol-gold before:block before:h-3.5 before:w-[3px] before:shrink-0 before:rounded-full before:bg-lol-crimson">
                 Winning Conditions
               </h2>
               <span className="text-xs uppercase tracking-wider text-lol-text">
@@ -805,13 +760,10 @@ export function TrendsExp({
           </Panel>
         </div>
 
-        <Panel
-          variant="accent"
-          className={`${PANEL_HOVER_CLASSES} rounded-xl border-t-[3px] border-t-[var(--theme-assist)] bg-[radial-gradient(circle_at_top_right,color-mix(in_oklab,var(--theme-assist)_8%,transparent),transparent_48%),linear-gradient(180deg,var(--theme-card-hover),var(--theme-card))]`}
-        >
+        <Panel variant="tile">
           <div className="mb-3 flex flex-wrap items-baseline justify-between gap-2">
             <div className="flex min-w-0 flex-wrap items-baseline gap-x-3 gap-y-1">
-              <h2 className="relative pl-4 font-display text-xl font-semibold text-lol-text-bright before:absolute before:left-0 before:top-1/2 before:h-2 before:w-2 before:-translate-y-1/2 before:rotate-45 before:bg-lol-crimson">
+              <h2 className="flex items-center gap-2 font-display text-[12px] font-bold uppercase tracking-widest text-lol-gold before:block before:h-3.5 before:w-[3px] before:shrink-0 before:rounded-full before:bg-lol-crimson">
                 K/D/A over time
               </h2>
               <span className="text-xs text-lol-text">Average per game · {timeRangeLabel}</span>
@@ -874,16 +826,14 @@ export function TrendsExp({
       <section aria-labelledby="trends-performance" className="mt-10 flex flex-col gap-6">
         <h2
           id="trends-performance"
-          className="mb-4 text-xs font-semibold uppercase tracking-wider text-slate-400"
+          className="font-display text-[13px] font-bold uppercase tracking-[0.2em] text-lol-text"
         >
           Performance
         </h2>
         <div className="flex flex-col gap-6">
-          <Panel
-            className={`${PANEL_HOVER_CLASSES} w-full border-t-[3px] border-t-[var(--theme-crimson)] bg-[radial-gradient(circle_at_top_right,color-mix(in_oklab,var(--theme-crimson)_8%,transparent),transparent_48%),linear-gradient(180deg,var(--theme-card-hover),var(--theme-card))]`}
-          >
+          <Panel variant="tile" className={`w-full`}>
             <div className="mb-3 flex items-baseline justify-between">
-              <h2 className="relative pl-4 font-display text-xl font-semibold text-lol-text-bright before:absolute before:left-0 before:top-1/2 before:h-2 before:w-2 before:-translate-y-1/2 before:rotate-45 before:bg-lol-crimson">
+              <h2 className="flex items-center gap-2 font-display text-[12px] font-bold uppercase tracking-widest text-lol-gold before:block before:h-3.5 before:w-[3px] before:shrink-0 before:rounded-full before:bg-lol-crimson">
                 Activity heatmap
               </h2>
               <span className="text-xs uppercase tracking-wider text-lol-text">
@@ -894,9 +844,9 @@ export function TrendsExp({
               <ActivityHeatmap daily={data.daily} />
             </div>
           </Panel>
-          <Panel variant="muted" className={`${PANEL_HOVER_CLASSES} h-fit w-full`}>
+          <Panel variant="tile" className={`h-fit w-full`}>
             <div className="mb-3 flex items-baseline justify-between">
-              <h2 className="text-xs font-bold uppercase tracking-wider text-lol-gold">
+              <h2 className="flex items-center gap-2 font-display text-[12px] font-bold uppercase tracking-widest text-lol-gold before:block before:h-3.5 before:w-[3px] before:shrink-0 before:rounded-full before:bg-lol-crimson">
                 Activity summary
               </h2>
               <span className="text-xs uppercase tracking-wider text-lol-text">
@@ -929,11 +879,9 @@ export function TrendsExp({
         </div>
 
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-          <Panel
-            className={`${PANEL_HOVER_CLASSES} border-t-[3px] border-t-[var(--theme-win)] bg-[radial-gradient(circle_at_top_right,color-mix(in_oklab,var(--theme-win)_8%,transparent),transparent_48%),linear-gradient(180deg,var(--theme-card-hover),var(--theme-card))]`}
-          >
+          <Panel variant="tile">
             <div className="mb-3 flex items-baseline justify-between">
-              <h2 className="relative pl-4 font-display text-xl font-semibold text-lol-text-bright before:absolute before:left-0 before:top-1/2 before:h-2 before:w-2 before:-translate-y-1/2 before:rotate-45 before:bg-lol-crimson">
+              <h2 className="flex items-center gap-2 font-display text-[12px] font-bold uppercase tracking-widest text-lol-gold before:block before:h-3.5 before:w-[3px] before:shrink-0 before:rounded-full before:bg-lol-crimson">
                 Win rate over time
               </h2>
               <span className="text-[10px] uppercase tracking-wider text-lol-text">
@@ -986,11 +934,9 @@ export function TrendsExp({
             </div>
           </Panel>
 
-          <Panel
-            className={`${PANEL_HOVER_CLASSES} border-t-[3px] border-t-[var(--theme-assist)] bg-[radial-gradient(circle_at_top_right,color-mix(in_oklab,var(--theme-assist)_8%,transparent),transparent_48%),linear-gradient(180deg,var(--theme-card-hover),var(--theme-card))]`}
-          >
+          <Panel variant="tile">
             <div className="mb-3 flex items-baseline justify-between">
-              <h2 className="relative pl-4 font-display text-xl font-semibold text-lol-text-bright before:absolute before:left-0 before:top-1/2 before:h-2 before:w-2 before:-translate-y-1/2 before:rotate-45 before:bg-lol-crimson">
+              <h2 className="flex items-center gap-2 font-display text-[12px] font-bold uppercase tracking-widest text-lol-gold before:block before:h-3.5 before:w-[3px] before:shrink-0 before:rounded-full before:bg-lol-crimson">
                 Average KDA
               </h2>
               <span className="text-[10px] uppercase tracking-wider text-lol-text">
@@ -1028,9 +974,9 @@ export function TrendsExp({
             </div>
           </Panel>
 
-          <Panel variant="default" className={`${PANEL_HOVER_CLASSES}`}>
+          <Panel variant="tile">
             <div className="mb-3 flex items-baseline justify-between">
-              <h2 className="relative pl-4 font-display text-xl font-semibold text-lol-text-bright before:absolute before:left-0 before:top-1/2 before:h-2 before:w-2 before:-translate-y-1/2 before:rotate-45 before:bg-lol-crimson">
+              <h2 className="flex items-center gap-2 font-display text-[12px] font-bold uppercase tracking-widest text-lol-gold before:block before:h-3.5 before:w-[3px] before:shrink-0 before:rounded-full before:bg-lol-crimson">
                 Average score over time
               </h2>
               <span className="text-[10px] uppercase tracking-wider text-lol-text">
@@ -1052,11 +998,9 @@ export function TrendsExp({
             />
           </Panel>
 
-          <Panel
-            className={`${PANEL_HOVER_CLASSES} border-t-[3px] border-t-[var(--theme-win)] bg-[radial-gradient(circle_at_top_right,color-mix(in_oklab,var(--theme-win)_8%,transparent),transparent_48%),linear-gradient(180deg,var(--theme-card-hover),var(--theme-card))]`}
-          >
+          <Panel variant="tile">
             <div className="mb-3 flex items-baseline justify-between">
-              <h2 className="relative pl-4 font-display text-xl font-semibold text-lol-text-bright before:absolute before:left-0 before:top-1/2 before:h-2 before:w-2 before:-translate-y-1/2 before:rotate-45 before:bg-lol-crimson">
+              <h2 className="flex items-center gap-2 font-display text-[12px] font-bold uppercase tracking-widest text-lol-gold before:block before:h-3.5 before:w-[3px] before:shrink-0 before:rounded-full before:bg-lol-crimson">
                 Win / loss balance
               </h2>
               <span className="text-[10px] uppercase tracking-wider text-lol-text">
@@ -1071,16 +1015,14 @@ export function TrendsExp({
       <section aria-labelledby="trends-breakdowns" className="mt-10 flex flex-col gap-6">
         <h2
           id="trends-breakdowns"
-          className="mb-4 text-xs font-semibold uppercase tracking-wider text-slate-400"
+          className="font-display text-[13px] font-bold uppercase tracking-[0.2em] text-lol-text"
         >
           Breakdowns
         </h2>
         <div className="grid grid-cols-1 gap-6 lg:col-span-2 lg:grid-cols-2">
-          <Panel
-            className={`${PANEL_HOVER_CLASSES} border-t-[3px] border-t-[var(--theme-win)] bg-[radial-gradient(circle_at_top_right,color-mix(in_oklab,var(--theme-win)_8%,transparent),transparent_48%),linear-gradient(180deg,var(--theme-card-hover),var(--theme-card))]`}
-          >
+          <Panel variant="tile">
             <div className="mb-3 flex items-baseline justify-between">
-              <h2 className="relative pl-4 font-display text-xl font-semibold text-lol-text-bright before:absolute before:left-0 before:top-1/2 before:h-2 before:w-2 before:-translate-y-1/2 before:rotate-45 before:bg-lol-crimson">
+              <h2 className="flex items-center gap-2 font-display text-[12px] font-bold uppercase tracking-widest text-lol-gold before:block before:h-3.5 before:w-[3px] before:shrink-0 before:rounded-full before:bg-lol-crimson">
                 Win rate by role
               </h2>
               <span className="text-xs uppercase tracking-wider text-lol-text">
@@ -1103,11 +1045,9 @@ export function TrendsExp({
             )}
           </Panel>
 
-          <Panel
-            className={`${PANEL_HOVER_CLASSES} border-t-[3px] border-t-[var(--theme-assist)] bg-[radial-gradient(circle_at_top_right,color-mix(in_oklab,var(--theme-assist)_8%,transparent),transparent_48%),linear-gradient(180deg,var(--theme-card-hover),var(--theme-card))]`}
-          >
+          <Panel variant="tile">
             <div className="mb-3 flex items-baseline justify-between">
-              <h2 className="relative pl-4 font-display text-xl font-semibold text-lol-text-bright before:absolute before:left-0 before:top-1/2 before:h-2 before:w-2 before:-translate-y-1/2 before:rotate-45 before:bg-lol-crimson">
+              <h2 className="flex items-center gap-2 font-display text-[12px] font-bold uppercase tracking-widest text-lol-gold before:block before:h-3.5 before:w-[3px] before:shrink-0 before:rounded-full before:bg-lol-crimson">
                 Win rate by queue
               </h2>
               <span className="text-xs uppercase tracking-wider text-lol-text">
@@ -1131,11 +1071,9 @@ export function TrendsExp({
           </Panel>
         </div>
 
-        <Panel
-          className={`${PANEL_HOVER_CLASSES} border-t-[3px] border-t-[var(--theme-gold)] bg-[radial-gradient(circle_at_top_right,color-mix(in_oklab,var(--theme-gold)_8%,transparent),transparent_48%),linear-gradient(180deg,var(--theme-card-hover),var(--theme-card))] lg:col-span-2`}
-        >
+        <Panel variant="tile" className={` lg:col-span-2`}>
           <div className="mb-3 flex items-baseline justify-between">
-            <h2 className="relative pl-4 font-display text-xl font-semibold text-lol-text-bright before:absolute before:left-0 before:top-1/2 before:h-2 before:w-2 before:-translate-y-1/2 before:rotate-45 before:bg-lol-crimson">
+            <h2 className="flex items-center gap-2 font-display text-[12px] font-bold uppercase tracking-widest text-lol-gold before:block before:h-3.5 before:w-[3px] before:shrink-0 before:rounded-full before:bg-lol-crimson">
               Performance by day &amp; hour
             </h2>
             <span className="text-xs uppercase tracking-wider text-lol-text">Selected period</span>
@@ -1145,9 +1083,9 @@ export function TrendsExp({
 
         <div className="grid grid-cols-1 gap-6 lg:col-span-2">
           <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-            <Panel className={PANEL_HOVER_CLASSES}>
+            <Panel variant="tile">
               <div className="mb-3 flex items-baseline justify-between">
-                <h2 className="relative pl-4 font-display text-xl font-semibold text-lol-text-bright before:absolute before:left-0 before:top-1/2 before:h-2 before:w-2 before:-translate-y-1/2 before:rotate-45 before:bg-lol-crimson">
+                <h2 className="flex items-center gap-2 font-display text-[12px] font-bold uppercase tracking-widest text-lol-gold before:block before:h-3.5 before:w-[3px] before:shrink-0 before:rounded-full before:bg-lol-crimson">
                   Champion performance
                 </h2>
                 <span className="text-xs uppercase tracking-wider text-lol-text">
@@ -1210,9 +1148,9 @@ export function TrendsExp({
               </div>
             </Panel>
 
-            <Panel variant="default" className={`${PANEL_HOVER_CLASSES} h-fit`}>
+            <Panel variant="tile" className={`h-fit`}>
               <div className="mb-3 flex items-baseline justify-between">
-                <h2 className="font-display text-xl font-semibold text-lol-text-bright">
+                <h2 className="flex items-center gap-2 font-display text-[12px] font-bold uppercase tracking-widest text-lol-gold before:block before:h-3.5 before:w-[3px] before:shrink-0 before:rounded-full before:bg-lol-crimson">
                   Combat &amp; economy
                 </h2>
                 <span className="text-xs uppercase tracking-wider text-lol-text">
@@ -1234,7 +1172,7 @@ export function TrendsExp({
                 ].map(({ label, value, suffix = "" }) => (
                   <div
                     key={label}
-                    className="rounded-md border border-lol-border/40 bg-lol-card/30 p-2.5 transition-colors hover:bg-white/[0.02]"
+                    className="rounded-xl border border-lol-border/50 bg-black/25 p-3"
                   >
                     <div className="text-xl font-semibold tabular-nums text-lol-text-bright">
                       {Number(value).toFixed(1)}
@@ -1249,9 +1187,9 @@ export function TrendsExp({
             </Panel>
           </div>
 
-          <Panel className={`${PANEL_HOVER_CLASSES} w-full lg:col-span-2`}>
+          <Panel variant="tile" className={`w-full lg:col-span-2`}>
             <div className="mb-3 flex items-baseline justify-between">
-              <h2 className="relative pl-4 font-display text-xl font-semibold text-lol-text-bright before:absolute before:left-0 before:top-1/2 before:h-2 before:w-2 before:-translate-y-1/2 before:rotate-45 before:bg-lol-crimson">
+              <h2 className="flex items-center gap-2 font-display text-[12px] font-bold uppercase tracking-widest text-lol-gold before:block before:h-3.5 before:w-[3px] before:shrink-0 before:rounded-full before:bg-lol-crimson">
                 Performance by queue
               </h2>
               <span className="text-xs uppercase tracking-wider text-lol-text">
@@ -1328,9 +1266,9 @@ export function TrendsExp({
         </div>
 
         <div className="grid grid-cols-1 gap-6 lg:col-span-2 lg:grid-cols-3">
-          <Panel variant="muted" className={`${PANEL_HOVER_CLASSES}`}>
+          <Panel variant="tile">
             <div className="mb-3 flex items-baseline justify-between">
-              <h2 className="font-display text-xl font-semibold text-lol-text-bright">
+              <h2 className="flex items-center gap-2 font-display text-[12px] font-bold uppercase tracking-widest text-lol-gold before:block before:h-3.5 before:w-[3px] before:shrink-0 before:rounded-full before:bg-lol-crimson">
                 Damage split
               </h2>
               <span className="text-xs uppercase tracking-wider text-lol-text">
@@ -1351,9 +1289,9 @@ export function TrendsExp({
             </div>
           </Panel>
 
-          <Panel variant="muted" className={`${PANEL_HOVER_CLASSES} h-fit`}>
+          <Panel variant="tile" className={`h-fit`}>
             <div className="mb-3 flex items-baseline justify-between">
-              <h2 className="font-display text-xl font-semibold text-lol-text-bright">
+              <h2 className="flex items-center gap-2 font-display text-[12px] font-bold uppercase tracking-widest text-lol-gold before:block before:h-3.5 before:w-[3px] before:shrink-0 before:rounded-full before:bg-lol-crimson">
                 Objective control
               </h2>
               <span className="text-xs uppercase tracking-wider text-lol-text">Avg / game</span>
@@ -1398,9 +1336,9 @@ export function TrendsExp({
             </div>
           </Panel>
 
-          <Panel variant="muted" className={`${PANEL_HOVER_CLASSES} h-fit`}>
+          <Panel variant="tile" className={`h-fit`}>
             <div className="mb-3 flex items-baseline justify-between">
-              <h2 className="font-display text-xl font-semibold text-lol-text-bright">
+              <h2 className="flex items-center gap-2 font-display text-[12px] font-bold uppercase tracking-widest text-lol-gold before:block before:h-3.5 before:w-[3px] before:shrink-0 before:rounded-full before:bg-lol-crimson">
                 Top duo partners
               </h2>
               <span className="text-xs uppercase tracking-wider text-lol-text">Top 3</span>
@@ -1465,11 +1403,9 @@ export function TrendsExp({
           </Panel>
         </div>
 
-        <Panel
-          className={`${PANEL_HOVER_CLASSES} border-t-[3px] border-t-[var(--theme-win)] bg-[radial-gradient(circle_at_top_right,color-mix(in_oklab,var(--theme-win)_8%,transparent),transparent_48%),linear-gradient(180deg,var(--theme-card-hover),var(--theme-card))] lg:col-span-2`}
-        >
+        <Panel variant="tile" className={` lg:col-span-2`}>
           <div className="mb-3 flex items-baseline justify-between">
-            <h2 className="relative pl-4 font-display text-xl font-semibold text-lol-text-bright before:absolute before:left-0 before:top-1/2 before:h-2 before:w-2 before:-translate-y-1/2 before:rotate-45 before:bg-lol-crimson">
+            <h2 className="flex items-center gap-2 font-display text-[12px] font-bold uppercase tracking-widest text-lol-gold before:block before:h-3.5 before:w-[3px] before:shrink-0 before:rounded-full before:bg-lol-crimson">
               {patch ? `Win rate for ${formatPatch(patch)}` : "Win rate by patch"}
             </h2>
             <span className="text-xs uppercase tracking-wider text-lol-text">{timeRangeLabel}</span>
@@ -1477,11 +1413,9 @@ export function TrendsExp({
           <PatchBars patches={data.patches} />
         </Panel>
 
-        <Panel
-          className={`${PANEL_HOVER_CLASSES} border-t-[3px] border-t-[var(--theme-violet)] bg-[radial-gradient(circle_at_top_right,color-mix(in_oklab,var(--theme-violet)_8%,transparent),transparent_48%),linear-gradient(180deg,var(--theme-card-hover),var(--theme-card))]`}
-        >
+        <Panel variant="tile">
           <div className="mb-3 flex items-baseline justify-between">
-            <h2 className="relative pl-4 font-display text-xl font-semibold text-lol-text-bright before:absolute before:left-0 before:top-1/2 before:h-2 before:w-2 before:-translate-y-1/2 before:rotate-45 before:bg-lol-crimson">
+            <h2 className="flex items-center gap-2 font-display text-[12px] font-bold uppercase tracking-widest text-lol-gold before:block before:h-3.5 before:w-[3px] before:shrink-0 before:rounded-full before:bg-lol-crimson">
               By day of week
             </h2>
             <span className="text-xs uppercase tracking-wider text-lol-text">{timeRangeLabel}</span>
@@ -1495,11 +1429,9 @@ export function TrendsExp({
           />
         </Panel>
 
-        <Panel
-          className={`${PANEL_HOVER_CLASSES} border-t-[3px] border-t-[var(--theme-assist)] bg-[radial-gradient(circle_at_top_right,color-mix(in_oklab,var(--theme-assist)_8%,transparent),transparent_48%),linear-gradient(180deg,var(--theme-card-hover),var(--theme-card))]`}
-        >
+        <Panel variant="tile">
           <div className="mb-3 flex items-baseline justify-between">
-            <h2 className="relative pl-4 font-display text-xl font-semibold text-lol-text-bright before:absolute before:left-0 before:top-1/2 before:h-2 before:w-2 before:-translate-y-1/2 before:rotate-45 before:bg-lol-crimson">
+            <h2 className="flex items-center gap-2 font-display text-[12px] font-bold uppercase tracking-widest text-lol-gold before:block before:h-3.5 before:w-[3px] before:shrink-0 before:rounded-full before:bg-lol-crimson">
               By hour of day
             </h2>
             <span className="text-xs uppercase tracking-wider text-lol-text">{timeRangeLabel}</span>
@@ -1513,11 +1445,9 @@ export function TrendsExp({
           />
         </Panel>
 
-        <Panel
-          className={`${PANEL_HOVER_CLASSES} border-t-[3px] border-t-[var(--theme-violet)] lg:col-span-2`}
-        >
+        <Panel variant="tile" className={` lg:col-span-2`}>
           <div className="mb-3 flex items-baseline justify-between">
-            <h2 className="relative pl-4 font-display text-xl font-semibold text-lol-text-bright before:absolute before:left-0 before:top-1/2 before:h-2 before:w-2 before:-translate-y-1/2 before:rotate-45 before:bg-lol-crimson">
+            <h2 className="flex items-center gap-2 font-display text-[12px] font-bold uppercase tracking-widest text-lol-gold before:block before:h-3.5 before:w-[3px] before:shrink-0 before:rounded-full before:bg-lol-crimson">
               Recent sessions
             </h2>
             <span className="text-xs uppercase tracking-wider text-lol-text">Latest 5</span>

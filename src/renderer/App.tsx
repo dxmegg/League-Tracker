@@ -26,6 +26,10 @@ const ItemDetailExp = lazy(() =>
 );
 const ItemDetail = lazy(() => import("./pages/ItemDetail"));
 const Home = lazy(() => import("./pages/Home"));
+const AugmentDetailExp = lazy(() =>
+  import("./components/AugmentDetailExp").then((m) => ({ default: m.AugmentDetailExp })),
+);
+const Achievements = lazy(() => import("./pages/Achievements"));
 const Champions = lazy(() => import("./pages/Champions"));
 const Augments = lazy(() => import("./pages/Augments"));
 const Items = lazy(() => import("./pages/Items"));
@@ -185,6 +189,7 @@ export default function App() {
           <Route path="/items" element={<FullHistorySection section="items" />} />
           <Route path="/items/:itemId" element={<ItemDetailRoute />} />
           <Route path="/augments" element={<FullHistorySection section="augments" />} />
+          <Route path="/augments/:augmentId" element={<AugmentDetailExp />} />
           <Route
             path="/runes"
             element={
@@ -197,6 +202,7 @@ export default function App() {
           <Route path="/friends/:key" element={<FriendDetail />} />
           <Route path="/trends" element={<FullHistorySection section="trends" />} />
           <Route path="/records" element={<FullHistorySection section="records" />} />
+          <Route path="/achievements" element={<Achievements />} />
           <Route path="/data" element={<FullHistorySection section="total-stats" />} />
           <Route path="/debug" element={<DebugTesting />} />
         </Route>

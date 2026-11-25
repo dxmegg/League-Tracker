@@ -113,6 +113,7 @@ export {
   getDashboardData,
   getRoleBreakdown,
   getAugmentStatsWithChampions,
+  getAugmentDetail,
   getChampionItemStats,
   getGlobalStats,
   getOwnedItemStats,

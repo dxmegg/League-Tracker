@@ -2,7 +2,6 @@ import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import type { ItemData, OwnedItemStats, OwnedItemStatsResult } from "../lib/types";
 import ItemIcon from "./ItemIcon";
-import { TileGrid } from "./TileGrid";
 import QueueSelect from "./QueueSelect";
 import PatchSelect from "./PatchSelect";
 import { useItemData, getItemName } from "../hooks/useChampions";
@@ -15,18 +14,12 @@ import { isAugmentQueue } from "../../shared/queues";
 import { formatNumber } from "../lib/format";
 import { FilterChip } from "./FilterChip";
 import { SearchInput } from "./SearchInput";
+import { HeroTile, HighlightTile, PageHero } from "./SplashHero";
+import { Title } from "./live/shared";
 
 type SortMode = "most-built" | "best-wr" | "vs-average" | "best-score" | "rising";
 type ItemClass = "All" | "AD" | "AP" | "Tank" | "Boots" | "Other";
 type ViewMode = "cards" | "table";
-type Accent = { color: string; tint: string };
-
-const ACCENTS: Accent[] = [
-  { color: "#E5483F", tint: "rgba(229,72,63,0.08)" },
-  { color: "#C9A45C", tint: "rgba(201,164,92,0.08)" },
-  { color: "#3B82F6", tint: "rgba(59,130,246,0.08)" },
-  { color: "#A855F7", tint: "rgba(168,85,247,0.08)" },
-];
 
 function resultRows(result: (OwnedItemStatsResult & OwnedItemStats[]) | null): OwnedItemStats[] {
   return result?.rows ?? result ?? [];
@@ -133,98 +126,21 @@ function formatBuyTime(milliseconds: number): string {
   return `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")}`;
 }
 
-function ItemWinRateBar({ wins, picks }: { wins: number; picks: number }) {
-  const rate = picks > 0 ? (wins / picks) * 100 : 0;
-  return (
-    <div className="relative h-2.5 overflow-visible rounded-full bg-[#a51e1e]/20">
-      <div
-        className="h-full rounded-full bg-[#15803d] shadow-[0_0_10px_rgba(21,128,61,0.45)]"
-        style={{ width: `${Math.max(0, Math.min(100, rate))}%` }}
-      />
-      <span className="absolute left-1/2 top-[-2px] h-[14px] w-px bg-white/70" />
-    </div>
-  );
-}
-
-function KpiTile({
+function CardStat({
   label,
   value,
-  caption,
-  accent,
-  title,
+  className = "text-lol-text-bright",
 }: {
   label: string;
   value: string;
-  caption: string;
-  accent: Accent;
-  title?: string;
+  className?: string;
 }) {
   return (
-    <div
-      className="relative overflow-hidden rounded-[12px] border border-lol-border p-4 before:absolute before:inset-x-0 before:top-0 before:h-[3px]"
-      style={{ background: `radial-gradient(circle at 100% 0, ${accent.tint}, transparent 65%)` }}
-      title={title}
-    >
-      <span
-        className="absolute inset-x-0 top-0 h-[3px]"
-        style={{ backgroundColor: accent.color }}
-      />
-      <div className="text-[10px] font-bold uppercase tracking-wider text-lol-text">{label}</div>
-      <div className="mt-2 text-[26px] font-bold leading-none text-lol-text-bright">{value}</div>
-      <div className="mt-1 text-xs text-lol-text">{caption}</div>
-    </div>
-  );
-}
-
-function HighlightCard({
-  title,
-  item,
-  value,
-  caption,
-  itemData,
-  accent,
-  emptyTitle,
-}: {
-  title: string;
-  item: OwnedItemStats | null;
-  value: string;
-  caption: string;
-  itemData: ItemData;
-  accent: Accent;
-  emptyTitle?: string;
-}) {
-  return (
-    <div
-      className="relative min-h-[132px] overflow-hidden rounded-[12px] border border-lol-border p-4"
-      style={{ background: `radial-gradient(circle at 100% 0, ${accent.tint}, transparent 65%)` }}
-      title={emptyTitle}
-    >
-      <span
-        className="absolute inset-x-0 top-0 h-[3px]"
-        style={{ backgroundColor: accent.color }}
-      />
-      <div className="flex items-start gap-3">
-        {item ? (
-          <div
-            className="shrink-0 rounded-lg border p-1 shadow-[0_0_14px_rgba(229,72,63,0.18)]"
-            style={{ borderColor: accent.color }}
-          >
-            <ItemIcon itemId={item.item_id} size={40} />
-          </div>
-        ) : (
-          <div className="h-[50px] w-[50px] shrink-0 rounded-lg border border-lol-border bg-black/10" />
-        )}
-        <div className="min-w-0">
-          <div className="text-[10px] font-bold uppercase tracking-wider text-lol-text">
-            {title}
-          </div>
-          <div className="mt-1 truncate text-sm font-bold text-lol-text-bright">
-            {item ? getItemName(itemData, item.item_id) : (emptyTitle ?? "—")}
-          </div>
-          <div className="mt-1 text-xl font-bold leading-none text-lol-text-bright">{value}</div>
-          <div className="mt-1 text-[11px] text-lol-text">{caption}</div>
-        </div>
+    <div className="rounded-lg bg-black/30 px-1 py-1.5">
+      <div className="text-[9.5px] font-bold uppercase tracking-widest text-lol-text/80">
+        {label}
       </div>
+      <div className={`font-display text-[16px] font-bold tabular-nums ${className}`}>{value}</div>
     </div>
   );
 }
@@ -369,19 +285,40 @@ export function ItemsExp() {
     return { mostBuilt, bestWinRate, hiddenGem, rising, comparableCount: comparable.length };
   }, [previousPatchResult, rows]);
 
+  const ready = !loading && !!statsResult;
+  const highlight = (row: OwnedItemStats | null) => ({
+    icon: row ? <ItemIcon itemId={row.item_id} size={60} patch={patch} /> : null,
+    name: row ? getItemName(itemData, row.item_id) : "—",
+  });
+
   return (
     <div className="flex min-h-full w-full flex-col gap-5">
-      <div className="shrink-0 flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <h1 className="relative pl-4 font-display text-[30px] font-bold leading-tight tracking-[0.2px] text-lol-text-bright before:absolute before:left-1 before:top-1/2 before:h-2 before:w-2 before:-translate-y-1/2 before:rotate-45 before:bg-lol-crimson after:absolute after:bottom-[-8px] after:left-4 after:h-px after:w-28 after:bg-gradient-to-r after:from-lol-crimson/70 after:to-transparent">
-            Items
-          </h1>
-          <p className="mt-1.5 text-lol-text">What you build and how it performs</p>
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <QueueSelect value={queue} onChange={setQueue} filter={(id) => !isAugmentQueue(id)} />
-          <PatchSelect value={patch} onChange={setPatch} />
-        </div>
+      <PageHero title="Items" subtitle="What you build and how it performs">
+        <HeroTile
+          label="Items shown"
+          value={ready ? formatNumber(visibleRows.length) : "—"}
+          sub={ready ? `of ${formatNumber(rows.length)} tracked` : undefined}
+        />
+        <HeroTile
+          label="Total builds"
+          value={ready ? formatNumber(totalBuilds) : "—"}
+          sub="in the selected queue and patch"
+        />
+        <HeroTile
+          label="Average win rate"
+          value={ready ? `${avgWinRate.toFixed(1)}%` : "—"}
+          sub="across all items"
+          valueClass={avgWinRate >= 50 ? "text-lol-win" : "text-lol-loss"}
+        />
+        <HeroTile
+          label="Items per game"
+          value={ready && totalGames > 0 ? (totalBuilds / totalGames).toFixed(1) : "—"}
+          sub="completed items"
+        />
+      </PageHero>
+      <div className="flex shrink-0 flex-wrap items-center justify-end gap-2">
+        <QueueSelect value={queue} onChange={setQueue} filter={(id) => !isAugmentQueue(id)} />
+        <PatchSelect value={patch} onChange={setPatch} />
       </div>
 
       {loading || !statsResult ? (
@@ -390,52 +327,20 @@ export function ItemsExp() {
         </div>
       ) : (
         <>
-          <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
-            <KpiTile
-              label="Items shown"
-              value={formatNumber(rows.length)}
-              caption={`of ${formatNumber(rows.length)} tracked`}
-              accent={ACCENTS[0]}
-            />
-            <KpiTile
-              label="Total builds"
-              value={formatNumber(totalBuilds)}
-              caption="in the selected queue and patch"
-              accent={ACCENTS[1]}
-            />
-            <KpiTile
-              label="Average win rate"
-              value={`${avgWinRate.toFixed(1)}%`}
-              caption="across all items"
-              accent={ACCENTS[2]}
-            />
-            <KpiTile
-              label="Items per game"
-              value={totalGames > 0 ? (totalBuilds / totalGames).toFixed(1) : "—"}
-              caption="completed items"
-              accent={ACCENTS[3]}
-              title={totalGames > 0 ? undefined : "No games in scope"}
-            />
-          </div>
-
-          <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4">
-            <HighlightCard
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-2 min-[106rem]:grid-cols-4">
+            <HighlightTile
               title="Most built"
-              item={highlights.mostBuilt}
-              value={
-                highlights.mostBuilt ? `${formatNumber(highlights.mostBuilt.picks)} builds` : "—"
-              }
+              {...highlight(highlights.mostBuilt)}
+              value={highlights.mostBuilt ? formatNumber(highlights.mostBuilt.picks) : "—"}
               caption={
                 highlights.mostBuilt
                   ? `${((highlights.mostBuilt.picks / Math.max(totalBuilds, 1)) * 100).toFixed(1)}% of all builds`
                   : "No item data"
               }
-              itemData={itemData}
-              accent={ACCENTS[0]}
             />
-            <HighlightCard
+            <HighlightTile
               title="Best win rate"
-              item={highlights.bestWinRate}
+              {...highlight(highlights.bestWinRate)}
               value={
                 highlights.bestWinRate
                   ? `${((highlights.bestWinRate.wins / highlights.bestWinRate.picks) * 100).toFixed(1)}%`
@@ -446,25 +351,24 @@ export function ItemsExp() {
                   ? `minimum 25 games · ${formatNumber(highlights.bestWinRate.picks)} builds`
                   : "No item meets the minimum"
               }
-              itemData={itemData}
-              accent={ACCENTS[1]}
             />
-            <HighlightCard
+            <HighlightTile
               title="Rising this patch"
-              item={highlights.rising?.row ?? null}
+              {...highlight(highlights.rising?.row ?? null)}
               value={
                 highlights.rising
                   ? `${highlights.rising.delta >= 0 ? "+" : ""}${highlights.rising.delta.toFixed(1)} pts`
                   : "—"
               }
-              caption="win rate change since the previous patch"
-              itemData={itemData}
-              accent={ACCENTS[2]}
-              emptyTitle={highlights.rising ? undefined : "Not enough prior-patch data"}
+              caption={
+                highlights.rising
+                  ? "win rate change since the previous patch"
+                  : "Not enough prior-patch data"
+              }
             />
-            <HighlightCard
+            <HighlightTile
               title="Hidden gem"
-              item={highlights.hiddenGem}
+              {...highlight(highlights.hiddenGem)}
               value={
                 highlights.hiddenGem
                   ? `${((highlights.hiddenGem.wins / highlights.hiddenGem.picks) * 100).toFixed(1)}%`
@@ -475,12 +379,15 @@ export function ItemsExp() {
                   ? `only ${formatNumber(highlights.hiddenGem.picks)} builds, but it wins`
                   : "No hidden gem found"
               }
-              itemData={itemData}
-              accent={ACCENTS[3]}
             />
           </div>
 
-          <div className="min-w-0 rounded-[14px] border border-lol-border bg-[radial-gradient(circle_at_100%_0,rgba(229,72,63,0.08),transparent_42%),linear-gradient(180deg,var(--theme-card-hover),var(--theme-card))] p-5">
+          <div className="app-tile min-w-0">
+            <Title
+              aside={<span className="text-[13px] text-lol-text">Click an item for details</span>}
+            >
+              All items
+            </Title>
             <div className="mb-4 flex flex-col gap-3">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div className="flex flex-wrap items-center gap-2">
@@ -621,7 +528,7 @@ export function ItemsExp() {
                           onClick={() =>
                             navigate(`/history/${scope ?? "full"}/items/${row.item_id}`)
                           }
-                          className="cursor-pointer border-b border-white/[0.04] transition-colors duration-120 hover:bg-white/[0.025]"
+                          className="cursor-pointer border-b border-lol-border/40 transition-colors hover:bg-white/[0.04]"
                         >
                           <td className="px-3 py-2 text-right text-xs tabular-nums text-lol-text">
                             {index + 1}
@@ -671,70 +578,63 @@ export function ItemsExp() {
                 </table>
               </div>
             ) : (
-              <TileGrid>
+              <div className="grid grid-cols-[repeat(auto-fill,minmax(270px,1fr))] gap-3">
                 {sorted.map((row, index) => {
                   const wr = row.picks > 0 ? (row.wins / row.picks) * 100 : 0;
                   const delta = wr - avgWinRate;
                   const branch = itemBranch(itemData[row.item_id]);
-                  const item = itemData[row.item_id];
+                  const price = itemData[row.item_id]?.price;
                   return (
                     <button
                       type="button"
                       key={row.item_id}
                       onClick={() => navigate(`/history/${scope ?? "full"}/items/${row.item_id}`)}
-                      className="relative flex min-h-[190px] flex-col gap-2 rounded-[12px] border border-lol-border bg-black/10 p-4 text-left transition-[background-color,border-color,box-shadow] duration-120 hover:border-lol-crimson/40 hover:bg-white/[0.025]"
+                      className="flex min-w-0 flex-col gap-3 rounded-2xl border border-lol-border/60 bg-black/25 p-4 text-left transition-colors hover:border-lol-crimson/60 hover:bg-white/[0.04]"
                     >
-                      <div className="flex items-center gap-3">
-                        <div
-                          className="shrink-0 rounded-lg border p-1 shadow-[0_0_14px_rgba(229,72,63,0.16)]"
-                          style={{ borderColor: branch.color }}
-                        >
-                          <ItemIcon itemId={row.item_id} size={38} patch={patch} />
+                      <div className="flex min-w-0 items-center gap-3">
+                        <div className="shrink-0 overflow-hidden rounded-xl border border-lol-border-hover">
+                          <ItemIcon itemId={row.item_id} size={46} patch={patch} />
                         </div>
-                        <span className="truncate text-sm font-bold text-lol-text-bright">
-                          {getItemName(itemData, row.item_id)}
-                        </span>
-                        {row.isTrinket && (
-                          <span className="w-fit rounded border border-lol-border/60 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wider text-lol-text">
-                            Trinket
-                          </span>
-                        )}
-                      </div>
-                      <div className="text-[11px] text-lol-text">
-                        {item?.branch && item.price != null
-                          ? `${branch.label} · ${formatNumber(item.price)} gold`
-                          : "—"}
-                      </div>
-                      <div className="flex items-center justify-between text-xs text-lol-text">
-                        <span>{formatNumber(row.picks)} games</span>
-                        <span
-                          className={
-                            wr >= 55
-                              ? "text-lol-win"
-                              : wr <= 45
-                                ? "text-lol-loss"
-                                : "text-lol-text-bright"
-                          }
-                        >
-                          {wr.toFixed(1)}% win
+                        <div className="min-w-0 flex-1">
+                          <div className="truncate font-display text-[15px] font-bold text-lol-text-bright">
+                            {getItemName(itemData, row.item_id)}
+                          </div>
+                          <div className="mt-0.5 flex items-center gap-1.5 text-[11px] text-lol-text">
+                            <i
+                              className="block h-1.5 w-1.5 rounded-full"
+                              style={{ backgroundColor: branch.color }}
+                            />
+                            {row.isTrinket ? "Trinket" : branch.label}
+                            {price ? <span>· {formatNumber(price)} gold</span> : null}
+                          </div>
+                        </div>
+                        <span className="self-start font-display text-[12px] font-bold tabular-nums text-lol-text/50">
+                          #{index + 1}
                         </span>
                       </div>
-                      <ItemWinRateBar wins={row.wins} picks={row.picks} />
-                      <div className="mt-auto flex items-center justify-between gap-2 text-[11px]">
-                        <span className={delta >= 0 ? "text-lol-win" : "text-lol-loss"}>
-                          {delta >= 0 ? "▲" : "▼"} {Math.abs(delta).toFixed(1)} vs your average
-                        </span>
-                        {row.avgBuyTimeMs != null && (
-                          <span className="shrink-0 text-lol-text">
-                            Buy {formatBuyTime(row.avgBuyTimeMs)}
-                          </span>
-                        )}
+                      <div className="grid grid-cols-3 gap-2 text-center">
+                        <CardStat label="Games" value={formatNumber(row.picks)} />
+                        <CardStat
+                          label="Win rate"
+                          value={`${wr.toFixed(1)}%`}
+                          className={wr >= 50 ? "text-lol-win" : "text-lol-loss"}
+                        />
+                        <CardStat
+                          label="Vs avg"
+                          value={`${delta >= 0 ? "+" : ""}${delta.toFixed(1)}`}
+                          className={delta >= 0 ? "text-lol-win" : "text-lol-loss"}
+                        />
                       </div>
-                      <span className="sr-only">Item rank {index + 1}</span>
+                      <div className="h-1.5 overflow-hidden rounded-full bg-white/[0.08]">
+                        <div
+                          className={`h-full rounded-full ${wr >= 50 ? "bg-lol-win" : "bg-lol-loss"}`}
+                          style={{ width: `${Math.max(0, Math.min(100, wr))}%` }}
+                        />
+                      </div>
                     </button>
                   );
                 })}
-              </TileGrid>
+              </div>
             )}
           </div>
         </>

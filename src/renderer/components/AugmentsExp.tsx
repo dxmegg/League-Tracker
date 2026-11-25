@@ -1,4 +1,5 @@
-import { useMemo, useState, type ReactNode } from "react";
+import { useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import type { AugmentStatsDetailed, AugmentStatsDetailedResult } from "../lib/types";
 import { useIpc } from "../hooks/useIpc";
 import { useActiveAccount } from "../hooks/useActiveAccount";
@@ -7,12 +8,13 @@ import { useScopedQueue } from "../lib/historyScope";
 import { useActiveMode } from "../hooks/useActiveMode";
 import { useViewState } from "../hooks/useViewState";
 import AugmentIcon from "./AugmentIcon";
-import { Tile } from "./Tile";
-import { TileGrid } from "./TileGrid";
+import ChampionIcon from "./ChampionIcon";
 import QueueSelect from "./QueueSelect";
 import PatchSelect from "./PatchSelect";
 import { FilterChip } from "./FilterChip";
 import { SearchInput } from "./SearchInput";
+import { HeroTile, HighlightTile, PageHero } from "./SplashHero";
+import { Title } from "./live/shared";
 import { formatNumber } from "../lib/format";
 import { ALL_ACCOUNTS_SENTINEL } from "../lib/accountsEvent";
 import { isAugmentQueue } from "../../shared/queues";
@@ -27,105 +29,41 @@ const filters: { value: RarityFilter; label: string }[] = [
   { value: "kPrismatic", label: "Prismatic" },
 ];
 
-const ACCENTS = [
-  { color: "#E5483F", tint: "rgba(229,72,63,0.08)" },
-  { color: "#C9A45C", tint: "rgba(201,164,92,0.08)" },
-  { color: "#22C55E", tint: "rgba(34,197,94,0.08)" },
-  { color: "#3B82F6", tint: "rgba(59,130,246,0.08)" },
-];
+const RARITIES = [
+  { key: "kSilver", label: "Silver", color: "#B8B8C4" },
+  { key: "kGold", label: "Gold", color: "#E0B65C" },
+  { key: "kPrismatic", label: "Prismatic", color: "#B07CFF" },
+] as const;
 
-function tierForRarity(rarity: string | undefined): "S" | "G" | "P" | undefined {
-  if (rarity === "kSilver" || rarity?.toLowerCase() === "silver") return "S";
-  if (rarity === "kGold" || rarity?.toLowerCase() === "gold") return "G";
-  if (rarity === "kPrismatic" || rarity?.toLowerCase() === "prismatic") return "P";
-  return undefined;
+export function rarityOf(rarity: string | undefined) {
+  return RARITIES.find((r) => r.key === rarity || r.label.toLowerCase() === rarity?.toLowerCase());
 }
 
 function winRate(row: AugmentStatsDetailed): number {
   return row.picks > 0 ? (row.wins / row.picks) * 100 : 0;
 }
 
-function KpiTile({
+function CardStat({
   label,
   value,
-  caption,
-  accent,
+  className = "text-lol-text-bright",
 }: {
   label: string;
-  value: ReactNode;
-  caption: string;
-  accent: (typeof ACCENTS)[number];
-}) {
-  return (
-    <div
-      className="relative overflow-hidden rounded-[12px] border border-lol-border p-4"
-      style={{ background: `radial-gradient(circle at 100% 0, ${accent.tint}, transparent 65%)` }}
-    >
-      <span
-        className="absolute inset-x-0 top-0 h-[3px]"
-        style={{ backgroundColor: accent.color }}
-      />
-      <div className="text-[10px] font-bold uppercase tracking-wider text-lol-text">{label}</div>
-      <div className="mt-2 text-[26px] font-bold leading-none text-lol-text-bright">{value}</div>
-      <div className="mt-1 text-xs text-lol-text">{caption}</div>
-    </div>
-  );
-}
-
-function HighlightCard({
-  title,
-  augment,
-  value,
-  caption,
-  accent,
-  augmentData,
-  emptyTitle,
-}: {
-  title: string;
-  augment: AugmentStatsDetailed | null;
   value: string;
-  caption: string;
-  accent: (typeof ACCENTS)[number];
-  augmentData: ReturnType<typeof useAugmentData>;
-  emptyTitle?: string;
+  className?: string;
 }) {
   return (
-    <div
-      className="relative min-h-[132px] overflow-hidden rounded-[12px] border border-lol-border p-4"
-      style={{ background: `radial-gradient(circle at 100% 0, ${accent.tint}, transparent 65%)` }}
-      title={emptyTitle}
-    >
-      <span
-        className="absolute inset-x-0 top-0 h-[3px]"
-        style={{ backgroundColor: accent.color }}
-      />
-      <div className="flex items-start gap-3">
-        {augment ? (
-          <div
-            className="shrink-0 rounded-lg border p-1 shadow-[0_0_14px_rgba(229,72,63,0.18)]"
-            style={{ borderColor: accent.color }}
-          >
-            <AugmentIcon augmentId={augment.augment_id} size={40} />
-          </div>
-        ) : (
-          <div className="h-[50px] w-[50px] shrink-0 rounded-lg border border-lol-border bg-black/10" />
-        )}
-        <div className="min-w-0">
-          <div className="text-[10px] font-bold uppercase tracking-wider text-lol-text">
-            {title}
-          </div>
-          <div className="mt-1 truncate text-sm font-bold text-lol-text-bright">
-            {augment ? getAugmentName(augmentData, augment.augment_id) : "—"}
-          </div>
-          <div className="mt-1 text-xl font-bold leading-none text-lol-text-bright">{value}</div>
-          <div className="mt-1 text-[11px] text-lol-text">{caption}</div>
-        </div>
+    <div className="rounded-lg bg-black/30 px-1 py-1.5">
+      <div className="text-[9.5px] font-bold uppercase tracking-widest text-lol-text/80">
+        {label}
       </div>
+      <div className={`font-display text-[16px] font-bold tabular-nums ${className}`}>{value}</div>
     </div>
   );
 }
 
 export function AugmentsExp() {
+  const navigate = useNavigate();
   const [patch, setPatch] = useViewState<string | undefined>("augments.patch", undefined);
   const [queue, setQueue] = useViewState<number | undefined>("augments.queue", undefined);
   const scopedQueue = useScopedQueue(queue);
@@ -149,7 +87,7 @@ export function AugmentsExp() {
       const rarity = augmentData[row.augment_id]?.rarity;
       return (
         row.picks >= minGames &&
-        (rarityFilter === "all" || rarity === rarityFilter) &&
+        (rarityFilter === "all" || rarityOf(rarity)?.key === rarityFilter) &&
         (!query || getAugmentName(augmentData, row.augment_id).toLowerCase().includes(query))
       );
     });
@@ -184,23 +122,63 @@ export function AugmentsExp() {
     };
   }, [filteredRows]);
 
+  const ready = !loading && !!data;
+  // Silver, Gold and Prismatic side by side, over everything the filters above them allow
+  const byRarity = RARITIES.map((rarity) => {
+    const rows = (data?.augments ?? []).filter(
+      (row) => rarityOf(augmentData[row.augment_id]?.rarity)?.key === rarity.key,
+    );
+    const picks = rows.reduce((sum, row) => sum + row.picks, 0);
+    const wins = rows.reduce((sum, row) => sum + row.wins, 0);
+    const best = rows
+      .filter((row) => row.picks >= 10)
+      .sort((a, b) => winRate(b) - winRate(a) || b.picks - a.picks)
+      .slice(0, 3);
+    return { ...rarity, count: rows.length, picks, wins, best };
+  });
+  const highlight = (row: AugmentStatsDetailed | null) => ({
+    icon: row ? <AugmentIcon augmentId={row.augment_id} size={52} /> : null,
+    name: row ? getAugmentName(augmentData, row.augment_id) : "—",
+  });
+
   return (
     <div className="flex min-h-full w-full flex-col gap-5">
-      <div className="flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <h1 className="relative pl-4 font-display text-[30px] font-bold leading-tight tracking-[0.2px] text-lol-text-bright before:absolute before:left-1 before:top-1/2 before:h-2 before:w-2 before:-translate-y-1/2 before:rotate-45 before:bg-lol-crimson after:absolute after:bottom-[-8px] after:left-4 after:h-px after:w-28 after:bg-gradient-to-r after:from-lol-crimson/70 after:to-transparent">
-            Augments
-          </h1>
-          <p className="mt-1.5 text-lol-text">
-            {dataMode === "mayhem"
-              ? "Pick rate and win rate in ARAM Mayhem"
-              : "Pick rate and win rate in ARAM Mayhem and Arena"}
-          </p>
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <QueueSelect value={queue} onChange={setQueue} filter={(id) => isAugmentQueue(id)} />
-          <PatchSelect value={patch} onChange={setPatch} />
-        </div>
+      <PageHero
+        title="Augments"
+        subtitle={
+          dataMode === "mayhem"
+            ? "Pick rate and win rate in ARAM Mayhem"
+            : "Pick rate and win rate in ARAM Mayhem and Arena"
+        }
+      >
+        <HeroTile
+          label="Augments shown"
+          value={ready ? formatNumber(filteredRows.length) : "—"}
+          sub={data ? `of ${formatNumber(data.augments.length)} tracked` : undefined}
+        />
+        <HeroTile
+          label="Total picks"
+          value={ready ? formatNumber(totals.totalPicks) : "—"}
+          sub="in the selected queue and patch"
+        />
+        <HeroTile
+          label="Average win rate"
+          value={totals.totalPicks > 0 ? `${totals.averageWinRate.toFixed(1)}%` : "—"}
+          sub="across all augments"
+          valueClass={totals.averageWinRate >= 50 ? "text-lol-win" : "text-lol-loss"}
+        />
+        <HeroTile
+          label="Top augment"
+          value={totals.mostBuilt ? getAugmentName(augmentData, totals.mostBuilt.augment_id) : "—"}
+          sub={
+            totals.mostBuilt ? `${formatNumber(totals.mostBuilt.picks)} picks` : "No augment data"
+          }
+          valueClass="!text-[20px] text-lol-text-bright"
+        />
+      </PageHero>
+      <div className="flex flex-wrap items-center justify-end gap-2">
+        <QueueSelect value={queue} onChange={setQueue} filter={(id) => isAugmentQueue(id)} />
+        <PatchSelect value={patch} onChange={setPatch} />
       </div>
 
       {loading || !data ? (
@@ -209,90 +187,101 @@ export function AugmentsExp() {
         </div>
       ) : (
         <>
-          <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
-            <KpiTile
-              label="Augments shown"
-              value={formatNumber(filteredRows.length)}
-              caption={`of ${formatNumber(data.augments.length)} tracked`}
-              accent={ACCENTS[0]}
-            />
-            <KpiTile
-              label="Total picks"
-              value={formatNumber(totals.totalPicks)}
-              caption="in the selected queue and patch"
-              accent={ACCENTS[1]}
-            />
-            <KpiTile
-              label="Average win rate"
-              value={totals.totalPicks > 0 ? `${totals.averageWinRate.toFixed(1)}%` : "—"}
-              caption="across all augments"
-              accent={ACCENTS[2]}
-            />
-            <KpiTile
-              label="Top augment"
-              value={
-                totals.mostBuilt ? (
-                  <span className="flex min-w-0 items-center gap-2 text-lg">
-                    <AugmentIcon augmentId={totals.mostBuilt.augment_id} size={28} />
-                    <span className="truncate">
-                      {getAugmentName(augmentData, totals.mostBuilt.augment_id)}
-                    </span>
-                  </span>
-                ) : (
-                  "—"
-                )
-              }
-              caption={
-                totals.mostBuilt
-                  ? `${formatNumber(totals.mostBuilt.picks)} picks`
-                  : "No augment data"
-              }
-              accent={ACCENTS[3]}
-            />
-          </div>
-
-          <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
-            <HighlightCard
-              title="Most built"
-              augment={totals.mostBuilt}
-              value={totals.mostBuilt ? `${formatNumber(totals.mostBuilt.picks)} picks` : "—"}
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-2 min-[94rem]:grid-cols-3">
+            <HighlightTile
+              title="Most picked"
+              {...highlight(totals.mostBuilt)}
+              value={totals.mostBuilt ? formatNumber(totals.mostBuilt.picks) : "—"}
               caption={
                 totals.mostBuilt && totals.totalPicks > 0
                   ? `${((totals.mostBuilt.picks / totals.totalPicks) * 100).toFixed(1)}% of all picks`
                   : "No augment data"
               }
-              accent={ACCENTS[0]}
-              augmentData={augmentData}
             />
-            <HighlightCard
+            <HighlightTile
               title="Best win rate"
-              augment={totals.bestWinRate}
+              {...highlight(totals.bestWinRate)}
               value={totals.bestWinRate ? `${winRate(totals.bestWinRate).toFixed(1)}%` : "—"}
               caption={
                 totals.bestWinRate
                   ? `minimum 25 games · ${formatNumber(totals.bestWinRate.picks)} picks`
                   : "No augment meets the minimum"
               }
-              accent={ACCENTS[1]}
-              augmentData={augmentData}
-              emptyTitle={totals.bestWinRate ? undefined : "Not enough games"}
+              hint={totals.bestWinRate ? undefined : "Not enough games"}
             />
-            <HighlightCard
+            <HighlightTile
               title="Hidden gem"
-              augment={totals.hiddenGem}
+              {...highlight(totals.hiddenGem)}
               value={totals.hiddenGem ? `${winRate(totals.hiddenGem).toFixed(1)}%` : "—"}
               caption={
                 totals.hiddenGem
                   ? `only ${formatNumber(totals.hiddenGem.picks)} picks, but it wins`
                   : "No augment meets the threshold"
               }
-              accent={ACCENTS[2]}
-              augmentData={augmentData}
-              emptyTitle={totals.hiddenGem ? undefined : "Not enough games"}
+              hint={totals.hiddenGem ? undefined : "Not enough games"}
             />
           </div>
 
-          <div className="min-w-0 rounded-[14px] border border-lol-border bg-[radial-gradient(circle_at_100%_0,rgba(229,72,63,0.08),transparent_42%),linear-gradient(180deg,var(--theme-card-hover),var(--theme-card))] p-5">
+          <div className="grid grid-cols-1 gap-3 lg:grid-cols-3">
+            {byRarity.map((rarity) => {
+              const rate = rarity.picks ? (rarity.wins / rarity.picks) * 100 : 0;
+              return (
+                <div key={rarity.key} className="app-tile min-w-0">
+                  <Title
+                    aside={
+                      <span className="text-[12px] text-lol-text">
+                        {formatNumber(rarity.picks)} picks · {rarity.count} augments
+                      </span>
+                    }
+                  >
+                    <span style={{ color: rarity.color }}>{rarity.label}</span>
+                  </Title>
+                  <div className="flex items-baseline gap-2">
+                    <span
+                      className={`font-display text-[30px] font-bold tabular-nums ${rate >= 50 ? "text-lol-win" : "text-lol-loss"}`}
+                    >
+                      {rarity.picks ? `${rate.toFixed(1)}%` : "—"}
+                    </span>
+                    <span className="text-[12px] text-lol-text">win rate</span>
+                  </div>
+                  <div className="mb-1.5 mt-2 text-[10px] font-bold uppercase tracking-widest text-lol-text">
+                    Best, min 10 picks
+                  </div>
+                  <div className="flex flex-col gap-1.5">
+                    {rarity.best.map((row) => (
+                      <button
+                        type="button"
+                        key={row.augment_id}
+                        onClick={() => navigate(`/augments/${row.augment_id}`)}
+                        className="flex items-center gap-2.5 rounded-xl border border-lol-border/40 bg-black/25 px-2.5 py-1.5 text-left transition-colors hover:border-lol-crimson/60"
+                      >
+                        <AugmentIcon augmentId={row.augment_id} size={30} patch={patch} />
+                        <span className="min-w-0 flex-1 truncate text-[13px] font-semibold text-lol-text-bright">
+                          {getAugmentName(augmentData, row.augment_id)}
+                        </span>
+                        <span className="text-[11px] tabular-nums text-lol-text">{row.picks}x</span>
+                        <span className="w-14 text-right font-display text-[14px] font-bold tabular-nums text-lol-win">
+                          {winRate(row).toFixed(1)}%
+                        </span>
+                      </button>
+                    ))}
+                    {rarity.best.length === 0 && (
+                      <p className="py-3 text-center text-xs text-lol-text/70">Not enough picks</p>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          <div className="app-tile min-w-0">
+            <Title
+              aside={
+                <span className="text-[13px] text-lol-text">Click an augment for details</span>
+              }
+            >
+              All augments
+            </Title>
             <div className="mb-4 flex flex-col gap-3">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div className="flex flex-wrap items-center gap-2">
@@ -340,7 +329,7 @@ export function AugmentsExp() {
                 </span>
                 {(
                   [
-                    ["most-built", "Most built"],
+                    ["most-built", "Most picked"],
                     ["best-wr", "Best win rate"],
                   ] as const
                 ).map(([value, label]) => (
@@ -359,18 +348,76 @@ export function AugmentsExp() {
             {sorted.length === 0 ? (
               <div className="py-8 text-center text-sm text-lol-text">No augments played yet.</div>
             ) : (
-              <TileGrid>
-                {sorted.map((row) => (
-                  <Tile
-                    key={row.augment_id}
-                    icon={<AugmentIcon augmentId={row.augment_id} />}
-                    title={getAugmentName(augmentData, row.augment_id)}
-                    subtitle={`${formatNumber(row.picks)} picks · ${winRate(row).toFixed(1)}% win`}
-                    trackValue={winRate(row)}
-                    tier={tierForRarity(augmentData[row.augment_id]?.rarity)}
-                  />
-                ))}
-              </TileGrid>
+              <div className="grid grid-cols-[repeat(auto-fill,minmax(270px,1fr))] gap-3">
+                {sorted.map((row, index) => {
+                  const wr = winRate(row);
+                  const delta = wr - totals.averageWinRate;
+                  const rarity = rarityOf(augmentData[row.augment_id]?.rarity);
+                  return (
+                    <button
+                      type="button"
+                      key={row.augment_id}
+                      onClick={() => navigate(`/augments/${row.augment_id}`)}
+                      className="flex min-w-0 flex-col gap-3 rounded-2xl border border-lol-border/60 bg-black/25 p-4 text-left transition-colors hover:border-lol-crimson/60 hover:bg-white/[0.04]"
+                    >
+                      <div className="flex min-w-0 items-center gap-3">
+                        <div
+                          className="shrink-0 overflow-hidden rounded-xl border"
+                          style={{ borderColor: rarity?.color }}
+                        >
+                          <AugmentIcon augmentId={row.augment_id} size={46} patch={patch} />
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <div className="truncate font-display text-[15px] font-bold text-lol-text-bright">
+                            {getAugmentName(augmentData, row.augment_id)}
+                          </div>
+                          <div
+                            className="mt-0.5 text-[11px] font-semibold"
+                            style={{ color: rarity?.color }}
+                          >
+                            {rarity?.label ?? "Unknown rarity"}
+                          </div>
+                        </div>
+                        <span className="self-start font-display text-[12px] font-bold tabular-nums text-lol-text/50">
+                          #{index + 1}
+                        </span>
+                      </div>
+                      <div className="grid grid-cols-3 gap-2 text-center">
+                        <CardStat label="Picks" value={formatNumber(row.picks)} />
+                        <CardStat
+                          label="Win rate"
+                          value={`${wr.toFixed(1)}%`}
+                          className={wr >= 50 ? "text-lol-win" : "text-lol-loss"}
+                        />
+                        <CardStat
+                          label="Vs avg"
+                          value={`${delta >= 0 ? "+" : ""}${delta.toFixed(1)}`}
+                          className={delta >= 0 ? "text-lol-win" : "text-lol-loss"}
+                        />
+                      </div>
+                      <div className="h-1.5 overflow-hidden rounded-full bg-white/[0.08]">
+                        <div
+                          className={`h-full rounded-full ${wr >= 50 ? "bg-lol-win" : "bg-lol-loss"}`}
+                          style={{ width: `${Math.max(0, Math.min(100, wr))}%` }}
+                        />
+                      </div>
+                      <div className="flex items-center gap-1.5">
+                        <span className="mr-auto text-[10px] font-bold uppercase tracking-widest text-lol-text/80">
+                          Mostly on
+                        </span>
+                        {row.champions.slice(0, 5).map((champion) => (
+                          <ChampionIcon
+                            key={champion.champion_id}
+                            championId={champion.champion_id}
+                            size={24}
+                            className="rounded-md"
+                          />
+                        ))}
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
             )}
           </div>
         </>

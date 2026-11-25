@@ -12,6 +12,7 @@ import {
   SparklesIcon,
   TrendingUpIcon,
   TrophyIcon,
+  StarIcon,
   UserIcon,
   UsersIcon,
   ZapIcon,
@@ -33,6 +34,7 @@ const NAV_ICONS: Record<string, NavIcon> = {
   "/friends": UsersIcon,
   "/trends": TrendingUpIcon,
   "/records": TrophyIcon,
+  "/achievements": StarIcon,
   "/data": GlobeIcon,
   "/debug": SettingsIcon,
 };
@@ -49,6 +51,7 @@ const mainTabs = [
   { to: "/friends", label: "FRIENDS & FOES" },
   { to: "/trends", label: "TRENDS" },
   { to: "/records", label: "RECORDS" },
+  { to: "/achievements", label: "ACHIEVEMENTS" },
   { to: "/data", label: "DATA" },
   { to: "/debug", label: "DEBUG TESTING" },
 ];
@@ -66,7 +69,10 @@ const redesignTabs = [
 const NAV_GROUPS = [
   { title: "Main", paths: ["/test", "/home", "/profile", "/match-history", "/local", "/history"] },
   { title: "Analytics", paths: ["/champions", "/items", "/augments", "/runes"] },
-  { title: "Community & progress", paths: ["/friends", "/trends", "/records", "/data", "/debug"] },
+  {
+    title: "Community & progress",
+    paths: ["/friends", "/trends", "/records", "/achievements", "/data", "/debug"],
+  },
 ];
 
 const ACTIVE_TAIL: Record<string, string> = {

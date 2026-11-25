@@ -34,6 +34,7 @@ const mainTabs = [
   { to: "/friends", label: "FRIENDS & FOES" },
   { to: "/trends", label: "TRENDS" },
   { to: "/records", label: "RECORDS" },
+  { to: "/achievements", label: "ACHIEVEMENTS" },
   { to: "/data", label: "DATA" },
   { to: "/debug", label: "DEBUG TESTING" },
 ];

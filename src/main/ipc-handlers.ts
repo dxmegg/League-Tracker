@@ -530,6 +530,13 @@ export function registerIpcHandlers() {
   );
 
   ipcMain.handle(
+    "db:augment-detail",
+    (_event, augmentId: number, patch?: string, queue?: number, account?: string) => {
+      return db.getAugmentDetail(augmentId, patch, queue, account);
+    },
+  );
+
+  ipcMain.handle(
     "db:augment-stats-detailed",
     (_event, patch?: string, queue?: number, account?: string) => {
       return db.getAugmentStatsWithChampions(patch, queue, account);
@@ -1073,9 +1080,7 @@ export function registerIpcHandlers() {
     db.getGameStatPeaks(Number(gameId)),
   );
 
-  ipcMain.handle("stats:game-live", (_event, gameId: number) =>
-    db.getLiveGameData(Number(gameId)),
-  );
+  ipcMain.handle("stats:game-live", (_event, gameId: number) => db.getLiveGameData(Number(gameId)));
 
   ipcMain.handle("lcu:current-puuid", async () => {
     console.log("[lcu] current puuid handler called:", {});

@@ -860,22 +860,54 @@ export interface ItemDetail {
   avgBuyTimeMs: number | null;
   patchBreakdown: { patch: string; games: number; wins: number }[];
   topPairings: { item_id: number; games: number; wins: number }[];
+  // Games in the same scope where the item was not built; averages are null when there are none
+  baseline: {
+    games: number;
+    wins: number;
+    kills: number;
+    deaths: number;
+    assists: number;
+    damage: number | null;
+    taken: number | null;
+    gold: number | null;
+    heal: number | null;
+    score: number | null;
+    duration: number | null;
+  };
   champions: {
     champion_id: number;
     games: number;
     championGames: number;
+    championWins: number;
     wins: number;
     matches: {
       game_id: number;
+      champion_id: number;
       game_creation: number;
       game_duration: number;
+      queue_id: number;
       win: number;
       kills: number;
       deaths: number;
       assists: number;
+      damage: number;
+      taken: number;
+      gold: number;
+      heal: number;
+      score: number | null;
     }[];
   }[];
 }
+
+export type AugmentDetail = Pick<
+  ItemDetail,
+  "picks" | "wins" | "totalGames" | "baseline" | "champions" | "patchBreakdown"
+> & {
+  augment_id: number;
+  // Other augments and items taken in the same games
+  pairings: { id: number; games: number; wins: number }[];
+  topItems: { id: number; games: number; wins: number }[];
+};
 
 export interface AugmentStatsDetailed {
   augment_id: number;
@@ -2259,6 +2291,12 @@ export interface ElectronAPI {
     account?: string,
     timePeriod?: HomeTimePeriod,
   ) => Promise<AugmentStats[]>;
+  getAugmentDetail: (
+    augmentId: number,
+    patch?: string,
+    queue?: number,
+    account?: string,
+  ) => Promise<AugmentDetail>;
   getAugmentStatsDetailed: (
     patch?: string,
     queue?: number,

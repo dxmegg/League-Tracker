@@ -9,28 +9,20 @@ import { QueueFilterChips } from "../pages/Home";
 import ChampionIcon from "./ChampionIcon";
 import SummonerIcon from "./SummonerIcon";
 import { Panel } from "./Panel";
+import { HeroTile, PageHero } from "./SplashHero";
+import { Title } from "./live/shared";
 import type { SortableColumn } from "./SortableTable";
 import { FilterSelect } from "./FilterSelect";
 
 const PAGE_SIZE = 30;
 const PLAYER_GRID_FRIENDS =
-  "[&_thead_tr]:grid-cols-[minmax(0,1fr)_60px_130px_90px_110px] [&_tbody_tr]:grid-cols-[minmax(0,1fr)_60px_130px_90px_110px]";
+  "[&_thead_tr]:grid-cols-[minmax(0,1fr)_60px_130px_90px_110px] [&_tbody_tr]:grid-cols-[minmax(0,1fr)_60px_130px_90px_110px] max-[106rem]:[&_thead_tr]:grid-cols-[minmax(0,1fr)_52px_68px_76px_60px] max-[106rem]:[&_tbody_tr]:grid-cols-[minmax(0,1fr)_52px_68px_76px_60px]";
 const PLAYER_GRID_FOES =
-  "[&_thead_tr]:grid-cols-[minmax(0,1fr)_60px_150px_110px] [&_tbody_tr]:grid-cols-[minmax(0,1fr)_60px_150px_110px]";
+  "[&_thead_tr]:grid-cols-[minmax(0,1fr)_60px_150px_110px] [&_tbody_tr]:grid-cols-[minmax(0,1fr)_60px_150px_110px] max-[106rem]:[&_thead_tr]:grid-cols-[minmax(0,1fr)_52px_68px_76px] max-[106rem]:[&_tbody_tr]:grid-cols-[minmax(0,1fr)_52px_68px_76px]";
 const CHAMPION_GRID =
-  "[&_thead_tr]:grid-cols-[minmax(0,1fr)_60px_150px_90px] [&_tbody_tr]:grid-cols-[minmax(0,1fr)_60px_150px_90px]";
+  "[&_thead_tr]:grid-cols-[minmax(0,1fr)_60px_150px_90px] [&_tbody_tr]:grid-cols-[minmax(0,1fr)_60px_150px_90px] max-[106rem]:[&_thead_tr]:grid-cols-[minmax(0,1fr)_52px_68px_52px] max-[106rem]:[&_tbody_tr]:grid-cols-[minmax(0,1fr)_52px_68px_52px]";
 
 type SortDirection = "asc" | "desc";
-
-function PanelKpi({ value }: { value: string }) {
-  return (
-    <div className="shrink-0 rounded-md border border-lol-border/60 bg-black/10 px-2 py-1.5 text-right">
-      <span className="text-[11px] font-semibold leading-tight tabular-nums text-lol-text-bright">
-        {value}
-      </span>
-    </div>
-  );
-}
 
 function WinRateValue({ wins, games }: { wins: number; games: number }) {
   const rate = games > 0 ? (wins / games) * 100 : 0;
@@ -38,7 +30,7 @@ function WinRateValue({ wins, games }: { wins: number; games: number }) {
   return (
     <div className="flex min-w-0 items-center justify-end gap-2">
       <span className="shrink-0 tabular-nums">{rate.toFixed(1)}%</span>
-      <div className="h-2 w-16 shrink-0 overflow-hidden rounded-full bg-lol-crimson/20">
+      <div className="h-2 w-16 shrink-0 overflow-hidden rounded-full bg-lol-crimson/20 max-[106rem]:hidden">
         <div className="h-full rounded-full bg-lol-win" style={{ width: `${rate}%` }} />
       </div>
     </div>
@@ -131,7 +123,7 @@ export function FriendsExp() {
             className="nm min-w-0"
             onClick={(event) => event.stopPropagation()}
           >
-            <span className="shrink-0 rounded-full border border-lol-crimson/60 p-0.5 shadow-[0_0_8px_var(--theme-crimson-glow)]">
+            <span className="flex shrink-0 rounded-full border border-lol-crimson/60 p-0.5 shadow-[0_0_8px_var(--theme-crimson-glow)]">
               <SummonerIcon iconId={row.profileIcon} size={30} />
             </span>
             <span className="min-w-0 truncate">{row.name}</span>
@@ -147,7 +139,7 @@ export function FriendsExp() {
       },
       {
         key: "wins",
-        label: "Your win rate",
+        label: "Win rate",
         render: (row) => (
           <WinRateValue wins={perspectiveWins(row.wins, row.games, relation)} games={row.games} />
         ),
@@ -157,7 +149,7 @@ export function FriendsExp() {
       },
       {
         key: "lastPlayed",
-        label: "Last played",
+        label: "Played",
         render: (row) => <span className="whitespace-nowrap">{formatTimeAgo(row.lastPlayed)}</span>,
         sortValue: (row) => row.lastPlayed,
         defaultDir: "desc",
@@ -166,7 +158,7 @@ export function FriendsExp() {
         ? [
             {
               key: "kda",
-              label: "KDA together",
+              label: "KDA",
               render: (row: TeammateStats) => (
                 <span className="tabular-nums">{kdaRatio(row.kills, row.deaths, row.assists)}</span>
               ),
@@ -191,7 +183,7 @@ export function FriendsExp() {
             className="nm min-w-0"
             onClick={(event) => event.stopPropagation()}
           >
-            <span className="shrink-0 rounded-full border border-lol-gold/60 p-0.5 shadow-[0_0_8px_var(--theme-gold)]">
+            <span className="flex shrink-0 rounded-full border border-lol-gold/60 p-0.5 shadow-[0_0_8px_var(--theme-gold)]">
               <ChampionIcon championId={row.champion_id} size={30} />
             </span>
             <span className="min-w-0 truncate">
@@ -210,7 +202,7 @@ export function FriendsExp() {
       },
       {
         key: "wins",
-        label: relation === "friends" ? "Your win rate with" : "Your win rate vs",
+        label: "Win rate",
         render: (row) => (
           <WinRateValue wins={perspectiveWins(row.wins, row.games, relation)} games={row.games} />
         ),
@@ -231,17 +223,44 @@ export function FriendsExp() {
 
   const totalPlayerGames = playerRows[0]?.totalGames ?? 0;
   const totalChampionGames = championRows[0]?.totalGames ?? 0;
-  const playerKpi = `${formatNumber(playerRows.length)} players / ${formatNumber(totalPlayerGames)} games`;
-  const championKpi = `${formatNumber(championRows.length)} champions / ${formatNumber(totalChampionGames)} games`;
+  const mostSeen = playerRows.reduce<TeammateStats | null>(
+    (best, row) => (!best || row.games > best.games ? row : best),
+    null,
+  );
+  const rowRate = (row: { wins: number; games: number }) =>
+    row.games > 0 ? perspectiveWins(row.wins, row.games, relation) / row.games : 0;
   const tableClass =
-    "[&_thead_tr]:grid [&_tbody_tr]:grid [&_thead_th]:min-w-0 [&_tbody_td]:min-w-0 [&_tbody_td]:border-t-[1px] [&_tbody_td]:border-[rgba(255,255,255,0.04)] [&_tbody_td]:text-right [&_tbody_td]:tabular-nums [&_tbody_tr]:transition-colors [&_tbody_tr]:duration-[120ms] [&_tbody_tr:hover]:bg-white/[0.025]";
+    "[&_thead_tr]:grid [&_tbody_tr]:grid [&_thead_th]:min-w-0 [&_tbody]:flex [&_tbody]:flex-col [&_tbody]:gap-1.5 [&_tbody_tr]:items-center [&_tbody_tr]:rounded-xl [&_tbody_tr]:border [&_tbody_tr]:border-lol-border/50 [&_tbody_tr]:bg-black/25 [&_tbody_tr]:transition-colors [&_tbody_tr:hover]:border-lol-border-hover [&_tbody_tr:hover]:bg-white/[0.04] [&_tbody_td]:min-w-0 [&_tbody_td]:!border-t-0 [&_tbody_td]:text-right [&_tbody_td]:tabular-nums";
   const playerGridClass = relation === "friends" ? PLAYER_GRID_FRIENDS : PLAYER_GRID_FOES;
   const playerTableClass = `${tableClass} ${playerGridClass}`;
   const championTableClass = `${tableClass} ${CHAMPION_GRID}`;
 
   return (
     <div className="flex min-h-full w-full flex-col gap-5">
-      <div className="flex flex-wrap items-center gap-3">
+      <PageHero title="Friends & Foes" subtitle={`Who you play ${relationWord} and how it goes`}>
+        <HeroTile
+          label="Players"
+          value={playersLoading ? "—" : formatNumber(playerRows.length)}
+          sub={`played ${relationWord}`}
+        />
+        <HeroTile
+          label="Champions"
+          value={championsLoading ? "—" : formatNumber(championRows.length)}
+          sub={`${formatNumber(totalChampionGames)} games`}
+        />
+        <HeroTile
+          label="Games"
+          value={playersLoading ? "—" : formatNumber(totalPlayerGames)}
+          sub="in this view"
+        />
+        <HeroTile
+          label={relation === "friends" ? "Most played with" : "Most faced"}
+          value={mostSeen?.name ?? "—"}
+          sub={mostSeen ? `${formatNumber(mostSeen.games)} games` : undefined}
+          valueClass="!text-[18px] text-lol-text-bright"
+        />
+      </PageHero>
+      <div className="flex flex-wrap items-center justify-end gap-3">
         <label className="relative w-56">
           <span className="sr-only">Search players and champions</span>
           <input
@@ -283,11 +302,9 @@ export function FriendsExp() {
       </div>
 
       <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
-        <Panel className="border-t-[3px] border-t-lol-crimson bg-[linear-gradient(145deg,var(--theme-card)_0%,var(--theme-card-hover)_48%,var(--theme-card)_100%)]">
-          <div className="mb-4 flex flex-wrap items-center gap-2">
-            <h2 className="relative min-w-[14rem] flex-1 basis-[16rem] pl-4 font-display text-xl font-semibold text-lol-text-bright before:absolute before:left-0 before:top-1/2 before:h-2 before:w-2 before:-translate-y-1/2 before:rotate-45 before:bg-lol-crimson">
-              Players you've played {relationWord}
-            </h2>
+        <Panel variant="tile">
+          <div className="mb-3 flex flex-wrap items-start justify-between gap-2">
+            <Title>Players you've played {relationWord}</Title>
             <div className="flex shrink-0 items-center gap-2">
               <label className="sr-only">Sort players</label>
               <FilterSelect
@@ -312,7 +329,6 @@ export function FriendsExp() {
                 {playerSortDir === "asc" ? "↑" : "↓"}
               </button>
             </div>
-            <PanelKpi value={playerKpi} />
           </div>
           {playersLoading ? (
             <div className="py-8 text-center text-sm text-lol-text">Loading…</div>
@@ -336,6 +352,7 @@ export function FriendsExp() {
                     : "No foes yet."
               }
               rowKey={(row) => row.key}
+              rowRate={rowRate}
               onReachBottom={() =>
                 setVisiblePlayers((count) => Math.min(count + PAGE_SIZE, playerRows.length))
               }
@@ -343,11 +360,9 @@ export function FriendsExp() {
           )}
         </Panel>
 
-        <Panel className="border-t-[3px] border-t-lol-gold bg-[linear-gradient(145deg,var(--theme-card)_0%,var(--theme-card-hover)_48%,var(--theme-card)_100%)]">
-          <div className="mb-4 flex flex-wrap items-center gap-2">
-            <h2 className="relative min-w-[14rem] flex-1 basis-[16rem] pl-4 font-display text-xl font-semibold text-lol-text-bright before:absolute before:left-0 before:top-1/2 before:h-2 before:w-2 before:-translate-y-1/2 before:rotate-45 before:bg-lol-crimson">
-              Champions you've played {relationWord}
-            </h2>
+        <Panel variant="tile">
+          <div className="mb-3 flex flex-wrap items-start justify-between gap-2">
+            <Title>Champions you've played {relationWord}</Title>
             <div className="flex shrink-0 items-center gap-2">
               <label className="sr-only">Sort champions</label>
               <FilterSelect
@@ -371,7 +386,6 @@ export function FriendsExp() {
                 {championSortDir === "asc" ? "↑" : "↓"}
               </button>
             </div>
-            <PanelKpi value={championKpi} />
           </div>
           {championsLoading ? (
             <div className="py-8 text-center text-sm text-lol-text">Loading…</div>
@@ -395,6 +409,7 @@ export function FriendsExp() {
                     : "No foes yet."
               }
               rowKey={(row) => row.champion_id}
+              rowRate={rowRate}
               onReachBottom={() =>
                 setVisibleChampions((count) => Math.min(count + PAGE_SIZE, championRows.length))
               }
@@ -415,6 +430,7 @@ function FriendsTable<T extends object>({
   onSortChange,
   className,
   rowKey,
+  rowRate,
   onReachBottom,
   emptyText,
 }: {
@@ -426,6 +442,8 @@ function FriendsTable<T extends object>({
   onSortChange: (key: string, dir: SortDirection) => void;
   className: string;
   rowKey: (row: T) => string | number;
+  // 0..1, colours the row's left edge
+  rowRate: (row: T) => number;
   onReachBottom: () => void;
   emptyText: string;
 }) {
@@ -510,7 +528,13 @@ function FriendsTable<T extends object>({
           ) : (
             sortedRows.slice(0, visibleRows).map((row) => (
               <Fragment key={rowKey(row)}>
-                <tr>
+                <tr
+                  className={
+                    rowRate(row) >= 0.5
+                      ? "shadow-[inset_4px_0_0_var(--theme-win)]"
+                      : "shadow-[inset_4px_0_0_var(--theme-loss)]"
+                  }
+                >
                   {columns.map((column) => (
                     <td key={column.key}>{column.render(row)}</td>
                   ))}

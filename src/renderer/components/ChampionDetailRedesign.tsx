@@ -41,6 +41,8 @@ import { MatchRowExperiment } from "./MatchRowExperiment";
 import RuneIcon from "./RuneIcon";
 import { FilterSelect } from "./FilterSelect";
 import WinRateBar from "./WinRateBar";
+import { HeroTile, SplashHero } from "./SplashHero";
+import { Title } from "./live/shared";
 
 // Record keys worth showing on a single page; the full list lives in the old Records tab
 const RECORD_KEYS = [
@@ -68,39 +70,12 @@ function Section({
   className?: string;
 }) {
   return (
-    <section className={`min-w-0 rounded-[14px] glass-card p-5 ${className}`}>
-      <div className="mb-4 flex items-baseline justify-between gap-3">
-        <h2 className="font-display text-[15px] font-bold text-lol-text-bright">{title}</h2>
-        {hint && <span className="text-[11px] text-lol-text/70">{hint}</span>}
-      </div>
+    <section className={`app-tile min-w-0 ${className}`}>
+      <Title aside={hint && <span className="text-[12px] text-lol-text">{hint}</span>}>
+        {title}
+      </Title>
       {children}
     </section>
-  );
-}
-
-function Kpi({
-  label,
-  value,
-  sub,
-  valueClass = "text-lol-text-bright",
-}: {
-  label: string;
-  value: string;
-  sub?: string;
-  valueClass?: string;
-}) {
-  return (
-    <div className="rounded-[12px] glass-card px-4 py-3.5 text-center flex flex-col items-center justify-center">
-      <div className="text-[10.5px] font-bold uppercase tracking-widest text-lol-text/80">
-        {label}
-      </div>
-      <div
-        className={`mt-1 whitespace-nowrap font-display text-[26px] font-bold leading-none ${valueClass}`}
-      >
-        {value}
-      </div>
-      <div className="mt-1 h-4 text-[11px] text-lol-text">{sub ?? ""}</div>
-    </div>
   );
 }
 
@@ -126,7 +101,7 @@ function RateRow({
   wins: number;
 }) {
   return (
-    <div className="flex h-9 items-center gap-2.5">
+    <div className="mb-1.5 flex h-10 items-center gap-2.5 rounded-lg border border-lol-border/40 bg-black/25 px-2.5 last:mb-0">
       <div className="shrink-0">{icon}</div>
       <span className="min-w-0 flex-1 truncate text-[13px] text-lol-text-bright">{name}</span>
       <span className="shrink-0 text-[11px] tabular-nums text-lol-text">{games}x</span>
@@ -316,26 +291,27 @@ export function ChampionDetailRedesign() {
     <div className="flex w-full flex-col gap-5">
       {backButton}
 
-      <div className="relative overflow-hidden rounded-[14px] glass-card p-6">
-        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(229,72,63,0.16),transparent_55%)]" />
-        <div className="relative flex flex-wrap items-center gap-6">
+      <SplashHero championId={id}>
+        <div className="flex items-center gap-5">
           <ChampionIcon
             championId={id}
             size={96}
-            className="rounded-2xl border border-lol-border"
+            className="shrink-0 rounded-2xl border border-lol-crimson/50 shadow-[0_0_28px_var(--theme-crimson-glow)]"
           />
-          <div className="min-w-0 flex-1">
-            <h1 className="font-display text-[34px] font-bold leading-tight text-lol-text-bright">
+          <div className="min-w-0">
+            <h1 className="font-display text-[34px] font-bold leading-none text-lol-text-bright">
               {name}
             </h1>
-            <p className="mt-1 text-[14px] text-lol-text">
-              {formatNumber(games)} games · {formatNumber(wins)}W {formatNumber(games - wins)}L
+            <p className="mt-2 text-[13px] text-lol-text">
+              {formatNumber(games)} games ·{" "}
+              <span className="text-lol-win">{formatNumber(wins)}W</span>{" "}
+              <span className="text-lol-loss">{formatNumber(games - wins)}L</span>
               {streak && (
                 <span
                   className={`ml-3 rounded-md px-2 py-0.5 text-xs font-bold ${
                     streak.type === "W"
                       ? "bg-lol-win/15 text-lol-win"
-                      : "bg-lol-crimson/15 text-lol-crimson"
+                      : "bg-lol-loss/15 text-lol-loss"
                   }`}
                 >
                   {streak.type}
@@ -343,31 +319,52 @@ export function ChampionDetailRedesign() {
                 </span>
               )}
             </p>
-          </div>
-          <div className="flex items-center gap-8">
-            <div className="text-right">
-              <div className="text-[10.5px] font-bold uppercase tracking-widest text-lol-text/80">
-                Win rate
-              </div>
-              <div
-                className={`font-display text-[44px] font-bold leading-none ${wr >= 50 ? "text-lol-win" : "text-lol-loss"}`}
-              >
-                {wr.toFixed(1)}%
-              </div>
+            <div className="mt-3 font-display text-[26px] font-bold leading-none tabular-nums">
+              <span className="text-lol-gold">{stats.avg_kills.toFixed(1)}</span>
+              <span className="text-lol-text/40"> / </span>
+              <span className="text-lol-loss">{stats.avg_deaths.toFixed(1)}</span>
+              <span className="text-lol-text/40"> / </span>
+              <span className="text-lol-assist">{stats.avg_assists.toFixed(1)}</span>
             </div>
-            <div className="text-right">
-              <div className="text-[10.5px] font-bold uppercase tracking-widest text-lol-text/80">
-                KDA
-              </div>
-              <div className="font-display text-[44px] font-bold leading-none text-lol-text-bright">
-                {kda != null ? kda.toFixed(2) : "∞"}
-              </div>
-            </div>
+            <div className="mt-1 text-[11px] text-lol-text">average K / D / A per game</div>
           </div>
         </div>
-      </div>
+        <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
+          <HeroTile
+            label="Win rate"
+            value={`${wr.toFixed(1)}%`}
+            valueClass={wr >= 50 ? "text-lol-win" : "text-lol-loss"}
+          />
+          <HeroTile label="KDA" value={kda != null ? kda.toFixed(2) : "∞"} />
+          <HeroTile
+            label="Score"
+            value={stats.avg_score != null ? stats.avg_score.toFixed(1) : "—"}
+            valueClass={stats.avg_score != null ? scoreColor(stats.avg_score) : "text-lol-text"}
+          />
+          <HeroTile label="MVP / ACE" value={`${stats.mvps} / ${stats.aces}`} />
+          <HeroTile
+            label="CS / min"
+            value={stats.avg_cs_per_min != null ? stats.avg_cs_per_min.toFixed(1) : "—"}
+          />
+          <HeroTile
+            label="Avg damage"
+            value={formatNumber(stats.avg_damage)}
+            sub={`${pct(detail?.damageShare)} share`}
+          />
+          <HeroTile
+            label="Avg gold"
+            value={formatNumber(stats.avg_gold)}
+            valueClass="text-lol-gold"
+          />
+          <HeroTile
+            label="Kill participation"
+            value={pct(detail?.killParticipation)}
+            valueClass="text-lol-assist"
+          />
+        </div>
+      </SplashHero>
 
-      <div className="flex flex-wrap items-center gap-2">
+      <div className="flex flex-wrap items-center justify-end gap-2">
         {dataMode !== "mayhem" && (
           <FilterSelect
             value={queue != null ? String(queue) : undefined}
@@ -400,36 +397,6 @@ export function ChampionDetailRedesign() {
             </button>
           ))}
         </div>
-      </div>
-
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-4 xl:grid-cols-6">
-        <Kpi
-          label="Avg K / D / A"
-          value={`${stats.avg_kills.toFixed(1)} / ${stats.avg_deaths.toFixed(1)} / ${stats.avg_assists.toFixed(1)}`}
-          sub="per game"
-          valueClass="!text-[22px] text-lol-text-bright"
-        />
-        <Kpi
-          label="Score"
-          value={stats.avg_score != null ? stats.avg_score.toFixed(1) : "—"}
-          sub={`${stats.mvps} MVP · ${stats.aces} ACE`}
-          valueClass={stats.avg_score != null ? scoreColor(stats.avg_score) : "text-lol-text"}
-        />
-        <Kpi
-          label="CS / min"
-          value={stats.avg_cs_per_min != null ? stats.avg_cs_per_min.toFixed(1) : "—"}
-        />
-        <Kpi
-          label="Avg damage"
-          value={formatNumber(stats.avg_damage)}
-          sub={`${pct(detail?.damageShare)} share`}
-        />
-        <Kpi label="Avg gold" value={formatNumber(stats.avg_gold)} valueClass="text-lol-gold" />
-        <Kpi
-          label="Kill participation"
-          value={pct(detail?.killParticipation)}
-          valueClass="text-lol-assist"
-        />
       </div>
 
       <div className="grid grid-cols-1 gap-5 xl:grid-cols-3">

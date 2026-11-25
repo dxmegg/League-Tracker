@@ -262,6 +262,9 @@ const api: ElectronAPI = {
     timePeriod?: HomeTimePeriod,
   ) => ipcRenderer.invoke("db:augment-stats", championId, patch, queue, account, timePeriod),
 
+  getAugmentDetail: (augmentId: number, patch?: string, queue?: number, account?: string) =>
+    ipcRenderer.invoke("db:augment-detail", augmentId, patch, queue, account),
+
   getAugmentStatsDetailed: (patch?: string, queue?: number, account?: string) =>
     ipcRenderer.invoke("db:augment-stats-detailed", patch, queue, account),
 

@@ -34,6 +34,7 @@ const PAGE_TITLES: Record<string, string> = {
   friends: "Friends & Foes",
   trends: "Trends",
   records: "Records",
+  achievements: "Achievements",
   data: "Data",
   settings: "Settings",
   history: "History",

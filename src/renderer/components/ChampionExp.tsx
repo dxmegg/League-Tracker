@@ -2,6 +2,8 @@ import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import type { ChampionStats, HomeTimePeriod } from "../../shared/api";
 import ChampionIcon from "./ChampionIcon";
+import { HeroTile, HighlightTile, SplashHero } from "./SplashHero";
+import { Title } from "./live/shared";
 import { ChampionCombobox } from "./ChampionCombobox";
 import { FilterSelect } from "./FilterSelect";
 import PatchSelect from "./PatchSelect";
@@ -84,27 +86,12 @@ function KpiTile({
   value,
   caption,
   accent,
-  flat = false,
 }: {
   label: string;
   value: string;
   caption: string;
   accent: Accent;
-  // Plain card with one small accent bar, no tinted glow or coloured top edge
-  flat?: boolean;
 }) {
-  if (flat) {
-    return (
-      <div className="rounded-[14px] glass-card p-5">
-        <span className="mb-3 block h-0.5 w-6 rounded-full bg-lol-crimson" />
-        <div className="text-[11px] font-bold uppercase tracking-widest text-lol-text">{label}</div>
-        <div className="mt-1 font-display text-[32px] font-bold leading-tight text-lol-text-bright">
-          {value}
-        </div>
-        <div className="text-xs text-lol-text">{caption}</div>
-      </div>
-    );
-  }
   return (
     <div
       className="relative overflow-hidden rounded-[12px] border border-lol-border p-4"
@@ -143,27 +130,14 @@ function HighlightCard({
 }) {
   if (flat) {
     return (
-      <div className="flex items-center gap-4 rounded-[14px] glass-card p-5" title={emptyTitle}>
-        {champion ? (
-          <ChampionIcon
-            championId={champion.champion_id}
-            size={52}
-            className="shrink-0 rounded-xl border border-lol-border"
-          />
-        ) : (
-          <div className="h-[52px] w-[52px] shrink-0 rounded-xl border border-lol-border bg-black/10" />
-        )}
-        <div className="min-w-0">
-          <div className="text-[11px] font-bold uppercase tracking-widest text-lol-text">
-            {title}
-          </div>
-          <div className="mt-0.5 truncate font-display text-[16px] font-bold text-lol-text-bright">
-            {champion ? getChampionName(champData, champion.champion_id) : "—"}
-          </div>
-          <div className="text-[13px] font-semibold text-lol-text-bright">{value}</div>
-          <div className="text-[11px] text-lol-text">{caption}</div>
-        </div>
-      </div>
+      <HighlightTile
+        title={title}
+        icon={champion ? <ChampionIcon championId={champion.champion_id} size={60} /> : null}
+        name={champion ? getChampionName(champData, champion.champion_id) : "—"}
+        value={value}
+        caption={caption}
+        hint={emptyTitle}
+      />
     );
   }
   return (
@@ -322,16 +296,54 @@ export function ChampionExp({ redesign = false }: { redesign?: boolean }) {
     return best == null || championBadges > bestBadges ? champion : best;
   }, null);
 
+  const kpis = [
+    {
+      label: "Champions shown",
+      value: formatNumber(filtered.length),
+      caption: `of ${formatNumber(data?.length ?? 0)} tracked`,
+    },
+    {
+      label: "Total games",
+      value: formatNumber(totalGames),
+      caption: "in the selected queue and patch",
+    },
+    {
+      label: "Average win rate",
+      value: totalGames > 0 ? `${((totalWins / totalGames) * 100).toFixed(1)}%` : "—",
+      caption: "across all champions",
+    },
+    {
+      label: "Games per champion",
+      value: filtered.length > 0 ? (totalGames / filtered.length).toFixed(1) : "—",
+      caption: "average sample",
+    },
+  ];
+
   return (
     <div className="flex min-h-full w-full flex-col gap-5">
-      <div className="flex flex-wrap items-end justify-between gap-4">
-        <div>
+      {redesign && (
+        <SplashHero championId={mostPlayed?.champion_id}>
+          <div>
+            <h1 className="font-display text-[34px] font-bold leading-none text-lol-text-bright">
+              Champions
+            </h1>
+            <p className="mt-2 text-[13px] text-lol-text">
+              Your performance on every champion, all accounts
+            </p>
+          </div>
+          <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
+            {kpis.map((k) => (
+              <HeroTile key={k.label} label={k.label} value={k.value} sub={k.caption} />
+            ))}
+          </div>
+        </SplashHero>
+      )}
+      <div
+        className={`flex flex-wrap items-end gap-4 ${redesign ? "justify-end" : "justify-between"}`}
+      >
+        <div className={redesign ? "hidden" : ""}>
           <h1 className="flex items-center font-display text-[30px] font-bold leading-tight tracking-[0.2px] text-lol-text-bright">
-            <span
-              className={`mr-2 h-2.5 w-2.5 rotate-45 bg-lol-crimson ${
-                redesign ? "" : "shadow-[0_0_8px_rgba(229,72,63,0.45)]"
-              }`}
-            />
+            <span className="mr-2 h-2.5 w-2.5 rotate-45 bg-lol-crimson shadow-[0_0_8px_rgba(229,72,63,0.45)]" />
             <span className="relative pb-2 after:absolute after:bottom-0 after:left-0 after:h-px after:w-full after:bg-gradient-to-r after:from-lol-crimson after:to-transparent">
               Champions
             </span>
@@ -388,38 +400,17 @@ export function ChampionExp({ redesign = false }: { redesign?: boolean }) {
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
-        <KpiTile
-          label="Champions shown"
-          value={formatNumber(filtered.length)}
-          caption={`of ${formatNumber(filtered.length)} tracked`}
-          accent={ACCENTS[0]}
-          flat={redesign}
-        />
-        <KpiTile
-          label="Total games"
-          value={formatNumber(totalGames)}
-          caption="in the selected queue and patch"
-          accent={ACCENTS[1]}
-          flat={redesign}
-        />
-        <KpiTile
-          label="Average win rate"
-          value={totalGames > 0 ? `${((totalWins / totalGames) * 100).toFixed(1)}%` : "—"}
-          caption="across all champions"
-          accent={ACCENTS[2]}
-          flat={redesign}
-        />
-        <KpiTile
-          label="Games per champion"
-          value={filtered.length > 0 ? (totalGames / filtered.length).toFixed(1) : "—"}
-          caption="average sample"
-          accent={ACCENTS[3]}
-          flat={redesign}
-        />
-      </div>
+      {!redesign && (
+        <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
+          {kpis.map((k, i) => (
+            <KpiTile key={k.label} {...k} accent={ACCENTS[i]} />
+          ))}
+        </div>
+      )}
 
-      <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4">
+      <div
+        className={`grid grid-cols-1 gap-3 md:grid-cols-2 ${redesign ? "min-[106rem]:grid-cols-4" : "xl:grid-cols-4"}`}
+      >
         <HighlightCard
           title="Most played"
           champion={mostPlayed}
@@ -477,14 +468,27 @@ export function ChampionExp({ redesign = false }: { redesign?: boolean }) {
       </div>
 
       <div
-        className={`min-w-0 rounded-[14px] border border-lol-border p-5 ${
+        className={
           redesign
-            ? "bg-[var(--theme-card)]"
-            : "bg-[linear-gradient(180deg,var(--theme-card-hover),var(--theme-card))]"
-        }`}
+            ? "app-tile min-w-0"
+            : "min-w-0 rounded-[14px] border border-lol-border bg-[linear-gradient(180deg,var(--theme-card-hover),var(--theme-card))] p-5"
+        }
       >
-        <div className="scroll">
-          <div role="table" className={`tbl ct ${redesign ? "!text-[14px]" : ""}`}>
+        {redesign && (
+          <Title
+            aside={
+              <span className="text-[13px] text-lol-text">Click a champion for the details</span>
+            }
+          >
+            All champions
+          </Title>
+        )}
+        <div className={redesign ? "scroll @container" : "scroll"}>
+          <div
+            role="table"
+            // Scales the table down in narrow windows instead of cutting columns off
+            className={`tbl ct ${redesign ? "!text-[14px] @max-[1150px]:[zoom:0.88] @max-[1010px]:[zoom:0.78]" : ""}`}
+          >
             <div role="rowgroup">
               <div role="row" className={grid}>
                 {COLUMNS.map((column) => (
@@ -522,7 +526,7 @@ export function ChampionExp({ redesign = false }: { redesign?: boolean }) {
                 ))}
               </div>
             </div>
-            <div role="rowgroup">
+            <div role="rowgroup" className={redesign ? "flex flex-col gap-1.5" : ""}>
               {sorted.length === 0 ? (
                 <div role="row" className={grid}>
                   <div role="cell" className="col-span-full px-2.5 py-2 text-left">
@@ -537,10 +541,14 @@ export function ChampionExp({ redesign = false }: { redesign?: boolean }) {
                     <div
                       key={r.champion_id}
                       role="row"
-                      className={`${grid} cursor-pointer border-b border-lol-border/40 transition-colors duration-[120ms] hover:bg-white/[0.03] ${
+                      className={`${grid} cursor-pointer transition-colors duration-[120ms] ${
                         redesign
-                          ? `shadow-[inset_3px_0_0_transparent] hover:shadow-[inset_3px_0_0_var(--theme-accent,#E5483F)] ${i % 2 === 1 ? "bg-white/[0.015]" : ""}`
-                          : ""
+                          ? `rounded-xl border border-lol-border/50 bg-black/25 hover:border-lol-border-hover hover:bg-white/[0.04] ${
+                              wr >= 50
+                                ? "shadow-[inset_4px_0_0_var(--theme-win)]"
+                                : "shadow-[inset_4px_0_0_var(--theme-loss)]"
+                            }`
+                          : "border-b border-lol-border/40 hover:bg-white/[0.03]"
                       }`}
                       tabIndex={0}
                       data-champion-id={r.champion_id}
