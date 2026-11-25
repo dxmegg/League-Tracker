@@ -64,37 +64,45 @@ export default function MatchScoreboardExp({
 
   if (isArenaQueue(detail.game.queue_id)) {
     return (
-      <div>
-        <ArenaScoreboard
-          participants={participants}
-          champData={champData}
-          patch={detail.game.game_version}
-          gameDuration={detail.game.game_duration}
-          onPlayerClick={onPlayerClick}
-        />
+      <div className="@container">
+        <div className={FIT_ZOOM}>
+          <ArenaScoreboard
+            participants={participants}
+            champData={champData}
+            patch={detail.game.game_version}
+            gameDuration={detail.game.game_duration}
+            onPlayerClick={onPlayerClick}
+          />
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="space-y-3">
-      {Array.from(teams.entries()).map(([teamId, players]) => (
-        <TeamScoreboard
-          key={teamId}
-          teamId={teamId}
-          players={players}
-          maxStats={gameMaxStats}
-          champData={champData}
-          scores={scores}
-          patch={detail.game.game_version}
-          gameDuration={detail.game.game_duration}
-          queueId={detail.game.queue_id}
-          onPlayerClick={onPlayerClick}
-        />
-      ))}
+    <div className="@container">
+      <div className={`space-y-3 ${FIT_ZOOM}`}>
+        {Array.from(teams.entries()).map(([teamId, players]) => (
+          <TeamScoreboard
+            key={teamId}
+            teamId={teamId}
+            players={players}
+            maxStats={gameMaxStats}
+            champData={champData}
+            scores={scores}
+            patch={detail.game.game_version}
+            gameDuration={detail.game.game_duration}
+            queueId={detail.game.queue_id}
+            onPlayerClick={onPlayerClick}
+          />
+        ))}
+      </div>
     </div>
   );
 }
+
+// The rows need ~1260px; narrower than that the whole table scales down instead of being clipped.
+// shortcut: fixed steps that fit down to ~910px, add a stacked layout if the window can get narrower.
+const FIT_ZOOM = "@max-[1260px]:[zoom:0.9] @max-[1134px]:[zoom:0.8] @max-[1008px]:[zoom:0.72]";
 
 const ARENA_GRID_COLS =
   "grid-cols-[28px_minmax(140px,240px)_64px_minmax(140px,220px)_minmax(140px,220px)_56px_56px_240px_220px_1fr]";

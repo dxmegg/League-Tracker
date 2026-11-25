@@ -224,6 +224,13 @@ export default function Live() {
 
   return (
     <div className="flex min-h-full w-full flex-col gap-5">
+      {(!inGame || !snapshot || !ally || !enemy) && (
+        <WaitingState
+          phase={snapshot?.gameflowPhase ?? null}
+          error={error}
+          onDemo={() => setDemo(true)}
+        />
+      )}
       <Panel variant="tile" accent={inGame ? "var(--color-lol-loss)" : "var(--color-lol-text)"}>
         <div className="flex flex-wrap items-center justify-between gap-x-8 gap-y-4">
           <div className="min-w-0">
@@ -281,15 +288,19 @@ export default function Live() {
           <ClientStatePanel session={session} />
           <LiveLastGame />
           <LiveRecords />
-          <WaitingState
-            phase={snapshot?.gameflowPhase ?? null}
-            error={error}
-            onDemo={() => setDemo(true)}
-          />
           <LiveSavedGames />
         </>
       ) : (
         <>
+          {snapshot.me && (
+            <LiveMe
+              me={snapshot.me}
+              player={meRow}
+              clockSec={clockSec}
+              teamKills={ally.kills}
+              peaks={peaks}
+            />
+          )}
           <LiveTeamStrip ally={ally} enemy={enemy} />
           <LivePulse
             events={snapshot.events}
@@ -299,15 +310,6 @@ export default function Live() {
           />
           {!demo && (
             <LiveTrends history={history} allyTeam={allyTeam === "CHAOS" ? "CHAOS" : "ORDER"} />
-          )}
-          {snapshot.me && (
-            <LiveMe
-              me={snapshot.me}
-              player={meRow}
-              clockSec={clockSec}
-              teamKills={ally.kills}
-              peaks={peaks}
-            />
           )}
           <LiveScouting players={snapshot.players} allyTeam={allyTeam} />
           <LiveTeamTable team={ally} ally clockSec={clockSec} />
