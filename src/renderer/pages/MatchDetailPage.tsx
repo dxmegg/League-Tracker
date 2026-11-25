@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useState, type CSSProperties, type ReactNode } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useIpc } from "../hooks/useIpc";
 import { getChampionName, useChampionData } from "../hooks/useChampions";
@@ -16,10 +16,11 @@ import { formatDuration, formatNumber, formatTimeAgo, kdaRatio } from "../lib/fo
 import { parseParticipants, scoreInputsFor } from "../lib/participants";
 import type { MatchDetail } from "../lib/types";
 
-type MatchTab = "overview" | "stats";
+type MatchTab = "overview" | "statistics" | "table";
 const TABS = [
   { value: "overview", label: "Overview" },
-  { value: "stats", label: "Stats" },
+  { value: "statistics", label: "Statistics" },
+  { value: "table", label: "Table" },
 ] as const;
 
 function Tile({ label, children, sub }: { label: string; children: ReactNode; sub?: string }) {
@@ -100,12 +101,17 @@ export default function MatchDetailPage() {
 
       {detail ? (
         <>
-          <header className="app-tile flex shrink-0 flex-wrap items-stretch overflow-hidden p-0">
+          <header
+            className="app-tile app-tile-featured flex shrink-0 flex-wrap items-stretch overflow-hidden p-0"
+            style={
+              { "--tile-accent": win ? "var(--theme-win)" : "var(--theme-loss)" } as CSSProperties
+            }
+          >
             <div
               className={`flex w-[112px] flex-col items-center justify-center gap-0.5 border-r px-2 text-center ${
                 win
-                  ? "border-lol-win/40 bg-lol-win/15 text-lol-win"
-                  : "border-lol-loss/40 bg-lol-loss/15 text-lol-loss"
+                  ? "border-lol-win/40 bg-lol-win/25 text-lol-win"
+                  : "border-lol-loss/40 bg-lol-loss/25 text-lol-loss"
               }`}
             >
               <span className="font-display text-[24px] font-bold uppercase tracking-wider">
@@ -119,8 +125,8 @@ export default function MatchDetailPage() {
             <div
               className={`flex flex-1 flex-wrap items-center gap-x-8 gap-y-4 p-5 ${
                 win
-                  ? "bg-[linear-gradient(90deg,color-mix(in_srgb,var(--theme-win)_10%,transparent),transparent_40%)]"
-                  : "bg-[linear-gradient(90deg,color-mix(in_srgb,var(--theme-loss)_10%,transparent),transparent_40%)]"
+                  ? "bg-[linear-gradient(90deg,color-mix(in_srgb,var(--theme-win)_18%,transparent),transparent_45%)]"
+                  : "bg-[linear-gradient(90deg,color-mix(in_srgb,var(--theme-loss)_18%,transparent),transparent_45%)]"
               }`}
             >
               <div className="flex items-center gap-4">
@@ -200,24 +206,21 @@ export default function MatchDetailPage() {
             </div>
           </header>
 
-          {tab === "overview" ? (
+          {tab === "overview" && (
             <MatchScoreboardExp detail={detail} champData={champData} puuids={puuids} />
-          ) : (
-            <>
-              {players.length > 0 && <MatchCompareTable players={players} />}
-              <Panel variant="tile">
-                <Title
-                  aside={
-                    <span className="text-[13px] text-lol-text">
-                      Recorded live while you played
-                    </span>
-                  }
-                >
-                  Your highest values this game
-                </Title>
-                <PeakStats gameId={parsedGameId} championId={detail.stats.champion_id} />
-              </Panel>
-            </>
+          )}
+          {tab === "table" && players.length > 0 && <MatchCompareTable players={players} />}
+          {tab === "statistics" && (
+            <Panel variant="tile">
+              <Title
+                aside={
+                  <span className="text-[13px] text-lol-text">Recorded live while you played</span>
+                }
+              >
+                Your highest values this game
+              </Title>
+              <PeakStats gameId={parsedGameId} championId={detail.stats.champion_id} />
+            </Panel>
           )}
         </>
       ) : (

@@ -80,6 +80,9 @@ const CLIENT_ICON_URL =
 const STAT_EXTRA_ICON_URLS: Record<string, string> = {
   gold: `${CLIENT_ICON_URL}/icon_gold.png`,
   itemValue: `${CLIENT_ICON_URL}/icon_gold.png`,
+  creepScore: `${CLIENT_ICON_URL}/icon_minions.png`,
+  kills: `${CLIENT_ICON_URL}/kills.png`,
+  deaths: `${CLIENT_ICON_URL}/dead_red.png`,
 };
 
 export const statIconUrl = (key: string | undefined): string | null => {
@@ -101,6 +104,18 @@ export const STAT_ITEM_ICONS: Record<string, number> = {
   healthRegenRate: 3083, // Warmog's Armor
   attackRange: 3085, // Runaan's Hurricane
   level: 3041, // Mejai's Soulstealer
+  armorPenetrationPercent: 3036, // Lord Dominik's Regards
+  bonusArmorPenetrationPercent: 3071, // Black Cleaver
+  magicPenetrationPercent: 3020, // Sorcerer's Shoes
+  assists: 3222, // Mikael's Blessing
+  magicLethality: 4645, // Shadowflame
+  physicalVamp: 3153, // Blade of the Ruined King
+  spellVamp: 3165, // Morellonomicon
+  healShieldPower: 3504, // Ardent Censer
+  wardScore: 3340, // Stealth Ward
+  critDamage: 3508, // Essence Reaver
+  resourceMax: 3070, // Tear of the Goddess
+  resourceRegenRate: 3004, // Manamune
 };
 
 // Keys statGroups already shows (or the meters on the champion panel use); anything else goes to "Other"

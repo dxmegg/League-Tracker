@@ -31,6 +31,7 @@ import type {
   RankEntry,
 } from "../shared/api";
 import { QUEUE_ID_MAYHEM_CUSTOM } from "../shared/queues";
+import { skillCap } from "../shared/skills";
 import { accountByRiotId, regionalRoute } from "./riot-api";
 
 let credentials: Credentials | null = null;
@@ -1797,12 +1798,17 @@ function collectExtras(rec: Recording, snap: LiveFull, t: number, sample: Record
     rec.prevItems.set(key, now);
   }
 
+  // prevSkills holds the highest rank seen per key: the client's readings flicker, so only a new
+  // maximum (within the rank cap) counts as a level-up
   for (const a of snap.me?.abilities ?? []) {
-    if (a.key !== "Passive" && a.level > (rec.prevSkills[a.key] ?? 0)) {
-      rec.skillLog.push({ t, key: a.key, level: a.level });
+    if (a.key === "Passive") continue;
+    const have = rec.prevSkills[a.key] ?? 0;
+    const target = Math.min(a.level, skillCap(a.key));
+    for (let rank = have + 1; rank <= target; rank++) {
+      rec.skillLog.push({ t, key: a.key, level: rank });
       rec.dirty = true;
     }
-    rec.prevSkills[a.key] = a.level;
+    rec.prevSkills[a.key] = Math.max(have, target);
   }
 
   const lastStat = rec.statSeries[rec.statSeries.length - 1];

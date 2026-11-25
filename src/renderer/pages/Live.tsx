@@ -3,7 +3,9 @@ import type { LiveFull } from "../../shared/api";
 import { LiveEvents } from "../components/live/LiveEvents";
 import { LiveLastGame } from "../components/live/LiveLastGame";
 import { LiveMe } from "../components/live/LiveMe";
+import { LivePulse } from "../components/live/LivePulse";
 import { LiveRecords } from "../components/live/LiveRecords";
+import { LiveScouting } from "../components/live/LiveScouting";
 import { LiveSavedGames } from "../components/live/LiveSavedGames";
 import { LiveTeamStrip, LiveTeamTable } from "../components/live/LiveTeams";
 import { LiveTrends } from "../components/live/LiveTrends";
@@ -289,6 +291,12 @@ export default function Live() {
       ) : (
         <>
           <LiveTeamStrip ally={ally} enemy={enemy} />
+          <LivePulse
+            events={snapshot.events}
+            players={snapshot.players}
+            allyTeam={allyTeam}
+            clockSec={clockSec}
+          />
           {!demo && (
             <LiveTrends history={history} allyTeam={allyTeam === "CHAOS" ? "CHAOS" : "ORDER"} />
           )}
@@ -301,6 +309,7 @@ export default function Live() {
               peaks={peaks}
             />
           )}
+          <LiveScouting players={snapshot.players} allyTeam={allyTeam} />
           <LiveTeamTable team={ally} ally clockSec={clockSec} />
           <LiveTeamTable team={enemy} ally={false} clockSec={clockSec} />
           <LiveEvents events={snapshot.events} players={snapshot.players} allyTeam={allyTeam} />

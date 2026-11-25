@@ -1,10 +1,13 @@
 import { useEffect, useMemo, useState } from "react";
 import type { LivePlayer, StoredLiveGame } from "../../../shared/api";
+import { cleanSkillLog } from "../../../shared/skills";
 import { fmtClock } from "../../lib/live";
 import ChampionIcon from "../ChampionIcon";
 import ItemIcon from "../ItemIcon";
 import { Panel } from "../Panel";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../ui/Select";
 import { LiveEvents } from "./LiveEvents";
+import { LivePulse } from "./LivePulse";
 import { LiveTrends } from "./LiveTrends";
 import { SIDE, Title } from "./shared";
 
@@ -18,10 +21,15 @@ function Label({ children }: { children: React.ReactNode }) {
   );
 }
 
-function SkillOrder({ log }: { log: NonNullable<StoredLiveGame["skillLog"]> }) {
+function SkillOrder({ log: rawLog }: { log: NonNullable<StoredLiveGame["skillLog"]> }) {
+  // Older recordings hold every flicker of the client's ability ranks, so clean them on the way in
+  const log = useMemo(() => cleanSkillLog(rawLog), [rawLog]);
   return (
     <div>
       <Label>Skill order</Label>
+      <p className="mb-2 text-[12px] text-lol-text">
+        One box per skill point, in the order you took them, with the game time you took it.
+      </p>
       <div className="flex flex-wrap gap-1.5">
         {log.map((s, i) => (
           <span
@@ -59,17 +67,18 @@ function BuildOrder({ data, players }: { data: StoredLiveGame; players: LivePlay
     <div>
       <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
         <Label>Build order</Label>
-        <select
-          value={who}
-          onChange={(e) => setWho(e.target.value)}
-          className="rounded-md border border-lol-border/60 bg-black/40 px-2 py-1 text-[12px] text-lol-text-bright"
-        >
-          {players.map((p) => (
-            <option key={playerKey(p)} value={playerKey(p)}>
-              {p.championName} · {p.gameName || p.summonerName}
-            </option>
-          ))}
-        </select>
+        <Select value={who} onValueChange={setWho}>
+          <SelectTrigger title="Whose build to show" className="h-8 px-3 text-[12.5px]">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {players.map((p) => (
+              <SelectItem key={playerKey(p)} value={playerKey(p)}>
+                {p.championName} · {p.gameName || p.summonerName}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </div>
       {groups.length === 0 ? (
         <p className="text-[12.5px] text-lol-text">No item changes recorded for this player.</p>
@@ -112,8 +121,14 @@ function DraftInfo({ cs }: { cs: NonNullable<StoredLiveGame["champSelect"]> }) {
     <div>
       <Label>Champion select</Label>
       <div className="flex flex-col gap-1.5">
-        {row("Your team", cs.myTeam.map((m) => m.championId).filter((id) => id > 0))}
-        {row("Bench", cs.bench.map((b) => b.championId).filter((id) => id > 0))}
+        {row(
+          "Your team",
+          cs.myTeam.map((m) => m.championId).filter((id) => id > 0),
+        )}
+        {row(
+          "Bench",
+          cs.bench.map((b) => b.championId).filter((id) => id > 0),
+        )}
         {row("Your bans", cs.bans.mine)}
         {row("Their bans", cs.bans.theirs)}
         {cs.rerollsRemaining != null && (
@@ -151,6 +166,13 @@ export function LiveGameData({ gameId }: { gameId: number }) {
 
   return (
     <div className="flex flex-col gap-5">
+      <LivePulse
+        events={data.snapshot.events}
+        players={players}
+        allyTeam={allyTeam}
+        clockSec={data.durationSec}
+        finished
+      />
       <Panel variant="tile" accent={SIDE.ally.var}>
         <Title
           aside={

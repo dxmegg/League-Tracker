@@ -1,4 +1,4 @@
-import { useMemo, useState, type ReactNode } from "react";
+import { useMemo, useState, type CSSProperties, type ReactNode } from "react";
 import type { MatchDetail, ParsedParticipant } from "../lib/types";
 import { parseParticipants, groupByTeam, scoreInputsFor } from "../lib/participants";
 import { getChampionName, useRuneData } from "../hooks/useChampions";
@@ -453,10 +453,13 @@ function TeamScoreboard({
   const totals = useMemo(() => computeTeamTotals(players, scores), [players, scores]);
 
   return (
-    <div className="app-tile overflow-hidden p-0">
+    <div
+      className="app-tile app-tile-featured overflow-hidden p-0"
+      style={{ "--tile-accent": isWin ? "var(--theme-win)" : "var(--theme-loss)" } as CSSProperties}
+    >
       {/* Team header: name on the left, team totals filling the rest of the bar */}
       <div
-        className={`px-4 py-3 flex flex-wrap items-center gap-x-4 gap-y-2 ${isWin ? "bg-gradient-to-r from-lol-win/15 via-lol-win/5 to-transparent" : "bg-gradient-to-r from-lol-loss/15 via-lol-loss/5 to-transparent"}`}
+        className={`px-4 py-3 flex flex-wrap items-center gap-x-4 gap-y-2 ${isWin ? "bg-gradient-to-r from-lol-win/30 via-lol-win/10 to-transparent" : "bg-gradient-to-r from-lol-loss/30 via-lol-loss/10 to-transparent"}`}
       >
         <span
           className={`text-[15px] font-display font-bold uppercase tracking-wider ${isWin ? "text-lol-win" : "text-lol-loss"}`}
@@ -683,10 +686,10 @@ function PlayerRow({
   return (
     <div
       className={`${CARD_CLASS} ${GRID_COLS} ${
-        p.isSelf
-          ? "!border-lol-gold/60 shadow-[0_0_0_1px_color-mix(in_srgb,var(--theme-gold)_25%,transparent)]"
-          : ""
-      }`}
+        p.win
+          ? "shadow-[inset_4px_0_0_var(--theme-win)]"
+          : "shadow-[inset_4px_0_0_var(--theme-loss)]"
+      } ${p.isSelf ? "!border-lol-gold/70 bg-lol-gold/[0.05]" : ""}`}
     >
       {/* Champion, summoner spells and names */}
       <div className="flex min-w-0 items-center gap-3">

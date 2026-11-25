@@ -346,13 +346,14 @@ html[data-theme="test"] #root {
     padding: var(--tile-padding);
   }
 
-  /* Match lists: dark on the page background, gold top edge and a faint gold corner glow */
+  /* Match lists: dark on the page background, a coloured top edge and a faint corner glow.
+     The colour is --tile-accent (gold unless an element sets it, e.g. win/loss green/red). */
   .app-tile-featured {
     border-color: var(--theme-border);
-    border-top: 3px solid var(--theme-gold);
+    border-top: 3px solid var(--tile-accent, var(--theme-gold));
     background: radial-gradient(
       circle at top right,
-      color-mix(in oklab, var(--theme-gold) 10%, transparent),
+      color-mix(in oklab, var(--tile-accent, var(--theme-gold)) 12%, transparent),
       transparent 55%
     );
     backdrop-filter: none;

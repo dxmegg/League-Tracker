@@ -80,7 +80,7 @@ export function Meter({
   );
 }
 
-function InitialsBadge({ label }: { label: string }) {
+function InitialsBadge({ label, size }: { label: string; size: number }) {
   const initials = label
     .split(/[\s/&]+/)
     .filter(Boolean)
@@ -90,7 +90,8 @@ function InitialsBadge({ label }: { label: string }) {
   return (
     <span
       aria-hidden="true"
-      className="flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-md bg-white/10 font-display text-[8.5px] font-bold text-lol-text-bright"
+      style={{ width: size, height: size, fontSize: Math.max(8.5, size * 0.38) }}
+      className="flex shrink-0 items-center justify-center rounded-md bg-white/10 font-display font-bold text-lol-text-bright"
     >
       {initials}
     </span>
@@ -98,7 +99,7 @@ function InitialsBadge({ label }: { label: string }) {
 }
 
 // A representative item's icon, cached through the main process like every other dragon asset
-function StatItemIcon({ itemId, label }: { itemId: number; label: string }) {
+function StatItemIcon({ itemId, label, size }: { itemId: number; label: string; size: number }) {
   const [src, setSrc] = useState<string | null>(null);
   useEffect(() => {
     let cancelled = false;
@@ -114,20 +115,20 @@ function StatItemIcon({ itemId, label }: { itemId: number; label: string }) {
       cancelled = true;
     };
   }, [itemId]);
-  if (!src) return <InitialsBadge label={label} />;
-  return (
-    <img
-      src={src}
-      alt=""
-      width={18}
-      height={18}
-      className="h-[18px] w-[18px] shrink-0 rounded-[4px]"
-    />
-  );
+  if (!src) return <InitialsBadge label={label} size={size} />;
+  return <img src={src} alt="" width={size} height={size} className="shrink-0 rounded-[4px]" />;
 }
 
 // The game's own art where it has some, then a stand-in item icon, then a badge with the stat's initials
-export function StatIcon({ iconKey, label }: { iconKey?: string; label: string }) {
+export function StatIcon({
+  iconKey,
+  label,
+  size = 18,
+}: {
+  iconKey?: string;
+  label: string;
+  size?: number;
+}) {
   const [failed, setFailed] = useState(false);
   const url = statIconUrl(iconKey);
   if (url && !failed) {
@@ -135,16 +136,20 @@ export function StatIcon({ iconKey, label }: { iconKey?: string; label: string }
       <img
         src={url}
         alt=""
-        width={18}
-        height={18}
+        width={size}
+        height={size}
         loading="lazy"
         onError={() => setFailed(true)}
-        className="h-[18px] w-[18px] shrink-0"
+        className="shrink-0"
       />
     );
   }
   const itemId = iconKey ? STAT_ITEM_ICONS[iconKey] : undefined;
-  return itemId ? <StatItemIcon itemId={itemId} label={label} /> : <InitialsBadge label={label} />;
+  return itemId ? (
+    <StatItemIcon itemId={itemId} label={label} size={size} />
+  ) : (
+    <InitialsBadge label={label} size={size} />
+  );
 }
 
 export function Pill({ children, className = "" }: { children: ReactNode; className?: string }) {

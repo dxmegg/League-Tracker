@@ -31,7 +31,8 @@ export function LiveRecords() {
   }, [championId]);
 
   const byStat = useMemo(() => new Map((rows ?? []).map((r) => [r.stat, r])), [rows]);
-  const shown = PEAK_ROWS.filter((r) => byStat.has(r.key));
+  // Penetration multipliers have no meaningful "highest value", so they stay out of the records
+  const shown = PEAK_ROWS.filter((r) => byStat.has(r.key) && !r.penetration);
 
   return (
     <Panel variant="tile" accent="var(--color-lol-gold)">
