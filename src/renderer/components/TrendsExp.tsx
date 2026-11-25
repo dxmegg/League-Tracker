@@ -832,7 +832,7 @@ export function TrendsExp({
             )}
           </Tile>
           <div className="flex min-w-0 flex-col gap-5">
-            <Tile title="Damage split">
+            <Tile title="Damage split" className={objectives.length > 0 ? "" : "flex-1"}>
               <div className="flex justify-center">
                 <DonutChart
                   segments={[
@@ -847,7 +847,7 @@ export function TrendsExp({
               </div>
             </Tile>
             {objectives.length > 0 && (
-              <Tile title="Objectives" note="average in wins vs losses">
+              <Tile title="Objectives" note="average in wins vs losses" className="flex-1">
                 <div className="flex flex-col gap-1.5">
                   {objectives.map(([label, values]) => {
                     const won = Number(values.win);

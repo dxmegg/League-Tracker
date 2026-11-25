@@ -388,7 +388,7 @@ function HistoryActivityHeatmap({
   );
 }
 
-const HEATMAP_CELL = 14;
+const HEATMAP_CELL = 40; // cells grow with the card up to this size
 const HEATMAP_GAP = 2;
 const HEATMAP_COLORS = CELL_COLORS;
 
