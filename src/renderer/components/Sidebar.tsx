@@ -1,6 +1,7 @@
 import type { SVGProps } from "react";
 import { NavLink, useLocation } from "react-router-dom";
 import { useActiveMode } from "../hooks/useActiveMode";
+import { useDevMode } from "../hooks/useDevMode";
 import { useActiveTheme } from "../hooks/useActiveTheme";
 import {
   CoinsIcon,
@@ -85,6 +86,7 @@ export function Sidebar() {
   const { pathname } = useLocation();
   const tabs = useActiveTheme({ exact: true }) === "redesign" ? redesignTabs : mainTabs;
   const [mode] = useActiveMode();
+  const [devMode] = useDevMode();
 
   const isLinkActive = (to: string) => {
     if (to === "/history") return pathname === "/history" || pathname === "/";
@@ -120,7 +122,10 @@ export function Sidebar() {
               {tabs
                 // Mayhem has no runes, so the tab disappears in that mode
                 .filter(
-                  (tab) => paths.includes(tab.to) && !(mode === "mayhem" && tab.to === "/runes"),
+                  (tab) =>
+                    paths.includes(tab.to) &&
+                    !(mode === "mayhem" && tab.to === "/runes") &&
+                    (devMode || tab.to !== "/debug"),
                 )
                 .map(({ to, label }) => (
                   <NavLink

@@ -11,6 +11,7 @@ import { LiveTeamStrip, LiveTeamTable } from "../components/live/LiveTeams";
 import { LiveTrends } from "../components/live/LiveTrends";
 import { Pill, Title } from "../components/live/shared";
 import { Panel } from "../components/Panel";
+import { useDevMode } from "../hooks/useDevMode";
 import { useLiveFull } from "../hooks/useLiveFull";
 import { useLiveGame } from "../hooks/useLiveGame";
 import { ClientStatePanel } from "../components/live/ClientState";
@@ -132,7 +133,8 @@ function WaitingState({
 }: {
   phase: string | null;
   error: string | null;
-  onDemo: () => void;
+  // Absent outside developer mode: no sample data there
+  onDemo?: () => void;
 }) {
   const features = [
     ["Live scoreboard", "Kills, items, CS, levels and gold value for both teams"],
@@ -178,13 +180,15 @@ function WaitingState({
             </div>
           ))}
         </div>
-        <button
-          type="button"
-          onClick={onDemo}
-          className="mt-6 rounded-lg bg-lol-crimson px-5 py-2 font-display text-[13px] font-semibold text-white transition-opacity hover:opacity-90"
-        >
-          Preview with sample data
-        </button>
+        {onDemo && (
+          <button
+            type="button"
+            onClick={onDemo}
+            className="mt-6 rounded-lg bg-lol-crimson px-5 py-2 font-display text-[13px] font-semibold text-white transition-opacity hover:opacity-90"
+          >
+            Preview with sample data
+          </button>
+        )}
       </div>
     </Panel>
   );
@@ -193,6 +197,7 @@ function WaitingState({
 export default function Live() {
   const [paused, setPaused] = useState(false);
   const [demo, setDemo] = useState(false);
+  const [devMode] = useDevMode();
   const { snapshot, error, history, peaks } = useLiveFull({ paused, demo });
   const { session } = useLiveGame();
   // The pause button is hidden in demo mode, so a leftover pause must not freeze the demo clock
@@ -228,7 +233,7 @@ export default function Live() {
         <WaitingState
           phase={snapshot?.gameflowPhase ?? null}
           error={error}
-          onDemo={() => setDemo(true)}
+          onDemo={devMode ? () => setDemo(true) : undefined}
         />
       )}
       <Panel variant="tile" accent={inGame ? "var(--color-lol-loss)" : "var(--color-lol-text)"}>
@@ -276,9 +281,11 @@ export default function Live() {
                 {paused ? "Resume updates" : "Pause updates"}
               </ToolButton>
             )}
-            <ToolButton active={demo} onClick={() => setDemo((v) => !v)}>
-              {demo ? "Exit sample data" : "Sample data"}
-            </ToolButton>
+            {devMode && (
+              <ToolButton active={demo} onClick={() => setDemo((v) => !v)}>
+                {demo ? "Exit sample data" : "Sample data"}
+              </ToolButton>
+            )}
           </div>
         </div>
       </Panel>

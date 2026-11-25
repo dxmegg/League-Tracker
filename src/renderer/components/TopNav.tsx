@@ -2,6 +2,7 @@ import { NavLink, useLocation } from "react-router-dom";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useLcuStatus } from "../hooks/useLcuStatus";
 import { useBackfill } from "../hooks/useBackfill";
+import { useDevMode } from "../hooks/useDevMode";
 import type { LcuStatus } from "../lib/types";
 import { FolderIcon } from "./SidebarIcons";
 import { MinusIcon, MaximizeIcon, RefreshIcon, RestoreIcon, SettingsIcon, XIcon } from "./icons";
@@ -47,6 +48,7 @@ const ACTIVE_TAIL: Record<string, string> = {
 export default function TopNav() {
   const { pathname } = useLocation();
   const status = useLcuStatus();
+  const [devMode] = useDevMode();
   const { running: backfilling } = useBackfill();
   const tabsRef = useRef<HTMLDivElement>(null);
   const [hasOverflow, setHasOverflow] = useState(false);
@@ -126,23 +128,25 @@ export default function TopNav() {
           ref={tabsRef}
           className="titlebar-no-drag no-scrollbar flex min-w-0 items-center gap-0.5 overflow-x-auto px-1 h-full"
         >
-          {mainTabs.map(({ to, label }) => (
-            <NavLink
-              key={to}
-              to={to}
-              end={to === "/"}
-              className={() =>
-                `titlebar-no-drag flex shrink-0 items-center gap-1.5 bevel-tab px-2.5 py-2 text-[10px] font-semibold tracking-wider transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-lol-gold/60 ${
-                  isLinkActive(to)
-                    ? "bg-lol-crimson/30 ring-1 ring-lol-gold/40 text-lol-text-bright"
-                    : "text-lol-text hover:bg-white/5 hover:text-lol-text-bright"
-                }`
-              }
-            >
-              <FolderIcon />
-              <span>{label}</span>
-            </NavLink>
-          ))}
+          {mainTabs
+            .filter((tab) => devMode || tab.to !== "/debug")
+            .map(({ to, label }) => (
+              <NavLink
+                key={to}
+                to={to}
+                end={to === "/"}
+                className={() =>
+                  `titlebar-no-drag flex shrink-0 items-center gap-1.5 bevel-tab px-2.5 py-2 text-[10px] font-semibold tracking-wider transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-lol-gold/60 ${
+                    isLinkActive(to)
+                      ? "bg-lol-crimson/30 ring-1 ring-lol-gold/40 text-lol-text-bright"
+                      : "text-lol-text hover:bg-white/5 hover:text-lol-text-bright"
+                  }`
+                }
+              >
+                <FolderIcon />
+                <span>{label}</span>
+              </NavLink>
+            ))}
         </div>
         {hasOverflow && (
           <div className="pointer-events-none absolute right-0 top-1 bottom-1 w-10 bg-gradient-to-l from-lol-card/95 to-transparent" />

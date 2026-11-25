@@ -4,6 +4,7 @@ import { FullHistoryShell } from "./components/FullHistoryShell";
 import { SectionChrome } from "./components/SectionChrome";
 import { useActiveMode } from "./hooks/useActiveMode";
 import { useActiveTheme } from "./hooks/useActiveTheme";
+import { useDevMode } from "./hooks/useDevMode";
 
 // Pages load on first visit, so launch only parses the shell and the page being opened. Some of
 // these files are several thousand lines.
@@ -68,6 +69,12 @@ function RedirectInRedesign({ children }: { children: ReactNode }) {
 function HiddenInMayhem({ children }: { children: ReactNode }) {
   const [mode] = useActiveMode();
   return mode === "mayhem" ? <Navigate to="/home" replace /> : children;
+}
+
+// Testing pages exist only in developer mode
+function DevOnly({ children }: { children: ReactNode }) {
+  const [devMode] = useDevMode();
+  return devMode ? children : <Navigate to="/home" replace />;
 }
 
 function ScopedFriendDetail() {
@@ -206,7 +213,14 @@ export default function App() {
           <Route path="/achievements" element={<Achievements />} />
           <Route path="/challenges" element={<Challenges />} />
           <Route path="/data" element={<FullHistorySection section="total-stats" />} />
-          <Route path="/debug" element={<DebugTesting />} />
+          <Route
+            path="/debug"
+            element={
+              <DevOnly>
+                <DebugTesting />
+              </DevOnly>
+            }
+          />
         </Route>
       </Routes>
     </HashRouter>

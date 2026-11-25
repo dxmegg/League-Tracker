@@ -17,6 +17,7 @@ import { queueLabel } from "../components/QueueSelect";
 import { setRemembering } from "../lib/viewState";
 import { useActiveTheme } from "../hooks/useActiveTheme";
 import { useActiveMode } from "../hooks/useActiveMode";
+import { useDevMode } from "../hooks/useDevMode";
 import type { BackupInfo } from "../lib/types";
 import {
   RIOT_ACCOUNT_PLATFORMS,
@@ -467,6 +468,7 @@ export function SettingsExp() {
   const anyRunning = backfilling || timelineBackfilling;
   const activeTheme = useActiveTheme({ exact: true }) || "redesign";
   const [mode] = useActiveMode();
+  const [devMode, setDevMode] = useDevMode();
   const [autoStart, setAutoStart] = useState(false);
   // Only the packaged program has a path worth registering, so the switch says
   // so instead of pretending in a dev build
@@ -1691,6 +1693,21 @@ export function SettingsExp() {
                   </p>
                 </div>
                 <Switch checked={hideRemakes} onChange={handleHideRemakesToggle} />
+              </div>
+
+              <div className="flex items-center justify-between gap-4 border-b border-lol-border/40 py-2.5 transition-colors duration-[120ms] hover:bg-white/[0.02] last:border-b-0">
+                <div>
+                  <p className="text-[13.5px] text-lol-text-bright">Developer mode</p>
+                  <p className="text-[12.5px] text-lol-text">
+                    Show testing tools: the Debug Testing tab and sample data on Live Game. Off
+                    again after every launch.
+                  </p>
+                </div>
+                <Switch
+                  label="Developer mode"
+                  checked={devMode}
+                  onChange={() => setDevMode(!devMode)}
+                />
               </div>
             </div>
           </Section>
