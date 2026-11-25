@@ -144,7 +144,7 @@ export function UpdatePanel() {
           </button>
           {release?.publishedAt &&
             ` · published ${new Date(release.publishedAt).toLocaleDateString()}`}
-          . Downloads are checked against the SHA-256 hash GitHub publishes for the file.
+          .
         </p>
         <label className="mt-2 flex cursor-pointer items-center gap-2 text-lol-text-bright">
           <input
