@@ -1,556 +1,301 @@
-import { Fragment, useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { Link } from "react-router-dom";
 import type { TeammateChampionStats, TeammateStats } from "../lib/types";
 import { useIpc } from "../hooks/useIpc";
 import { getChampionName, useChampionData } from "../hooks/useChampions";
 import { useHistoryScopeQueue } from "../lib/historyScope";
-import { formatNumber, formatTimeAgo, kdaRatio } from "../lib/format";
+import { formatNumber, formatTimeAgo } from "../lib/format";
 import { QueueFilterChips } from "../pages/Home";
 import ChampionIcon from "./ChampionIcon";
 import SummonerIcon from "./SummonerIcon";
-import { Panel } from "./Panel";
-import { HeroTile, PageHero } from "./SplashHero";
-import { Title } from "./live/shared";
-import type { SortableColumn } from "./SortableTable";
-import { FilterSelect } from "./FilterSelect";
+import { FilterChip } from "./FilterChip";
+import { SearchInput } from "./SearchInput";
 
-const PAGE_SIZE = 30;
-const PLAYER_GRID_FRIENDS =
-  "[&_thead_tr]:grid-cols-[minmax(0,1fr)_60px_130px_90px_110px] [&_tbody_tr]:grid-cols-[minmax(0,1fr)_60px_130px_90px_110px] max-[106rem]:[&_thead_tr]:grid-cols-[minmax(0,1fr)_52px_68px_76px_60px] max-[106rem]:[&_tbody_tr]:grid-cols-[minmax(0,1fr)_52px_68px_76px_60px]";
-const PLAYER_GRID_FOES =
-  "[&_thead_tr]:grid-cols-[minmax(0,1fr)_60px_150px_110px] [&_tbody_tr]:grid-cols-[minmax(0,1fr)_60px_150px_110px] max-[106rem]:[&_thead_tr]:grid-cols-[minmax(0,1fr)_52px_68px_76px] max-[106rem]:[&_tbody_tr]:grid-cols-[minmax(0,1fr)_52px_68px_76px]";
-const CHAMPION_GRID =
-  "[&_thead_tr]:grid-cols-[minmax(0,1fr)_60px_150px_90px] [&_tbody_tr]:grid-cols-[minmax(0,1fr)_60px_150px_90px] max-[106rem]:[&_thead_tr]:grid-cols-[minmax(0,1fr)_52px_68px_52px] max-[106rem]:[&_tbody_tr]:grid-cols-[minmax(0,1fr)_52px_68px_52px]";
+const PAGE_SIZE = 50;
 
-type SortDirection = "asc" | "desc";
+type Relation = "friends" | "enemies";
+type Subject = "players" | "champions";
+type SortKey = "name" | "games" | "winRate" | "kda" | "lastPlayed";
 
-function WinRateValue({ wins, games }: { wins: number; games: number }) {
-  const rate = games > 0 ? (wins / games) * 100 : 0;
+// One line of the list, whether it stands for a player or for a champion
+type Row = {
+  id: string;
+  name: string;
+  to: string;
+  icon: (size: number) => ReactNode;
+  games: number;
+  // From your side: games you won with a friend, or won against a foe
+  wins: number;
+  kda: number;
+  lastPlayed?: number;
+};
 
-  return (
-    <div className="flex min-w-0 items-center justify-end gap-2">
-      <span className="shrink-0 tabular-nums">{rate.toFixed(1)}%</span>
-      <div className="h-2 w-16 shrink-0 overflow-hidden rounded-full bg-lol-crimson/20 max-[106rem]:hidden">
-        <div className="h-full rounded-full bg-lol-win" style={{ width: `${rate}%` }} />
-      </div>
-    </div>
-  );
-}
-
-function perspectiveWins(wins: number, games: number, relation: "friends" | "enemies") {
-  return relation === "enemies" ? games - wins : wins;
-}
+const winRate = (row: Row) => (row.games > 0 ? (row.wins / row.games) * 100 : 0);
 
 export function FriendsExp() {
   const scopedQueue = useHistoryScopeQueue();
   const championData = useChampionData();
   const [queue, setQueue] = useState<number | undefined>(scopedQueue);
-  const [relation, setRelation] = useState<"friends" | "enemies">("friends");
+  const [relation, setRelation] = useState<Relation>("friends");
+  const [subject, setSubject] = useState<Subject>("players");
+  const [minGames, setMinGames] = useState(0);
   const [search, setSearch] = useState("");
-  const [playerSortKey, setPlayerSortKey] = useState("games");
-  const [playerSortDir, setPlayerSortDir] = useState<SortDirection>("desc");
-  const [championSortKey, setChampionSortKey] = useState("games");
-  const [championSortDir, setChampionSortDir] = useState<SortDirection>("desc");
-  const {
-    data: players,
-    loading: playersLoading,
-    refetch: refetchPlayers,
-  } = useIpc<TeammateStats[]>(
+  const [sort, setSort] = useState<{ key: SortKey; desc: boolean }>({ key: "games", desc: true });
+  const [visible, setVisible] = useState(PAGE_SIZE);
+
+  const players = useIpc<TeammateStats[]>(
     () => window.api.getTeammateStats(queue, relation),
     [queue, relation],
   );
-  const {
-    data: champions,
-    loading: championsLoading,
-    refetch: refetchChampions,
-  } = useIpc<TeammateChampionStats[]>(
+  const champions = useIpc<TeammateChampionStats[]>(
     () => window.api.getTeammateChampions(queue, relation),
     [queue, relation],
   );
-  const [visiblePlayers, setVisiblePlayers] = useState(PAGE_SIZE);
-  const [visibleChampions, setVisibleChampions] = useState(PAGE_SIZE);
 
-  const normalizedSearch = search.trim().toLocaleLowerCase();
-  const playerRows = useMemo(
+  useEffect(() => setQueue(scopedQueue), [scopedQueue]);
+  useEffect(() => setVisible(PAGE_SIZE), [queue, relation, subject, minGames, search, sort]);
+  const refetchPlayers = players.refetch;
+  const refetchChampions = champions.refetch;
+  useEffect(
     () =>
-      (players ?? []).filter(
-        (row) => !normalizedSearch || row.name.toLocaleLowerCase().includes(normalizedSearch),
-      ),
-    [normalizedSearch, players],
-  );
-  const championRows = useMemo(
-    () =>
-      (champions ?? []).filter(
-        (row) =>
-          !normalizedSearch ||
-          getChampionName(championData, row.champion_id)
-            .toLocaleLowerCase()
-            .includes(normalizedSearch),
-      ),
-    [championData, champions, normalizedSearch],
-  );
-  const relationWord = relation === "friends" ? "with" : "against";
-
-  useEffect(() => {
-    setQueue(scopedQueue);
-  }, [scopedQueue]);
-
-  useEffect(() => {
-    setVisiblePlayers(PAGE_SIZE);
-    setVisibleChampions(PAGE_SIZE);
-    setPlayerSortKey("games");
-    setPlayerSortDir("desc");
-    setChampionSortKey("games");
-    setChampionSortDir("desc");
-  }, [queue, relation, playerRows.length, championRows.length, search]);
-
-  useEffect(() => {
-    const unsub = window.api.onGamesUpdated(() => {
-      refetchPlayers();
-      refetchChampions();
-    });
-    return unsub;
-  }, [refetchChampions, refetchPlayers]);
-
-  const playerColumns = useMemo<SortableColumn<TeammateStats>[]>(
-    () => [
-      {
-        key: "name",
-        label: "Player",
-        render: (row) => (
-          <Link
-            to={`/friends/${encodeURIComponent(row.key)}`}
-            className="nm min-w-0"
-            onClick={(event) => event.stopPropagation()}
-          >
-            <span className="flex shrink-0 rounded-full border border-lol-crimson/60 p-0.5 shadow-[0_0_8px_var(--theme-crimson-glow)]">
-              <SummonerIcon iconId={row.profileIcon} size={30} />
-            </span>
-            <span className="min-w-0 truncate">{row.name}</span>
-          </Link>
-        ),
-        defaultDir: "asc",
-      },
-      {
-        key: "games",
-        label: "Games",
-        render: (row) => <span className="tabular-nums">{formatNumber(row.games)}</span>,
-        defaultDir: "desc",
-      },
-      {
-        key: "wins",
-        label: "Win rate",
-        render: (row) => (
-          <WinRateValue wins={perspectiveWins(row.wins, row.games, relation)} games={row.games} />
-        ),
-        sortValue: (row) =>
-          row.games > 0 ? perspectiveWins(row.wins, row.games, relation) / row.games : 0,
-        defaultDir: "desc",
-      },
-      {
-        key: "lastPlayed",
-        label: "Played",
-        render: (row) => <span className="whitespace-nowrap">{formatTimeAgo(row.lastPlayed)}</span>,
-        sortValue: (row) => row.lastPlayed,
-        defaultDir: "desc",
-      },
-      ...(relation === "friends"
-        ? [
-            {
-              key: "kda",
-              label: "KDA",
-              render: (row: TeammateStats) => (
-                <span className="tabular-nums">{kdaRatio(row.kills, row.deaths, row.assists)}</span>
-              ),
-              sortValue: (row: TeammateStats) =>
-                row.deaths > 0 ? (row.kills + row.assists) / row.deaths : row.kills + row.assists,
-              defaultDir: "desc" as const,
-            },
-          ]
-        : []),
-    ],
-    [relation],
+      window.api.onGamesUpdated(() => {
+        refetchPlayers();
+        refetchChampions();
+      }),
+    [refetchPlayers, refetchChampions],
   );
 
-  const championColumns = useMemo<SortableColumn<TeammateChampionStats>[]>(
-    () => [
-      {
-        key: "champion_id",
-        label: "Champion",
-        render: (row) => (
-          <Link
-            to={`/champions/${row.champion_id}`}
-            className="nm min-w-0"
-            onClick={(event) => event.stopPropagation()}
-          >
-            <span className="flex shrink-0 rounded-full border border-lol-gold/60 p-0.5 shadow-[0_0_8px_var(--theme-gold)]">
-              <ChampionIcon championId={row.champion_id} size={30} />
-            </span>
-            <span className="min-w-0 truncate">
-              {getChampionName(championData, row.champion_id)}
-            </span>
-          </Link>
-        ),
-        sortValue: (row) => getChampionName(championData, row.champion_id),
-        defaultDir: "asc",
-      },
-      {
-        key: "games",
-        label: "Games",
-        render: (row) => <span className="tabular-nums">{formatNumber(row.games)}</span>,
-        defaultDir: "desc",
-      },
-      {
-        key: "wins",
-        label: "Win rate",
-        render: (row) => (
-          <WinRateValue wins={perspectiveWins(row.wins, row.games, relation)} games={row.games} />
-        ),
-        sortValue: (row) =>
-          row.games > 0 ? perspectiveWins(row.wins, row.games, relation) / row.games : 0,
-        defaultDir: "desc",
-      },
-      {
-        key: "kda",
-        label: "KDA",
-        render: (row) => <span className="tabular-nums">{row.kda.toFixed(2)}</span>,
-        sortValue: (row) => row.kda,
-        defaultDir: "desc",
-      },
-    ],
-    [championData, relation],
-  );
+  const rows = useMemo<Row[]>(() => {
+    const mine = (wins: number, games: number) => (relation === "enemies" ? games - wins : wins);
+    if (subject === "players") {
+      return (players.data ?? []).map((p) => ({
+        id: p.key,
+        name: p.name,
+        to: `/friends/${encodeURIComponent(p.key)}`,
+        icon: (size) => <SummonerIcon iconId={p.profileIcon} size={size} />,
+        games: p.games,
+        wins: mine(p.wins, p.games),
+        kda: (p.kills + p.assists) / Math.max(p.deaths, 1),
+        lastPlayed: p.lastPlayed,
+      }));
+    }
+    return (champions.data ?? []).map((c) => ({
+      id: String(c.champion_id),
+      name: getChampionName(championData, c.champion_id),
+      to: `/champions/${c.champion_id}`,
+      icon: (size) => <ChampionIcon championId={c.champion_id} size={size} />,
+      games: c.games,
+      wins: mine(c.wins, c.games),
+      kda: c.kda,
+    }));
+  }, [subject, relation, players.data, champions.data, championData]);
 
-  const totalPlayerGames = playerRows[0]?.totalGames ?? 0;
-  const totalChampionGames = championRows[0]?.totalGames ?? 0;
-  const mostSeen = playerRows.reduce<TeammateStats | null>(
-    (best, row) => (!best || row.games > best.games ? row : best),
-    null,
+  const shown = useMemo(() => {
+    const query = search.trim().toLocaleLowerCase();
+    const value = (r: Row) =>
+      sort.key === "winRate" ? winRate(r) : sort.key === "name" ? 0 : (r[sort.key] ?? 0);
+    return rows
+      .filter((r) => r.games >= minGames && r.name.toLocaleLowerCase().includes(query))
+      .sort((a, b) => {
+        const diff = sort.key === "name" ? b.name.localeCompare(a.name) : value(a) - value(b);
+        return (sort.desc ? -diff : diff) || b.games - a.games;
+      });
+  }, [rows, search, minGames, sort]);
+
+  // Highlights ignore the filters, so they stay a stable summary of the relation
+  const highlights = useMemo(() => {
+    const regulars = rows.filter((r) => r.games >= 10);
+    const best = (list: Row[], score: (r: Row) => number) =>
+      list.reduce<Row | null>((a, b) => (!a || score(b) > score(a) ? b : a), null);
+    const friends = relation === "friends";
+    return [
+      {
+        label: friends ? "Most played with" : "Most faced",
+        row: best(rows, (r) => r.games),
+        value: (r: Row) => `${formatNumber(r.games)} games`,
+      },
+      {
+        label: friends ? "Best duo" : "Easiest opponent",
+        row: best(regulars, winRate),
+        value: (r: Row) => `${winRate(r).toFixed(1)}%`,
+      },
+      {
+        label: friends ? "Worst luck together" : "Your nemesis",
+        row: best(regulars, (r) => -winRate(r)),
+        value: (r: Row) => `${winRate(r).toFixed(1)}%`,
+      },
+    ];
+  }, [rows, relation]);
+
+  const loading = subject === "players" ? players.loading : champions.loading;
+  const columns =
+    "grid grid-cols-[2.5rem_minmax(12rem,2fr)_4.5rem_6rem_minmax(10rem,1.5fr)_4.5rem_6rem] items-center gap-3 px-4";
+  const header = (key: SortKey, label: string, align = "text-right") => (
+    <button
+      type="button"
+      onClick={() => setSort((s) => ({ key, desc: s.key === key ? !s.desc : true }))}
+      className={`${align} text-[10px] font-bold uppercase tracking-wider hover:text-lol-text-bright ${
+        sort.key === key ? "text-lol-gold" : "text-lol-text"
+      }`}
+    >
+      {label}
+      {sort.key === key && (sort.desc ? " ▾" : " ▴")}
+    </button>
   );
-  const rowRate = (row: { wins: number; games: number }) =>
-    row.games > 0 ? perspectiveWins(row.wins, row.games, relation) / row.games : 0;
-  const tableClass =
-    "[&_thead_tr]:grid [&_tbody_tr]:grid [&_thead_th]:min-w-0 [&_tbody]:flex [&_tbody]:flex-col [&_tbody]:gap-1.5 [&_tbody_tr]:items-center [&_tbody_tr]:rounded-xl [&_tbody_tr]:border [&_tbody_tr]:border-lol-border/50 [&_tbody_tr]:bg-black/25 [&_tbody_tr]:transition-colors [&_tbody_tr:hover]:border-lol-border-hover [&_tbody_tr:hover]:bg-white/[0.04] [&_tbody_td]:min-w-0 [&_tbody_td]:!border-t-0 [&_tbody_td]:text-right [&_tbody_td]:tabular-nums";
-  const playerGridClass = relation === "friends" ? PLAYER_GRID_FRIENDS : PLAYER_GRID_FOES;
-  const playerTableClass = `${tableClass} ${playerGridClass}`;
-  const championTableClass = `${tableClass} ${CHAMPION_GRID}`;
 
   return (
-    <div className="flex min-h-full w-full flex-col gap-5">
-      <PageHero title="Friends & Foes" subtitle={`Who you play ${relationWord} and how it goes`}>
-        <HeroTile
-          label="Players"
-          value={playersLoading ? "—" : formatNumber(playerRows.length)}
-          sub={`played ${relationWord}`}
-        />
-        <HeroTile
-          label="Champions"
-          value={championsLoading ? "—" : formatNumber(championRows.length)}
-          sub={`${formatNumber(totalChampionGames)} games`}
-        />
-        <HeroTile
-          label="Games"
-          value={playersLoading ? "—" : formatNumber(totalPlayerGames)}
-          sub="in this view"
-        />
-        <HeroTile
-          label={relation === "friends" ? "Most played with" : "Most faced"}
-          value={mostSeen?.name ?? "—"}
-          sub={mostSeen ? `${formatNumber(mostSeen.games)} games` : undefined}
-          valueClass="!text-[18px] text-lol-text-bright"
-        />
-      </PageHero>
-      <div className="flex flex-wrap items-center justify-end gap-3">
-        <label className="relative w-56">
-          <span className="sr-only">Search players and champions</span>
-          <input
-            type="search"
-            value={search}
-            onChange={(event) => setSearch(event.target.value)}
-            placeholder="Search players or champions"
-            className="h-9 w-full rounded-md border border-lol-border/60 bg-lol-card/40 px-3 pr-8 text-sm text-lol-text-bright outline-none transition-colors placeholder:text-lol-text/60 focus:border-lol-crimson/70 focus:ring-1 focus:ring-lol-crimson/40"
-          />
-          {search && (
-            <button
-              type="button"
-              aria-label="Clear search"
-              onClick={() => setSearch("")}
-              className="absolute right-2 top-1/2 -translate-y-1/2 text-lg leading-none text-lol-text/70 transition-colors hover:text-lol-text-bright focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-lol-crimson/60"
+    <div className="flex min-h-full w-full flex-col gap-4">
+      <div className="flex shrink-0 flex-wrap items-end justify-between gap-3">
+        <div>
+          <h1 className="font-display text-[28px] font-bold leading-none text-lol-text-bright">
+            Friends & Foes
+          </h1>
+          <p className="mt-2 text-[13px] text-lol-text">
+            {relation === "friends"
+              ? "People on your team and how you do together"
+              : "People on the other team and how often you beat them"}
+          </p>
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <QueueFilterChips value={queue} onChange={setQueue} />
+          {(["friends", "enemies"] as const).map((value) => (
+            <FilterChip
+              key={value}
+              active={relation === value}
+              onClick={() => setRelation(value)}
+              className="h-9 px-5"
             >
-              ×
-            </button>
-          )}
-        </label>
-        <QueueFilterChips value={queue} onChange={setQueue} />
-        <div className="flex items-center gap-0 rounded-md border border-lol-border/60 bg-lol-card/40 p-0.5">
-          {(["friends", "enemies"] as const).map((option) => (
-            <button
-              key={option}
-              type="button"
-              aria-pressed={relation === option}
-              onClick={() => setRelation(option)}
-              className={`h-8 px-3 text-xs font-semibold transition-colors ${
-                relation === option
-                  ? "rounded bg-lol-crimson text-lol-text-bright"
-                  : "text-lol-text hover:text-lol-text-bright"
-              }`}
-            >
-              {option === "friends" ? "FRIENDS" : "FOES"}
-            </button>
+              {value === "friends" ? "Friends" : "Foes"}
+            </FilterChip>
           ))}
         </div>
       </div>
 
-      <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
-        <Panel variant="tile">
-          <div className="mb-3 flex flex-wrap items-start justify-between gap-2">
-            <Title>Players you've played {relationWord}</Title>
-            <div className="flex shrink-0 items-center gap-2">
-              <label className="sr-only">Sort players</label>
-              <FilterSelect
-                value={playerSortKey}
-                onChange={(value) => value && setPlayerSortKey(value)}
-                placeholder="Sort"
-                title="Sort players"
-                options={[
-                  { value: "games", label: "Games" },
-                  { value: "wins", label: "Win rate" },
-                  ...(relation === "friends" ? [{ value: "kda", label: "KDA" }] : []),
-                  { value: "lastPlayed", label: "Last played" },
-                ]}
-                className="max-w-[7.5rem]"
-              />
-              <button
-                type="button"
-                aria-label={`Sort ${playerSortDir === "asc" ? "descending" : "ascending"}`}
-                onClick={() => setPlayerSortDir(playerSortDir === "asc" ? "desc" : "asc")}
-                className="inline-flex h-8 min-w-9 items-center justify-center rounded-md border border-lol-border/50 bg-lol-card/40 px-2.5 text-sm font-bold text-lol-text transition-colors hover:border-lol-crimson/60 hover:text-lol-text-bright focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-lol-crimson/60"
-              >
-                {playerSortDir === "asc" ? "↑" : "↓"}
-              </button>
-            </div>
-          </div>
-          {playersLoading ? (
-            <div className="py-8 text-center text-sm text-lol-text">Loading…</div>
-          ) : (
-            <FriendsTable
-              className={playerTableClass}
-              columns={playerColumns}
-              rows={playerRows}
-              visibleRows={visiblePlayers}
-              sortKey={playerSortKey}
-              sortDir={playerSortDir}
-              onSortChange={(key, dir) => {
-                setPlayerSortKey(key);
-                setPlayerSortDir(dir);
-              }}
-              emptyText={
-                search
-                  ? "No players match your search."
-                  : relation === "friends"
-                    ? "No friends yet."
-                    : "No foes yet."
-              }
-              rowKey={(row) => row.key}
-              rowRate={rowRate}
-              onReachBottom={() =>
-                setVisiblePlayers((count) => Math.min(count + PAGE_SIZE, playerRows.length))
-              }
-            />
-          )}
-        </Panel>
-
-        <Panel variant="tile">
-          <div className="mb-3 flex flex-wrap items-start justify-between gap-2">
-            <Title>Champions you've played {relationWord}</Title>
-            <div className="flex shrink-0 items-center gap-2">
-              <label className="sr-only">Sort champions</label>
-              <FilterSelect
-                value={championSortKey}
-                onChange={(value) => value && setChampionSortKey(value)}
-                placeholder="Sort"
-                title="Sort champions"
-                options={[
-                  { value: "games", label: "Games" },
-                  { value: "wins", label: "Win rate" },
-                  { value: "kda", label: "KDA" },
-                ]}
-                className="max-w-[7.5rem]"
-              />
-              <button
-                type="button"
-                aria-label={`Sort ${championSortDir === "asc" ? "descending" : "ascending"}`}
-                onClick={() => setChampionSortDir(championSortDir === "asc" ? "desc" : "asc")}
-                className="inline-flex h-8 min-w-9 items-center justify-center rounded-md border border-lol-border/50 bg-lol-card/40 px-2.5 text-sm font-bold text-lol-text transition-colors hover:border-lol-crimson/60 hover:text-lol-text-bright focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-lol-crimson/60"
-              >
-                {championSortDir === "asc" ? "↑" : "↓"}
-              </button>
-            </div>
-          </div>
-          {championsLoading ? (
-            <div className="py-8 text-center text-sm text-lol-text">Loading…</div>
-          ) : (
-            <FriendsTable
-              className={championTableClass}
-              columns={championColumns}
-              rows={championRows}
-              visibleRows={visibleChampions}
-              sortKey={championSortKey}
-              sortDir={championSortDir}
-              onSortChange={(key, dir) => {
-                setChampionSortKey(key);
-                setChampionSortDir(dir);
-              }}
-              emptyText={
-                search
-                  ? "No champions match your search."
-                  : relation === "friends"
-                    ? "No friends yet."
-                    : "No foes yet."
-              }
-              rowKey={(row) => row.champion_id}
-              rowRate={rowRate}
-              onReachBottom={() =>
-                setVisibleChampions((count) => Math.min(count + PAGE_SIZE, championRows.length))
-              }
-            />
-          )}
-        </Panel>
+      <div className="grid shrink-0 grid-cols-1 gap-3 md:grid-cols-3">
+        {highlights.map(({ label, row, value }) => (
+          <Link
+            key={label}
+            to={row?.to ?? "#"}
+            className="app-tile flex min-w-0 items-center gap-3 !p-4"
+          >
+            <span className="flex h-12 w-12 shrink-0 items-center justify-center">
+              {row?.icon(48)}
+            </span>
+            <span className="min-w-0 flex-1">
+              <span className="block text-[10px] font-bold uppercase tracking-widest text-lol-gold">
+                {label}
+              </span>
+              <span className="block truncate font-display text-[15px] font-bold text-lol-text-bright">
+                {row?.name ?? "Not enough games"}
+              </span>
+              <span className="block text-[12px] text-lol-text">
+                {row ? `${row.wins}W ${row.games - row.wins}L` : "10 games needed"}
+              </span>
+            </span>
+            <span className="shrink-0 font-display text-[18px] font-bold tabular-nums text-lol-text-bright">
+              {row ? value(row) : "—"}
+            </span>
+          </Link>
+        ))}
       </div>
-    </div>
-  );
-}
 
-function FriendsTable<T extends object>({
-  columns,
-  rows,
-  visibleRows,
-  sortKey,
-  sortDir,
-  onSortChange,
-  className,
-  rowKey,
-  rowRate,
-  onReachBottom,
-  emptyText,
-}: {
-  columns: Array<SortableColumn<T>>;
-  rows: T[];
-  visibleRows: number;
-  sortKey: string;
-  sortDir: SortDirection;
-  onSortChange: (key: string, dir: SortDirection) => void;
-  className: string;
-  rowKey: (row: T) => string | number;
-  // 0..1, colours the row's left edge
-  rowRate: (row: T) => number;
-  onReachBottom: () => void;
-  emptyText: string;
-}) {
-  const sentinelRef = useRef<HTMLDivElement>(null);
-  const sortedRows = useMemo(() => {
-    const column = columns.find((item) => item.key === sortKey);
-    if (!column) return rows;
-    const valueOf =
-      column.sortValue ??
-      ((row: T) => {
-        const value = Reflect.get(row, column.key);
-        return typeof value === "number" || typeof value === "string" ? value : "";
-      });
-    return [...rows].sort((a, b) => {
-      const left = valueOf(a);
-      const right = valueOf(b);
-      if (left === right) return 0;
-      const result = left > right ? 1 : -1;
-      return sortDir === "asc" ? result : -result;
-    });
-  }, [columns, rows, sortDir, sortKey]);
+      <div className="app-tile min-w-0 !p-0">
+        <div className="flex flex-wrap items-center gap-2 border-b border-lol-border/60 p-3">
+          {(["players", "champions"] as const).map((value) => (
+            <FilterChip key={value} active={subject === value} onClick={() => setSubject(value)}>
+              {value}
+            </FilterChip>
+          ))}
+          <span className="ml-3 text-[10px] font-bold uppercase tracking-wider text-lol-text">
+            Min games
+          </span>
+          {[0, 3, 10, 25].map((n) => (
+            <FilterChip key={n} active={minGames === n} onClick={() => setMinGames(n)}>
+              {n ? `${n}+` : "Any"}
+            </FilterChip>
+          ))}
+          <span className="ml-auto text-xs text-lol-text">
+            {formatNumber(shown.length)} {subject}
+          </span>
+          <SearchInput
+            className="w-56"
+            placeholder={`Search ${subject}`}
+            aria-label={`Search ${subject}`}
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
+        </div>
+        <div className={`${columns} border-b border-lol-border/40 py-2`}>
+          <span className="text-right text-[10px] font-bold text-lol-text">#</span>
+          {header("name", subject === "players" ? "Player" : "Champion", "text-left")}
+          {header("games", "Games")}
+          <span className="text-right text-[10px] font-bold uppercase tracking-wider text-lol-text">
+            Record
+          </span>
+          {header("winRate", "Win rate", "text-left")}
+          {header("kda", "KDA")}
+          {subject === "players" ? header("lastPlayed", "Last played") : <span />}
+        </div>
 
-  useEffect(() => {
-    const element = sentinelRef.current;
-    if (!element || sortedRows.length <= visibleRows) return;
-    const observer = new IntersectionObserver(
-      (entries) => {
-        if (entries[0]?.isIntersecting) onReachBottom();
-      },
-      { rootMargin: "200px" },
-    );
-    observer.observe(element);
-    return () => observer.disconnect();
-  }, [onReachBottom, sortedRows.length, visibleRows]);
-
-  const handleSortChange = (key: string) => {
-    const nextDirection =
-      key === sortKey
-        ? sortDir === "asc"
-          ? "desc"
-          : "asc"
-        : (columns.find((column) => column.key === key)?.defaultDir ?? "desc");
-    onSortChange(key, nextDirection);
-  };
-
-  return (
-    <div className={`scroll ${className}`}>
-      <table className="tbl">
-        <thead>
-          <tr>
-            {columns.map((column) => (
-              <th
-                key={column.key}
-                aria-sort={
-                  column.key === sortKey
-                    ? sortDir === "asc"
-                      ? "ascending"
-                      : "descending"
-                    : undefined
-                }
+        {loading || shown.length === 0 ? (
+          <div className="py-10 text-center text-sm text-lol-text">
+            {loading ? "Loading…" : "Nobody matches these filters."}
+          </div>
+        ) : (
+          shown.slice(0, visible).map((row, index) => {
+            const rate = winRate(row);
+            return (
+              <Link
+                key={row.id}
+                to={row.to}
+                className={`${columns} border-b border-lol-border/30 py-2 transition-colors last:border-0 hover:bg-white/[0.05]`}
               >
-                <button
-                  type="button"
-                  aria-label={`Sort by ${column.label}`}
-                  onClick={() => handleSortChange(column.key)}
-                  className="w-full text-inherit focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-lol-crimson/60"
-                >
-                  {column.label}
-                  {column.key === sortKey ? (sortDir === "asc" ? " ▴" : " ▾") : ""}
-                </button>
-              </th>
-            ))}
-          </tr>
-        </thead>
-        <tbody>
-          {sortedRows.length === 0 ? (
-            <tr>
-              <td colSpan={columns.length} style={{ textAlign: "left" }}>
-                {emptyText}
-              </td>
-            </tr>
-          ) : (
-            sortedRows.slice(0, visibleRows).map((row) => (
-              <Fragment key={rowKey(row)}>
-                <tr
-                  className={
-                    rowRate(row) >= 0.5
-                      ? "shadow-[inset_4px_0_0_var(--theme-win)]"
-                      : "shadow-[inset_4px_0_0_var(--theme-loss)]"
-                  }
-                >
-                  {columns.map((column) => (
-                    <td key={column.key}>{column.render(row)}</td>
-                  ))}
-                </tr>
-              </Fragment>
-            ))
-          )}
-          {sortedRows.length > visibleRows && (
-            <tr aria-hidden="true">
-              <td colSpan={columns.length} style={{ padding: 0, borderTop: 0 }}>
-                <div ref={sentinelRef} style={{ height: 1 }} />
-              </td>
-            </tr>
-          )}
-        </tbody>
-      </table>
+                <span className="text-right text-xs tabular-nums text-lol-text/60">
+                  {index + 1}
+                </span>
+                <span className="flex min-w-0 items-center gap-3">
+                  <span className="shrink-0">{row.icon(34)}</span>
+                  <span className="truncate text-[14px] font-semibold text-lol-text-bright">
+                    {row.name}
+                  </span>
+                </span>
+                <span className="text-right text-[13px] tabular-nums text-lol-text-bright">
+                  {formatNumber(row.games)}
+                </span>
+                <span className="text-right text-xs tabular-nums">
+                  <span className="text-lol-win">{row.wins}W</span>{" "}
+                  <span className="text-lol-loss">{row.games - row.wins}L</span>
+                </span>
+                <span className="flex items-center gap-2">
+                  <span
+                    className={`w-14 font-display text-[15px] font-bold tabular-nums ${rate >= 50 ? "text-lol-win" : "text-lol-loss"}`}
+                  >
+                    {rate.toFixed(1)}%
+                  </span>
+                  <span className="h-1.5 flex-1 overflow-hidden rounded-full bg-lol-loss/40">
+                    <span className="block h-full bg-lol-win" style={{ width: `${rate}%` }} />
+                  </span>
+                </span>
+                <span className="text-right text-[13px] tabular-nums text-lol-text">
+                  {row.kda.toFixed(2)}
+                </span>
+                <span className="text-right text-xs text-lol-text">
+                  {row.lastPlayed ? formatTimeAgo(row.lastPlayed) : ""}
+                </span>
+              </Link>
+            );
+          })
+        )}
+        {!loading && shown.length > visible && (
+          <button
+            type="button"
+            onClick={() => setVisible((n) => n + PAGE_SIZE)}
+            className="w-full py-3 text-xs font-bold uppercase tracking-wider text-lol-text hover:text-lol-text-bright"
+          >
+            Show more ({formatNumber(shown.length - visible)} left)
+          </button>
+        )}
+      </div>
     </div>
   );
 }

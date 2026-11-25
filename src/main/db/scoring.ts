@@ -1,3 +1,4 @@
+import { invalidateDashboardCache } from "./dashboard-cache";
 import { db } from "../db";
 import { getSetting, setSetting } from "./settings";
 import {
@@ -193,27 +194,30 @@ export async function backfillParticipantScores(
     );
     let done = 0;
     let updated = 0;
+    // Paged by id: unscorable games stay NULL and would otherwise fill every page
+    let lastId = 0;
 
     while (done < total) {
       const rows = db
         .prepare(
           `SELECT g.game_id, g.raw_gz, g.queue_id, g.game_duration
          FROM games g
-         WHERE g.raw_gz IS NOT NULL
+         WHERE g.raw_gz IS NOT NULL AND g.game_id > ?
            AND EXISTS (
              SELECT 1 FROM match_participants mp
              WHERE mp.game_id = g.game_id AND mp.score IS NULL
            )
          ORDER BY g.game_id
-         LIMIT ? OFFSET ?`,
+         LIMIT ?`,
         )
-        .all(pageSize, 0) as {
+        .all(lastId, pageSize) as {
         game_id: number;
         raw_gz: Buffer;
         queue_id: number;
         game_duration: number;
       }[];
       if (rows.length === 0) break;
+      lastId = rows[rows.length - 1].game_id;
 
       const updatePage = db.transaction(() => {
         for (const row of rows) {
@@ -241,6 +245,8 @@ export async function backfillParticipantScores(
 
     if (done > 0 && done % 50 !== 0) onProgress(done, total);
     console.log("[db] backfillParticipantScores done:", { done, total, updated });
+    // Team averages computed before this ran are now out of date
+    if (updated > 0) invalidateDashboardCache();
     return updated;
   } finally {
     scoreBackfillInFlight = false;

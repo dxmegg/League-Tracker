@@ -45,11 +45,7 @@ export function saveLiveStatPeaks(rec: LiveStatRecording): void {
 }
 
 // One row per game, overwritten by every checkpoint so the last write is the final state
-export function saveLiveGameData(
-  gameId: number,
-  puuid: string,
-  data: StoredLiveBody,
-): void {
+export function saveLiveGameData(gameId: number, puuid: string, data: StoredLiveBody): void {
   const payload = gzipSync(JSON.stringify(data));
   db.prepare(
     `INSERT INTO live_game_data (game_id, puuid, duration_s, payload, recorded_at)
@@ -79,7 +75,10 @@ export function getStatRecords(filters?: {
   stat?: string;
   queueId?: number;
 }): LiveStatRecord[] {
-  const where: string[] = [];
+  // Recordings of accounts switched off in Settings stay out
+  const where: string[] = [
+    "puuid NOT IN (SELECT puuid FROM summoner WHERE puuid NOT IN (SELECT puuid FROM visible_summoner))",
+  ];
   const params: (string | number)[] = [];
   if (filters?.championId != null) {
     where.push("champion_id = ?");

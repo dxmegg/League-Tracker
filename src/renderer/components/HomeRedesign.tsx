@@ -513,7 +513,9 @@ function HubCard({
   children: ReactNode;
 }) {
   return (
-    <Card className={`app-tile min-w-0 rounded-[var(--tile-radius)] p-[var(--tile-padding)] ${className}`}>
+    <Card
+      className={`app-tile min-w-0 rounded-[var(--tile-radius)] p-[var(--tile-padding)] ${className}`}
+    >
       <CardHeader className="mb-3">
         <CardTitle className="flex items-center gap-2 font-display text-[12px] font-bold uppercase tracking-widest text-lol-gold">
           <i className="block h-3.5 w-[3px] rounded-full bg-lol-crimson" aria-hidden="true" />
@@ -1025,9 +1027,9 @@ export function HomeRedesign({
                 </div>
               </div>
               <Separator className="bg-lol-border/40" />
-              <div className="flex items-end justify-between gap-2">
+              <div className="flex flex-wrap items-end justify-between gap-2">
                 <div>
-                  <div className="font-display text-[22px] font-bold leading-none text-lol-text-bright">
+                  <div className="whitespace-nowrap font-display text-[22px] font-bold leading-none text-lol-text-bright">
                     {lastMatch.kills}
                     <span className="text-lol-text/50"> / </span>
                     <span className="text-lol-loss">{lastMatch.deaths}</span>

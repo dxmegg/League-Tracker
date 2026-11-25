@@ -532,6 +532,9 @@ const api: ElectronAPI = {
 
   exportData: () => ipcRenderer.invoke("data:export"),
   getDbStats: () => ipcRenderer.invoke("data:get-db-stats"),
+  getAchievementTotals: (queue?: number, account?: string) =>
+    ipcRenderer.invoke("db:achievement-totals", queue, account),
+  getChallenges: () => ipcRenderer.invoke("lcu:challenges"),
 
   importData: (): Promise<{
     success: boolean;

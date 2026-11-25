@@ -120,6 +120,16 @@ function rateOf(row: { games: number; wins: number }): number {
   return row.games > 0 ? row.wins / row.games : 0;
 }
 
+// Riot's position codes; ARAM-style queues report none
+const ROLE_LABELS: Record<string, string> = {
+  TOP: "Top",
+  JUNGLE: "Jungle",
+  MIDDLE: "Mid",
+  BOTTOM: "Bot",
+  UTILITY: "Support",
+  UNKNOWN: "No role",
+};
+
 export function ChampionDetailRedesign() {
   const { championId = "" } = useParams<{ championId: string }>();
   const id = Number(championId);
@@ -459,7 +469,7 @@ export function ChampionDetailRedesign() {
                 <RateRow
                   key={r.role}
                   icon={<span className="block w-0" />}
-                  name={r.role}
+                  name={ROLE_LABELS[r.role] ?? r.role}
                   games={r.games}
                   wins={r.wins}
                 />

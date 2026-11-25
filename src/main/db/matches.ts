@@ -93,7 +93,7 @@ export function getMatchHistory(
   }
   if (filters?.account) {
     if (filters.account === "all") {
-      where.push("tgs.puuid IN (SELECT puuid FROM summoner)");
+      where.push("tgs.puuid IN (SELECT puuid FROM visible_summoner)");
     } else {
       where.push("tgs.puuid = ?");
       params.push(filters.account);
@@ -360,7 +360,7 @@ export function getMatchFilterOptions(filters?: {
     SELECT tgs.puuid, s.game_name, s.tag_line, s.profile_icon
     FROM tracked_game_stats tgs
     JOIN games g ON g.game_id = tgs.game_id
-    INNER JOIN summoner s ON s.puuid = tgs.puuid
+    INNER JOIN visible_summoner s ON s.puuid = tgs.puuid
     GROUP BY tgs.puuid
     ORDER BY MAX(g.game_creation) DESC
   `)

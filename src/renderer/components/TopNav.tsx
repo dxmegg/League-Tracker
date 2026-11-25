@@ -35,7 +35,8 @@ const mainTabs = [
   { to: "/trends", label: "TRENDS" },
   { to: "/records", label: "RECORDS" },
   { to: "/achievements", label: "ACHIEVEMENTS" },
-  { to: "/data", label: "DATA" },
+  { to: "/challenges", label: "CHALLENGES" },
+  { to: "/data", label: "STORAGE" },
   { to: "/debug", label: "DEBUG TESTING" },
 ];
 

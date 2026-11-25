@@ -424,7 +424,14 @@ export async function importRecentRiotMatches(
   };
 }
 
-export function normalizeMatchPayload(match: any, matchId: number, puuid: string) {
+// `localPuuid` is the id this database knows the account by, when it differs from the API's `puuid`
+export function normalizeMatchPayload(
+  match: any,
+  matchId: number,
+  puuid: string,
+  localPuuid = puuid,
+) {
+  const stored = (id: unknown) => (id === puuid ? localPuuid : (id ?? null));
   const info = match?.info;
   if (!info || !Array.isArray(info.participants)) {
     throw new Error(`Riot match ${matchId} did not include participant data`);
@@ -443,18 +450,18 @@ export function normalizeMatchPayload(match: any, matchId: number, puuid: string
       summonerName: participant.riotIdGameName ?? participant.summonerName ?? null,
       riotIdGameName: participant.riotIdGameName ?? null,
       riotIdTagline: participant.riotIdTagline ?? null,
-      puuid: participant.puuid ?? null,
+      puuid: stored(participant.puuid),
     })),
     participantIdentities: info.participants.map((participant: any) => ({
       player: {
-        puuid: participant.puuid,
+        puuid: stored(participant.puuid),
         gameName: participant.riotIdGameName,
         tagLine: participant.riotIdTagline,
         summonerName: participant.summonerName,
         profileIcon: participant.profileIcon,
       },
     })),
-    ownerPuuid: puuid,
+    ownerPuuid: localPuuid,
   };
 }
 
@@ -1016,7 +1023,7 @@ async function configuredIdentity(
   }
   db.setSetting("riot_puuid", account.puuid);
   db.upsertSummoner(
-    { puuid: account.puuid, gameName: account.gameName, tagLine: account.tagLine },
+    { puuid: account.puuid, gameName: account.gameName, tagLine: account.tagLine, platform },
     "riot",
   );
   return { puuid: account.puuid, gameName: account.gameName, tagLine: account.tagLine, platform };
@@ -1129,6 +1136,19 @@ async function syncRiotAccount(
     });
   }
   const tag = `${identity.gameName ?? puuid}#${identity.tagLine ?? ""}`;
+  // The API is asked with `puuid`; rows are written under the account this database already has
+  const localPuuid =
+    identity.gameName && identity.tagLine
+      ? db.upsertSummoner(
+          {
+            puuid,
+            gameName: identity.gameName,
+            tagLine: identity.tagLine,
+            platform: identity.platform,
+          },
+          "riot",
+        )
+      : puuid;
   const accountIndex = options.accountIndex ?? 0;
   const accountTotal = options.accountTotal ?? 1;
   const known = db.getAllKnownGameIds();
@@ -1210,15 +1230,15 @@ async function syncRiotAccount(
         undefined,
         tag,
       );
-      const normalized = normalizeMatchPayload(payload, id, puuid);
+      const normalized = normalizeMatchPayload(payload, id, puuid, localPuuid);
       const trackedPentakiller = normalized.participants.find(
         (participant: any) =>
-          participant.puuid === puuid && Number(participant.pentaKills ?? 0) >= 1,
+          participant.puuid === localPuuid && Number(participant.pentaKills ?? 0) >= 1,
       );
       if (knownAlready) {
         db.refreshParticipantTelemetry(normalized);
         console.log(`[sync] refreshed ${id} (${normalized.participants.length} participants)`);
-      } else if (db.insertGameFull(normalized, puuid, "riot-sync")) {
+      } else if (db.insertGameFull(normalized, localPuuid, "riot-sync")) {
         added++;
       }
       if (trackedPentakiller) {
@@ -1226,7 +1246,7 @@ async function syncRiotAccount(
           const timeline = await fetchMatchTimeline(id, identity.platform);
           const pentakillTime = findPentakillTime(timeline, trackedPentakiller.participantId);
           if (pentakillTime !== null) {
-            db.setParticipantPentakillTime(id, puuid, pentakillTime);
+            db.setParticipantPentakillTime(id, localPuuid, pentakillTime);
           } else {
             console.warn(`[sync ${tag}] No pentakill event found in timeline for match ${id}`);
           }
@@ -1252,7 +1272,7 @@ async function syncRiotAccount(
   }
 
   if (!error) {
-    db.setRiotSyncState(puuid, identity.platform, ids[0] ?? null, ids.length < 10_000);
+    db.setRiotSyncState(localPuuid, identity.platform, ids[0] ?? null, ids.length < 10_000);
   }
   return {
     added,

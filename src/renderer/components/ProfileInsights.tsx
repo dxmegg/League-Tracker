@@ -1,10 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import type { ReactNode } from "react";
-import type {
-  AugmentStats,
-  HomeTimePeriod,
-  MatchListItem,
-} from "../../shared/api";
+import type { AugmentStats, HomeTimePeriod, MatchListItem } from "../../shared/api";
 import { scoreColor } from "../../shared/opScore";
 import { getAugmentName, useAugmentData } from "../hooks/useChampions";
 import { useScopedQueue } from "../lib/historyScope";
@@ -50,20 +46,11 @@ const SORTS: Array<{ id: AugmentSort; label: string }> = [
   { id: "score", label: "Score" },
 ];
 
-function Title({
-  children,
-  aside,
-}: {
-  children: ReactNode;
-  aside?: ReactNode;
-}) {
+function Title({ children, aside }: { children: ReactNode; aside?: ReactNode }) {
   return (
     <div className="mb-4 flex flex-wrap items-baseline justify-between gap-3">
       <h2 className="flex items-center gap-2 font-display text-[12px] font-bold uppercase tracking-widest text-lol-gold">
-        <i
-          className="block h-3.5 w-[3px] rounded-full bg-lol-crimson"
-          aria-hidden="true"
-        />
+        <i className="block h-3.5 w-[3px] rounded-full bg-lol-crimson" aria-hidden="true" />
         {children}
       </h2>
       {aside}
@@ -71,8 +58,7 @@ function Title({
   );
 }
 
-const rate = (wins: number, games: number) =>
-  games > 0 ? (wins / games) * 100 : 0;
+const rate = (wins: number, games: number) => (games > 0 ? (wins / games) * 100 : 0);
 const rateColor = (r: number) => (r >= 50 ? "text-lol-win" : "text-lol-loss");
 
 function Chip({
@@ -134,14 +120,9 @@ export function ProfileAugments({
       (s) => !rarity || augmentData[s.augment_id]?.rarity === rarity,
     );
     // Win rate and score over one or two picks are noise, so those sorts need a small sample
-    const pool =
-      sort === "picks" ? filtered : filtered.filter((s) => s.picks >= 3);
+    const pool = sort === "picks" ? filtered : filtered.filter((s) => s.picks >= 3);
     const key = (s: AugmentStats) =>
-      sort === "winrate"
-        ? rate(s.wins, s.picks)
-        : sort === "score"
-          ? (s.avgScore ?? -1)
-          : s.picks;
+      sort === "winrate" ? rate(s.wins, s.picks) : sort === "score" ? (s.avgScore ?? -1) : s.picks;
     return [...pool].sort((a, b) => key(b) - key(a) || b.picks - a.picks);
   }, [stats, rarity, sort, augmentData]);
 
@@ -156,9 +137,7 @@ export function ProfileAugments({
     const all = stats ?? [];
     const sampled = all.filter((s) => s.picks >= 5);
     const top = (rows: AugmentStats[], key: (s: AugmentStats) => number) =>
-      rows.length
-        ? rows.reduce((a, b) => (key(b) > key(a) ? b : a))
-        : undefined;
+      rows.length ? rows.reduce((a, b) => (key(b) > key(a) ? b : a)) : undefined;
     const signature = top(all, (s) => s.picks);
     const winning = top(sampled, (s) => rate(s.wins, s.picks));
     const scorer = top(sampled, (s) => s.avgScore ?? -1);
@@ -218,11 +197,7 @@ export function ProfileAugments({
     <div className="grid grid-cols-1 gap-5 min-[1800px]:grid-cols-[minmax(0,2.3fr)_minmax(0,1fr)]">
       <Panel variant="tile" className="flex flex-col">
         <Title
-          aside={
-            <span className="text-[13px] text-lol-text">
-              {stats?.length ?? 0} unique
-            </span>
-          }
+          aside={<span className="text-[13px] text-lol-text">{stats?.length ?? 0} unique</span>}
         >
           Augments
         </Title>
@@ -231,24 +206,14 @@ export function ProfileAugments({
             All
           </Chip>
           {RARITIES.map((r) => (
-            <Chip
-              key={r.key}
-              active={rarity === r.key}
-              onClick={() => setRarity(r.key)}
-            >
-              <span
-                className={`mr-1.5 inline-block h-2 w-2 rounded-full ${r.dot}`}
-              />
+            <Chip key={r.key} active={rarity === r.key} onClick={() => setRarity(r.key)}>
+              <span className={`mr-1.5 inline-block h-2 w-2 rounded-full ${r.dot}`} />
               {r.label}
             </Chip>
           ))}
           <span className="mx-1 h-4 w-px bg-lol-border/60" />
           {SORTS.map((s) => (
-            <Chip
-              key={s.id}
-              active={sort === s.id}
-              onClick={() => setSort(s.id)}
-            >
+            <Chip key={s.id} active={sort === s.id} onClick={() => setSort(s.id)}>
               {s.label}
             </Chip>
           ))}
@@ -257,9 +222,7 @@ export function ProfileAugments({
         {stats === null ? (
           <p className="py-8 text-center text-sm text-lol-text">Loading…</p>
         ) : rows.length === 0 ? (
-          <p className="py-8 text-center text-sm text-lol-text">
-            No augments for this selection.
-          </p>
+          <p className="py-8 text-center text-sm text-lol-text">No augments for this selection.</p>
         ) : (
           <>
             <div
@@ -292,9 +255,7 @@ export function ProfileAugments({
                           {getAugmentName(augmentData, s.augment_id)}
                         </div>
                         {tone && (
-                          <div
-                            className={`text-[10.5px] font-semibold ${tone.text}`}
-                          >
+                          <div className={`text-[10.5px] font-semibold ${tone.text}`}>
                             {tone.label}
                           </div>
                         )}
@@ -330,16 +291,11 @@ export function ProfileAugments({
                       ))}
                     </div>
                     <div className="flex items-center gap-2">
-                      <b
-                        className={`w-10 font-display text-[13px] ${rateColor(wr)}`}
-                      >
+                      <b className={`w-10 font-display text-[13px] ${rateColor(wr)}`}>
                         {wr.toFixed(0)}%
                       </b>
                       <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-lol-loss/40">
-                        <i
-                          className="block h-full bg-lol-win"
-                          style={{ width: `${wr}%` }}
-                        />
+                        <i className="block h-full bg-lol-win" style={{ width: `${wr}%` }} />
                       </div>
                     </div>
                     <b
@@ -353,23 +309,15 @@ export function ProfileAugments({
                       <span className="text-lol-loss">{s.picks - s.wins}L</span>
                     </div>
                     <div className="whitespace-nowrap">
-                      {s.kills != null &&
-                      s.deaths != null &&
-                      s.assists != null ? (
+                      {s.kills != null && s.deaths != null && s.assists != null ? (
                         <>
                           <div className="font-display text-[12.5px] tabular-nums text-lol-text-bright">
                             {s.kills.toFixed(1)} /{" "}
-                            <span className="text-lol-loss">
-                              {s.deaths.toFixed(1)}
-                            </span>{" "}
-                            / {s.assists.toFixed(1)}
+                            <span className="text-lol-loss">{s.deaths.toFixed(1)}</span> /{" "}
+                            {s.assists.toFixed(1)}
                           </div>
                           <div className="text-[10.5px] text-lol-text">
-                            {(
-                              (s.kills + s.assists) /
-                              Math.max(s.deaths, 1)
-                            ).toFixed(2)}{" "}
-                            KDA
+                            {((s.kills + s.assists) / Math.max(s.deaths, 1)).toFixed(2)} KDA
                           </div>
                         </>
                       ) : (
@@ -480,9 +428,7 @@ function buildSessions(games: MatchListItem[]): Session[] {
 
 const avgScore = (games: MatchListItem[]) => {
   const scored = games.filter((g) => g.score != null);
-  return scored.length
-    ? scored.reduce((sum, g) => sum + (g.score ?? 0), 0) / scored.length
-    : null;
+  return scored.length ? scored.reduce((sum, g) => sum + (g.score ?? 0), 0) / scored.length : null;
 };
 const kdaOf = (games: MatchListItem[]) => {
   const k = games.reduce((s, g) => s + g.kills + g.assists, 0);
@@ -493,12 +439,9 @@ const winsOf = (games: MatchListItem[]) => games.filter((g) => g.win).length;
 const avgOf = (
   games: MatchListItem[],
   key: "kills" | "deaths" | "assists" | "total_damage_dealt",
-) =>
-  games.length ? games.reduce((s, g) => s + g[key], 0) / games.length : null;
+) => (games.length ? games.reduce((s, g) => s + g[key], 0) / games.length : null);
 const avgLengthMin = (games: MatchListItem[]) =>
-  games.length
-    ? games.reduce((s, g) => s + g.game_duration, 0) / games.length / 60
-    : null;
+  games.length ? games.reduce((s, g) => s + g.game_duration, 0) / games.length / 60 : null;
 
 const fmtDuration = (min: number) =>
   min >= 60 ? `${Math.floor(min / 60)}h ${min % 60}m` : `${min} min`;
@@ -527,9 +470,7 @@ function SessionRow({ session }: { session: Session }) {
       className={`rounded-lg border-l-[3px] bg-white/[0.03] px-3 py-2 ${wins >= losses ? "border-lol-win" : "border-lol-loss"}`}
     >
       <div className="flex items-baseline justify-between gap-3">
-        <span className="font-display text-[13px] font-semibold text-lol-text-bright">
-          {day}
-        </span>
+        <span className="font-display text-[13px] font-semibold text-lol-text-bright">{day}</span>
         <span className="text-[11.5px] tabular-nums text-lol-text">
           {fmtTime(session.start)}–{fmtTime(session.end)} ·{" "}
           {fmtDuration(Math.round((session.end - session.start) / 60_000))}
@@ -543,11 +484,7 @@ function SessionRow({ session }: { session: Session }) {
               className={`rounded-md p-px ${g.win ? "bg-lol-win/60" : "bg-lol-loss/60"}`}
               title={g.win ? "Win" : "Loss"}
             >
-              <ChampionIcon
-                championId={g.champion_id}
-                size={22}
-                className="rounded-[5px]"
-              />
+              <ChampionIcon championId={g.champion_id} size={22} className="rounded-[5px]" />
             </span>
           ))}
         </div>
@@ -558,9 +495,7 @@ function SessionRow({ session }: { session: Session }) {
           </div>
           <div className="text-[11px] text-lol-text">
             {score != null ? (
-              <span className={scoreColor(score)}>
-                score {score.toFixed(1)}
-              </span>
+              <span className={scoreColor(score)}>score {score.toFixed(1)}</span>
             ) : (
               "—"
             )}
@@ -649,10 +584,7 @@ export function ProfilePlayInsights({
     };
   }, [account, queue]);
 
-  const sessions = useMemo(
-    () => (games ? buildSessions(games).reverse() : []),
-    [games],
-  );
+  const sessions = useMemo(() => (games ? buildSessions(games).reverse() : []), [games]);
   // Best session needs a few games, or a lone 1-0 would always win
   const records = useMemo(() => {
     if (sessions.length === 0) return null;
@@ -710,9 +642,7 @@ export function ProfilePlayInsights({
   const slotStats = (() => {
     const played = slots.filter((s) => s.games >= 10);
     if (played.length === 0) return null;
-    const byRate = [...played].sort(
-      (a, b) => rate(b.wins, b.games) - rate(a.wins, a.games),
-    );
+    const byRate = [...played].sort((a, b) => rate(b.wins, b.games) - rate(a.wins, a.games));
     const busiest = [...slots].sort((a, b) => b.games - a.games)[0];
     return { best: byRate[0], worst: byRate[byRate.length - 1], busiest };
   })();
@@ -751,9 +681,7 @@ export function ProfilePlayInsights({
           <span className="font-display text-[26px] font-semibold leading-none text-lol-text-bright">
             {cur != null ? fmt(cur) : "—"}
           </span>
-          <span className="text-[12px] text-lol-text">
-            was {prev != null ? fmt(prev) : "—"}
-          </span>
+          <span className="text-[12px] text-lol-text">was {prev != null ? fmt(prev) : "—"}</span>
         </div>
       </div>
     );
@@ -769,10 +697,7 @@ export function ProfilePlayInsights({
               className="text-[13px] text-lol-text"
             >
               {sessions.length} total · avg{" "}
-              {games && sessions.length
-                ? (games.length / sessions.length).toFixed(1)
-                : "0"}{" "}
-              games
+              {games && sessions.length ? (games.length / sessions.length).toFixed(1) : "0"} games
             </span>
           }
         >
@@ -781,9 +706,7 @@ export function ProfilePlayInsights({
         {games === null ? (
           <p className="py-8 text-center text-sm text-lol-text">Loading…</p>
         ) : sessions.length === 0 ? (
-          <p className="py-8 text-center text-sm text-lol-text">
-            No games yet.
-          </p>
+          <p className="py-8 text-center text-sm text-lol-text">No games yet.</p>
         ) : (
           <div className="flex flex-col gap-2">
             {records && (
@@ -797,11 +720,7 @@ export function ProfilePlayInsights({
                   ],
                   [
                     "Longest session",
-                    fmtDuration(
-                      Math.round(
-                        (records.longest.end - records.longest.start) / 60_000,
-                      ),
-                    ),
+                    fmtDuration(Math.round((records.longest.end - records.longest.start) / 60_000)),
                     shortDay(records.longest.start),
                     "text-lol-assist",
                   ],
@@ -819,9 +738,7 @@ export function ProfilePlayInsights({
                     <div className="font-display text-[10px] font-bold uppercase tracking-widest text-lol-text">
                       {label}
                     </div>
-                    <b
-                      className={`font-display text-[20px] font-bold leading-tight ${tone}`}
-                    >
+                    <b className={`font-display text-[20px] font-bold leading-tight ${tone}`}>
                       {value}
                     </b>
                     <div className="text-[11px] text-lol-text">{sub}</div>
@@ -855,31 +772,17 @@ export function ProfilePlayInsights({
             </p>
           ) : (
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-              {metric(
-                "Games",
-                compare.cur.length,
-                compare.prev.length,
-                (n) => String(n),
-                {
-                  digits: 0,
-                  neutral: true,
-                },
-              )}
-              {metric(
-                "Wins",
-                winsOf(compare.cur),
-                winsOf(compare.prev),
-                (n) => String(n),
-                {
-                  digits: 0,
-                },
-              )}
+              {metric("Games", compare.cur.length, compare.prev.length, (n) => String(n), {
+                digits: 0,
+                neutral: true,
+              })}
+              {metric("Wins", winsOf(compare.cur), winsOf(compare.prev), (n) => String(n), {
+                digits: 0,
+              })}
               {metric(
                 "Win rate",
                 rate(winsOf(compare.cur), compare.cur.length),
-                compare.prev.length
-                  ? rate(winsOf(compare.prev), compare.prev.length)
-                  : null,
+                compare.prev.length ? rate(winsOf(compare.prev), compare.prev.length) : null,
                 (n) => `${n.toFixed(1)}%`,
                 { suffix: " pp" },
               )}
@@ -923,11 +826,7 @@ export function ProfilePlayInsights({
           )}
         </Panel>
 
-        <Panel
-          variant="tile"
-          accent="var(--color-lol-violet)"
-          className="flex flex-1 flex-col"
-        >
+        <Panel variant="tile" accent="var(--color-lol-violet)" className="flex flex-1 flex-col">
           <Title
             aside={
               bestSlot && (
@@ -955,9 +854,7 @@ export function ProfilePlayInsights({
                     <div className="font-display text-[10px] font-bold uppercase tracking-widest text-lol-text">
                       {label as string}
                     </div>
-                    <b
-                      className={`font-display text-[18px] font-bold leading-tight ${tone}`}
-                    >
+                    <b className={`font-display text-[18px] font-bold leading-tight ${tone}`}>
                       {s.label}
                     </b>
                     <div className="text-[11px] text-lol-text">
@@ -972,9 +869,7 @@ export function ProfilePlayInsights({
           <div className="flex items-stretch gap-2.5 py-2">
             {slots.map((s) => {
               const wr = rate(s.wins, s.games);
-              const height = s.games
-                ? Math.min(100, Math.max(6, ((wr - 35) / 40) * 100))
-                : 0;
+              const height = s.games ? Math.min(100, Math.max(6, ((wr - 35) / 40) * 100)) : 0;
               const best = bestSlot?.label === s.label;
               return (
                 <div
@@ -1015,11 +910,8 @@ export function ProfilePlayInsights({
               {weekdays.map((d) => {
                 const wr = rate(d.wins, d.games);
                 // Colour strength follows distance from 50%, capped at ±15 points
-                const strength = d.games
-                  ? Math.min(1, Math.abs(wr - 50) / 15)
-                  : 0;
-                const tint =
-                  wr >= 50 ? "var(--color-lol-win)" : "var(--color-lol-loss)";
+                const strength = d.games ? Math.min(1, Math.abs(wr - 50) / 15) : 0;
+                const tint = wr >= 50 ? "var(--color-lol-win)" : "var(--color-lol-loss)";
                 return (
                   <div
                     key={d.label}
@@ -1029,25 +921,20 @@ export function ProfilePlayInsights({
                       background: `color-mix(in srgb, ${tint} ${Math.round(strength * 28)}%, transparent)`,
                     }}
                   >
-                    <div className="text-[10.5px] font-semibold text-lol-text">
-                      {d.label}
-                    </div>
+                    <div className="text-[10.5px] font-semibold text-lol-text">{d.label}</div>
                     <b
                       className={`font-display text-[13px] ${d.games ? rateColor(wr) : "text-lol-text/50"}`}
                     >
                       {d.games ? `${wr.toFixed(0)}%` : "—"}
                     </b>
-                    <div className="text-[10px] tabular-nums text-lol-text/70">
-                      {d.games}
-                    </div>
+                    <div className="text-[10px] tabular-nums text-lol-text/70">{d.games}</div>
                   </div>
                 );
               })}
             </div>
           </div>
           <p className="mt-3 text-[11px] text-lol-text/70">
-            Bar height = win rate, gold ring = best slot with 10+ games. Local
-            time.
+            Bar height = win rate, gold ring = best slot with 10+ games. Local time.
           </p>{" "}
         </Panel>
       </div>

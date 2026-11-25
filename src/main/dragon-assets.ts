@@ -93,7 +93,20 @@ export function registerDragonAssetProtocol(): void {
   });
 }
 
-export async function cacheDragonAsset(remoteUrl: string): Promise<string | null> {
+const inFlight = new Map<string, Promise<string | null>>();
+
+// A page shows the same icon dozens of times at once; they share one download, so the file is
+// written once and never read half-written
+export function cacheDragonAsset(remoteUrl: string): Promise<string | null> {
+  let pending = inFlight.get(remoteUrl);
+  if (!pending) {
+    pending = downloadDragonAsset(remoteUrl).finally(() => inFlight.delete(remoteUrl));
+    inFlight.set(remoteUrl, pending);
+  }
+  return pending;
+}
+
+async function downloadDragonAsset(remoteUrl: string): Promise<string | null> {
   const hash = assetHash(remoteUrl);
   const localPath = assetPath(hash);
 

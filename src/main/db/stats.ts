@@ -1,5 +1,5 @@
 import { db } from "../db";
-import { getAllPuuids } from "./summoner";
+import { getVisiblePuuids } from "./summoner";
 import { cachedQuery, getCachedOwnedItemStats, setCachedOwnedItemStats } from "./cache";
 import zlib from "zlib";
 import { NO_STATS_QUEUE_IDS } from "../../shared/queues";
@@ -180,7 +180,7 @@ export function getActivityHeatmap(
   const params: any[] = [...NO_STATS_QUEUE_IDS, Date.now() - windowDays * 24 * 60 * 60 * 1000];
 
   if (account === "all") {
-    where.push("mp.puuid IN (SELECT puuid FROM summoner)");
+    where.push("mp.puuid IN (SELECT puuid FROM visible_summoner)");
   } else if (account) {
     where.push("mp.puuid = ?");
     params.push(account);
@@ -275,10 +275,10 @@ export function getChampionRoleStats(
   const filter = participantFilter(patch, queue, "mp", timePeriod);
   const ownerFilter =
     account === "all"
-      ? "mp.puuid IN (SELECT puuid FROM summoner)"
+      ? "mp.puuid IN (SELECT puuid FROM visible_summoner)"
       : account
         ? "mp.puuid = ?"
-        : "mp.puuid IN (SELECT puuid FROM summoner)";
+        : "mp.puuid IN (SELECT puuid FROM visible_summoner)";
   const ownerParams: string[] = account && account !== "all" ? [account] : [];
   const rows = db
     .prepare(`
@@ -453,7 +453,7 @@ export function getChampionRuneStats(
   const participant = participantFilter(patch, undefined, "mp");
   const ownerFilter =
     account === "all"
-      ? "mp.puuid IN (SELECT puuid FROM summoner)"
+      ? "mp.puuid IN (SELECT puuid FROM visible_summoner)"
       : account
         ? "mp.puuid = ?"
         : "mp.puuid = g.puuid";
@@ -624,7 +624,7 @@ export function getChampionMatchups(
   // champions are counted (the enemy team, opposite team_id from the owner).
   const accountFilter =
     account === "all" || account === undefined
-      ? "owner.puuid IN (SELECT puuid FROM summoner)"
+      ? "owner.puuid IN (SELECT puuid FROM visible_summoner)"
       : "owner.puuid = ?";
   const params: any[] = account && account !== "all" ? [account] : [];
   if (championId !== null) params.unshift(championId);
@@ -693,7 +693,7 @@ export function getChampionMatchupList(
       const participant = participantFilter(patch, undefined, "owner", timePeriod);
       const ownerFilter =
         account === "all"
-          ? "owner.puuid IN (SELECT puuid FROM summoner)"
+          ? "owner.puuid IN (SELECT puuid FROM visible_summoner)"
           : account
             ? "owner.puuid = ?"
             : "owner.puuid = g.puuid";
@@ -844,7 +844,7 @@ export function getChampionAllyStats(
   const participant = participantFilter(patch, undefined, "me", timePeriod);
   const ownerFilter =
     account === "all"
-      ? "me.puuid IN (SELECT puuid FROM summoner)"
+      ? "me.puuid IN (SELECT puuid FROM visible_summoner)"
       : account
         ? "me.puuid = ?"
         : "me.puuid = g.puuid";
@@ -903,7 +903,7 @@ export function getChampionTeammateStats(
   const participant = participantFilter(patch, undefined, "me");
   const ownerFilter =
     account === "all"
-      ? "me.puuid IN (SELECT puuid FROM summoner)"
+      ? "me.puuid IN (SELECT puuid FROM visible_summoner)"
       : account
         ? "me.puuid = ?"
         : "me.puuid = g.puuid";
@@ -1867,7 +1867,12 @@ export function teammateRows(
   relation: "friends" | "enemies" = "friends",
 ): TeammateRow[] {
   const ours = puuids.map(() => "?").join(", ");
-  const where = ["o.is_remake = 0", `(o.puuid IS NULL OR o.puuid NOT IN (${ours}))`];
+  const where = [
+    "o.is_remake = 0",
+    `(o.puuid IS NULL OR o.puuid NOT IN (${ours}))`,
+    // Hidden accounts are still you, so they never show up as a friend or a foe
+    "(o.puuid IS NULL OR o.puuid NOT IN (SELECT puuid FROM summoner))",
+  ];
   const params: any[] = [...puuids];
   applyQueueFilter(where, params, queue, "o");
   where.push(`g.queue_id NOT IN (${EXCLUDED_STATS_SQL})`);
@@ -1899,7 +1904,7 @@ export function getTeammateStats(
   relation: "friends" | "enemies" = "friends",
 ): any[] {
   return cachedQuery("getTeammateStats", [queue, relation], 60_000, () => {
-    const puuids = getAllPuuids();
+    const puuids = getVisiblePuuids();
     if (puuids.length === 0) return [];
 
     const playerMap = new Map<
@@ -1995,7 +2000,7 @@ export function getTeammateChampions(
 ): TeammateChampionStats[] {
   console.log("[db] getTeammateChampions called:", { queue, relation });
   const result = cachedQuery("getTeammateChampions", [queue, relation], 60_000, () => {
-    const puuids = getAllPuuids();
+    const puuids = getVisiblePuuids();
     if (puuids.length === 0) {
       console.warn("[db] getTeammateChampions empty:", { reason: "no owned accounts" });
       return [];
@@ -2048,7 +2053,7 @@ export function getTeammateDetail(
   relation: "friends" | "enemies" = "friends",
 ): { player: any; matches: any[] } | null {
   return cachedQuery("getTeammateDetail", [key, queue, relation], 30_000, () => {
-    const puuids = getAllPuuids();
+    const puuids = getVisiblePuuids();
     if (puuids.length === 0) return null;
 
     // Rows are newest-first, so the first hit carries the current name and icon.
@@ -2079,8 +2084,8 @@ export function getTeammateDetail(
              ps.champion_id, ps.win, ps.kills, ps.deaths, ps.assists,
              ps.double_kills, ps.triple_kills, ps.quadra_kills, ps.penta_kills,
              ps.total_damage_dealt, ps.total_damage_taken, ps.total_heal, ps.gold_earned,
-             ps.score, ps.score_badge, ps.spell1, ps.spell2,
-             ps.item0, ps.item1, ps.item2, ps.item3, ps.item4, ps.item5,
+             ps.score, ps.score_badge, ps.spell1, ps.spell2, ps.cs,
+             ps.item0, ps.item1, ps.item2, ps.item3, ps.item4, ps.item5, ps.item6,
              (SELECT GROUP_CONCAT(augment_id, ',')
               FROM (SELECT augment_id FROM game_augments
                     WHERE game_id = g.game_id
@@ -2098,9 +2103,9 @@ ${GAME_MAX_STATS_SQL}
     const scoreRows = groupByGame(
       db
         .prepare(
-          `SELECT game_id, ${SCORE_ROW_COLUMNS} FROM match_participants WHERE game_id IN (${idList})`,
+          `SELECT game_id, ${SCORE_ROW_COLUMNS}, cs FROM match_participants WHERE game_id IN (${idList})`,
         )
-        .all(...gameIds) as (ScoreRow & { game_id: number })[],
+        .all(...gameIds) as (ScoreRow & { game_id: number; cs: number })[],
     );
 
     interface ChampionTotals {
@@ -2187,6 +2192,7 @@ ${GAME_MAX_STATS_SQL}
           score_badge: row.score_badge,
         };
         base.champion_id = enemy.champion_id;
+        base.cs = (friendStats as { cs?: number } | undefined)?.cs;
         base.win = enemy.win;
         base.kills = enemy.kills;
         base.deaths = enemy.deaths;
@@ -2219,7 +2225,7 @@ export function getGlobalStats(
   totalParticipantSlots: number;
   totalGames: number;
 } {
-  return cachedQuery("getGlobalStats", [patch, queue], 60_000, () => {
+  return cachedQuery("getGlobalStats", [patch, queue], 5 * 60_000, () => {
     const mp = participantFilter(patch, queue);
     const mpa = participantFilter(patch, queue, "mpa");
 
@@ -2604,7 +2610,7 @@ export function getOwnedItemDetail(itemId: number, patch?: string, queue?: numbe
             AND paired.participant_id = tp.participant_id
            WHERE paired.item_id > 0
              AND paired.item_id != ?
-             AND paired.item_id NOT IN (${TRINKET_ITEM_IDS.join(", ")})
+             AND paired.item_id NOT IN (${[...TRINKET_ITEM_IDS, ...EXCLUDED_ITEM_IDS].join(", ")})
            GROUP BY paired.item_id
            ORDER BY games DESC, paired.item_id ASC
            LIMIT 8`,
@@ -2651,7 +2657,7 @@ export function getOwnedItemDetail(itemId: number, patch?: string, queue?: numbe
 }
 
 export function getOwnedRuneStats(queue?: number, patch?: string, account?: string) {
-  return cachedQuery("getOwnedRuneStats", [queue, patch, account], 60_000, () => {
+  return cachedQuery("getOwnedRuneStats", [queue, patch, account], 5 * 60_000, () => {
     const source = statsSource(account);
     const where = ["g.is_remake = 0", "g.raw_gz IS NOT NULL"];
     where.push(source.accountFilter);
@@ -2832,8 +2838,8 @@ export function getGlobalChampionDetail(
             ? ` AND ${alias}.puuid = ?`
             : ` AND EXISTS (SELECT 1 FROM match_participants owner WHERE owner.game_id = ${alias}.game_id AND owner.puuid = ?)`
           : alias === "mp"
-            ? ` AND ${alias}.puuid IN (SELECT puuid FROM summoner)`
-            : ` AND EXISTS (SELECT 1 FROM match_participants owner WHERE owner.game_id = ${alias}.game_id AND owner.puuid IN (SELECT puuid FROM summoner))`;
+            ? ` AND ${alias}.puuid IN (SELECT puuid FROM visible_summoner)`
+            : ` AND EXISTS (SELECT 1 FROM match_participants owner WHERE owner.game_id = ${alias}.game_id AND owner.puuid IN (SELECT puuid FROM visible_summoner))`;
       const mpSql = `${mp.sql}${accountSql("mp")}`;
       const mpaSql = `${mpa.sql}${accountSql("mpa")}`;
       const mpParams = account && account !== "all" ? [...mp.params, account] : mp.params;
@@ -3096,7 +3102,7 @@ export function getChampionDetailStats(
   pushTimeFilter(where, params, timePeriod);
 
   if (account === "all") {
-    where.push("mp.puuid IN (SELECT puuid FROM summoner)");
+    where.push("mp.puuid IN (SELECT puuid FROM visible_summoner)");
   } else if (account) {
     where.push("mp.puuid = ?");
     params.push(account);
@@ -3762,7 +3768,7 @@ export function getChampionChallengeAggregates(
 } {
   console.log("[db] getChampionChallengeAggregates called:", { puuid, championId });
   const participantFilter =
-    puuid === "all" ? "p.puuid IN (SELECT puuid FROM summoner)" : "p.puuid = ?";
+    puuid === "all" ? "p.puuid IN (SELECT puuid FROM visible_summoner)" : "p.puuid = ?";
   const params = puuid === "all" ? [championId] : [puuid, championId];
   const gamesWithChallenges = db
     .prepare(
@@ -3897,7 +3903,7 @@ export function getChampionStatBaseline(
   }
 
   if (account === "all") {
-    where.push("mp.puuid IN (SELECT puuid FROM summoner)");
+    where.push("mp.puuid IN (SELECT puuid FROM visible_summoner)");
   } else if (account) {
     where.push("mp.puuid = ?");
     params.push(account);

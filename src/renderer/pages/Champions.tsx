@@ -50,11 +50,18 @@ function ChampionExpanded({
   const [matches, setMatches] = useState<MatchListItem[] | null>(null);
 
   useEffect(() => {
-    window.api.getAugmentStats(championId, patch, queue).then(setAugStats);
-    window.api.getChampionItemStats(championId, patch, queue).then(setItemStats);
+    // An answer for the previous patch or queue must not overwrite the current one
+    let stale = false;
+    window.api.getAugmentStats(championId, patch, queue).then((r) => !stale && setAugStats(r));
+    window.api
+      .getChampionItemStats(championId, patch, queue)
+      .then((r) => !stale && setItemStats(r));
     window.api
       .getChampionMatchHistory(championId, 5, 0, patch, queue)
-      .then((r) => setMatches(r.matches));
+      .then((r) => !stale && setMatches(r.matches));
+    return () => {
+      stale = true;
+    };
   }, [championId, patch, queue]);
 
   if (!augStats || !itemStats || !matches) {

@@ -506,7 +506,8 @@ export function loadItemData(patch?: string): Promise<Record<number, ItemInfo>> 
         let dataDragon: any = null;
         try {
           const versions = await fetchJson("https://ddragon.leagueoflegends.com/api/versions.json");
-          const patch = usedBranch === "latest" ? String(versions[0]) : usedBranch;
+          // Data Dragon names its folders "16.13.1"; the bare branch "16.13" answers 403
+          const patch = usedBranch === "latest" ? String(versions[0]) : `${usedBranch}.1`;
           dataDragon = await fetchJson(dataDragonItemsUrl(patch));
         } catch {
           // CommunityDragon remains the source for descriptions and icons.

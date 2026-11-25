@@ -11,15 +11,8 @@ interface ActivityHeatmapProps {
   unit?: HeatmapUnit;
 }
 
-const mix = (pct: number) =>
-  `color-mix(in srgb, var(--theme-crimson) ${pct}%, transparent)`;
-const CELL_COLORS = [
-  "rgba(255,255,255,0.04)",
-  mix(22),
-  mix(45),
-  mix(70),
-  mix(95),
-];
+const mix = (pct: number) => `color-mix(in srgb, var(--theme-crimson) ${pct}%, transparent)`;
+const CELL_COLORS = ["rgba(255,255,255,0.04)", mix(22), mix(45), mix(70), mix(95)];
 
 function formatDate(day: string): string {
   return new Date(`${day}T00:00:00`).toLocaleDateString(undefined, {
@@ -68,9 +61,7 @@ function periodHighlights(
   );
   const worst =
     nonZero.length > 1
-      ? nonZero.reduce((current, period) =>
-          period.games < current.games ? period : current,
-        )
+      ? nonZero.reduce((current, period) => (period.games < current.games ? period : current))
       : undefined;
   return { best, worst };
 }
@@ -124,9 +115,7 @@ function HighlightColumn({
   if (!highlight) return null;
   const rows = [
     { label: "Best", period: highlight.best, accent: true },
-    ...(highlight.worst
-      ? [{ label: "Worst", period: highlight.worst, accent: false }]
-      : []),
+    ...(highlight.worst ? [{ label: "Worst", period: highlight.worst, accent: false }] : []),
   ];
   return (
     <div className="rounded-xl bg-white/[0.04] px-3.5 py-3">
@@ -147,8 +136,7 @@ function HighlightColumn({
             </div>
             <div className="text-[11.5px] text-lol-text">
               {formatDate(row.period.start)}
-              {row.period.start !== row.period.end &&
-                ` – ${formatDate(row.period.end)}`}
+              {row.period.start !== row.period.end && ` – ${formatDate(row.period.end)}`}
             </div>
           </div>
         ))}
@@ -173,10 +161,7 @@ function tileKey(day: string, unit: HeatmapUnit): string {
 }
 
 // Coarser units sum the daily rows into a fixed number of tiles ending today
-function buildTiles(
-  days: ActivityHeatmapProps["days"],
-  unit: Exclude<HeatmapUnit, "day">,
-) {
+function buildTiles(days: ActivityHeatmapProps["days"], unit: Exclude<HeatmapUnit, "day">) {
   if (unit === "hour") {
     // Rows are ISO timestamps of single games here, not day counts
     const perHour = new Map<number, number>();
@@ -266,14 +251,9 @@ function HistoryActivityHeatmap({
     if (unit !== "day") return Math.min(4, Math.ceil((games / maxGames) * 4));
     return games >= 7 ? 4 : games >= 4 ? 3 : games >= 2 ? 2 : 1;
   };
-  const cellColors = CELL_COLORS.map((color, index) =>
-    index === 0 ? colorMuted : color,
-  );
+  const cellColors = CELL_COLORS.map((color, index) => (index === 0 ? colorMuted : color));
   // Best and worst periods are per day, week and month; hourly rows can't feed them
-  const highlights =
-    unit === "hour"
-      ? { week: null, day: null, month: null }
-      : getHighlights(days);
+  const highlights = unit === "hour" ? { week: null, day: null, month: null } : getHighlights(days);
   const title = fluid ? "Activity" : "Weekly activity";
   const range = UNIT_RANGE[unit];
 
@@ -281,10 +261,7 @@ function HistoryActivityHeatmap({
     return (
       <section className="rounded-lg border border-lol-border/60 bg-lol-card/40 p-4">
         <h2 className="mb-3 flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-lol-text-bright">
-          <span
-            className="h-1.5 w-1.5 rotate-45 bg-lol-crimson"
-            aria-hidden="true"
-          />
+          <span className="h-1.5 w-1.5 rotate-45 bg-lol-crimson" aria-hidden="true" />
           {title}
         </h2>
         <p className="py-5 text-center text-[11px] text-lol-text/70">
@@ -311,15 +288,11 @@ function HistoryActivityHeatmap({
       {fluid ? (
         <div className="mb-4 flex h-8 items-center justify-between gap-3">
           <h2 className="flex items-center gap-2 font-display text-[12px] font-bold uppercase tracking-widest text-lol-gold">
-            <i
-              className="block h-3.5 w-[3px] rounded-full bg-lol-crimson"
-              aria-hidden="true"
-            />
+            <i className="block h-3.5 w-[3px] rounded-full bg-lol-crimson" aria-hidden="true" />
             {title}
           </h2>
           <span className="text-[13px] text-lol-text">
-            <b className="font-display text-lol-text-bright">{total}</b> games
-            in the last {range}
+            <b className="font-display text-lol-text-bright">{total}</b> games in the last {range}
           </span>
         </div>
       ) : (
@@ -342,9 +315,7 @@ function HistoryActivityHeatmap({
           <div
             key={cell.key}
             title={
-              cell.games > 0
-                ? `${cell.games} games · ${cell.label}`
-                : `No games · ${cell.label}`
+              cell.games > 0 ? `${cell.games} games · ${cell.label}` : `No games · ${cell.label}`
             }
             className={`rounded-[3px] transition-[filter] duration-100 hover:brightness-[1.15] ${
               fluid ? "h-full w-full" : "h-3 w-3 shrink-0"
@@ -367,21 +338,9 @@ function HistoryActivityHeatmap({
       </div>
       {(highlights.week || highlights.day || highlights.month) && (
         <div className="mt-auto grid grid-cols-3 gap-3 pt-5">
-          <HighlightColumn
-            label="Week"
-            highlight={highlights.week}
-            colorPrimary={colorPrimary}
-          />
-          <HighlightColumn
-            label="Day"
-            highlight={highlights.day}
-            colorPrimary={colorPrimary}
-          />
-          <HighlightColumn
-            label="Month"
-            highlight={highlights.month}
-            colorPrimary={colorPrimary}
-          />
+          <HighlightColumn label="Week" highlight={highlights.week} colorPrimary={colorPrimary} />
+          <HighlightColumn label="Day" highlight={highlights.day} colorPrimary={colorPrimary} />
+          <HighlightColumn label="Month" highlight={highlights.month} colorPrimary={colorPrimary} />
         </div>
       )}
     </section>
@@ -427,10 +386,7 @@ export function ActivityHeatmap({ daily }: { daily: TrendsDay[] }) {
   const top = 14;
   const cellSize =
     containerWidth > 0
-      ? Math.min(
-          HEATMAP_CELL,
-          Math.max(1, (containerWidth - left) / heatmapWeeks - HEATMAP_GAP),
-        )
+      ? Math.min(HEATMAP_CELL, Math.max(1, (containerWidth - left) / heatmapWeeks - HEATMAP_GAP))
       : HEATMAP_CELL;
   const pitch = cellSize + HEATMAP_GAP;
   const width = left + heatmapWeeks * pitch;
@@ -461,8 +417,7 @@ export function ActivityHeatmap({ daily }: { daily: TrendsDay[] }) {
       if (d > today) continue;
       const row = byDay.get(dayKey(d));
       const games = row?.games ?? 0;
-      const level =
-        games === 0 ? 0 : Math.min(Math.ceil((games / maxGames) * 4), 4);
+      const level = games === 0 ? 0 : Math.min(Math.ceil((games / maxGames) * 4), 4);
       const date = dayKey(d);
       const wins = row?.wins ?? 0;
       const label = `Date: ${date} | ${games} game${games === 1 ? "" : "s"} (${wins}W - ${games - wins}L)`;
@@ -484,12 +439,7 @@ export function ActivityHeatmap({ daily }: { daily: TrendsDay[] }) {
 
   return (
     <div ref={containerRef} className="w-full overflow-x-auto">
-      <svg
-        width="100%"
-        height={height}
-        viewBox={`0 0 ${width} ${height}`}
-        className="block"
-      >
+      <svg width="100%" height={height} viewBox={`0 0 ${width} ${height}`} className="block">
         {monthLabels}
         {(["Mon", "Wed", "Fri"] as const).map((label, i) => (
           <text
@@ -508,11 +458,7 @@ export function ActivityHeatmap({ daily }: { daily: TrendsDay[] }) {
       <div className="flex items-center justify-end gap-1 mt-2 text-[10px] text-lol-text">
         <span className="mr-1">Less</span>
         {HEATMAP_COLORS.map((color) => (
-          <span
-            key={color}
-            className="w-2.5 h-2.5 rounded-xs"
-            style={{ backgroundColor: color }}
-          />
+          <span key={color} className="w-2.5 h-2.5 rounded-xs" style={{ backgroundColor: color }} />
         ))}
         <span className="ml-1">More</span>
       </div>

@@ -43,7 +43,7 @@ export default function MatchDetailPage() {
   const champData = useChampionData();
   const [tab, setTab] = useState<MatchTab>("overview");
   const [puuids, setPuuids] = useState<string[] | null>(null);
-  const { data: detail } = useIpc<MatchDetail>(
+  const { data: detail, loading } = useIpc<MatchDetail>(
     () =>
       validGameId
         ? window.api.getMatchDetail(parsedGameId)
@@ -60,7 +60,7 @@ export default function MatchDetailPage() {
     [detail, puuids],
   );
   const self = players.find((p) => p.isSelf);
-  const win = detail ? !!detail.stats.win : false;
+  const win = !!detail?.stats?.win;
   const score = useMemo(() => {
     if (!detail || !self) return null;
     const classes: Record<number, string | undefined> = {};
@@ -225,7 +225,11 @@ export default function MatchDetailPage() {
         </>
       ) : (
         <p className="text-sm text-lol-text">
-          {validGameId ? "Loading match…" : "This match link is invalid."}
+          {!validGameId
+            ? "This match link is invalid."
+            : loading
+              ? "Loading match…"
+              : "This match is not stored."}
         </p>
       )}
 

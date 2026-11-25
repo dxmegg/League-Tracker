@@ -30,6 +30,7 @@ const AugmentDetailExp = lazy(() =>
   import("./components/AugmentDetailExp").then((m) => ({ default: m.AugmentDetailExp })),
 );
 const Achievements = lazy(() => import("./pages/Achievements"));
+const Challenges = lazy(() => import("./pages/Challenges"));
 const Champions = lazy(() => import("./pages/Champions"));
 const Augments = lazy(() => import("./pages/Augments"));
 const Items = lazy(() => import("./pages/Items"));
@@ -203,6 +204,7 @@ export default function App() {
           <Route path="/trends" element={<FullHistorySection section="trends" />} />
           <Route path="/records" element={<FullHistorySection section="records" />} />
           <Route path="/achievements" element={<Achievements />} />
+          <Route path="/challenges" element={<Challenges />} />
           <Route path="/data" element={<FullHistorySection section="total-stats" />} />
           <Route path="/debug" element={<DebugTesting />} />
         </Route>

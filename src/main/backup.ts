@@ -405,6 +405,10 @@ export async function initDatabaseWithRecovery(): Promise<void> {
       setSetting("last_quick_check", String(Date.now()));
     }
   } catch (err: unknown) {
+    // A locked file or a full disk is not damage: replacing the database with an older
+    // snapshot would throw away games, so these stop the start with their own message
+    const code = (err as { code?: string }).code ?? "";
+    if (/^SQLITE_(BUSY|LOCKED|FULL|READONLY|CANTOPEN|PERM)/.test(code)) throw err;
     // Damage can surface either on open or on the first statements migrations
     // run, so the check and the init it follows share one handler.
     console.error("Database failed to open:", err);

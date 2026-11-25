@@ -35,11 +35,13 @@ const PAGE_TITLES: Record<string, string> = {
   trends: "Trends",
   records: "Records",
   achievements: "Achievements",
-  data: "Data",
+  challenges: "Challenges",
+  data: "Storage",
   settings: "Settings",
   history: "History",
   match: "Match",
   test: "Live game",
+  "match-history": "Match history",
 };
 
 export function TopBar() {

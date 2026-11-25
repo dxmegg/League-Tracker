@@ -4,6 +4,8 @@ import crypto from "crypto";
 import fs from "fs";
 import os from "os";
 import path from "path";
+import { once } from "events";
+import { finished } from "stream/promises";
 
 const CHECK_TIMEOUT_MS = 10_000;
 const UPDATE_REPOSITORY = "dxmegg/League-Tracker";
@@ -198,6 +200,9 @@ export async function downloadAndInstall(
     }
     const total = Number(res.headers.get("content-length")) || 0;
     const out = fs.createWriteStream(newExe);
+    // Listening from the start: a write that fails (disk full, antivirus lock) before anything
+    // listens would be an uncaught exception. The awaits below reject with the same error.
+    out.on("error", () => {});
     const reader = res.body.getReader();
     const hash = crypto.createHash("sha256");
     let received = 0;
@@ -208,17 +213,15 @@ export async function downloadAndInstall(
       received += value.length;
       hash.update(value);
       if (!out.write(Buffer.from(value))) {
-        await new Promise((resolve) => out.once("drain", resolve));
+        await once(out, "drain");
       }
       if (total) {
         win.webContents.send("update:progress", Math.round((received / total) * 100));
       }
     }
     clearTimeout(stallTimer);
-    await new Promise<void>((resolve, reject) => {
-      out.end(() => resolve());
-      out.on("error", reject);
-    });
+    out.end();
+    await finished(out);
     if (total && received !== total) {
       fs.rmSync(tmpDir, { recursive: true, force: true });
       return { success: false, error: "Download incomplete, please try again" };

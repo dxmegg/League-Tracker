@@ -1,7 +1,11 @@
+import path from "path";
+export { getAchievementTotals } from "./achievements";
 import Database from "better-sqlite3";
 import fs from "fs";
 import { AUGMENT_SLOTS } from "../../shared/queues";
 import { getDbPath } from "./connection";
+import { getBackupDir, getDataDir } from "../paths";
+import type { DbStats } from "../../shared/api";
 import { getSetting, setSetting } from "./settings";
 import { resetParticipantStatements } from "./payloads";
 import {
@@ -150,6 +154,7 @@ export {
   getSummoner,
   getProfile,
   getAllPuuids,
+  getVisiblePuuids,
   getResolvedPlatform,
   listSavedSummoners,
   deleteSavedSummoner,
@@ -187,7 +192,13 @@ export {
   mergeDuplicateAccounts,
   runMigrations,
 } from "./schema";
-export { writeExportTo, importData, repairPuuids, reconcileOwnerPuuids } from "./transfer";
+export {
+  writeExportTo,
+  importData,
+  repairPuuids,
+  reconcileOwnerPuuids,
+  adoptOrphanedRiotRows,
+} from "./transfer";
 export {
   resolveGamePlatform,
   fetchAndStoreTimeline,
@@ -284,6 +295,17 @@ export async function initDatabase() {
   // After migrations: on a database from before a column existed, the index
   // covering it can only be built once that column has been added.
   createIndexes();
+  // The accounts whose games are shown: all saved ones except those switched off in Settings.
+  // A view, so every query follows the setting without passing a list around.
+  db.exec(`
+    CREATE TEMP VIEW IF NOT EXISTS visible_summoner AS
+    SELECT * FROM summoner WHERE puuid NOT IN (
+      SELECT j.value FROM settings, json_each(
+        CASE WHEN json_valid(settings.value) THEN settings.value ELSE '[]' END
+      ) j
+      WHERE settings.key = 'hidden_accounts'
+    )
+  `);
 
   // Backfill bonus augment slots (5+) for games stored when only 4 slots
   // were captured.
@@ -315,21 +337,46 @@ export function getDatabase(): Database.Database {
   return db;
 }
 
-export function getDbStats(): { games: number; sizeBytes: number } {
-  let sizeBytes = 0;
+function folderBytes(dir: string): number {
   try {
-    sizeBytes = fs.statSync(getDbPath()).size;
+    return fs.readdirSync(dir, { withFileTypes: true }).reduce((sum, entry) => {
+      const full = path.join(dir, entry.name);
+      return sum + (entry.isDirectory() ? folderBytes(full) : fs.statSync(full).size);
+    }, 0);
   } catch {
-    sizeBytes = 0;
+    return 0;
   }
+}
 
-  let games = 0;
+// What the Storage page shows. Row counts rather than per-table bytes: measuring bytes means
+// reading every page of the database on the main thread.
+export function getDbStats(): DbStats {
+  const count = (table: string) =>
+    (db.prepare(`SELECT COUNT(*) AS n FROM ${table}`).get() as { n: number }).n;
+  const pragma = (name: string) => db.pragma(name, { simple: true }) as number;
+  const range = db
+    .prepare("SELECT MIN(game_creation) AS oldest, MAX(game_creation) AS newest FROM games")
+    .get() as { oldest: number | null; newest: number | null };
+  const tables = db
+    .prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%'")
+    .all() as { name: string }[];
+
+  return {
+    games: count("games"),
+    sizeBytes: fileBytes(getDbPath()) + fileBytes(`${getDbPath()}-wal`),
+    freeBytes: pragma("freelist_count") * pragma("page_size"),
+    backupBytes: folderBytes(getBackupDir()),
+    imageBytes: folderBytes(path.join(getDataDir(), "dragon-images")),
+    oldestGame: range.oldest,
+    newestGame: range.newest,
+    tables: tables.map(({ name }) => ({ name, rows: count(name) })).sort((a, b) => b.rows - a.rows),
+  };
+}
+
+function fileBytes(file: string): number {
   try {
-    const row = db.prepare("SELECT COUNT(*) as n FROM games").get() as { n: number } | undefined;
-    games = row?.n ?? 0;
+    return fs.statSync(file).size;
   } catch {
-    games = 0;
+    return 0;
   }
-
-  return { games, sizeBytes };
 }

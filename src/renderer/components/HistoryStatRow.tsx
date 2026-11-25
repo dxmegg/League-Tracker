@@ -81,12 +81,7 @@ export function HistoryStatRow(props: HistoryStatRowProps) {
       : null;
 
   const scoreExtras: Array<[string, string, string]> = [];
-  const addExtra = (
-    label: string,
-    value: number | null | undefined,
-    tone: string,
-    digits = 1,
-  ) => {
+  const addExtra = (label: string, value: number | null | undefined, tone: string, digits = 1) => {
     if (value != null) scoreExtras.push([label, value.toFixed(digits), tone]);
   };
   addExtra("Average in wins", props.avgScoreWins, "text-lol-win");
@@ -134,9 +129,7 @@ export function HistoryStatRow(props: HistoryStatRowProps) {
                   </small>
                 )}
               </h3>
-              <p className="mt-1 text-[13px] text-lol-text">
-                {props.gamesLabel}
-              </p>
+              <p className="mt-1 text-[13px] text-lol-text">{props.gamesLabel}</p>
             </div>
           </div>
           <div className="my-4 flex items-baseline justify-between">
@@ -149,15 +142,9 @@ export function HistoryStatRow(props: HistoryStatRowProps) {
             </b>
           </div>
           <div className="h-2 overflow-hidden rounded-full bg-lol-loss">
-            <i
-              className="block h-full bg-lol-win"
-              style={{ width: `${winRatePct}%` }}
-            />
+            <i className="block h-full bg-lol-win" style={{ width: `${winRatePct}%` }} />
           </div>
-          <div
-            className="mt-3.5 flex flex-wrap gap-1.5"
-            aria-label="Last 30 games"
-          >
+          <div className="mt-3.5 flex flex-wrap gap-1.5" aria-label="Last 30 games">
             {props.recentForm.slice(-30).map((w, i) => (
               <i
                 key={i}
@@ -172,10 +159,7 @@ export function HistoryStatRow(props: HistoryStatRowProps) {
       {(!props.tiles || props.tiles === "score") && (
         <div className="app-tile flex flex-col">
           <h2 className="mb-4 flex h-8 items-center gap-2 font-display text-[12px] font-bold uppercase tracking-widest text-lol-gold">
-            <i
-              className="block h-3.5 w-[3px] rounded-full bg-lol-crimson"
-              aria-hidden="true"
-            />
+            <i className="block h-3.5 w-[3px] rounded-full bg-lol-crimson" aria-hidden="true" />
             Score
           </h2>
           <div className="grid flex-1 grid-cols-2 content-center items-baseline gap-x-8 gap-y-4">
@@ -183,22 +167,14 @@ export function HistoryStatRow(props: HistoryStatRowProps) {
               <span className="block text-[13px] text-lol-text">Average</span>
               <b className="font-display text-[40px] font-bold leading-none text-lol-gold">
                 {props.avgScore != null ? props.avgScore.toFixed(1) : "—"}
-                <small className="text-[20px] font-medium text-lol-text">
-                  /10
-                </small>
+                <small className="text-[20px] font-medium text-lol-text">/10</small>
               </b>
             </div>
             <div className="text-right">
-              <span className="block text-[13px] text-lol-text">
-                Team average
-              </span>
+              <span className="block text-[13px] text-lol-text">Team average</span>
               <b className="font-display text-[40px] font-bold leading-none text-lol-text/60">
-                {props.teamAvgScore != null
-                  ? props.teamAvgScore.toFixed(1)
-                  : "—"}
-                <small className="text-[20px] font-medium text-lol-text">
-                  /10
-                </small>
+                {props.teamAvgScore != null ? props.teamAvgScore.toFixed(1) : "—"}
+                <small className="text-[20px] font-medium text-lol-text">/10</small>
               </b>
             </div>
           </div>
@@ -222,9 +198,7 @@ export function HistoryStatRow(props: HistoryStatRowProps) {
               <div className="mt-1.5 flex items-center justify-between text-[11.5px] text-lol-text">
                 <span>0</span>
                 {vsTeam != null && (
-                  <span
-                    className={vsTeam >= 0 ? "text-lol-win" : "text-lol-loss"}
-                  >
+                  <span className={vsTeam >= 0 ? "text-lol-win" : "text-lol-loss"}>
                     {vsTeam >= 0 ? "+" : ""}
                     {vsTeam.toFixed(1)} vs team average
                   </span>
@@ -240,9 +214,7 @@ export function HistoryStatRow(props: HistoryStatRowProps) {
                   key={label}
                   className="rounded-xl border border-lol-border/50 bg-black/20 px-3 py-2"
                 >
-                  <b
-                    className={`block font-display text-[20px] font-bold leading-tight ${tone}`}
-                  >
+                  <b className={`block font-display text-[20px] font-bold leading-tight ${tone}`}>
                     {value}
                   </b>
                   <span className="text-[11.5px] text-lol-text">{label}</span>
@@ -254,35 +226,21 @@ export function HistoryStatRow(props: HistoryStatRowProps) {
             <span className="rounded bg-lol-gold px-2 py-0.5 text-[10.5px] font-bold tracking-wider text-[#241705]">
               MVP
             </span>
-            <b className="text-right font-display font-semibold tabular-nums">
-              {props.mvpCount}
-            </b>
+            <b className="text-right font-display font-semibold tabular-nums">{props.mvpCount}</b>
             <div className="h-1.5 overflow-hidden rounded-full bg-white/[0.05]">
-              <i
-                className="block h-full bg-lol-gold"
-                style={{ width: `${props.mvpShare}%` }}
-              />
+              <i className="block h-full bg-lol-gold" style={{ width: `${props.mvpShare}%` }} />
             </div>
-            <em className="text-right not-italic text-lol-text">
-              {props.mvpShare.toFixed(1)}%
-            </em>
+            <em className="text-right not-italic text-lol-text">{props.mvpShare.toFixed(1)}%</em>
           </div>
           <div className="mt-2 grid grid-cols-[44px_40px_1fr_50px] items-center gap-2.5 text-[13px]">
             <span className="rounded bg-lol-violet px-2 py-0.5 text-[10.5px] font-bold tracking-wider text-[#150c33]">
               ACE
             </span>
-            <b className="text-right font-display font-semibold tabular-nums">
-              {props.aceCount}
-            </b>
+            <b className="text-right font-display font-semibold tabular-nums">{props.aceCount}</b>
             <div className="h-1.5 overflow-hidden rounded-full bg-white/[0.05]">
-              <i
-                className="block h-full bg-lol-violet"
-                style={{ width: `${props.aceShare}%` }}
-              />
+              <i className="block h-full bg-lol-violet" style={{ width: `${props.aceShare}%` }} />
             </div>
-            <em className="text-right not-italic text-lol-text">
-              {props.aceShare.toFixed(1)}%
-            </em>
+            <em className="text-right not-italic text-lol-text">{props.aceShare.toFixed(1)}%</em>
           </div>
         </div>
       )}
@@ -291,32 +249,22 @@ export function HistoryStatRow(props: HistoryStatRowProps) {
         <>
           <div className="app-tile flex flex-col">
             <h2 className="mb-4 flex h-8 items-center gap-2 font-display text-[12px] font-bold uppercase tracking-widest text-lol-gold">
-              <i
-                className="block h-3.5 w-[3px] rounded-full bg-lol-crimson"
-                aria-hidden="true"
-              />
+              <i className="block h-3.5 w-[3px] rounded-full bg-lol-crimson" aria-hidden="true" />
               Average K/D/A
             </h2>
             <div className="flex flex-1 flex-col justify-center py-3">
               <div className="font-display text-[36px] font-bold leading-none">
-                <span className="text-lol-gold">
-                  {props.avgKills.toFixed(1)}
-                </span>
+                <span className="text-lol-gold">{props.avgKills.toFixed(1)}</span>
                 <span className="mx-1.5 font-medium text-lol-text">/</span>
-                <span className="text-lol-loss">
-                  {props.avgDeaths.toFixed(1)}
-                </span>
+                <span className="text-lol-loss">{props.avgDeaths.toFixed(1)}</span>
                 <span className="mx-1.5 font-medium text-lol-text">/</span>
-                <span className="text-lol-assist">
-                  {props.avgAssists.toFixed(1)}
-                </span>
+                <span className="text-lol-assist">{props.avgAssists.toFixed(1)}</span>
               </div>
               <div className="mt-1.5 text-[13px] text-lol-text">
                 <b className="font-display text-[13px] font-semibold text-lol-win">
                   {props.kdaRatio.toFixed(2)} KDA
                 </b>{" "}
-                from {formatNumber(props.killsTotal)} /{" "}
-                {formatNumber(props.deathsTotal)} /{" "}
+                from {formatNumber(props.killsTotal)} / {formatNumber(props.deathsTotal)} /{" "}
                 {formatNumber(props.assistsTotal)} in total
               </div>
             </div>
@@ -375,16 +323,12 @@ export function HistoryStatRow(props: HistoryStatRowProps) {
                 <b className="block font-display text-[16px] font-semibold text-lol-text-bright">
                   {fmtSec(props.avgGameLengthSec)}
                 </b>
-                <span className="block text-[12px] leading-snug text-lol-text">
-                  Average length
-                </span>
+                <span className="block text-[12px] leading-snug text-lol-text">Average length</span>
               </div>
               {perMin(props.avgDamageDealt) != null && (
                 <div>
                   <b className="block font-display text-[16px] font-semibold text-lol-loss">
-                    {formatNumber(
-                      Math.round(perMin(props.avgDamageDealt) ?? 0),
-                    )}
+                    {formatNumber(Math.round(perMin(props.avgDamageDealt) ?? 0))}
                   </b>
                   <span className="block text-[12px] leading-snug text-lol-text">
                     Damage per minute
@@ -455,11 +399,7 @@ export function HistoryStatRow(props: HistoryStatRowProps) {
                               : "text-lol-loss"
                         }`}
                       >
-                        {Math.abs(deathsDelta) < 0.05
-                          ? "="
-                          : deathsDelta < 0
-                            ? "▼"
-                            : "▲"}{" "}
+                        {Math.abs(deathsDelta) < 0.05 ? "=" : deathsDelta < 0 ? "▼" : "▲"}{" "}
                         {Math.abs(deathsDelta).toFixed(1)}
                       </small>
                     )}
@@ -477,10 +417,7 @@ export function HistoryStatRow(props: HistoryStatRowProps) {
           <div className="app-tile flex flex-col">
             <div className="mb-4 flex h-8 items-center justify-between gap-3">
               <h2 className="flex items-center gap-2 font-display text-[12px] font-bold uppercase tracking-widest text-lol-gold">
-                <i
-                  className="block h-3.5 w-[3px] rounded-full bg-lol-crimson"
-                  aria-hidden="true"
-                />
+                <i className="block h-3.5 w-[3px] rounded-full bg-lol-crimson" aria-hidden="true" />
                 Multikills
               </h2>
               <b className="font-display text-[24px] font-bold text-lol-gold">
@@ -527,10 +464,7 @@ export function HistoryStatRow(props: HistoryStatRowProps) {
                 ];
                 const totalGamesSafe = Math.max(1, totalGames);
                 return rows.map((row) => {
-                  const share =
-                    row.data.games > 0
-                      ? (row.data.games / totalGamesSafe) * 100
-                      : 0;
+                  const share = row.data.games > 0 ? (row.data.games / totalGamesSafe) * 100 : 0;
                   return (
                     <div key={row.key}>
                       <div className="grid grid-cols-[80px_1fr_48px] items-center gap-2.5 text-[12.5px] text-lol-text">
@@ -549,13 +483,11 @@ export function HistoryStatRow(props: HistoryStatRowProps) {
                         </span>
                         <div>
                           <b className="mr-1.5 font-display text-[15px] font-semibold text-lol-text-bright">
-                            {row.data.count}
+                            {formatNumber(row.data.count)}
                           </b>
-                          {row.data.games} games
+                          {formatNumber(row.data.games)} games
                         </div>
-                        <em className="text-right not-italic">
-                          {Math.round(share)}%
-                        </em>
+                        <em className="text-right not-italic">{Math.round(share)}%</em>
                       </div>
                       <div className="mt-1 grid grid-cols-[80px_1fr_48px] gap-2.5">
                         <span />
@@ -567,27 +499,24 @@ export function HistoryStatRow(props: HistoryStatRowProps) {
                         </div>
                         <span />
                       </div>
-                      {(props.multikillChampions?.[row.key as "double"] ?? [])
-                        .length > 0 && (
+                      {(props.multikillChampions?.[row.key as "double"] ?? []).length > 0 && (
                         <div className="mt-2.5 flex flex-wrap gap-x-1.5 gap-y-1">
-                          {props.multikillChampions![row.key as "double"].map(
-                            (c) => (
-                              <div
-                                key={c.champion_id}
-                                title={`${c.count}× ${row.label.toLowerCase()}`}
-                                className="flex flex-col items-center gap-0.5"
-                              >
-                                <ChampionIcon
-                                  championId={c.champion_id}
-                                  size={30}
-                                  className="rounded-lg"
-                                />
-                                <b className="font-display text-[11px] font-semibold text-lol-text-bright">
-                                  {c.count}
-                                </b>
-                              </div>
-                            ),
-                          )}
+                          {props.multikillChampions![row.key as "double"].map((c) => (
+                            <div
+                              key={c.champion_id}
+                              title={`${c.count}× ${row.label.toLowerCase()}`}
+                              className="flex flex-col items-center gap-0.5"
+                            >
+                              <ChampionIcon
+                                championId={c.champion_id}
+                                size={30}
+                                className="rounded-lg"
+                              />
+                              <b className="font-display text-[11px] font-semibold text-lol-text-bright">
+                                {c.count}
+                              </b>
+                            </div>
+                          ))}
                         </div>
                       )}
                     </div>

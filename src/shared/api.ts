@@ -2145,6 +2145,77 @@ export interface UpdateInfo {
   error?: string;
 }
 
+export interface DbStats {
+  games: number;
+  sizeBytes: number;
+  freeBytes: number;
+  backupBytes: number;
+  imageBytes: number;
+  oldestGame: number | null;
+  newestGame: number | null;
+  tables: { name: string; rows: number }[];
+}
+
+export type AchievementTotals = Record<
+  | "games"
+  | "wins"
+  | "kills"
+  | "assists"
+  | "deaths"
+  | "damage"
+  | "damageTaken"
+  | "healing"
+  | "gold"
+  | "cs"
+  | "hours"
+  | "doubles"
+  | "triples"
+  | "quadras"
+  | "pentas"
+  | "champions"
+  | "championsWon"
+  | "bestKills"
+  | "bestAssists"
+  | "bestDamage"
+  | "bestSpree"
+  | "bestCrit"
+  | "deathlessWins"
+  | "greatScores"
+  | "mvps"
+  | "favorites"
+  | "bestStreak"
+  | "mainGames"
+  | "masteredChampions",
+  number
+>;
+
+export interface ClientChallenge {
+  id: number;
+  name: string;
+  description: string;
+  category: string;
+  // League tier name in capitals, or "NONE"
+  level: string;
+  value: number;
+  // Only the tiers this challenge has, lowest first: many have a single one
+  tiers: { level: string; value: number }[];
+  // Lower is better (a leaderboard-style division number)
+  reverse: boolean;
+  nextThreshold: number | null;
+  // Percent of players at or above you, 0..100; null while unranked
+  percentile: number | null;
+}
+
+export interface ChallengesData {
+  challenges: ClientChallenge[];
+  totalPoints: number;
+  totalLevel: string;
+  fetchedAt: number | null;
+  // false when this is the saved copy from an earlier session
+  live: boolean;
+  error?: string;
+}
+
 export interface BackupInfo {
   file: string;
   created: number;
@@ -2538,7 +2609,9 @@ export interface ElectronAPI {
     error?: string;
   }>;
   onExportProgress: (callback: (progress: ExportProgress) => void) => () => void;
-  getDbStats: () => Promise<{ games: number; sizeBytes: number }>;
+  getDbStats: () => Promise<DbStats>;
+  getAchievementTotals: (queue?: number, account?: string) => Promise<AchievementTotals>;
+  getChallenges: () => Promise<ChallengesData>;
   importData: () => Promise<{
     success: boolean;
     imported?: number;

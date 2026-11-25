@@ -1463,15 +1463,7 @@ export function mergeDuplicateAccounts(): MergeDuplicateAccountsResult {
           count: number;
         }
       ).count;
-      const insertSql = `INSERT OR IGNORE INTO ${table} (${quotedColumns})
-           SELECT ${selectColumns} FROM ${table} WHERE puuid = ?`;
-      const inserted = runMergeSql(
-        table,
-        stalePuuid,
-        canonicalPuuid,
-        insertSql,
-        () => db.prepare(insertSql).run(canonicalPuuid, stalePuuid).changes,
-      );
+      // Counted before the copy: afterwards every copied row would look like an overlap too
       const overlapJoin = columns.includes("participant_id")
         ? "a.game_id = b.game_id AND a.participant_id = b.participant_id"
         : "a.game_id = b.game_id";
@@ -1486,6 +1478,15 @@ export function mergeDuplicateAccounts(): MergeDuplicateAccountsResult {
           )
           .get(stalePuuid, canonicalPuuid) as { count: number }
       ).count;
+      const insertSql = `INSERT OR IGNORE INTO ${table} (${quotedColumns})
+           SELECT ${selectColumns} FROM ${table} WHERE puuid = ?`;
+      const inserted = runMergeSql(
+        table,
+        stalePuuid,
+        canonicalPuuid,
+        insertSql,
+        () => db.prepare(insertSql).run(canonicalPuuid, stalePuuid).changes,
+      );
       const deleteSafe = inserted + overlap === sourceCount;
       console.log(
         `[merge] table=${table} source=${sourceCount} inserted=${inserted} overlap=${overlap} delete_safe=${deleteSafe}${deleteSafe ? "" : " SKIPPED_DELETE"}`,
@@ -1539,7 +1540,14 @@ export function mergeDuplicateAccounts(): MergeDuplicateAccountsResult {
       }
 
       const tracked = copyPuuidRows("tracked_game_stats", stalePuuid, canonicalPuuid);
-      const participants = copyPuuidRows("match_participants", stalePuuid, canonicalPuuid);
+      const participantsSql = "UPDATE match_participants SET puuid = ? WHERE puuid = ?";
+      const participants = runMergeSql(
+        "match_participants",
+        stalePuuid,
+        canonicalPuuid,
+        participantsSql,
+        () => db.prepare(participantsSql).run(canonicalPuuid, stalePuuid).changes,
+      );
 
       const staleSync = db
         .prepare(
@@ -1620,8 +1628,7 @@ export function mergeDuplicateAccounts(): MergeDuplicateAccountsResult {
       console.log("[migrate] moved rows:", {
         games: gamesMoved,
         tracked: tracked.inserted,
-        inserted: participants.inserted,
-        deleted: participants.deleted,
+        participants,
       });
       return {
         gameName,

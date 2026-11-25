@@ -35,6 +35,7 @@ const NAV_ICONS: Record<string, NavIcon> = {
   "/trends": TrendingUpIcon,
   "/records": TrophyIcon,
   "/achievements": StarIcon,
+  "/challenges": MedalIcon,
   "/data": GlobeIcon,
   "/debug": SettingsIcon,
 };
@@ -52,7 +53,8 @@ const mainTabs = [
   { to: "/trends", label: "TRENDS" },
   { to: "/records", label: "RECORDS" },
   { to: "/achievements", label: "ACHIEVEMENTS" },
-  { to: "/data", label: "DATA" },
+  { to: "/challenges", label: "CHALLENGES" },
+  { to: "/data", label: "STORAGE" },
   { to: "/debug", label: "DEBUG TESTING" },
 ];
 
@@ -71,7 +73,7 @@ const NAV_GROUPS = [
   { title: "Analytics", paths: ["/champions", "/items", "/augments", "/runes"] },
   {
     title: "Community & progress",
-    paths: ["/friends", "/trends", "/records", "/achievements", "/data", "/debug"],
+    paths: ["/friends", "/trends", "/records", "/achievements", "/challenges", "/data", "/debug"],
   },
 ];
 

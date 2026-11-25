@@ -9,6 +9,7 @@ import {
   backfillMissingTrackedRows,
   runScoreBackfillIfNeeded,
   reconcileOwnerPuuids,
+  adoptOrphanedRiotRows,
   reconcileAllParticipantNames,
 } from "./db";
 import { initDatabaseWithRecovery, startBackupSchedule, stopBackupSchedule } from "./backup";
@@ -305,6 +306,7 @@ app
 
     try {
       reconcileOwnerPuuids();
+      adoptOrphanedRiotRows();
       backfillMissingTrackedRows();
     } catch (err: unknown) {
       console.error("[startup] Failed to run tracked-row diagnostic:", err);

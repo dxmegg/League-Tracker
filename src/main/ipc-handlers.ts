@@ -44,6 +44,7 @@ const RENDERER_SETTINGS = new Set([
   "auto_start",
   "minimize_to_tray",
   "hidden_queues",
+  "hidden_accounts",
   "hide_remakes",
   "auto_backup",
   "remember_filters",
@@ -137,6 +138,7 @@ export function registerIpcHandlers() {
     console.log("[db] repair-derived-scores handler called:", {});
     const result = db.repairDerivedScores();
     console.log("[db] repair-derived-scores handler done:", result);
+    invalidateDashboardCache();
     return result;
   });
 
@@ -596,7 +598,8 @@ export function registerIpcHandlers() {
       timePeriod: HomeTimePeriod,
       queue: number | number[] | undefined,
     ): HomeDashboardPayload => {
-      const cacheKey = `${account ?? "all"}|${timePeriod}|${queue ?? "all"}`;
+      // No account and "all" read different tables, so they need different keys
+      const cacheKey = `${account ?? ""}|${timePeriod}|${queue ?? "all"}`;
       const cached = getCachedDashboard(cacheKey);
       if (cached) return cached;
       if (account !== undefined && typeof account !== "string") {
@@ -747,12 +750,7 @@ export function registerIpcHandlers() {
   ipcMain.handle(
     "db:most-played-queue",
     (_event, puuid: string, _gameName: string, _tagLine: string) => {
-      let result = db.getMostPlayedQueue(puuid);
-      const _totalRows = db
-        .getDatabase()
-        .prepare("SELECT COUNT(*) AS n FROM match_participants WHERE puuid = ?")
-        .get(puuid) as { n: number };
-      return result;
+      return db.getMostPlayedQueue(puuid);
     },
   );
 
@@ -947,10 +945,12 @@ export function registerIpcHandlers() {
     "riot:import-recent",
     async (_event, puuid: string, platform: string, count: number) => {
       try {
-        const result = await riot.importRecentRiotMatches(puuid, platform, count);
-        return result;
+        return await riot.importRecentRiotMatches(puuid, platform, count);
       } catch (err) {
         return { error: riot.friendlyRiotError(err, "match") };
+      } finally {
+        // A failed import may still have written some games
+        invalidateDashboardCache();
       }
     },
   );
@@ -1355,6 +1355,7 @@ export function registerIpcHandlers() {
           total,
         });
       });
+      invalidateDashboardCache();
       return { ok: true, skipped: false, updated };
     } catch (err) {
       console.warn("[db] backfill-participant-scores handler failed:", err);
@@ -1380,7 +1381,11 @@ export function registerIpcHandlers() {
     return result;
   });
 
-  ipcMain.handle("db:restore-older-games", () => db.restoreOlderGames());
+  ipcMain.handle("db:restore-older-games", () => {
+    const result = db.restoreOlderGames();
+    invalidateDashboardCache();
+    return result;
+  });
 
   ipcMain.handle("db:summoner-puuid", () => {
     const s = db.getSummoner();
@@ -1407,7 +1412,12 @@ export function registerIpcHandlers() {
     // The one setting with a home outside the database: the login item has to be
     // rewritten to match, and only this handler knows the answer just changed.
     if (key === "auto_start") applyAutoStart(value === "true");
-    if (key === "active_account") invalidateDashboardCache();
+    // These decide which games every cached stat counts
+    if (["active_account", "hidden_queues", "hide_remakes", "hidden_accounts"].includes(key)) {
+      invalidateDashboardCache();
+    }
+    // The account list in the top bar has to drop or regain the account right away
+    if (key === "hidden_accounts") senderWindow(_event)?.webContents.send("lcu:games-updated");
   });
   ipcMain.handle("dbg:get", () => {
     const enabled = db.getSetting("debug_enabled") === "true";
@@ -1504,6 +1514,12 @@ export function registerIpcHandlers() {
 
   ipcMain.handle("data:get-db-stats", () => db.getDbStats());
 
+  ipcMain.handle("db:achievement-totals", (_event, queue?: number, account?: string) =>
+    db.getAchievementTotals(queue, account),
+  );
+
+  ipcMain.handle("lcu:challenges", () => lcu.getChallenges());
+
   ipcMain.handle("data:import", async (event) => {
     const win = senderWindow(event);
     const options = {
@@ -1535,6 +1551,8 @@ export function registerIpcHandlers() {
         skipped: result.skipped,
       };
     } catch (err: any) {
+      // An import that stops halfway has still written games
+      invalidateDashboardCache();
       const reason = err instanceof SyntaxError ? "it isn't valid JSON" : err.message;
       return { success: false, error: `Import failed: ${reason}` };
     }
@@ -1547,7 +1565,9 @@ export function registerIpcHandlers() {
     // A repair reassigns game ownership and rewrites every derived stat, so
     // there is no undo for it short of the snapshot taken here.
     await backup.backupQuietly("pre-repair");
-    return db.repairPuuids();
+    const result = db.repairPuuids();
+    invalidateDashboardCache();
+    return result;
   });
 
   ipcMain.handle("data:recalculate-scores", async (event) => {

@@ -366,10 +366,10 @@ export function ProfileRedesign({
                                   </span>
                                 )}
                               </div>
-                              <div className="font-display text-[11.5px] tabular-nums">
+                              <div className="whitespace-nowrap font-display text-[11.5px] tabular-nums">
                                 <span className="text-lol-win">{saved.wins}W</span>{" "}
                                 <span className="text-lol-loss">{losses}L</span>
-                                <span className="ml-2 text-lol-text">{saved.gameCount} games</span>
+                                <span className="ml-2 text-lol-text">{saved.gameCount}g</span>
                               </div>
                             </div>
                             <b

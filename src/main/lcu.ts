@@ -27,6 +27,8 @@ import type {
   LiveSpell,
   LiveSessionData,
   ClientProfile,
+  ChallengesData,
+  ClientChallenge,
   ProfileExtras,
   RankEntry,
 } from "../shared/api";
@@ -82,7 +84,15 @@ async function lcuRequest(url: string, method: HttpRequestOptions["method"] = "G
   if (!credentials) {
     await connect();
   }
-  const response = await createHttp1Request({ url, method }, credentials!);
+  // The request has no timeout of its own, and one that hangs would leave the sync guard set
+  // for the rest of the session
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const response = await Promise.race([
+    createHttp1Request({ url, method }, credentials!),
+    new Promise<never>((_resolve, reject) => {
+      timer = setTimeout(() => reject(new Error(`LCU request timed out: ${url}`)), 30_000);
+    }),
+  ]).finally(() => clearTimeout(timer));
   if (!response.ok) {
     throw new Error(`LCU request failed: ${response.status} ${url}`);
   }
@@ -2247,4 +2257,92 @@ async function fetchClientProfile(): Promise<ClientProfile | null> {
   }
   profileCache = { at: Date.now(), value };
   return value;
+}
+
+// ---- Challenges ----
+
+const CHALLENGES_CACHE_KEY = "challenges_cache_v2";
+const CHALLENGE_LEVELS = [
+  "IRON",
+  "BRONZE",
+  "SILVER",
+  "GOLD",
+  "PLATINUM",
+  "EMERALD",
+  "DIAMOND",
+  "MASTER",
+  "GRANDMASTER",
+  "CHALLENGER",
+];
+
+// The client's challenge list for the signed-in account. The answer is stored so the tab still
+// shows it while the client is closed.
+export async function getChallenges(): Promise<ChallengesData> {
+  try {
+    const [all, summary] = await Promise.all([
+      lcuRequest("/lol-challenges/v1/challenges/local-player"),
+      lcuRequest("/lol-challenges/v1/summary-player-data/local-player").catch(() => null),
+    ]);
+    const challenges = Object.values(rec(all))
+      .map((entry) => parseChallenge(rec(entry)))
+      .filter((c): c is ClientChallenge => c !== null);
+    if (challenges.length === 0) throw new Error("The client returned no challenges");
+
+    const overall = rec(summary);
+    const result: ChallengesData = {
+      challenges,
+      totalPoints: num(overall.totalChallengeScore),
+      totalLevel: str(overall.overallChallengeLevel),
+      fetchedAt: Date.now(),
+      live: true,
+    };
+    db.setSetting(CHALLENGES_CACHE_KEY, JSON.stringify(result));
+    return result;
+  } catch (err) {
+    console.warn("[lcu] challenges unavailable:", friendlyErrorMessage(err));
+    // Credentials from a client that has since restarted would keep failing
+    credentials = null;
+    const saved = db.getSetting(CHALLENGES_CACHE_KEY);
+    if (saved) return { ...(JSON.parse(saved) as ChallengesData), live: false };
+    return {
+      challenges: [],
+      totalPoints: 0,
+      totalLevel: "",
+      fetchedAt: null,
+      live: false,
+      error: isClientConnected() ? friendlyErrorMessage(err) : undefined,
+    };
+  }
+}
+
+function parseChallenge(c: Record<string, any>): ClientChallenge | null {
+  // Retired challenges stay in the list but can no longer progress
+  const retired = num(c.retireTimestamp) > 0 && num(c.retireTimestamp) < Date.now();
+  if (!num(c.id) || !str(c.name) || retired) return null;
+  const value = num(c.currentValue);
+  const thresholds = rec(c.thresholds);
+  const tiers = CHALLENGE_LEVELS.filter((level) => level in thresholds).map((level) => ({
+    level,
+    value: num(rec(thresholds[level]).value ?? thresholds[level]),
+  }));
+  // The client's own nextThreshold is unreliable for short and reverse ladders, so it is derived
+  const reached = CHALLENGE_LEVELS.indexOf(str(c.currentLevel));
+  const next = tiers.find((tier) => CHALLENGE_LEVELS.indexOf(tier.level) > reached);
+  const percentile = c.percentile ?? c.percentage;
+  return {
+    id: num(c.id),
+    name: str(c.name),
+    description: str(c.description) || str(c.shortDescription),
+    category: str(c.category) || "NONE",
+    level: str(c.currentLevel) || "NONE",
+    value,
+    tiers,
+    reverse: Boolean(c.isReverseDirection),
+    nextThreshold: next?.value ?? null,
+    // The client already answers in percent; unranked would only ever read "top 100%"
+    percentile:
+      typeof percentile === "number" && percentile > 0 && str(c.currentLevel) !== "NONE"
+        ? percentile
+        : null,
+  };
 }

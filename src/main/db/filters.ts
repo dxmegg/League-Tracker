@@ -128,7 +128,7 @@ export function applyTimeFilter(timePeriod?: "24h" | "7d" | "30d" | "full"): {
 // still has a summoner row. A deleted owner leaves an orphaned game that must
 // not appear in any local view.
 export function localGamesFilter(alias: string): string {
-  return `${alias}.source != 'search-import' AND ${alias}.puuid IN (SELECT puuid FROM summoner)`;
+  return `${alias}.source != 'search-import' AND ${alias}.puuid IN (SELECT puuid FROM visible_summoner)`;
 }
 
 // Remakes are already left out of every stat; this setting takes them out of
@@ -146,7 +146,7 @@ export function statsSource(account?: string): {
     return {
       table: "tracked_game_stats",
       alias: "ps",
-      accountFilter: "ps.puuid IN (SELECT puuid FROM summoner)",
+      accountFilter: "ps.puuid IN (SELECT puuid FROM visible_summoner)",
     };
   }
   if (account) return { table: "tracked_game_stats", alias: "ps", accountFilter: "ps.puuid = ?" };
