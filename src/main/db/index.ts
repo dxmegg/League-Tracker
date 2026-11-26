@@ -158,7 +158,6 @@ export {
   getResolvedPlatform,
   listSavedSummoners,
   deleteSavedSummoner,
-  deleteSearchedSummoners,
   setRiotSyncState,
 } from "./summoner";
 

@@ -665,45 +665,6 @@ export function deleteSavedSummoner(puuid: string): {
   return { deletedGames, deletedTrackedRows };
 }
 
-export function deleteSearchedSummoners(): { removed: number; games: number } {
-  // A searched summoner has no LCU-sourced identity fields. Keep this
-  // conservative so real saved accounts are not removed accidentally.
-  const candidates = db
-    .prepare(
-      `SELECT s.puuid,
-              (SELECT COUNT(*) FROM tracked_game_stats t WHERE t.puuid = s.puuid) as games
-         FROM summoner s
-        WHERE s.puuid IN (
-          SELECT DISTINCT t.puuid
-          FROM tracked_game_stats t
-          JOIN games g ON g.game_id = t.game_id
-          WHERE g.source = 'search-import'
-        )
-        AND NOT EXISTS (
-          SELECT 1
-          FROM tracked_game_stats t
-          JOIN games g ON g.game_id = t.game_id
-          WHERE t.puuid = s.puuid AND g.source != 'search-import'
-        )
-        AND NOT EXISTS (
-          SELECT 1 FROM games g WHERE g.puuid = s.puuid AND g.source != 'search-import'
-        )`,
-    )
-    .all() as { puuid: string; games: number }[];
-
-  let removed = 0;
-  let removedGames = 0;
-  const tx = db.transaction(() => {
-    for (const candidate of candidates) {
-      const result = deleteSavedSummoner(candidate.puuid);
-      removed++;
-      removedGames += result.deletedGames;
-    }
-  });
-  tx();
-  return { removed, games: removedGames };
-}
-
 export function setRiotSyncState(
   puuid: string,
   platform: string,

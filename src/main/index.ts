@@ -27,6 +27,7 @@ import {
 import {
   loadChampionData,
   loadAugmentData,
+  loadQueueNames,
   waitForChampionData,
   flushAugmentIconCache,
 } from "./dragon";
@@ -334,6 +335,7 @@ app
     // Load assets in background
     loadChampionData();
     loadAugmentData().catch((err) => console.error("Failed to load augment data:", err));
+    void loadQueueNames();
 
     // Recompute stored scores once champion class data is available, so the
     // backfill uses the same class weights as insert-time scoring.

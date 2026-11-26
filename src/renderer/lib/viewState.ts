@@ -4,7 +4,7 @@
 // remember_filters setting on (so they survive a relaunch too).
 const PREFIX = "view:";
 
-let remembering = false;
+let remembering = true;
 const memory = new Map<string, unknown>();
 
 // Set from main.tsx before the first render: pages read their stored values

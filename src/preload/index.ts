@@ -20,7 +20,6 @@ import type {
   RiotSyncOptions,
   RiotSyncProgress,
   RiotAccountConfig,
-  RiotAccountInput,
   ResolvedPlatform,
   RestoreOlderGamesResult,
   HomeAccountFilter,
@@ -373,8 +372,6 @@ const api: ElectronAPI = {
   getOpggRecentGames: (region: string, summonerId: string, limit: number) =>
     ipcRenderer.invoke("opgg:games", region, summonerId, limit),
   listRiotAccounts: (): Promise<RiotAccountConfig[]> => ipcRenderer.invoke("riot:list-accounts"),
-  addRiotAccount: (account: RiotAccountInput): Promise<RiotAccountConfig[]> =>
-    ipcRenderer.invoke("riot:add-account", account),
   removeRiotAccount: (id: string): Promise<RiotAccountConfig[]> =>
     ipcRenderer.invoke("riot:remove-account", { id }),
 
@@ -418,6 +415,8 @@ const api: ElectronAPI = {
   getChampionDataVersion: () => ipcRenderer.invoke("dragon:version"),
 
   getChampionData: () => ipcRenderer.invoke("dragon:champions"),
+
+  getQueueNames: () => ipcRenderer.invoke("dragon:queue-names"),
 
   getAugmentData: (patch?: string) => ipcRenderer.invoke("dragon:augments", patch),
 
@@ -501,7 +500,6 @@ const api: ElectronAPI = {
   getSavedSummoners: () => ipcRenderer.invoke("db:saved-summoners"),
   mergeDuplicateAccounts: () => ipcRenderer.invoke("db:merge-duplicate-accounts"),
   deleteSummoner: (puuid: string) => ipcRenderer.invoke("db:delete-summoner", puuid),
-  deleteSearchedSummoners: () => ipcRenderer.invoke("db:delete-searched-summoners"),
 
   getProfile: () => ipcRenderer.invoke("db:profile"),
   getCurrentSummonerProfileIcon: () => ipcRenderer.invoke("lcu:current-summoner-icon"),

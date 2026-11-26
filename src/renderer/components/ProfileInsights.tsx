@@ -1,3 +1,4 @@
+import { useViewState } from "../hooks/useViewState";
 import { useEffect, useMemo, useState } from "react";
 import type { ReactNode } from "react";
 import type { AugmentStats, HomeTimePeriod, MatchListItem } from "../../shared/api";
@@ -95,8 +96,8 @@ export function ProfileAugments({
   const queue = useScopedQueue(undefined);
   const augmentData = useAugmentData(undefined);
   const [stats, setStats] = useState<AugmentStats[] | null>(null);
-  const [rarity, setRarity] = useState<string | null>(null);
-  const [sort, setSort] = useState<AugmentSort>("picks");
+  const [rarity, setRarity] = useViewState<string | null>("profile.augRarity", null);
+  const [sort, setSort] = useViewState<AugmentSort>("profile.augSort", "picks");
   const [showAll, setShowAll] = useState(false);
 
   useEffect(() => {

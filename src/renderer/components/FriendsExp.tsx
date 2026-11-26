@@ -1,3 +1,4 @@
+import { useViewState } from "../hooks/useViewState";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { Link } from "react-router-dom";
 import type { TeammateChampionStats, TeammateStats } from "../lib/types";
@@ -35,12 +36,15 @@ const winRate = (row: Row) => (row.games > 0 ? (row.wins / row.games) * 100 : 0)
 export function FriendsExp() {
   const scopedQueue = useHistoryScopeQueue();
   const championData = useChampionData();
-  const [queue, setQueue] = useState<number | undefined>(scopedQueue);
-  const [relation, setRelation] = useState<Relation>("friends");
-  const [subject, setSubject] = useState<Subject>("players");
-  const [minGames, setMinGames] = useState(0);
-  const [search, setSearch] = useState("");
-  const [sort, setSort] = useState<{ key: SortKey; desc: boolean }>({ key: "games", desc: true });
+  const [queue, setQueue] = useViewState<number | undefined>("friendsExp.queue", scopedQueue);
+  const [relation, setRelation] = useViewState<Relation>("friendsExp.relation", "friends");
+  const [subject, setSubject] = useViewState<Subject>("friendsExp.subject", "players");
+  const [minGames, setMinGames] = useViewState("friendsExp.minGames", 0);
+  const [search, setSearch] = useViewState("friendsExp.search", "");
+  const [sort, setSort] = useViewState<{ key: SortKey; desc: boolean }>("friendsExp.sort", {
+    key: "games",
+    desc: true,
+  });
   const [visible, setVisible] = useState(PAGE_SIZE);
 
   const players = useIpc<TeammateStats[]>(
@@ -52,7 +56,9 @@ export function FriendsExp() {
     [queue, relation],
   );
 
-  useEffect(() => setQueue(scopedQueue), [scopedQueue]);
+  useEffect(() => {
+    if (scopedQueue !== undefined) setQueue(scopedQueue);
+  }, [scopedQueue, setQueue]);
   useEffect(() => setVisible(PAGE_SIZE), [queue, relation, subject, minGames, search, sort]);
   const refetchPlayers = players.refetch;
   const refetchChampions = champions.refetch;

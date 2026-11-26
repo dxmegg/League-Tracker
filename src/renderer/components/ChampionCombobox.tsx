@@ -6,6 +6,8 @@ interface ChampionComboboxProps {
   value: number | null;
   onChange: (championId: number | null) => void;
   onQueryChange?: (query: string) => void;
+  // A remembered search text to start from
+  initialQuery?: string;
   placeholder?: string;
 }
 
@@ -13,10 +15,12 @@ export function ChampionCombobox({
   value,
   onChange,
   onQueryChange,
+  initialQuery = "",
   placeholder = "Search champion",
 }: ChampionComboboxProps) {
   const champData = useChampionData();
-  const [query, setQuery] = useState("");
+  const [query, setQuery] = useState(initialQuery);
+  const previousValue = useRef(value);
   const [open, setOpen] = useState(false);
   const [highlight, setHighlight] = useState(0);
   const wrapRef = useRef<HTMLDivElement>(null);
@@ -35,13 +39,12 @@ export function ChampionCombobox({
   }, [allChampions, query]);
 
   useEffect(() => {
-    if (value == null) {
+    if (value != null) setQuery(getChampionName(champData, value));
+    else if (previousValue.current != null) {
       setQuery("");
       onQueryChange?.("");
-      return;
     }
-    const name = getChampionName(champData, value);
-    setQuery(name);
+    previousValue.current = value;
   }, [value, champData, onQueryChange]);
 
   useEffect(() => {

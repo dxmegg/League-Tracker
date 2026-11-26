@@ -1,3 +1,4 @@
+import { useViewState } from "../hooks/useViewState";
 // The League client's own challenges. Read from the client; the last answer is kept so the page
 // still works while the client is closed.
 import { useEffect, useState } from "react";
@@ -22,9 +23,12 @@ export default function Challenges() {
     () => window.api.getChallenges(),
     [status === "disconnected"],
   );
-  const [category, setCategory] = useState("All");
-  const [sort, setSort] = useState<(typeof SORTS)[number]>("Closest to next tier");
-  const [search, setSearch] = useState("");
+  const [category, setCategory] = useViewState("challenges.category", "All");
+  const [sort, setSort] = useViewState<(typeof SORTS)[number]>(
+    "challenges.sort",
+    "Closest to next tier",
+  );
+  const [search, setSearch] = useViewState("challenges.search", "");
   const [kind, setKind] = useState<(typeof KINDS)[number]>("Any tiers");
   const [visible, setVisible] = useState(PAGE_SIZE);
   useEffect(() => setVisible(PAGE_SIZE), [category, kind, sort, search]);

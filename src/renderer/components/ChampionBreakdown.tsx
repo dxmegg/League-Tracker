@@ -1,3 +1,4 @@
+import { useViewState } from "../hooks/useViewState";
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import type { ItemDetail } from "../lib/types";
@@ -33,9 +34,9 @@ export function ChampionBreakdown({
 }) {
   const champions = useChampionData();
   const [expandedChampion, setExpandedChampion] = useState<number | null>(null);
-  const [championSearch, setChampionSearch] = useState("");
-  const [championSort, setChampionSort] = useState<ChampionSort>("games");
-  const [championSortDesc, setChampionSortDesc] = useState(true);
+  const [championSearch, setChampionSearch] = useViewState("breakdown.search", "");
+  const [championSort, setChampionSort] = useViewState<ChampionSort>("breakdown.sort", "games");
+  const [championSortDesc, setChampionSortDesc] = useViewState("breakdown.sortDesc", true);
   const [championPage, setChampionPage] = useState(1);
   const filteredChampions = useMemo(() => {
     if (!data) return [];

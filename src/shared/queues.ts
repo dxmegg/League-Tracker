@@ -95,7 +95,60 @@ export const QUEUE_LABELS: Record<number, string> = {
   2000: "Tutorial 1",
   2010: "Tutorial 2",
   3140: "Training Tool",
+  // Names below follow CommunityDragon's queues.json
+  700: "Clash",
+  720: "ARAM Clash",
+  820: "Co-op vs AI Beginner",
+  830: "Co-op vs AI Intro",
+  840: "Co-op vs AI Beginner",
+  850: "Co-op vs AI Intermediate",
+  870: "Co-op vs AI Intro",
+  890: "Co-op vs AI Intermediate",
+  1020: "One for All",
+  1300: "Nexus Blitz",
+  1400: "Ultimate Spellbook",
+  1810: "Swarm",
+  1820: "Swarm",
+  1830: "Swarm",
+  1840: "Swarm",
+  1900: "URF",
+  2300: "Brawl",
+  2401: "ARAM Mayhem",
+  2403: "ARAM Mayhem",
+  2405: "ARAM Mayhem",
+  2410: "ARAM Mayhem Tournament",
+  3100: "Summoner's Rift (Blind) - Custom game",
+  3110: "Summoner's Rift (Draft) - Custom game",
+  3120: "Summoner's Rift (All Random) - Custom game",
+  3130: "Summoner's Rift (Tournament Draft) - Custom game",
+  3200: "ARAM (Blind) - Custom game",
+  3210: "ARAM (Draft) - Custom game",
+  3220: "ARAM - Custom game",
+  3230: "ARAM (Tournament Draft) - Custom game",
+  3240: "ARAM Mayhem - Custom game",
+  3250: "ARAM (First Blood) - Custom game",
+  3260: "League Classic (Blind) - Custom game",
+  3262: "League Classic (Draft) - Custom game",
+  3280: "Mayhem Classic - Custom game",
+  4200: "Doom Bots",
+  4210: "Doom Bots",
+  4220: "Doom Bots (Hard)",
 };
+
+// CommunityDragon's queues.json as id -> name. Entries without a name are left out.
+export function toQueueNames(list: unknown): Record<number, string> {
+  const names: Record<number, string> = {};
+  for (const q of Array.isArray(list) ? list : []) {
+    const name = typeof q?.name === "string" ? q.name.trim() : "";
+    if (Number.isInteger(q?.id) && name) names[q.id] ??= name;
+  }
+  return names;
+}
+
+// Fills in queues the list above does not name; the names above always win
+export function addQueueLabels(names: Record<number, string>): void {
+  for (const [id, name] of Object.entries(names)) QUEUE_LABELS[Number(id)] ??= name;
+}
 
 // Four picked at level breakpoints, plus up to two bonus slots for special augments
 export const AUGMENT_SLOTS = 6;

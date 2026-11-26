@@ -223,7 +223,7 @@ export function AboutSection() {
   const { data: version } = useIpc(() => window.api.getVersion(), []);
 
   return (
-    <div className="grid grid-cols-1 items-start gap-4 lg:col-span-2 lg:grid-cols-2">
+    <div className="grid grid-cols-1 gap-4 lg:col-span-2 lg:grid-cols-2">
       <section className="app-tile flex min-w-0 flex-wrap items-center gap-4 lg:col-span-2">
         <img src={icon} alt="" className="h-16 w-16 rounded-2xl" />
         <div className="min-w-0 flex-1">
@@ -301,7 +301,7 @@ export function AboutSection() {
           {PAYLOAD_INFO.map((group) => (
             <details
               key={group.category}
-              className="group rounded-xl border border-lol-border/50 bg-black/25 transition-colors open:border-lol-crimson/40 hover:border-lol-crimson/40"
+              className="group rounded-xl border border-lol-border/50 bg-black/25 transition-colors open:border-lol-crimson/40 hover:border-lol-crimson/40 md:[&:last-child:nth-child(odd)]:col-span-2"
             >
               <summary className="flex cursor-pointer list-none items-center gap-3 rounded-xl px-3 py-2.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-lol-crimson/60">
                 <span className="min-w-0 flex-1">

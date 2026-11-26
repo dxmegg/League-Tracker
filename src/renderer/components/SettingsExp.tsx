@@ -3,24 +3,17 @@ import SummonerIcon from "./SummonerIcon";
 import { useActiveAccount } from "../hooks/useActiveAccount";
 import { invalidateAccountsCache } from "../hooks/useChampions";
 import { ALL_ACCOUNTS_SENTINEL } from "../lib/accountsEvent";
-import {
-  useState,
-  useEffect,
-  useCallback,
-  type ButtonHTMLAttributes,
-  type FormEvent,
-  type ReactNode,
-} from "react";
+import { useState, useEffect, useCallback, type ButtonHTMLAttributes, type ReactNode } from "react";
 import { useBackfill } from "../hooks/useBackfill";
 import { useTimelineBackfill } from "../hooks/useTimelineBackfill";
 import { queueLabel } from "../components/QueueSelect";
+import { QUEUE_LABELS } from "../../shared/queues";
 import { setRemembering } from "../lib/viewState";
 import { useActiveTheme } from "../hooks/useActiveTheme";
 import { useActiveMode } from "../hooks/useActiveMode";
 import { useDevMode } from "../hooks/useDevMode";
 import type { BackupInfo } from "../lib/types";
 import {
-  RIOT_ACCOUNT_PLATFORMS,
   type ExportProgress,
   type ImportProgress,
   type RiotAccountConfig,
@@ -361,17 +354,14 @@ export function SettingsExp() {
   const [queues, setQueues] = useState<number[]>([]);
   const [hiddenQueues, setHiddenQueues] = useState<Set<number>>(new Set());
   const [hideRemakes, setHideRemakes] = useState(false);
-  const [autoBackup, setAutoBackup] = useState(true);
-  const [rememberFilters, setRememberFilters] = useState(false);
+  const [autoBackup, setAutoBackup] = useState(false);
+  const [rememberFilters, setRememberFilters] = useState(true);
   const [loading, setLoading] = useState(true);
   const [backfillStatus, setBackfillStatus] = useState<string | null>(null);
   const [riotSyncing, setRiotSyncing] = useState(false);
   const [riotSyncStatus, setRiotSyncStatus] = useState<string | null>(null);
   const [riotSyncProgress, setRiotSyncProgress] = useState<RiotSyncProgress | null>(null);
   const [riotAccounts, setRiotAccounts] = useState<RiotAccountConfig[]>([]);
-  const [riotGameName, setRiotGameName] = useState("");
-  const [riotTagLine, setRiotTagLine] = useState("");
-  const [riotPlatform, setRiotPlatform] = useState<string>("euw1");
   const [riotAccountStatus, setRiotAccountStatus] = useState<string | null>(null);
   const [resolvedPlatform, setResolvedPlatform] = useState<{
     platform: string;
@@ -431,8 +421,8 @@ export function SettingsExp() {
       setMinimizeToTray(tray !== "false");
       setHiddenQueues(new Set(hidden ? hidden.split(",").map(Number) : []));
       setHideRemakes(remakes === "true");
-      setAutoBackup(backup !== "false");
-      setRememberFilters(remember === "true");
+      setAutoBackup(backup === "true");
+      setRememberFilters(remember !== "false");
       setLoading(false);
     });
   }, []);
@@ -570,27 +560,6 @@ export function SettingsExp() {
       setRiotSyncing(false);
     }
   }, []);
-
-  const handleAddRiotAccount = useCallback(
-    async (event: FormEvent<HTMLFormElement>) => {
-      event.preventDefault();
-      setRiotAccountStatus(null);
-      try {
-        const accounts = await window.api.addRiotAccount({
-          gameName: riotGameName,
-          tagLine: riotTagLine,
-          platform: riotPlatform,
-        });
-        setRiotAccounts(accounts);
-        setRiotGameName("");
-        setRiotTagLine("");
-        setRiotAccountStatus("Riot account added.");
-      } catch (err: unknown) {
-        setRiotAccountStatus(`Error: ${err instanceof Error ? err.message : String(err)}`);
-      }
-    },
-    [riotGameName, riotPlatform, riotTagLine],
-  );
 
   const handleRemoveRiotAccount = useCallback(async (id: string) => {
     setRiotAccountStatus(null);
@@ -1010,7 +979,9 @@ export function SettingsExp() {
         ))}
       </div>
 
-      <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-2">
+      <div
+        className={`grid grid-cols-1 gap-4 lg:grid-cols-2 ${tab === "general" ? "items-stretch" : "items-start"}`}
+      >
         {tab === "accounts" && (
           <Section title="Riot Accounts" className="lg:col-span-2">
             <p className="text-[12.5px] text-lol-text">
@@ -1050,46 +1021,6 @@ export function SettingsExp() {
                 })}
               </div>
             )}
-            <form
-              className="grid gap-3 md:grid-cols-[1fr_1fr_10rem_auto]"
-              onSubmit={handleAddRiotAccount}
-            >
-              <label className="flex flex-col gap-1 text-[11px] text-lol-text">
-                Game Name
-                <input
-                  value={riotGameName}
-                  onChange={(event) => setRiotGameName(event.target.value)}
-                  className={INPUT_CLASS}
-                  required
-                />
-              </label>
-              <label className="flex flex-col gap-1 text-[11px] text-lol-text">
-                Tag Line
-                <input
-                  value={riotTagLine}
-                  onChange={(event) => setRiotTagLine(event.target.value)}
-                  className={INPUT_CLASS}
-                  required
-                />
-              </label>
-              <label className="flex flex-col gap-1 text-[11px] text-lol-text">
-                Platform
-                <select
-                  value={riotPlatform}
-                  onChange={(event) => setRiotPlatform(event.target.value)}
-                  className={INPUT_CLASS}
-                >
-                  {RIOT_ACCOUNT_PLATFORMS.map((platform) => (
-                    <option key={platform} value={platform}>
-                      {PLATFORM_LABELS[platform] ?? platform}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <Button type="submit" className="self-end">
-                Add account
-              </Button>
-            </form>
             {riotAccountStatus && <p className="text-xs text-lol-text">{riotAccountStatus}</p>}
           </Section>
         )}
@@ -1482,22 +1413,6 @@ export function SettingsExp() {
                 })}
               </div>
             )}
-            <Button
-              variant="neutral"
-              onClick={async () => {
-                setSummonerStatus(null);
-                const removed = await window.api.deleteSearchedSummoners();
-                setSummonerStatus(
-                  removed.removed > 0
-                    ? `Removed ${removed.removed} searched account(s) and ${removed.games} game(s)`
-                    : "No searched accounts to remove",
-                );
-                await refreshSavedSummoners();
-              }}
-              className="mt-3"
-            >
-              Clean up searched accounts
-            </Button>
             {summonerStatus && <p className="mt-3 text-[12.5px] text-lol-text">{summonerStatus}</p>}
           </Section>
         )}
@@ -1609,7 +1524,7 @@ export function SettingsExp() {
                     key={q}
                     className="flex items-center justify-between gap-4 border-b border-lol-border/40 py-1.5 transition-colors duration-[120ms] hover:bg-white/[0.02] last:border-b-0 xl:py-2"
                   >
-                    <p className="text-sm text-lol-text">{queueLabel(q)}</p>
+                    <p className="text-sm text-lol-text">{QUEUE_LABELS[q] ?? queueLabel(q)}</p>
                     {/* Switching off the last one would empty every page */}
                     <Switch
                       checked={shown}

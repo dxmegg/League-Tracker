@@ -252,7 +252,7 @@ export async function waitForBackups(): Promise<void> {
 // Snapshots protect the user's data, so a failure to take one is reported but
 // never allowed to abort whatever it was protecting.
 export async function backupQuietly(reason: BackupReason): Promise<void> {
-  if (getSetting("auto_backup") === "false") return;
+  if (getSetting("auto_backup") !== "true") return;
   try {
     const backup = await createBackup(reason);
     console.log(`Backed up ${backup.games} games to ${backup.file}`);
@@ -269,7 +269,7 @@ function isStale(): boolean {
 export function startBackupSchedule(): void {
   if (scheduleTimer) return;
   const tick = () => {
-    if (getSetting("auto_backup") === "false") return;
+    if (getSetting("auto_backup") !== "true") return;
     if (isStale()) void backupQuietly("auto");
   };
   firstTickTimer = setTimeout(tick, FIRST_TICK_DELAY_MS);

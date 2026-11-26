@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useViewState } from "../hooks/useViewState";
 import type { AchievementTotals } from "../../shared/api";
 import { useIpc } from "../hooks/useIpc";
 import { useActiveAccount } from "../hooks/useActiveAccount";
@@ -35,7 +35,7 @@ export default function Achievements() {
     () => window.api.getAchievementTotals(queue, account),
     [queue, account],
   );
-  const [category, setCategory] = useState("All");
+  const [category, setCategory] = useViewState("achievements.category", "All");
 
   const graded = data ? ACHIEVEMENTS.map((a) => ({ ...a, ...progressOf(a, data) })) : [];
   const points = graded.reduce((sum, a) => sum + a.points, 0);

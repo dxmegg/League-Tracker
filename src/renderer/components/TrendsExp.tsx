@@ -1,4 +1,5 @@
-import { useState, type ReactNode } from "react";
+import { useViewState } from "../hooks/useViewState";
+import { type ReactNode } from "react";
 import { Link } from "react-router-dom";
 import type { TrendsData, TrendsDay } from "../lib/types";
 import { getChampionName, useChampionData } from "../hooks/useChampions";
@@ -195,7 +196,7 @@ const METRICS: { value: Metric; label: string }[] = [
 ];
 
 function OverTime({ weeks, data }: { weeks: Week[]; data: TrendsData }) {
-  const [metric, setMetric] = useState<Metric>("winRate");
+  const [metric, setMetric] = useViewState<Metric>("trends.metric", "winRate");
   const played = weeks.filter((w) => w.games > 0);
   const valueOf = (w: Week): number | null => {
     if (w.games === 0) return null;

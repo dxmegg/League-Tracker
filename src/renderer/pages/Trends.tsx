@@ -1,3 +1,4 @@
+import { useViewState } from "../hooks/useViewState";
 import { useEffect, useMemo, useState } from "react";
 import { useIpc } from "../hooks/useIpc";
 import { useHistoryScopeQueue } from "../lib/historyScope";
@@ -150,7 +151,7 @@ export default function Trends() {
   const isExperiment = activeTheme === "experiment";
   const [activeAccountRaw] = useActiveAccount();
   const account = activeAccountRaw === ALL_ACCOUNTS_SENTINEL ? "all" : activeAccountRaw;
-  const [timeRange, setTimeRange] = useState<TimeRange>("12w");
+  const [timeRange, setTimeRange] = useViewState<TimeRange>("trends.timeRange", "12w");
 
   const scopedQueue = useHistoryScopeQueue();
   const accountForFetch = isExperiment ? account : undefined;

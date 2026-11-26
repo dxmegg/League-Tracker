@@ -10,10 +10,17 @@ import { ErrorBoundary } from "./components/ErrorBoundary";
 import { initViewState } from "./lib/viewState";
 import { DEFAULT_THEME } from "./lib/themes";
 import { dbg } from "../shared/debug";
+import { addQueueLabels } from "../shared/queues";
 import "./global.css";
 
 const root = createRoot(document.getElementById("root")!);
 document.documentElement.setAttribute("data-theme", DEFAULT_THEME);
+
+// Not awaited: a slow download must not hold up the window
+window.api
+  ?.getQueueNames?.()
+  .then(addQueueLabels)
+  .catch(() => {});
 
 // Pages read their remembered filters as they mount, so whether to remember at
 // all has to be settled before the first render.
@@ -25,7 +32,7 @@ Promise.resolve(window.api?.getDebugEnabled?.())
   })
   .catch(() => null)
   .then((remember) => {
-    initViewState(remember === "true");
+    initViewState(remember !== "false");
     root.render(
       <ErrorBoundary>
         <App />

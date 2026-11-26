@@ -1,3 +1,5 @@
+import { ACTIVE_ACCOUNT_EVENT } from "../lib/accountsEvent";
+import { useViewState } from "../hooks/useViewState";
 import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type {
   ActivityHeatmapDay,
@@ -114,14 +116,26 @@ export function YourProfileSections({
   // Panel placed first in the KDA and Multikills row
   leading?: ReactNode;
 }) {
-  const [championFilter, setChampionFilter] = useState<number | undefined>(undefined);
-  const [patchFilter, setPatchFilter] = useState<string | undefined>(undefined);
-  const [localQueue, setQueueFilter] = useState<number | undefined>(undefined);
+  const [championFilter, setChampionFilter] = useViewState<number | undefined>(
+    "yourProfile.champion",
+    undefined,
+  );
+  const [patchFilter, setPatchFilter] = useViewState<string | undefined>(
+    "yourProfile.patch",
+    undefined,
+  );
+  const [localQueue, setQueueFilter] = useViewState<number | undefined>(
+    "yourProfile.queue",
+    undefined,
+  );
   const queueFilter = useScopedQueue(localQueue);
   const [dataMode] = useActiveMode();
-  const [sort, setSort] = useState<MatchSort | undefined>(undefined);
-  const [sortDir, setSortDir] = useState<MatchSortDir>("desc");
-  const [resultFilter, setResultFilter] = useState<"win" | "loss" | undefined>(undefined);
+  const [sort, setSort] = useViewState<MatchSort | undefined>("yourProfile.sort", undefined);
+  const [sortDir, setSortDir] = useViewState<MatchSortDir>("yourProfile.sortDir", "desc");
+  const [resultFilter, setResultFilter] = useViewState<"win" | "loss" | undefined>(
+    "yourProfile.result",
+    undefined,
+  );
   const [filterOptions, setFilterOptions] = useState<MatchFilterOptions>({
     patches: [],
     champions: [],
@@ -187,13 +201,18 @@ export function YourProfileSections({
     });
   }, [fetchOptions, refetchDashboard]);
 
-  // A filter chosen for one account can match nothing for the next one
+  // A filter chosen for one account can match nothing for the next one. Listens for the switch
+  // itself: the account value also changes while it loads, which must not clear saved filters.
   useEffect(() => {
-    setChampionFilter(undefined);
-    setPatchFilter(undefined);
-    setQueueFilter(undefined);
-    setResultFilter(undefined);
-  }, [account]);
+    const reset = () => {
+      setChampionFilter(undefined);
+      setPatchFilter(undefined);
+      setQueueFilter(undefined);
+      setResultFilter(undefined);
+    };
+    window.addEventListener(ACTIVE_ACCOUNT_EVENT, reset);
+    return () => window.removeEventListener(ACTIVE_ACCOUNT_EVENT, reset);
+  }, [setChampionFilter, setPatchFilter, setQueueFilter, setResultFilter]);
 
   useEffect(() => {
     const el = sentinelRef.current;

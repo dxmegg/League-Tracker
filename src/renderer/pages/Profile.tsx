@@ -1,3 +1,4 @@
+import { useViewState } from "../hooks/useViewState";
 import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { MatchDetail, MatchListItem, ProfileData, ProfileRankedEntry } from "../lib/types";
 import { GameRow } from "./MatchHistory";
@@ -682,8 +683,8 @@ export default function Profile() {
 
   const [queueStats, setQueueStats] = useState<QueueStat[]>([]);
   const [allDashboard, setAllDashboard] = useState<HomeDashboardPayload | null>(null);
-  const [timePeriod, setTimePeriod] = useState<HomeTimePeriod>("full");
-  const [localQueue, setQueue] = useState<number | undefined>(undefined);
+  const [timePeriod, setTimePeriod] = useViewState<HomeTimePeriod>("profile.timePeriod", "full");
+  const [localQueue, setQueue] = useViewState<number | undefined>("profile.queue", undefined);
   const queue = useScopedQueue(localQueue);
   const [allMatches, setAllMatches] = useState<MatchListItem[]>([]);
   const [allOffset, setAllOffset] = useState(0);

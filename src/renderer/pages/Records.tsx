@@ -1,3 +1,4 @@
+import { readViewState, writeViewState } from "../lib/viewState";
 import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { useSearchParams } from "react-router-dom";
 import { useIpc } from "../hooks/useIpc";
@@ -399,6 +400,14 @@ export default function Records() {
   const [searchParams, setSearchParams] = useSearchParams();
   const activeTheme = useActiveTheme();
   const isExperiment = activeTheme === "experiment";
+  // Both effects run on mount in this order: read the saved query before it is overwritten
+  useEffect(() => {
+    const saved = readViewState("records.params", "");
+    if (saved && !searchParams.toString()) setSearchParams(saved, { replace: true });
+    // Mount only: rerunning would bring back a filter the user just cleared
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  useEffect(() => writeViewState("records.params", searchParams.toString()), [searchParams]);
   const queueParam = searchParams.get("queue");
   const q = queueParam == null ? undefined : Number(queueParam);
   const queue = q !== undefined && Number.isFinite(q) ? q : undefined;

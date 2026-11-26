@@ -1,3 +1,4 @@
+import { useViewState } from "../hooks/useViewState";
 import { useState, useEffect, useCallback } from "react";
 import { useParams, Link, useNavigate, useSearchParams } from "react-router-dom";
 import { useIpc } from "../hooks/useIpc";
@@ -40,7 +41,10 @@ export default function FriendDetail() {
   const [detail, setDetail] = useState<MatchDetail | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
   const [switchMessage, setSwitchMessage] = useState<string | null>(null);
-  const [championSort, setChampionSort] = useState<"games" | "winRate" | "kda">("games");
+  const [championSort, setChampionSort] = useViewState<"games" | "winRate" | "kda">(
+    "friendDetail.championSort",
+    "games",
+  );
   const [showAllChampions, setShowAllChampions] = useState(false);
 
   const switchRelation = useCallback(

@@ -1,6 +1,5 @@
 import { ipcMain, BrowserWindow, dialog, app, shell } from "electron";
 import fs from "fs";
-import crypto from "crypto";
 import * as db from "./db";
 import * as lcu from "./lcu";
 import * as riot from "./riot-api";
@@ -33,9 +32,7 @@ import type {
   OwnedItemStats,
   OwnedItemStatsResult,
   RecordsData,
-  RiotAccountInput,
 } from "../shared/api";
-import { RIOT_ACCOUNT_PLATFORMS } from "../shared/api";
 
 // The settings table doubles as internal bookkeeping — sgp_host, the
 // per-account backfill_complete_* flags, score_formula_version — none of which
@@ -962,41 +959,6 @@ export function registerIpcHandlers() {
     console.log("[riot] list-accounts handler done:", { count: accounts.length });
     return accounts;
   });
-  ipcMain.handle("riot:add-account", (_event, account: RiotAccountInput) => {
-    console.log("[riot] add-account handler called:", {
-      gameName: account?.gameName,
-      tagLine: account?.tagLine,
-      platform: account?.platform,
-    });
-    if (
-      !account ||
-      typeof account.gameName !== "string" ||
-      typeof account.tagLine !== "string" ||
-      typeof account.platform !== "string"
-    ) {
-      throw new Error("Invalid Riot account");
-    }
-    const gameName = account.gameName.trim();
-    const tagLine = account.tagLine.trim();
-    const platform = account.platform.trim().toLowerCase();
-    if (
-      !gameName ||
-      !tagLine ||
-      !RIOT_ACCOUNT_PLATFORMS.some((supported) => supported === platform)
-    ) {
-      throw new Error("Riot account name, tag, and supported platform are required");
-    }
-    riot.saveRiotAccount({
-      id: crypto.randomUUID(),
-      gameName,
-      tagLine,
-      platform,
-    });
-    invalidateDashboardCache();
-    const accounts = riot.getRiotAccounts();
-    console.log("[riot] add-account handler done:", { count: accounts.length });
-    return accounts;
-  });
   ipcMain.handle("riot:remove-account", (_event, payload: { id: string }) => {
     console.log("[riot] remove-account handler called:", { id: payload?.id });
     if (!payload || typeof payload.id !== "string" || !payload.id.trim()) {
@@ -1151,6 +1113,8 @@ export function registerIpcHandlers() {
     await dragon.waitForChampionData();
     return dragon.getChampionData();
   });
+
+  ipcMain.handle("dragon:queue-names", () => dragon.loadQueueNames());
 
   ipcMain.handle("dragon:version", async () => {
     await dragon.waitForChampionData();
@@ -1311,7 +1275,7 @@ export function registerIpcHandlers() {
     if (!platform) {
       console.warn("[db] get resolved platform handler: no platform configured");
       return {
-        error: "No platform configured. Set a Riot ID in Settings or start the League client once.",
+        error: "No platform configured. Start the League client once.",
       };
     }
     const route = riot.regionalRoute(platform);
@@ -1371,14 +1335,6 @@ export function registerIpcHandlers() {
     const result = db.deleteSavedSummoner(puuid);
     invalidateDashboardCacheForAccount(puuid);
     invalidateAllCaches();
-    senderWindow(event)?.webContents.send("lcu:games-updated");
-    return result;
-  });
-
-  ipcMain.handle("db:delete-searched-summoners", async (event) => {
-    await backup.backupQuietly("pre-import");
-    const result = db.deleteSearchedSummoners();
-    invalidateDashboardCache();
     senderWindow(event)?.webContents.send("lcu:games-updated");
     return result;
   });

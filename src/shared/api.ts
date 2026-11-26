@@ -2005,31 +2005,6 @@ export interface RiotAccountConfig {
   platform: string;
 }
 
-export interface RiotAccountInput {
-  gameName: string;
-  tagLine: string;
-  platform: string;
-}
-
-export const RIOT_ACCOUNT_PLATFORMS = [
-  "euw1",
-  "eun1",
-  "na1",
-  "kr",
-  "br1",
-  "jp1",
-  "tr1",
-  "ru",
-  "la1",
-  "la2",
-  "oc1",
-  "ph2",
-  "sg2",
-  "th2",
-  "tw2",
-  "vn2",
-] as const;
-
 export interface ProfileRankedEntry {
   tier: string;
   rank: string;
@@ -2552,7 +2527,6 @@ export interface ElectronAPI {
     }>
   >;
   mergeDuplicateAccounts: () => Promise<MergeDuplicateAccountsResult>;
-  deleteSearchedSummoners: () => Promise<{ removed: number; games: number }>;
   deleteSummoner: (puuid: string) => Promise<{ deletedGames: number; deletedTrackedRows: number }>;
   getProfile: () => Promise<LocalProfile>;
   getCurrentSummonerProfileIcon: () => Promise<number | null>;
@@ -2591,7 +2565,6 @@ export interface ElectronAPI {
   riotCancelSync: () => Promise<{ cancelled: true }>;
   onRiotSyncProgress: (callback: (progress: RiotSyncProgress) => void) => () => void;
   listRiotAccounts: () => Promise<RiotAccountConfig[]>;
-  addRiotAccount: (account: RiotAccountInput) => Promise<RiotAccountConfig[]>;
   removeRiotAccount: (id: string) => Promise<RiotAccountConfig[]>;
   backfillHistory: (forceFull?: boolean) => Promise<BackfillResult | { error: string }>;
   syncAccountHistory: (puuid: string) => Promise<{ ok: boolean; error?: string }>;
@@ -2618,6 +2591,7 @@ export interface ElectronAPI {
   getLiveFull: () => Promise<LiveFull>;
   getChampionDataVersion: () => Promise<string>;
   getChampionData: () => Promise<ChampionData>;
+  getQueueNames: () => Promise<Record<number, string>>;
   getAugmentData: (patch?: string) => Promise<AugmentData>;
   resolveAugmentIcon: (id: number, patch?: string) => Promise<string | null>;
   cacheDragonAsset: (remoteUrl: string) => Promise<string | null>;

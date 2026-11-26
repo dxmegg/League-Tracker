@@ -1,3 +1,4 @@
+import { useViewState } from "../hooks/useViewState";
 // Shared layout of the Items and Augments tabs: headline numbers, a few highlights and one dense,
 // sortable list that fits on the first screen
 import { useEffect, useMemo, useState, type ReactNode } from "react";
@@ -62,10 +63,13 @@ export function CatalogPage({
   filters: ReactNode;
   onOpen: (id: number) => void;
 }) {
-  const [group, setGroup] = useState("All");
-  const [minGames, setMinGames] = useState(0);
-  const [search, setSearch] = useState("");
-  const [sort, setSort] = useState<{ key: SortKey; desc: boolean }>({ key: "games", desc: true });
+  const [group, setGroup] = useViewState(`catalog.${noun}.group`, "All");
+  const [minGames, setMinGames] = useViewState(`catalog.${noun}.minGames`, 0);
+  const [search, setSearch] = useViewState(`catalog.${noun}.search`, "");
+  const [sort, setSort] = useViewState<{ key: SortKey; desc: boolean }>(`catalog.${noun}.sort`, {
+    key: "games",
+    desc: true,
+  });
 
   const [shownCount, setShownCount] = useState(PAGE_SIZE);
   useEffect(() => setShownCount(PAGE_SIZE), [group, minGames, search, sort]);

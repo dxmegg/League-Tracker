@@ -2,6 +2,7 @@ import fs from "fs";
 import path from "path";
 import { getDataDir } from "./paths";
 import augmentDescriptions from "./augment-descriptions.json";
+import { addQueueLabels, toQueueNames } from "../shared/queues";
 
 // Every one of these requests gates something the UI waits on: champion data
 // blocks dragon:champions, db:teammate-detail and data:repair-puuids, and a
@@ -152,6 +153,33 @@ export function loadChampionData() {
     }
   })();
   return championReady;
+}
+
+let queueNames: Promise<Record<number, string>> | null = null;
+
+// Names for queues added since this version was built. Offline, the last download is used.
+export function loadQueueNames(): Promise<Record<number, string>> {
+  queueNames ??= (async () => {
+    let names = readDragonCache<Record<number, string>>("queue-names");
+    if (!names) {
+      try {
+        names = toQueueNames(
+          await fetchJson(
+            "https://raw.communitydragon.org/latest/plugins/rcp-be-lol-game-data/global/default/v1/queues.json",
+          ),
+        );
+        if (Object.keys(names).length) writeDragonCache("queue-names", names);
+      } catch (err) {
+        console.error("Failed to load queue names:", err);
+      }
+    }
+    if (!names || !Object.keys(names).length) {
+      names = readDragonCacheStale<Record<number, string>>("queue-names") ?? {};
+    }
+    addQueueLabels(names);
+    return names;
+  })();
+  return queueNames;
 }
 
 export type AugmentInfo = {

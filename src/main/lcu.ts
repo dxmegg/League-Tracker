@@ -32,7 +32,7 @@ import type {
   ProfileExtras,
   RankEntry,
 } from "../shared/api";
-import { QUEUE_ID_MAYHEM_CUSTOM } from "../shared/queues";
+import { QUEUE_ID_MAYHEM_CUSTOM, QUEUE_LABELS } from "../shared/queues";
 import { skillCap } from "../shared/skills";
 import { accountByRiotId, regionalRoute } from "./riot-api";
 
@@ -2173,7 +2173,10 @@ export async function fetchLiveSessionData(): Promise<LiveSessionData | null> {
   return {
     phase,
     queueId,
-    queueLabel: queueId != null ? (QUEUE_LABEL_BY_ID[queueId] ?? `Queue ${queueId}`) : null,
+    queueLabel:
+      queueId != null
+        ? (QUEUE_LABEL_BY_ID[queueId] ?? QUEUE_LABELS[queueId] ?? `Queue ${queueId}`)
+        : null,
     lobbySize,
     lobbyMaxSize,
     queueStartedAt: matchmakingStartedAt,

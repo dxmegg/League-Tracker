@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import type { ChampionStats, HomeTimePeriod } from "../../shared/api";
 import ChampionIcon from "./ChampionIcon";
@@ -200,10 +200,13 @@ export function ChampionExp({ redesign = false }: { redesign?: boolean }) {
     return unsub;
   }, [refetch]);
 
-  const [championFilter, setChampionFilter] = useState<number | null>(null);
-  const [searchText, setSearchText] = useState("");
-  const [sortKey, setSortKey] = useState<ColumnKey>("games");
-  const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
+  const [championFilter, setChampionFilter] = useViewState<number | null>(
+    "champions.championFilter",
+    null,
+  );
+  const [searchText, setSearchText] = useViewState("champions.query", "");
+  const [sortKey, setSortKey] = useViewState<ColumnKey>("champions.tableSortKey", "games");
+  const [sortDir, setSortDir] = useViewState<"asc" | "desc">("champions.tableSortDir", "desc");
 
   const filtered = useMemo(() => {
     if (!data) return [];
@@ -395,6 +398,7 @@ export function ChampionExp({ redesign = false }: { redesign?: boolean }) {
             value={championFilter}
             onChange={setChampionFilter}
             onQueryChange={setSearchText}
+            initialQuery={searchText}
             placeholder="Search champion"
           />
         </div>

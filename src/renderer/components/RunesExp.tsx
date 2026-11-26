@@ -1,4 +1,4 @@
-import { useMemo, useState, type ReactNode } from "react";
+import { useMemo, type ReactNode } from "react";
 import type { RuneOverview } from "../lib/types";
 import { useIpc } from "../hooks/useIpc";
 import { useActiveAccount } from "../hooks/useActiveAccount";
@@ -141,9 +141,9 @@ export function RunesExp() {
   const scopedQueue = useScopedQueue(queue);
   const [activeAccountRaw] = useActiveAccount();
   const account = activeAccountRaw === ALL_ACCOUNTS_SENTINEL ? "all" : activeAccountRaw;
-  const [search, setSearch] = useState("");
-  const [sortMode, setSortMode] = useState<SortMode>("most-used");
-  const [minGames, setMinGames] = useState(0);
+  const [search, setSearch] = useViewState("runes.search", "");
+  const [sortMode, setSortMode] = useViewState<SortMode>("runes.sortMode", "most-used");
+  const [minGames, setMinGames] = useViewState("runes.minGames", 0);
   const { data, loading } = useIpc<RuneOverview>(
     () => window.api.getOwnedRuneStats(scopedQueue, patch, account),
     [scopedQueue, patch, account],

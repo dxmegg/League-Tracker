@@ -1,3 +1,5 @@
+import { ACTIVE_ACCOUNT_EVENT } from "../lib/accountsEvent";
+import { useViewState } from "../hooks/useViewState";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { MatchListItem } from "../../shared/api";
 import { DayHeader, SessionHeader } from "../components/MatchGroupHeaders";
@@ -28,13 +30,25 @@ export default function MatchHistoryTab() {
   const champData = useChampionData();
   const [account] = useActiveAccount();
   const [dataMode] = useActiveMode();
-  const [championFilter, setChampionFilter] = useState<number | undefined>();
-  const [patchFilter, setPatchFilter] = useState<string | undefined>();
-  const [localQueue, setQueueFilter] = useState<number | undefined>();
+  const [championFilter, setChampionFilter] = useViewState<number | undefined>(
+    "historyTab.champion",
+    undefined,
+  );
+  const [patchFilter, setPatchFilter] = useViewState<string | undefined>(
+    "historyTab.patch",
+    undefined,
+  );
+  const [localQueue, setQueueFilter] = useViewState<number | undefined>(
+    "historyTab.queue",
+    undefined,
+  );
   const queueFilter = useScopedQueue(localQueue);
-  const [resultFilter, setResultFilter] = useState<"win" | "loss" | undefined>();
-  const [sort, setSort] = useState<MatchSort | undefined>();
-  const [sortDir, setSortDir] = useState<MatchSortDir>("desc");
+  const [resultFilter, setResultFilter] = useViewState<"win" | "loss" | undefined>(
+    "historyTab.result",
+    undefined,
+  );
+  const [sort, setSort] = useViewState<MatchSort | undefined>("historyTab.sort", undefined);
+  const [sortDir, setSortDir] = useViewState<MatchSortDir>("historyTab.sortDir", "desc");
   const [filterOptions, setFilterOptions] = useState<MatchFilterOptions>({
     patches: [],
     champions: [],
@@ -75,13 +89,18 @@ export default function MatchHistoryTab() {
     return window.api.onGamesUpdated(fetchOptions);
   }, [fetchOptions]);
 
-  // A filter chosen for one account can match nothing for the next one
+  // A filter chosen for one account can match nothing for the next one. Listens for the switch
+  // itself: the account value also changes while it loads, which must not clear saved filters.
   useEffect(() => {
-    setChampionFilter(undefined);
-    setPatchFilter(undefined);
-    setQueueFilter(undefined);
-    setResultFilter(undefined);
-  }, [account]);
+    const reset = () => {
+      setChampionFilter(undefined);
+      setPatchFilter(undefined);
+      setQueueFilter(undefined);
+      setResultFilter(undefined);
+    };
+    window.addEventListener(ACTIVE_ACCOUNT_EVENT, reset);
+    return () => window.removeEventListener(ACTIVE_ACCOUNT_EVENT, reset);
+  }, [setChampionFilter, setPatchFilter, setQueueFilter, setResultFilter]);
 
   useEffect(() => {
     const el = sentinelRef.current;

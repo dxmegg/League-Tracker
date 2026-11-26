@@ -123,8 +123,8 @@ export default function Settings() {
   const [queues, setQueues] = useState<number[]>([]);
   const [hiddenQueues, setHiddenQueues] = useState<Set<number>>(new Set());
   const [hideRemakes, setHideRemakes] = useState(false);
-  const [autoBackup, setAutoBackup] = useState(true);
-  const [rememberFilters, setRememberFilters] = useState(false);
+  const [autoBackup, setAutoBackup] = useState(false);
+  const [rememberFilters, setRememberFilters] = useState(true);
   const [loading, setLoading] = useState(true);
   const [backfillStatus, setBackfillStatus] = useState<string | null>(null);
   const [repairing, setRepairing] = useState(false);
@@ -171,8 +171,8 @@ export default function Settings() {
       setMinimizeToTray(tray !== "false");
       setHiddenQueues(new Set(hidden ? hidden.split(",").map(Number) : []));
       setHideRemakes(remakes === "true");
-      setAutoBackup(backup !== "false");
-      setRememberFilters(remember === "true");
+      setAutoBackup(backup === "true");
+      setRememberFilters(remember !== "false");
       setLoading(false);
     });
   }, []);
@@ -676,22 +676,6 @@ export default function Settings() {
             })}
           </div>
         )}
-        <Button
-          variant="neutral"
-          onClick={async () => {
-            setSummonerStatus(null);
-            const removed = await window.api.deleteSearchedSummoners();
-            setSummonerStatus(
-              removed.removed > 0
-                ? `Removed ${removed.removed} searched account(s) and ${removed.games} game(s)`
-                : "No searched accounts to remove",
-            );
-            refreshSavedSummoners();
-          }}
-          className="mt-3"
-        >
-          Clean up searched accounts
-        </Button>
         {summonerStatus && <p className="mt-3 text-xs text-lol-text">{summonerStatus}</p>}
       </Section>
 
