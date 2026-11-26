@@ -15,6 +15,8 @@ import {
   writeExportTo,
   importData,
   deleteSavedSummoner,
+  reconcileOwnerPuuids,
+  recalculateAllScores,
 } from "../../src/main/db";
 import { restoreSummonerFull } from "../../src/main/db/summoner";
 import { createBackup, restoreBackup } from "../../src/main/backup";
@@ -109,6 +111,9 @@ function seed(): void {
   db.prepare("UPDATE games SET favorite = 1 WHERE game_id = 1002").run();
   db.prepare("INSERT INTO settings (key, value) VALUES ('test_key', 'x')").run();
   db.prepare("INSERT INTO ignored_games (game_id) VALUES (999)").run();
+  // What the app does at startup: owner rows moved to the account's id, scores from full rows
+  reconcileOwnerPuuids();
+  recalculateAllScores();
   db.prepare(
     "INSERT INTO riot_sync_state (puuid, platform, last_sync_at, last_match_id, complete) VALUES (?, 'eun1', 5, 'EUN1_1002', 1)",
   ).run(ALICE);
@@ -171,7 +176,7 @@ function fingerprint(): Record<string, unknown> {
     db
       .prepare(
         `SELECT game_id, participant_id, enemy_missing_pings, danger_pings, spell1_casts, summoner1_casts,
-           total_heal_on_teammates, total_damage_shielded_on_teammates
+           total_heal_on_teammates, total_damage_shielded_on_teammates, puuid, score
          FROM match_participants ORDER BY game_id, participant_id`,
       )
       .all(),

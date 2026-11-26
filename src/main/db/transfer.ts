@@ -5,7 +5,7 @@ import { unpackRaw } from "./payloads";
 import { insertGameFull, insertTrackedStatsOnly, TELEMETRY_COLUMNS } from "./ingest";
 import { upsertSummoner, restoreSummonerFull, getAllPuuids } from "./summoner";
 import { getSetting, setSetting } from "./settings";
-import { rebuildDerivedStats, repairDerivedScores } from "./scoring";
+import { rebuildDerivedStats, recalculateAllScores, repairDerivedScores } from "./scoring";
 import { rebuildParticipantsFromPayloads } from "./schema";
 import type { ExportProgress, ImportProgress } from "../../shared/api";
 import { MAYHEM_QUEUE_IDS } from "../../shared/queues";
@@ -764,6 +764,11 @@ export async function importData(
   if (pending.length > 0) processLine(pending.toString("utf8"));
   if (!headerSeen) throw new Error("That file isn't a Rift Records backup");
   flushAll();
+  // The file's settings say both passes already ran, but that was on the source database: the
+  // rows here were just rebuilt from payloads, before telemetry and ids were put back
+  setSetting("puuid_reconciled_v1", "0");
+  reconcileOwnerPuuids();
+  recalculateAllScores();
   const repairedScores = repairDerivedScores().repaired;
   console.log(`[db] post-import repaired ${repairedScores} derived scores`);
   onProgress?.({ phase: "done", current: lineNumber, total: 0, label: "Import complete" });
