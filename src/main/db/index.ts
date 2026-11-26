@@ -205,6 +205,7 @@ export {
 } from "./transfer";
 export {
   resolveGamePlatform,
+  platformGuesses,
   fetchAndStoreTimeline,
   isTimelineSkippedQueue,
   listGamesMissingFullData,

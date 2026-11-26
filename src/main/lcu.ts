@@ -458,12 +458,14 @@ async function fetchClientTimeline(gameId: number): Promise<void> {
 // The match history service has what the client leaves out for Mayhem and ARAM: the whole
 // timeline (items, skill order, per-minute stats) and every number of the match summary
 async function fetchFullMatchData(gameId: number): Promise<void> {
-  const platform = db.resolveGamePlatform(gameId);
-  if (!platform) throw new Error(`No platform found for game ${gameId}`);
+  const known = db.resolveGamePlatform(gameId);
+  const guess = known ? null : db.platformGuesses(gameId);
+  const platforms = known ? [known] : guess!.platforms;
+  if (platforms.length === 0) throw new Error(`No platform found for game ${gameId}`);
   const token = await fetchSgpToken();
   const host = await resolveSgpHost((await getCurrentSummoner()).puuid, token);
 
-  const get = async (kind: "SUMMARY" | "DETAILS"): Promise<any> => {
+  const get = async (platform: string, kind: "SUMMARY" | "DETAILS"): Promise<any> => {
     const response = await fetch(
       `${host}/match-history-query/v1/products/lol/${platform.toUpperCase()}_${gameId}/${kind}`,
       {
@@ -476,8 +478,22 @@ async function fetchFullMatchData(gameId: number): Promise<void> {
     return body.json ?? body;
   };
 
-  const summary = await get("SUMMARY");
-  const details = await get("DETAILS");
+  let platform = "";
+  let summary: any;
+  for (const candidate of platforms) {
+    try {
+      const answer = await get(candidate, "SUMMARY");
+      // A guessed server may hold an older game under this id
+      if (guess && !(Math.abs(answer.gameCreation - guess.created) < 60 * 60 * 1000)) continue;
+      platform = candidate;
+      summary = answer;
+      break;
+    } catch (err) {
+      if (!(err instanceof SgpHttpError && err.status === 404)) throw err;
+    }
+  }
+  if (!platform) throw new SgpHttpError(404, `SUMMARY on ${platforms.join(", ")}`);
+  const details = await get(platform, "DETAILS");
   const parsed = parseTimeline(details);
   if (parsed.frames.length === 0) throw new Error(`Empty timeline for game ${gameId}`);
   db.refreshParticipantTelemetry({ ...summary, gameId });

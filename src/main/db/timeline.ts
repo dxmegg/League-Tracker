@@ -190,6 +190,20 @@ export function resolveGamePlatform(gameId: number): string | null {
   return row?.platform ?? null;
 }
 
+// For a game with no known player to take the platform from: the platforms of the tracked
+// accounts, and when the game started, to tell it from another server's game with the same id
+export function platformGuesses(gameId: number): { platforms: string[]; created: number } {
+  const platforms = db
+    .prepare(
+      "SELECT DISTINCT LOWER(platform) AS platform FROM visible_summoner WHERE platform != ''",
+    )
+    .all() as { platform: string }[];
+  const game = db.prepare("SELECT game_creation FROM games WHERE game_id = ?").get(gameId) as
+    | { game_creation: number }
+    | undefined;
+  return { platforms: platforms.map((row) => row.platform), created: game?.game_creation ?? 0 };
+}
+
 export function getTimelineStatus(gameId: number): TimelineStatus | null {
   console.log("[db] getTimelineStatus called:", { gameId });
   const row = db
