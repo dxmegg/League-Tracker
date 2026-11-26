@@ -1,7 +1,7 @@
 name: CI
 
 # Pull requests only. Pushes to main deliberately run nothing — releases are
-# cut by tag, and release.yml runs these same checks before it builds.
+# built and published by hand.
 on:
   pull_request:
 
