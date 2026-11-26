@@ -1,6 +1,11 @@
 import { gunzipSync, gzipSync } from "node:zlib";
 import { db } from "../db";
-import type { LiveStatRecord, StoredLiveBody, StoredLiveGame } from "../../shared/api";
+import type {
+  LiveStatRecord,
+  StoredLiveBody,
+  StoredLiveGame,
+  PostGameRecord,
+} from "../../shared/api";
 
 export interface LiveStatRecording {
   gameId: number;
@@ -114,4 +119,35 @@ export function getGameStatPeaks(gameId: number): Array<{
   return db
     .prepare("SELECT stat, peak, final FROM live_stat_peaks WHERE game_id = ? ORDER BY stat")
     .all(gameId) as Array<{ stat: string; peak: number; final: number }>;
+}
+
+export function savePostGameData(gameId: number, puuid: string, kind: string, data: unknown): void {
+  db.prepare(
+    `INSERT INTO post_game_data (game_id, puuid, kind, payload, recorded_at)
+     VALUES (?, ?, ?, ?, ?)
+     ON CONFLICT(game_id, puuid, kind) DO UPDATE SET
+       payload = excluded.payload,
+       recorded_at = excluded.recorded_at`,
+  ).run(gameId, puuid, kind, gzipSync(JSON.stringify(data)), Date.now());
+}
+
+// The newest games that have anything captured, newest game first
+export function getRecentPostGameData(limit = 3): PostGameRecord[] {
+  const rows = db
+    .prepare(
+      `SELECT game_id, kind, payload, recorded_at FROM post_game_data
+       WHERE game_id IN (
+         SELECT DISTINCT game_id FROM post_game_data ORDER BY game_id DESC LIMIT ?
+       )
+       ORDER BY game_id DESC, kind`,
+    )
+    .all(limit) as Array<{ game_id: number; kind: string; payload: Buffer; recorded_at: number }>;
+  const games = new Map<number, PostGameRecord>();
+  for (const row of rows) {
+    const game = games.get(row.game_id) ?? { gameId: row.game_id, recordedAt: 0, data: {} };
+    game.recordedAt = Math.max(game.recordedAt, row.recorded_at);
+    game.data[row.kind] = JSON.parse(gunzipSync(row.payload).toString("utf8"));
+    games.set(row.game_id, game);
+  }
+  return [...games.values()];
 }

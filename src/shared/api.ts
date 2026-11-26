@@ -1696,6 +1696,13 @@ export interface LiveGameData {
   };
 }
 
+// Client data captured around the end of a game, keyed by kind (see main/post-game.ts)
+export interface PostGameRecord {
+  gameId: number;
+  recordedAt: number;
+  data: Record<string, unknown>;
+}
+
 // The best value of one stat across the recorded games (see live_stat_peaks)
 export interface LiveStatRecord {
   stat: string;
@@ -2588,6 +2595,7 @@ export interface ElectronAPI {
     gameId: number,
   ) => Promise<Array<{ stat: string; peak: number; final: number }>>;
   getGameLiveData: (gameId: number) => Promise<StoredLiveGame | null>;
+  getPostGameData: () => Promise<PostGameRecord[]>;
   getLiveFull: () => Promise<LiveFull>;
   getChampionDataVersion: () => Promise<string>;
   getChampionData: () => Promise<ChampionData>;

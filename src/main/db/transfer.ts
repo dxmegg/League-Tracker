@@ -227,6 +227,15 @@ export async function writeExportTo(
         data: { ...row, payload: row.payload.toString("base64") },
       });
     }
+    const postGame = db
+      .prepare(`SELECT * FROM post_game_data WHERE 1=1${timelineWhere}`)
+      .all() as Array<{ payload: Buffer }>;
+    for (const row of postGame) {
+      await write({
+        type: "postGameData",
+        data: { ...row, payload: row.payload.toString("base64") },
+      });
+    }
     onProgress?.({ phase: "done", current: count, total: totalGames, label: "Export complete" });
   } finally {
     await new Promise<void>((resolve, reject) => {
@@ -425,6 +434,7 @@ export async function importData(
   const restoreEvent = rowRestorer("match_timeline_events");
   const restoreLivePeak = rowRestorer("live_stat_peaks");
   const restoreLiveGame = rowRestorer("live_game_data");
+  const restorePostGame = rowRestorer("post_game_data");
 
   const games: Array<{ data: any }> = [];
   const statuses: Array<{ data: any }> = [];
@@ -587,6 +597,9 @@ export async function importData(
         break;
       case "liveGameData":
         restoreLiveGame({ ...record.data, payload: Buffer.from(record.data.payload, "base64") });
+        break;
+      case "postGameData":
+        restorePostGame({ ...record.data, payload: Buffer.from(record.data.payload, "base64") });
         break;
       default:
         throw new Error(`Unknown record type on backup line ${lineNumber}`);

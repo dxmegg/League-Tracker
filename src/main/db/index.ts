@@ -24,6 +24,8 @@ export {
   getGameStatPeaks,
   saveLiveGameData,
   getLiveGameData,
+  savePostGameData,
+  getRecentPostGameData,
 } from "./live-stats";
 export type { LiveStatRecording } from "./live-stats";
 export {

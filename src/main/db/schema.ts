@@ -372,6 +372,17 @@ export function createTables() {
       recorded_at INTEGER NOT NULL,
       PRIMARY KEY (game_id, puuid)
     );
+
+    -- What the client only offers around the end of a game (end-of-game screen, mastery changes,
+    -- honor), gzipped JSON as received. Same no-FK reason as above.
+    CREATE TABLE IF NOT EXISTS post_game_data (
+      game_id     INTEGER NOT NULL,
+      puuid       TEXT NOT NULL,
+      kind        TEXT NOT NULL,
+      payload     BLOB NOT NULL,
+      recorded_at INTEGER NOT NULL,
+      PRIMARY KEY (game_id, puuid, kind)
+    );
   `);
 }
 

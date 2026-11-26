@@ -412,6 +412,7 @@ const api: ElectronAPI = {
     ipcRenderer.invoke("stats:records", filters),
   getGameStatPeaks: (gameId: number) => ipcRenderer.invoke("stats:game-peaks", gameId),
   getGameLiveData: (gameId: number) => ipcRenderer.invoke("stats:game-live", gameId),
+  getPostGameData: () => ipcRenderer.invoke("stats:post-game"),
   getChampionDataVersion: () => ipcRenderer.invoke("dragon:version"),
 
   getChampionData: () => ipcRenderer.invoke("dragon:champions"),

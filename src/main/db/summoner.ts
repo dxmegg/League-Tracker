@@ -642,6 +642,7 @@ export function deleteSavedSummoner(puuid: string): {
           "match_timeline_events",
           "live_stat_peaks",
           "live_game_data",
+          "post_game_data",
           "games",
         ]) {
           const removed = db

@@ -33,6 +33,7 @@ import type {
   RankEntry,
 } from "../shared/api";
 import { QUEUE_ID_MAYHEM_CUSTOM, QUEUE_LABELS } from "../shared/queues";
+import { createPostGameCapture } from "./post-game";
 import { skillCap } from "../shared/skills";
 import { accountByRiotId, regionalRoute } from "./riot-api";
 
@@ -995,6 +996,15 @@ function applyPhase(win: BrowserWindow | null | undefined, phase: string | null)
 // safety net, and one missed capture only costs the delay we had before.
 const EOG_RETRY_DELAYS_MS = [2_000, 5_000, 15_000, 60_000, 120_000, 120_000];
 
+const postGame = createPostGameCapture({
+  get: (url) => lcuRequest(url),
+  save: async (gameId, kind, data) => {
+    const { puuid } = await getCurrentSummoner();
+    db.savePostGameData(gameId, puuid, kind, data);
+    console.log(`[post-game] stored ${kind} for game ${gameId}`);
+  },
+});
+
 let eogSocket: LeagueWebSocket | null = null;
 let eogAttaching = false;
 
@@ -1080,12 +1090,19 @@ function handleFrame(win: BrowserWindow, payload: any): void {
 
   if (path === GAMEFLOW_PHASE_PATH) {
     applyPhase(win, typeof payload.data === "string" ? payload.data : null);
+    // Mastery as it stood before the game, to tell afterwards what the game changed
+    if (payload.data === "InProgress") void postGame.onGameStart();
+    if (["PreEndOfGame", "EndOfGame"].includes(payload.data) && liveGame) {
+      postGame.onGameEnd(liveGame.gameId);
+    }
 
     if (payload.data === "EndOfGame" && liveGame) {
       startCapture(win, liveGame.gameId, liveGame.queueId);
     }
     return;
   }
+
+  if (payload.eventType !== "Delete") void postGame.onFrame(path, payload.data);
 
   if (EOG_STATS_PATHS.includes(path)) {
     // The resource is also cleared once the screen is dismissed
@@ -1190,6 +1207,7 @@ async function attachEogListener(win: BrowserWindow): Promise<void> {
 
     eogSocket = socket;
     console.log("Listening for post-game results");
+    void postGame.catchUp();
 
     // The socket only carries changes, so a client that was already in a match
     // when we attached needs the current phase read once.
@@ -1227,6 +1245,7 @@ function stopEogListener() {
     if (timer) clearTimeout(timer);
   }
   eogPending.clear();
+  postGame.stop();
   liveGame = null;
 }
 

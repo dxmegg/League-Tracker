@@ -3,6 +3,7 @@ import type { LiveFull } from "../../shared/api";
 import { LiveEvents } from "../components/live/LiveEvents";
 import { LiveLastGame } from "../components/live/LiveLastGame";
 import { LiveMe } from "../components/live/LiveMe";
+import { LivePostGame } from "../components/live/LivePostGame";
 import { LivePulse } from "../components/live/LivePulse";
 import { LiveRecords } from "../components/live/LiveRecords";
 import { LiveScouting } from "../components/live/LiveScouting";
@@ -296,6 +297,7 @@ export default function Live() {
           <LiveLastGame />
           <LiveRecords />
           <LiveSavedGames />
+          <LivePostGame />
         </>
       ) : (
         <>
@@ -325,6 +327,7 @@ export default function Live() {
           <LiveRecords />
           <RawPanel snapshot={snapshot} />
           <LiveSavedGames />
+          <LivePostGame />
           <p className="pb-2 text-center text-[11.5px] text-lol-text/60">
             Source: Live Client Data API (127.0.0.1:2999) and the client&apos;s gameflow session ·
             refreshed every few seconds, CS in steps of 2 · last update{" "}

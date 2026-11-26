@@ -22,6 +22,7 @@ const TABLE_LABELS: Record<string, string> = {
   game_augments: "Your augments",
   live_stat_peaks: "Live stat peaks",
   live_game_data: "Live game recordings",
+  post_game_data: "Post-game data",
   summoner: "Accounts",
   settings: "Settings",
   ignored_games: "Ignored matches",

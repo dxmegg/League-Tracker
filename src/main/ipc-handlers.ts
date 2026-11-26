@@ -1044,6 +1044,7 @@ export function registerIpcHandlers() {
     db.getGameStatPeaks(Number(gameId)),
   );
 
+  ipcMain.handle("stats:post-game", () => db.getRecentPostGameData());
   ipcMain.handle("stats:game-live", (_event, gameId: number) => db.getLiveGameData(Number(gameId)));
 
   ipcMain.handle("lcu:current-puuid", async () => {
