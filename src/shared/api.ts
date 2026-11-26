@@ -2242,7 +2242,23 @@ export interface RecoveryReport {
   detail?: string;
 }
 
+export interface StorageInfo {
+  dbDir: string;
+  dbIsDefault: boolean;
+  backupDir: string;
+  backupIsDefault: boolean;
+}
+
+export interface StorageResult {
+  status: "ok" | "cancelled" | "error";
+  message?: string;
+}
+
 export interface ElectronAPI {
+  getStorageInfo: () => Promise<StorageInfo>;
+  changeDbFolder: () => Promise<StorageResult>;
+  changeBackupFolder: (reset: boolean) => Promise<StorageResult>;
+  openDbFolder: () => Promise<void>;
   getMatchHistory: (
     limit: number,
     offset: number,

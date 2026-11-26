@@ -3,6 +3,7 @@ import fs from "fs";
 import path from "path";
 import { closeDatabase, getDatabase, getDbPath, getSetting, initDatabase, setSetting } from "./db";
 import { getBackupDir } from "./paths";
+import { BACKUP_FILE_RE as FILE_RE } from "./storage-files";
 
 // Snapshots are taken through SQLite's online backup API rather than by copying
 // matches.db off disk. The database runs in WAL mode, so the file on its own is
@@ -62,8 +63,6 @@ export interface RecoveryReport {
   quarantined: string | null;
   detail?: string;
 }
-
-const FILE_RE = /^matches-(\d{4}-\d{2}-\d{2}T\d{2}-\d{2}-\d{2})-([a-z-]+)\.db$/;
 
 let recoveryReport: RecoveryReport | null = null;
 let scheduleTimer: NodeJS.Timeout | null = null;
@@ -243,6 +242,11 @@ export function createBackup(reason: BackupReason): Promise<BackupInfo> {
   };
   next.then(done, done);
   return next;
+}
+
+// Lets a folder change wait for the snapshot being written right now
+export async function waitForBackups(): Promise<void> {
+  await inFlight?.catch(() => undefined);
 }
 
 // Snapshots protect the user's data, so a failure to take one is reported but

@@ -15,6 +15,7 @@ import {
 } from "./db";
 import { initDatabaseWithRecovery, startBackupSchedule, stopBackupSchedule } from "./backup";
 import { registerIpcHandlers } from "./ipc-handlers";
+import { deleteUserData, ensureDbFolderAvailable, migrateLegacyBackups } from "./storage";
 import {
   startPolling,
   stopPolling,
@@ -30,8 +31,9 @@ import {
   flushAugmentIconCache,
 } from "./dragon";
 import { applySecurityPolicy } from "./security";
-import { ensureStartMenuShortcut } from "./shortcut";
-import { syncAutoStart, HIDDEN_FLAG } from "./autostart";
+import { removeOldShortcut } from "./shortcut";
+import { syncAutoStart, takeStartHiddenNote, HIDDEN_FLAG } from "./autostart";
+import { removeUpdateLeftovers } from "./updater";
 import { PROXY_BASE_URL } from "../shared/proxy";
 import { registerDragonAssetProtocol, registerDragonAssetScheme } from "./dragon-assets";
 import { invalidateDashboardCache } from "./db/dashboard-cache";
@@ -47,7 +49,14 @@ const FINAL_FETCH_TIMEOUT_MS = 5_000;
 
 registerDragonAssetScheme();
 
-const gotTheLock = app.requestSingleInstanceLock();
+// The uninstaller asks the program to delete its data, because only it knows where that is
+const uninstalling = app.isPackaged && process.argv.includes("--delete-user-data");
+if (uninstalling) {
+  deleteUserData();
+  app.exit(0);
+}
+
+const gotTheLock = !uninstalling && app.requestSingleInstanceLock();
 
 if (!gotTheLock) {
   // exit, not quit: quit() before "ready" is advisory, so this process could still
@@ -69,7 +78,7 @@ if (!gotTheLock) {
 const iconPath = path.join(app.getAppPath(), "assets/die.png");
 
 // Set by the login item when auto-start is on: come up in the tray only.
-const launchedHidden = process.argv.includes(HIDDEN_FLAG);
+const launchedHidden = takeStartHiddenNote() || process.argv.includes(HIDDEN_FLAG);
 
 // Without this a failed start is a process that quietly disappears, and nobody has anything to
 // report. The reason goes to a file next to the database and into a dialog.
@@ -94,8 +103,6 @@ app.on("child-process-gone", (_event, details) => {
   if (details.type !== "GPU" || softwareRender) return;
   console.error("GPU process gone, restarting with software rendering:", details.reason);
   app.relaunch({
-    // The portable build runs from a temp copy that is deleted on exit; relaunch the real exe
-    execPath: process.env.PORTABLE_EXECUTABLE_FILE ?? process.execPath,
     args: [...process.argv.slice(1), SOFTWARE_RENDER_FLAG],
   });
   app.exit(0);
@@ -281,9 +288,8 @@ app
     // without it the app is identified by the Electron executable instead.
     app.setAppUserModelId("com.dxmegg.leaguetracker");
 
-    // Pairs with that id: gives the taskbar a durable shortcut to pin in place of
-    // the temp exe the portable launcher runs from.
-    ensureStartMenuShortcut();
+    removeOldShortcut();
+    removeUpdateLeftovers();
 
     // Before any window exists, so no web contents escapes the policy
     applySecurityPolicy();
@@ -292,6 +298,11 @@ app
     // directly: a database that has been deleted or damaged since the last launch
     // is restored from the newest good snapshot here, before anything reads it.
     try {
+      if (!ensureDbFolderAvailable()) {
+        app.quit();
+        return;
+      }
+      await migrateLegacyBackups();
       await initDatabaseWithRecovery();
     } catch (err: unknown) {
       // Recovery handles expected missing/corrupt databases. Keep an unexpected
@@ -317,7 +328,7 @@ app
     }
 
     // Needs the database, which holds the answer. Keeps the login item pointing at
-    // the portable exe wherever it has been moved to since the last launch.
+    // the installed exe.
     syncAutoStart();
 
     // Load assets in background

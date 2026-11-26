@@ -10,7 +10,8 @@ import * as backup from "./backup";
 import * as mcp from "./mcp";
 import * as opgg from "./opgg";
 import { cacheDragonAsset } from "./dragon-assets";
-import { getBackupDir } from "./paths";
+import { getBackupDir, getDbDir } from "./paths";
+import { changeBackupFolder, changeDbFolder, getStorageInfo } from "./storage";
 import { openExternalUrl } from "./security";
 import { applyAutoStart, isAutoStartSupported } from "./autostart";
 import { dbg } from "../shared/debug";
@@ -1619,6 +1620,20 @@ export function registerIpcHandlers() {
 
   // No renderer input reaches this: the path is ours, and the folder is the
   // one place a user needs to reach to copy a backup somewhere safer.
+  // The folders come from native dialogs in the main process, never from the renderer
+  ipcMain.handle("storage:info", () => getStorageInfo());
+  ipcMain.handle("storage:change-db", (event) => {
+    const win = senderWindow(event);
+    return win ? changeDbFolder(win) : { status: "cancelled" };
+  });
+  ipcMain.handle("storage:change-backup", (event, reset: unknown) => {
+    const win = senderWindow(event);
+    return win ? changeBackupFolder(win, reset === true) : { status: "cancelled" };
+  });
+  ipcMain.handle("storage:open-db", () => {
+    void shell.openPath(getDbDir());
+  });
+
   ipcMain.handle("backup:open-folder", () => {
     void shell.openPath(getBackupDir());
   });

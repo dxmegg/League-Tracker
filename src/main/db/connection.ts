@@ -1,6 +1,7 @@
 import path from "path";
-import { getDataDir } from "../paths";
+import { getDbDir } from "../paths";
+import { DB_FILE } from "../storage-files";
 
 export function getDbPath() {
-  return path.join(getDataDir(), "matches.db");
+  return path.join(getDbDir(), DB_FILE);
 }

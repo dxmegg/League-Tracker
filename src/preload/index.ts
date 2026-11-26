@@ -562,6 +562,11 @@ const api: ElectronAPI = {
 
   openBackupFolder: () => ipcRenderer.invoke("backup:open-folder"),
 
+  getStorageInfo: () => ipcRenderer.invoke("storage:info"),
+  changeDbFolder: () => ipcRenderer.invoke("storage:change-db"),
+  changeBackupFolder: (reset: boolean) => ipcRenderer.invoke("storage:change-backup", reset),
+  openDbFolder: () => ipcRenderer.invoke("storage:open-db"),
+
   getVersion: () => ipcRenderer.invoke("app:version"),
 
   checkForUpdate: () => ipcRenderer.invoke("app:check-update"),

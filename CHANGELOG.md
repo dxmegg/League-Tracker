@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.3.0 (2026-11-26)
+
+- New installer replaces the portable exe; your history is picked up automatically
+- New folder settings under Backups: choose where the database and its backups are kept
+- Better updates: they install silently and no longer rename the program or flash console windows
+- The program is named Rift Records everywhere, with a new file description
+- Removed OP.GG from the list of services the app uses
+
 ## 1.2.2 (2026-11-26)
 
 - Redesigned What's new tab: a timeline of releases with a label on every change

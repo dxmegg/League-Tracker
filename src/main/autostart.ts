@@ -1,28 +1,44 @@
 import { app } from "electron";
+import fs from "fs";
+import path from "path";
 import { getSetting, setSetting } from "./db";
 
 // Auto-start exists so the poller keeps recording games, not so a window lands
 // in front of whatever the user signed in to do, so the login item always asks
-// for the tray. Forwarded through the portable launcher, which passes its own
-// command line on to the extracted exe.
+// for the tray.
 export const HIDDEN_FLAG = "--hidden";
 
-// The portable launcher runs the app from a temp copy it deletes on exit, so
-// process.execPath — what setLoginItemSettings would register by default — is a
-// path that no longer exists by the next sign-in. PORTABLE_EXECUTABLE_FILE is
-// the exe the user actually keeps, the same one ensureStartMenuShortcut targets.
-function portableExe(): string | null {
-  if (process.platform !== "win32") return null;
-  return process.env.PORTABLE_EXECUTABLE_FILE ?? null;
+// The installer cannot pass arguments to the program it restarts, so an update that happens
+// while the program sits in the tray leaves a note for the next start
+const hiddenNote = () => path.join(app.getPath("userData"), "start-hidden");
+const NOTE_MAX_AGE_MS = 10 * 60_000;
+
+export function leaveStartHiddenNote(): void {
+  fs.writeFileSync(hiddenNote(), "");
 }
 
-// False in dev and in any unpackaged run: there is no durable exe to register.
+export function takeStartHiddenNote(): boolean {
+  try {
+    const age = Date.now() - fs.statSync(hiddenNote()).mtimeMs;
+    fs.rmSync(hiddenNote());
+    return age < NOTE_MAX_AGE_MS;
+  } catch {
+    return false;
+  }
+}
+
+// Only the installed program has a durable exe to register
+function installedExe(): string | null {
+  return process.platform === "win32" && app.isPackaged ? process.execPath : null;
+}
+
+// False in dev and in any unpackaged run
 export function isAutoStartSupported(): boolean {
-  return portableExe() !== null;
+  return installedExe() !== null;
 }
 
 export function applyAutoStart(enabled: boolean): void {
-  const exe = portableExe();
+  const exe = installedExe();
   if (!exe) return;
 
   // The registry entry is derived state: `auto_start` holds the user's answer
@@ -51,8 +67,8 @@ export function applyAutoStart(enabled: boolean): void {
   }
 }
 
-// A portable exe gets moved and renamed, which leaves the registered path
-// pointing at nothing. Re-registering on each launch keeps it current.
+// The program can be installed somewhere else, or still be registered as the old portable
+// exe. Re-registering on each launch keeps the entry current.
 export function syncAutoStart(): void {
   applyAutoStart(getSetting("auto_start") === "true");
 }

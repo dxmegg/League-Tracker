@@ -25,6 +25,8 @@ import {
   type ImportProgress,
   type RiotAccountConfig,
   type RiotSyncProgress,
+  type StorageInfo,
+  type StorageResult,
 } from "../../shared/api";
 import { Title } from "./live/shared";
 import { XIcon } from "./icons";
@@ -264,6 +266,62 @@ const SETTINGS_TABS = [
   { id: "changelog", label: "What's new", hint: "Changes in every release" },
   { id: "about", label: "About", hint: "Version, your data, legal notices and licenses" },
 ] as const;
+
+// Where the database and its backups are kept. Both pickers are native dialogs opened by main.
+function StorageFolders({ onChanged }: { onChanged: () => void }) {
+  const [info, setInfo] = useState<StorageInfo | null>(null);
+  const [message, setMessage] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  const load = useCallback(() => void window.api.getStorageInfo().then(setInfo), []);
+  useEffect(load, [load]);
+
+  const run = async (change: () => Promise<StorageResult>) => {
+    setBusy(true);
+    setMessage("Working, this can take a few minutes for large files...");
+    const result = await change();
+    setMessage(result.status === "error" ? `Error: ${result.message}` : (result.message ?? null));
+    setBusy(false);
+    load();
+    onChanged();
+  };
+
+  return (
+    <Section title="Folders">
+      <ActionRow name="Database" description={<span className="break-all">{info?.dbDir}</span>}>
+        <Button variant="neutral" onClick={() => void window.api.openDbFolder()}>
+          Open
+        </Button>
+        <Button variant="neutral" disabled={busy} onClick={() => run(window.api.changeDbFolder)}>
+          Change
+        </Button>
+      </ActionRow>
+      <ActionRow name="Backups" description={<span className="break-all">{info?.backupDir}</span>}>
+        {info && !info.backupIsDefault && (
+          <Button
+            variant="neutral"
+            disabled={busy}
+            onClick={() => run(() => window.api.changeBackupFolder(true))}
+          >
+            Use default
+          </Button>
+        )}
+        <Button
+          variant="neutral"
+          disabled={busy}
+          onClick={() => run(() => window.api.changeBackupFolder(false))}
+        >
+          Change
+        </Button>
+      </ActionRow>
+      <p className="text-[12.5px] text-lol-text">
+        Backups inside the database folder are lost together with it. A folder on another drive is
+        safer.
+      </p>
+      {message && <p className="text-[12.5px] text-lol-text-bright">{message}</p>}
+    </Section>
+  );
+}
 
 export function SettingsExp() {
   const [tab, setTab] = useState<(typeof SETTINGS_TABS)[number]["id"]>("general");
@@ -1550,6 +1608,10 @@ export function SettingsExp() {
               })}
             </div>
           </Section>
+        )}
+
+        {tab === "data" && (
+          <StorageFolders onChanged={() => void window.api.listBackups().then(setBackups)} />
         )}
 
         {/* Backups */}

@@ -58,6 +58,6 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           gh release create "$GITHUB_REF_NAME" \
-            "dist/Rift Records.exe" \
+            "dist/Rift Records Setup.exe" \
             --title "$GITHUB_REF_NAME" \
             --generate-notes

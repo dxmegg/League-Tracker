@@ -116,8 +116,8 @@ export function UpdatePanel() {
       {error && <p className="mt-3 text-[12px] text-lol-loss">{error}</p>}
       {info?.hasUpdate && !info.canInstall && (
         <p className="mt-3 text-[12px] text-lol-text">
-          In-app updating works only in the portable exe. Download the new version from the release
-          page.
+          In-app updating works only in the installed program. Download the new version from the
+          release page.
         </p>
       )}
 

@@ -7,7 +7,7 @@ import path from "path";
 import { once } from "events";
 import { finished } from "stream/promises";
 import { compareVersions, REPOSITORY as UPDATE_REPOSITORY } from "../shared/version";
-import { HIDDEN_FLAG } from "./autostart";
+import { HIDDEN_FLAG, leaveStartHiddenNote, takeStartHiddenNote } from "./autostart";
 import type { UpdateProgress } from "../shared/api";
 
 const CHECK_TIMEOUT_MS = 10_000;
@@ -46,7 +46,7 @@ export interface UpdateInfo {
   // there are skipped releases the dialog cannot show.
   moreVersions?: boolean;
   error?: string;
-  // False outside the portable exe, where there is no file to swap
+  // False outside the installed program
   canInstall?: boolean;
 }
 
@@ -108,7 +108,7 @@ export async function checkForUpdate(): Promise<UpdateInfo> {
     const missed = hasUpdate
       ? published.filter((r) => compareVersions(r.tag_name, current) > 0)
       : [];
-    const canInstall = Boolean(process.env.PORTABLE_EXECUTABLE_FILE);
+    const canInstall = app.isPackaged && process.platform === "win32";
     // Reaching a release at or below the installed version proves the page went
     // back far enough for the missed list to be complete. A short page means the
     // repo had nothing older to give, which proves it just as well — otherwise a
@@ -132,21 +132,22 @@ export async function checkForUpdate(): Promise<UpdateInfo> {
   }
 }
 
-// A cmd started detached has no console, so every ping in the script opened a window of its
-// own. Start-Process gives it one hidden console that outlives the app.
-async function runHidden(script: string) {
-  const launcher = spawn(
-    "powershell.exe",
-    [
-      "-NoProfile",
-      "-NonInteractive",
-      "-Command",
-      "Start-Process -WindowStyle Hidden -FilePath cmd.exe -ArgumentList ('/c \"' + $env:RR_UPDATE_SCRIPT + '\"')",
-    ],
-    { windowsHide: true, stdio: "ignore", env: { ...process.env, RR_UPDATE_SCRIPT: script } },
-  );
-  const [code] = await once(launcher, "exit");
-  if (code !== 0) throw new Error(`PowerShell exited with code ${code}`);
+const TEMP_PREFIX = "rift-records-update-";
+
+// The downloaded installer cannot delete itself; the next start does
+export function removeUpdateLeftovers(): void {
+  try {
+    for (const name of fs.readdirSync(os.tmpdir())) {
+      if (!name.startsWith(TEMP_PREFIX)) continue;
+      try {
+        fs.rmSync(path.join(os.tmpdir(), name), { recursive: true, force: true });
+      } catch {
+        // Still running: a later start gets it
+      }
+    }
+  } catch (err) {
+    console.warn("[update] could not clean up:", err);
+  }
 }
 
 // A second download would race the first for the same target exe
@@ -171,10 +172,8 @@ async function runUpdate(
   win: BrowserWindow,
   assetUrl: string,
 ): Promise<{ success: boolean; error?: string }> {
-  // Set by electron-builder's portable launcher; absent in dev and non-portable builds
-  const portableExe = process.env.PORTABLE_EXECUTABLE_FILE;
-  if (!portableExe) {
-    return { success: false, error: "In-app update only works in the portable exe build" };
+  if (!app.isPackaged || process.platform !== "win32") {
+    return { success: false, error: "In-app update only works in the installed program" };
   }
   if (!assetUrl.startsWith(UPDATE_DOWNLOAD_URL_PREFIX)) {
     return { success: false, error: "Unexpected download URL" };
@@ -192,12 +191,12 @@ async function runUpdate(
 
   let tmpDir: string;
   try {
-    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "rift-records-update-"));
+    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), TEMP_PREFIX));
   } catch (err: any) {
     return { success: false, error: `Failed to create temp dir: ${err.message}` };
   }
 
-  const newExe = path.join(tmpDir, "riftrecords-update.exe");
+  const newExe = path.join(tmpDir, "rift-records-setup.exe");
   // Rearmed on every chunk, so the download is only abandoned once it has
   // genuinely stopped rather than merely being slow.
   const controller = new AbortController();
@@ -289,47 +288,17 @@ async function runUpdate(
     return { success: false, error: `Download failed: ${err.message}` };
   }
 
-  // Install under the program's name whatever the file is called now, so copies downloaded
-  // under an older name get migrated.
-  const targetExe = path.join(path.dirname(portableExe), `${app.getName()}.exe`);
-  const stagedExe = `${targetExe}.new`;
-
-  // The running portable exe is locked by the OS until the app fully exits, so a
-  // detached script stages the new exe next to the old one, waits for the lock to
-  // release, swaps them, and relaunches. The old exe is only deleted once the
-  // staged copy is in place, and ping is used as the delay because timeout errors
-  // out when stdin is redirected.
-  const script = path.join(tmpDir, "update.cmd");
-  // An update during a tray-only startup must not pop the window up
-  const relaunchArgs = process.argv.includes(HIDDEN_FLAG) ? ` ${HIDDEN_FLAG}` : "";
-  fs.writeFileSync(
-    script,
-    [
-      "@echo off",
-      `copy /y "${newExe}" "${stagedExe}" >nul 2>&1`,
-      "if errorlevel 1 goto fail",
-      "set tries=0",
-      ":wait",
-      "set /a tries+=1",
-      "if %tries% gtr 120 goto fail",
-      "ping -n 2 127.0.0.1 >nul",
-      `del /f "${portableExe}" >nul 2>&1`,
-      `if exist "${portableExe}" goto wait`,
-      `move /y "${stagedExe}" "${targetExe}" >nul 2>&1`,
-      `start "" "${targetExe}"${relaunchArgs}`,
-      "goto cleanup",
-      ":fail",
-      `del /f "${stagedExe}" >nul 2>&1`,
-      `start "" "${portableExe}"`,
-      ":cleanup",
-      `rd /s /q "${tmpDir}"`,
-      "",
-    ].join("\r\n"),
-  );
-
+  // The installer replaces the files once the program has quit and starts it again
+  if (process.argv.includes(HIDDEN_FLAG)) leaveStartHiddenNote();
   try {
-    await runHidden(script);
+    const setup = spawn(newExe, ["--updated", "/S", "--force-run"], {
+      detached: true,
+      stdio: "ignore",
+    });
+    await once(setup, "spawn");
+    setup.unref();
   } catch (err: any) {
+    takeStartHiddenNote();
     fs.rmSync(tmpDir, { recursive: true, force: true });
     return { success: false, error: `Could not start the installer: ${err.message}` };
   }

@@ -6,6 +6,13 @@ A Windows desktop app that keeps your League of Legends match history on your ow
 
 ## Recent Changes
 
+**1.3.0**
+
+- **(NEW)** Installer: coming from the portable exe, your match history is picked up automatically
+- **(NEW)** Choose where the database and its backups are kept (Settings → Backups)
+- **(IMPROVED)** Updates install silently, without console windows
+- **(REMOVED)** The portable exe
+
 **1.2.2**
 
 - **(IMPROVED)** What's new tab redesigned as a timeline of releases with labelled changes
@@ -35,14 +42,6 @@ A Windows desktop app that keeps your League of Legends match history on your ow
 - **(IMPROVED)** A failed start now shows an error window instead of closing silently
 - Various small fixes
 
-**1.0.9**
-
-- **(NEW)** Home and Your Profile pages with activity heatmap and insights
-- **(NEW)** All / Mayhem data mode
-- **(NEW)** Live Game tab
-- **(IMPROVED)** Separate scoring for ARAM, Summoner's Rift and Arena, with a breakdown on hover
-- Various small fixes
-
 Full history: [CHANGELOG.md](CHANGELOG.md)
 
 ## Screenshots
@@ -69,19 +68,19 @@ Full history: [CHANGELOG.md](CHANGELOG.md)
 
 ## Install
 
-Windows 10/11 (64-bit). The app is portable: download `Rift.Records.exe` (GitHub shows the space as a dot) from [Releases](https://github.com/dxmegg/Rift-Records/releases) and run it.
+Windows 10/11 (64-bit). Download `Rift.Records.Setup.exe` from [Releases](https://github.com/dxmegg/Rift-Records/releases) and run it. It installs for the current user, no administrator rights needed. Coming from the portable version, your history is picked up automatically.
 
 ### If the app does not start
 
 The executable is not signed by a trusted certificate authority, so Windows may treat a fresh download with suspicion:
 
 - If a blue "Windows protected your PC" screen appears, click **More info → Run anyway**.
-- If nothing happens at all, right-click the exe → **Properties** → tick **Unblock** → OK, then run it again. Also check Windows Security → Protection history, in case antivirus quarantined it.
+- If nothing happens at all, right-click the setup file → **Properties** → tick **Unblock** → OK, then run it again. Also check Windows Security → Protection history, in case antivirus quarantined it.
 - If the app opens an error window, or `%APPDATA%\league-tracker\startup.log` exists, include that text in your report.
 
 ## Data and network
 
-Match history is stored in `%APPDATA%\league-tracker`. There is no Rift Records account. The app talks to the League client, the Riot Games API (through a small proxy that holds the API key), Data Dragon and CommunityDragon (game art) and GitHub (update checks).
+Match history is stored in `%APPDATA%\league-tracker`; the database and backup folders can be changed in Settings. Uninstalling keeps your data unless you choose to delete it. There is no Rift Records account. The app talks to the League client, the Riot Games API (through a small proxy that holds the API key), Data Dragon and CommunityDragon (game art) and GitHub (update checks).
 
 ## Development
 
@@ -89,7 +88,7 @@ Match history is stored in `%APPDATA%\league-tracker`. There is no Rift Records 
 npm install
 npm run rebuild   # Rebuild native modules for Electron
 npm run dev       # Start the application in development mode
-npm run dist      # Build the Windows portable executable (dist/Rift Records.exe)
+npm run dist      # Build the Windows installer (dist/Rift Records Setup.exe)
 ```
 
 ## Legal
