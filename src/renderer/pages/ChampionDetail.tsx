@@ -44,6 +44,7 @@ import PatchSelect from "../components/PatchSelect";
 import WinRateBar from "../components/WinRateBar";
 import { HeroTile, SplashHero } from "../components/SplashHero";
 import { Title } from "../components/live/shared";
+import { mergeItemsByName } from "../../shared/item-merge";
 
 // Record keys worth showing on a single page; the full list lives in the old Records tab
 const RECORD_KEYS = [
@@ -350,11 +351,10 @@ export default function ChampionDetail() {
     .sort((a, b) => rateOf(b) - rateOf(a))
     .slice(0, 5) as ChampionAllyRow[];
 
-  const topItems = (globalDetail?.items ?? [])
-    .filter((item) => !item.isTrinket)
-    .slice()
-    .sort((a, b) => b.picks - a.picks)
-    .slice(0, 6);
+  const topItems = mergeItemsByName(
+    (globalDetail?.items ?? []).filter((item) => !item.isTrinket),
+    (itemId) => getItemName(itemData, itemId),
+  ).slice(0, 6);
   const topAugments = (augments ?? [])
     .slice()
     .sort((a, b) => b.picks - a.picks)

@@ -24,6 +24,7 @@ import {
 } from "../../shared/queues";
 import {
   getChampionName,
+  getItemName,
   useAugmentData,
   useChampionData,
   useItemData,
@@ -55,6 +56,7 @@ import {
   UsersIcon,
   ZapIcon,
 } from "./icons";
+import { mergeItemsByName } from "../../shared/item-merge";
 
 type IconComponent = (props: SVGProps<SVGSVGElement>) => ReactNode;
 
@@ -413,10 +415,12 @@ function AugmentRarityRows({ stats }: { stats: AugmentStats[] }) {
 // Most built items with how often each was built and the win rate when it was.
 function TopItemsList({ rows }: { rows: OwnedItemStats[] }) {
   const items = useItemData(undefined);
+  // Merged before the cut, or two mode variants of one item take two of the five places
+  const top = mergeItemsByName(rows, (id) => getItemName(items, id)).slice(0, 5);
   if (rows.length === 0) return <div className="text-[13px] text-lol-text">No build data yet.</div>;
   return (
     <div className="flex flex-col gap-2">
-      {rows.map((row) => {
+      {top.map((row) => {
         const rate = winRateOf(row);
         return (
           <div key={row.item_id} className="flex items-center gap-2.5">
@@ -669,12 +673,7 @@ export function HomeDashboard({
       .then((result) => {
         if (cancelled) return;
         const rows = result.rows ?? result;
-        setItemRows(
-          [...rows]
-            .filter((row) => !row.isTrinket)
-            .sort((a, b) => b.picks - a.picks)
-            .slice(0, 5),
-        );
+        setItemRows(rows.filter((row) => !row.isTrinket));
       })
       .catch(() => {
         if (!cancelled) setItemRows([]);

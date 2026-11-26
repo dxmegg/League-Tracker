@@ -17,6 +17,7 @@ import { useIpc } from "../hooks/useIpc";
 import { useViewState } from "../hooks/useViewState";
 import { formatNumber } from "../lib/format";
 import { useScopedQueue } from "../lib/historyScope";
+import { mergeItemsByName } from "../../shared/item-merge";
 
 interface Row {
   id: number;
@@ -134,10 +135,15 @@ export default function MiscData() {
         <CountTable
           title="Items"
           viewKey="items"
-          rows={(data?.items ?? []).map((r) => ({
-            ...r,
-            name: getItemName(itemData, r.id),
-            icon: <ItemIcon itemId={r.id} size={26} />,
+          rows={mergeItemsByName(
+            (data?.items ?? []).map((r) => ({ item_id: r.id, picks: r.count, wins: r.wins })),
+            (itemId) => getItemName(itemData, itemId),
+          ).map((r) => ({
+            id: r.item_id,
+            count: r.picks,
+            wins: r.wins,
+            name: getItemName(itemData, r.item_id),
+            icon: <ItemIcon itemId={r.item_id} size={26} />,
           }))}
         />
       </div>
