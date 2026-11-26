@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.3.1 (2026-11-26)
+
+- New Use default button for the database folder under Backups
+- The data folder is now `%APPDATA%\rift-records`; existing data moves there on the first start
+- Moved Riot API sync to a new server address: version 1.3.0 and older can no longer sync through the Riot API
+
 ## 1.3.0 (2026-11-26)
 
 - New installer replaces the portable exe; your history is picked up automatically

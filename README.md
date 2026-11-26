@@ -6,6 +6,12 @@ A Windows desktop app that keeps your League of Legends match history on your ow
 
 ## Recent Changes
 
+**1.3.1**
+
+- **(NEW)** Use default button for the database folder (Settings → Backups)
+- **(CHANGED)** Data folder renamed to `%APPDATA%\rift-records`; existing data moves on the first start
+- **(CHANGED)** New server address for Riot API sync: 1.3.0 and older can no longer sync through the Riot API
+
 **1.3.0**
 
 - **(NEW)** Installer: coming from the portable exe, your match history is picked up automatically
@@ -35,11 +41,6 @@ A Windows desktop app that keeps your League of Legends match history on your ow
 - **(IMPROVED)** Match history grouped by day and session, match page with a Stats tab
 - **(CHANGED)** Rebuilt Champions, Items, Augments, Friends & Foes, Trends, Records, Storage and Settings
 - **(REMOVED)** Third to Sixth themes
-- Various small fixes
-
-**1.0.10**
-
-- **(IMPROVED)** A failed start now shows an error window instead of closing silently
 - Various small fixes
 
 Full history: [CHANGELOG.md](CHANGELOG.md)
