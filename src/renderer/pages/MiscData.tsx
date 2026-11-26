@@ -1,8 +1,9 @@
-import { useEffect, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import type { OtherPlayersStats } from "../../shared/api";
 import AugmentIcon from "../components/AugmentIcon";
 import ChampionIcon from "../components/ChampionIcon";
 import ItemIcon from "../components/ItemIcon";
+import ScrollMore, { SCROLL_PAGE } from "../components/ScrollMore";
 import { Title } from "../components/live/shared";
 import {
   getAugmentName,
@@ -30,6 +31,8 @@ const GRID = "grid grid-cols-[minmax(0,1fr)_64px_72px] items-center gap-2 px-2.5
 function CountTable({ title, viewKey, rows }: { title: string; viewKey: string; rows: Row[] }) {
   const [sort, setSort] = useViewState<"count" | "winRate">(`misc.${viewKey}.sort`, "count");
   const rate = (r: Row) => r.wins / r.count;
+  const [visible, setVisible] = useState(SCROLL_PAGE);
+  useEffect(() => setVisible(SCROLL_PAGE), [sort]);
   const sorted = rows
     .slice()
     .sort((a, b) =>
@@ -64,7 +67,7 @@ function CountTable({ title, viewKey, rows }: { title: string; viewKey: string; 
         {sorted.length === 0 && (
           <p className="py-4 text-center text-xs text-lol-text/70">No data</p>
         )}
-        {sorted.map((r) => (
+        {sorted.slice(0, visible).map((r) => (
           <div
             key={r.id}
             className={`${GRID} min-h-10 shrink-0 rounded-lg border border-lol-border/40 bg-black/25 text-[13px] tabular-nums`}
@@ -79,6 +82,9 @@ function CountTable({ title, viewKey, rows }: { title: string; viewKey: string; 
             </span>
           </div>
         ))}
+        {sorted.length > visible && (
+          <ScrollMore onMore={() => setVisible((n) => n + SCROLL_PAGE)} />
+        )}
       </div>
     </section>
   );

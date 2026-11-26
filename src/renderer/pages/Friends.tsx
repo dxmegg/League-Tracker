@@ -13,8 +13,7 @@ import { FilterChip } from "../components/FilterChip";
 import { SearchInput } from "../components/SearchInput";
 import { UsersIcon } from "../components/icons";
 import type { TeammateGroup } from "../../shared/groups";
-
-const PAGE_SIZE = 50;
+import ScrollMore, { SCROLL_PAGE } from "../components/ScrollMore";
 
 type Relation = "friends" | "enemies";
 type Subject = "players" | "champions" | "groups";
@@ -48,7 +47,7 @@ export default function Friends() {
     key: "games",
     desc: true,
   });
-  const [visible, setVisible] = useState(PAGE_SIZE);
+  const [visible, setVisible] = useState(SCROLL_PAGE);
 
   const players = useIpc<TeammateStats[]>(
     () => window.api.getTeammateStats(queue, relation),
@@ -67,7 +66,7 @@ export default function Friends() {
   useEffect(() => {
     if (scopedQueue !== undefined) setQueue(scopedQueue);
   }, [scopedQueue, setQueue]);
-  useEffect(() => setVisible(PAGE_SIZE), [queue, relation, subject, minGames, search, sort]);
+  useEffect(() => setVisible(SCROLL_PAGE), [queue, relation, subject, minGames, search, sort]);
   const refetchPlayers = players.refetch;
   const refetchChampions = champions.refetch;
   const refetchGroups = groups.refetch;
@@ -326,13 +325,7 @@ export default function Friends() {
           })
         )}
         {!loading && shown.length > visible && (
-          <button
-            type="button"
-            onClick={() => setVisible((n) => n + PAGE_SIZE)}
-            className="w-full py-3 text-xs font-bold uppercase tracking-wider text-lol-text hover:text-lol-text-bright"
-          >
-            Show more ({formatNumber(shown.length - visible)} left)
-          </button>
+          <ScrollMore onMore={() => setVisible((n) => n + SCROLL_PAGE)} />
         )}
       </div>
     </div>

@@ -9,8 +9,8 @@ import { formatNumber, formatTimeAgo } from "../lib/format";
 import { FilterChip } from "../components/FilterChip";
 import { SearchInput } from "../components/SearchInput";
 import { TIERS } from "../lib/achievements";
+import ScrollMore, { SCROLL_PAGE } from "../components/ScrollMore";
 
-const PAGE_SIZE = 60;
 const SORTS = ["Closest to next tier", "Highest tier", "Name"] as const;
 const KINDS = ["Any tiers", "Single tier", "Tiered"] as const;
 
@@ -30,8 +30,8 @@ export default function Challenges() {
   );
   const [search, setSearch] = useViewState("challenges.search", "");
   const [kind, setKind] = useState<(typeof KINDS)[number]>("Any tiers");
-  const [visible, setVisible] = useState(PAGE_SIZE);
-  useEffect(() => setVisible(PAGE_SIZE), [category, kind, sort, search]);
+  const [visible, setVisible] = useState(SCROLL_PAGE);
+  useEffect(() => setVisible(SCROLL_PAGE), [category, kind, sort, search]);
 
   const challenges = data?.challenges ?? [];
   const categories = ["All", ...[...new Set(challenges.map((c) => c.category))].sort()];
@@ -132,7 +132,9 @@ export default function Challenges() {
                 <div
                   key={c.id}
                   className="app-tile flex min-w-0 flex-col gap-2 !p-4"
-                  style={{ borderLeft: `3px solid ${tier < 0 ? "#64748b" : TIERS[tier].color}` }}
+                  style={{
+                    borderLeft: `3px solid ${tier < 0 ? "#64748b" : TIERS[tier].color}`,
+                  }}
                 >
                   <div className="flex items-baseline justify-between gap-2">
                     <span className="truncate font-display text-[15px] font-bold text-lol-text-bright">
@@ -191,9 +193,7 @@ export default function Challenges() {
             })}
           </div>
           {shown.length > visible && (
-            <FilterChip onClick={() => setVisible((n) => n + PAGE_SIZE)} className="h-9">
-              Show more ({formatNumber(shown.length - visible)} left)
-            </FilterChip>
+            <ScrollMore onMore={() => setVisible((n) => n + SCROLL_PAGE)} />
           )}
         </>
       )}

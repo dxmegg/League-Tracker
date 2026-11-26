@@ -2,6 +2,7 @@ import { useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import type { ItemData, OwnedItemStats, OwnedItemStatsResult } from "../lib/types";
 import ItemIcon from "../components/ItemIcon";
+import { mergeItemsByName } from "../../shared/item-merge";
 import QueueSelect from "../components/QueueSelect";
 import PatchSelect from "../components/PatchSelect";
 import { CatalogPage, patchTrend, type CatalogRow } from "../components/CatalogPage";
@@ -22,13 +23,6 @@ function resultRows(result: (OwnedItemStatsResult & OwnedItemStats[]) | null): O
 
 // Explicit classes for the 30 most common completed items; unfamiliar items use the tooltip heuristic below.
 const COMMON_ITEM_CLASSES: Record<string, Exclude<ItemClass, "All">> = {
-  "Berserker's Greaves": "Boots",
-  "Boots of Swiftness": "Boots",
-  "Ionian Boots of Lucidity": "Boots",
-  "Mercury's Treads": "Boots",
-  "Plated Steelcaps": "Boots",
-  "Sorcerer's Shoes": "Boots",
-  "Synchronized Souls": "Boots",
   "Abyssal Mask": "Tank",
   "Dead Man's Plate": "Tank",
   "Force of Nature": "Tank",
@@ -54,26 +48,20 @@ const COMMON_ITEM_CLASSES: Record<string, Exclude<ItemClass, "All">> = {
   "Void Staff": "AP",
 };
 
-function itemBranch(item: ItemData[number] | undefined): { label: ItemClass; color: string } {
+function itemBranch(data: ItemData, id: number): { label: ItemClass; color: string } {
+  const item = data[id];
+  const isBoots = (other: number) => data[other]?.categories?.includes("Boots");
+  // Upgraded boots (Gunmetal Greaves) carry no Boots tag, only the boots they come from
+  if (isBoots(id) || item?.from?.some(isBoots)) return { label: "Boots", color: "#C9A45C" };
   const name = item?.name ?? "";
   const knownClass = COMMON_ITEM_CLASSES[name];
   if (knownClass) {
     return {
       label: knownClass,
-      color:
-        knownClass === "Boots"
-          ? "#C9A45C"
-          : knownClass === "AP"
-            ? "#3B82F6"
-            : knownClass === "AD"
-              ? "#E5483F"
-              : "#22C55E",
+      color: knownClass === "AP" ? "#3B82F6" : knownClass === "AD" ? "#E5483F" : "#22C55E",
     };
   }
   const text = `${item?.name ?? ""} ${item?.description ?? ""}`.toLowerCase();
-  if (text.includes("boots") || text.includes("movement speed")) {
-    return { label: "Boots", color: "#C9A45C" };
-  }
   if (text.includes("ability power") || text.includes("spell damage")) {
     return { label: "AP", color: "#3B82F6" };
   }
@@ -134,12 +122,15 @@ export default function Items() {
   );
 
   const rows = useMemo<CatalogRow[]>(() => {
-    const previous = new Map(resultRows(previousResult).map((row) => [row.item_id, row]));
-    const newest = new Map(
-      resultRows(patch ? statsResult : newestResult).map((row) => [row.item_id, row]),
-    );
-    return resultRows(statsResult).map((row) => {
-      const branch = itemBranch(itemData[row.item_id]);
+    const merged = (result: Parameters<typeof resultRows>[0]) =>
+      mergeItemsByName(resultRows(result), (id) => getItemName(itemData, id));
+    // By name: each patch may have its own most picked id of an item
+    const byName = (result: Parameters<typeof resultRows>[0]) =>
+      new Map(merged(result).map((row) => [getItemName(itemData, row.item_id), row]));
+    const previous = byName(previousResult);
+    const newest = byName(patch ? statsResult : newestResult);
+    return merged(statsResult).map((row) => {
+      const branch = itemBranch(itemData, row.item_id);
       const price = itemData[row.item_id]?.price;
       return {
         id: row.item_id,
@@ -149,7 +140,10 @@ export default function Items() {
         games: row.picks,
         wins: row.wins,
         minor: row.isTrinket,
-        trend: patchTrend(newest.get(row.item_id), previous.get(row.item_id)),
+        trend: patchTrend(
+          newest.get(getItemName(itemData, row.item_id)),
+          previous.get(getItemName(itemData, row.item_id)),
+        ),
         icon: (size) => <ItemIcon itemId={row.item_id} size={size} patch={patch} />,
         extra: (
           <span className="tabular-nums">

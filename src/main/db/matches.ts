@@ -1331,3 +1331,10 @@ export function getRecentRiotMatchStubs(
     teamPosition: row.teamPosition ?? null,
   }));
 }
+
+export function listUsedItemIds(): number[] {
+  const slots = [0, 1, 2, 3, 4, 5, 6].map(
+    (i) => `SELECT item${i} AS id FROM match_participants WHERE item${i} > 0`,
+  );
+  return db.prepare(slots.join(" UNION ")).pluck().all() as number[];
+}

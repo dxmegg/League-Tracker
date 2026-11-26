@@ -1154,7 +1154,9 @@ export function registerIpcHandlers() {
 
   ipcMain.handle("dragon:items", async (_event, patch?: string) => {
     try {
-      return await dragon.loadItemData(patch);
+      const items = await dragon.loadItemData(patch);
+      // A patch's own data already holds what that patch had
+      return patch ? items : await dragon.withRemovedItems(items, db.listUsedItemIds());
     } catch {
       return {};
     }
@@ -1240,8 +1242,8 @@ export function registerIpcHandlers() {
   );
   ipcMain.handle(
     "db:owned-item-detail",
-    (_event, itemId: number, patch?: string, queue?: number) => {
-      return db.getOwnedItemDetail(itemId, patch, queue);
+    (_event, itemIds: number[], patch?: string, queue?: number) => {
+      return db.getOwnedItemDetail(itemIds, patch, queue);
     },
   );
 

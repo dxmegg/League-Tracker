@@ -20,9 +20,14 @@ export default function ItemDetail() {
   const queue = useHistoryScopeQueue();
   const items = useItemData();
   const [zoomOpen, setZoomOpen] = useState(false);
+  // Every mode's id of this item, the one in the address first
+  const name = items[id]?.name;
+  const ids = [id, ...Object.keys(items).map(Number)].filter(
+    (other, index) => index === 0 || (other !== id && name && items[other].name === name),
+  );
   const { data, loading } = useIpc<ItemDetailData>(
-    () => window.api.getOwnedItemDetail(id, undefined, queue),
-    [id, queue],
+    () => window.api.getOwnedItemDetail(ids, undefined, queue),
+    [ids.join(), queue],
   );
   const averageGameDuration = useMemo(() => {
     const matches = data?.champions.flatMap((row) => row.matches) ?? [];

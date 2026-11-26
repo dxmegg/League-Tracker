@@ -1252,6 +1252,7 @@ export interface ItemData {
     branch: string;
     price?: number;
     from?: number[];
+    categories?: string[];
   };
 }
 
@@ -2559,7 +2560,7 @@ export interface ElectronAPI {
   getOwnedRuneStats: (queue?: number, patch?: string, account?: string) => Promise<RuneOverview>;
   getRuneData: () => Promise<RuneData>;
   getRuneTrees: () => Promise<RuneTreeLayout>;
-  getOwnedItemDetail: (itemId: number, patch?: string, queue?: number) => Promise<ItemDetail>;
+  getOwnedItemDetail: (itemIds: number[], patch?: string, queue?: number) => Promise<ItemDetail>;
   getTrends: (
     queue?: number,
     account?: string,

@@ -65,6 +65,7 @@ export {
   getTotalMatchesPlayedByName,
   getRankedRecordForPuuid,
   matchOrderBy,
+  listUsedItemIds,
 } from "./matches";
 export { getSetting, setSetting } from "./settings";
 export {

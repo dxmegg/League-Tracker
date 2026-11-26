@@ -2493,14 +2493,16 @@ export function getOwnedItemStats(
   return result;
 }
 
-export function getOwnedItemDetail(itemId: number, patch?: string, queue?: number) {
-  return cachedQuery("getOwnedItemDetail", [itemId, patch, queue], 30_000, () => {
-    const where = [
-      "g.is_remake = 0",
-      "(ps.item0 = ? OR ps.item1 = ? OR ps.item2 = ? OR ps.item3 = ? OR ps.item4 = ? OR ps.item5 = ? OR ps.item6 = ?)",
-    ];
-    where.push(localGamesFilter("g"));
-    const params: any[] = Array(7).fill(itemId);
+// `itemIds` are one item's ids across game modes; the first one names the result
+export function getOwnedItemDetail(itemIds: number[], patch?: string, queue?: number) {
+  return cachedQuery("getOwnedItemDetail", [itemIds.join(), patch, queue], 30_000, () => {
+    const itemId = Number(itemIds[0]) || 0;
+    // Integers only, so the list is safe to put into the SQL
+    const ids = [itemId, ...itemIds.map(Number).filter(Number.isInteger)].join(", ");
+    const holds = (alias: string) =>
+      `(${[0, 1, 2, 3, 4, 5, 6].map((i) => `IFNULL(${alias}.item${i}, 0) IN (${ids})`).join(" OR ")})`;
+    const where = ["g.is_remake = 0", holds("ps"), localGamesFilter("g")];
+    const params: any[] = [];
     if (patch) {
       where.push("g.game_version = ?");
       params.push(patch);
@@ -2572,11 +2574,9 @@ export function getOwnedItemDetail(itemId: number, patch?: string, queue?: numbe
                 AVG(g.game_duration) AS duration
          FROM player_stats ps JOIN games g ON g.game_id = ps.game_id
          WHERE ${totalWhere.join(" AND ")}
-           AND ? NOT IN (IFNULL(ps.item0, 0), IFNULL(ps.item1, 0), IFNULL(ps.item2, 0),
-                         IFNULL(ps.item3, 0), IFNULL(ps.item4, 0), IFNULL(ps.item5, 0),
-                         IFNULL(ps.item6, 0))`,
+           AND NOT ${holds("ps")}`,
       )
-      .get(...totalParams, itemId) as ItemDetail["baseline"];
+      .get(...totalParams) as ItemDetail["baseline"];
     const matchingGameIds = [...new Set(rows.map((row) => row.game_id))];
     let avgBuyTimeMs: number | null = null;
     let patchBreakdown: { patch: string; games: number; wins: number }[] = [];
@@ -2592,10 +2592,10 @@ export function getOwnedItemDetail(itemId: number, patch?: string, queue?: numbe
               `SELECT AVG(e.timestamp_ms) AS avgBuyTimeMs
                FROM match_timeline_events e
                WHERE e.event_type = 'ITEM_PURCHASED'
-                 AND e.item_id = ?
+                 AND e.item_id IN (${ids})
                  AND e.game_id IN (${gamePlaceholders})`,
             )
-            .get(itemId, ...matchingGameParams) as { avgBuyTimeMs: number | null }
+            .get(...matchingGameParams) as { avgBuyTimeMs: number | null }
         ).avgBuyTimeMs ?? null;
 
       patchBreakdown = db
@@ -2623,10 +2623,7 @@ export function getOwnedItemDetail(itemId: number, patch?: string, queue?: numbe
                FROM match_participants mp
               JOIN games g ON g.game_id = mp.game_id AND g.puuid = mp.puuid
               WHERE mp.game_id IN (${pairingGamePlaceholders})
-              AND (
-                   mp.item0 = ? OR mp.item1 = ? OR mp.item2 = ? OR mp.item3 = ? OR
-                   mp.item4 = ? OR mp.item5 = ? OR mp.item6 = ?
-               )
+              AND ${holds("mp")}
            ),
            paired_items AS (
              SELECT DISTINCT game_id, participant_id, item_id
@@ -2668,30 +2665,18 @@ export function getOwnedItemDetail(itemId: number, patch?: string, queue?: numbe
              ON paired.game_id = tp.game_id
             AND paired.participant_id = tp.participant_id
            WHERE paired.item_id > 0
-             AND paired.item_id != ?
+             AND paired.item_id NOT IN (${ids})
              AND paired.item_id NOT IN (${[...TRINKET_ITEM_IDS, ...EXCLUDED_ITEM_IDS].join(", ")})
            GROUP BY paired.item_id
            ORDER BY games DESC, paired.item_id ASC
            LIMIT 8`,
         )
-        .all(
-          ...pairingGameIds,
-          itemId,
-          itemId,
-          itemId,
-          itemId,
-          itemId,
-          itemId,
-          itemId,
-          ...pairingGameIds,
-          ...pairingGameIds,
-          ...pairingGameIds,
-          ...pairingGameIds,
-          ...pairingGameIds,
-          ...pairingGameIds,
-          ...pairingGameIds,
-          itemId,
-        ) as { item_id: number; games: number; wins: number }[];
+        // One list for the target participants and one per item slot
+        .all(...Array(8).fill(pairingGameIds).flat()) as {
+        item_id: number;
+        games: number;
+        wins: number;
+      }[];
     }
 
     return {

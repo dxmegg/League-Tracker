@@ -5,6 +5,7 @@ import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { formatNumber } from "../lib/format";
 import { FilterChip } from "./FilterChip";
 import { SearchInput } from "./SearchInput";
+import ScrollMore, { SCROLL_PAGE } from "./ScrollMore";
 
 export type CatalogRow = {
   id: number;
@@ -22,7 +23,6 @@ export type CatalogRow = {
 };
 
 type SortKey = "name" | "games" | "winRate" | "trend";
-const PAGE_SIZE = 60;
 // Fewer games than this on either patch and the change is noise, not a trend
 const TREND_MIN_GAMES = 10;
 
@@ -71,8 +71,8 @@ export function CatalogPage({
     desc: true,
   });
 
-  const [shownCount, setShownCount] = useState(PAGE_SIZE);
-  useEffect(() => setShownCount(PAGE_SIZE), [group, minGames, search, sort]);
+  const [shownCount, setShownCount] = useState(SCROLL_PAGE);
+  useEffect(() => setShownCount(SCROLL_PAGE), [group, minGames, search, sort]);
 
   const totals = useMemo(() => {
     const games = rows.reduce((sum, r) => sum + r.games, 0);
@@ -232,7 +232,10 @@ export function CatalogPage({
                 key={row.id}
                 onClick={() => onOpen(row.id)}
                 // Off-screen rows are skipped by layout and paint, which keeps long lists quick
-                style={{ contentVisibility: "auto", containIntrinsicSize: "auto 52px" }}
+                style={{
+                  contentVisibility: "auto",
+                  containIntrinsicSize: "auto 52px",
+                }}
                 className={`${COLUMNS} w-full border-b border-lol-border/30 py-2 text-left transition-colors last:border-0 hover:bg-white/[0.05]`}
               >
                 <span className="text-right text-xs tabular-nums text-lol-text/60">
@@ -261,7 +264,9 @@ export function CatalogPage({
                   <span className="mt-1 block h-1 overflow-hidden rounded-full bg-white/[0.07]">
                     <span
                       className="block h-full bg-lol-text/60"
-                      style={{ width: `${(row.games / totals.maxGames) * 100}%` }}
+                      style={{
+                        width: `${(row.games / totals.maxGames) * 100}%`,
+                      }}
                     />
                   </span>
                 </span>
@@ -295,13 +300,7 @@ export function CatalogPage({
           })
         )}
         {!loading && visible.length > shownCount && (
-          <button
-            type="button"
-            onClick={() => setShownCount((n) => n + PAGE_SIZE * 2)}
-            className="w-full py-3 text-xs font-bold uppercase tracking-wider text-lol-text hover:text-lol-text-bright"
-          >
-            Show more ({formatNumber(visible.length - shownCount)} left)
-          </button>
+          <ScrollMore onMore={() => setShownCount((n) => n + SCROLL_PAGE)} />
         )}
       </div>
     </div>

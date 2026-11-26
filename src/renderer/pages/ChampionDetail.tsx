@@ -576,7 +576,9 @@ export default function ChampionDetail() {
       {id === null && detail && <SummaryPanels detail={detail} />}
 
       {id !== null && (
-        <div className="grid grid-cols-1 gap-5 xl:grid-cols-3">
+        <div
+          className={`grid grid-cols-1 gap-5 ${dataMode === "mayhem" ? "xl:grid-cols-2" : "xl:grid-cols-3"}`}
+        >
           <Section title="Roles">
             {(roles ?? []).length > 0 ? (
               (roles ?? [])
@@ -613,21 +615,24 @@ export default function ChampionDetail() {
               <Empty />
             )}
           </Section>
-          <Section title="Keystones">
-            {topKeystones.length > 0 ? (
-              topKeystones.map((k) => (
-                <RateRow
-                  key={k.runeId}
-                  icon={<RuneIcon runeId={k.runeId} path={runeData[k.runeId]?.icon} size={26} />}
-                  name={runeData[k.runeId]?.name ?? `Rune ${k.runeId}`}
-                  games={k.picks}
-                  wins={k.wins}
-                />
-              ))
-            ) : (
-              <Empty />
-            )}
-          </Section>
+          {/* ARAM Mayhem has no runes */}
+          {dataMode !== "mayhem" && (
+            <Section title="Keystones">
+              {topKeystones.length > 0 ? (
+                topKeystones.map((k) => (
+                  <RateRow
+                    key={k.runeId}
+                    icon={<RuneIcon runeId={k.runeId} path={runeData[k.runeId]?.icon} size={26} />}
+                    name={runeData[k.runeId]?.name ?? `Rune ${k.runeId}`}
+                    games={k.picks}
+                    wins={k.wins}
+                  />
+                ))
+              ) : (
+                <Empty />
+              )}
+            </Section>
+          )}
         </div>
       )}
 

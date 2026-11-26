@@ -1,7 +1,8 @@
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import type { ChampionStats, HomeTimePeriod } from "../../shared/api";
 import ChampionIcon from "../components/ChampionIcon";
+import ScrollMore, { SCROLL_PAGE } from "../components/ScrollMore";
 import { HeroTile, HighlightTile, SplashHero } from "../components/SplashHero";
 import { Title } from "../components/live/shared";
 import { ChampionCombobox } from "../components/ChampionCombobox";
@@ -118,6 +119,12 @@ export default function Champions() {
   const [searchText, setSearchText] = useViewState("champions.query", "");
   const [sortKey, setSortKey] = useViewState<ColumnKey>("champions.tableSortKey", "games");
   const [sortDir, setSortDir] = useViewState<"asc" | "desc">("champions.tableSortDir", "desc");
+
+  const [visible, setVisible] = useState(SCROLL_PAGE);
+  useEffect(
+    () => setVisible(SCROLL_PAGE),
+    [championFilter, searchText, sortKey, sortDir, patch, scopedQueue, timePeriod],
+  );
 
   const filtered = useMemo(() => {
     if (!data) return [];
@@ -406,7 +413,7 @@ export default function Champions() {
                   </div>
                 </div>
               ) : (
-                sorted.map((r, i) => {
+                sorted.slice(0, visible).map((r, i) => {
                   const wr = r.games > 0 ? (r.wins / r.games) * 100 : 0;
                   const kda = r.deaths > 0 ? (r.kills + r.assists) / r.deaths : null;
                   return (
@@ -545,6 +552,9 @@ export default function Champions() {
                 })
               )}
             </div>
+            {sorted.length > visible && (
+              <ScrollMore onMore={() => setVisible((n) => n + SCROLL_PAGE)} />
+            )}
           </div>
         </div>
       </div>

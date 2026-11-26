@@ -294,6 +294,7 @@ export type ItemInfo = {
   branch: string;
   price?: number;
   from?: number[];
+  categories?: string[];
 };
 
 let runeDataCache: Record<
@@ -470,6 +471,7 @@ function parseDataDragonItems(version: string, ddragonData: any): Record<number,
       branch: "ddragon",
       price: Number.isFinite(Number(item.gold?.total)) ? Number(item.gold.total) : undefined,
       from: Array.isArray(item.from) ? item.from : undefined,
+      categories: item.tags,
     };
   }
   return items;
@@ -484,7 +486,7 @@ export function loadItemData(patch?: string): Promise<Record<number, ItemInfo>> 
   if (!promise) {
     promise = (async () => {
       try {
-        const freshFromDisk = readDragonCache<Record<number, ItemInfo>>(`items-${key}`);
+        const freshFromDisk = readDragonCache<Record<number, ItemInfo>>(`items2-${key}`);
         if (freshFromDisk) {
           itemCache.set(key, freshFromDisk);
           return freshFromDisk;
@@ -528,7 +530,7 @@ export function loadItemData(patch?: string): Promise<Record<number, ItemInfo>> 
             `[dragon] loadItemData: using Data Dragon ${version} (${Object.keys(ddragonItems).length} items)`,
           );
           itemCache.set(key, ddragonItems);
-          writeDragonCache(`items-${key}`, ddragonItems);
+          writeDragonCache(`items2-${key}`, ddragonItems);
           return ddragonItems;
         }
         let dataDragon: any = null;
@@ -555,6 +557,7 @@ export function loadItemData(patch?: string): Promise<Record<number, ItemInfo>> 
                 ? Number(ddragonItem.gold.total)
                 : undefined,
               from: Array.isArray(item.from) ? item.from : undefined,
+              categories: item.categories,
             };
           }
         }
@@ -562,10 +565,10 @@ export function loadItemData(patch?: string): Promise<Record<number, ItemInfo>> 
         console.log(
           `Loaded ${Object.keys(items).length} items from CommunityDragon (${usedBranch})`,
         );
-        writeDragonCache(`items-${key}`, items);
+        writeDragonCache(`items2-${key}`, items);
         return items;
       } catch (err) {
-        const stale = readDragonCacheStale<Record<number, ItemInfo>>(`items-${key}`);
+        const stale = readDragonCacheStale<Record<number, ItemInfo>>(`items2-${key}`);
         if (stale) {
           itemCache.set(key, stale);
           console.warn(`[dragon] loadItemData fell back to stale disk cache (${key})`);
@@ -579,6 +582,55 @@ export function loadItemData(patch?: string): Promise<Record<number, ItemInfo>> 
     itemPromises.set(key, promise);
   }
   return promise;
+}
+
+// Ids that left the game keep the name and art of the newest patch that had them
+export async function withRemovedItems(
+  items: Record<number, ItemInfo>,
+  usedIds: number[],
+): Promise<Record<number, ItemInfo>> {
+  // No current data says nothing about which ids are gone
+  if (Object.keys(items).length === 0) return items;
+  const missing = usedIds.filter((id) => !items[id]);
+  if (missing.length === 0) return items;
+
+  // Read without a TTL: what an old patch held does not change. null = in no patch.
+  const known = readDragonCacheStale<Record<number, ItemInfo | null>>("removed-items2") ?? {};
+  let todo = missing.filter((id) => !(id in known));
+  if (todo.length > 0) {
+    let complete = true;
+    const branches = await getArchivedBranches();
+    for (const branch of branches.filter((b) => parseInt(b, 10) >= OLDEST_BRANCH_MAJOR)) {
+      if (todo.length === 0) break;
+      try {
+        for (const item of (await fetchJson(itemsJsonUrl(branch))) as any[]) {
+          if (!todo.includes(item.id)) continue;
+          known[item.id] = {
+            name: item.name || "",
+            description: item.description || "",
+            iconPath: item.iconPath || "",
+            branch,
+            price: item.priceTotal,
+            from: Array.isArray(item.from) ? item.from : undefined,
+            categories: item.categories,
+          };
+        }
+        todo = todo.filter((id) => !known[id]);
+      } catch {
+        complete = false;
+      }
+    }
+    // An unread patch might still hold the rest, so only a full walk rules them out
+    if (complete && branches.length > 0) for (const id of todo) known[id] = null;
+    writeDragonCache("removed-items2", known);
+  }
+
+  const merged = { ...items };
+  for (const id of missing) {
+    const item = known[id];
+    if (item) merged[id] = item;
+  }
+  return merged;
 }
 
 export type SummonerSpellInfo = { name: string; iconPath: string };
@@ -683,10 +735,9 @@ function getLiveAugments(): Record<number, AugmentInfo> {
 // branches (1108's picked up a ".MAYHEM_New_Augments" texture suffix), so
 // resolving one means reading that branch's own cherry-augments.json.
 
-// How far back to walk before giving up. Retired augments were in the game
-// recently enough to be in someone's match history, so hits come early; the cap
-// stops a permanently-missing icon from pulling down a year of manifests.
-const MAX_ICON_BRANCH_LOOKBACK = 12;
+// shortcut: retired art and items are looked for back to season 16, the oldest
+// games saved; lower it if older history gets imported
+const OLDEST_BRANCH_MAJOR = 16;
 
 // A stats page renders hundreds of icons at once and CommunityDragon throttles
 // bursts, so several <img> tags can fail at the same moment. Resolving those in
@@ -704,7 +755,7 @@ const branchAugmentIcons = new Map<string, Record<number, string>>();
 const branchLoadFailures = new Set<string>();
 let archivedBranches: string[] | null = null;
 
-const augmentIconCacheFile = () => path.join(getDataDir(), "augment-icon-cache.json");
+const augmentIconCacheFile = () => path.join(getDataDir(), "augment-icon-cache-v2.json");
 
 function readAugmentIconCache(): AugmentIconCache {
   if (!augmentIconCache) {
@@ -913,7 +964,7 @@ export function resolveAugmentIcon(id: number, patch?: string): Promise<string |
       // it first; otherwise walk back from the newest archived patch.
       const ordered = new Set([
         ...(patch && branches.includes(patch) ? [patch] : []),
-        ...branches.slice(0, MAX_ICON_BRANCH_LOOKBACK),
+        ...branches.filter((b) => parseInt(b, 10) >= OLDEST_BRANCH_MAJOR),
       ]);
       let walkComplete = true;
       for (const branch of ordered) {

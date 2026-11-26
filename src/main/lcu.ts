@@ -471,7 +471,7 @@ async function fetchFullMatchData(gameId: number): Promise<void> {
         signal: AbortSignal.timeout(SGP_PAGE_TIMEOUT_MS),
       },
     );
-    if (!response.ok) throw new SgpHttpError(response.status);
+    if (!response.ok) throw new SgpHttpError(response.status, kind);
     const body: any = await response.json();
     return body.json ?? body;
   };
@@ -572,8 +572,11 @@ async function fetchSgpToken(): Promise<string> {
 // Carries the status through so a caller can tell a shard that has stopped
 // serving this account apart from a service that is merely unhappy.
 class SgpHttpError extends Error {
-  constructor(readonly status: number) {
-    super(`Match history service returned ${status}`);
+  constructor(
+    readonly status: number,
+    what?: string,
+  ) {
+    super(`Match history service returned ${status}${what ? ` for ${what}` : ""}`);
   }
 }
 

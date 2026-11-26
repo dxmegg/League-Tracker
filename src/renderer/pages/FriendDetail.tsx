@@ -14,6 +14,7 @@ import { EmptyState } from "../components/EmptyState";
 import ItemIcon from "../components/ItemIcon";
 import { MatchRow } from "../components/MatchRow";
 import { Panel } from "../components/Panel";
+import ScrollMore, { SCROLL_PAGE } from "../components/ScrollMore";
 import { queueLabel } from "../components/QueueSelect";
 import StatCard from "../components/StatCard";
 import SummonerIcon from "../components/SummonerIcon";
@@ -44,6 +45,8 @@ export default function FriendDetail() {
     "games",
   );
   const [showAllChampions, setShowAllChampions] = useState(false);
+  const [visibleMatches, setVisibleMatches] = useState(SCROLL_PAGE);
+  useEffect(() => setVisibleMatches(SCROLL_PAGE), [key, scopedQueue, enemies]);
 
   const switchRelation = useCallback(
     async (target: "friends" | "enemies") => {
@@ -500,7 +503,7 @@ export default function FriendDetail() {
       <Panel className="border-t-[3px] border-t-[var(--theme-win)]">
         {matches.length > 0 ? (
           <div className="space-y-1">
-            {matches.map((m) => (
+            {matches.slice(0, visibleMatches).map((m) => (
               <MatchRow
                 key={m.game_id}
                 match={m}
@@ -522,6 +525,9 @@ export default function FriendDetail() {
                 }}
               />
             ))}
+            {matches.length > visibleMatches && (
+              <ScrollMore onMore={() => setVisibleMatches((n) => n + SCROLL_PAGE)} />
+            )}
           </div>
         ) : (
           <EmptyState variant="roomy" text="No shared matches found." />
