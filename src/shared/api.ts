@@ -2560,7 +2560,12 @@ export interface ElectronAPI {
   getOwnedRuneStats: (queue?: number, patch?: string, account?: string) => Promise<RuneOverview>;
   getRuneData: () => Promise<RuneData>;
   getRuneTrees: () => Promise<RuneTreeLayout>;
-  getOwnedItemDetail: (itemIds: number[], patch?: string, queue?: number) => Promise<ItemDetail>;
+  getOwnedItemDetail: (
+    itemIds: number[],
+    patch?: string,
+    queue?: number,
+    account?: string,
+  ) => Promise<ItemDetail>;
   getTrends: (
     queue?: number,
     account?: string,

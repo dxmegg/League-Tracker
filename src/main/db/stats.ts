@@ -27,7 +27,6 @@ import { ARENA_QUEUE_IDS, QUEUE_LABELS } from "../../shared/queues";
 import {
   applyQueueFilter,
   applyTimeFilter,
-  localGamesFilter,
   participantFilter,
   pushTimeFilter,
   statsSource,
@@ -2363,7 +2362,7 @@ export function getOwnedItemStats(
   queue?: number,
   account?: string,
 ): OwnedItemStatsResult & OwnedItemStats[] {
-  const cacheKey = `owned-item-stats:${patch ?? "all"}:${queue ?? "all"}:${account ?? "all"}`;
+  const cacheKey = `owned-item-stats:${patch ?? "all"}:${queue ?? "all"}:${account ?? "own"}`;
   const cached = getCachedOwnedItemStats(cacheKey);
   if (cached) return cached as OwnedItemStatsResult & OwnedItemStats[];
 
@@ -2385,7 +2384,9 @@ export function getOwnedItemStats(
       WITH item_occurrences AS (
         ${columns
           .map(
-            (i) => `SELECT ps.game_id, ps.item${i} AS item_id, ps.win, ${i} AS purchase_slot
+            (
+              i,
+            ) => `SELECT ps.game_id, ps.rowid AS row_id, ps.item${i} AS item_id, ps.win, ${i} AS purchase_slot
                     FROM ${source.table} ps JOIN games g ON g.game_id = ps.game_id
                     WHERE ${where.join(" AND ")}
                       AND ps.item${i} > 0 AND ps.item${i} NOT IN (${excluded})`,
@@ -2393,8 +2394,9 @@ export function getOwnedItemStats(
           .join(" UNION ALL ")}
       ),
       item_summary AS (
+        -- Games, not slots: two copies of an item in one inventory count once
         SELECT item_id, COUNT(*) AS picks, SUM(win) AS wins
-        FROM item_occurrences
+        FROM (SELECT DISTINCT row_id, item_id, win FROM item_occurrences)
         GROUP BY item_id
       ),
       top_items AS (
@@ -2494,29 +2496,39 @@ export function getOwnedItemStats(
 }
 
 // `itemIds` are one item's ids across game modes; the first one names the result
-export function getOwnedItemDetail(itemIds: number[], patch?: string, queue?: number) {
-  return cachedQuery("getOwnedItemDetail", [itemIds.join(), patch, queue], 30_000, () => {
+export function getOwnedItemDetail(
+  itemIds: number[],
+  patch?: string,
+  queue?: number,
+  account?: string,
+) {
+  const key = [itemIds.join(), patch, queue, account];
+  return cachedQuery("getOwnedItemDetail", key, 30_000, () => {
     const itemId = Number(itemIds[0]) || 0;
     // Integers only, so the list is safe to put into the SQL
     const ids = [itemId, ...itemIds.map(Number).filter(Number.isInteger)].join(", ");
     const holds = (alias: string) =>
       `(${[0, 1, 2, 3, 4, 5, 6].map((i) => `IFNULL(${alias}.item${i}, 0) IN (${ids})`).join(" OR ")})`;
-    const where = ["g.is_remake = 0", holds("ps"), localGamesFilter("g")];
-    const params: any[] = [];
+    // The same scope as the Items list (getOwnedItemStats), so the two agree
+    const source = statsSource(account);
+    const from = `${source.table} ps JOIN games g ON g.game_id = ps.game_id`;
+    const totalWhere = ["g.is_remake = 0", source.accountFilter];
+    const totalParams: any[] = account && account !== "all" ? [account] : [];
     if (patch) {
-      where.push("g.game_version = ?");
-      params.push(patch);
+      totalWhere.push("g.game_version = ?");
+      totalParams.push(patch);
     }
-
-    applyQueueFilter(where, params, queue);
+    applyQueueFilter(totalWhere, totalParams, queue);
+    totalWhere.push(`g.queue_id NOT IN (${EXCLUDED_STATS_SQL})`);
+    const where = [...totalWhere, holds("ps")];
     const rows = db
       .prepare(
         `SELECT ps.game_id, ps.champion_id, g.game_creation, g.game_duration, g.queue_id, ps.win, ps.kills, ps.deaths, ps.assists,
                 ps.total_damage_dealt AS damage, ps.total_damage_taken AS taken, ps.gold_earned AS gold, ps.total_heal AS heal, ps.score
-         FROM player_stats ps JOIN games g ON g.game_id = ps.game_id
+         FROM ${from}
          WHERE ${where.join(" AND ")} ORDER BY g.game_creation DESC`,
       )
-      .all(...params) as {
+      .all(...totalParams) as {
       game_id: number;
       champion_id: number;
       game_creation: number;
@@ -2532,17 +2544,11 @@ export function getOwnedItemDetail(itemIds: number[], patch?: string, queue?: nu
       heal: number;
       score: number | null;
     }[];
-    const totalWhere = ["g.is_remake = 0"];
-    totalWhere.push(localGamesFilter("g"));
-    const totalParams: any[] = [];
-    if (patch) {
-      totalWhere.push("g.game_version = ?");
-      totalParams.push(patch);
-    }
-    applyQueueFilter(totalWhere, totalParams, queue);
     const totalGames = (
       db
-        .prepare(`SELECT COUNT(*) count FROM games g WHERE ${totalWhere.join(" AND ")}`)
+        .prepare(
+          `SELECT COUNT(DISTINCT ps.game_id) count FROM ${from} WHERE ${totalWhere.join(" AND ")}`,
+        )
         .get(...totalParams) as {
         count: number;
       }
@@ -2558,7 +2564,7 @@ export function getOwnedItemDetail(itemIds: number[], patch?: string, queue?: nu
     const championTotals = db
       .prepare(
         `SELECT ps.champion_id, COUNT(*) games, SUM(ps.win) wins
-       FROM player_stats ps JOIN games g ON g.game_id = ps.game_id
+       FROM ${from}
        WHERE ${totalWhere.join(" AND ")}
        GROUP BY ps.champion_id`,
       )
@@ -2572,7 +2578,7 @@ export function getOwnedItemDetail(itemIds: number[], patch?: string, queue?: nu
                 AVG(ps.total_damage_dealt) AS damage, AVG(ps.total_damage_taken) AS taken,
                 AVG(ps.gold_earned) AS gold, AVG(ps.total_heal) AS heal, AVG(ps.score) AS score,
                 AVG(g.game_duration) AS duration
-         FROM player_stats ps JOIN games g ON g.game_id = ps.game_id
+         FROM ${from}
          WHERE ${totalWhere.join(" AND ")}
            AND NOT ${holds("ps")}`,
       )
@@ -2601,9 +2607,8 @@ export function getOwnedItemDetail(itemIds: number[], patch?: string, queue?: nu
       patchBreakdown = db
         .prepare(
           `SELECT g.game_version AS patch, COUNT(*) AS games, SUM(ps.win) AS wins
-           FROM games g
-           JOIN player_stats ps ON ps.game_id = g.game_id
-           WHERE g.game_id IN (${gamePlaceholders})
+           FROM ${from}
+           WHERE ${where.join(" AND ")}
              AND g.game_version IS NOT NULL
              AND g.game_version != ''
            GROUP BY g.game_version
@@ -2612,71 +2617,38 @@ export function getOwnedItemDetail(itemIds: number[], patch?: string, queue?: nu
              CAST(SUBSTR(SUBSTR(g.game_version, INSTR(g.game_version, '.') + 1), 1, INSTR(SUBSTR(g.game_version, INSTR(g.game_version, '.') + 1) || '.', '.') - 1) AS INTEGER) DESC
            LIMIT 8`,
         )
-        .all(...matchingGameParams) as { patch: string; games: number; wins: number }[];
+        .all(...totalParams) as { patch: string; games: number; wins: number }[];
 
-      const pairingGameIds = matchingGameIds.slice(0, 500);
-      const pairingGamePlaceholders = pairingGameIds.map(() => "?").join(", ");
+      // player_stats has no puuid of its own: there the row's player is the game's owner
+      const player = source.table === "player_stats" ? "g.puuid" : "ps.puuid";
       topPairings = db
         .prepare(
-          `WITH target_participants AS (
-               SELECT mp.game_id, mp.participant_id, mp.win
-               FROM match_participants mp
-              JOIN games g ON g.game_id = mp.game_id AND g.puuid = mp.puuid
-              WHERE mp.game_id IN (${pairingGamePlaceholders})
-              AND ${holds("mp")}
+          `WITH target_participants AS MATERIALIZED (
+             SELECT mp.game_id, mp.participant_id, ps.win
+             FROM ${from}
+             JOIN match_participants mp ON mp.game_id = ps.game_id AND mp.puuid = ${player}
+             WHERE ${where.join(" AND ")}
            ),
            paired_items AS (
-             SELECT DISTINCT game_id, participant_id, item_id
-             FROM (
-               SELECT mp.game_id, mp.participant_id, mp.item0 AS item_id
-               FROM match_participants mp
-               WHERE mp.game_id IN (${pairingGamePlaceholders})
-               UNION ALL
-               SELECT mp.game_id, mp.participant_id, mp.item1 AS item_id
-               FROM match_participants mp
-               WHERE mp.game_id IN (${pairingGamePlaceholders})
-               UNION ALL
-               SELECT mp.game_id, mp.participant_id, mp.item2 AS item_id
-               FROM match_participants mp
-               WHERE mp.game_id IN (${pairingGamePlaceholders})
-               UNION ALL
-               SELECT mp.game_id, mp.participant_id, mp.item3 AS item_id
-               FROM match_participants mp
-               WHERE mp.game_id IN (${pairingGamePlaceholders})
-               UNION ALL
-               SELECT mp.game_id, mp.participant_id, mp.item4 AS item_id
-               FROM match_participants mp
-               WHERE mp.game_id IN (${pairingGamePlaceholders})
-               UNION ALL
-               SELECT mp.game_id, mp.participant_id, mp.item5 AS item_id
-               FROM match_participants mp
-               WHERE mp.game_id IN (${pairingGamePlaceholders})
-               UNION ALL
-               SELECT mp.game_id, mp.participant_id, mp.item6 AS item_id
-               FROM match_participants mp
-               WHERE mp.game_id IN (${pairingGamePlaceholders})
-             )
+             ${[0, 1, 2, 3, 4, 5, 6]
+               .map(
+                 (i) => `SELECT tp.game_id, tp.participant_id, tp.win, mp.item${i} AS item_id
+                   FROM target_participants tp
+                   JOIN match_participants mp
+                     ON mp.game_id = tp.game_id AND mp.participant_id = tp.participant_id`,
+               )
+               .join(" UNION ")}
            )
-           SELECT paired.item_id,
-                  COUNT(DISTINCT tp.game_id || ':' || tp.participant_id) AS games,
-                  SUM(CASE WHEN tp.win = 1 THEN 1 ELSE 0 END) AS wins
-           FROM target_participants tp
-           JOIN paired_items paired
-             ON paired.game_id = tp.game_id
-            AND paired.participant_id = tp.participant_id
-           WHERE paired.item_id > 0
-             AND paired.item_id NOT IN (${ids})
-             AND paired.item_id NOT IN (${[...TRINKET_ITEM_IDS, ...EXCLUDED_ITEM_IDS].join(", ")})
-           GROUP BY paired.item_id
-           ORDER BY games DESC, paired.item_id ASC
+           SELECT item_id, COUNT(*) AS games, SUM(win) AS wins
+           FROM paired_items
+           WHERE item_id > 0
+             AND item_id NOT IN (${ids})
+             AND item_id NOT IN (${[...TRINKET_ITEM_IDS, ...EXCLUDED_ITEM_IDS].join(", ")})
+           GROUP BY item_id
+           ORDER BY games DESC, item_id ASC
            LIMIT 8`,
         )
-        // One list for the target participants and one per item slot
-        .all(...Array(8).fill(pairingGameIds).flat()) as {
-        item_id: number;
-        games: number;
-        wins: number;
-      }[];
+        .all(...totalParams) as { item_id: number; games: number; wins: number }[];
     }
 
     return {

@@ -1242,8 +1242,8 @@ export function registerIpcHandlers() {
   );
   ipcMain.handle(
     "db:owned-item-detail",
-    (_event, itemIds: number[], patch?: string, queue?: number) => {
-      return db.getOwnedItemDetail(itemIds, patch, queue);
+    (_event, itemIds: number[], patch?: string, queue?: number, account?: string) => {
+      return db.getOwnedItemDetail(itemIds, patch, queue, account);
     },
   );
 

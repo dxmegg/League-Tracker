@@ -473,8 +473,8 @@ const api: ElectronAPI = {
     ipcRenderer.invoke("db:owned-rune-stats", queue, patch, account),
   getRuneData: () => ipcRenderer.invoke("dragon:runes"),
   getRuneTrees: () => ipcRenderer.invoke("dragon:rune-trees"),
-  getOwnedItemDetail: (itemIds: number[], patch?: string, queue?: number) =>
-    ipcRenderer.invoke("db:owned-item-detail", itemIds, patch, queue),
+  getOwnedItemDetail: (itemIds: number[], patch?: string, queue?: number, account?: string) =>
+    ipcRenderer.invoke("db:owned-item-detail", itemIds, patch, queue, account),
 
   getTrends: (
     queue?: number,

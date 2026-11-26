@@ -2,7 +2,10 @@ import { useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import type { ItemDetail as ItemDetailData } from "../lib/types";
 import { useIpc } from "../hooks/useIpc";
-import { useHistoryScopeQueue } from "../lib/historyScope";
+import { useScopedQueue } from "../lib/historyScope";
+import { useActiveAccount } from "../hooks/useActiveAccount";
+import { useViewState } from "../hooks/useViewState";
+import { ALL_ACCOUNTS_SENTINEL } from "../lib/accountsEvent";
 import { getItemName, useItemData } from "../hooks/useChampions";
 import ItemIcon from "../components/ItemIcon";
 import { ChampionBreakdown } from "../components/ChampionBreakdown";
@@ -17,8 +20,13 @@ import { formatDuration } from "../lib/format";
 export default function ItemDetail() {
   const { itemId } = useParams<{ itemId: string }>();
   const id = Number(itemId);
-  const queue = useHistoryScopeQueue();
-  const items = useItemData();
+  // The filters of the Items list, so the numbers here match the row that led here
+  const [listQueue] = useViewState<number | undefined>("items.queue", undefined);
+  const [patch] = useViewState<string | undefined>("items.patch", undefined);
+  const queue = useScopedQueue(listQueue);
+  const [activeAccountRaw] = useActiveAccount();
+  const account = activeAccountRaw === ALL_ACCOUNTS_SENTINEL ? "all" : activeAccountRaw;
+  const items = useItemData(patch);
   const [zoomOpen, setZoomOpen] = useState(false);
   // Every mode's id of this item, the one in the address first
   const name = items[id]?.name;
@@ -26,8 +34,8 @@ export default function ItemDetail() {
     (other, index) => index === 0 || (other !== id && name && items[other].name === name),
   );
   const { data, loading } = useIpc<ItemDetailData>(
-    () => window.api.getOwnedItemDetail(ids, undefined, queue),
-    [ids.join(), queue],
+    () => window.api.getOwnedItemDetail(ids, patch, queue, account),
+    [ids.join(), patch, queue, account],
   );
   const averageGameDuration = useMemo(() => {
     const matches = data?.champions.flatMap((row) => row.matches) ?? [];
@@ -84,7 +92,7 @@ export default function ItemDetail() {
             onClick={() => setZoomOpen(true)}
             aria-label={`Enlarge ${getItemName(items, id)} icon`}
           >
-            <ItemIcon itemId={id} size={84} />
+            <ItemIcon itemId={id} size={84} patch={patch} />
           </button>
           <div className="min-w-0">
             <h1 className="font-display text-[34px] font-bold leading-tight text-lol-text-bright">
