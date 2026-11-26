@@ -6,6 +6,7 @@ import * as riot from "./riot-api";
 import * as dragon from "./dragon";
 import * as updater from "./updater";
 import * as backup from "./backup";
+import { backupFirst } from "./backup-choice";
 import * as mcp from "./mcp";
 import * as opgg from "./opgg";
 import { cacheDragonAsset } from "./dragon-assets";
@@ -63,6 +64,46 @@ const RENDERER_SETTINGS = new Set([
 // doesn't leave handlers pointing at a destroyed instance.
 function senderWindow(event: { sender: Electron.WebContents }): BrowserWindow | null {
   return BrowserWindow.fromWebContents(event.sender);
+}
+
+// Offers a snapshot before an operation that overwrites or removes data. False means don't do it.
+// mayContinue: whether the user may go ahead anyway when the snapshot fails.
+function askBackupFirst(
+  win: BrowserWindow | null,
+  action: string,
+  reason: backup.BackupReason,
+  mayContinue: boolean,
+): Promise<boolean> {
+  const box = async (options: Electron.MessageBoxOptions) =>
+    (win ? await dialog.showMessageBox(win, options) : await dialog.showMessageBox(options))
+      .response;
+  return backupFirst(
+    async () => {
+      const response = await box({
+        type: "question",
+        message: `Back up the database before ${action}?`,
+        buttons: ["Back up first", "Continue without backup", "Cancel"],
+        defaultId: 0,
+        cancelId: 2,
+        noLink: true,
+      });
+      return (["backup", "skip", "cancel"] as const)[response];
+    },
+    () => backup.createBackup(reason),
+    async (error) => {
+      if (!mayContinue) throw new Error(`Backup failed, nothing was changed: ${error}`);
+      const response = await box({
+        type: "warning",
+        message: "The backup failed. Continue without it?",
+        detail: error,
+        buttons: ["Continue anyway", "Cancel"],
+        defaultId: 1,
+        cancelId: 1,
+        noLink: true,
+      });
+      return response === 0;
+    },
+  );
 }
 
 const inFlightRequests = new Map<string, Promise<unknown>>();
@@ -1351,7 +1392,13 @@ export function registerIpcHandlers() {
 
   ipcMain.handle("db:delete-summoner", async (event, puuid: string) => {
     console.log("[ipc] deleteSummoner called", puuid);
-    await backup.backupQuietly("pre-import");
+    const go = await askBackupFirst(
+      senderWindow(event),
+      "deleting this account",
+      "pre-delete",
+      false,
+    );
+    if (!go) return { cancelled: true };
     const result = db.deleteSavedSummoner(puuid);
     invalidateDashboardCacheForAccount(puuid);
     invalidateAllCaches();
@@ -1580,7 +1627,10 @@ export function registerIpcHandlers() {
 
   ipcMain.handle("backup:restore", async (event, file: string) => {
     try {
-      const result = await backup.restoreBackup(file);
+      const result = await backup.restoreBackup(file, () =>
+        askBackupFirst(senderWindow(event), "restoring", "pre-restore", true),
+      );
+      if (!result) return { success: false, cancelled: true };
       // Everything on screen was read from the database that just got replaced
       invalidateDashboardCache();
       senderWindow(event)?.webContents.send("lcu:games-updated");

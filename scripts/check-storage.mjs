@@ -10,6 +10,25 @@ import {
   resolveUserDataDir,
   writeLocations,
 } from "../src/main/storage-files.ts";
+import { backupFirst } from "../src/main/backup-choice.ts";
+
+// "Back up first?": closing the box stops everything, a failed backup goes to onFailure
+const decide = async (answer, fails = false) => {
+  let taken = 0;
+  const go = await backupFirst(
+    async () => answer,
+    async () => {
+      taken++;
+      if (fails) throw new Error("disk full");
+    },
+    async (message) => message !== "disk full",
+  );
+  return [go, taken];
+};
+assert.deepEqual(await decide("backup"), [true, 1]);
+assert.deepEqual(await decide("skip"), [true, 0]);
+assert.deepEqual(await decide("cancel"), [false, 0]);
+assert.deepEqual(await decide("backup", true), [false, 1]);
 
 const root = fs.mkdtempSync(path.join(os.tmpdir(), "rr-storage-"));
 const put = (...parts) => {

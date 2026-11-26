@@ -30,6 +30,7 @@ import { ChangelogSection } from "../components/ChangelogSection";
 const BACKUP_REASONS: Record<string, string> = {
   auto: "Scheduled",
   manual: "Manual",
+  "pre-delete": "Before delete",
   "pre-import": "Before import",
   "pre-repair": "Before repair",
   "pre-restore": "Before restore",
@@ -502,6 +503,7 @@ export default function Settings() {
         console.log("[delete] calling api", puuid);
         const result = await window.api.deleteSummoner(puuid);
         console.log("[delete] result", result);
+        if ("cancelled" in result) return;
         setSummonerStatus(
           `Deleted account: ${result.deletedGames} game(s) removed, ${result.deletedTrackedRows} tracked row(s) removed`,
         );
@@ -767,6 +769,7 @@ export default function Settings() {
       setBackupStatus(null);
       try {
         const result = await window.api.restoreBackup(file);
+        if (result.cancelled) return;
         setBackupStatus(
           result.success
             ? `Restored ${result.games} game(s) from ${file}`

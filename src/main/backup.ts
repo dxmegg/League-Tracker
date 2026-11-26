@@ -42,6 +42,7 @@ const KEEP_MONTHLY = 6;
 export type BackupReason =
   | "auto"
   | "manual"
+  | "pre-delete"
   | "pre-import"
   | "pre-repair"
   | "pre-restore"
@@ -297,35 +298,50 @@ function resolveBackup(file: string): string {
   return full;
 }
 
-// Puts a database file in place of the live one. The caller must have closed
+// Where a snapshot is prepared next to the live database before it takes its place
+function incomingPath(): string {
+  return `${getDbPath()}.incoming`;
+}
+
+function unpack(source: string, target: string): Promise<void> {
+  return fs.promises.copyFile(source, target);
+}
+
+// Puts the prepared file in place of the live one. The caller must have closed
 // the connection first.
-function swapIn(source: string): void {
+function swapIn(): void {
   const dbPath = getDbPath();
   // The -wal and -shm describe the database being replaced. Left behind, SQLite
   // would replay them onto the restored file and corrupt it immediately.
   fs.rmSync(`${dbPath}-wal`, { force: true });
   fs.rmSync(`${dbPath}-shm`, { force: true });
-  // Copy then rename, rather than copying over the live path: a copy that fails
+  // Prepared aside and renamed, never written over the live path: a copy that fails
   // half way would otherwise leave a truncated database and nothing to restore.
-  const incoming = `${dbPath}.incoming`;
-  fs.copyFileSync(source, incoming);
-  fs.renameSync(incoming, dbPath);
+  fs.renameSync(incomingPath(), dbPath);
 }
 
-export async function restoreBackup(file: string): Promise<{ games: number }> {
+// Null means beforeSwap called the restore off
+export async function restoreBackup(
+  file: string,
+  beforeSwap: () => Promise<boolean> = async () => true,
+): Promise<{ games: number } | null> {
   const source = resolveBackup(file);
-  // Verified again at restore time, not trusted from when it was written — the
-  // file has been sitting on disk since, and this is the moment it matters.
-  const games = verifySnapshot(source);
-
-  // A restore chosen by mistake is itself undoable. Failing to take this one
-  // doesn't block the restore the user asked for; it only gets logged.
-  await backupQuietly("pre-restore");
-
-  closeDatabase();
-  swapIn(source);
-  await initDatabase();
-  return { games };
+  const incoming = incomingPath();
+  try {
+    // Set aside first: the snapshot beforeSwap takes may replace the source file
+    await unpack(source, incoming);
+    // Verified again at restore time, not trusted from when it was written — the
+    // file has been sitting on disk since, and this is the moment it matters.
+    const games = verifySnapshot(incoming);
+    if (!(await beforeSwap())) return null;
+    await waitForBackups();
+    closeDatabase();
+    swapIn();
+    await initDatabase();
+    return { games };
+  } finally {
+    fs.rmSync(incoming, { force: true });
+  }
 }
 
 // ---- Startup recovery ----
@@ -345,14 +361,16 @@ function quarantine(dbPath: string): string | null {
 
 // Newest first, verifying as it goes: the most recent snapshot is worth nothing
 // if it can't be opened, and the one before it usually can.
-function newestUsableBackup(): string | null {
+// Leaves the winner prepared for swapIn and returns its name
+async function newestUsableBackup(): Promise<string | null> {
   const dir = getBackupDir();
   for (const backup of readBackups()) {
-    const full = path.join(dir, backup.file);
     try {
-      verifySnapshot(full);
-      return full;
+      await unpack(path.join(dir, backup.file), incomingPath());
+      verifySnapshot(incomingPath());
+      return backup.file;
     } catch (err) {
+      fs.rmSync(incomingPath(), { force: true });
       console.error("Skipping unusable backup:", backup.file, err);
     }
   }
@@ -366,10 +384,10 @@ async function recover(problem: "missing" | "corrupt", detail?: string): Promise
   // which is still worth setting aside rather than overwriting blind.
   const quarantined = fs.existsSync(dbPath) ? quarantine(dbPath) : null;
 
-  let source = newestUsableBackup();
+  let source = await newestUsableBackup();
   if (source) {
     try {
-      swapIn(source);
+      swapIn();
     } catch (err) {
       // Out of disk, or the file vanished between the check and the copy. An
       // empty database the user can still use beats a window that never opens.
@@ -381,7 +399,7 @@ async function recover(problem: "missing" | "corrupt", detail?: string): Promise
 
   const report: RecoveryReport = {
     problem,
-    restoredFrom: source ? path.basename(source) : null,
+    restoredFrom: source,
     quarantined: quarantined ? path.basename(quarantined) : null,
     detail,
   };

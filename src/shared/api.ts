@@ -2597,7 +2597,9 @@ export interface ElectronAPI {
     }>
   >;
   mergeDuplicateAccounts: () => Promise<MergeDuplicateAccountsResult>;
-  deleteSummoner: (puuid: string) => Promise<{ deletedGames: number; deletedTrackedRows: number }>;
+  deleteSummoner: (
+    puuid: string,
+  ) => Promise<{ deletedGames: number; deletedTrackedRows: number } | { cancelled: true }>;
   getProfile: () => Promise<LocalProfile>;
   getCurrentSummonerProfileIcon: () => Promise<number | null>;
   getCurrentSummoner: () => Promise<CurrentSummoner>;
@@ -2701,7 +2703,9 @@ export interface ElectronAPI {
   hasLocalAccount: () => Promise<boolean>;
   listBackups: () => Promise<BackupInfo[]>;
   createBackup: () => Promise<{ success: boolean; backup?: BackupInfo; error?: string }>;
-  restoreBackup: (file: string) => Promise<{ success: boolean; games?: number; error?: string }>;
+  restoreBackup: (
+    file: string,
+  ) => Promise<{ success: boolean; games?: number; cancelled?: boolean; error?: string }>;
   getRecoveryReport: () => Promise<RecoveryReport | null>;
   openBackupFolder: () => Promise<void>;
   getVersion: () => Promise<string>;
