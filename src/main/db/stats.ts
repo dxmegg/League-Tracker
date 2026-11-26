@@ -929,7 +929,7 @@ export function getOtherPlayersStats(queue?: number): OtherPlayersStats {
         WHERE a.augment_id > 0 GROUP BY a.augment_id`),
       items: rows(`
         SELECT id, COUNT(*) AS count, SUM(win) AS wins FROM (
-          ${[0, 1, 2, 3, 4, 5, 6].map((i) => `SELECT item${i} AS id, win FROM others`).join(" UNION ALL ")}
+          ${[0, 1, 2, 3, 4, 5, 6].map((i) => `SELECT game_id, participant_id, item${i} AS id, win FROM others`).join(" UNION ")}
         )
         WHERE id > 0 AND id NOT IN (${skippedItems})
         GROUP BY id`),
@@ -2379,6 +2379,8 @@ export function getOwnedItemStats(
   where.push(`g.queue_id NOT IN (${EXCLUDED_STATS_SQL})`);
   const columns = [0, 1, 2, 3, 4, 5, 6];
   const excluded = EXCLUDED_ITEM_IDS.join(", ");
+  // player_stats has no puuid of its own: there the row's player is the game's owner
+  const player = source.table === "player_stats" ? "g.puuid" : "ps.puuid";
   const rows = db
     .prepare(`
       WITH item_occurrences AS (
@@ -2386,7 +2388,8 @@ export function getOwnedItemStats(
           .map(
             (
               i,
-            ) => `SELECT ps.game_id, ps.rowid AS row_id, ps.item${i} AS item_id, ps.win, ${i} AS purchase_slot
+            ) => `SELECT ps.game_id, ps.rowid AS row_id, ${player} AS puuid, ps.item${i} AS item_id, ps.win,
+                           ${i} AS purchase_slot
                     FROM ${source.table} ps JOIN games g ON g.game_id = ps.game_id
                     WHERE ${where.join(" AND ")}
                       AND ps.item${i} > 0 AND ps.item${i} NOT IN (${excluded})`,
@@ -2406,25 +2409,20 @@ export function getOwnedItemStats(
         LIMIT 100
       ),
       item_games AS (
-        SELECT DISTINCT io.game_id, io.item_id
+        SELECT DISTINCT io.row_id, io.game_id, io.puuid, io.item_id
         FROM item_occurrences io
         JOIN top_items ti ON ti.item_id = io.item_id
       ),
-      purchase_events AS (
-        SELECT e.game_id, e.item_id, MIN(e.timestamp_ms) AS first_purchase_ms
-        FROM match_timeline_events e
-        JOIN item_games ig
-          ON ig.game_id = e.game_id
-         AND ig.item_id = e.item_id
-        WHERE e.event_type = 'ITEM_PURCHASED'
-        GROUP BY e.game_id, e.item_id
-      ),
       purchase_times AS (
-        SELECT ig.item_id, ig.game_id, pe.first_purchase_ms
+        SELECT ig.item_id, MIN(e.timestamp_ms) AS first_purchase_ms
         FROM item_games ig
-        LEFT JOIN purchase_events pe
-          ON pe.game_id = ig.game_id
-         AND pe.item_id = ig.item_id
+        JOIN match_participants mp ON mp.game_id = ig.game_id AND mp.puuid = ig.puuid
+        JOIN match_timeline_events e
+          ON e.game_id = ig.game_id
+         AND e.participant_id = mp.participant_id
+         AND e.item_id = ig.item_id
+         AND e.event_type = 'ITEM_PURCHASED'
+        GROUP BY ig.row_id, ig.item_id
       ),
       slot_counts AS (
         SELECT io.item_id, io.purchase_slot, COUNT(*) AS slot_count
@@ -2582,26 +2580,32 @@ export function getOwnedItemDetail(
            AND NOT ${holds("ps")}`,
       )
       .get(...totalParams) as ItemDetail["baseline"];
-    const matchingGameIds = [...new Set(rows.map((row) => row.game_id))];
+    // player_stats has no puuid of its own: there the row's player is the game's owner
+    const player = source.table === "player_stats" ? "g.puuid" : "ps.puuid";
     let avgBuyTimeMs: number | null = null;
     let patchBreakdown: { patch: string; games: number; wins: number }[] = [];
     let topPairings: { item_id: number; games: number; wins: number }[] = [];
 
-    if (matchingGameIds.length > 0) {
-      const gamePlaceholders = matchingGameIds.map(() => "?").join(", ");
-      const matchingGameParams = [...matchingGameIds];
-      avgBuyTimeMs =
-        (
-          db
-            .prepare(
-              `SELECT AVG(e.timestamp_ms) AS avgBuyTimeMs
-               FROM match_timeline_events e
-               WHERE e.event_type = 'ITEM_PURCHASED'
-                 AND e.item_id IN (${ids})
-                 AND e.game_id IN (${gamePlaceholders})`,
-            )
-            .get(...matchingGameParams) as { avgBuyTimeMs: number | null }
-        ).avgBuyTimeMs ?? null;
+    if (rows.length > 0) {
+      // When this player first bought it, averaged over their games
+      avgBuyTimeMs = (
+        db
+          .prepare(
+            `SELECT AVG(first_ms) AS avgBuyTimeMs FROM (
+               SELECT MIN(e.timestamp_ms) AS first_ms
+               FROM ${from}
+               JOIN match_participants mp ON mp.game_id = ps.game_id AND mp.puuid = ${player}
+               JOIN match_timeline_events e
+                 ON e.game_id = ps.game_id
+                AND e.participant_id = mp.participant_id
+                AND e.event_type = 'ITEM_PURCHASED'
+                AND e.item_id IN (${ids})
+               WHERE ${where.join(" AND ")}
+               GROUP BY ps.rowid
+             )`,
+          )
+          .get(...totalParams) as { avgBuyTimeMs: number | null }
+      ).avgBuyTimeMs;
 
       patchBreakdown = db
         .prepare(
@@ -2618,8 +2622,6 @@ export function getOwnedItemDetail(
         )
         .all(...totalParams) as { patch: string; games: number; wins: number }[];
 
-      // player_stats has no puuid of its own: there the row's player is the game's owner
-      const player = source.table === "player_stats" ? "g.puuid" : "ps.puuid";
       topPairings = db
         .prepare(
           `WITH target_participants AS MATERIALIZED (
@@ -2907,18 +2909,19 @@ export function getGlobalChampionDetail(
 
       const itemCols = [0, 1, 2, 3, 4, 5, 6];
       const excludedList = EXCLUDED_ITEM_IDS.join(", ");
+      // UNION, not UNION ALL: two copies of an item in one inventory are one game
       const items = db
         .prepare(`
       SELECT item_id, COUNT(*) as picks, SUM(win) as wins
       FROM (
         ${itemCols
           .map(
-            (i) => `SELECT mp.item${i} as item_id, mp.win as win
+            (i) => `SELECT mp.game_id, mp.participant_id, mp.item${i} as item_id, mp.win as win
                 FROM match_participants mp
                 WHERE ${mpSql}${championFilter}
                   AND mp.item${i} > 0 AND mp.item${i} NOT IN (${excludedList})`,
           )
-          .join("\n        UNION ALL\n        ")}
+          .join("\n        UNION\n        ")}
       )
       GROUP BY item_id
       ORDER BY picks DESC

@@ -480,6 +480,8 @@ async function fetchFullMatchData(gameId: number): Promise<void> {
 
   let platform = "";
   let summary: any;
+  // Kept for the case where no server has the game: anything but a 404 says nothing about it
+  let failure: unknown;
   for (const candidate of platforms) {
     try {
       const answer = await get(candidate, "SUMMARY");
@@ -489,9 +491,10 @@ async function fetchFullMatchData(gameId: number): Promise<void> {
       summary = answer;
       break;
     } catch (err) {
-      if (!(err instanceof SgpHttpError && err.status === 404)) throw err;
+      if (!(err instanceof SgpHttpError && err.status === 404)) failure ??= err;
     }
   }
+  if (!platform && failure) throw failure;
   if (!platform) throw new SgpHttpError(404, `SUMMARY on ${platforms.join(", ")}`);
   const details = await get(platform, "DETAILS");
   const parsed = parseTimeline(details);
