@@ -1,6 +1,6 @@
 import { db } from "../../db";
 import { NO_STATS_QUEUE_IDS } from "../../../shared/queues";
-import { applyQueueFilter, pushTimeFilter } from "../filters";
+import { applyQueueFilter, pushTimeFilter, ownerFilter } from "../filters";
 
 export function getChampionDetailStats(
   championId: number | null,
@@ -142,14 +142,8 @@ export function getChampionDetailStats(
   applyQueueFilter(where, params, queue, "g");
   pushTimeFilter(where, params, timePeriod);
 
-  if (account === "all") {
-    where.push("mp.puuid IN (SELECT puuid FROM visible_summoner)");
-  } else if (account) {
-    where.push("mp.puuid = ?");
-    params.push(account);
-  } else {
-    where.push("mp.puuid = g.puuid");
-  }
+  where.push(ownerFilter("mp", account));
+  if (account && account !== "all") params.push(account);
 
   const result = db
     .prepare(`

@@ -425,14 +425,13 @@ export function setParticipantPentakillTime(
   puuid: string,
   pentakillTime: number,
 ): number {
-  const updated = db
+  return db
     .prepare(
       `UPDATE match_participants
        SET pentakill_time = ?
        WHERE game_id = ? AND puuid = ? AND penta_kills >= 1`,
     )
     .run(pentakillTime, gameId, puuid).changes;
-  return updated;
 }
 
 // A game whose owner is correct but whose tracked_game_stats row is missing

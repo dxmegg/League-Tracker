@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { useBackfill } from "../../hooks/useBackfill";
 import { useTimelineBackfill } from "../../hooks/useTimelineBackfill";
-import type { RiotSyncProgress } from "../../../shared/api";
+import type { RiotSyncOptions, RiotSyncProgress } from "../../../shared/api";
 import { ActionRow, Button, INPUT_CLASS, Section, formatDuration } from "./parts";
 
 export function useSyncSettings() {
@@ -49,57 +49,56 @@ export function useSyncSettings() {
     [],
   );
 
-  const handleRiotSync = useCallback(async () => {
-    setRiotSyncing(true);
-    setRiotSyncStatus(null);
-    setRiotSyncProgress(null);
-    try {
-      const result = await window.api.syncRiotHistory();
-      if (!("added" in result)) {
-        setRiotSyncStatus(`Error: ${result.error}`);
-      } else if (result.error) {
-        setRiotSyncStatus(
-          `Synced ${result.added} new match(es) from ${result.scanned} processed match(es). Error: ${result.error}`,
-        );
-      } else if (result.cancelled) {
-        setRiotSyncStatus(`Cancelled after ${result.scanned} game(s).`);
-      } else {
-        setRiotSyncStatus(
-          `Synced ${result.added} new match(es) from ${result.scanned} scanned match(es).`,
-        );
+  // Sync and refresh differ only in what they ask for and how they word the outcome
+  const runRiotSync = useCallback(
+    async (
+      options: RiotSyncOptions | undefined,
+      partial: (added: number, scanned: number) => string,
+      finished: (added: number, scanned: number) => string,
+    ) => {
+      setRiotSyncing(true);
+      setRiotSyncStatus(null);
+      setRiotSyncProgress(null);
+      try {
+        const result = await window.api.syncRiotHistory(options);
+        if (!("added" in result)) {
+          setRiotSyncStatus(`Error: ${result.error}`);
+        } else if (result.error) {
+          setRiotSyncStatus(`${partial(result.added, result.scanned)} Error: ${result.error}`);
+        } else if (result.cancelled) {
+          setRiotSyncStatus(`Cancelled after ${result.scanned} game(s).`);
+        } else {
+          setRiotSyncStatus(finished(result.added, result.scanned));
+        }
+      } catch (err: unknown) {
+        setRiotSyncStatus(`Error: ${err instanceof Error ? err.message : String(err)}`);
+      } finally {
+        setRiotSyncing(false);
       }
-    } catch (err: unknown) {
-      setRiotSyncStatus(`Error: ${err instanceof Error ? err.message : String(err)}`);
-    } finally {
-      setRiotSyncing(false);
-    }
-  }, []);
+    },
+    [],
+  );
 
-  const handleRiotRefresh = useCallback(async () => {
-    setRiotSyncing(true);
-    setRiotSyncStatus(null);
-    setRiotSyncProgress(null);
-    try {
-      const result = await window.api.syncRiotHistory({ refreshExisting: true });
-      if (!("added" in result)) {
-        setRiotSyncStatus(`Error: ${result.error}`);
-      } else if (result.error) {
-        setRiotSyncStatus(
-          `Processed ${result.scanned} match(es); added ${result.added} new match(es). Error: ${result.error}`,
-        );
-      } else if (result.cancelled) {
-        setRiotSyncStatus(`Cancelled after ${result.scanned} game(s).`);
-      } else {
-        setRiotSyncStatus(
-          `Refreshed ${result.scanned} existing/new match(es); added ${result.added} new match(es).`,
-        );
-      }
-    } catch (err: unknown) {
-      setRiotSyncStatus(`Error: ${err instanceof Error ? err.message : String(err)}`);
-    } finally {
-      setRiotSyncing(false);
-    }
-  }, []);
+  const handleRiotSync = useCallback(
+    () =>
+      runRiotSync(
+        undefined,
+        (added, scanned) => `Synced ${added} new match(es) from ${scanned} processed match(es).`,
+        (added, scanned) => `Synced ${added} new match(es) from ${scanned} scanned match(es).`,
+      ),
+    [runRiotSync],
+  );
+
+  const handleRiotRefresh = useCallback(
+    () =>
+      runRiotSync(
+        { refreshExisting: true },
+        (added, scanned) => `Processed ${scanned} match(es); added ${added} new match(es).`,
+        (added, scanned) =>
+          `Refreshed ${scanned} existing/new match(es); added ${added} new match(es).`,
+      ),
+    [runRiotSync],
+  );
 
   const handleRiotCancel = useCallback(() => {
     void window.api.riotCancelSync();

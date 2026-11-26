@@ -123,6 +123,14 @@ function dedupe<T>(key: string, factory: () => Promise<T>): Promise<T> {
   return promise;
 }
 
+function assertQueueFilter(queue: number | number[] | undefined) {
+  if (queue === undefined) return;
+  const values = Array.isArray(queue) ? queue : [queue];
+  if (!values.every((id) => typeof id === "number" && Number.isFinite(id))) {
+    throw new TypeError("queue must be a finite number, an array of finite numbers, or undefined");
+  }
+}
+
 export function registerIpcHandlers() {
   ipcMain.handle(
     "db:match-history",
@@ -253,8 +261,7 @@ export function registerIpcHandlers() {
   ipcMain.handle(
     "db:activity-heatmap",
     (_event, account?: string, timePeriod?: "24h" | "7d" | "30d" | "full", queue?: number) => {
-      const result = db.getActivityHeatmap(account, timePeriod, queue);
-      return result;
+      return db.getActivityHeatmap(account, timePeriod, queue);
     },
   );
 
@@ -278,8 +285,7 @@ export function registerIpcHandlers() {
       if (typeof puuid !== "string" || !Number.isInteger(championId) || championId <= 0) {
         throw new TypeError("puuid and championId are required");
       }
-      const result = db.getChampionChallengeAggregates(puuid, championId);
-      return result;
+      return db.getChampionChallengeAggregates(puuid, championId);
     },
   );
 
@@ -296,13 +302,12 @@ export function registerIpcHandlers() {
       if (!Number.isInteger(championId) || championId <= 0) {
         throw new TypeError("championId must be a positive integer");
       }
-      const result = db.getChampionStatBaseline(
+      return db.getChampionStatBaseline(
         championId,
         patch,
         queue == null ? undefined : String(queue),
         account,
       );
-      return result;
     },
   );
 
@@ -323,8 +328,7 @@ export function registerIpcHandlers() {
       account?: string,
       timePeriod?: HomeTimePeriod,
     ) => {
-      const result = db.getChampionRecords(championId, patch, queue, account, timePeriod);
-      return result;
+      return db.getChampionRecords(championId, patch, queue, account, timePeriod);
     },
   );
 
@@ -334,8 +338,7 @@ export function registerIpcHandlers() {
       if (championId !== null && (!Number.isInteger(championId) || championId <= 0)) {
         throw new TypeError("championId must be a positive integer");
       }
-      const result = db.getChampionTimelineAverages(championId, patch, queue, account);
-      return result;
+      return db.getChampionTimelineAverages(championId, patch, queue, account);
     },
   );
 
@@ -345,8 +348,7 @@ export function registerIpcHandlers() {
       if (!Number.isInteger(championId) || championId <= 0) {
         throw new TypeError("championId must be a positive integer");
       }
-      const result = db.getChampionKillDeathPositions(championId, limit, account);
-      return result;
+      return db.getChampionKillDeathPositions(championId, limit, account);
     },
   );
 
@@ -367,8 +369,7 @@ export function registerIpcHandlers() {
       account?: string,
       timePeriod?: HomeTimePeriod,
     ) => {
-      const result = db.getChampionRoleStats(championId, patch, queue, account, timePeriod);
-      return result;
+      return db.getChampionRoleStats(championId, patch, queue, account, timePeriod);
     },
   );
 
@@ -402,8 +403,7 @@ export function registerIpcHandlers() {
   ipcMain.handle(
     "db:champion-weekly-metrics",
     async (_event, championId: number, patch?: string, queue?: string, account?: string) => {
-      const result = db.getChampionWeeklyMetrics(championId, patch, queue, account);
-      return result;
+      return db.getChampionWeeklyMetrics(championId, patch, queue, account);
     },
   );
 
@@ -501,14 +501,7 @@ export function registerIpcHandlers() {
       if (!["24h", "7d", "30d", "full"].includes(timePeriod)) {
         throw new TypeError("timePeriod must be 24h, 7d, 30d, or full");
       }
-      if (queue !== undefined) {
-        const values = Array.isArray(queue) ? queue : [queue];
-        if (!values.every((id) => typeof id === "number" && Number.isFinite(id))) {
-          throw new TypeError(
-            "queue must be a finite number, an array of finite numbers, or undefined",
-          );
-        }
-      }
+      assertQueueFilter(queue);
       const startedAt = Date.now();
       const dashboard = db.getDashboardData({ account, queue }, timePeriod) as DashboardData & {
         avgDamageDealt: number;
@@ -624,19 +617,11 @@ export function registerIpcHandlers() {
       if (account !== undefined && typeof account !== "string") {
         throw new TypeError("account must be a string or undefined");
       }
-      if (queue !== undefined) {
-        const values = Array.isArray(queue) ? queue : [queue];
-        if (!values.every((id) => typeof id === "number" && Number.isFinite(id))) {
-          throw new TypeError(
-            "queue must be a finite number, an array of finite numbers, or undefined",
-          );
-        }
-      }
+      assertQueueFilter(queue);
       if (!Number.isInteger(limit) || limit < 1) {
         throw new RangeError("limit must be a positive integer");
       }
-      const result = db.getMatchHistory(limit, 0, { account, queue });
-      return result;
+      return db.getMatchHistory(limit, 0, { account, queue });
     },
   );
 
@@ -723,8 +708,7 @@ export function registerIpcHandlers() {
     },
   );
   ipcMain.handle("riot:list-accounts", () => {
-    const accounts = riot.getRiotAccounts();
-    return accounts;
+    return riot.getRiotAccounts();
   });
   ipcMain.handle("riot:remove-account", (_event, payload: { id: string }) => {
     if (!payload || typeof payload.id !== "string" || !payload.id.trim()) {
@@ -820,8 +804,7 @@ export function registerIpcHandlers() {
 
     try {
       const summoner = await lcu.getCurrentSummoner();
-      const puuid = summoner.puuid || null;
-      return puuid;
+      return summoner.puuid || null;
     } catch (err) {
       console.warn("[lcu] current puuid unavailable:", err);
       return null;
@@ -831,11 +814,9 @@ export function registerIpcHandlers() {
   ipcMain.handle("lcu:current-summoner-icon", async () => {
     try {
       const summoner = await lcu.getCurrentSummoner();
-      const profileIconId =
-        typeof summoner?.profileIconId === "number" && summoner.profileIconId > 0
-          ? summoner.profileIconId
-          : null;
-      return profileIconId;
+      return typeof summoner?.profileIconId === "number" && summoner.profileIconId > 0
+        ? summoner.profileIconId
+        : null;
     } catch (err) {
       console.warn("[lcu] currentSummonerProfileIcon failed:", err);
       return null;
@@ -867,8 +848,7 @@ export function registerIpcHandlers() {
 
   ipcMain.handle("dragon:version", async () => {
     await dragon.waitForChampionData();
-    const version = dragon.getChampionDataVersion();
-    return version;
+    return dragon.getChampionDataVersion();
   });
 
   ipcMain.handle("dragon:augments", async (_event, patch?: string) => {
@@ -1016,8 +996,7 @@ export function registerIpcHandlers() {
   });
 
   ipcMain.handle("db:list-accounts", () => {
-    const result = db.listAccountsWithData();
-    return result;
+    return db.listAccountsWithData();
   });
 
   ipcMain.handle("db:get-resolved-platform", () => {
@@ -1033,8 +1012,7 @@ export function registerIpcHandlers() {
   });
 
   ipcMain.handle("db:get-account-snapshot", (_event, puuid: string) => {
-    const result = db.getAccountSnapshot(puuid);
-    return result;
+    return db.getAccountSnapshot(puuid);
   });
 
   ipcMain.handle("db:saved-summoners", () => {

@@ -64,14 +64,13 @@ export async function getProfileExtras(): Promise<ProfileExtras> {
     console.warn("[lcu] profile mastery unavailable:", err);
   }
 
-  const result = {
+  return {
     rankedSolo,
     rankedFlex,
     topMasteryChampions,
     totalMasteryPoints,
     totalMasteryScore,
   };
-  return result;
 }
 
 export async function collectAndSaveSnapshot(): Promise<void> {

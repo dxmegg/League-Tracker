@@ -16,6 +16,7 @@ import {
   statsSource,
   EXCLUDED_ITEM_IDS,
   EXCLUDED_STATS_SQL,
+  ownerFilter,
 } from "../filters";
 import { participantRowsFromRaw } from "../payloads";
 import { TRINKET_ITEM_IDS } from "./items";
@@ -159,7 +160,7 @@ export function getChampionRoleStats(
         ? "mp.puuid = ?"
         : "mp.puuid IN (SELECT puuid FROM visible_summoner)";
   const ownerParams: string[] = account && account !== "all" ? [account] : [];
-  const rows = db
+  return db
     .prepare(`
       SELECT
         COALESCE(NULLIF(mp.team_position, ''), 'UNKNOWN') as role,
@@ -182,7 +183,6 @@ export function getChampionRoleStats(
       ...(championId !== null ? [championId] : []),
       ...ownerParams,
     ) as ChampionRoleStat[];
-  return rows;
 }
 
 export function getChampionKeystones(
@@ -329,13 +329,8 @@ export function getChampionRuneStats(
   account?: string,
 ): ChampionRuneStatsResult {
   const participant = participantFilter(patch, undefined, "mp");
-  const ownerFilter =
-    account === "all"
-      ? "mp.puuid IN (SELECT puuid FROM visible_summoner)"
-      : account
-        ? "mp.puuid = ?"
-        : "mp.puuid = g.puuid";
-  const where = [ownerFilter, participant.sql];
+  const owner = ownerFilter("mp", account);
+  const where = [owner, participant.sql];
   if (championId !== null) where.push("mp.champion_id = ?");
   const params: any[] = [];
   if (account && account !== "all") params.push(account);
@@ -395,8 +390,7 @@ export function getChampionRuneStats(
     LIMIT 20
   `).map(({ runes, picks, wins }) => ({ runes: runes!, picks, wins }));
 
-  const result = { keystones, primaryTrees, secondaryTrees, pages };
-  return result;
+  return { keystones, primaryTrees, secondaryTrees, pages };
 }
 
 export function getChampionWeeklyWinRate(
@@ -472,11 +466,10 @@ export function getChampionWeeklyMetrics(
         LIMIT 24
       `)
       .all(...params) as Array<Record<string, number | null>>;
-    const result = rows.map(({ weekStart, games, ...metrics }) => ({
+    return rows.map(({ weekStart, games, ...metrics }) => ({
       weekStart: weekStart as number,
       metrics: { games, ...metrics },
     }));
-    return result;
   } catch (error) {
     console.error("[db] getChampionWeeklyMetrics failed:", error);
     throw error;
@@ -507,13 +500,8 @@ export function getChampionMatchupList(
     30_000,
     () => {
       const participant = participantFilter(patch, undefined, "owner", timePeriod);
-      const ownerFilter =
-        account === "all"
-          ? "owner.puuid IN (SELECT puuid FROM visible_summoner)"
-          : account
-            ? "owner.puuid = ?"
-            : "owner.puuid = g.puuid";
-      const where = [ownerFilter, participant.sql];
+      const owner = ownerFilter("owner", account);
+      const where = [owner, participant.sql];
       if (championId !== null) where.push("owner.champion_id = ?");
       const params: any[] = [];
       if (account && account !== "all") params.push(account);
@@ -521,7 +509,7 @@ export function getChampionMatchupList(
       if (championId !== null) params.push(championId);
       applyQueueFilter(where, params, queue, "g");
 
-      const rows = db
+      return db
         .prepare(`
       WITH owner_rows AS (
         SELECT owner.game_id,
@@ -635,7 +623,6 @@ export function getChampionMatchupList(
       ORDER BY games DESC, championId ASC
     `)
         .all(...params) as ChampionMatchupRow[];
-      return rows;
     },
   );
 }
@@ -648,13 +635,8 @@ export function getChampionAllyStats(
   timePeriod?: "24h" | "7d" | "30d" | "full",
 ): ChampionAllyRow[] {
   const participant = participantFilter(patch, undefined, "me", timePeriod);
-  const ownerFilter =
-    account === "all"
-      ? "me.puuid IN (SELECT puuid FROM visible_summoner)"
-      : account
-        ? "me.puuid = ?"
-        : "me.puuid = g.puuid";
-  const where = [ownerFilter, participant.sql];
+  const owner = ownerFilter("me", account);
+  const where = [owner, participant.sql];
   if (championId !== null) where.push("me.champion_id = ?");
   const params: any[] = [];
   if (account && account !== "all") params.push(account);
@@ -662,7 +644,7 @@ export function getChampionAllyStats(
   if (championId !== null) params.push(championId);
   applyQueueFilter(where, params, queue, "g");
 
-  const rows = db
+  return db
     .prepare(`
       WITH ally_rows AS (
         SELECT me.game_id,
@@ -693,7 +675,6 @@ export function getChampionAllyStats(
       ORDER BY games DESC, championId ASC
     `)
     .all(...params) as ChampionAllyRow[];
-  return rows;
 }
 
 export function getChampionItemStats(
@@ -1037,8 +1018,7 @@ export function getChampionChallengeAggregates(
     best: number | null;
     games: number;
   }>;
-  const result = { gamesWithChallenges: gamesWithChallenges.games, metrics };
-  return result;
+  return { gamesWithChallenges: gamesWithChallenges.games, metrics };
 }
 
 export function getChampionTeamObjectives(
@@ -1130,15 +1110,9 @@ export function getChampionStatBaseline(
     applyQueueFilter(where, params, queueId, "g");
   }
 
-  if (account === "all") {
-    where.push("mp.puuid IN (SELECT puuid FROM visible_summoner)");
-  } else if (account) {
-    where.push("mp.puuid = ?");
-    params.push(account);
-  } else {
-    where.push("mp.puuid = g.puuid");
-  }
-  const result = db
+  where.push(ownerFilter("mp", account));
+  if (account && account !== "all") params.push(account);
+  return db
     .prepare(`
       SELECT
         AVG(mp.physical_damage_dealt) AS avgPhysicalDamageDealtOther,
@@ -1174,7 +1148,6 @@ export function getChampionStatBaseline(
       WHERE ${where.join(" AND ")}
     `)
     .get(...params) as Record<string, number | null>;
-  return result;
 }
 
 export function getChampionSkillOrders(

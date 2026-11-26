@@ -158,9 +158,7 @@ export function getResolvedPlatform(): string | null {
         .get() as { platform?: string } | undefined
     )?.platform,
   ];
-  const platform =
-    candidates.find((value): value is string => Boolean(value?.trim()))?.trim() ?? null;
-  return platform;
+  return candidates.find((value): value is string => Boolean(value?.trim()))?.trim() ?? null;
 }
 
 export function restoreSummonerFull(row: {

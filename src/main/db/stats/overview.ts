@@ -11,6 +11,7 @@ import {
   EXCLUDED_ITEM_IDS,
   EXCLUDED_STATS_SQL,
   EXCLUDED_CS_SQL,
+  ownerFilter,
 } from "../filters";
 import { TRINKET_ITEM_IDS } from "./items";
 
@@ -39,21 +40,15 @@ export function getActivityHeatmap(
   const windowDays = HEATMAP_WINDOW_DAYS[timePeriod ?? "7d"];
   const params: any[] = [...NO_STATS_QUEUE_IDS, Date.now() - windowDays * 24 * 60 * 60 * 1000];
 
-  if (account === "all") {
-    where.push("mp.puuid IN (SELECT puuid FROM visible_summoner)");
-  } else if (account) {
-    where.push("mp.puuid = ?");
-    params.push(account);
-  } else {
-    where.push("mp.puuid = g.puuid");
-  }
+  where.push(ownerFilter("mp", account));
+  if (account && account !== "all") params.push(account);
   // Only when a queue is chosen: with none, applyQueueFilter would also drop hidden queues and change the unfiltered counts.
   if (queue != null) applyQueueFilter(where, params, queue);
 
   // Hourly tiles are bucketed in the renderer's local time, so 24h returns one
   // ISO timestamp per game instead of UTC-day counts.
   const hourly = timePeriod === "24h";
-  const rows = db
+  return db
     .prepare(`
       SELECT ${
         hourly
@@ -66,7 +61,6 @@ export function getActivityHeatmap(
       ${hourly ? "ORDER BY g.game_creation ASC" : "GROUP BY day ORDER BY day ASC"}
     `)
     .all(...params) as ActivityHeatmapDay[];
-  return rows;
 }
 
 // What everyone else in the user's games picked and built. Every saved account counts as "the user",

@@ -17,7 +17,7 @@ import { parseTimeline, type ParsedTimeline } from "../timeline";
 import { fetchMatchTimeline, RiotApiError } from "../riot-api";
 import { db } from "../db";
 import { cachedQuery } from "./cache";
-import { applyQueueFilter, participantFilter } from "./filters";
+import { applyQueueFilter, participantFilter, ownerFilter } from "./filters";
 
 export interface TimelineBucket {
   minute: number;
@@ -195,8 +195,7 @@ export function getTimelineStatus(gameId: number): TimelineStatus | null {
       "SELECT game_id, fetched_at, frame_count, event_count, fetch_error FROM match_timeline_status WHERE game_id = ?",
     )
     .get(gameId) as TimelineStatus | undefined;
-  const result = row ?? null;
-  return result;
+  return row ?? null;
 }
 
 // What has no column of its own is read from the stored payload: damage per minute, and which
@@ -248,8 +247,7 @@ export function getTimeline(gameId: number): TimelineData | null {
     `)
     .all(gameId) as TimelineEvent[];
   addPayloadDetails(gameId, frames, events);
-  const result = { status, frames, events };
-  return result;
+  return { status, frames, events };
 }
 
 export function getChampionTimelineAverages(
@@ -271,14 +269,8 @@ export function getChampionTimelineAverages(
       }
       params.push(...participant.params);
       if (championId !== null) params.push(championId);
-      if (account === "all") {
-        where.push("mp.puuid IN (SELECT puuid FROM visible_summoner)");
-      } else if (account) {
-        where.push("mp.puuid = ?");
-        params.push(account);
-      } else {
-        where.push("mp.puuid = g.puuid");
-      }
+      where.push(ownerFilter("mp", account));
+      if (account && account !== "all") params.push(account);
       applyQueueFilter(where, params, queue, "g");
 
       const games = db
@@ -474,7 +466,7 @@ export function getChampionTimelineAverages(
           ];
         }),
       ) as ChampionTimelineAverages["winrateByGoldLead15"];
-      const economy = {
+      return {
         buckets: result,
         ahead10:
           goldLead10.length === 0
@@ -501,7 +493,6 @@ export function getChampionTimelineAverages(
         level11Games: level11Times.length,
         level16Games: level16Times.length,
       };
-      return economy;
     },
   );
 }
@@ -522,7 +513,7 @@ export function getChampionKillDeathPositions(
     const params: Array<number | string> = [championId];
     if (account && account !== "all") params.push(account);
 
-    const rows = db
+    return db
       .prepare(`
       WITH tracked_participants AS (
         SELECT mp.game_id, mp.participant_id
@@ -593,7 +584,6 @@ export function getChampionKillDeathPositions(
       LIMIT ?
     `)
       .all(...params, cappedLimit) as ChampionKillDeathPosition[];
-    return rows;
   });
 }
 
@@ -754,6 +744,5 @@ export function listGamesMissingTimeline(limit: number): number[] {
       LIMIT ?
     `)
     .all(limit) as Array<{ game_id: number }>;
-  const result = rows.map((row) => row.game_id);
-  return result;
+  return rows.map((row) => row.game_id);
 }

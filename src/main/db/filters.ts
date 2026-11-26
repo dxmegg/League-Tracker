@@ -226,3 +226,10 @@ export function getStoredQueues(): number[] {
     .all() as { queue_id: number }[];
   return rows.map((r) => r.queue_id);
 }
+
+// The condition that picks the tracked player's own row among a game's participants. A named account
+// takes one parameter; no account means whoever the game was recorded for.
+export function ownerFilter(alias: string, account: string | undefined): string {
+  if (account === "all") return `${alias}.puuid IN (SELECT puuid FROM visible_summoner)`;
+  return account ? `${alias}.puuid = ?` : `${alias}.puuid = g.puuid`;
+}

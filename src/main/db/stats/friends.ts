@@ -198,7 +198,7 @@ export function getTeammateChampions(
   queue?: number,
   relation: "friends" | "enemies" = "friends",
 ): TeammateChampionStats[] {
-  const result = cachedQuery("getTeammateChampions", [queue, relation], 60_000, () => {
+  return cachedQuery("getTeammateChampions", [queue, relation], 60_000, () => {
     const puuids = getVisiblePuuids();
     if (puuids.length === 0) {
       console.warn("[db] getTeammateChampions empty:", { reason: "no owned accounts" });
@@ -240,7 +240,6 @@ export function getTeammateChampions(
       `)
       .all(...puuids, ...params) as TeammateChampionStats[];
   });
-  return result;
 }
 
 // Every game we played alongside one teammate, from both sides: our stored
