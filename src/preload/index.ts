@@ -366,14 +366,6 @@ const api: ElectronAPI = {
   },
   getProfileData: (gameName: string, tagLine: string, platform: string, force = false) =>
     ipcRenderer.invoke("riot:profile", gameName, tagLine, platform, force),
-  getSummonerGameHistoryFromMcp: (gameName: string, tagLine: string, region: string) =>
-    ipcRenderer.invoke("mcp:summoner-game-history", gameName, tagLine, region),
-  searchOpggSummoner: (region: string, gameName: string, tagLine: string) =>
-    ipcRenderer.invoke("opgg:search", region, gameName, tagLine),
-  getOpggSummonerSummary: (region: string, summonerId: string) =>
-    ipcRenderer.invoke("opgg:summary", region, summonerId),
-  getOpggRecentGames: (region: string, summonerId: string, limit: number) =>
-    ipcRenderer.invoke("opgg:games", region, summonerId, limit),
   listRiotAccounts: (): Promise<RiotAccountConfig[]> => ipcRenderer.invoke("riot:list-accounts"),
   removeRiotAccount: (id: string): Promise<RiotAccountConfig[]> =>
     ipcRenderer.invoke("riot:remove-account", { id }),

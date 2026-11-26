@@ -2613,25 +2613,6 @@ export interface ElectronAPI {
     platform: string,
     force?: boolean,
   ) => Promise<ProfileData | { error: string } | null>;
-  getSummonerGameHistoryFromMcp: (
-    gameName: string,
-    tagLine: string,
-    region: string,
-  ) => Promise<unknown | { error: string }>;
-  searchOpggSummoner: (
-    region: string,
-    gameName: string,
-    tagLine: string,
-  ) => Promise<unknown | { error: string }>;
-  getOpggSummonerSummary: (
-    region: string,
-    summonerId: string,
-  ) => Promise<unknown | { error: string }>;
-  getOpggRecentGames: (
-    region: string,
-    summonerId: string,
-    limit: number,
-  ) => Promise<unknown | { error: string }>;
   refreshGames: () => Promise<{ newGames: number; totalGames: number } | { error: string }>;
   syncRiotHistory: (options?: RiotSyncOptions) => Promise<RiotSyncResult | { error: string }>;
   riotCancelSync: () => Promise<{ cancelled: true }>;

@@ -7,8 +7,6 @@ import * as dragon from "./dragon";
 import * as updater from "./updater";
 import * as backup from "./backup";
 import { backupFirst } from "./backup-choice";
-import * as mcp from "./mcp";
-import * as opgg from "./opgg";
 import { cacheDragonAsset } from "./dragon-assets";
 import { getBackupDir, getDbDir } from "./paths";
 import { changeBackupFolder, changeDbFolder, getStorageInfo } from "./storage";
@@ -956,43 +954,6 @@ export function registerIpcHandlers() {
       throw err;
     }
   });
-  ipcMain.handle(
-    "mcp:summoner-game-history",
-    async (_event, gameName: string, tagLine: string, region: string) => {
-      try {
-        return await mcp.fetchSummonerGameHistory(gameName, tagLine, region);
-      } catch (err) {
-        return { error: err instanceof Error ? err.message : "MCP request failed" };
-      }
-    },
-  );
-  ipcMain.handle(
-    "opgg:search",
-    async (_event, region: string, gameName: string, tagLine: string) => {
-      try {
-        return await opgg.searchSummoner(region, gameName, tagLine);
-      } catch (err) {
-        return { error: err instanceof Error ? err.message : "OP.GG search failed" };
-      }
-    },
-  );
-  ipcMain.handle("opgg:summary", async (_event, region: string, summonerId: string) => {
-    try {
-      return await opgg.getSummonerSummary(region, summonerId);
-    } catch (err) {
-      return { error: err instanceof Error ? err.message : "OP.GG summary failed" };
-    }
-  });
-  ipcMain.handle(
-    "opgg:games",
-    async (_event, region: string, summonerId: string, limit: number) => {
-      try {
-        return await opgg.getRecentGames(region, summonerId, limit);
-      } catch (err) {
-        return { error: err instanceof Error ? err.message : "OP.GG games failed" };
-      }
-    },
-  );
   ipcMain.handle(
     "riot:import-recent",
     async (_event, puuid: string, platform: string, count: number) => {
