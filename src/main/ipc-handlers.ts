@@ -53,6 +53,7 @@ const RENDERER_SETTINGS = new Set([
   "riot_platform",
   "active_account",
   "active_mode",
+  "show_all_mode",
   "profile_splash",
 ]);
 

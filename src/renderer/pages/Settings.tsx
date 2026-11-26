@@ -9,6 +9,7 @@ import { queueLabel } from "../components/QueueSelect";
 import { QUEUE_LABELS } from "../../shared/queues";
 import { setRemembering } from "../lib/viewState";
 import { useActiveMode } from "../hooks/useActiveMode";
+import { useShowAllMode } from "../hooks/useShowAllMode";
 import { useDevMode } from "../hooks/useDevMode";
 import type { BackupInfo } from "../lib/types";
 import {
@@ -338,7 +339,8 @@ export default function Settings() {
     stop: stopTimelineBackfill,
   } = useTimelineBackfill();
   const anyRunning = backfilling || timelineBackfilling;
-  const [mode] = useActiveMode();
+  const [mode, setMode] = useActiveMode();
+  const [showAllMode, setShowAllMode] = useShowAllMode();
   const [devMode, setDevMode] = useDevMode();
   const [autoStart, setAutoStart] = useState(false);
   // Only the packaged program has a path worth registering, so the switch says
@@ -1463,6 +1465,24 @@ export default function Settings() {
                   </p>
                 </div>
                 <Switch checked={hideRemakes} onChange={handleHideRemakesToggle} />
+              </div>
+
+              <div className="flex items-center justify-between gap-4 border-b border-lol-border/40 py-2.5 transition-colors duration-[120ms] hover:bg-white/[0.02] last:border-b-0">
+                <div>
+                  <p className="text-[13.5px] text-lol-text-bright">All matches mode</p>
+                  <p className="text-[12.5px] text-lol-text">
+                    Offer All next to Mayhem in the left bar. Off: the app shows ARAM Mayhem only.
+                  </p>
+                </div>
+                <Switch
+                  label="All matches mode"
+                  checked={showAllMode}
+                  onChange={() => {
+                    // Nothing could switch back from All once its button is gone
+                    if (showAllMode) setMode("mayhem");
+                    setShowAllMode(!showAllMode);
+                  }}
+                />
               </div>
 
               <div className="flex items-center justify-between gap-4 border-b border-lol-border/40 py-2.5 transition-colors duration-[120ms] hover:bg-white/[0.02] last:border-b-0">

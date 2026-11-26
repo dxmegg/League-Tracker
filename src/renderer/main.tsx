@@ -7,6 +7,7 @@ import "@fontsource/ibm-plex-sans/600.css";
 import { createRoot } from "react-dom/client";
 import App from "./App";
 import { ErrorBoundary } from "./components/ErrorBoundary";
+import { initShowAllMode } from "./hooks/useShowAllMode";
 import { initViewState } from "./lib/viewState";
 import { dbg } from "../shared/debug";
 import { addQueueLabels } from "../shared/queues";
@@ -26,11 +27,16 @@ Promise.resolve(window.api?.getDebugEnabled?.())
   .catch(() => undefined)
   .then((debugEnabled) => {
     if (debugEnabled !== undefined) dbg.setEnabled(debugEnabled);
-    return window.api?.getSetting?.("remember_filters");
+    return Promise.all([
+      window.api?.getSetting?.("remember_filters"),
+      window.api?.getSetting?.("show_all_mode"),
+    ]);
   })
   .catch(() => null)
-  .then((remember) => {
+  .then((settings) => {
+    const [remember, showAll] = settings ?? [];
     initViewState(remember !== "false");
+    initShowAllMode(showAll);
     root.render(
       <ErrorBoundary>
         <App />
