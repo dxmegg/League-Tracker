@@ -1,9 +1,12 @@
 import Database from "better-sqlite3";
 import fs from "fs";
 import path from "path";
+import { Writable } from "stream";
+import { pipeline } from "stream/promises";
+import zlib from "zlib";
 import { closeDatabase, getDatabase, getDbPath, getSetting, initDatabase, setSetting } from "./db";
 import { getBackupDir } from "./paths";
-import { BACKUP_FILE_RE as FILE_RE } from "./storage-files";
+import { BACKUP_FILE_RE as FILE_RE, dueBackup, staleBackups } from "./storage-files";
 
 // Snapshots are taken through SQLite's online backup API rather than by copying
 // matches.db off disk. The database runs in WAL mode, so the file on its own is
@@ -16,31 +19,15 @@ import { BACKUP_FILE_RE as FILE_RE } from "./storage-files";
 // through the same connection everything else writes on — SQLite applies those
 // writes to the copy in flight instead of leaving it torn across versions.
 
-// How stale the newest snapshot may get before the scheduler takes another
-const MAX_AGE_MS = 24 * 60 * 60 * 1000;
-// The scheduler only checks staleness, so this is a resolution, not a rate:
-// snapshots still land roughly a day apart no matter how long the app runs.
+// The scheduler only checks what is due, so this is a resolution, not a rate
 const CHECK_INTERVAL_MS = 60 * 60 * 1000;
 const QUICK_CHECK_INTERVAL_MS = 24 * 60 * 60 * 1000;
 // Keeps the first snapshot check clear of the busy first seconds after launch
 const FIRST_TICK_DELAY_MS = 90_000;
 
-// Tiered retention rather than "keep the last N". Corruption is often noticed
-// days after it happened, and a flat window of daily snapshots can be fully
-// rotated out by then.
-//
-// The tiers overlap heavily — the newest snapshot is the representative of its
-// day, its week and its month all at once — so each tier has to be counted
-// generously to reach back as far as it sounds like it does. Six monthly slots
-// buy roughly half a year of horizon; three would have bought about three
-// weeks, because the first two would be spent on months the weekly tier
-// already covers. In steady use this settles at a dozen or so files.
-const KEEP_RECENT = 5;
-const KEEP_WEEKLY = 4;
-const KEEP_MONTHLY = 6;
-
 export type BackupReason =
   | "auto"
+  | "monthly"
   | "manual"
   | "pre-delete"
   | "pre-import"
@@ -127,7 +114,8 @@ function describe(file: string): BackupInfo | null {
   } catch {
     return null;
   }
-  return { file, created: parseStamp(match[1]), size, games: null, reason: match[2] };
+  const games = match[3] === undefined ? null : Number(match[3]);
+  return { file, created: parseStamp(match[1]), size, games, reason: match[2] };
 }
 
 // Newest first. Names carry the timestamp, so this never depends on mtimes,
@@ -149,6 +137,8 @@ function readBackups(): BackupInfo[] {
 export function listBackups(): BackupInfo[] {
   const dir = getBackupDir();
   return readBackups().map((backup) => {
+    // A compressed snapshot carries its count in the name
+    if (backup.games !== null) return backup;
     try {
       const snap = new Database(path.join(dir, backup.file), { readonly: true });
       try {
@@ -164,39 +154,38 @@ export function listBackups(): BackupInfo[] {
   });
 }
 
-// Grandfather-father-son: the newest few unconditionally, then the newest
-// snapshot from each of the last few weeks and months. Everything else goes.
-function prune(backups: BackupInfo[]): void {
-  const keep = new Set<string>();
-  for (const backup of backups.slice(0, KEEP_RECENT)) keep.add(backup.file);
-
-  const bucket = (key: (date: Date) => string, limit: number) => {
-    const seen = new Set<string>();
-    for (const backup of backups) {
-      const id = key(new Date(backup.created));
-      if (seen.has(id)) continue;
-      seen.add(id);
-      if (seen.size > limit) break;
-      keep.add(backup.file);
-    }
-  };
-  // Week key: the date of the Sunday that starts it, which needs no ISO-week
-  // arithmetic and groups exactly the same way.
-  bucket((date) => {
-    const start = new Date(date.getFullYear(), date.getMonth(), date.getDate() - date.getDay());
-    return stamp(start).slice(0, 10);
-  }, KEEP_WEEKLY);
-  bucket((date) => `${date.getFullYear()}-${date.getMonth()}`, KEEP_MONTHLY);
-
+function prune(written: string): void {
   const dir = getBackupDir();
-  for (const backup of backups) {
-    if (keep.has(backup.file)) continue;
+  const names = readBackups().map((backup) => backup.file);
+  for (const file of staleBackups(names, written)) {
     try {
-      fs.rmSync(path.join(dir, backup.file), { force: true });
+      fs.rmSync(path.join(dir, file), { force: true });
     } catch (err) {
-      console.error("Failed to remove old backup:", backup.file, err);
+      console.error("Failed to remove old backup:", file, err);
     }
   }
+}
+
+// Level 1: about a fifth of the size for a few seconds per gigabyte
+async function compress(source: string, target: string): Promise<void> {
+  await pipeline(
+    fs.createReadStream(source),
+    zlib.createGzip({ level: 1 }),
+    fs.createWriteStream(target, { flush: true }),
+  );
+  // Read back before anything older is deleted: gunzip checks the CRC
+  let bytes = 0;
+  await pipeline(
+    fs.createReadStream(target),
+    zlib.createGunzip(),
+    new Writable({
+      write(chunk: Buffer, _encoding, done) {
+        bytes += chunk.length;
+        done();
+      },
+    }),
+  );
+  if (bytes !== fs.statSync(source).size) throw new Error("compressed snapshot is incomplete");
 }
 
 async function runBackup(reason: BackupReason): Promise<BackupInfo> {
@@ -204,28 +193,32 @@ async function runBackup(reason: BackupReason): Promise<BackupInfo> {
   const before = countGames(db);
 
   const created = new Date();
-  const file = `matches-${stamp(created)}-${reason}.db`;
-  const dest = path.join(getBackupDir(), file);
-  // Written under a name the listing ignores, so a crash or a full disk part
+  const base = path.join(getBackupDir(), `matches-${stamp(created)}-${reason}`);
+  // Written under names the listing ignores, so a crash or a full disk part
   // way through can't leave a truncated file that looks like a usable backup.
-  const partial = `${dest}.part`;
+  const raw = `${base}.db.part`;
+  const packed = `${base}.db.gz.part`;
   try {
-    await db.backup(partial);
-    const games = verifySnapshot(partial, false);
+    await db.backup(raw);
+    // The monthly snapshot is the long way back, so it alone pays for the full scan
+    const games = verifySnapshot(raw, reason === "monthly");
     if (games < before) {
       throw new Error(`snapshot holds ${games} games, database had ${before}`);
     }
-    fs.renameSync(partial, dest);
+    await compress(raw, packed);
+    const dest = `${base}-${games}g.db.gz`;
+    fs.renameSync(packed, dest);
+    const file = path.basename(dest);
     const size = fs.statSync(dest).size;
     // Only once the new snapshot is on disk and verified: a database that has
-    // already gone bad must never be able to rotate out the good copies.
-    prune(readBackups());
+    // already gone bad must never be able to rotate out the good copies. An
+    // empty one never does.
+    if (games > 0) prune(file);
     return { file, created: created.getTime(), size, games, reason };
-  } catch (err) {
-    fs.rmSync(partial, { force: true });
-    fs.rmSync(`${partial}-wal`, { force: true });
-    fs.rmSync(`${partial}-shm`, { force: true });
-    throw err;
+  } finally {
+    for (const leftover of [raw, `${raw}-wal`, `${raw}-shm`, packed]) {
+      fs.rmSync(leftover, { force: true });
+    }
   }
 }
 
@@ -250,11 +243,18 @@ export async function waitForBackups(): Promise<void> {
   await inFlight?.catch(() => undefined);
 }
 
+// On unless the user switched it off
+function autoBackupOn(): boolean {
+  return getSetting("auto_backup") !== "false";
+}
+
 // Snapshots protect the user's data, so a failure to take one is reported but
 // never allowed to abort whatever it was protecting.
 export async function backupQuietly(reason: BackupReason): Promise<void> {
-  if (getSetting("auto_backup") !== "true") return;
+  if (!autoBackupOn()) return;
   try {
+    // A database just created (first launch, or ahead of recovery) has nothing worth a slot
+    if (countGames(getDatabase()) === 0) return;
     const backup = await createBackup(reason);
     console.log(`Backed up ${backup.games} games to ${backup.file}`);
   } catch (err) {
@@ -262,16 +262,13 @@ export async function backupQuietly(reason: BackupReason): Promise<void> {
   }
 }
 
-function isStale(): boolean {
-  const newest = readBackups()[0];
-  return !newest || Date.now() - newest.created > MAX_AGE_MS;
-}
-
 export function startBackupSchedule(): void {
   if (scheduleTimer) return;
   const tick = () => {
-    if (getSetting("auto_backup") !== "true") return;
-    if (isStale()) void backupQuietly("auto");
+    if (!autoBackupOn()) return;
+    const packed = readBackups().filter((backup) => backup.file.endsWith(".gz"));
+    const due = dueBackup(packed, Date.now());
+    if (due) void backupQuietly(due);
   };
   firstTickTimer = setTimeout(tick, FIRST_TICK_DELAY_MS);
   scheduleTimer = setInterval(tick, CHECK_INTERVAL_MS);
@@ -304,7 +301,8 @@ function incomingPath(): string {
 }
 
 function unpack(source: string, target: string): Promise<void> {
-  return fs.promises.copyFile(source, target);
+  if (!source.endsWith(".gz")) return fs.promises.copyFile(source, target);
+  return pipeline(fs.createReadStream(source), zlib.createGunzip(), fs.createWriteStream(target));
 }
 
 // Puts the prepared file in place of the live one. The caller must have closed

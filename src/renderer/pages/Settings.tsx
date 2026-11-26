@@ -28,7 +28,8 @@ import { AboutSection } from "../components/AboutSection";
 import { ChangelogSection } from "../components/ChangelogSection";
 
 const BACKUP_REASONS: Record<string, string> = {
-  auto: "Scheduled",
+  auto: "Weekly",
+  monthly: "Monthly",
   manual: "Manual",
   "pre-delete": "Before delete",
   "pre-import": "Before import",
@@ -422,7 +423,7 @@ export default function Settings() {
       setMinimizeToTray(tray !== "false");
       setHiddenQueues(new Set(hidden ? hidden.split(",").map(Number) : []));
       setHideRemakes(remakes === "true");
-      setAutoBackup(backup === "true");
+      setAutoBackup(backup !== "false");
       setRememberFilters(remember !== "false");
       setLoading(false);
     });
@@ -1576,10 +1577,11 @@ export default function Settings() {
                 <div>
                   <p className="text-[13.5px] text-lol-text-bright">Automatic backups</p>
                   <p className="text-[12.5px] text-lol-text">
-                    Keep a daily copy of your database on this computer. Older copies thin out to
-                    weekly and monthly. If the database ever goes missing or won't open, the newest
-                    working copy is restored on startup. Imports, repairs, restores and account
-                    deletions ask about a backup first, whether this is on or off.
+                    Keep two compressed copies of your database on this computer: one renewed every
+                    week and one every month. A backup you take yourself replaces the weekly one. If
+                    the database ever goes missing or won't open, the newest working copy is
+                    restored on startup. Imports, repairs, restores and account deletions ask about
+                    a backup first, whether this is on or off.
                   </p>
                 </div>
                 <Switch checked={autoBackup} onChange={handleAutoBackupToggle} />

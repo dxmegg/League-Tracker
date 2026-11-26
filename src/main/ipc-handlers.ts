@@ -82,6 +82,7 @@ function askBackupFirst(
       const response = await box({
         type: "question",
         message: `Back up the database before ${action}?`,
+        detail: "The new backup replaces the weekly one.",
         buttons: ["Back up first", "Continue without backup", "Cancel"],
         defaultId: 0,
         cancelId: 2,

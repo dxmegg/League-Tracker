@@ -5,6 +5,8 @@ import os from "node:os";
 import path from "node:path";
 import {
   deleteDataFiles,
+  dueBackup,
+  staleBackups,
   moveBackupFiles,
   readLocations,
   resolveUserDataDir,
@@ -29,6 +31,27 @@ assert.deepEqual(await decide("backup"), [true, 1]);
 assert.deepEqual(await decide("skip"), [true, 0]);
 assert.deepEqual(await decide("cancel"), [false, 0]);
 assert.deepEqual(await decide("backup", true), [false, 1]);
+
+// Two slots: the newest monthly and the newest of the rest; plain .db files go
+const name = (day, reason, ext = "-5g.db.gz") => `matches-2026-01-0${day}T00-00-00-${reason}${ext}`;
+const old = name(1, "manual", ".db");
+const month = name(2, "monthly");
+const week = name(3, "auto");
+const manual = name(4, "pre-delete");
+assert.deepEqual(staleBackups([old, month, week, manual, "notes.txt"], manual), [old, week]);
+assert.deepEqual(staleBackups([old, month], month), [old]);
+assert.deepEqual(staleBackups([month, week, name(5, "monthly")], name(5, "monthly")), [month]);
+assert.deepEqual(staleBackups([week, manual], week), [manual]); // clock moved back
+const migration = name(1, "pre-migration-20");
+assert.deepEqual(staleBackups([migration, manual], manual), [migration]);
+
+const DAY = 24 * 60 * 60 * 1000;
+const at = (reason, daysAgo) => ({ reason, created: 100 * DAY - daysAgo * DAY });
+assert.equal(dueBackup([], 100 * DAY), "monthly");
+assert.equal(dueBackup([at("monthly", 1)], 100 * DAY), "auto");
+assert.equal(dueBackup([at("monthly", 1), at("manual", 6)], 100 * DAY), null);
+assert.equal(dueBackup([at("monthly", 29), at("auto", 8)], 100 * DAY), "auto");
+assert.equal(dueBackup([at("monthly", 31), at("auto", 1)], 100 * DAY), "monthly");
 
 const root = fs.mkdtempSync(path.join(os.tmpdir(), "rr-storage-"));
 const put = (...parts) => {

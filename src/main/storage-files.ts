@@ -6,9 +6,40 @@ import path from "path";
 export type Locations = { dbDir?: string; backupDir?: string };
 
 export const DB_FILE = "matches.db";
-export const BACKUP_FILE_RE = /^matches-(\d{4}-\d{2}-\d{2}T\d{2}-\d{2}-\d{2})-([a-z-]+)\.db$/;
+// Groups: local time taken, reason, game count. A plain .db is a snapshot from before compression.
+export const BACKUP_FILE_RE =
+  /^matches-(\d{4}-\d{2}-\d{2}T\d{2}-\d{2}-\d{2})-([a-z0-9-]+?)(?:-(\d+)g\.db\.gz|\.db)$/;
 // The database and what the program leaves next to it: -wal, -shm, .part, .incoming, .corrupt-*
 const DB_FAMILY_RE = /^matches\.db($|[-.])/;
+
+// Two snapshots are kept: one in the "monthly" slot and one, for every other reason, in the weekly
+// slot. Names carry the time, so they sort by age. `written` is the snapshot just taken: it keeps
+// its slot even if the clock moved back. Plain .db files go once a compressed one is written.
+export function staleBackups(names: string[], written: string): string[] {
+  const backups = names.filter((name) => BACKUP_FILE_RE.test(name));
+  const monthly = (name: string) => BACKUP_FILE_RE.exec(name)![2] === "monthly";
+  const other = backups
+    .filter((name) => name.endsWith(".gz") && monthly(name) !== monthly(written))
+    .sort()
+    .at(-1);
+  return backups.filter((name) => name !== written && name !== other);
+}
+
+const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
+const MONTH_MS = 30 * 24 * 60 * 60 * 1000;
+
+// Which scheduled snapshot is due, given the compressed ones on disk
+export function dueBackup(
+  backups: { reason: string; created: number }[],
+  now: number,
+): "monthly" | "auto" | null {
+  const age = (monthly: boolean) => {
+    const slot = backups.filter((b) => (b.reason === "monthly") === monthly);
+    return now - Math.max(0, ...slot.map((b) => b.created));
+  };
+  if (age(true) > MONTH_MS) return "monthly";
+  return age(false) > WEEK_MS ? "auto" : null;
+}
 
 export function readLocations(file: string): Locations {
   let text: string;
@@ -108,7 +139,7 @@ export function deleteDataFiles(dbDir: string, backupDir: string): void {
       fs.rmSync(path.join(dir, name), { force: true });
     }
   };
-  remove(backupDir, /^matches-\d{4}-\d{2}-\d{2}T\d{2}-\d{2}-\d{2}-[a-z-]+\.db($|[-.])/);
+  remove(backupDir, /^matches-\d{4}-\d{2}-\d{2}T\d{2}-\d{2}-\d{2}-[a-z0-9-]+\.db($|[-.])/);
   remove(dbDir, DB_FAMILY_RE);
   try {
     if (!samePath(backupDir, dbDir)) fs.rmdirSync(backupDir);

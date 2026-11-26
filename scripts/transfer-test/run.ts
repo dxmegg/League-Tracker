@@ -19,7 +19,14 @@ import {
   recalculateAllScores,
 } from "../../src/main/db";
 import { restoreSummonerFull } from "../../src/main/db/summoner";
-import { createBackup, restoreBackup } from "../../src/main/backup";
+import {
+  createBackup,
+  getRecoveryReport,
+  initDatabaseWithRecovery,
+  listBackups,
+  restoreBackup,
+} from "../../src/main/backup";
+import { getBackupDir, getDbDir } from "../../src/main/paths";
 
 const base = process.env.RR_TEST_DIR as string;
 const ALICE = "aaaaaaaa-1111-4111-8111-aaaaaaaaaaaa";
@@ -280,6 +287,55 @@ assert.ok(
 
 assert.deepEqual(await restoreBackup(snapshot.file), { games: 4 });
 assert.deepEqual(fingerprint(), original);
+
+// ---- compressed and pre-compression snapshots ----
+assert.match(snapshot.file, /-manual-4g\.db\.gz$/);
+const inBackups = (file: string) => path.join(getBackupDir(), file);
+const files = () => listBackups().map((backup) => backup.file);
+const legacy = "matches-2020-01-01T00-00-00-manual.db";
+const plain = zlib.gunzipSync(fs.readFileSync(inBackups(snapshot.file)));
+const putLegacy = () => fs.writeFileSync(inBackups(legacy), plain);
+putLegacy();
+assert.deepEqual(
+  listBackups().map((backup) => backup.games),
+  [4, 4],
+);
+assert.deepEqual(await restoreBackup(legacy), { games: 4 });
+assert.deepEqual(fingerprint(), original);
+
+const monthly = await createBackup("monthly");
+assert.deepEqual(files().sort(), [snapshot.file, monthly.file].sort()); // the plain .db is gone
+
+// Called off: nothing changes
+deleteSavedSummoner(ALICE);
+assert.equal(await restoreBackup(snapshot.file, async () => false), null);
+assert.equal((db.prepare("SELECT COUNT(*) AS n FROM games").get() as { n: number }).n, 1);
+
+// The "before restore" snapshot replaces the very file being restored
+const restored = await restoreBackup(snapshot.file, async () => {
+  await createBackup("pre-restore");
+  return true;
+});
+assert.deepEqual(restored, { games: 4 });
+assert.deepEqual(fingerprint(), original);
+assert.ok(!files().includes(snapshot.file));
+assert.equal(files().length, 2);
+
+// ---- recovery from a damaged database, from either kind of snapshot ----
+for (const kind of [".db.gz", ".db"]) {
+  if (kind === ".db") {
+    putLegacy();
+    for (const file of files()) if (file !== legacy) fs.rmSync(inBackups(file));
+  }
+  closeDatabase();
+  const dbFile = path.join(getDbDir(), "matches.db");
+  fs.writeFileSync(dbFile, "not a database".repeat(1000));
+  fs.rmSync(`${dbFile}-wal`, { force: true });
+  await initDatabaseWithRecovery();
+  const report = getRecoveryReport();
+  assert.ok(report?.restoredFrom?.endsWith(kind), JSON.stringify(report));
+  assert.equal((db.prepare("SELECT COUNT(*) AS n FROM games").get() as { n: number }).n, 4);
+}
 
 closeDatabase();
 console.log("transfer checks passed");
