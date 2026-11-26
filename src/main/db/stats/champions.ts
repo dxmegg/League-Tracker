@@ -153,7 +153,7 @@ export function getChampionRoleStats(
   timePeriod?: "24h" | "7d" | "30d" | "full",
 ): ChampionRoleStat[] {
   const filter = participantFilter(patch, queue, "mp", timePeriod);
-  const ownerFilter =
+  const roleOwner =
     account === "all"
       ? "mp.puuid IN (SELECT puuid FROM visible_summoner)"
       : account
@@ -174,7 +174,7 @@ export function getChampionRoleStats(
       FROM match_participants mp
       JOIN games g ON g.game_id = mp.game_id
       WHERE ${filter.sql}${championId !== null ? " AND mp.champion_id = ?" : ""}
-        AND ${ownerFilter}
+        AND ${roleOwner}
       GROUP BY COALESCE(NULLIF(mp.team_position, ''), 'UNKNOWN')
       ORDER BY games DESC
     `)
