@@ -190,8 +190,8 @@ const api: ElectronAPI = {
   ): Promise<ChampionStatBaseline> =>
     ipcRenderer.invoke("db:champion-stat-baseline", championId, patch, queue, account),
 
-  getChampionQueueStats: (championId: number | null, account?: string) =>
-    ipcRenderer.invoke("db:champion-queue-stats", championId, account),
+  getChampionQueueStats: (championId: number | null, account?: string, queue?: number) =>
+    ipcRenderer.invoke("db:champion-queue-stats", championId, account, queue),
 
   getChampionRoleStats: (
     championId: number | null,
@@ -206,7 +206,8 @@ const api: ElectronAPI = {
     championId: number | null,
     account?: string,
     timePeriod?: HomeTimePeriod,
-  ) => ipcRenderer.invoke("db:champion-keystones", championId, account, timePeriod),
+    queue?: number,
+  ) => ipcRenderer.invoke("db:champion-keystones", championId, account, timePeriod, queue),
 
   getChampionRuneStats: (
     championId: number | null,
@@ -215,8 +216,8 @@ const api: ElectronAPI = {
     account?: string,
   ) => ipcRenderer.invoke("db:champion-rune-stats", championId, patch, queue, account),
 
-  getChampionWeeklyWinRate: (championId: number | null, account?: string) =>
-    ipcRenderer.invoke("db:champion-weekly-winrate", championId, account),
+  getChampionWeeklyWinRate: (championId: number | null, account?: string, queue?: number) =>
+    ipcRenderer.invoke("db:champion-weekly-winrate", championId, account, queue),
 
   getChampionWeeklyMetrics: (
     championId: number,

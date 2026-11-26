@@ -1248,7 +1248,11 @@ async function attachEogListener(win: BrowserWindow): Promise<void> {
 
     // The socket only carries changes, so a client that was already in a match
     // when we attached needs the current phase read once.
-    fetchGameflowPhase().then((phase) => applyPhase(win, phase));
+    fetchGameflowPhase().then((phase) => {
+      applyPhase(win, phase);
+      // Mastery and challenges only move when the game ends, so a mid-game read is still "before"
+      if (phase !== null && IN_GAME_PHASES.has(phase)) void postGame.onGameStart();
+    });
   } finally {
     eogAttaching = false;
   }

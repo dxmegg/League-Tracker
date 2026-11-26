@@ -2357,6 +2357,7 @@ export interface ElectronAPI {
   getChampionQueueStats: (
     championId: number | null,
     account?: string,
+    queue?: number,
   ) => Promise<ChampionQueueStat[]>;
   getChampionRoleStats: (
     championId: number | null,
@@ -2369,6 +2370,7 @@ export interface ElectronAPI {
     championId: number | null,
     account?: string,
     timePeriod?: HomeTimePeriod,
+    queue?: number,
   ) => Promise<ChampionKeystoneStat[]>;
   getChampionRuneStats: (
     championId: number | null,
@@ -2379,6 +2381,7 @@ export interface ElectronAPI {
   getChampionWeeklyWinRate: (
     championId: number | null,
     account?: string,
+    queue?: number,
   ) => Promise<ChampionWeeklyWinRate[]>;
   getChampionWeeklyMetrics: (
     championId: number,

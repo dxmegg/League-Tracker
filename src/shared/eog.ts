@@ -1,4 +1,5 @@
-// Pure helpers over the client's end-of-game block. No imports, so a script can test them.
+// Pure helpers over the client's end-of-game block. Type imports only, so a script can test them.
+import type { LiveEvent } from "./api";
 
 type Row = Record<string, any>;
 
@@ -59,6 +60,36 @@ export interface EogKey {
   puuid: string | null;
   championId: number;
   teamId: number;
+}
+
+// The live poll usually misses GameEnd (the game closes its API first), so take it from the result screen
+export function withGameEnd(events: LiveEvent[], eog: any): LiveEvent[] {
+  const teams: any[] = eog?.teams ?? [];
+  const mine = teams.find((t) => t.isPlayerTeam);
+  // No winner means no result to report
+  if (!mine || !teams.some((t) => t.isWinningTeam) || events.some((e) => e.name === "GameEnd")) {
+    return events;
+  }
+  return [
+    ...events,
+    {
+      id: Math.max(-1, ...events.map((e) => e.id)) + 1,
+      name: "GameEnd",
+      time: Number(eog.gameLength) || 0,
+      killer: null,
+      victim: null,
+      assisters: [],
+      dragonType: null,
+      stolen: false,
+      turret: null,
+      inhib: null,
+      acer: null,
+      acingTeam: null,
+      killStreak: null,
+      recipient: null,
+      extra: { Result: mine.isWinningTeam ? "Win" : "Lose" },
+    },
+  ];
 }
 
 export function findEogPlayer(eog: any, who: EogKey): Row | null {

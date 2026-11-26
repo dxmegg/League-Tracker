@@ -1,7 +1,7 @@
 import { gunzipSync, gzipSync } from "node:zlib";
 import { db } from "../db";
-import { applyEogTelemetry } from "./eog";
-import { stripEogSecrets } from "../../shared/eog";
+import { applyEogTelemetry, getEogBlock } from "./eog";
+import { stripEogSecrets, withGameEnd } from "../../shared/eog";
 import type {
   LiveStatRecord,
   StoredLiveBody,
@@ -72,6 +72,7 @@ export function getLiveGameData(gameId: number): StoredLiveGame | null {
     .get(gameId) as { duration_s: number; payload: Buffer; recorded_at: number } | undefined;
   if (!row) return null;
   const data = JSON.parse(gunzipSync(row.payload).toString("utf8")) as StoredLiveBody;
+  data.snapshot.events = withGameEnd(data.snapshot.events, getEogBlock(gameId));
   return { ...data, gameId, durationSec: row.duration_s, recordedAt: row.recorded_at };
 }
 

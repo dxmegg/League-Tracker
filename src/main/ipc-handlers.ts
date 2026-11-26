@@ -420,8 +420,8 @@ export function registerIpcHandlers() {
 
   ipcMain.handle(
     "db:champion-queue-stats",
-    (_event, championId: number | null, account?: string) => {
-      return db.getChampionQueueStats(championId, account);
+    (_event, championId: number | null, account?: string, queue?: number) => {
+      return db.getChampionQueueStats(championId, account, queue);
     },
   );
 
@@ -449,8 +449,14 @@ export function registerIpcHandlers() {
 
   ipcMain.handle(
     "db:champion-keystones",
-    (_event, championId: number | null, account?: string, timePeriod?: HomeTimePeriod) => {
-      return db.getChampionKeystones(championId, account, timePeriod);
+    (
+      _event,
+      championId: number | null,
+      account?: string,
+      timePeriod?: HomeTimePeriod,
+      queue?: number,
+    ) => {
+      return db.getChampionKeystones(championId, account, timePeriod, queue);
     },
   );
 
@@ -463,8 +469,8 @@ export function registerIpcHandlers() {
 
   ipcMain.handle(
     "db:champion-weekly-winrate",
-    (_event, championId: number | null, account?: string) => {
-      return db.getChampionWeeklyWinRate(championId, account);
+    (_event, championId: number | null, account?: string, queue?: number) => {
+      return db.getChampionWeeklyWinRate(championId, account, queue);
     },
   );
 

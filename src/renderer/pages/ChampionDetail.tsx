@@ -265,20 +265,20 @@ export default function ChampionDetail() {
     [id, patch, scopedQueue, account, timePeriod],
   );
   const { data: weekly } = useIpc<ChampionWeeklyWinRate[]>(
-    () => window.api.getChampionWeeklyWinRate(id, account),
-    [id, account],
+    () => window.api.getChampionWeeklyWinRate(id, account, scopedQueue),
+    [id, account, scopedQueue],
   );
   const { data: roles } = useIpc<ChampionRoleStat[]>(
     () => window.api.getChampionRoleStats(id, patch, scopedQueue, account, timePeriod),
     [id, patch, scopedQueue, account, timePeriod],
   );
   const { data: queues } = useIpc<ChampionQueueStat[]>(
-    () => window.api.getChampionQueueStats(id, account),
-    [id, account],
+    () => window.api.getChampionQueueStats(id, account, scopedQueue),
+    [id, account, scopedQueue],
   );
   const { data: keystones } = useIpc<ChampionKeystoneStat[]>(
-    () => window.api.getChampionKeystones(id, account, timePeriod),
-    [id, account, timePeriod],
+    () => window.api.getChampionKeystones(id, account, timePeriod, scopedQueue),
+    [id, account, timePeriod, scopedQueue],
   );
   const { data: augments } = useIpc<AugmentStats[]>(
     () => window.api.getAugmentStats(id ?? undefined, patch, scopedQueue, account, timePeriod),

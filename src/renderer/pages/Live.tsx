@@ -297,7 +297,7 @@ export default function Live() {
           <LiveLastGame />
           <LiveRecords />
           <LiveSavedGames />
-          <LivePostGame />
+          {devMode && <LivePostGame />}
         </>
       ) : (
         <>
@@ -327,7 +327,7 @@ export default function Live() {
           <LiveRecords />
           <RawPanel snapshot={snapshot} />
           <LiveSavedGames />
-          <LivePostGame />
+          {devMode && <LivePostGame />}
           <p className="pb-2 text-center text-[11.5px] text-lol-text/60">
             Source: Live Client Data API (127.0.0.1:2999) and the client&apos;s gameflow session ·
             refreshed every few seconds, CS in steps of 2 · last update{" "}

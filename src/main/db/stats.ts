@@ -214,6 +214,7 @@ export function getActivityHeatmap(
 export function getChampionQueueStats(
   championId: number | null,
   account?: string,
+  queue?: number,
 ): ChampionQueueStat[] {
   const source = statsSource(account);
   const where = ["g.is_remake = 0"];
@@ -222,6 +223,7 @@ export function getChampionQueueStats(
   where.push(`g.queue_id NOT IN (${EXCLUDED_STATS_SQL})`);
   const params: any[] = account && account !== "all" ? [account] : [];
   if (championId !== null) params.push(championId);
+  applyQueueFilter(where, params, queue);
   return db
     .prepare(`
         SELECT g.queue_id as queueId,
@@ -312,6 +314,7 @@ export function getChampionKeystones(
   championId: number | null,
   account?: string,
   timePeriod?: "24h" | "7d" | "30d" | "full",
+  queue?: number,
 ): Array<{
   runeId: number;
   picks: number;
@@ -330,6 +333,7 @@ export function getChampionKeystones(
   const params: any[] = account && account !== "all" ? [account] : [];
   if (championId !== null) params.push(championId);
   pushTimeFilter(where, params, timePeriod);
+  applyQueueFilter(where, params, queue);
 
   const rows = db
     .prepare(`
@@ -531,6 +535,7 @@ export function getChampionRuneStats(
 export function getChampionWeeklyWinRate(
   championId: number | null,
   account?: string,
+  queue?: number,
 ): Array<{ weekStart: number; games: number; wins: number }> {
   // Groups by Monday 00:00 of each ISO week. Timestamps are epoch ms.
   const source = statsSource(account);
@@ -540,6 +545,7 @@ export function getChampionWeeklyWinRate(
   where.push(`g.queue_id NOT IN (${EXCLUDED_STATS_SQL})`);
   const params: any[] = account && account !== "all" ? [account] : [];
   if (championId !== null) params.push(championId);
+  applyQueueFilter(where, params, queue);
   return db
     .prepare(`
         SELECT

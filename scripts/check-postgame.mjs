@@ -8,7 +8,7 @@ import {
   MASTERY_UPDATES_URL,
 } from "../src/main/post-game.ts";
 import { challengeChanges } from "../src/main/post-game.ts";
-import { eogExtras, findEogPlayer, stripEogSecrets } from "../src/shared/eog.ts";
+import { eogExtras, findEogPlayer, stripEogSecrets, withGameEnd } from "../src/shared/eog.ts";
 
 const mastery = (points) => [
   { championId: 1, championPoints: points, lastPlayTime: points },
@@ -69,4 +69,15 @@ assert.deepEqual(
   ).map((c) => [c.id, c.after - c.before]),
   [[1, 3]],
 );
+const result = {
+  gameLength: 851,
+  teams: [
+    { isPlayerTeam: true, isWinningTeam: false },
+    { isPlayerTeam: false, isWinningTeam: true },
+  ],
+};
+const [, end] = withGameEnd([{ id: 4, name: "ChampionKill" }], result);
+assert.deepEqual([end.id, end.name, end.time, end.extra.Result], [5, "GameEnd", 851, "Lose"]);
+assert.equal(withGameEnd([end], result).length, 1);
+assert.equal(withGameEnd([], null).length, 0);
 console.log("post-game checks passed");

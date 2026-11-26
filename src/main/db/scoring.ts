@@ -407,19 +407,17 @@ export function repairDerivedScores(): { repaired: number } {
         row.is_remake === 1
           ? null
           : computeOwnerScore(participants.get(row.game_id) ?? [], row.puuid || null, row);
-      repaired += updatePlayer.run(
-        result?.score ?? null,
-        result?.raw ?? null,
-        result?.badge ?? null,
-        row.game_id,
-      ).changes;
+      // Remakes and unscorable games stay NULL; rewriting them would count as a repair every launch
+      if (!result) continue;
+      repaired += updatePlayer.run(result.score, result.raw, result.badge, row.game_id).changes;
     }
     for (const row of staleTrackedRows) {
       const result = computeOwnerScore(participants.get(row.game_id) ?? [], row.puuid, undefined);
+      if (!result) continue;
       repaired += updateTracked.run(
-        result?.score ?? null,
-        result?.raw ?? null,
-        result?.badge ?? null,
+        result.score,
+        result.raw,
+        result.badge,
         row.game_id,
         row.puuid,
       ).changes;

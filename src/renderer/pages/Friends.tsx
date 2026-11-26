@@ -78,7 +78,7 @@ export default function Friends() {
       return (players.data ?? []).map((p) => ({
         id: p.key,
         name: p.name,
-        to: `/friends/${encodeURIComponent(p.key)}`,
+        to: `/friends/${encodeURIComponent(p.key)}${relation === "enemies" ? "?relation=enemies" : ""}`,
         icon: (size) => <SummonerIcon iconId={p.profileIcon} size={size} />,
         games: p.games,
         wins: mine(p.wins, p.games),
