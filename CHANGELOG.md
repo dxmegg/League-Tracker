@@ -1,5 +1,21 @@
 # Changelog
 
+## 1.4.0 (2026-11-26)
+
+- New All champions summary, opened from the Champions tab
+- New Misc. Data tab: champions, augments and items of the other players in your games
+- New Timeline tab on ARAM Mayhem matches: gold and XP lead and a kill map, saved from the League client
+- New favorite matches in Match History
+- New setting to hide the All matches mode and run Mayhem only
+- New test view on Live Game of what the client reports after a game: end-of-game screen, mastery and honor
+- Filters, sorting and search are remembered by default, across more views
+- Automatic backups are now off unless you switch them on
+- Fixed games being lost when more than 20 were played while the app was closed
+- Fixed the win rate over time chart showing the oldest weeks instead of the newest
+- Fixed history links on Home
+- Better queue names
+- Removed the manual add-account form, the searched-accounts cleanup and the old themes
+
 ## 1.3.1 (2026-11-26)
 
 - New Use default button for the database folder under Backups

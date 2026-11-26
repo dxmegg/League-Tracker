@@ -6,6 +6,18 @@ A Windows desktop app that keeps your League of Legends match history on your ow
 
 ## Recent Changes
 
+**1.4.0**
+
+- **(NEW)** All champions summary, opened from the Champions tab
+- **(NEW)** Misc. Data tab: champions, augments and items of the other players in your games
+- **(NEW)** Timeline on ARAM Mayhem matches: gold and XP lead and a kill map
+- **(NEW)** Favorite matches, a setting to run Mayhem only, and a test view of post-game data on Live Game
+- **(IMPROVED)** Filters, sorting and search are remembered by default
+- **(IMPROVED)** Games played while the app was closed are all picked up on the next start
+- **(CHANGED)** Automatic backups are off unless you switch them on
+- **(REMOVED)** Manual add-account form, searched-accounts cleanup and the old themes
+- Various small fixes
+
 **1.3.1**
 
 - **(NEW)** Use default button for the database folder (Settings → Backups)
@@ -33,16 +45,6 @@ A Windows desktop app that keeps your League of Legends match history on your ow
 - **(IMPROVED)** Rebuilt About section in Settings
 - Various small fixes
 
-**1.1**
-
-- **(NEW)** Redesign theme with a grouped sidebar
-- **(NEW)** Achievements with tiers from Iron to Challenger, and challenges from the League client
-- **(IMPROVED)** Live Game: scoreboard, game flow charts, events, peak stats and scouting
-- **(IMPROVED)** Match history grouped by day and session, match page with a Stats tab
-- **(CHANGED)** Rebuilt Champions, Items, Augments, Friends & Foes, Trends, Records, Storage and Settings
-- **(REMOVED)** Third to Sixth themes
-- Various small fixes
-
 Full history: [CHANGELOG.md](CHANGELOG.md)
 
 ## Screenshots
@@ -60,11 +62,13 @@ Full history: [CHANGELOG.md](CHANGELOG.md)
 - **Live Game**: scoreboard, game flow charts, events and peak stats while a match is running
 - **Match history**: grouped by day and session, with a detailed page per match (items, runes, augments, per-player stats)
 - **Champions, Items, Augments, Runes**: win rates, KDA, damage, gold, multikills and detailed breakdowns
+- **Match timeline**: gold and XP lead and a kill map for ARAM Mayhem games
+- **Misc. Data**: what the other players in your games picked and built
 - **Scoring**: separate systems for ARAM, Summoner's Rift and Arena, with MVP/ACE badges and a score breakdown on hover
 - **Your Profile, Friends & Foes, Trends, Records**: habits, time-of-day patterns, who you play with and your best games
 - **Achievements and Challenges**: tiers from Iron to Challenger, plus challenges read from the League client
 - **Multiple accounts**: sync, show, hide or merge them
-- **Your data stays yours**: local database, automatic backups, export and import
+- **Your data stays yours**: local database, optional automatic backups, export and import
 - **Updates**: checks GitHub Releases on start, can install automatically, with download progress
 
 ## Install
