@@ -26,7 +26,6 @@ let watcherStartupTimeout: ReturnType<typeof setTimeout> | null = null;
 let lastSyncedPuuid: string | null = null;
 
 export async function getProfileExtras(): Promise<ProfileExtras> {
-  console.log("[lcu] getProfileExtras called:", {});
   let rankedSolo: RankEntry | null = null;
   let rankedFlex: RankEntry | null = null;
   let topMasteryChampions: ProfileExtras["topMasteryChampions"] = [];
@@ -72,18 +71,10 @@ export async function getProfileExtras(): Promise<ProfileExtras> {
     totalMasteryPoints,
     totalMasteryScore,
   };
-  console.log("[lcu] getProfileExtras done:", {
-    hasRankedSolo: Boolean(rankedSolo),
-    hasRankedFlex: Boolean(rankedFlex),
-    masteryCount: topMasteryChampions.length,
-    totalMasteryPoints,
-    totalMasteryScore,
-  });
   return result;
 }
 
 export async function collectAndSaveSnapshot(): Promise<void> {
-  console.log("[lcu-watcher] collectAndSaveSnapshot called");
   let summoner: CurrentSummoner;
   try {
     summoner = await getCurrentSummoner();

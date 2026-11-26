@@ -132,7 +132,6 @@ export function rankEntry(value: unknown): RankEntry | null {
 // syncing never depends on this endpoint; configured Riot ID settings remain
 // the fallback when the client is closed.
 export async function getCurrentSummoner(): Promise<CurrentSummoner> {
-  console.log("[lcu] getCurrentSummoner called");
   await connect();
   const rawSummoner = recordPayload(await fetchCurrentSummoner());
   const gameName = stringField(rawSummoner.gameName);
@@ -175,12 +174,6 @@ export async function getCurrentSummoner(): Promise<CurrentSummoner> {
       db.setRiotSyncState(summoner.puuid, summoner.platform, null, false);
     }
   }
-  console.log("[lcu] getCurrentSummoner done:", {
-    profileIconId: summoner.profileIconId,
-    summonerLevel: summoner.summonerLevel,
-    platform: summoner.platform,
-    hasDisplayName: Boolean(summoner.displayName),
-  });
   return summoner;
 }
 

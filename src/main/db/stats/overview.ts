@@ -29,7 +29,6 @@ export function getActivityHeatmap(
   timePeriod?: "24h" | "7d" | "30d" | "full",
   queue?: number,
 ): ActivityHeatmapDay[] {
-  console.log("[db] getActivityHeatmap called:", { account, timePeriod, queue });
   const statsPlaceholders = NO_STATS_QUEUE_IDS.map(() => "?").join(",");
   const where = [
     "g.is_remake = 0",
@@ -67,7 +66,6 @@ export function getActivityHeatmap(
       ${hourly ? "ORDER BY g.game_creation ASC" : "GROUP BY day ORDER BY day ASC"}
     `)
     .all(...params) as ActivityHeatmapDay[];
-  console.log("[db] getActivityHeatmap done:", { count: rows.length });
   return rows;
 }
 

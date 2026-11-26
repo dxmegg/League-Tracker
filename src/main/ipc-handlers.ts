@@ -253,9 +253,7 @@ export function registerIpcHandlers() {
   ipcMain.handle(
     "db:activity-heatmap",
     (_event, account?: string, timePeriod?: "24h" | "7d" | "30d" | "full", queue?: number) => {
-      console.log("[db] activity-heatmap handler called:", { account, timePeriod, queue });
       const result = db.getActivityHeatmap(account, timePeriod, queue);
-      console.log("[db] activity-heatmap handler done:", { count: result.length });
       return result;
     },
   );
@@ -277,15 +275,10 @@ export function registerIpcHandlers() {
   ipcMain.handle(
     "db:get-champion-challenge-aggregates",
     (_event, puuid: string, championId: number) => {
-      console.log("[db] get-champion-challenge-aggregates handler called:", { puuid, championId });
       if (typeof puuid !== "string" || !Number.isInteger(championId) || championId <= 0) {
         throw new TypeError("puuid and championId are required");
       }
       const result = db.getChampionChallengeAggregates(puuid, championId);
-      console.log("[db] get-champion-challenge-aggregates handler done:", {
-        gamesWithChallenges: result.gamesWithChallenges,
-        metrics: result.metrics.length,
-      });
       return result;
     },
   );
@@ -303,21 +296,12 @@ export function registerIpcHandlers() {
       if (!Number.isInteger(championId) || championId <= 0) {
         throw new TypeError("championId must be a positive integer");
       }
-      console.log("[db] champion-stat-baseline handler called:", {
-        championId,
-        patch,
-        queue,
-        account,
-      });
       const result = db.getChampionStatBaseline(
         championId,
         patch,
         queue == null ? undefined : String(queue),
         account,
       );
-      console.log("[db] champion-stat-baseline handler done:", {
-        count: Object.keys(result).length,
-      });
       return result;
     },
   );
@@ -339,9 +323,7 @@ export function registerIpcHandlers() {
       account?: string,
       timePeriod?: HomeTimePeriod,
     ) => {
-      console.log("[db] champion-records handler called:", { championId, patch, queue, account });
       const result = db.getChampionRecords(championId, patch, queue, account, timePeriod);
-      console.log("[db] champion-records handler done:", { count: result.records.length });
       return result;
     },
   );
@@ -352,16 +334,7 @@ export function registerIpcHandlers() {
       if (championId !== null && (!Number.isInteger(championId) || championId <= 0)) {
         throw new TypeError("championId must be a positive integer");
       }
-      console.log("[db] champion-timeline-averages handler called:", {
-        championId,
-        patch,
-        queue,
-        account,
-      });
       const result = db.getChampionTimelineAverages(championId, patch, queue, account);
-      console.log("[db] champion-timeline-averages handler done:", {
-        count: result.buckets.length,
-      });
       return result;
     },
   );
@@ -372,13 +345,7 @@ export function registerIpcHandlers() {
       if (!Number.isInteger(championId) || championId <= 0) {
         throw new TypeError("championId must be a positive integer");
       }
-      console.log("[db] champion-kill-death-positions handler called:", {
-        championId,
-        limit,
-        account,
-      });
       const result = db.getChampionKillDeathPositions(championId, limit, account);
-      console.log("[db] champion-kill-death-positions handler done:", { count: result.length });
       return result;
     },
   );
@@ -400,14 +367,7 @@ export function registerIpcHandlers() {
       account?: string,
       timePeriod?: HomeTimePeriod,
     ) => {
-      console.log("[db] champion-role-stats handler called:", {
-        championId,
-        patch,
-        queue,
-        account,
-      });
       const result = db.getChampionRoleStats(championId, patch, queue, account, timePeriod);
-      console.log("[db] champion-role-stats handler done:", { count: result.length });
       return result;
     },
   );
@@ -442,9 +402,7 @@ export function registerIpcHandlers() {
   ipcMain.handle(
     "db:champion-weekly-metrics",
     async (_event, championId: number, patch?: string, queue?: string, account?: string) => {
-      console.log("[db] champion-weekly-metrics called:", { championId, patch, queue, account });
       const result = db.getChampionWeeklyMetrics(championId, patch, queue, account);
-      console.log("[db] champion-weekly-metrics done:", { count: result.length });
       return result;
     },
   );
@@ -765,13 +723,10 @@ export function registerIpcHandlers() {
     },
   );
   ipcMain.handle("riot:list-accounts", () => {
-    console.log("[riot] list-accounts handler called:", {});
     const accounts = riot.getRiotAccounts();
-    console.log("[riot] list-accounts handler done:", { count: accounts.length });
     return accounts;
   });
   ipcMain.handle("riot:remove-account", (_event, payload: { id: string }) => {
-    console.log("[riot] remove-account handler called:", { id: payload?.id });
     if (!payload || typeof payload.id !== "string" || !payload.id.trim()) {
       throw new Error("Riot account id is required");
     }
@@ -859,16 +814,13 @@ export function registerIpcHandlers() {
   ipcMain.handle("stats:game-live", (_event, gameId: number) => db.getLiveGameData(Number(gameId)));
 
   ipcMain.handle("lcu:current-puuid", async () => {
-    console.log("[lcu] current puuid handler called:", {});
     if (!lcu.isClientConnected()) {
-      console.log("[lcu] current puuid handler done:", { puuid: null, connected: false });
       return null;
     }
 
     try {
       const summoner = await lcu.getCurrentSummoner();
       const puuid = summoner.puuid || null;
-      console.log("[lcu] current puuid handler done:", { puuid, connected: true });
       return puuid;
     } catch (err) {
       console.warn("[lcu] current puuid unavailable:", err);
@@ -877,14 +829,12 @@ export function registerIpcHandlers() {
   });
 
   ipcMain.handle("lcu:current-summoner-icon", async () => {
-    console.log("[lcu] currentSummonerProfileIcon called:", {});
     try {
       const summoner = await lcu.getCurrentSummoner();
       const profileIconId =
         typeof summoner?.profileIconId === "number" && summoner.profileIconId > 0
           ? summoner.profileIconId
           : null;
-      console.log("[lcu] currentSummonerProfileIcon done:", { profileIconId });
       return profileIconId;
     } catch (err) {
       console.warn("[lcu] currentSummonerProfileIcon failed:", err);
@@ -893,14 +843,7 @@ export function registerIpcHandlers() {
   });
 
   ipcMain.handle("lcu:current-summoner", async () => {
-    console.log("[lcu] currentSummoner handler called:", {});
     const result = await lcu.getCurrentSummoner();
-    console.log("[lcu] currentSummoner handler done:", {
-      puuid: result.puuid,
-      summonerLevel: result.summonerLevel,
-      profileIconId: result.profileIconId,
-      platform: result.platform,
-    });
     void lcu.collectAndSaveSnapshot().catch((err) => {
       console.warn("[lcu-watcher] explicit summoner snapshot failed:", err);
     });
@@ -908,13 +851,7 @@ export function registerIpcHandlers() {
   });
 
   ipcMain.handle("lcu:profile-extras", async () => {
-    console.log("[lcu] profileExtras handler called:", {});
     const result = await lcu.getProfileExtras();
-    console.log("[lcu] profileExtras handler done:", {
-      hasRankedSolo: Boolean(result.rankedSolo),
-      hasRankedFlex: Boolean(result.rankedFlex),
-      masteryCount: result.topMasteryChampions.length,
-    });
     void lcu.collectAndSaveSnapshot().catch((err) => {
       console.warn("[lcu-watcher] explicit extras snapshot failed:", err);
     });
@@ -1079,14 +1016,11 @@ export function registerIpcHandlers() {
   });
 
   ipcMain.handle("db:list-accounts", () => {
-    console.log("[db] list accounts handler called:", {});
     const result = db.listAccountsWithData();
-    console.log("[db] list accounts handler done:", { count: result.length });
     return result;
   });
 
   ipcMain.handle("db:get-resolved-platform", () => {
-    console.log("[db] get resolved platform handler called:", {});
     const platform = db.getResolvedPlatform();
     if (!platform) {
       console.warn("[db] get resolved platform handler: no platform configured");
@@ -1095,17 +1029,11 @@ export function registerIpcHandlers() {
       };
     }
     const route = riot.regionalRoute(platform);
-    console.log("[db] get resolved platform handler done:", { platform, route });
     return { platform, route };
   });
 
   ipcMain.handle("db:get-account-snapshot", (_event, puuid: string) => {
-    console.log("[db] get account snapshot handler called:", { puuid });
     const result = db.getAccountSnapshot(puuid);
-    console.log("[db] get account snapshot handler done:", {
-      puuid,
-      found: result !== null,
-    });
     return result;
   });
 
@@ -1114,7 +1042,6 @@ export function registerIpcHandlers() {
   });
 
   ipcMain.handle("db:merge-duplicate-accounts", (event) => {
-    console.log("[db] merge duplicate accounts handler called");
     const result = db.mergeDuplicateAccounts();
     invalidateDashboardCache();
     invalidateAllCaches();
@@ -1124,7 +1051,6 @@ export function registerIpcHandlers() {
   });
 
   ipcMain.handle("db:delete-summoner", async (event, puuid: string) => {
-    console.log("[ipc] deleteSummoner called", puuid);
     const go = await askBackupFirst(
       senderWindow(event),
       "deleting this account",

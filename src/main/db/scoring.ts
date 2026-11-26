@@ -159,11 +159,9 @@ export function computeOwnerScore(
 }
 
 export function getMissingScoreCount(): number {
-  console.log("[db] getMissingScoreCount called:", {});
   const row = db
     .prepare("SELECT COUNT(*) as n FROM match_participants WHERE score IS NULL")
     .get() as { n: number };
-  console.log("[db] getMissingScoreCount done:", { count: row.n });
   return row.n;
 }
 
@@ -174,7 +172,6 @@ export async function backfillParticipantScores(
   scoreBackfillInFlight = true;
 
   try {
-    console.log("[db] backfillParticipantScores called:", {});
     const total = (
       db
         .prepare(
@@ -356,7 +353,6 @@ export function recalculateAllScores(): { games: number; ms: number } {
 }
 
 export function repairDerivedScores(): { repaired: number } {
-  console.log("[db] repairDerivedScores called:", {});
   const tx = db.transaction(() => {
     const stalePlayerRows = db
       .prepare(

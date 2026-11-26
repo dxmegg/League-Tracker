@@ -151,13 +151,6 @@ export function getChampionRoleStats(
   account?: string,
   timePeriod?: "24h" | "7d" | "30d" | "full",
 ): ChampionRoleStat[] {
-  console.log("[db] getChampionRoleStats called:", {
-    championId,
-    patch,
-    queue,
-    account,
-    timePeriod,
-  });
   const filter = participantFilter(patch, queue, "mp", timePeriod);
   const ownerFilter =
     account === "all"
@@ -189,7 +182,6 @@ export function getChampionRoleStats(
       ...(championId !== null ? [championId] : []),
       ...ownerParams,
     ) as ChampionRoleStat[];
-  console.log("[db] getChampionRoleStats done:", { count: rows.length });
   return rows;
 }
 
@@ -336,8 +328,6 @@ export function getChampionRuneStats(
   queue?: number,
   account?: string,
 ): ChampionRuneStatsResult {
-  console.log("[db] getChampionRuneStats called:", { championId, patch, queue, account });
-
   const participant = participantFilter(patch, undefined, "mp");
   const ownerFilter =
     account === "all"
@@ -406,12 +396,6 @@ export function getChampionRuneStats(
   `).map(({ runes, picks, wins }) => ({ runes: runes!, picks, wins }));
 
   const result = { keystones, primaryTrees, secondaryTrees, pages };
-  console.log("[db] getChampionRuneStats done:", {
-    keystones: keystones.length,
-    primaryTrees: primaryTrees.length,
-    secondaryTrees: secondaryTrees.length,
-    pages: pages.length,
-  });
   return result;
 }
 
@@ -451,7 +435,6 @@ export function getChampionWeeklyMetrics(
   queue?: string,
   account?: string,
 ): Array<{ weekStart: number; metrics: Record<string, number | null> }> {
-  console.log("[db] getChampionWeeklyMetrics called:", { championId, patch, queue, account });
   const source = statsSource(account);
   const where = ["g.is_remake = 0", source.accountFilter, `${source.alias}.champion_id = ?`];
   const params: any[] = account && account !== "all" ? [account, championId] : [championId];
@@ -493,7 +476,6 @@ export function getChampionWeeklyMetrics(
       weekStart: weekStart as number,
       metrics: { games, ...metrics },
     }));
-    console.log("[db] getChampionWeeklyMetrics done:", { count: result.length });
     return result;
   } catch (error) {
     console.error("[db] getChampionWeeklyMetrics failed:", error);
@@ -524,14 +506,6 @@ export function getChampionMatchupList(
     [championId, patch, queue, account, timePeriod],
     30_000,
     () => {
-      console.log("[db] getChampionMatchupList called:", {
-        championId,
-        patch,
-        queue,
-        account,
-        timePeriod,
-      });
-
       const participant = participantFilter(patch, undefined, "owner", timePeriod);
       const ownerFilter =
         account === "all"
@@ -661,8 +635,6 @@ export function getChampionMatchupList(
       ORDER BY games DESC, championId ASC
     `)
         .all(...params) as ChampionMatchupRow[];
-
-      console.log("[db] getChampionMatchupList done:", { count: rows.length });
       return rows;
     },
   );
@@ -675,14 +647,6 @@ export function getChampionAllyStats(
   account?: string,
   timePeriod?: "24h" | "7d" | "30d" | "full",
 ): ChampionAllyRow[] {
-  console.log("[db] getChampionAllyStats called:", {
-    championId,
-    patch,
-    queue,
-    account,
-    timePeriod,
-  });
-
   const participant = participantFilter(patch, undefined, "me", timePeriod);
   const ownerFilter =
     account === "all"
@@ -729,8 +693,6 @@ export function getChampionAllyStats(
       ORDER BY games DESC, championId ASC
     `)
     .all(...params) as ChampionAllyRow[];
-
-  console.log("[db] getChampionAllyStats done:", { count: rows.length });
   return rows;
 }
 
@@ -1043,7 +1005,6 @@ export function getChampionChallengeAggregates(
     games: number;
   }>;
 } {
-  console.log("[db] getChampionChallengeAggregates called:", { puuid, championId });
   const participantFilter =
     puuid === "all" ? "p.puuid IN (SELECT puuid FROM visible_summoner)" : "p.puuid = ?";
   const params = puuid === "all" ? [championId] : [puuid, championId];
@@ -1077,10 +1038,6 @@ export function getChampionChallengeAggregates(
     games: number;
   }>;
   const result = { gamesWithChallenges: gamesWithChallenges.games, metrics };
-  console.log("[db] getChampionChallengeAggregates done:", {
-    gamesWithChallenges: result.gamesWithChallenges,
-    metrics: result.metrics.length,
-  });
   return result;
 }
 
@@ -1088,7 +1045,6 @@ export function getChampionTeamObjectives(
   puuid: string,
   championId: number,
 ): ChampionTeamObjectives {
-  console.log("[db] getChampionTeamObjectives called:", { puuid, championId });
   const empty = (): ChampionTeamObjectives["ally"] => ({
     games: 0,
     first_blood_pct: 0,
@@ -1147,10 +1103,6 @@ export function getChampionTeamObjectives(
     const { side, ...values } = row;
     result[side] = values;
   }
-  console.log("[db] getChampionTeamObjectives done:", {
-    allyGames: result.ally.games,
-    enemyGames: result.enemy.games,
-  });
   return result;
 }
 
@@ -1160,7 +1112,6 @@ export function getChampionStatBaseline(
   queue?: string,
   account?: string,
 ): Record<string, number | null> {
-  console.log("[db] getChampionStatBaseline called:", { championId, patch, queue, account });
   const statsPlaceholders = NO_STATS_QUEUE_IDS.map(() => "?").join(",");
   const where = [
     "g.is_remake = 0",
@@ -1223,7 +1174,6 @@ export function getChampionStatBaseline(
       WHERE ${where.join(" AND ")}
     `)
     .get(...params) as Record<string, number | null>;
-  console.log("[db] getChampionStatBaseline done:", { count: Object.keys(result ?? {}).length });
   return result;
 }
 
@@ -1233,8 +1183,6 @@ export function getChampionSkillOrders(
   queue?: number,
   account?: string,
 ): ChampionSkillOrdersResult {
-  console.log("[db] getChampionSkillOrders called:", { championId, patch, queue, account });
-
   const source = statsSource(account);
   const playerPuuidSql = account ? "ps.puuid" : "g.puuid";
   const participant = participantFilter(patch, undefined, "mp");
@@ -1350,12 +1298,6 @@ export function getChampionSkillOrders(
       totalGames: coverage?.totalGames ?? 0,
     },
   };
-  console.log("[db] getChampionSkillOrders done:", {
-    topOrders: result.topOrders.length,
-    summonerSpells: result.summonerSpells.length,
-    gamesWithTimeline: result.timelineCoverage.gamesWithTimeline,
-    totalGames: result.timelineCoverage.totalGames,
-  });
   return result;
 }
 
@@ -1366,8 +1308,6 @@ export function getChampionRecords(
   account?: string,
   timePeriod?: "24h" | "7d" | "30d" | "full",
 ): ChampionRecordsResult {
-  console.log("[db] getChampionRecords called:", { championId, patch, queue, account, timePeriod });
-
   const source = statsSource(account);
   const participant = participantFilter(patch, undefined, "mp", timePeriod);
   const ownerPuuidSql = account ? "ps.puuid" : "g.puuid";
@@ -1469,7 +1409,5 @@ export function getChampionRecords(
       ];
     }),
   )();
-
-  console.log("[db] getChampionRecords done:", { count: records.length });
   return { records };
 }

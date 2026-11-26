@@ -898,7 +898,6 @@ export function getIgnoredGameIds(): Set<number> {
 }
 
 export function restoreOlderGames(): { restored: number; remaining: number } {
-  console.log("[db] restoreOlderGames called");
   const tx = db.transaction(() => {
     const before = (db.prepare("SELECT COUNT(*) AS n FROM ignored_games").get() as { n: number }).n;
     db.prepare(`

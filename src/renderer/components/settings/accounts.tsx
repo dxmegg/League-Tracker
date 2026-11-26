@@ -86,7 +86,6 @@ export function useAccountSettings() {
 
   const handleDeleteSummoner = useCallback(
     async (puuid: string) => {
-      console.log("[delete] start", puuid);
       setConfirmDeleteSummoner(null);
       setSummonerStatus(null);
       if (typeof window.api.deleteSummoner !== "function") {
@@ -94,11 +93,9 @@ export function useAccountSettings() {
         return;
       }
       try {
-        console.log("[delete] calling api", puuid);
         // A backup taken first can run for half a minute
         setSummonerStatus("Working...");
         const result = await window.api.deleteSummoner(puuid);
-        console.log("[delete] result", result);
         if ("cancelled" in result) {
           setSummonerStatus(null);
           return;
@@ -106,8 +103,7 @@ export function useAccountSettings() {
         setSummonerStatus(
           `Deleted account: ${result.deletedGames} game(s) removed, ${result.deletedTrackedRows} tracked row(s) removed`,
         );
-        const list = await refreshSavedSummoners();
-        console.log("[delete] list refreshed", list.length);
+        await refreshSavedSummoners();
       } catch (err) {
         console.error("[delete] error", err);
         setSummonerStatus(`Error: ${err instanceof Error ? err.message : String(err)}`);

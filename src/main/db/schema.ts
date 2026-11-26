@@ -1280,7 +1280,6 @@ export async function migrateToV24() {
 }
 
 export function migrateToV25(): void {
-  console.log("[db] migrateToV25 called");
   db.exec(`
     CREATE INDEX IF NOT EXISTS idx_match_participants_game_puuid
       ON match_participants(game_id, puuid);
@@ -1755,7 +1754,6 @@ export function migrateToV31(): void {
 }
 
 export function migrateToV32(): void {
-  console.log("[db] migrateToV32 called");
   try {
     if (!tableColumns("match_participants").has("pentakill_time")) {
       db.exec("ALTER TABLE match_participants ADD COLUMN pentakill_time INTEGER");

@@ -467,7 +467,6 @@ export async function importData(
   filePath: string,
   onProgress?: (progress: ImportProgress) => void,
 ): Promise<ImportDataResult> {
-  console.log("[db] importData called:", { filePath });
   const handle = await fs.promises.open(filePath, "r");
   const magic = Buffer.alloc(2);
   try {

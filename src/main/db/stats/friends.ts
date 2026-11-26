@@ -198,7 +198,6 @@ export function getTeammateChampions(
   queue?: number,
   relation: "friends" | "enemies" = "friends",
 ): TeammateChampionStats[] {
-  console.log("[db] getTeammateChampions called:", { queue, relation });
   const result = cachedQuery("getTeammateChampions", [queue, relation], 60_000, () => {
     const puuids = getVisiblePuuids();
     if (puuids.length === 0) {
@@ -241,7 +240,6 @@ export function getTeammateChampions(
       `)
       .all(...puuids, ...params) as TeammateChampionStats[];
   });
-  console.log("[db] getTeammateChampions done:", { count: result.length });
   return result;
 }
 

@@ -76,7 +76,6 @@ export function upsertSummoner(
   },
   source: SummonerUpsertSource = "import",
 ): string {
-  console.log("[db] upsertSummoner called:", { puuid: summoner.puuid, source });
   const now = Date.now();
   const gameName =
     summoner.gameName ??
@@ -141,7 +140,6 @@ export function upsertSummoner(
 }
 
 export function getResolvedPlatform(): string | null {
-  console.log("[db] getResolvedPlatform called:", {});
   const candidates = [
     getSetting("riot_platform"),
     getSetting("platform"),
@@ -162,7 +160,6 @@ export function getResolvedPlatform(): string | null {
   ];
   const platform =
     candidates.find((value): value is string => Boolean(value?.trim()))?.trim() ?? null;
-  console.log("[db] getResolvedPlatform done:", { platform });
   return platform;
 }
 
@@ -226,7 +223,6 @@ export function saveAccountSnapshot(snapshot: {
   rankedFlex?: RankEntry | null;
   topMasteryChampions?: MasteryChampion[];
 }): void {
-  console.log("[db] saveAccountSnapshot called:", { puuid: snapshot.puuid });
   const tx = db.transaction(() => {
     const puuid = upsertSummoner(
       {
@@ -323,7 +319,6 @@ export function getAccountSnapshot(puuid: string): {
   topMasteryChampions: MasteryChampion[];
   lastSeen: number | null;
 } | null {
-  console.log("[db] getAccountSnapshot called:", { puuid });
   const row = db
     .prepare(`
       SELECT
@@ -356,11 +351,8 @@ export function getAccountSnapshot(puuid: string): {
     | undefined;
 
   if (!row) {
-    console.log("[db] getAccountSnapshot done:", { found: false });
     return null;
   }
-
-  console.log("[db] getAccountSnapshot done:", { found: true, puuid });
   return {
     puuid: row.puuid,
     gameName: row.game_name,
@@ -388,7 +380,6 @@ export function listAccountsWithData(): Array<{
   wins: number;
   decidedGames: number;
 }> {
-  console.log("[db] listAccountsWithData called:", {});
   const rows = db
     .prepare(`
       SELECT
@@ -421,8 +412,6 @@ export function listAccountsWithData(): Array<{
     wins: number;
     decided_games: number;
   }>;
-
-  console.log("[db] listAccountsWithData done:", { count: rows.length });
   return rows.map((row) => ({
     puuid: row.puuid,
     gameName: row.game_name,

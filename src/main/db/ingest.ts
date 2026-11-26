@@ -385,7 +385,6 @@ export const TELEMETRY_COLUMNS = [
 ] as const;
 
 export function refreshParticipantTelemetry(gameData: any): number {
-  console.log("[db] refreshParticipantTelemetry called:", { gameId: gameData?.gameId });
   const rows = participantRowsFromRaw(gameData);
   const update = db.prepare(`
     UPDATE match_participants SET
@@ -418,7 +417,6 @@ export function refreshParticipantTelemetry(gameData: any): number {
     }
   });
   tx();
-  console.log("[db] refreshParticipantTelemetry done:", { gameId: gameData?.gameId, updated });
   return updated;
 }
 
@@ -427,7 +425,6 @@ export function setParticipantPentakillTime(
   puuid: string,
   pentakillTime: number,
 ): number {
-  console.log("[db] setParticipantPentakillTime called:", { gameId, puuid, pentakillTime });
   const updated = db
     .prepare(
       `UPDATE match_participants
@@ -435,7 +432,6 @@ export function setParticipantPentakillTime(
        WHERE game_id = ? AND puuid = ? AND penta_kills >= 1`,
     )
     .run(pentakillTime, gameId, puuid).changes;
-  console.log("[db] setParticipantPentakillTime done:", { gameId, updated });
   return updated;
 }
 

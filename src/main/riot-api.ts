@@ -186,7 +186,6 @@ export function removeRiotAccount(id: string): void {
 }
 
 export function seedDefaultRiotAccounts(): void {
-  console.log("[riot] seedDefaultRiotAccounts called:", {});
   const stored = readAccounts();
   const summoners = db
     .getDatabase()
@@ -319,11 +318,6 @@ export async function resolveRiotPuuid(
     console.warn("[riot] resolveRiotPuuid missing puuid:", { gameName, tagLine });
     throw new Error(`Could not resolve puuid for ${gameName}#${tagLine}`);
   }
-  console.log("[riot] resolveRiotPuuid done:", {
-    gameName,
-    tagLine,
-    puuidPrefix: data.puuid.slice(0, 12),
-  });
   return data.puuid;
 }
 
@@ -337,9 +331,6 @@ export async function getProfileDataByRiotId(
   const normalizedTagLine = tagLine.trim();
   const normalizedPlatform = platform.trim().toLowerCase();
   const route = regionalRoute(normalizedPlatform);
-  const accountUrl = `https://${route}.api.riotgames.com/riot/account/v1/accounts/by-riot-id/${encodeURIComponent(normalizedGameName)}/${encodeURIComponent(normalizedTagLine)}`;
-  console.log("[profile] regional route:", route);
-  console.log("[profile] account URL:", accountUrl);
   let account: { puuid: string; gameName: string; tagLine: string };
   try {
     account = await accountByRiotId(
@@ -546,10 +537,6 @@ export async function getProfileData(
     });
     saveProfileMasterCacheToDisk();
   }
-  console.log("[ranked] puuid:", puuid, "platform:", normalizedPlatform);
-  console.log("[ranked] summoner.id:", summoner?.id);
-  console.log("[ranked] league by-puuid:", league);
-  console.log("[ranked] league (final):", league);
 
   const masteryEntries = mastery ?? [];
   const topMasteryEntries = [...masteryEntries]
@@ -560,18 +547,6 @@ export async function getProfileData(
       championPoints,
       championLevel,
     }));
-  const smallestMasteryEntries = [...masteryEntries]
-    .sort((left, right) => left.championPoints - right.championPoints)
-    .slice(0, 5)
-    .map(({ championId }) => championId);
-  console.log("[mastery] entry count:", masteryEntries.length);
-  console.log(
-    "[mastery] total champion points:",
-    masteryEntries.reduce((total, entry) => total + entry.championPoints, 0),
-  );
-  console.log("[mastery] top 5 entries:", topMasteryEntries);
-  console.log("[mastery] smallest 5 champion IDs:", smallestMasteryEntries);
-  console.log("[mastery] raw score response:", masteryScore);
 
   if (!summoner) return null;
   return {

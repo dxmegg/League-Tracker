@@ -19,7 +19,6 @@ export interface BackfillTimelineLocalResult {
 export function backfillTimelineLocal({
   limit = 0,
 }: BackfillTimelineLocalOptions = {}): BackfillTimelineLocalResult {
-  console.log("[db] backfillTimelineLocal called:", { limit });
   if (!Number.isInteger(limit) || limit < 0) {
     throw new TypeError("limit must be a non-negative integer");
   }

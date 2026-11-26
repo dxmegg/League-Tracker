@@ -69,11 +69,6 @@ async function runBackfillForAccount(
   win?: BrowserWindow | null,
   forceFull = false,
 ): Promise<BackfillResult> {
-  console.log("[lcu] runBackfillForAccount called:", {
-    puuid: account.puuid,
-    platform: account.platform,
-    forceFull,
-  });
   const savedPuuid = db.upsertSummoner(account, "lcu");
   if (savedPuuid !== account.puuid) {
     account = { ...account, puuid: savedPuuid };
@@ -276,11 +271,6 @@ export async function backfillHistoryForAccount(
   win?: BrowserWindow | null,
   forceFull = false,
 ): Promise<BackfillResult> {
-  console.log("[lcu] backfillHistoryForAccount called:", {
-    puuid: account.puuid,
-    platform: account.platform,
-    forceFull,
-  });
   if (backfillRunning) throw new Error("A backfill is already running");
   backfillRunning = true;
   backfillCancelled = false;

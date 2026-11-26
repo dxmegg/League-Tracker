@@ -113,8 +113,6 @@ export async function backfillTimeline(options: {
     skipped: 0,
     currentGameId: null,
   };
-
-  console.log("[db] backfillTimeline called:", { limit, total: gameIds.length });
   const report = () => onProgress?.({ ...progress });
   report();
 
@@ -192,14 +190,12 @@ export function platformGuesses(gameId: number): { platforms: string[]; created:
 }
 
 export function getTimelineStatus(gameId: number): TimelineStatus | null {
-  console.log("[db] getTimelineStatus called:", { gameId });
   const row = db
     .prepare(
       "SELECT game_id, fetched_at, frame_count, event_count, fetch_error FROM match_timeline_status WHERE game_id = ?",
     )
     .get(gameId) as TimelineStatus | undefined;
   const result = row ?? null;
-  console.log("[db] getTimelineStatus done:", { found: result !== null });
   return result;
 }
 
@@ -226,10 +222,8 @@ function addPayloadDetails(gameId: number, frames: TimelineFrame[], events: Time
 }
 
 export function getTimeline(gameId: number): TimelineData | null {
-  console.log("[db] getTimeline called:", { gameId });
   const status = getTimelineStatus(gameId);
   if (status === null) {
-    console.log("[db] getTimeline done:", { found: false });
     return null;
   }
 
@@ -255,7 +249,6 @@ export function getTimeline(gameId: number): TimelineData | null {
     .all(gameId) as TimelineEvent[];
   addPayloadDetails(gameId, frames, events);
   const result = { status, frames, events };
-  console.log("[db] getTimeline done:", { frameCount: frames.length, eventCount: events.length });
   return result;
 }
 
@@ -270,13 +263,6 @@ export function getChampionTimelineAverages(
     [championId, patch, queue, account],
     30_000,
     () => {
-      console.log("[db] getChampionTimelineAverages called:", {
-        championId,
-        patch,
-        queue,
-        account,
-      });
-
       const participant = participantFilter(patch, undefined, "mp");
       const where = [participant.sql, "s.frame_count > 0"];
       const params: any[] = [];
@@ -515,10 +501,6 @@ export function getChampionTimelineAverages(
         level11Games: level11Times.length,
         level16Games: level16Times.length,
       };
-      console.log("[db] getChampionTimelineAverages done:", {
-        bucketCount: result.length,
-        games: games.length,
-      });
       return economy;
     },
   );
@@ -530,7 +512,6 @@ export function getChampionKillDeathPositions(
   account?: string,
 ): ChampionKillDeathPosition[] {
   return cachedQuery("getChampionKillDeathPositions", [championId, limit, account], 30_000, () => {
-    console.log("[db] getChampionKillDeathPositions called:", { championId, limit, account });
     const cappedLimit = Math.min(Math.max(Math.trunc(limit), 1), 5000);
     const ownerScope =
       account === "all"
@@ -612,18 +593,11 @@ export function getChampionKillDeathPositions(
       LIMIT ?
     `)
       .all(...params, cappedLimit) as ChampionKillDeathPosition[];
-
-    console.log("[db] getChampionKillDeathPositions done:", { count: rows.length });
     return rows;
   });
 }
 
 export function insertTimeline(gameId: number, parsed: ParsedTimeline, rawPayload: any): void {
-  console.log("[db] insertTimeline called:", {
-    gameId,
-    frameCount: parsed.frames.length,
-    eventCount: parsed.events.length,
-  });
   const rawGz = zlib.gzipSync(JSON.stringify(rawPayload));
   const tx = db.transaction(() => {
     db.prepare(`
@@ -713,13 +687,11 @@ export function insertTimeline(gameId: number, parsed: ParsedTimeline, rawPayloa
 }
 
 export function markTimelineFetchError(gameId: number, error: string): void {
-  console.log("[db] markTimelineFetchError called:", { gameId, error });
   db.prepare(`
     INSERT OR REPLACE INTO match_timeline_status
       (game_id, fetched_at, frame_count, event_count, fetch_error, raw_gz)
     VALUES (?, ?, 0, 0, ?, NULL)
   `).run(gameId, Date.now(), error);
-  console.log("[db] markTimelineFetchError done:", { gameId });
 }
 
 export function reparsedTimelines(limit: number): number {
@@ -769,7 +741,6 @@ export function listGamesMissingFullData(): Array<{
     .all() as Array<{ game_id: number; game_creation: number; queue_id: number }>;
 }
 export function listGamesMissingTimeline(limit: number): number[] {
-  console.log("[db] listGamesMissingTimeline called:", { limit });
   const rows = db
     .prepare(`
       SELECT g.game_id
@@ -784,6 +755,5 @@ export function listGamesMissingTimeline(limit: number): number[] {
     `)
     .all(limit) as Array<{ game_id: number }>;
   const result = rows.map((row) => row.game_id);
-  console.log("[db] listGamesMissingTimeline done:", { count: result.length });
   return result;
 }
