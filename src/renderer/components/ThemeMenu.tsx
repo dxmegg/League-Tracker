@@ -3,7 +3,7 @@ import { useActiveTheme } from "../hooks/useActiveTheme";
 import { ArrowDownIcon } from "./icons";
 import { THEME_OPTIONS } from "../lib/themes";
 
-// Quick theme switcher for the top bar; persists the choice the same way the Settings page does.
+// Developer-mode theme switcher for the top bar; the choice lasts until the program closes.
 export function ThemeMenu() {
   const active = useActiveTheme({ exact: true }) || "redesign";
   const [open, setOpen] = useState(false);
@@ -26,7 +26,6 @@ export function ThemeMenu() {
   }, [open]);
 
   const pick = (value: string) => {
-    void window.api.setSetting("theme", value);
     document.documentElement.setAttribute("data-theme", value);
     setOpen(false);
   };

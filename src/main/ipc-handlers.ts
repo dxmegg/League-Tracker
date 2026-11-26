@@ -50,7 +50,6 @@ const RENDERER_SETTINGS = new Set([
   "auto_update",
   "update_attempted",
   "remember_filters",
-  "theme",
   "riot_game_name",
   "riot_tag_line",
   "riot_platform",

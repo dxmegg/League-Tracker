@@ -8,12 +8,12 @@ import { createRoot } from "react-dom/client";
 import App from "./App";
 import { ErrorBoundary } from "./components/ErrorBoundary";
 import { initViewState } from "./lib/viewState";
-import { resolveTheme } from "./lib/themes";
+import { DEFAULT_THEME } from "./lib/themes";
 import { dbg } from "../shared/debug";
 import "./global.css";
 
 const root = createRoot(document.getElementById("root")!);
-const themeSetting = window.api?.getSetting?.("theme");
+document.documentElement.setAttribute("data-theme", DEFAULT_THEME);
 
 // Pages read their remembered filters as they mount, so whether to remember at
 // all has to be settled before the first render.
@@ -26,19 +26,9 @@ Promise.resolve(window.api?.getDebugEnabled?.())
   .catch(() => null)
   .then((remember) => {
     initViewState(remember === "true");
-    return Promise.resolve(themeSetting)
-      .catch(() => null)
-      .then((stored) => {
-        const valid = resolveTheme(stored);
-        // Someone who had one of the removed themes is moved to the main one for good
-        if (stored && stored !== valid) void window.api?.setSetting?.("theme", valid);
-        document.documentElement.setAttribute("data-theme", valid);
-      })
-      .finally(() => {
-        root.render(
-          <ErrorBoundary>
-            <App />
-          </ErrorBoundary>,
-        );
-      });
+    root.render(
+      <ErrorBoundary>
+        <App />
+      </ErrorBoundary>,
+    );
   });

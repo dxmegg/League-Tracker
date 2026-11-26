@@ -58,7 +58,7 @@ const PLATFORM_LABELS: Record<string, string> = {
   vn2: "VN",
 };
 
-import { THEME_OPTIONS, resolveTheme } from "../lib/themes";
+import { THEME_OPTIONS } from "../lib/themes";
 
 function formatSize(bytes: number): string {
   return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
@@ -257,7 +257,7 @@ function ActionRow({
 }
 
 const SETTINGS_TABS = [
-  { id: "general", label: "General", hint: "Look, startup behaviour and which games count" },
+  { id: "general", label: "General", hint: "Startup behaviour and which games count" },
   { id: "accounts", label: "Accounts", hint: "Riot accounts to sync and accounts already saved" },
   { id: "sync", label: "Sync & repair", hint: "Fetch history, timelines and fix stored data" },
   { id: "data", label: "Backups", hint: "Export, import and database snapshots" },
@@ -352,23 +352,18 @@ export function SettingsExp() {
       window.api.getSetting("hide_remakes"),
       window.api.getSetting("auto_backup"),
       window.api.getSetting("remember_filters"),
-      window.api.getSetting("theme"),
       window.api.getSetting("hidden_accounts"),
-    ]).then(
-      ([startup, startupSupported, tray, hidden, remakes, backup, remember, storedTheme, off]) => {
-        setHiddenAccounts(new Set(off ? (JSON.parse(off) as string[]) : []));
-        const persistedTheme = resolveTheme(storedTheme);
-        document.documentElement.setAttribute("data-theme", persistedTheme);
-        setAutoStart(startup === "true");
-        setAutoStartSupported(startupSupported);
-        setMinimizeToTray(tray !== "false");
-        setHiddenQueues(new Set(hidden ? hidden.split(",").map(Number) : []));
-        setHideRemakes(remakes === "true");
-        setAutoBackup(backup !== "false");
-        setRememberFilters(remember === "true");
-        setLoading(false);
-      },
-    );
+    ]).then(([startup, startupSupported, tray, hidden, remakes, backup, remember, off]) => {
+      setHiddenAccounts(new Set(off ? (JSON.parse(off) as string[]) : []));
+      setAutoStart(startup === "true");
+      setAutoStartSupported(startupSupported);
+      setMinimizeToTray(tray !== "false");
+      setHiddenQueues(new Set(hidden ? hidden.split(",").map(Number) : []));
+      setHideRemakes(remakes === "true");
+      setAutoBackup(backup !== "false");
+      setRememberFilters(remember === "true");
+      setLoading(false);
+    });
   }, []);
 
   useEffect(() => {
@@ -1441,24 +1436,6 @@ export function SettingsExp() {
           <Section title="General">
             <div className="space-y-4">
               <div className="flex items-center justify-between gap-4 border-b border-lol-border/40 py-2.5 transition-colors duration-[120ms] hover:bg-white/[0.02] last:border-b-0">
-                <p className="text-[13.5px] text-lol-text-bright">Theme</p>
-                <div role="group" aria-label="Theme" className="flex flex-wrap justify-end gap-2">
-                  {THEME_OPTIONS.map((option) => (
-                    <FilterChip
-                      key={option.value}
-                      active={activeTheme === option.value}
-                      onClick={() => {
-                        void window.api.setSetting("theme", option.value);
-                        document.documentElement.setAttribute("data-theme", option.value);
-                      }}
-                      className="h-8 px-3"
-                    >
-                      {option.label}
-                    </FilterChip>
-                  ))}
-                </div>
-              </div>
-              <div className="flex items-center justify-between gap-4 border-b border-lol-border/40 py-2.5 transition-colors duration-[120ms] hover:bg-white/[0.02] last:border-b-0">
                 <div>
                   <p className="text-[13.5px] text-lol-text-bright">Start with Windows</p>
                   <p className="text-[12.5px] text-lol-text">
@@ -1511,8 +1488,8 @@ export function SettingsExp() {
                 <div>
                   <p className="text-[13.5px] text-lol-text-bright">Developer mode</p>
                   <p className="text-[12.5px] text-lol-text">
-                    Show testing tools: the Debug Testing tab and sample data on Live Game. Off
-                    again after every launch.
+                    Show testing tools: the theme switcher, the Debug Testing tab and sample data on
+                    Live Game. Off again after every launch.
                   </p>
                 </div>
                 <Switch
@@ -1521,6 +1498,26 @@ export function SettingsExp() {
                   onChange={() => setDevMode(!devMode)}
                 />
               </div>
+
+              {devMode && (
+                <div className="flex items-center justify-between gap-4 border-b border-lol-border/40 py-2.5 transition-colors duration-[120ms] hover:bg-white/[0.02] last:border-b-0">
+                  <p className="text-[13.5px] text-lol-text-bright">Theme</p>
+                  <div role="group" aria-label="Theme" className="flex flex-wrap justify-end gap-2">
+                    {THEME_OPTIONS.map((option) => (
+                      <FilterChip
+                        key={option.value}
+                        active={activeTheme === option.value}
+                        onClick={() => {
+                          document.documentElement.setAttribute("data-theme", option.value);
+                        }}
+                        className="h-8 px-3"
+                      >
+                        {option.label}
+                      </FilterChip>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           </Section>
         )}

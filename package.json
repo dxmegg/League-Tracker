@@ -1,6 +1,6 @@
 {
   "name": "league-tracker",
-  "version": "1.2.1",
+  "version": "1.2.2",
   "description": "League of Legends match history tracker",
   "license": "MIT",
   "main": "./out/main/index.js",
@@ -73,8 +73,7 @@
     },
     "files": [
       "out/**/*",
-      "assets/icon.png",
-      "assets/tray.png",
+      "assets/die.png",
       "LICENSE",
       "node_modules/better-sqlite3/**/*",
       "!data/**",
@@ -82,7 +81,7 @@
     ],
     "win": {
       "target": "portable",
-      "icon": "assets/icon.png",
+      "icon": "assets/die.png",
       "artifactName": "RiftRecords.exe"
     },
     "portable": {

@@ -113,9 +113,7 @@ function Section({
 export default function Settings() {
   // Shared so a backfill started automatically on first connect shows here too
   const { running: backfilling } = useBackfill();
-  const [theme, setTheme] = useState<string>(
-    () => document.documentElement.getAttribute("data-theme") ?? "redesign",
-  );
+  const theme = useActiveTheme({ exact: true });
   const [autoStart, setAutoStart] = useState(false);
   // Only the packaged program has a path worth registering, so the switch says
   // so instead of pretending in a dev build
@@ -167,9 +165,7 @@ export default function Settings() {
       window.api.getSetting("hide_remakes"),
       window.api.getSetting("auto_backup"),
       window.api.getSetting("remember_filters"),
-      window.api.getSetting("theme"),
-    ]).then(([startup, startupSupported, tray, hidden, remakes, backup, remember, storedTheme]) => {
-      setTheme(storedTheme === "test" || storedTheme === "experiment" ? storedTheme : "experiment");
+    ]).then(([startup, startupSupported, tray, hidden, remakes, backup, remember]) => {
       setAutoStart(startup === "true");
       setAutoStartSupported(startupSupported);
       setMinimizeToTray(tray !== "false");
@@ -525,8 +521,6 @@ export default function Settings() {
             value={theme}
             onChange={(value) => {
               if (!value || !THEME_OPTIONS.some((o) => o.value === value)) return;
-              setTheme(value);
-              void window.api.setSetting("theme", value);
               document.documentElement.setAttribute("data-theme", value);
             }}
             placeholder="Redesign"

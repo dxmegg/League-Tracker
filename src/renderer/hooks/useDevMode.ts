@@ -1,4 +1,5 @@
 import { useSyncExternalStore } from "react";
+import { DEFAULT_THEME } from "../lib/themes";
 
 // Developer mode shows the testing tools. sessionStorage on purpose: every launch starts with it off.
 const KEY = "dev_mode";
@@ -13,6 +14,7 @@ const read = () => sessionStorage.getItem(KEY) === "true";
 
 function setDevMode(on: boolean) {
   sessionStorage.setItem(KEY, String(on));
+  if (!on) document.documentElement.setAttribute("data-theme", DEFAULT_THEME);
   window.dispatchEvent(new Event(EVENT));
 }
 

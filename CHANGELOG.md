@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.2.2 (2026-11-26)
+
+- Redesigned What's new tab: a timeline of releases with a label on every change
+- Bigger die icon without the frame on the taskbar, in Task Manager and on the exe
+- Removed the theme switcher; the app uses the Redesign theme
+
 ## 1.2.1 (2026-11-26)
 
 - New What's new tab in Settings with the changes of every release

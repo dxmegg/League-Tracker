@@ -4,6 +4,49 @@ A Windows desktop app that keeps your League of Legends match history on your ow
 
 **[Download the latest release](https://github.com/dxmegg/Rift-Records/releases/latest)** · [Changelog](CHANGELOG.md)
 
+## Recent Changes
+
+**1.2.2**
+
+- **(IMPROVED)** What's new tab redesigned as a timeline of releases with labelled changes
+- **(CHANGED)** Bigger die icon on the taskbar, in Task Manager and on the exe
+- **(REMOVED)** Theme switcher: the app now uses the Redesign theme
+
+**1.2.1**
+
+- **(NEW)** What's new tab in Settings
+- **(NEW)** Update window in the top bar with download progress and optional automatic install
+- **(CHANGED)** New app icon; flat violet-black panels in Mayhem mode
+- **(IMPROVED)** Rebuilt About section in Settings
+- Various small fixes
+
+**1.1**
+
+- **(NEW)** Redesign theme with a grouped sidebar
+- **(NEW)** Achievements with tiers from Iron to Challenger, and challenges from the League client
+- **(IMPROVED)** Live Game: scoreboard, game flow charts, events, peak stats and scouting
+- **(IMPROVED)** Match history grouped by day and session, match page with a Stats tab
+- **(CHANGED)** Rebuilt Champions, Items, Augments, Friends & Foes, Trends, Records, Storage and Settings
+- **(REMOVED)** Third to Sixth themes
+- Various small fixes
+
+**1.0.10**
+
+- **(IMPROVED)** A failed start now shows an error window instead of closing silently
+- Various small fixes
+
+**1.0.9**
+
+- **(NEW)** Home and Your Profile pages with activity heatmap and insights
+- **(NEW)** All / Mayhem data mode
+- **(NEW)** Live Game tab
+- **(IMPROVED)** Separate scoring for ARAM, Summoner's Rift and Arena, with a breakdown on hover
+- Various small fixes
+
+Full history: [CHANGELOG.md](CHANGELOG.md)
+
+## Screenshots
+
 ![Home dashboard](docs/screenshots/home.png)
 
 |                                                  |                                            |
@@ -23,7 +66,6 @@ A Windows desktop app that keeps your League of Legends match history on your ow
 - **Multiple accounts**: sync, show, hide or merge them
 - **Your data stays yours**: local database, automatic backups, export and import
 - **Updates**: checks GitHub Releases on start, can install automatically, with download progress
-- **Themes**: Redesign (default), Legacy and Ancient
 
 ## Install
 

@@ -64,7 +64,8 @@ if (!gotTheLock) {
   });
 }
 
-const iconPath = path.join(app.getAppPath(), "assets/icon.png");
+// The die without the frame, so it stays readable on a small taskbar; the UI keeps assets/icon.png
+const iconPath = path.join(app.getAppPath(), "assets/die.png");
 
 // Set by the login item when auto-start is on: come up in the tray only.
 const launchedHidden = process.argv.includes(HIDDEN_FLAG);
@@ -205,9 +206,8 @@ function createWindow(): BrowserWindow {
 }
 
 function createTray() {
-  // The tray slot is tiny, so it gets the die without the frame to fill it
   const trayIcon = nativeImage
-    .createFromPath(path.join(app.getAppPath(), "assets/tray.png"))
+    .createFromPath(iconPath)
     .resize({ width: 32, height: 32, quality: "best" });
   tray = new Tray(trayIcon);
 
