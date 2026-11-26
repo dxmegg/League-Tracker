@@ -243,7 +243,8 @@ function RecentGames({ games, noun }: { games: Games; noun: string }) {
       <div className="grid grid-cols-1 gap-1.5 min-[106rem]:grid-cols-2">
         {games.slice(0, 10).map((g) => (
           <Link
-            key={g.game_id}
+            // Two tracked accounts can share a game
+            key={`${g.game_id}-${g.champion_id}`}
             to={`/match/${g.game_id}`}
             className={`flex items-center gap-3 px-3 py-2 text-[12.5px] transition-colors hover:bg-white/[0.04] ${ROW} ${
               g.win

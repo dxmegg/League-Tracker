@@ -16,6 +16,7 @@ import { Panel } from "../components/Panel";
 import { HeroTile, SplashHero } from "../components/SplashHero";
 import { Title } from "../components/live/shared";
 import { formatDuration } from "../lib/format";
+import { QUEUE_LABELS } from "../../shared/queues";
 
 export default function ItemDetail() {
   const { itemId } = useParams<{ itemId: string }>();
@@ -28,6 +29,11 @@ export default function ItemDetail() {
   const account = activeAccountRaw === ALL_ACCOUNTS_SENTINEL ? "all" : activeAccountRaw;
   const items = useItemData(patch);
   const [zoomOpen, setZoomOpen] = useState(false);
+  // The page has no filter controls of its own, so it names the ones it took from the list
+  const filters = [
+    patch && `Patch ${patch}`,
+    listQueue != null && queue === listQueue && (QUEUE_LABELS[listQueue] ?? "One queue"),
+  ].filter(Boolean);
   // Every mode's id of this item, the one in the address first
   const name = items[id]?.name;
   const ids = [id, ...Object.keys(items).map(Number)].filter(
@@ -102,6 +108,7 @@ export default function ItemDetail() {
               Built in {data.picks.toLocaleString()} games ·{" "}
               <span className="text-lol-win">{data.wins}W</span>{" "}
               <span className="text-lol-loss">{data.picks - data.wins}L</span>
+              {filters.length > 0 && ` · ${filters.join(" · ")} only`}
             </p>
           </div>
         </div>

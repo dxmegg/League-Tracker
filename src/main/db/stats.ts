@@ -2544,11 +2544,10 @@ export function getOwnedItemDetail(
       heal: number;
       score: number | null;
     }[];
+    // Rows, not distinct games: picks counts one row per tracked player, so this must too
     const totalGames = (
       db
-        .prepare(
-          `SELECT COUNT(DISTINCT ps.game_id) count FROM ${from} WHERE ${totalWhere.join(" AND ")}`,
-        )
+        .prepare(`SELECT COUNT(*) count FROM ${from} WHERE ${totalWhere.join(" AND ")}`)
         .get(...totalParams) as {
         count: number;
       }
