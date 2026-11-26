@@ -16,6 +16,8 @@ import {
   importData,
   deleteSavedSummoner,
   reconcileOwnerPuuids,
+  getSetting,
+  setSetting,
   recalculateAllScores,
 } from "../../src/main/db";
 import { restoreSummonerFull } from "../../src/main/db/summoner";
@@ -339,6 +341,13 @@ for (const kind of [".db.gz", ".db"]) {
   assert.ok(report?.restoredFrom?.endsWith(kind), JSON.stringify(report));
   assert.equal((db.prepare("SELECT COUNT(*) AS n FROM games").get() as { n: number }).n, 4);
 }
+
+// A snapshot taken with automatic backups off doesn't switch them off again
+setSetting("auto_backup", "false");
+const switchedOff = await createBackup("manual");
+setSetting("auto_backup", "true");
+await restoreBackup(switchedOff.file);
+assert.equal(getSetting("auto_backup"), "true");
 
 closeDatabase();
 console.log("transfer checks passed");

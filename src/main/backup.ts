@@ -341,9 +341,12 @@ export async function restoreBackup(
     const games = verifySnapshot(incoming);
     if (!(await beforeSwap())) return null;
     await waitForBackups();
+    // The switch is the user's choice today, not part of the data being rolled back
+    const autoBackup = autoBackupOn();
     closeDatabase();
     swapIn();
     await initDatabase();
+    if (autoBackupOn() !== autoBackup) setSetting("auto_backup", String(autoBackup));
     return { games };
   } finally {
     fs.rmSync(incoming, { force: true });
