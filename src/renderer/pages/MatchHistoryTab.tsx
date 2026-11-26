@@ -8,7 +8,7 @@ import { QUEUE_GROUP_ARENA } from "../../shared/queues";
 import { ChampionCombobox } from "../components/ChampionCombobox";
 import { ContextMenu } from "../components/ContextMenu";
 import { FilterChip } from "../components/FilterChip";
-import { FilterSelect, ResultTabs } from "../components/MatchFilters";
+import { FilterSelect, ResultTabs, SORT_OPTIONS } from "../components/MatchFilters";
 import { ArrowDownIcon, StarIcon } from "../components/icons";
 import { MATCH_LIST_CLASS, MatchCard, MatchCardHeader } from "../components/MatchCard";
 import { Panel } from "../components/Panel";
@@ -20,7 +20,6 @@ import { useMatches } from "../hooks/useMatches";
 import { formatPatch } from "../lib/format";
 import { useScopedQueue } from "../lib/historyScope";
 import type { MatchFilterOptions, MatchSort, MatchSortDir } from "../lib/types";
-import { SORT_OPTIONS } from "./MatchHistory";
 
 const PAGE_SIZE = 25;
 

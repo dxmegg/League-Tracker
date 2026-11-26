@@ -6,7 +6,7 @@ import { useIpc } from "../hooks/useIpc";
 import { getChampionName, useChampionData } from "../hooks/useChampions";
 import { useHistoryScopeQueue } from "../lib/historyScope";
 import { formatNumber, formatTimeAgo } from "../lib/format";
-import { QueueFilterChips } from "../pages/Home";
+import { QueueFilterChips } from "./QueueFilterChips";
 import ChampionIcon from "./ChampionIcon";
 import SummonerIcon from "./SummonerIcon";
 import { FilterChip } from "./FilterChip";

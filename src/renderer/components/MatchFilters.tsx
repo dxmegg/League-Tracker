@@ -6,6 +6,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import type { MatchSort } from "../lib/types";
 
 // Radix items cannot have an empty value, so "no selection" gets a sentinel
 const NONE = "__none";
@@ -45,6 +46,24 @@ export function FilterSelect<T extends string | number>({
     </Select>
   );
 }
+
+// The unselected state is the default sort (date), so it isn't listed here
+export const SORT_OPTIONS: { value: MatchSort; label: string }[] = [
+  { value: "score", label: "Score" },
+  { value: "kda", label: "KDA" },
+  { value: "kills", label: "Kills" },
+  { value: "deaths", label: "Deaths" },
+  { value: "damageDealt", label: "Damage Dealt" },
+  { value: "damageTaken", label: "Damage Taken" },
+  { value: "healing", label: "Healing" },
+  { value: "duration", label: "Duration" },
+  { value: "cs", label: "CS" },
+  { value: "gold", label: "Gold" },
+  { value: "doubles", label: "Double Kills" },
+  { value: "triples", label: "Triple Kills" },
+  { value: "quadras", label: "Quadra Kills" },
+  { value: "pentas", label: "Penta Kills" },
+];
 
 const RESULT_OPTIONS = [
   {

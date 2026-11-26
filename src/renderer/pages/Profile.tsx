@@ -44,7 +44,8 @@ import { dbg } from "../../shared/debug";
 import { ALL_ACCOUNTS_SENTINEL } from "../lib/accountsEvent";
 import { useActiveTheme } from "../hooks/useActiveTheme";
 import { useLcuStatus } from "../hooks/useLcuStatus";
-import { QueueFilterChips, TIME_PERIODS } from "./Home";
+import { TIME_PERIODS } from "./Home";
+import { QueueFilterChips } from "../components/QueueFilterChips";
 
 const EMBLEM_BASE_URL = "https://opgg-static.akamaized.net/images/medals_new";
 

@@ -28,6 +28,7 @@ import { MatchRowExperiment } from "../components/MatchRowExperiment";
 import { ContextMenu } from "../components/ContextMenu";
 import { FilterChip } from "../components/FilterChip";
 import { FilterSelect } from "../components/FilterSelect";
+import { SORT_OPTIONS } from "../components/MatchFilters";
 import { ChampionCombobox } from "../components/ChampionCombobox";
 import { RuneCompact } from "../components/RuneSetup";
 import RuneIcon from "../components/RuneIcon";
@@ -81,24 +82,6 @@ function emptyStateMessage(
   }
   return "No League games found yet. Use Settings to sync your Riot match history.";
 }
-
-// The unselected state is the default sort (date), so it isn't listed here
-export const SORT_OPTIONS: { value: MatchSort; label: string }[] = [
-  { value: "score", label: "Score" },
-  { value: "kda", label: "KDA" },
-  { value: "kills", label: "Kills" },
-  { value: "deaths", label: "Deaths" },
-  { value: "damageDealt", label: "Damage Dealt" },
-  { value: "damageTaken", label: "Damage Taken" },
-  { value: "healing", label: "Healing" },
-  { value: "duration", label: "Duration" },
-  { value: "cs", label: "CS" },
-  { value: "gold", label: "Gold" },
-  { value: "doubles", label: "Double Kills" },
-  { value: "triples", label: "Triple Kills" },
-  { value: "quadras", label: "Quadra Kills" },
-  { value: "pentas", label: "Penta Kills" },
-];
 
 // A session is a day of play, but the day doesn't end at midnight: games before
 // this hour belong to the night that started the evening before.
