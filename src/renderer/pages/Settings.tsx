@@ -1489,8 +1489,10 @@ export default function Settings() {
                 <div>
                   <p className="text-[13.5px] text-lol-text-bright">Developer mode</p>
                   <p className="text-[12.5px] text-lol-text">
-                    Show testing tools: the Debug Testing tab and sample data on Live Game. Off
-                    again after every launch.
+                    Show testing tools: the Debug Testing tab and sample data on Live Game.{" "}
+                    {import.meta.env.DEV
+                      ? "On after every launch when run from source."
+                      : "Off again after every launch."}
                   </p>
                 </div>
                 <Switch
