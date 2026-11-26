@@ -475,6 +475,18 @@ export interface RawParticipantChallengeRow {
   value: number;
 }
 
+// Numbers without a column of their own, kept next to the challenges
+const SUMMARY_KEYS = [
+  "totalTimeSpentDead",
+  "itemsPurchased",
+  "consumablesPurchased",
+  "damageDealtToBuildings",
+  "turretTakedowns",
+  "inhibitorTakedowns",
+  "nexusTakedowns",
+  "champExperience",
+];
+
 export function challengeRowsFromRaw(raw: any, gameId: number): RawParticipantChallengeRow[] {
   const participants = raw?.participants;
   if (!Array.isArray(participants)) return [];
@@ -485,7 +497,12 @@ export function challengeRowsFromRaw(raw: any, gameId: number): RawParticipantCh
     const challenges = participant?.challenges;
     if (!challenges || typeof challenges !== "object" || Array.isArray(challenges)) continue;
 
-    for (const [challengeKey, value] of Object.entries(challenges)) {
+    // Only the general mission counters (snowballs, poros, hexgates...); event ones come and go
+    const extras = [
+      ...Object.entries(participant.missions ?? {}).filter(([k]) => k.startsWith("Missions_")),
+      ...SUMMARY_KEYS.map((k) => [k, participant[k]] as const),
+    ];
+    for (const [challengeKey, value] of [...Object.entries(challenges), ...extras]) {
       if (typeof value !== "number" || !Number.isFinite(value)) continue;
       rows.push({
         game_id: gameId,

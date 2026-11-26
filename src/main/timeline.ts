@@ -43,7 +43,6 @@ export type ParsedTimeline = {
     assisting_participant_ids: string | null;
     position_x: number | null;
     position_y: number | null;
-    raw_json: string;
   }>;
 };
 
@@ -114,7 +113,6 @@ export function parseTimeline(raw: any): ParsedTimeline {
       : null,
     position_x: event?.position?.x ?? null,
     position_y: event?.position?.y ?? null,
-    raw_json: JSON.stringify(event),
   }));
 
   return { frames, events };

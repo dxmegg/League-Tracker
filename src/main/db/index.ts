@@ -137,6 +137,7 @@ export {
   getTrendsData,
   getRecords,
   getTeammateStats,
+  getTeammateGroups,
   getTeammateChampions,
   getTeammateDetail,
   teammateKey,
@@ -205,7 +206,8 @@ export {
   resolveGamePlatform,
   fetchAndStoreTimeline,
   isTimelineSkippedQueue,
-  listMayhemGamesMissingTimeline,
+  listGamesMissingFullData,
+  FULL_DATA_QUEUE_IDS,
   getTimelineStatus,
   getTimeline,
   getChampionTimelineGames,
@@ -383,3 +385,4 @@ function fileBytes(file: string): number {
     return 0;
   }
 }
+export { getMatchInsights } from "./insights";

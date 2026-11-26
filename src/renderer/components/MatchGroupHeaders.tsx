@@ -60,6 +60,7 @@ export function SessionHeader({ session, total }: { session: MatchSession; total
         {total > 1 ? ` of ${total}` : ""}
       </span>
       <span className="text-[12.5px] tabular-nums text-lol-text">
+        {session.dated && `${new Date(session.startMs).toLocaleDateString()} · `}
         {clock(session.startMs)} – {clock(session.endMs)}
       </span>
       <span className="text-[12.5px] text-lol-text">

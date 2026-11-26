@@ -1,5 +1,7 @@
 import { EOG_COLUMNS, eogExtras, findEogPlayer } from "../../shared/eog";
 import { getEogBlock } from "./eog";
+import { getLiveGameData } from "./live-stats";
+import { premadeGroups } from "../../shared/match-build";
 import { getPostGameKinds } from "./live-stats";
 import { db } from "../db";
 import zlib from "zlib";
@@ -502,6 +504,8 @@ export function getMatchParticipants(gameId: number): any[] {
   }
 
   const eog = getEogBlock(gameId);
+  const live = getLiveGameData(gameId)?.snapshot;
+  const premade = premadeGroups(live?.session);
 
   return rows.map((r) => {
     const raw = rawParticipants.find((p: any) => Number(p.participantId) === r.participant_id);
@@ -512,7 +516,9 @@ export function getMatchParticipants(gameId: number): any[] {
     const known = (column: string) => {
       const key = EOG_COLUMNS[column];
       const stats = raw?.stats ?? raw ?? {};
-      return r[column] || eogPlayer || key in stats ? (r[column] ?? null) : null;
+      // The stored match summary reports every number, so its zeros are real
+      const summary = challenges.get(r.participant_id)?.totalTimeSpentDead != null;
+      return r[column] || eogPlayer || summary || key in stats ? (r[column] ?? null) : null;
     };
     const runes = extractRunes(raw);
     return {
@@ -590,6 +596,12 @@ export function getMatchParticipants(gameId: number): any[] {
       neutralMinionsTeamJungle: r.neutral_minions_team_jungle ?? null,
       neutralMinionsEnemyJungle: r.neutral_minions_enemy_jungle ?? null,
       eog: eogPlayer ? eogExtras(eogPlayer) : null,
+      premadeGroup: premade.get(`${r.team_id}:${r.champion_id}`) ?? null,
+      skinName:
+        live?.players.find(
+          (p) =>
+            p.championId === r.champion_id && p.team === (r.team_id === 100 ? "ORDER" : "CHAOS"),
+        )?.skinName || null,
       challenges: challenges.get(r.participant_id),
       items: [r.item0, r.item1, r.item2, r.item3, r.item4, r.item5, r.item6].map((i) => i ?? 0),
       augments: augments.get(r.participant_id) ?? [],

@@ -4,6 +4,7 @@ import { cachedQuery, getCachedOwnedItemStats, setCachedOwnedItemStats } from ".
 import zlib from "zlib";
 import { NO_STATS_QUEUE_IDS } from "../../shared/queues";
 import { computeMatchScores } from "../../shared/opScore";
+import { groupTeammates, type TeammateGroup } from "../../shared/groups";
 import type {
   ItemDetail,
   AugmentDetail,
@@ -2036,6 +2037,19 @@ export function getTeammateStats(
         totalGames,
       }))
       .sort((a, b) => b.games - a.games);
+  });
+}
+
+export function getTeammateGroups(queue?: number): TeammateGroup[] {
+  return cachedQuery("getTeammateGroups", [queue], 60_000, () => {
+    const puuids = getVisiblePuuids();
+    if (puuids.length === 0) return [];
+    return groupTeammates(
+      teammateRows(puuids, queue).map((row) => {
+        const name = teammateName(row.game_name, row.tag_line, row.participant_id);
+        return { ...row, name, key: teammateKey(row.puuid, name) };
+      }),
+    );
   });
 }
 

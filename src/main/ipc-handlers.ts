@@ -1196,6 +1196,12 @@ export function registerIpcHandlers() {
     },
   );
 
+  ipcMain.handle("db:teammate-groups", (_event, queue?: number) => db.getTeammateGroups(queue));
+
+  ipcMain.handle("db:match-insights", (_event, queue?: number, account?: string) =>
+    db.getMatchInsights(queue, account),
+  );
+
   ipcMain.handle(
     "db:get-teammate-champions",
     (_event, queue?: number, relation?: "friends" | "enemies") => {

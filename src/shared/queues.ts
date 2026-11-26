@@ -1,3 +1,4 @@
+export const QUEUE_ID_ARAM = 450;
 export const QUEUE_ID_MAYHEM = 2400;
 export const QUEUE_ID_MAYHEM_CLASSIC = 2450;
 export const QUEUE_ID_CUSTOM = 0;

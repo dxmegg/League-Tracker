@@ -24,6 +24,7 @@ import { ArrowDownIcon } from "./icons";
 import { MatchCard, MatchCardHeader } from "./MatchCard";
 import { DayHeader, SessionHeader } from "./MatchGroupHeaders";
 import { groupDaysAndSessions } from "../lib/matchSessions";
+import { useSessionGrouping } from "../hooks/useSessionGrouping";
 import { Panel } from "./Panel";
 import { ProfileAugments, ProfilePlayInsights } from "./ProfileInsights";
 import { queueLabel } from "./QueueSelect";
@@ -227,9 +228,13 @@ export function YourProfileSections({
   }, [loadMore]);
 
   // Days and sessions only read right when the list is in time order
+  const [grouping] = useSessionGrouping();
   const days = useMemo(
-    () => (!sort || sort === "date" ? groupDaysAndSessions(matches) : null),
-    [sort, matches],
+    () =>
+      grouping !== "off" && (!sort || sort === "date")
+        ? groupDaysAndSessions(matches, grouping)
+        : null,
+    [sort, matches, grouping],
   );
   const renderCard = (match: MatchListItem, index: number) => (
     <MatchCard

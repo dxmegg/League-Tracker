@@ -455,39 +455,86 @@ async function fetchClientTimeline(gameId: number): Promise<void> {
   db.insertTimeline(gameId, parsed, raw);
 }
 
-const TIMELINE_BATCH = 25;
-// Failed this session; asked again after a restart instead of on every poll
-const timelineFailed = new Set<number>();
+// The match history service has what the client leaves out for Mayhem and ARAM: the whole
+// timeline (items, skill order, per-minute stats) and every number of the match summary
+async function fetchFullMatchData(gameId: number): Promise<void> {
+  const platform = db.resolveGamePlatform(gameId);
+  if (!platform) throw new Error(`No platform found for game ${gameId}`);
+  const token = await fetchSgpToken();
+  const host = await resolveSgpHost((await getCurrentSummoner()).puuid, token);
 
-// Catches up stored Mayhem games a few per poll, since the client may stop serving old ones
-async function syncMayhemTimelines(): Promise<void> {
+  const get = async (kind: "SUMMARY" | "DETAILS"): Promise<any> => {
+    const response = await fetch(
+      `${host}/match-history-query/v1/products/lol/${platform.toUpperCase()}_${gameId}/${kind}`,
+      {
+        headers: { Authorization: `Bearer ${token}` },
+        signal: AbortSignal.timeout(SGP_PAGE_TIMEOUT_MS),
+      },
+    );
+    if (!response.ok) throw new SgpHttpError(response.status);
+    const body: any = await response.json();
+    return body.json ?? body;
+  };
+
+  const summary = await get("SUMMARY");
+  const details = await get("DETAILS");
+  const parsed = parseTimeline(details);
+  if (parsed.frames.length === 0) throw new Error(`Empty timeline for game ${gameId}`);
+  db.refreshParticipantTelemetry({ ...summary, gameId });
+  db.insertTimeline(gameId, parsed, details);
+}
+
+// The older sources, so a game still gets a timeline if the history service fails
+async function fetchFallbackTimeline(gameId: number, queueId: number): Promise<void> {
+  if (db.getTimelineStatus(gameId)?.frame_count) return;
+  if (MAYHEM_QUEUE_IDS.includes(queueId)) await fetchClientTimeline(gameId);
+  else await db.fetchAndStoreTimeline(gameId);
+}
+
+async function fetchMatchData(gameId: number, queueId: number): Promise<void> {
+  try {
+    await fetchFullMatchData(gameId);
+  } catch (err) {
+    await fetchFallbackTimeline(gameId, queueId).catch(() => {});
+    throw err;
+  }
+}
+
+const FULL_DATA_BATCH = 25;
+// Asked this session; asked again after a restart instead of on every poll
+const fullDataTried = new Set<number>();
+
+// Catches up stored Mayhem and ARAM games a few per poll, since the service may drop old ones
+async function syncFullMatchData(): Promise<void> {
   const pending = db
-    .listMayhemGamesMissingTimeline()
-    .filter((g) => !timelineFailed.has(g.game_id))
-    .slice(0, TIMELINE_BATCH);
+    .listGamesMissingFullData()
+    .filter((g) => !fullDataTried.has(g.game_id))
+    .slice(0, FULL_DATA_BATCH);
 
-  for (const { game_id: gameId, game_creation: created } of pending) {
+  for (const { game_id: gameId, game_creation: created, queue_id: queueId } of pending) {
+    if (await isInGame()) return;
     try {
-      await fetchClientTimeline(gameId);
+      await fetchMatchData(gameId, queueId);
+      // An answer without everything would otherwise be downloaded again on every poll
+      fullDataTried.add(gameId);
     } catch (err) {
-      timelineFailed.add(gameId);
       const message = err instanceof Error ? err.message : String(err);
-      console.log(`[timeline] client fetch failed for game ${gameId}: ${message}`);
-      // A fresh game can 404 until Riot has written it; only an old one is given up on
-      if (message.includes(" 404 ") && Date.now() - created > 24 * 60 * 60 * 1000) {
-        db.markTimelineFetchError(gameId, "lcu: not served");
-      }
+      console.log(`[timeline] full data fetch failed for game ${gameId}: ${message}`);
+      // Throttled or down says nothing about this game: leave the rest for a later poll
+      if (err instanceof SgpHttpError && (err.status === 429 || err.status >= 500)) return;
+      // A fresh game can be missing until Riot has written it, so only old ones are set aside
+      if (Date.now() - created > 24 * 60 * 60 * 1000) fullDataTried.add(gameId);
     }
   }
 }
 
 function autoFetchTimelineQuiet(gameId: number, queueId: number): void {
-  const isMayhem = MAYHEM_QUEUE_IDS.includes(queueId);
-  if (!isMayhem && db.isTimelineSkippedQueue(queueId)) return;
+  const full = db.FULL_DATA_QUEUE_IDS.includes(queueId);
+  if (!full && db.isTimelineSkippedQueue(queueId)) return;
 
   // Keep the post-game screen responsive; a failed timeline request must
   // not change the outcome of the match capture.
-  const fetching = isMayhem ? fetchClientTimeline(gameId) : db.fetchAndStoreTimeline(gameId);
+  const fetching = full ? fetchMatchData(gameId, queueId) : db.fetchAndStoreTimeline(gameId);
   void fetching.catch((err) => {
     console.log(
       `[timeline] auto-fetch failed for game ${gameId}:`,
@@ -495,7 +542,6 @@ function autoFetchTimelineQuiet(gameId: number, queueId: number): void {
     );
   });
 }
-
 function sgpMatchIdsUrl(host: string, puuid: string, startIndex: number, count: number) {
   return (
     `${host}/match-history-query/v1/products/lol/player/${puuid}` +
@@ -1335,7 +1381,7 @@ async function syncGames(win: BrowserWindow) {
   }
 
   await fetchNewGames(win, summoner ?? undefined);
-  if (!(await isInGame())) await syncMayhemTimelines();
+  if (!(await isInGame())) await syncFullMatchData();
 }
 
 // Both timers are cleared before the connect loop starts again, so a restart

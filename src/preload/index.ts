@@ -451,6 +451,9 @@ const api: ElectronAPI = {
 
   getTeammateStats: (queue?: number, relation?: "friends" | "enemies") =>
     ipcRenderer.invoke("db:teammate-stats", queue, relation),
+  getTeammateGroups: (queue?: number) => ipcRenderer.invoke("db:teammate-groups", queue),
+  getMatchInsights: (queue?: number, account?: string) =>
+    ipcRenderer.invoke("db:match-insights", queue, account),
 
   getTeammateChampions: (queue?: number, relation?: "friends" | "enemies") =>
     ipcRenderer.invoke("db:get-teammate-champions", queue, relation),

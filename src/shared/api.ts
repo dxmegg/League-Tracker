@@ -194,6 +194,9 @@ export interface MatchFilterOptions {
 
 // Per-player numbers for the match Stats tab; every one may be missing on games stored before they were kept.
 export interface ParticipantDetailStats {
+  // Known only for games recorded live
+  premadeGroup?: number | null;
+  skinName?: string | null;
   largestCriticalStrike?: number | null;
   trueDamageToChampions?: number | null;
   physicalDamageToChampions?: number | null;
@@ -2536,6 +2539,8 @@ export interface ElectronAPI {
     account?: string,
   ) => Promise<ChampionSkillOrdersResult>;
   getTeammateStats: (queue?: number, relation?: "friends" | "enemies") => Promise<TeammateStats[]>;
+  getTeammateGroups: (queue?: number) => Promise<import("./groups").TeammateGroup[]>;
+  getMatchInsights: (queue?: number, account?: string) => Promise<MatchInsights>;
   getTeammateChampions: (
     queue?: number,
     relation?: "friends" | "enemies",
@@ -2760,6 +2765,8 @@ export interface TimelineFrame {
   move_speed: number | null;
   max_health: number | null;
   current_health: number | null;
+  // Damage to champions so far; only timelines from the match history service carry it
+  damage?: number | null;
 }
 
 export interface TimelineEvent {
@@ -2779,6 +2786,24 @@ export interface TimelineEvent {
   monster_subtype: string | null;
   position_x: number | null;
   position_y: number | null;
+  assisting_participant_ids: string | null;
+}
+
+export interface MatchInsights {
+  leads: Array<{
+    minute: number;
+    games: number;
+    avgCs: number | null;
+    buckets: Array<{ label: string; games: number; wins: number }>;
+  }>;
+  queues: Array<{
+    queueId: number;
+    games: number;
+    goldPerMin: number | null;
+    csPerMin: number | null;
+    objectiveDamage: number | null;
+    turretDamage: number | null;
+  }>;
 }
 
 export interface TimelineData {

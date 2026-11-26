@@ -219,7 +219,11 @@ export default function MatchDetailPage() {
           {tab === "table" && players.length > 0 && <MatchCompareTable players={players} />}
           {tab === "graphs" && players.length > 0 && <MatchGraphs players={players} />}
           {tab === "timeline" && players.length > 0 && (
-            <MatchTimeline gameId={parsedGameId} players={players} />
+            <MatchTimeline
+              gameId={parsedGameId}
+              players={players}
+              patch={detail.game.game_version}
+            />
           )}
           {tab === "statistics" && (
             <Panel variant="tile">

@@ -1,5 +1,6 @@
 import { useEffect } from "react";
 import { TrendsView, type TimeRange } from "../components/TrendsView";
+import { TrendsInsights } from "../components/TrendsInsights";
 import { useActiveAccount } from "../hooks/useActiveAccount";
 import { useIpc } from "../hooks/useIpc";
 import { useViewState } from "../hooks/useViewState";
@@ -31,6 +32,7 @@ export default function Trends() {
         timeRange={timeRange}
         setTimeRange={setTimeRange}
       />
+      <TrendsInsights queue={scopedQueue} account={account} />
     </div>
   );
 }

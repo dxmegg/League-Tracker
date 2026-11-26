@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { MatchListItem } from "../../shared/api";
 import { DayHeader, SessionHeader } from "../components/MatchGroupHeaders";
 import { groupDaysAndSessions } from "../lib/matchSessions";
+import { useSessionGrouping } from "../hooks/useSessionGrouping";
 import { QUEUE_GROUP_ARENA } from "../../shared/queues";
 import { ChampionCombobox } from "../components/ChampionCombobox";
 import { ContextMenu } from "../components/ContextMenu";
@@ -138,9 +139,13 @@ export default function MatchHistoryTab() {
   }, [loadMore]);
 
   // Days and sessions only read right when the list is in time order
+  const [grouping] = useSessionGrouping();
   const days = useMemo(
-    () => (!sort || sort === "date" ? groupDaysAndSessions(matches) : null),
-    [sort, matches],
+    () =>
+      grouping !== "off" && (!sort || sort === "date")
+        ? groupDaysAndSessions(matches, grouping)
+        : null,
+    [sort, matches, grouping],
   );
   const renderCard = (match: MatchListItem, index: number) => (
     <MatchCard

@@ -21,6 +21,8 @@ export interface MatchSession extends GroupStats {
   index: number; // 1-based, oldest session of the day first
   startMs: number;
   endMs: number;
+  // The group spans several days, so the session needs its date
+  dated: boolean;
   matches: MatchListItem[];
 }
 
@@ -85,18 +87,49 @@ function dayLabels(day: number): { label: string; dateLabel: string } {
   return { label: dateLabel, dateLabel: "" };
 }
 
-// Expects a list ordered by date, newest first or oldest first. Days follow the
-// input order; sessions inside a day are numbered oldest first.
-export function groupDaysAndSessions(matches: MatchListItem[]): MatchDay[] {
-  const byDay: Array<{ day: number; matches: MatchListItem[] }> = [];
+export type SessionGrouping = "day" | "week" | "patch" | "off";
+
+// Monday of the week the game belongs to
+function weekStart(ms: number): number {
+  const d = new Date(dayStart(ms));
+  d.setDate(d.getDate() - ((d.getDay() + 6) % 7));
+  return d.getTime();
+}
+
+function groupLabels(grouping: SessionGrouping, id: number | string) {
+  if (grouping === "patch") return { label: `Patch ${id}`, dateLabel: "" };
+  if (grouping === "week") {
+    const date = new Date(id as number).toLocaleDateString(undefined, {
+      day: "numeric",
+      month: "long",
+      year: "numeric",
+    });
+    return { label: `Week of ${date}`, dateLabel: "" };
+  }
+  return dayLabels(id as number);
+}
+
+// Expects a list ordered by date, newest first or oldest first. Groups follow the
+// input order; sessions inside a group are numbered oldest first.
+export function groupDaysAndSessions(
+  matches: MatchListItem[],
+  grouping: Exclude<SessionGrouping, "off"> = "day",
+): MatchDay[] {
+  const idOf = (m: MatchListItem): number | string =>
+    grouping === "patch"
+      ? (m.game_version ?? "unknown")
+      : grouping === "week"
+        ? weekStart(m.game_creation)
+        : dayStart(m.game_creation);
+  const byGroup: Array<{ id: number | string; matches: MatchListItem[] }> = [];
   for (const m of matches) {
-    const day = dayStart(m.game_creation);
-    const last = byDay[byDay.length - 1];
-    if (last && last.day === day) last.matches.push(m);
-    else byDay.push({ day, matches: [m] });
+    const id = idOf(m);
+    const last = byGroup[byGroup.length - 1];
+    if (last && last.id === id) last.matches.push(m);
+    else byGroup.push({ id, matches: [m] });
   }
 
-  return byDay.map(({ day, matches: dayMatches }) => {
+  return byGroup.map(({ id, matches: dayMatches }) => {
     const ordered = [...dayMatches].sort((a, b) => a.game_creation - b.game_creation);
     const chunks: MatchListItem[][] = [];
     for (const m of ordered) {
@@ -118,11 +151,14 @@ export function groupDaysAndSessions(matches: MatchListItem[]): MatchDay[] {
       ...stats(chunk),
       key: chunk[0].game_id,
       index: i + 1,
+      dated: grouping !== "day",
       startMs: chunk[0].game_creation,
       endMs: chunk[chunk.length - 1].game_creation + chunk[chunk.length - 1].game_duration * 1000,
       matches: newestFirst ? [...chunk].reverse() : chunk,
     }));
     if (newestFirst) sessions.reverse();
-    return { ...stats(dayMatches), key: day, ...dayLabels(day), sessions };
+    // A patch can come up twice when accounts overlap, so the first game keeps the key unique
+    const key = typeof id === "number" ? id : dayMatches[0].game_id;
+    return { ...stats(dayMatches), key, ...groupLabels(grouping, id), sessions };
   });
 }

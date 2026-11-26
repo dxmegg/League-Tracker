@@ -8,12 +8,13 @@ import type {
 } from "../../shared/api";
 import {
   MAYHEM_QUEUE_IDS,
+  QUEUE_ID_ARAM,
   QUEUE_ID_CUSTOM,
   QUEUE_ID_MAYHEM_CUSTOM,
   TUTORIAL_QUEUE_IDS,
 } from "../../shared/queues";
 import { parseTimeline, type ParsedTimeline } from "../timeline";
-import { acquireRequestSlot, fetchMatchTimeline, RiotApiError } from "../riot-api";
+import { fetchMatchTimeline, RiotApiError } from "../riot-api";
 import { db } from "../db";
 import { cachedQuery } from "./cache";
 import { applyQueueFilter, participantFilter, statsSource } from "./filters";
@@ -89,13 +90,14 @@ const TIMELINE_EXCLUDED_QUEUE_IDS = new Set([
   ...TUTORIAL_QUEUE_IDS,
 ]);
 
+export const FULL_DATA_QUEUE_IDS = [...MAYHEM_QUEUE_IDS, QUEUE_ID_ARAM];
+
 export function isTimelineSkippedQueue(queueId: number): boolean {
   return TIMELINE_EXCLUDED_QUEUE_IDS.has(queueId);
 }
 
 export async function fetchAndStoreTimeline(gameId: number, platform?: string): Promise<void> {
   try {
-    await acquireRequestSlot();
     const resolvedPlatform = platform?.trim() || resolveGamePlatform(gameId);
     if (!resolvedPlatform) throw new Error(`No platform found for game ${gameId}`);
     const raw = await fetchMatchTimeline(gameId, resolvedPlatform);
@@ -200,6 +202,28 @@ export function getTimelineStatus(gameId: number): TimelineStatus | null {
   return result;
 }
 
+// What has no column of its own is read from the stored payload: damage per minute, and which
+// item an undo took back
+function addPayloadDetails(gameId: number, frames: TimelineFrame[], events: TimelineEvent[]): void {
+  const row = db
+    .prepare("SELECT raw_gz FROM match_timeline_status WHERE game_id = ?")
+    .get(gameId) as { raw_gz: Buffer | null } | undefined;
+  if (!row?.raw_gz) return;
+  const raw = JSON.parse(zlib.gunzipSync(row.raw_gz).toString("utf8"));
+  const source: any[] = raw?.info?.frames ?? raw?.frames ?? [];
+  for (const frame of frames) {
+    const stats = source[frame.frame_index]?.participantFrames?.[frame.participant_id]?.damageStats;
+    frame.damage = stats?.totalDamageDoneToChampions ?? null;
+  }
+  // event_index counts every event of every frame, in order
+  const sourceEvents = source.flatMap((f) => f?.events ?? []);
+  for (const event of events) {
+    if (event.event_type !== "ITEM_UNDO") continue;
+    const undo = sourceEvents[event.event_index];
+    event.item_id = undo?.beforeId || undo?.afterId || null;
+  }
+}
+
 export function getTimeline(gameId: number): TimelineData | null {
   console.log("[db] getTimeline called:", { gameId });
   const status = getTimelineStatus(gameId);
@@ -222,12 +246,13 @@ export function getTimeline(gameId: number): TimelineData | null {
     .prepare(`
       SELECT event_index, timestamp_ms, event_type, participant_id, killer_id, victim_id,
              team_id, item_id, skill_slot, level_up_type, ward_type, building_type,
-             monster_type, monster_subtype, position_x, position_y
+             monster_type, monster_subtype, position_x, position_y, assisting_participant_ids
       FROM match_timeline_events
       WHERE game_id = ?
       ORDER BY event_index
     `)
     .all(gameId) as TimelineEvent[];
+  addPayloadDetails(gameId, frames, events);
   const result = { status, frames, events };
   console.log("[db] getTimeline done:", { frameCount: frames.length, eventCount: events.length });
   return result;
@@ -713,8 +738,8 @@ export function insertTimeline(gameId: number, parsed: ParsedTimeline, rawPayloa
         game_id, event_index, timestamp_ms, event_type, participant_id, killer_id,
         victim_id, team_id, item_id, skill_slot, level_up_type, ward_type,
         building_type, monster_type, monster_subtype, bounty_gold, shutdown_bounty,
-        kill_streak_length, assisting_participant_ids, position_x, position_y, raw_json
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        kill_streak_length, assisting_participant_ids, position_x, position_y
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
     for (const event of parsed.events) {
       insertEvent.run(
@@ -739,7 +764,6 @@ export function insertTimeline(gameId: number, parsed: ParsedTimeline, rawPayloa
         event.assisting_participant_ids,
         event.position_x,
         event.position_y,
-        event.raw_json,
       );
     }
   });
@@ -783,26 +807,30 @@ export function reparsedTimelines(limit: number): number {
   return updated;
 }
 
-// Own Mayhem games still without a timeline, newest first. An "lcu:" error is the client's
-// final answer; any other error row (e.g. from the Riot API) is still worth asking the client.
-export function listMayhemGamesMissingTimeline(): Array<{
+// Own Mayhem and ARAM games still missing the full timeline or the extra match numbers, newest
+// first. Both halves are checked: Riot API imports have ARAM timelines without the numbers, and
+// the League client's Mayhem timelines have no skill order.
+export function listGamesMissingFullData(): Array<{
   game_id: number;
   game_creation: number;
+  queue_id: number;
 }> {
   return db
     .prepare(`
-      SELECT g.game_id, g.game_creation
+      SELECT g.game_id, g.game_creation, g.queue_id
       FROM games g
-      LEFT JOIN match_timeline_status s ON s.game_id = g.game_id
-      WHERE g.queue_id IN (${MAYHEM_QUEUE_IDS.join(", ")})
+      WHERE g.queue_id IN (${FULL_DATA_QUEUE_IDS.join(", ")})
         AND g.source != 'search-import'
-        AND (s.game_id IS NULL
-             OR (s.frame_count = 0 AND COALESCE(s.fetch_error, '') NOT LIKE 'lcu:%'))
+        AND NOT (
+          EXISTS (SELECT 1 FROM match_participant_challenges c
+                  WHERE c.game_id = g.game_id AND c.challenge_key = 'totalTimeSpentDead')
+          AND EXISTS (SELECT 1 FROM match_timeline_events e
+                      WHERE e.game_id = g.game_id AND e.event_type = 'SKILL_LEVEL_UP')
+        )
       ORDER BY g.game_creation DESC
     `)
-    .all() as Array<{ game_id: number; game_creation: number }>;
+    .all() as Array<{ game_id: number; game_creation: number; queue_id: number }>;
 }
-
 export function listGamesMissingTimeline(limit: number): number[] {
   console.log("[db] listGamesMissingTimeline called:", { limit });
   const rows = db

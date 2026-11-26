@@ -11,11 +11,13 @@ import ChampionIcon from "../components/ChampionIcon";
 import SummonerIcon from "../components/SummonerIcon";
 import { FilterChip } from "../components/FilterChip";
 import { SearchInput } from "../components/SearchInput";
+import { UsersIcon } from "../components/icons";
+import type { TeammateGroup } from "../../shared/groups";
 
 const PAGE_SIZE = 50;
 
 type Relation = "friends" | "enemies";
-type Subject = "players" | "champions";
+type Subject = "players" | "champions" | "groups";
 type SortKey = "name" | "games" | "winRate" | "kda" | "lastPlayed";
 
 // One line of the list, whether it stands for a player or for a champion
@@ -57,24 +59,44 @@ export default function Friends() {
     [queue, relation],
   );
 
+  const groups = useIpc<TeammateGroup[]>(() => window.api.getTeammateGroups(queue), [queue]);
+  // Only your own side forms groups
+  const shownSubject: Subject =
+    relation === "enemies" && subject === "groups" ? "players" : subject;
+
   useEffect(() => {
     if (scopedQueue !== undefined) setQueue(scopedQueue);
   }, [scopedQueue, setQueue]);
   useEffect(() => setVisible(PAGE_SIZE), [queue, relation, subject, minGames, search, sort]);
   const refetchPlayers = players.refetch;
   const refetchChampions = champions.refetch;
+  const refetchGroups = groups.refetch;
   useEffect(
     () =>
       window.api.onGamesUpdated(() => {
         refetchPlayers();
         refetchChampions();
+        refetchGroups();
       }),
-    [refetchPlayers, refetchChampions],
+    [refetchPlayers, refetchChampions, refetchGroups],
   );
 
   const rows = useMemo<Row[]>(() => {
     const mine = (wins: number, games: number) => (relation === "enemies" ? games - wins : wins);
-    if (subject === "players") {
+    if (shownSubject === "groups") {
+      return (groups.data ?? []).map((g) => ({
+        id: g.id,
+        name: g.names.join(", "),
+        // A group has no page of its own, so it opens the last game it played
+        to: `/match/${g.lastGameId}`,
+        icon: (size) => <UsersIcon width={size * 0.7} height={size * 0.7} />,
+        games: g.games,
+        wins: g.wins,
+        kda: (g.kills + g.assists) / Math.max(g.deaths, 1),
+        lastPlayed: g.lastPlayed,
+      }));
+    }
+    if (shownSubject === "players") {
       return (players.data ?? []).map((p) => ({
         id: p.key,
         name: p.name,
@@ -95,7 +117,7 @@ export default function Friends() {
       wins: mine(c.wins, c.games),
       kda: c.kda,
     }));
-  }, [subject, relation, players.data, champions.data, championData]);
+  }, [shownSubject, relation, players.data, champions.data, groups.data, championData]);
 
   const shown = useMemo(() => {
     const query = search.trim().toLocaleLowerCase();
@@ -134,7 +156,7 @@ export default function Friends() {
     ];
   }, [rows, relation]);
 
-  const loading = subject === "players" ? players.loading : champions.loading;
+  const loading = { players, champions, groups }[shownSubject].loading;
   const columns =
     "grid grid-cols-[2.5rem_minmax(12rem,2fr)_4.5rem_6rem_minmax(10rem,1.5fr)_4.5rem_6rem] items-center gap-3 px-4";
   const header = (key: SortKey, label: string, align = "text-right") => (
@@ -208,11 +230,17 @@ export default function Friends() {
 
       <div className="app-tile min-w-0 !p-0">
         <div className="flex flex-wrap items-center gap-2 border-b border-lol-border/60 p-3">
-          {(["players", "champions"] as const).map((value) => (
-            <FilterChip key={value} active={subject === value} onClick={() => setSubject(value)}>
-              {value}
-            </FilterChip>
-          ))}
+          {(["players", "champions", "groups"] as const)
+            .filter((value) => value !== "groups" || relation === "friends")
+            .map((value) => (
+              <FilterChip
+                key={value}
+                active={shownSubject === value}
+                onClick={() => setSubject(value)}
+              >
+                {value}
+              </FilterChip>
+            ))}
           <span className="ml-3 text-[10px] font-bold uppercase tracking-wider text-lol-text">
             Min games
           </span>
@@ -222,26 +250,30 @@ export default function Friends() {
             </FilterChip>
           ))}
           <span className="ml-auto text-xs text-lol-text">
-            {formatNumber(shown.length)} {subject}
+            {formatNumber(shown.length)} {shownSubject}
           </span>
           <SearchInput
             className="w-56"
-            placeholder={`Search ${subject}`}
-            aria-label={`Search ${subject}`}
+            placeholder={`Search ${shownSubject}`}
+            aria-label={`Search ${shownSubject}`}
             value={search}
             onChange={(e) => setSearch(e.target.value)}
           />
         </div>
         <div className={`${columns} border-b border-lol-border/40 py-2`}>
           <span className="text-right text-[10px] font-bold text-lol-text">#</span>
-          {header("name", subject === "players" ? "Player" : "Champion", "text-left")}
+          {header(
+            "name",
+            { players: "Player", champions: "Champion", groups: "Group" }[shownSubject],
+            "text-left",
+          )}
           {header("games", "Games")}
           <span className="text-right text-[10px] font-bold uppercase tracking-wider text-lol-text">
             Record
           </span>
           {header("winRate", "Win rate", "text-left")}
           {header("kda", "KDA")}
-          {subject === "players" ? header("lastPlayed", "Last played") : <span />}
+          {shownSubject !== "champions" ? header("lastPlayed", "Last played") : <span />}
         </div>
 
         {loading || shown.length === 0 ? (

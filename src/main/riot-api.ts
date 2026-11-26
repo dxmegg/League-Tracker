@@ -13,6 +13,7 @@ import type {
 } from "../shared/api";
 import { computeMatchScores, type ScoreInput } from "../shared/opScore";
 import { PROXY_BASE_URL } from "../shared/proxy";
+import { nextSlot } from "../shared/rate-limit";
 import { getChampionClasses, getChampionDataVersion, loadChampionData } from "./dragon";
 
 export type RiotRegionalRoute = "americas" | "europe" | "asia" | "sea";
@@ -568,29 +569,21 @@ function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-// A personal dev key allows roughly one request per second sustained; 150 ms is
-// a safety margin above that so a full sync does not trip the 429 window, and
-// the loss is measured in seconds per sync, not minutes.
-const REQUEST_PACING_MS = 150;
 // A personal key's window is long enough that three retries of two, four and
 // eight seconds do not cover it; the loop must stay alive long enough for the
 // window to clear.
 const MAX_RATE_LIMIT_RETRIES = 20;
-let lastRequestAt = 0;
 let rateLimitPausedUntil = 0;
-let nextRequestStartAt = 0;
+// Start times handed out, oldest first; only the largest window's worth is kept
+const requestStarts: number[] = [];
 
-export async function acquireRequestSlot(): Promise<() => void> {
+async function acquireRequestSlot(): Promise<void> {
   const now = Date.now();
-  const startAt = Math.max(now, nextRequestStartAt, rateLimitPausedUntil);
-  nextRequestStartAt = startAt + REQUEST_PACING_MS;
-  const waitMs = startAt - now;
-  if (waitMs > 0) await sleep(waitMs);
-  return () => {
-    void lastRequestAt;
-  };
+  const startAt = nextSlot(requestStarts, Math.max(now, rateLimitPausedUntil));
+  requestStarts.push(startAt);
+  if (requestStarts.length > 100) requestStarts.shift();
+  if (startAt > now) await sleep(startAt - now);
 }
-
 async function riotFetch<T>(
   url: string,
   platform: string,
@@ -606,17 +599,11 @@ async function riotFetch<T>(
   }`;
   const logPrefix = tag ? `[sync ${tag}] ` : "";
   for (let attempt = 0; ; attempt++) {
-    const release = await acquireRequestSlot();
-    let response: Response;
-    try {
-      response = await fetch(proxyUrl, {
-        headers: { Accept: "application/json" },
-        signal: AbortSignal.timeout(30_000),
-      });
-      lastRequestAt = Date.now();
-    } finally {
-      release();
-    }
+    await acquireRequestSlot();
+    const response = await fetch(proxyUrl, {
+      headers: { Accept: "application/json" },
+      signal: AbortSignal.timeout(30_000),
+    });
     if (response.status === 429 && attempt < MAX_RATE_LIMIT_RETRIES) {
       const retryAfterHeader = response.headers.get("Retry-After");
       const retryAfterSeconds = retryAfterHeader ? Number(retryAfterHeader) : NaN;

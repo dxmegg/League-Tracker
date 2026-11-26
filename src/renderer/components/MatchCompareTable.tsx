@@ -12,7 +12,9 @@ export type Row = {
 const multikill = (p: ParsedParticipant) =>
   p.pentaKills > 0 ? 5 : p.quadraKills > 0 ? 4 : p.tripleKills > 0 ? 3 : p.doubleKills > 0 ? 2 : 1;
 
-const eog = (key: string) => (p: ParsedParticipant) => p.eog?.[key] ?? null;
+// The match history service reports the same numbers as the end-of-game screen, for every game
+const eog = (key: string) => (p: ParsedParticipant) => p.eog?.[key] ?? p.challenges?.[key] ?? null;
+const extra = (key: string) => (p: ParsedParticipant) => p.challenges?.[key] ?? null;
 const rows = (list: Array<[string, Row["value"]]>): Row[] =>
   list.map(([label, value]) => ({ label, value }));
 
@@ -173,6 +175,19 @@ export const GROUPS: Array<{ title: string; rows: Row[] }> = [
     ],
   },
   {
+    title: "Howling Abyss",
+    rows: rows([
+      ["Snowballs hit", extra("Missions_SnowballsHit")],
+      ["Poros fed", extra("Missions_PorosFed")],
+      ["Hexgates used", extra("Missions_HexgatesUsed")],
+      ["Healing from map objects", extra("Missions_HealingFromLevelObjects")],
+      ["Ability uses", extra("abilityUses")],
+      ["Skillshots hit", extra("skillshotsHit")],
+      ["Skillshots dodged", extra("skillshotsDodged")],
+      ["Effective healing and shielding", extra("effectiveHealAndShielding")],
+    ]),
+  },
+  {
     title: "Casts",
     rows: rows([
       ["Q", (p) => p.spell1Casts ?? null],
@@ -287,39 +302,44 @@ export function MatchCompareTable({ players }: { players: ParsedParticipant[] })
             ))}
           </tr>
         </tbody>
-        {GROUPS.map((group) => (
-          <tbody key={group.title}>
-            <tr>
-              <td
-                colSpan={cols}
-                className="rounded-t-xl border border-b-0 border-lol-border/50 bg-black/25 px-3 py-2 font-display text-[12px] font-bold uppercase tracking-widest text-lol-text-bright"
-              >
-                {group.title}
-              </td>
-            </tr>
-            {group.rows.map((row, ri) => {
-              const values = ordered.map(row.value);
-              const max = Math.max(...values.map((v) => v ?? -Infinity));
-              const last = ri === group.rows.length - 1;
-              return (
-                <tr key={row.label} className="bg-black/20 hover:bg-white/[0.04]">
-                  <td
-                    className={`px-3 py-1.5 text-lol-text ${last ? "rounded-bl-xl" : ""}`}
-                    style={{
-                      borderBottom: last ? undefined : "1px solid rgba(255,255,255,0.04)",
-                    }}
-                  >
-                    {row.label}
-                  </td>
-                  {ordered.map((p, i) => {
-                    const v = values[i];
-                    return cell(p, show(v, row.fmt), v != null && v === max && max > 0);
-                  })}
-                </tr>
-              );
-            })}
-          </tbody>
-        ))}
+        {GROUPS.map((group) => ({
+          title: group.title,
+          rows: group.rows.filter((row) => ordered.some((p) => row.value(p) != null)),
+        }))
+          .filter((group) => group.rows.length > 0)
+          .map((group) => (
+            <tbody key={group.title}>
+              <tr>
+                <td
+                  colSpan={cols}
+                  className="rounded-t-xl border border-b-0 border-lol-border/50 bg-black/25 px-3 py-2 font-display text-[12px] font-bold uppercase tracking-widest text-lol-text-bright"
+                >
+                  {group.title}
+                </td>
+              </tr>
+              {group.rows.map((row, ri) => {
+                const values = ordered.map(row.value);
+                const max = Math.max(...values.map((v) => v ?? -Infinity));
+                const last = ri === group.rows.length - 1;
+                return (
+                  <tr key={row.label} className="bg-black/20 hover:bg-white/[0.04]">
+                    <td
+                      className={`px-3 py-1.5 text-lol-text ${last ? "rounded-bl-xl" : ""}`}
+                      style={{
+                        borderBottom: last ? undefined : "1px solid rgba(255,255,255,0.04)",
+                      }}
+                    >
+                      {row.label}
+                    </td>
+                    {ordered.map((p, i) => {
+                      const v = values[i];
+                      return cell(p, show(v, row.fmt), v != null && v === max && max > 0);
+                    })}
+                  </tr>
+                );
+              })}
+            </tbody>
+          ))}
       </table>
     </div>
   );

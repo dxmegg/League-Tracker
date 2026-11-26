@@ -137,7 +137,7 @@ async function downloadDragonAsset(remoteUrl: string): Promise<string | null> {
         if (!response.ok) {
           if (!RETRYABLE_STATUSES.has(response.status) || attempt === MAX_FETCH_ATTEMPTS - 1) {
             console.error(
-              `[dragon-assets] failed after ${attempt + 1} attempts ${hash.slice(0, 8)}`,
+              `[dragon-assets] ${response.status} after ${attempt + 1} attempts: ${remoteUrl}`,
             );
             sessionFailures.add(remoteUrl);
             return null;

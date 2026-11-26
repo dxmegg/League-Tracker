@@ -382,6 +382,9 @@ function ArenaPlayerRow({
         </button>
         <div className="text-[10px] font-display text-lol-text truncate transition-colors hover:text-lol-gold">
           {getChampionName(champData, p.championId)}
+          {p.premadeGroup ? (
+            <span className="ml-1 text-lol-gold">· premade {p.premadeGroup}</span>
+          ) : null}
         </div>
       </div>
 
@@ -734,6 +737,9 @@ function PlayerRow({
           </button>
           <div className="truncate text-[12px] text-lol-text">
             {getChampionName(champData, p.championId)}
+            {p.premadeGroup ? (
+              <span className="ml-1 text-lol-gold">· premade {p.premadeGroup}</span>
+            ) : null}
           </div>
         </div>
       </div>

@@ -11,6 +11,8 @@ import { setRemembering } from "../lib/viewState";
 import { useActiveMode } from "../hooks/useActiveMode";
 import { useShowAllMode } from "../hooks/useShowAllMode";
 import { useDevMode } from "../hooks/useDevMode";
+import { useSessionGrouping } from "../hooks/useSessionGrouping";
+import { FilterSelect } from "../components/FilterSelect";
 import type { BackupInfo } from "../lib/types";
 import {
   type ExportProgress,
@@ -342,6 +344,7 @@ export default function Settings() {
   const [mode, setMode] = useActiveMode();
   const [showAllMode, setShowAllMode] = useShowAllMode();
   const [devMode, setDevMode] = useDevMode();
+  const [grouping, setGrouping] = useSessionGrouping();
   const [autoStart, setAutoStart] = useState(false);
   // Only the packaged program has a path worth registering, so the switch says
   // so instead of pretending in a dev build
@@ -1465,6 +1468,27 @@ export default function Settings() {
                   </p>
                 </div>
                 <Switch checked={hideRemakes} onChange={handleHideRemakesToggle} />
+              </div>
+
+              <div className="flex items-center justify-between gap-4 border-b border-lol-border/40 py-2.5 transition-colors duration-[120ms] hover:bg-white/[0.02] last:border-b-0">
+                <div>
+                  <p className="text-[13.5px] text-lol-text-bright">Group match history</p>
+                  <p className="text-[12.5px] text-lol-text">
+                    How games are collected into groups in match lists sorted by date.
+                  </p>
+                </div>
+                <FilterSelect
+                  value={grouping}
+                  onChange={(value) => setGrouping(value ?? "day")}
+                  placeholder="By day"
+                  title="Group match history"
+                  options={[
+                    { value: "day" as const, label: "By day" },
+                    { value: "week" as const, label: "By week" },
+                    { value: "patch" as const, label: "By patch" },
+                    { value: "off" as const, label: "Off" },
+                  ]}
+                />
               </div>
 
               <div className="flex items-center justify-between gap-4 border-b border-lol-border/40 py-2.5 transition-colors duration-[120ms] hover:bg-white/[0.02] last:border-b-0">
