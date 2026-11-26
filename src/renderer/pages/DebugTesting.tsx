@@ -1,9 +1,16 @@
 import { useState } from "react";
 import type { ReactNode } from "react";
 import ChampionIcon from "../components/ChampionIcon";
+import { LastPlayedExp } from "../components/LastPlayedExp";
+import { Panel } from "../components/Panel";
 import SummonerIcon from "../components/SummonerIcon";
+import { useActiveAccount } from "../hooks/useActiveAccount";
+import { useChampionData } from "../hooks/useChampions";
+import { useMatches } from "../hooks/useMatches";
+import { useScopedQueue } from "../lib/historyScope";
 
-// Test-only redesign of Your profile, drawn from template data. Nothing here touches the database.
+// Test-only redesign of Your profile, drawn from template data. Only the last-played panel at the
+// bottom reads real games.
 
 const CHAMPS: Record<number, string> = {
   103: "Ahri",
@@ -347,6 +354,22 @@ function Heatmap() {
   );
 }
 
+// Parked here until it gets a place in a real tab
+function LastPlayedPanel() {
+  const [account] = useActiveAccount();
+  const champData = useChampionData();
+  const queue = useScopedQueue(undefined);
+  const { matches, loading } = useMatches({ account, queue }, 20);
+  return (
+    <Panel>
+      <h2 className="mb-4 font-display text-[16px] font-semibold text-lol-text-bright">
+        Last played champions
+      </h2>
+      <LastPlayedExp matches={matches} loading={loading} champData={champData} />
+    </Panel>
+  );
+}
+
 export default function DebugTesting() {
   const [period, setPeriod] = useState<(typeof PERIODS)[number]>("Full");
   const s = SUMMARY;
@@ -635,6 +658,8 @@ export default function DebugTesting() {
           ))}
         </div>
       </Card>
+
+      <LastPlayedPanel />
     </div>
   );
 }

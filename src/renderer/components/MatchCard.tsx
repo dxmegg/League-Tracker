@@ -1,4 +1,4 @@
-import { useState, type CSSProperties, type KeyboardEvent } from "react";
+import { useState, type CSSProperties, type KeyboardEvent, type MouseEvent } from "react";
 import { useNavigate } from "react-router-dom";
 import type { ChampionData, MatchListItem } from "../../shared/api";
 import { computeMatchScoreBreakdowns, type ScoreBreakdown } from "../../shared/opScore";
@@ -181,7 +181,15 @@ function ScoreCell({ match, champData }: { match: MatchListItem; champData: Cham
   );
 }
 
-export function MatchCard({ match, championName }: { match: MatchListItem; championName: string }) {
+export function MatchCard({
+  match,
+  championName,
+  onContextMenu,
+}: {
+  match: MatchListItem;
+  championName: string;
+  onContextMenu?: (e: MouseEvent) => void;
+}) {
   const navigate = useNavigate();
   const runeData = useRuneData();
   const champData = useChampionData();
@@ -225,6 +233,7 @@ export function MatchCard({ match, championName }: { match: MatchListItem; champ
       tabIndex={0}
       onClick={open}
       onKeyDown={onKeyDown}
+      onContextMenu={onContextMenu}
       className={`grid cursor-pointer items-center gap-x-3 gap-y-3 overflow-hidden rounded-xl py-3 @min-[1520px]:min-h-[116px] @min-[1520px]:gap-y-0 @min-[1520px]:py-0 border border-lol-border bg-[linear-gradient(180deg,rgba(255,255,255,0.02),transparent_60%),color-mix(in_oklab,var(--theme-card)_40%,black)] pr-4 transition-all duration-150 hover:-translate-y-px focus-visible:outline focus-visible:outline-2 focus-visible:outline-lol-gold ${GRID} ${box}`}
     >
       {/* Result band: the one strong colour block, full card height */}

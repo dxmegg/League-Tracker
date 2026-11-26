@@ -6,9 +6,10 @@ import { DayHeader, SessionHeader } from "../components/MatchGroupHeaders";
 import { groupDaysAndSessions } from "../lib/matchSessions";
 import { QUEUE_GROUP_ARENA } from "../../shared/queues";
 import { ChampionCombobox } from "../components/ChampionCombobox";
+import { ContextMenu } from "../components/ContextMenu";
 import { FilterChip } from "../components/FilterChip";
 import { FilterSelect, ResultTabs } from "../components/MatchFilters";
-import { ArrowDownIcon } from "../components/icons";
+import { ArrowDownIcon, StarIcon } from "../components/icons";
 import { MATCH_LIST_CLASS, MatchCard, MatchCardHeader } from "../components/MatchCard";
 import { Panel } from "../components/Panel";
 import { queueLabel } from "../components/QueueSelect";
@@ -25,6 +26,14 @@ const PAGE_SIZE = 25;
 
 // Every toolbar control is 38px tall with the same radius as the search box and tabs
 const SELECT_CLASS = "h-[38px] rounded-lg px-3.5";
+
+const NO_OPTIONS: MatchFilterOptions = {
+  patches: [],
+  champions: [],
+  queues: [],
+  accounts: [],
+  hasFavorites: false,
+};
 
 export default function MatchHistoryTab() {
   const champData = useChampionData();
@@ -49,16 +58,16 @@ export default function MatchHistoryTab() {
   );
   const [sort, setSort] = useViewState<MatchSort | undefined>("historyTab.sort", undefined);
   const [sortDir, setSortDir] = useViewState<MatchSortDir>("historyTab.sortDir", "desc");
-  const [filterOptions, setFilterOptions] = useState<MatchFilterOptions>({
-    patches: [],
-    champions: [],
-    queues: [],
-    accounts: [],
-    hasFavorites: false,
-  });
+  const [favoritesOnly, setFavoritesOnly] = useViewState("historyTab.favorites", false);
+  const [filterOptions, setFilterOptions] = useState(NO_OPTIONS);
+  const [contextMenu, setContextMenu] = useState<{
+    x: number;
+    y: number;
+    match: MatchListItem;
+  } | null>(null);
   const sentinelRef = useRef<HTMLDivElement>(null);
 
-  const { matches, total, loading, error, hasMore, loadMore } = useMatches(
+  const { matches, total, loading, error, hasMore, loadMore, reload } = useMatches(
     {
       championId: championFilter,
       patch: patchFilter,
@@ -67,6 +76,7 @@ export default function MatchHistoryTab() {
       sort,
       sortDir,
       result: resultFilter,
+      favorites: favoritesOnly,
     },
     PAGE_SIZE,
   );
@@ -88,6 +98,19 @@ export default function MatchHistoryTab() {
     fetchOptions();
     return window.api.onGamesUpdated(fetchOptions);
   }, [fetchOptions]);
+
+  // Removing the last favorite hides the star button, so the filter must not stay on. Waits for
+  // real options: the empty placeholder would drop the remembered filter on every visit.
+  useEffect(() => {
+    if (filterOptions !== NO_OPTIONS && !filterOptions.hasFavorites) setFavoritesOnly(false);
+  }, [filterOptions, setFavoritesOnly]);
+
+  const toggleFavorite = async (match: MatchListItem) => {
+    setContextMenu(null);
+    await window.api.toggleFavorite(match.game_id);
+    reload();
+    fetchOptions();
+  };
 
   // A filter chosen for one account can match nothing for the next one. Listens for the switch
   // itself: the account value also changes while it loads, which must not clear saved filters.
@@ -126,6 +149,10 @@ export default function MatchHistoryTab() {
       key={`${match.game_id}-${index}`}
       match={match}
       championName={getChampionName(champData, match.champion_id)}
+      onContextMenu={(e) => {
+        e.preventDefault();
+        setContextMenu({ x: e.clientX, y: e.clientY, match });
+      }}
     />
   );
 
@@ -195,6 +222,22 @@ export default function MatchHistoryTab() {
             >
               {sortDir === "desc" ? "High → Low" : "Low → High"}
             </FilterChip>
+            {filterOptions.hasFavorites && (
+              <FilterChip
+                active={favoritesOnly}
+                onClick={() => setFavoritesOnly((v) => !v)}
+                title={favoritesOnly ? "Showing favorites only" : "Only show favorites"}
+                icon={
+                  <StarIcon
+                    className="h-3.5 w-3.5"
+                    fill={favoritesOnly ? "currentColor" : "none"}
+                  />
+                }
+                className={`!h-[38px] !rounded-lg !px-3.5 ${favoritesOnly ? "!text-amber-400" : ""}`}
+              >
+                Favorites
+              </FilterChip>
+            )}
           </div>
         </div>
 
@@ -246,6 +289,21 @@ export default function MatchHistoryTab() {
           <div className="py-3 text-center text-sm text-lol-text">Loading...</div>
         )}
       </Panel>
+
+      {contextMenu && (
+        <ContextMenu x={contextMenu.x} y={contextMenu.y} onClose={() => setContextMenu(null)}>
+          <button
+            type="button"
+            onClick={() => toggleFavorite(contextMenu.match)}
+            className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm text-lol-text-bright hover:bg-white/5"
+          >
+            <span className={contextMenu.match.favorite ? "text-amber-400" : "text-lol-text"}>
+              {contextMenu.match.favorite ? "★" : "☆"}
+            </span>
+            {contextMenu.match.favorite ? "Remove from Favorites" : "Add to Favorites"}
+          </button>
+        </ContextMenu>
+      )}
     </div>
   );
 }

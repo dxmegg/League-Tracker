@@ -60,21 +60,20 @@ type IconComponent = (props: SVGProps<SVGSVGElement>) => ReactNode;
 
 const TIME_PERIODS: HomeTimePeriod[] = ["24h", "7d", "30d", "full"];
 
-// Each mode pairs the queue filter with the history route that lists the same games.
-const MODES: Array<{ label: string; queue: number | undefined; to: string }> = [
-  { label: "All", queue: undefined, to: "/history" },
-  { label: "Ranked", queue: QUEUE_SCOPE_RANKED, to: "/history/ranked" },
-  { label: "Normal", queue: QUEUE_SCOPE_NORMAL, to: "/history/normal" },
-  { label: "Arena", queue: QUEUE_SCOPE_ARENA, to: "/history/arena" },
-  { label: "ARAM", queue: QUEUE_SCOPE_ARAM, to: "/history/aram" },
-  { label: "Mayhem", queue: QUEUE_SCOPE_MAYHEM, to: "/history/mayhem" },
+const MODES: Array<{ label: string; queue: number | undefined }> = [
+  { label: "All", queue: undefined },
+  { label: "Ranked", queue: QUEUE_SCOPE_RANKED },
+  { label: "Normal", queue: QUEUE_SCOPE_NORMAL },
+  { label: "Arena", queue: QUEUE_SCOPE_ARENA },
+  { label: "ARAM", queue: QUEUE_SCOPE_ARAM },
+  { label: "Mayhem", queue: QUEUE_SCOPE_MAYHEM },
 ];
 
 const MILESTONES = [10, 25, 50, 100, 250, 500, 1000, 2500, 5000, 10000];
 
 const HUB: Array<{ to: string; title: string; text: string; Icon: IconComponent }> = [
   { to: "/records", title: "Records", text: "Your personal peaks", Icon: TrophyIcon },
-  { to: "/history", title: "Match History", text: "Revisit every game", Icon: SwordsIcon },
+  { to: "/match-history", title: "Match History", text: "Revisit every game", Icon: SwordsIcon },
   { to: "/champions", title: "Champions", text: "Per-champion results", Icon: MedalIcon },
   { to: "/trends", title: "Trends", text: "How your play shifts", Icon: TrendingUpIcon },
   { to: "/friends", title: "Friends", text: "Who you play with", Icon: UsersIcon },
@@ -702,7 +701,7 @@ export function HomeRedesign({
   const connected = lcuStatus === "connected" || lcuStatus === "ingame";
   const liveStatus = describeLiveStatus(connected, live.session, live.game ?? liveGame);
   const liveStyle = LIVE_TONE_STYLE[liveStatus.tone];
-  const lastMatchLink = lastMatch ? `/match/${lastMatch.game_id}` : "/history";
+  const lastMatchLink = lastMatch ? `/match/${lastMatch.game_id}` : "/match-history";
   const lastMatchAugments = lastMatch ? parseAugmentIds(lastMatch.augment_ids) : [];
   const recentForm = [...(summary?.recentForm ?? [])].slice(0, 20).reverse();
   const topChampions = (dashboard?.topChampions ?? []).slice(0, 5);
@@ -1184,7 +1183,7 @@ export function HomeRedesign({
             <BigStatMini label="Avg damage" value={avgDamage} />
           </div>
         </HubCard>
-        <HubCard title="Last 5 games" to="/history" linkLabel="Full history">
+        <HubCard title="Last 5 games" to="/match-history" linkLabel="Full history">
           {lastFive.length > 0 ? (
             <div className="flex flex-col gap-1.5">
               {lastFive.map((game) => {
