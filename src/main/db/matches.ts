@@ -607,7 +607,7 @@ export function getMatchDetail(gameId: number): any {
 }
 
 export function getChampionMatchHistory(
-  championId: number,
+  championId: number | null,
   limit: number,
   offset: number,
   patch?: string,
@@ -618,9 +618,12 @@ export function getChampionMatchHistory(
   const source = statsSource(account);
   const hasConcreteAccount = account !== undefined && account !== "all";
   const playerPuuidSql = account ? "ps.puuid" : "g.puuid";
-  const where = ["ps.champion_id = ?"];
-  where.push(source.accountFilter);
-  const params: any[] = hasConcreteAccount ? [championId, account] : [championId];
+  const where = [source.accountFilter];
+  const params: any[] = hasConcreteAccount ? [account] : [];
+  if (championId !== null) {
+    where.push("ps.champion_id = ?");
+    params.push(championId);
+  }
   if (patch) {
     where.push("g.game_version = ?");
     params.push(patch);

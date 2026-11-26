@@ -10,17 +10,19 @@ import { SegmentedControl } from "../components/SegmentedControl";
 import ChampionIcon from "../components/ChampionIcon";
 import { MatchCompareTable } from "../components/MatchCompareTable";
 import MatchScoreboard from "../components/MatchScoreboard";
+import { MatchTimeline } from "../components/MatchTimeline";
 import { queueLabel } from "../components/QueueSelect";
 import { computeMatchScoreBreakdowns, scoreColor } from "../../shared/opScore";
 import { formatDuration, formatNumber, formatTimeAgo, kdaRatio } from "../lib/format";
 import { parseParticipants, scoreInputsFor } from "../lib/participants";
 import type { MatchDetail } from "../lib/types";
 
-type MatchTab = "overview" | "statistics" | "table";
+type MatchTab = "overview" | "statistics" | "table" | "timeline";
 const TABS = [
   { value: "overview", label: "Overview" },
   { value: "statistics", label: "Statistics" },
   { value: "table", label: "Table" },
+  { value: "timeline", label: "Timeline" },
 ] as const;
 
 function Tile({ label, children, sub }: { label: string; children: ReactNode; sub?: string }) {
@@ -210,6 +212,9 @@ export default function MatchDetailPage() {
             <MatchScoreboard detail={detail} champData={champData} puuids={puuids} />
           )}
           {tab === "table" && players.length > 0 && <MatchCompareTable players={players} />}
+          {tab === "timeline" && players.length > 0 && (
+            <MatchTimeline gameId={parsedGameId} players={players} />
+          )}
           {tab === "statistics" && (
             <Panel variant="tile">
               <Title

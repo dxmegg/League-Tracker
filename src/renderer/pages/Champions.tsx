@@ -252,6 +252,13 @@ export default function Champions() {
       </SplashHero>
       <div className="flex flex-wrap items-end gap-4 justify-end">
         <div className="flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            onClick={() => navigate("/champions/all")}
+            className="h-9 rounded-md border border-lol-border bg-[var(--theme-card)] px-3 text-sm font-medium text-lol-text-bright transition-colors hover:border-lol-crimson/70"
+          >
+            All champions summary
+          </button>
           {dataMode !== "mayhem" && (
             <FilterSelect
               value={queue != null ? String(queue) : undefined}

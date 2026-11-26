@@ -36,6 +36,7 @@ const PAGE_TITLES: Record<string, string> = {
   records: "Records",
   achievements: "Achievements",
   challenges: "Challenges",
+  misc: "Misc. Data",
   data: "Storage",
   settings: "Settings",
   history: "History",

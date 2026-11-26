@@ -19,6 +19,7 @@ const Items = lazy(() => import("./pages/Items"));
 const Runes = lazy(() => import("./pages/Runes"));
 const Friends = lazy(() => import("./pages/Friends"));
 const Storage = lazy(() => import("./pages/Storage"));
+const MiscData = lazy(() => import("./pages/MiscData"));
 const Trends = lazy(() => import("./pages/Trends"));
 const Records = lazy(() => import("./pages/Records"));
 const Achievements = lazy(() => import("./pages/Achievements"));
@@ -71,6 +72,7 @@ export default function App() {
           <Route path="/records" element={<Records />} />
           <Route path="/achievements" element={<Achievements />} />
           <Route path="/challenges" element={<Challenges />} />
+          <Route path="/misc" element={<MiscData />} />
           <Route path="/data" element={<Storage />} />
           <Route path="/settings" element={<Settings />} />
           <Route

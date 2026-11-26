@@ -48,7 +48,9 @@ export type ParsedTimeline = {
 };
 
 export function parseTimeline(raw: any): ParsedTimeline {
-  const sourceFrames = Array.isArray(raw?.info?.frames) ? raw.info.frames : [];
+  // Match-V5 nests frames under info; the League client returns them at the top level
+  const nested = raw?.info?.frames ?? raw?.frames;
+  const sourceFrames = Array.isArray(nested) ? nested : [];
   const frames = sourceFrames.flatMap((frame: any, frameIndex: number) =>
     Object.values(frame?.participantFrames ?? {}).map((participantFrame: any) => ({
       frame_index: frameIndex,

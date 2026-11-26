@@ -510,6 +510,10 @@ export function registerIpcHandlers() {
     },
   );
 
+  ipcMain.handle("db:other-players-stats", (_event, queue?: number) =>
+    db.getOtherPlayersStats(queue),
+  );
+
   ipcMain.handle(
     "db:champion-teammate-stats",
     (_event, championId: number | null, patch?: string, queue?: number, account?: string) => {
@@ -784,7 +788,7 @@ export function registerIpcHandlers() {
     "db:champion-match-history",
     (
       _event,
-      championId: number,
+      championId: number | null,
       limit: number,
       offset: number,
       patch?: string,

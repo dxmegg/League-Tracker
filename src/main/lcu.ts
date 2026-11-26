@@ -11,6 +11,7 @@ import {
 import { BrowserWindow } from "electron";
 import https from "https";
 import * as db from "./db";
+import { parseTimeline } from "./timeline";
 import { invalidateDashboardCache } from "./db/dashboard-cache";
 import type {
   CurrentSummoner,
@@ -32,7 +33,7 @@ import type {
   ProfileExtras,
   RankEntry,
 } from "../shared/api";
-import { QUEUE_ID_MAYHEM_CUSTOM, QUEUE_LABELS } from "../shared/queues";
+import { QUEUE_ID_MAYHEM_CUSTOM, QUEUE_LABELS, MAYHEM_QUEUE_IDS } from "../shared/queues";
 import { createPostGameCapture } from "./post-game";
 import { skillCap } from "../shared/skills";
 import { accountByRiotId, regionalRoute } from "./riot-api";
@@ -446,12 +447,48 @@ function notifyGamesUpdated(win?: BrowserWindow | null) {
   }
 }
 
-function autoFetchTimelineQuiet(gameId: number, queueId: number): void {
-  if (db.isTimelineSkippedQueue(queueId)) return;
+// Match-V5 doesn't serve Mayhem, so its timelines can only come from the client
+async function fetchClientTimeline(gameId: number): Promise<void> {
+  const raw: any = await lcuRequest(`/lol-match-history/v1/game-timelines/${gameId}`);
+  const parsed = parseTimeline(raw);
+  if (parsed.frames.length === 0) throw new Error(`LCU request failed: 404 empty ${gameId}`);
+  db.insertTimeline(gameId, parsed, raw);
+}
 
-  // Keep the post-game screen responsive; a failed Riot timeline request must
+const TIMELINE_BATCH = 25;
+// Failed this session; asked again after a restart instead of on every poll
+const timelineFailed = new Set<number>();
+
+// Catches up stored Mayhem games a few per poll, since the client may stop serving old ones
+async function syncMayhemTimelines(): Promise<void> {
+  const pending = db
+    .listMayhemGamesMissingTimeline()
+    .filter((g) => !timelineFailed.has(g.game_id))
+    .slice(0, TIMELINE_BATCH);
+
+  for (const { game_id: gameId, game_creation: created } of pending) {
+    try {
+      await fetchClientTimeline(gameId);
+    } catch (err) {
+      timelineFailed.add(gameId);
+      const message = err instanceof Error ? err.message : String(err);
+      console.log(`[timeline] client fetch failed for game ${gameId}: ${message}`);
+      // A fresh game can 404 until Riot has written it; only an old one is given up on
+      if (message.includes(" 404 ") && Date.now() - created > 24 * 60 * 60 * 1000) {
+        db.markTimelineFetchError(gameId, "lcu: not served");
+      }
+    }
+  }
+}
+
+function autoFetchTimelineQuiet(gameId: number, queueId: number): void {
+  const isMayhem = MAYHEM_QUEUE_IDS.includes(queueId);
+  if (!isMayhem && db.isTimelineSkippedQueue(queueId)) return;
+
+  // Keep the post-game screen responsive; a failed timeline request must
   // not change the outcome of the match capture.
-  void db.fetchAndStoreTimeline(gameId).catch((err) => {
+  const fetching = isMayhem ? fetchClientTimeline(gameId) : db.fetchAndStoreTimeline(gameId);
+  void fetching.catch((err) => {
     console.log(
       `[timeline] auto-fetch failed for game ${gameId}:`,
       err instanceof Error ? err.message : err,
@@ -1263,12 +1300,13 @@ async function isInGame(): Promise<boolean> {
   return phase !== null && IN_GAME_PHASES.has(phase);
 }
 
-// An account that has never been walked gets the full history on its first
-// connect — that import is the whole point of the app, and it's a superset of
-// the recent-games sync. Every later tick takes the cheap LCU path instead: the
-// pvp.net service is only touched while an account still needs its first walk.
-// Deferred while a game is in progress so we aren't hammering the client
-// mid-match; a later poll picks it up.
+// Accounts whose full history has been checked since launch
+const caughtUp = new Set<string>();
+
+// Each account gets its full history checked on its first connect of a session, so games played
+// while the app was closed are all picked up, however many there were. Only the missing ones are
+// downloaded. Every later tick takes the cheap recent-games path. Deferred while a game is in
+// progress so we aren't hammering the client mid-match; a later poll picks it up.
 async function syncGames(win: BrowserWindow) {
   let summoner: CurrentSummoner | null = null;
   try {
@@ -1278,13 +1316,13 @@ async function syncGames(win: BrowserWindow) {
   }
 
   const wantsBackfill =
-    summoner &&
-    Date.now() >= autoBackfillPausedUntil &&
-    db.getSetting(`backfill_complete_${summoner.puuid}`) !== "1";
+    summoner && Date.now() >= autoBackfillPausedUntil && !caughtUp.has(summoner.puuid);
 
   if (wantsBackfill && !(await isInGame())) {
+    const { puuid } = summoner!;
     try {
-      await backfillHistory(win);
+      await backfillHistory(win, true);
+      caughtUp.add(puuid);
       return;
     } catch (err) {
       console.log("Automatic backfill failed, falling back to recent games:", err);
@@ -1293,6 +1331,7 @@ async function syncGames(win: BrowserWindow) {
   }
 
   await fetchNewGames(win, summoner ?? undefined);
+  if (!(await isInGame())) await syncMayhemTimelines();
 }
 
 // Both timers are cleared before the connect loop starts again, so a restart

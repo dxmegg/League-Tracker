@@ -40,6 +40,7 @@ import { LineChart } from "../components/LineChart";
 import { MatchRow } from "../components/MatchRow";
 import RuneIcon from "../components/RuneIcon";
 import { FilterSelect } from "../components/FilterSelect";
+import PatchSelect from "../components/PatchSelect";
 import WinRateBar from "../components/WinRateBar";
 import { HeroTile, SplashHero } from "../components/SplashHero";
 import { Title } from "../components/live/shared";
@@ -130,12 +131,116 @@ const ROLE_LABELS: Record<string, string> = {
   UNKNOWN: "No role",
 };
 
+// One line over every champion. Per-game averages are weighted by each champion's game count.
+function sumChampionStats(rows: ChampionStats[]): ChampionStats {
+  const sum = (pick: (r: ChampionStats) => number) => rows.reduce((s, r) => s + pick(r), 0);
+  const games = sum((r) => r.games);
+  const mean = (pick: (r: ChampionStats) => number | null) => {
+    const known = rows.filter((r) => pick(r) != null);
+    const weight = known.reduce((s, r) => s + r.games, 0);
+    return weight > 0
+      ? known.reduce((s, r) => s + (pick(r) as number) * r.games, 0) / weight
+      : null;
+  };
+  return {
+    champion_id: 0,
+    games,
+    wins: sum((r) => r.wins),
+    kills: sum((r) => r.kills),
+    deaths: sum((r) => r.deaths),
+    assists: sum((r) => r.assists),
+    avg_kills: games > 0 ? sum((r) => r.kills) / games : 0,
+    avg_deaths: games > 0 ? sum((r) => r.deaths) / games : 0,
+    avg_assists: games > 0 ? sum((r) => r.assists) / games : 0,
+    avg_damage: Math.round(mean((r) => r.avg_damage) ?? 0),
+    avg_gold: Math.round(mean((r) => r.avg_gold) ?? 0),
+    avg_cs_per_min: mean((r) => r.avg_cs_per_min),
+    avg_score: mean((r) => r.avg_score),
+    mvps: sum((r) => r.mvps),
+    aces: sum((r) => r.aces),
+    double_kills: sum((r) => r.double_kills),
+    triple_kills: sum((r) => r.triple_kills),
+    quadra_kills: sum((r) => r.quadra_kills),
+    penta_kills: sum((r) => r.penta_kills),
+  };
+}
+
+// Shown only on the all-champions summary
+function SummaryPanels({ detail }: { detail: ChampionDetailStats }) {
+  const num = (v: number | null | undefined) => formatNumber(Math.round(v ?? 0));
+  const dec = (v: number | null | undefined) => (v ?? 0).toFixed(2);
+  const secs = (v: number | null | undefined) => formatDuration(Math.round(v ?? 0));
+  const panels: Array<[string, Array<[string, string]>]> = [
+    [
+      "Damage dealt (avg)",
+      [
+        ["Physical", num(detail.avgPhysicalDamageDealt)],
+        ["Magic", num(detail.avgMagicDamageDealt)],
+        ["True", num(detail.avgTrueDamageDealt)],
+        ["CC time on others (s)", num(detail.avgTimeCcOthers)],
+        ["CC per minute", dec(detail.avgCcPerMin)],
+      ],
+    ],
+    [
+      "Damage taken (avg)",
+      [
+        ["Physical", num(detail.avgPhysicalDamageTaken)],
+        ["Magic", num(detail.avgMagicDamageTaken)],
+        ["True", num(detail.avgTrueDamageTaken)],
+        ["Self mitigated", num(detail.avgDamageSelfMitigated)],
+        ["Healing", num(detail.avgHeal)],
+      ],
+    ],
+    [
+      "Survival and streaks",
+      [
+        ["Avg longest life", secs(detail.avgLongestAlive)],
+        ["Longest life", secs(detail.maxLongestAlive)],
+        ["Killing sprees / game", dec(detail.avgKillingSprees)],
+        ["First blood kills", num(detail.totalFirstBloodKill)],
+        ["First blood assists", num(detail.totalFirstBloodAssist)],
+      ],
+    ],
+    [
+      "Economy (avg)",
+      [
+        ["Gold earned", num(detail.avgGoldEarned)],
+        ["Gold spent", num(detail.avgGoldSpent)],
+        ["CS", num(detail.avgTotalMinionsKilled + detail.avgNeutralMinionsKilled)],
+      ],
+    ],
+    [
+      "Turrets and inhibitors",
+      [
+        ["Turrets / game", dec(detail.avgTurretKills)],
+        ["Turrets total", num(detail.totalTurretKills)],
+        ["Inhibitors / game", dec(detail.avgInhibitorKills)],
+        ["Inhibitors total", num(detail.totalInhibitorKills)],
+        ["Damage to turrets", num(detail.avgDamageToTurrets)],
+        ["First towers", num(detail.totalFirstTowerKill)],
+      ],
+    ],
+  ];
+  return (
+    <div className="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-5">
+      {panels.map(([title, rows]) => (
+        <Section key={title} title={title}>
+          {rows.map(([label, value]) => (
+            <MiniStat key={label} label={label} value={value} />
+          ))}
+        </Section>
+      ))}
+    </div>
+  );
+}
+
 export default function ChampionDetail() {
   const { championId = "" } = useParams<{ championId: string }>();
-  const id = Number(championId);
+  // "/champions/all" is the same page over every champion; the queries read null as "no champion filter"
+  const id = championId === "all" ? null : Number(championId);
   const navigate = useNavigate();
   const champData = useChampionData();
-  const [patch] = useViewState<string | undefined>("champions.patch", undefined);
+  const [patch, setPatch] = useViewState<string | undefined>("champions.patch", undefined);
   const [timePeriod, setTimePeriod] = useViewState<HomeTimePeriod>("champions.timePeriod", "full");
   const [queue, setQueue] = useViewState<number | undefined>("champions.queue", undefined);
   const scopedQueue = useScopedQueue(queue);
@@ -176,7 +281,7 @@ export default function ChampionDetail() {
     [id, account, timePeriod],
   );
   const { data: augments } = useIpc<AugmentStats[]>(
-    () => window.api.getAugmentStats(id, patch, scopedQueue, account, timePeriod),
+    () => window.api.getAugmentStats(id ?? undefined, patch, scopedQueue, account, timePeriod),
     [id, patch, scopedQueue, account, timePeriod],
   );
   const { data: matchups } = useIpc<ChampionMatchupRow[] | null>(
@@ -196,11 +301,12 @@ export default function ChampionDetail() {
     [id, patch, scopedQueue, account, timePeriod],
   );
 
-  const stats = useMemo(
-    () => allStats?.find((item) => item.champion_id === id) ?? null,
-    [allStats, id],
-  );
-  const name = getChampionName(champData, id);
+  const stats = useMemo(() => {
+    if (id !== null) return allStats?.find((item) => item.champion_id === id) ?? null;
+    return allStats ? sumChampionStats(allStats) : null;
+  }, [allStats, id]);
+  const name = id === null ? "All champions" : getChampionName(champData, id);
+  const mostPlayedId = allStats?.[0]?.champion_id;
 
   const streak = useMemo(() => {
     const matches = history?.matches ?? [];
@@ -285,7 +391,7 @@ export default function ChampionDetail() {
       <div className="flex w-full flex-col gap-5">
         {backButton}
         <p className="py-10 text-center text-sm text-lol-text">
-          No games with this champion for the selected filters.
+          {id === null ? "No games" : "No games with this champion"} for the selected filters.
         </p>
       </div>
     );
@@ -301,13 +407,15 @@ export default function ChampionDetail() {
     <div className="flex w-full flex-col gap-5">
       {backButton}
 
-      <SplashHero championId={id}>
+      <SplashHero championId={id ?? mostPlayedId}>
         <div className="flex items-center gap-5">
-          <ChampionIcon
-            championId={id}
-            size={96}
-            className="shrink-0 rounded-2xl border border-lol-crimson/50 shadow-[0_0_28px_var(--theme-crimson-glow)]"
-          />
+          {id !== null && (
+            <ChampionIcon
+              championId={id}
+              size={96}
+              className="shrink-0 rounded-2xl border border-lol-crimson/50 shadow-[0_0_28px_var(--theme-crimson-glow)]"
+            />
+          )}
           <div className="min-w-0">
             <h1 className="font-display text-[34px] font-bold leading-none text-lol-text-bright">
               {name}
@@ -351,7 +459,12 @@ export default function ChampionDetail() {
             value={stats.avg_score != null ? stats.avg_score.toFixed(1) : "—"}
             valueClass={stats.avg_score != null ? scoreColor(stats.avg_score) : "text-lol-text"}
           />
-          <HeroTile label="MVP / ACE" value={`${stats.mvps} / ${stats.aces}`} />
+          {/* Career totals are too wide for one tile, so the summary puts ACE on the second line */}
+          <HeroTile
+            label={id === null ? "MVP" : "MVP / ACE"}
+            value={id === null ? formatNumber(stats.mvps) : `${stats.mvps} / ${stats.aces}`}
+            sub={id === null ? `${formatNumber(stats.aces)} ACE` : undefined}
+          />
           <HeroTile
             label="CS / min"
             value={stats.avg_cs_per_min != null ? stats.avg_cs_per_min.toFixed(1) : "—"}
@@ -391,6 +504,7 @@ export default function ChampionDetail() {
             ]}
           />
         )}
+        <PatchSelect value={patch} onChange={setPatch} />
         <div className="inline-flex h-9 items-center rounded-md border border-lol-border/60 bg-lol-card/40 p-[3px]">
           {(["24h", "7d", "30d", "full"] as const).map((period) => (
             <button
@@ -459,59 +573,63 @@ export default function ChampionDetail() {
         </Section>
       </div>
 
-      <div className="grid grid-cols-1 gap-5 xl:grid-cols-3">
-        <Section title="Roles">
-          {(roles ?? []).length > 0 ? (
-            (roles ?? [])
-              .slice()
-              .sort((a, b) => b.games - a.games)
-              .map((r) => (
+      {id === null && detail && <SummaryPanels detail={detail} />}
+
+      {id !== null && (
+        <div className="grid grid-cols-1 gap-5 xl:grid-cols-3">
+          <Section title="Roles">
+            {(roles ?? []).length > 0 ? (
+              (roles ?? [])
+                .slice()
+                .sort((a, b) => b.games - a.games)
+                .map((r) => (
+                  <RateRow
+                    key={r.role}
+                    icon={<span className="block w-0" />}
+                    name={ROLE_LABELS[r.role] ?? r.role}
+                    games={r.games}
+                    wins={r.wins}
+                  />
+                ))
+            ) : (
+              <Empty />
+            )}
+          </Section>
+          <Section title="Queues">
+            {(queues ?? []).length > 0 ? (
+              (queues ?? [])
+                .slice()
+                .sort((a, b) => b.games - a.games)
+                .map((q) => (
+                  <RateRow
+                    key={q.queueId}
+                    icon={<span className="block w-0" />}
+                    name={QUEUE_LABELS[q.queueId] ?? `Queue ${q.queueId}`}
+                    games={q.games}
+                    wins={q.wins}
+                  />
+                ))
+            ) : (
+              <Empty />
+            )}
+          </Section>
+          <Section title="Keystones">
+            {topKeystones.length > 0 ? (
+              topKeystones.map((k) => (
                 <RateRow
-                  key={r.role}
-                  icon={<span className="block w-0" />}
-                  name={ROLE_LABELS[r.role] ?? r.role}
-                  games={r.games}
-                  wins={r.wins}
+                  key={k.runeId}
+                  icon={<RuneIcon runeId={k.runeId} path={runeData[k.runeId]?.icon} size={26} />}
+                  name={runeData[k.runeId]?.name ?? `Rune ${k.runeId}`}
+                  games={k.picks}
+                  wins={k.wins}
                 />
               ))
-          ) : (
-            <Empty />
-          )}
-        </Section>
-        <Section title="Queues">
-          {(queues ?? []).length > 0 ? (
-            (queues ?? [])
-              .slice()
-              .sort((a, b) => b.games - a.games)
-              .map((q) => (
-                <RateRow
-                  key={q.queueId}
-                  icon={<span className="block w-0" />}
-                  name={QUEUE_LABELS[q.queueId] ?? `Queue ${q.queueId}`}
-                  games={q.games}
-                  wins={q.wins}
-                />
-              ))
-          ) : (
-            <Empty />
-          )}
-        </Section>
-        <Section title="Keystones">
-          {topKeystones.length > 0 ? (
-            topKeystones.map((k) => (
-              <RateRow
-                key={k.runeId}
-                icon={<RuneIcon runeId={k.runeId} path={runeData[k.runeId]?.icon} size={26} />}
-                name={runeData[k.runeId]?.name ?? `Rune ${k.runeId}`}
-                games={k.picks}
-                wins={k.wins}
-              />
-            ))
-          ) : (
-            <Empty />
-          )}
-        </Section>
-      </div>
+            ) : (
+              <Empty />
+            )}
+          </Section>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 gap-5 xl:grid-cols-2">
         <Section title="Most built items">
@@ -602,7 +720,7 @@ export default function ChampionDetail() {
               <MatchRow
                 key={match.game_id}
                 match={match}
-                championName={name}
+                championName={getChampionName(champData, match.champion_id)}
                 champData={champData}
                 polishRows
               />

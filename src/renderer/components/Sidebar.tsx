@@ -7,6 +7,7 @@ import {
   CoinsIcon,
   GlobeIcon,
   HomeIcon,
+  LayersIcon,
   MedalIcon,
   SettingsIcon,
   ShieldIcon,
@@ -35,6 +36,7 @@ const NAV_ICONS: Record<string, NavIcon> = {
   "/records": TrophyIcon,
   "/achievements": StarIcon,
   "/challenges": MedalIcon,
+  "/misc": LayersIcon,
   "/data": GlobeIcon,
   "/debug": SettingsIcon,
 };
@@ -53,6 +55,7 @@ const TABS = [
   { to: "/records", label: "RECORDS" },
   { to: "/achievements", label: "ACHIEVEMENTS" },
   { to: "/challenges", label: "CHALLENGES" },
+  { to: "/misc", label: "MISC. DATA" },
   { to: "/data", label: "STORAGE" },
   { to: "/debug", label: "DEBUG TESTING" },
 ];
@@ -63,7 +66,16 @@ const NAV_GROUPS = [
   { title: "Analytics", paths: ["/champions", "/items", "/augments", "/runes"] },
   {
     title: "Community & progress",
-    paths: ["/friends", "/trends", "/records", "/achievements", "/challenges", "/data", "/debug"],
+    paths: [
+      "/friends",
+      "/trends",
+      "/records",
+      "/achievements",
+      "/challenges",
+      "/misc",
+      "/data",
+      "/debug",
+    ],
   },
 ];
 

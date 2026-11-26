@@ -13,6 +13,7 @@ import type {
   ChampionTeammateRow,
   TeammateChampionStats,
   ChampionQueueStat,
+  OtherPlayersStats,
   OwnedItemStats,
   OwnedItemStatsResult,
   RecordsData,
@@ -549,7 +550,7 @@ export function getChampionWeeklyWinRate(
         JOIN games g ON ${source.alias}.game_id = g.game_id
         WHERE ${where.join(" AND ")}
         GROUP BY weekStart
-        ORDER BY weekStart ASC
+        ORDER BY weekStart DESC
         LIMIT 24
       `)
     .all(...params) as Array<{ weekStart: number; games: number; wins: number }>;
@@ -890,6 +891,44 @@ export function getChampionAllyStats(
 
   console.log("[db] getChampionAllyStats done:", { count: rows.length });
   return rows;
+}
+
+// What everyone else in the user's games picked and built. Every saved account counts as "the user",
+// matched by Riot ID too because the client and the Riot API can give one account different ids.
+export function getOtherPlayersStats(queue?: number): OtherPlayersStats {
+  return cachedQuery("getOtherPlayersStats", [queue], 60_000, () => {
+    const filter = participantFilter(undefined, queue, "mp");
+    const others = `
+      WITH others AS MATERIALIZED (
+        SELECT mp.* FROM match_participants mp
+        WHERE ${filter.sql}
+          AND NOT EXISTS (
+            SELECT 1 FROM summoner s
+            WHERE s.puuid = mp.puuid
+               OR (LOWER(s.game_name) = LOWER(mp.game_name) AND LOWER(s.tag_line) = LOWER(mp.tag_line))
+          )
+      )`;
+    const rows = (select: string) =>
+      db.prepare(`${others} ${select}`).all(...filter.params) as OtherPlayersStats["champions"];
+    const skippedItems = [...EXCLUDED_ITEM_IDS, ...TRINKET_ITEM_IDS].join(", ");
+    return {
+      champions: rows(`
+        SELECT champion_id AS id, COUNT(*) AS count, SUM(win) AS wins
+        FROM others WHERE champion_id > 0 GROUP BY champion_id`),
+      augments: rows(`
+        SELECT a.augment_id AS id, COUNT(*) AS count, SUM(a.win) AS wins
+        FROM others o
+        JOIN match_participant_augments a
+          ON a.game_id = o.game_id AND a.participant_id = o.participant_id
+        WHERE a.augment_id > 0 GROUP BY a.augment_id`),
+      items: rows(`
+        SELECT id, COUNT(*) AS count, SUM(win) AS wins FROM (
+          ${[0, 1, 2, 3, 4, 5, 6].map((i) => `SELECT item${i} AS id, win FROM others`).join(" UNION ALL ")}
+        )
+        WHERE id > 0 AND id NOT IN (${skippedItems})
+        GROUP BY id`),
+    };
+  });
 }
 
 export function getChampionTeammateStats(

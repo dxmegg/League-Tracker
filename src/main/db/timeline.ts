@@ -222,7 +222,7 @@ export function getTimeline(gameId: number): TimelineData | null {
     .prepare(`
       SELECT event_index, timestamp_ms, event_type, participant_id, killer_id, victim_id,
              team_id, item_id, skill_slot, level_up_type, ward_type, building_type,
-             monster_type, monster_subtype
+             monster_type, monster_subtype, position_x, position_y
       FROM match_timeline_events
       WHERE game_id = ?
       ORDER BY event_index
@@ -781,6 +781,26 @@ export function reparsedTimelines(limit: number): number {
   }
   console.log(`[db] reparsedTimelines: ${updated}/${rows.length} timelines rewritten`);
   return updated;
+}
+
+// Own Mayhem games still without a timeline, newest first. An "lcu:" error is the client's
+// final answer; any other error row (e.g. from the Riot API) is still worth asking the client.
+export function listMayhemGamesMissingTimeline(): Array<{
+  game_id: number;
+  game_creation: number;
+}> {
+  return db
+    .prepare(`
+      SELECT g.game_id, g.game_creation
+      FROM games g
+      LEFT JOIN match_timeline_status s ON s.game_id = g.game_id
+      WHERE g.queue_id IN (${MAYHEM_QUEUE_IDS.join(", ")})
+        AND g.source != 'search-import'
+        AND (s.game_id IS NULL
+             OR (s.frame_count = 0 AND COALESCE(s.fetch_error, '') NOT LIKE 'lcu:%'))
+      ORDER BY g.game_creation DESC
+    `)
+    .all() as Array<{ game_id: number; game_creation: number }>;
 }
 
 export function listGamesMissingTimeline(limit: number): number[] {

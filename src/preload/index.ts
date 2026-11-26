@@ -253,6 +253,8 @@ const api: ElectronAPI = {
     account?: string,
   ) => ipcRenderer.invoke("db:champion-teammate-stats", championId, patch, queue, account),
 
+  getOtherPlayersStats: (queue?: number) => ipcRenderer.invoke("db:other-players-stats", queue),
+
   getAugmentStats: (
     championId?: number,
     patch?: string,
@@ -324,7 +326,7 @@ const api: ElectronAPI = {
   },
 
   getChampionMatchHistory: (
-    championId: number,
+    championId: number | null,
     limit: number,
     offset: number,
     patch?: string,

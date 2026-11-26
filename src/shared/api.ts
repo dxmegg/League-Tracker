@@ -756,6 +756,18 @@ export interface ChampionMatchupRow {
   avgGoldDiffAt15?: number | null;
 }
 
+export interface OtherPlayersRow {
+  id: number;
+  count: number;
+  wins: number;
+}
+
+export interface OtherPlayersStats {
+  champions: OtherPlayersRow[];
+  augments: OtherPlayersRow[];
+  items: OtherPlayersRow[];
+}
+
 export interface ChampionAllyRow {
   championId: number;
   games: number;
@@ -2362,6 +2374,7 @@ export interface ElectronAPI {
     limit?: number,
     account?: string,
   ) => Promise<ChampionKillDeathPosition[]>;
+  getOtherPlayersStats: (queue?: number) => Promise<OtherPlayersStats>;
   getChampionMatchups: (championId: number | null, account?: string) => Promise<ChampionMatchups>;
   getChampionMatchupList: (
     championId: number | null,
@@ -2456,7 +2469,7 @@ export interface ElectronAPI {
     callback: (progress: { current: number; total: number }) => void,
   ) => () => void;
   getChampionMatchHistory: (
-    championId: number,
+    championId: number | null,
     limit: number,
     offset: number,
     patch?: string,
@@ -2725,6 +2738,8 @@ export interface TimelineEvent {
   building_type: string | null;
   monster_type: string | null;
   monster_subtype: string | null;
+  position_x: number | null;
+  position_y: number | null;
 }
 
 export interface TimelineData {
