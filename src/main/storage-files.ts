@@ -12,17 +12,27 @@ export const BACKUP_FILE_RE =
 // The database and what the program leaves next to it: -wal, -shm, .part, .incoming, .corrupt-*
 const DB_FAMILY_RE = /^matches\.db($|[-.])/;
 
-// Two snapshots are kept: one in the "monthly" slot and one, for every other reason, in the weekly
-// slot. Names carry the time, so they sort by age. `written` is the snapshot just taken: it keeps
-// its slot even if the clock moved back. Plain .db files go once a compressed one is written.
+// Three slots, each replaced only by its own kind: "monthly", the weekly "auto", and "manual" for
+// a backup the user takes and every one taken before a risky step (pre-delete, pre-import...).
+export function backupSlot(reason: string): "monthly" | "auto" | "manual" {
+  return reason === "monthly" || reason === "auto" ? reason : "manual";
+}
+
+// The newest snapshot of each slot is kept. Names carry the time, so they sort by age. `written`
+// is the snapshot just taken: it keeps its slot even if the clock moved back. Plain .db files go
+// once a compressed one is written.
 export function staleBackups(names: string[], written: string): string[] {
   const backups = names.filter((name) => BACKUP_FILE_RE.test(name));
-  const monthly = (name: string) => BACKUP_FILE_RE.exec(name)![2] === "monthly";
-  const other = backups
-    .filter((name) => name.endsWith(".gz") && monthly(name) !== monthly(written))
-    .sort()
-    .at(-1);
-  return backups.filter((name) => name !== written && name !== other);
+  const slot = (name: string) => backupSlot(BACKUP_FILE_RE.exec(name)![2]);
+  const kept = new Set([written]);
+  for (const other of ["monthly", "auto", "manual"].filter((s) => s !== slot(written))) {
+    const newest = backups
+      .filter((name) => name.endsWith(".gz") && slot(name) === other)
+      .sort()
+      .at(-1);
+    if (newest) kept.add(newest);
+  }
+  return backups.filter((name) => !kept.has(name));
 }
 
 const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
@@ -33,12 +43,10 @@ export function dueBackup(
   backups: { reason: string; created: number }[],
   now: number,
 ): "monthly" | "auto" | null {
-  const age = (monthly: boolean) => {
-    const slot = backups.filter((b) => (b.reason === "monthly") === monthly);
-    return now - Math.max(0, ...slot.map((b) => b.created));
-  };
-  if (age(true) > MONTH_MS) return "monthly";
-  return age(false) > WEEK_MS ? "auto" : null;
+  const age = (slot: "monthly" | "auto") =>
+    now - Math.max(0, ...backups.filter((b) => b.reason === slot).map((b) => b.created));
+  if (age("monthly") > MONTH_MS) return "monthly";
+  return age("auto") > WEEK_MS ? "auto" : null;
 }
 
 export function readLocations(file: string): Locations {

@@ -35,6 +35,7 @@ const BACKUP_REASONS: Record<string, string> = {
   "pre-import": "Before import",
   "pre-repair": "Before repair",
   "pre-restore": "Before restore",
+  "pre-migration-34": "Before upgrade",
 };
 
 const PLATFORM_LABELS: Record<string, string> = {
@@ -1582,11 +1583,12 @@ export default function Settings() {
                 <div>
                   <p className="text-[13.5px] text-lol-text-bright">Automatic backups</p>
                   <p className="text-[12.5px] text-lol-text">
-                    Keep two compressed copies of your database on this computer: one renewed every
-                    week and one every month. A backup you take yourself replaces the weekly one. If
-                    the database ever goes missing or won't open, the newest working copy is
-                    restored on startup. Imports, repairs, restores and account deletions ask about
-                    a backup first, whether this is on or off.
+                    Keep compressed copies of your database on this computer: one renewed every week
+                    and one every month. A backup you take yourself, or one taken before an import,
+                    repair, restore or account deletion, is kept as a third copy. If the database
+                    ever goes missing or won't open, the newest working copy is restored on startup.
+                    Imports, repairs, restores and account deletions ask about a backup first,
+                    whether this is on or off.
                   </p>
                 </div>
                 <Switch checked={autoBackup} onChange={handleAutoBackupToggle} />

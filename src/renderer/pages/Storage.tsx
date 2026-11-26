@@ -119,7 +119,7 @@ export default function Storage() {
     {
       name: "snapshot",
       label: "Take snapshot now",
-      hint: "A copy of the whole database. Replaces the weekly one.",
+      hint: "A copy of the whole database. Replaces the previous manual one.",
       run: async () => {
         const r = await window.api.createBackup();
         return r.success ? `Snapshot saved: ${r.backup?.file}` : (r.error ?? "Snapshot failed");
