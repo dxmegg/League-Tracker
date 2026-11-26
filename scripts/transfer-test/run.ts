@@ -1,0 +1,234 @@
+// Run by scripts/check-transfer.mjs inside Electron's Node, each database in its own folder of
+// RR_TEST_DIR. Seeds a small database, then checks that export → import into an empty database,
+// snapshot → restore, and account deletion keep exactly what they should.
+import assert from "node:assert/strict";
+import crypto from "node:crypto";
+import fs from "node:fs";
+import path from "node:path";
+import zlib from "node:zlib";
+import {
+  initDatabase,
+  closeDatabase,
+  db,
+  insertGameFull,
+  writeExportTo,
+  importData,
+  deleteSavedSummoner,
+} from "../../src/main/db";
+import { restoreSummonerFull } from "../../src/main/db/summoner";
+import { createBackup, restoreBackup } from "../../src/main/backup";
+
+const base = process.env.RR_TEST_DIR as string;
+const ALICE = "aaaaaaaa-1111-4111-8111-aaaaaaaaaaaa";
+const BOB = "bbbbbbbb-2222-4222-8222-bbbbbbbbbbbb";
+
+async function openDb(name: string): Promise<void> {
+  closeDatabase();
+  // paths.ts reads the root on every call, so this moves the database to a fresh folder
+  process.env.RR_TEST_DIR = path.join(base, name);
+  fs.mkdirSync(process.env.RR_TEST_DIR, { recursive: true });
+  await initDatabase();
+}
+
+function game(gameId: number, owner: string, other: string) {
+  return {
+    gameId,
+    queueId: 450,
+    gameMode: "ARAM",
+    gameCreation: 1_760_000_000_000 + gameId,
+    gameDuration: 1500,
+    gameVersion: "15.20.1.123",
+    participants: Array.from({ length: 10 }, (_, i) => ({
+      participantId: i + 1,
+      puuid: i === 0 ? owner : i === 5 ? other : `p${gameId}-${i}`,
+      riotIdGameName: `Player${i}`,
+      riotIdTagline: "EUNE",
+      teamId: i < 5 ? 100 : 200,
+      championId: 10 + i,
+      win: i < 5,
+      kills: i,
+      deaths: 3,
+      assists: 7,
+      goldEarned: 9000 + i,
+      totalDamageDealtToChampions: 20000 + i * 100,
+      enemyMissingPings: i,
+      spell1Casts: 40 + i,
+      challenges: { kda: 2.5 + i, snowballsHit: i },
+    })),
+  };
+}
+
+function seed(): void {
+  for (const [puuid, name] of [
+    [ALICE, "Alice"],
+    [BOB, "Bob"],
+  ]) {
+    restoreSummonerFull({
+      puuid,
+      game_name: name,
+      tag_line: "EUNE",
+      summoner_id: null,
+      account_id: null,
+      profile_icon: 1,
+      updated_at: 1,
+      platform: "eun1",
+      summoner_level: 100,
+      ranked_solo_json: null,
+      ranked_flex_json: null,
+      mastery_json: null,
+      last_seen: 1,
+    });
+  }
+  // 1001 and 1002 belong to Alice alone; 1003 is Bob's, with Alice in it
+  assert.ok(insertGameFull(game(1001, ALICE, "x1"), ALICE, "lcu"));
+  assert.ok(insertGameFull(game(1002, ALICE, "x2"), ALICE, "riot-sync"));
+  assert.ok(insertGameFull(game(1003, BOB, ALICE), BOB, "lcu"));
+  db.prepare("UPDATE games SET favorite = 1 WHERE game_id = 1002").run();
+  db.prepare("INSERT INTO settings (key, value) VALUES ('test_key', 'x')").run();
+  db.prepare("INSERT INTO ignored_games (game_id) VALUES (999)").run();
+  db.prepare(
+    "INSERT INTO riot_sync_state (puuid, platform, last_sync_at, last_match_id, complete) VALUES (?, 'eun1', 5, 'EUN1_1002', 1)",
+  ).run(ALICE);
+  for (const gameId of [1001, 1003]) {
+    db.prepare(
+      "INSERT INTO match_timeline_status (game_id, fetched_at, frame_count, event_count, fetch_error, raw_gz) VALUES (?, 1, 2, 1, NULL, ?)",
+    ).run(gameId, zlib.gzipSync("{}"));
+    for (const frame of [0, 1]) {
+      db.prepare(
+        "INSERT INTO match_timeline_frames (game_id, frame_index, timestamp_ms, participant_id, gold) VALUES (?, ?, ?, 1, ?)",
+      ).run(gameId, frame, frame * 60000, 500 + frame);
+    }
+    db.prepare(
+      "INSERT INTO match_timeline_events (game_id, event_index, timestamp_ms, event_type, killer_id, victim_id) VALUES (?, 0, 90000, 'CHAMPION_KILL', 1, 6)",
+    ).run(gameId);
+    db.prepare(
+      "INSERT INTO live_stat_peaks (game_id, puuid, champion_id, stat, peak, final, recorded_at) VALUES (?, ?, 10, 'ad', 300, 280, 1)",
+    ).run(gameId, ALICE);
+    db.prepare(
+      "INSERT INTO live_game_data (game_id, puuid, duration_s, payload, recorded_at) VALUES (?, ?, 1500, ?, 1)",
+    ).run(gameId, ALICE, zlib.gzipSync('{"live":1}'));
+    db.prepare(
+      "INSERT INTO post_game_data (game_id, puuid, kind, payload, recorded_at) VALUES (?, ?, 'eog', ?, 1)",
+    ).run(gameId, ALICE, zlib.gzipSync('{"eog":1}'));
+  }
+}
+
+const tables = () =>
+  (
+    db
+      .prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%'")
+      .all() as { name: string }[]
+  ).map((t) => t.name);
+
+// Order-independent: rows are compared as a sorted set
+const hash = (rows: unknown[]) =>
+  crypto
+    .createHash("sha256")
+    .update(JSON.stringify(rows.map((row) => JSON.stringify(row)).sort()))
+    .digest("hex")
+    .slice(0, 16);
+
+// Row counts of every table, plus the contents of what an import can only get from the file
+// (an import rebuilds the rest from the game payloads, so those are compared by count)
+function fingerprint(): Record<string, unknown> {
+  const result: Record<string, unknown> = {};
+  for (const name of tables()) {
+    result[name] = (db.prepare(`SELECT COUNT(*) AS n FROM ${name}`).get() as { n: number }).n;
+  }
+  result.challengeRows = hash(
+    db
+      .prepare(
+        "SELECT * FROM match_participant_challenges ORDER BY game_id, participant_id, challenge_key",
+      )
+      .all(),
+  );
+  result.telemetry = hash(
+    db
+      .prepare(
+        `SELECT game_id, participant_id, enemy_missing_pings, spell1_casts,
+           total_heal_on_teammates, total_damage_shielded_on_teammates
+         FROM match_participants ORDER BY game_id, participant_id`,
+      )
+      .all(),
+  );
+  for (const table of [
+    "summoner",
+    "ignored_games",
+    "riot_sync_state",
+    "match_timeline_status",
+    "match_timeline_frames",
+    "match_timeline_events",
+    "live_stat_peaks",
+    "live_game_data",
+    "post_game_data",
+  ]) {
+    result[`${table}Rows`] = hash(db.prepare(`SELECT * FROM ${table}`).all());
+  }
+  result.favorites = hash(
+    db.prepare("SELECT game_id, favorite, source FROM games ORDER BY 1").all(),
+  );
+  return result;
+}
+
+// Rewrites an export as the previous format: v6 header, none of the newer record types
+function asV6(file: string, out: string, drop: string[]): void {
+  const lines = zlib.gunzipSync(fs.readFileSync(file)).toString("utf8").split("\n");
+  const kept = lines
+    .filter((line) => line && !drop.includes(JSON.parse(line).type))
+    .map((line) =>
+      JSON.parse(line).type === "header" ? line.replace(/"version":\d+/, '"version":6') : line,
+    );
+  fs.writeFileSync(out, zlib.gzipSync(kept.join("\n") + "\n"));
+}
+
+// ---- export → import ----
+await openDb("source");
+seed();
+const original = fingerprint();
+assert.equal(original.games, 3);
+const exportFile = path.join(base, "export.json.gz");
+assert.deepEqual(await writeExportTo(exportFile), { games: 3 });
+
+await openDb("imported");
+const imported = await importData(exportFile);
+assert.equal(imported.imported, 3);
+assert.deepEqual(fingerprint(), original);
+
+// ---- the previous export format still imports ----
+const v6File = path.join(base, "export-v6.json.gz");
+asV6(exportFile, v6File, []);
+await openDb("from-v6");
+await importData(v6File);
+assert.equal((db.prepare("SELECT COUNT(*) AS n FROM games").get() as { n: number }).n, 3);
+
+// ---- snapshot → delete an account → restore ----
+await openDb("imported");
+const snapshot = await createBackup("manual");
+assert.equal(snapshot.games, 3);
+
+const deleted = deleteSavedSummoner(ALICE);
+assert.deepEqual(deleted, { deletedGames: 2, deletedTrackedRows: 2 });
+assert.equal(db.prepare("SELECT 1 FROM summoner WHERE puuid = ?").get(ALICE), undefined);
+for (const name of tables()) {
+  const columns = (db.pragma(`table_info(${name})`) as { name: string }[]).map((c) => c.name);
+  if (!columns.includes("game_id") || name === "ignored_games") continue;
+  const left = db
+    .prepare(`SELECT COUNT(*) AS n FROM ${name} WHERE game_id IN (1001, 1002)`)
+    .get() as { n: number };
+  assert.equal(left.n, 0, `${name} still holds rows of a deleted game`);
+}
+assert.equal((db.prepare("SELECT COUNT(*) AS n FROM games").get() as { n: number }).n, 1);
+assert.ok(
+  (
+    db.prepare("SELECT COUNT(*) AS n FROM match_participants WHERE game_id = 1003").get() as {
+      n: number;
+    }
+  ).n === 10,
+  "Bob's game keeps its players",
+);
+
+assert.deepEqual(await restoreBackup(snapshot.file), { games: 3 });
+assert.deepEqual(fingerprint(), original);
+
+closeDatabase();
+console.log("transfer checks passed");

@@ -19,6 +19,7 @@
     "src/main/**/*.json",
     "src/preload/**/*.ts",
     "src/shared/**/*.ts",
+    "scripts/transfer-test/*.ts",
     "electron.vite.config.ts"
   ]
 }
