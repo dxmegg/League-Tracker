@@ -1,4 +1,5 @@
 import { app, shell } from "electron";
+import fs from "fs";
 import path from "path";
 
 // Must match the id passed to app.setAppUserModelId: the taskbar only
@@ -14,14 +15,22 @@ export function ensureStartMenuShortcut() {
   const exe = process.env.PORTABLE_EXECUTABLE_FILE;
   if (process.platform !== "win32" || !exe) return;
 
-  const link = path.join(
+  const programs = path.join(
     app.getPath("appData"),
     "Microsoft",
     "Windows",
     "Start Menu",
     "Programs",
-    `${app.getName()}.lnk`,
   );
+  const link = path.join(programs, `${app.getName()}.lnk`);
+
+  // Earlier versions named the shortcut after the old project name
+  const oldLink = path.join(programs, "league-tracker.lnk");
+  try {
+    if (shell.readShortcutLink(oldLink).appUserModelId === APP_USER_MODEL_ID) fs.rmSync(oldLink);
+  } catch {
+    // Not there, which is the normal case
+  }
 
   try {
     const existing = shell.readShortcutLink(link);

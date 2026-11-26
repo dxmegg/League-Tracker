@@ -69,19 +69,19 @@ Full history: [CHANGELOG.md](CHANGELOG.md)
 
 ## Install
 
-Windows 10/11 (64-bit). The app is portable: download `RiftRecords.exe` from [Releases](https://github.com/dxmegg/Rift-Records/releases) and run it.
+Windows 10/11 (64-bit). The app is portable: download `Rift.Records.exe` (GitHub shows the space as a dot) from [Releases](https://github.com/dxmegg/Rift-Records/releases) and run it.
 
 ### If the app does not start
 
 The executable is not signed by a trusted certificate authority, so Windows may treat a fresh download with suspicion:
 
 - If a blue "Windows protected your PC" screen appears, click **More info → Run anyway**.
-- If nothing happens at all, right-click `RiftRecords.exe` → **Properties** → tick **Unblock** → OK, then run it again. Also check Windows Security → Protection history, in case antivirus quarantined it.
+- If nothing happens at all, right-click the exe → **Properties** → tick **Unblock** → OK, then run it again. Also check Windows Security → Protection history, in case antivirus quarantined it.
 - If the app opens an error window, or `%APPDATA%\league-tracker\startup.log` exists, include that text in your report.
 
 ## Data and network
 
-Match history is stored in `%APPDATA%\league-tracker`. There is no Rift Records account. The app talks to the League client, the Riot Games API (through a small proxy that holds the API key), Data Dragon and CommunityDragon (game art), OP.GG (player lookups) and GitHub (update checks).
+Match history is stored in `%APPDATA%\league-tracker`. There is no Rift Records account. The app talks to the League client, the Riot Games API (through a small proxy that holds the API key), Data Dragon and CommunityDragon (game art) and GitHub (update checks).
 
 ## Development
 
@@ -89,7 +89,7 @@ Match history is stored in `%APPDATA%\league-tracker`. There is no Rift Records 
 npm install
 npm run rebuild   # Rebuild native modules for Electron
 npm run dev       # Start the application in development mode
-npm run dist      # Build the Windows portable executable (dist/RiftRecords.exe)
+npm run dist      # Build the Windows portable executable (dist/Rift Records.exe)
 ```
 
 ## Legal

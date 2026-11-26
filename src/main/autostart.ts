@@ -39,9 +39,9 @@ export function applyAutoStart(enabled: boolean): void {
       openAtLogin: enabled,
       path: exe,
       args: [HIDDEN_FLAG],
-      // Pinned rather than left to default to the AppUserModelId, so the value
-      // name can't shift with the order startup happens to call things in.
-      name: app.getName(),
+      // The registry value name from the first versions. Changing it would leave the old entry
+      // behind, still starting the program after the switch is turned off.
+      name: "league-tracker",
     });
     setSetting("auto_start_path", enabled ? exe : "");
   } catch (err) {

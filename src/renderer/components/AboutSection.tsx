@@ -17,7 +17,6 @@ const SOURCES = [
     use: "History, timelines and ranks, via a proxy that holds the API key",
   },
   { name: "Data Dragon & CommunityDragon", use: "Champion, item, rune and augment art" },
-  { name: "OP.GG", use: "Player lookups" },
   { name: "GitHub", use: "Update checks" },
 ];
 const PAYLOAD_INFO = [

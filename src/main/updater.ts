@@ -132,6 +132,23 @@ export async function checkForUpdate(): Promise<UpdateInfo> {
   }
 }
 
+// A cmd started detached has no console, so every ping in the script opened a window of its
+// own. Start-Process gives it one hidden console that outlives the app.
+async function runHidden(script: string) {
+  const launcher = spawn(
+    "powershell.exe",
+    [
+      "-NoProfile",
+      "-NonInteractive",
+      "-Command",
+      "Start-Process -WindowStyle Hidden -FilePath cmd.exe -ArgumentList ('/c \"' + $env:RR_UPDATE_SCRIPT + '\"')",
+    ],
+    { windowsHide: true, stdio: "ignore", env: { ...process.env, RR_UPDATE_SCRIPT: script } },
+  );
+  const [code] = await once(launcher, "exit");
+  if (code !== 0) throw new Error(`PowerShell exited with code ${code}`);
+}
+
 // A second download would race the first for the same target exe
 let installing = false;
 
@@ -175,7 +192,7 @@ async function runUpdate(
 
   let tmpDir: string;
   try {
-    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "mayhem-update-"));
+    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "rift-records-update-"));
   } catch (err: any) {
     return { success: false, error: `Failed to create temp dir: ${err.message}` };
   }
@@ -272,10 +289,9 @@ async function runUpdate(
     return { success: false, error: `Download failed: ${err.message}` };
   }
 
-  // Install under the artifact name (productName minus spaces) regardless of the
-  // current filename, so exes downloaded before the version was dropped from the
-  // artifact name get migrated.
-  const targetExe = path.join(path.dirname(portableExe), `${app.getName().replace(/ /g, "")}.exe`);
+  // Install under the program's name whatever the file is called now, so copies downloaded
+  // under an older name get migrated.
+  const targetExe = path.join(path.dirname(portableExe), `${app.getName()}.exe`);
   const stagedExe = `${targetExe}.new`;
 
   // The running portable exe is locked by the OS until the app fully exits, so a
@@ -311,7 +327,12 @@ async function runUpdate(
     ].join("\r\n"),
   );
 
-  spawn("cmd.exe", ["/c", script], { detached: true, stdio: "ignore", windowsHide: true }).unref();
+  try {
+    await runHidden(script);
+  } catch (err: any) {
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+    return { success: false, error: `Could not start the installer: ${err.message}` };
+  }
   // Let the IPC response reach the renderer before quitting
   setTimeout(() => app.quit(), 200);
   return { success: true };
