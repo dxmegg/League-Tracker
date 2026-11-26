@@ -11,14 +11,12 @@ import type {
   ChampionAllyRow,
   ChampionSkillOrder,
   ChampionSkillOrdersResult,
-  ChampionTeammateRow,
   TeammateChampionStats,
   ChampionQueueStat,
   OtherPlayersStats,
   OwnedItemStats,
   OwnedItemStatsResult,
   RecordsData,
-  RoleBreakdown,
   StatRecord,
   TrendsData,
 } from "../../shared/api";
@@ -44,46 +42,6 @@ export interface ChampionRoleStat {
   role: string;
   games: number;
   wins: number;
-}
-
-export interface ChampionTrendsDay {
-  day: string;
-  games: number;
-  wins: number;
-  kills: number;
-  deaths: number;
-  assists: number;
-  score_sum: number | null;
-  scored_games: number;
-  cs_sum: number | null;
-  gold_sum: number | null;
-}
-
-export interface ChampionTrendsPatch {
-  patch: string;
-  games: number;
-  wins: number;
-  avg_score: number | null;
-  first_played: number;
-}
-
-export interface ChampionTrendsHour {
-  hour: number;
-  games: number;
-  wins: number;
-}
-
-export interface ChampionTrendsWeekday {
-  weekday: number;
-  games: number;
-  wins: number;
-}
-
-export interface ChampionTrendsData {
-  daily: ChampionTrendsDay[];
-  patches: ChampionTrendsPatch[];
-  hours: ChampionTrendsHour[];
-  weekdays: ChampionTrendsWeekday[];
 }
 
 export interface ActivityHeatmapDay {
@@ -618,54 +576,6 @@ export function getChampionWeeklyMetrics(
   }
 }
 
-export function getChampionMatchups(
-  championId: number | null,
-  account?: string,
-): {
-  best: Array<{ championId: number; games: number; wins: number }>;
-  worst: Array<{ championId: number; games: number; wins: number }>;
-} {
-  // Finds the player's games with this champion, then finds the enemy team's
-  // most-frequent opposing champion per game. Only counts games where the
-  // OWNED player was on the winning or losing team, and only teammates' opposing
-  // champions are counted (the enemy team, opposite team_id from the owner).
-  const accountFilter =
-    account === "all" || account === undefined
-      ? "owner.puuid IN (SELECT puuid FROM visible_summoner)"
-      : "owner.puuid = ?";
-  const params: any[] = account && account !== "all" ? [account] : [];
-  if (championId !== null) params.unshift(championId);
-  const rows = db
-    .prepare(`
-        SELECT enemy.champion_id as championId,
-               COUNT(DISTINCT owner.game_id) as games,
-               SUM(CASE WHEN owner.win = 1 THEN 1 ELSE 0 END) as wins
-        FROM match_participants owner
-        JOIN match_participants enemy
-          ON enemy.game_id = owner.game_id
-         AND enemy.team_id != owner.team_id
-        JOIN games g ON g.game_id = owner.game_id
-        WHERE g.is_remake = 0
-          ${championId !== null ? "AND owner.champion_id = ?" : ""}
-          AND enemy.champion_id > 0
-          AND g.queue_id NOT IN (${EXCLUDED_STATS_SQL})
-          AND ${accountFilter}
-        GROUP BY enemy.champion_id
-        HAVING games >= 3
-        ORDER BY games DESC
-      `)
-    .all(...params) as Array<{ championId: number; games: number; wins: number }>;
-
-  // Sort by win rate, then games. Min 3 games already enforced by HAVING.
-  const withWr = rows.map((r) => ({ ...r, wr: r.games > 0 ? r.wins / r.games : 0 }));
-  const best = [...withWr].sort((a, b) => b.wr - a.wr || b.games - a.games).slice(0, 5);
-  const worst = [...withWr].sort((a, b) => a.wr - b.wr || b.games - a.games).slice(0, 5);
-  return {
-    best: best.map(({ championId, games, wins }) => ({ championId, games, wins })),
-    worst: worst.map(({ championId, games, wins }) => ({ championId, games, wins })),
-  };
-}
-
 export interface ChampionMatchupRow {
   championId: number;
   games: number;
@@ -935,158 +845,6 @@ export function getOtherPlayersStats(queue?: number): OtherPlayersStats {
         GROUP BY id`),
     };
   });
-}
-
-export function getChampionTeammateStats(
-  championId: number | null,
-  patch?: string,
-  queue?: number,
-  account?: string,
-): ChampionTeammateRow[] {
-  console.log("[db] getChampionTeammateStats called:", { championId, patch, queue, account });
-
-  const participant = participantFilter(patch, undefined, "me");
-  const ownerFilter =
-    account === "all"
-      ? "me.puuid IN (SELECT puuid FROM visible_summoner)"
-      : account
-        ? "me.puuid = ?"
-        : "me.puuid = g.puuid";
-  const where = [
-    ownerFilter,
-    participant.sql,
-    "ally.puuid IS NOT NULL",
-    "ally.puuid != ''",
-    "(ally.puuid NOT IN (SELECT puuid FROM summoner))",
-  ];
-  if (championId !== null) where.splice(2, 0, "me.champion_id = ?");
-  const params: any[] = [];
-  if (account && account !== "all") params.push(account);
-  params.push(...participant.params);
-  if (championId !== null) params.push(championId);
-  applyQueueFilter(where, params, queue, "g");
-
-  interface TeammateAggregate {
-    name: string;
-    profileIcon: number | null;
-    games: number;
-    wins: number;
-    kills: number;
-    deaths: number;
-    assists: number;
-    lastPlayed: number;
-    gameIds: Set<number>;
-    championGames: Map<number, Set<number>>;
-  }
-
-  const sourceRows = db
-    .prepare(`
-      WITH teammate_rows AS (
-        SELECT me.game_id,
-               g.game_creation,
-               ally.puuid AS puuid,
-               ally.game_name AS game_name,
-               ally.tag_line AS tag_line,
-               ally.profile_icon AS profile_icon,
-               ally.champion_id AS champion_id,
-               MAX(me.win) AS wins,
-               MAX(ally.kills) AS kills,
-               MAX(ally.deaths) AS deaths,
-               MAX(ally.assists) AS assists
-        FROM match_participants me
-        JOIN games g ON g.game_id = me.game_id
-        JOIN match_participants ally
-          ON ally.game_id = me.game_id
-         AND ally.team_id = me.team_id
-         AND ally.participant_id != me.participant_id
-        WHERE ${where.join(" AND ")}
-          AND ally.champion_id > 0
-        GROUP BY me.game_id, ally.puuid, ally.champion_id
-      )
-      SELECT game_id, game_creation, puuid, game_name, tag_line, profile_icon,
-             champion_id, wins, kills, deaths, assists
-      FROM teammate_rows
-      ORDER BY game_creation DESC
-    `)
-    .all(...params) as Array<{
-    game_id: number;
-    game_creation: number;
-    puuid: string;
-    game_name: string | null;
-    tag_line: string | null;
-    profile_icon: number | null;
-    champion_id: number;
-    wins: number;
-    kills: number;
-    deaths: number;
-    assists: number;
-  }>;
-
-  const aggregates = new Map<string, TeammateAggregate>();
-  for (const row of sourceRows) {
-    let aggregate = aggregates.get(row.puuid);
-    if (!aggregate) {
-      aggregate = {
-        name: displayName(row.game_name, row.tag_line) ?? "Unknown teammate",
-        profileIcon: row.profile_icon,
-        games: 0,
-        wins: 0,
-        kills: 0,
-        deaths: 0,
-        assists: 0,
-        lastPlayed: row.game_creation,
-        gameIds: new Set(),
-        championGames: new Map(),
-      };
-      aggregates.set(row.puuid, aggregate);
-    }
-
-    if (row.game_creation >= aggregate.lastPlayed) {
-      aggregate.name = displayName(row.game_name, row.tag_line) ?? "Unknown teammate";
-      if (row.profile_icon != null) aggregate.profileIcon = row.profile_icon;
-      aggregate.lastPlayed = row.game_creation;
-    }
-
-    if (!aggregate.gameIds.has(row.game_id)) {
-      aggregate.gameIds.add(row.game_id);
-      aggregate.games++;
-      if (row.wins) aggregate.wins++;
-    }
-
-    aggregate.kills += row.kills;
-    aggregate.deaths += row.deaths;
-    aggregate.assists += row.assists;
-
-    let gamesForChampion = aggregate.championGames.get(row.champion_id);
-    if (!gamesForChampion) {
-      gamesForChampion = new Set();
-      aggregate.championGames.set(row.champion_id, gamesForChampion);
-    }
-    gamesForChampion.add(row.game_id);
-  }
-
-  const rows = Array.from(aggregates.entries())
-    .map(([puuid, aggregate]) => {
-      const topChampionId =
-        Array.from(aggregate.championGames.entries()).sort(
-          (a, b) => b[1].size - a[1].size || a[0] - b[0],
-        )[0]?.[0] ?? null;
-      return {
-        puuid,
-        name: aggregate.name,
-        profileIcon: aggregate.profileIcon,
-        games: aggregate.games,
-        wins: aggregate.wins,
-        kills: aggregate.kills,
-        deaths: aggregate.deaths,
-        assists: aggregate.assists,
-        topChampionId,
-      };
-    })
-    .sort((a, b) => b.games - a.games || a.name.localeCompare(b.name));
-
-  console.log("[db] getChampionTeammateStats done:", { count: rows.length });
-  return rows;
 }
 
 export function getAugmentStatsAll(
@@ -1480,58 +1238,6 @@ export function getDashboardData(
     },
     topAugments,
   };
-}
-
-export function getRoleBreakdown(
-  account: string | "all" | undefined,
-  queue: number | number[] | undefined,
-  timePeriod: "24h" | "7d" | "30d" | "full",
-): RoleBreakdown[] {
-  console.log("[db] getRoleBreakdown called:", { account, queue, timePeriod });
-  const source = statsSource(account);
-  const where: string[] = ["g.is_remake = 0", source.accountFilter];
-  const params: any[] = account && account !== "all" ? [account] : [];
-  applyQueueFilter(where, params, queue);
-  const timeFilter = applyTimeFilter(timePeriod);
-  const rows = db
-    .prepare(`
-      SELECT
-        CASE
-          WHEN mp.team_position IN ('TOP', 'JUNGLE', 'MIDDLE', 'BOTTOM', 'UTILITY')
-            THEN mp.team_position
-          ELSE 'NO_POSITION'
-        END AS role,
-        COUNT(*) AS games,
-        SUM(CASE WHEN ps.win = 1 THEN 1 ELSE 0 END) AS wins
-      FROM ${source.table} ps
-      JOIN games g ON g.game_id = ps.game_id
-      JOIN match_participants mp
-        ON mp.game_id = ps.game_id
-       AND mp.puuid = ps.puuid
-      WHERE ${where.join(" AND ")} ${timeFilter.sql}
-      GROUP BY role
-      ORDER BY CASE role
-        WHEN 'TOP' THEN 1
-        WHEN 'JUNGLE' THEN 2
-        WHEN 'MIDDLE' THEN 3
-        WHEN 'BOTTOM' THEN 4
-        WHEN 'UTILITY' THEN 5
-        ELSE 6
-      END
-    `)
-    .all(...params, ...timeFilter.params) as Array<{
-    role: RoleBreakdown["role"];
-    games: number;
-    wins: number;
-  }>;
-  const result = rows
-    .map((row) => ({
-      ...row,
-      winRate: row.games > 0 ? (row.wins / row.games) * 100 : 0,
-    }))
-    .filter((row) => row.games > 0);
-  console.log("[db] getRoleBreakdown done:", { count: result.length });
-  return result;
 }
 
 export function getAugmentStatsWithChampions(
@@ -2270,90 +1976,6 @@ ${GAME_MAX_STATS_SQL}
       .sort((a, b) => b.games - a.games);
 
     return { player, matches };
-  });
-}
-
-export function getGlobalStats(
-  patch?: string,
-  queue?: number,
-): {
-  champions: { champion_id: number; games: number; wins: number }[];
-  augments: { augment_id: number; picks: number; wins: number }[];
-  items: { item_id: number; picks: number; wins: number }[];
-  totalParticipantSlots: number;
-  totalGames: number;
-} {
-  return cachedQuery("getGlobalStats", [patch, queue], 5 * 60_000, () => {
-    const mp = participantFilter(patch, queue);
-    const mpa = participantFilter(patch, queue, "mpa");
-
-    const champions = db
-      .prepare(`
-      SELECT mp.champion_id, COUNT(*) as games, SUM(mp.win) as wins
-      FROM match_participants mp
-      WHERE ${mp.sql} AND mp.champion_id > 0
-      GROUP BY mp.champion_id
-      ORDER BY games DESC
-    `)
-      .all(...mp.params) as { champion_id: number; games: number; wins: number }[];
-
-    const augments = db
-      .prepare(`
-      SELECT mpa.augment_id, COUNT(*) as picks, SUM(mpa.win) as wins
-      FROM match_participant_augments mpa
-      WHERE ${mpa.sql}
-      GROUP BY mpa.augment_id
-      ORDER BY picks DESC
-    `)
-      .all(...mpa.params) as { augment_id: number; picks: number; wins: number }[];
-
-    const itemCols = [0, 1, 2, 3, 4, 5, 6];
-    const excludedList = EXCLUDED_ITEM_IDS.join(", ");
-    const items = db
-      .prepare(`
-      SELECT item_id, COUNT(*) as picks, SUM(win) as wins
-      FROM (
-        ${itemCols
-          .map(
-            (i) => `SELECT mp.item${i} as item_id, mp.win as win
-                FROM match_participants mp
-                WHERE ${mp.sql}
-                  AND mp.item${i} > 0 AND mp.item${i} NOT IN (${excludedList})`,
-          )
-          .join("\n        UNION ALL\n        ")}
-      )
-      GROUP BY item_id
-      ORDER BY picks DESC
-    `)
-      .all(...itemCols.flatMap(() => mp.params)) as {
-      item_id: number;
-      picks: number;
-      wins: number;
-    }[];
-
-    const slots = db
-      .prepare(`
-      SELECT COUNT(*) as count
-      FROM match_participants mp
-      WHERE ${mp.sql} AND mp.champion_id > 0
-    `)
-      .get(...mp.params) as { count: number };
-
-    const games = db
-      .prepare(`
-      SELECT COUNT(DISTINCT mp.game_id) as count
-      FROM match_participants mp
-      WHERE ${mp.sql} AND mp.champion_id > 0
-    `)
-      .get(...mp.params) as { count: number };
-
-    return {
-      champions,
-      augments,
-      items,
-      totalParticipantSlots: slots.count,
-      totalGames: games.count,
-    };
   });
 }
 
@@ -4908,98 +4530,6 @@ export function getChampionRecords(
 
   console.log("[db] getChampionRecords done:", { count: records.length });
   return { records };
-}
-
-export function getChampionTrendsData(
-  championId: number | null,
-  patch?: string,
-  queue?: number,
-  account?: string,
-): ChampionTrendsData {
-  console.log("[db] getChampionTrendsData called:", { championId, patch, queue, account });
-
-  const source = statsSource(account);
-  const participant = participantFilter(patch, undefined, "mp");
-  const ownerPuuidSql = account ? "ps.puuid" : "g.puuid";
-  const where = [source.accountFilter, participant.sql, `mp.puuid = ${ownerPuuidSql}`];
-  if (championId !== null) where.splice(2, 0, "mp.champion_id = ?");
-  const params: any[] = [];
-  if (account && account !== "all") params.push(account);
-  params.push(...participant.params);
-  if (championId !== null) params.push(championId);
-  applyQueueFilter(where, params, queue, "g");
-  const whereSql = `WHERE ${where.join(" AND ")}`;
-  const fromSql = `
-    FROM games g
-    JOIN match_participants mp ON mp.game_id = g.game_id
-    JOIN ${source.table} ps ON ps.game_id = g.game_id
-  `;
-
-  const daily = db
-    .prepare(`
-      SELECT date(g.game_creation / 1000, 'unixepoch', 'localtime') as day,
-             COUNT(*) as games,
-             SUM(mp.win) as wins,
-             SUM(mp.kills) as kills,
-             SUM(mp.deaths) as deaths,
-             SUM(mp.assists) as assists,
-             SUM(ps.score) as score_sum,
-             COUNT(ps.score) as scored_games,
-             SUM(mp.cs) as cs_sum,
-             SUM(mp.gold_earned) as gold_sum
-      ${fromSql}
-      ${whereSql}
-      GROUP BY day
-      ORDER BY day
-    `)
-    .all(...params) as ChampionTrendsDay[];
-
-  const patches = db
-    .prepare(`
-      SELECT g.game_version as patch,
-             COUNT(*) as games,
-             SUM(mp.win) as wins,
-             AVG(ps.score) as avg_score,
-             MIN(g.game_creation) as first_played
-      ${fromSql}
-      ${whereSql} AND g.game_version IS NOT NULL AND g.game_version != ''
-      GROUP BY g.game_version
-      ORDER BY first_played
-    `)
-    .all(...params) as ChampionTrendsPatch[];
-
-  const hours = db
-    .prepare(`
-      SELECT CAST(strftime('%H', g.game_creation / 1000, 'unixepoch', 'localtime') AS INTEGER) as hour,
-             COUNT(*) as games,
-             SUM(mp.win) as wins
-      ${fromSql}
-      ${whereSql}
-      GROUP BY hour
-      ORDER BY hour
-    `)
-    .all(...params) as ChampionTrendsHour[];
-
-  const weekdays = db
-    .prepare(`
-      SELECT CAST(strftime('%w', g.game_creation / 1000, 'unixepoch', 'localtime') AS INTEGER) as weekday,
-             COUNT(*) as games,
-             SUM(mp.win) as wins
-      ${fromSql}
-      ${whereSql}
-      GROUP BY weekday
-      ORDER BY weekday
-    `)
-    .all(...params) as ChampionTrendsWeekday[];
-
-  const result = { daily, patches, hours, weekdays };
-  console.log("[db] getChampionTrendsData done:", {
-    daily: daily.length,
-    patches: patches.length,
-    hours: hours.length,
-    weekdays: weekdays.length,
-  });
-  return result;
 }
 
 // The trophy case: best single-game marks and longest streaks, from one

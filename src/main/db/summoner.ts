@@ -437,16 +437,6 @@ export function listAccountsWithData(): Array<{
   }));
 }
 
-export function updateSummonerProfileIcon(puuid: string, profileIcon: number): void {
-  db.prepare(`
-    INSERT INTO summoner (puuid, profile_icon, updated_at)
-    VALUES (?, ?, ?)
-    ON CONFLICT(puuid) DO UPDATE SET
-      profile_icon = excluded.profile_icon,
-      updated_at = excluded.updated_at
-  `).run(puuid, profileIcon, Date.now());
-}
-
 export function getSummoner(): any {
   return db.prepare("SELECT * FROM summoner ORDER BY updated_at DESC LIMIT 1").get();
 }

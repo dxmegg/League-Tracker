@@ -110,7 +110,6 @@ let activeTimelineBackfill: {
   signal: { cancelled: boolean };
   progress: BackfillProgress;
 } | null = null;
-let activeCombatBackfill: Promise<{ updated: number; scanned: number }> | null = null;
 
 function dedupe<T>(key: string, factory: () => Promise<T>): Promise<T> {
   const existing = inFlightRequests.get(key) as Promise<T> | undefined;
@@ -148,16 +147,6 @@ export function registerIpcHandlers() {
     },
   );
 
-  ipcMain.handle("db:queue-stats", (_event, puuid: string) => {
-    if (typeof puuid !== "string" || puuid.trim().length === 0) {
-      throw new TypeError("puuid must be a non-empty string");
-    }
-    console.log("[db] queue-stats handler called:", { puuid });
-    const result = db.getQueueStatsForAccount(puuid);
-    console.log("[db] queue-stats handler done:", { count: result.length });
-    return result;
-  });
-
   ipcMain.handle(
     "db:match-filters",
     (
@@ -174,24 +163,11 @@ export function registerIpcHandlers() {
     return db.getStoredQueues();
   });
 
-  ipcMain.handle("db:repair-derived-scores", () => {
-    console.log("[db] repair-derived-scores handler called:", {});
-    const result = db.repairDerivedScores();
-    console.log("[db] repair-derived-scores handler done:", result);
-    invalidateDashboardCache();
-    return result;
-  });
-
   ipcMain.handle("db:match-detail", (_event, gameId: number) => {
     return db.getMatchDetail(gameId);
   });
 
   ipcMain.handle("db:timeline-get", (_event, gameId: number) => db.getTimeline(gameId));
-
-  ipcMain.handle("db:timeline-fetch", async (_event, gameId: number, platform?: string) => {
-    await db.fetchAndStoreTimeline(gameId, platform);
-    return db.getTimeline(gameId);
-  });
 
   ipcMain.handle("db:timeline-reparse", (_event, limit: number) => db.reparsedTimelines(limit));
 
@@ -249,36 +225,6 @@ export function registerIpcHandlers() {
     if (!activeTimelineBackfill) return { stopped: false };
     activeTimelineBackfill.signal.cancelled = true;
     return { stopped: true };
-  });
-
-  ipcMain.handle("db:backfill-combat-stats", async (event, options?: { batchSize?: number }) => {
-    if (
-      options !== undefined &&
-      (typeof options !== "object" ||
-        options === null ||
-        (options.batchSize !== undefined &&
-          (!Number.isInteger(options.batchSize) || options.batchSize <= 0)))
-    ) {
-      throw new TypeError("batchSize must be a positive integer");
-    }
-    if (activeCombatBackfill !== null) {
-      throw new Error("Combat stats backfill is already running");
-    }
-
-    const win = senderWindow(event);
-    const operation = db.backfillParticipantCombatStats((done: number, total: number) => {
-      if (win && !win.isDestroyed()) {
-        win.webContents.send("db:backfill-combat-stats-progress", { done, total });
-      }
-    }, options?.batchSize);
-    activeCombatBackfill = operation;
-    try {
-      const result = await operation;
-      console.log("[db] backfill-combat-stats handler done:", result);
-      return result;
-    } finally {
-      if (activeCombatBackfill === operation) activeCombatBackfill = null;
-    }
   });
 
   ipcMain.handle("db:backfill-teams-local", (_event, options?: { limit?: number }) => {
@@ -384,13 +330,6 @@ export function registerIpcHandlers() {
   );
 
   ipcMain.handle(
-    "db:champion-trends",
-    (_event, championId: number | null, patch?: string, queue?: number, account?: string) => {
-      return db.getChampionTrendsData(championId, patch, queue, account);
-    },
-  );
-
-  ipcMain.handle(
     "db:champion-records",
     (
       _event,
@@ -404,20 +343,6 @@ export function registerIpcHandlers() {
       const result = db.getChampionRecords(championId, patch, queue, account, timePeriod);
       console.log("[db] champion-records handler done:", { count: result.records.length });
       return result;
-    },
-  );
-
-  ipcMain.handle(
-    "db:champion-timeline-games",
-    (
-      _event,
-      championId: number | null,
-      limit: number,
-      patch?: string,
-      queue?: number,
-      account?: string,
-    ) => {
-      return db.getChampionTimelineGames(championId, limit, patch, queue, account);
     },
   );
 
@@ -524,10 +449,6 @@ export function registerIpcHandlers() {
     },
   );
 
-  ipcMain.handle("db:champion-matchups", (_event, championId: number | null, account?: string) => {
-    return db.getChampionMatchups(championId, account);
-  });
-
   ipcMain.handle(
     "db:champion-matchup-list",
     (
@@ -558,13 +479,6 @@ export function registerIpcHandlers() {
 
   ipcMain.handle("db:other-players-stats", (_event, queue?: number) =>
     db.getOtherPlayersStats(queue),
-  );
-
-  ipcMain.handle(
-    "db:champion-teammate-stats",
-    (_event, championId: number | null, patch?: string, queue?: number, account?: string) => {
-      return db.getChampionTeammateStats(championId, patch, queue, account);
-    },
   );
 
   ipcMain.handle(
@@ -608,35 +522,6 @@ export function registerIpcHandlers() {
       },
     ) => {
       return db.getDashboardData(filters, filters?.timePeriod);
-    },
-  );
-
-  ipcMain.handle(
-    "db:get-role-breakdown",
-    (
-      _event,
-      account: HomeAccountFilter,
-      queue: number | number[] | undefined,
-      timePeriod: HomeTimePeriod,
-    ) => {
-      console.log("[db] get-role-breakdown handler called:", { account, queue, timePeriod });
-      if (account !== undefined && typeof account !== "string") {
-        throw new TypeError("account must be a string or undefined");
-      }
-      if (!["24h", "7d", "30d", "full"].includes(timePeriod)) {
-        throw new TypeError("timePeriod must be 24h, 7d, 30d, or full");
-      }
-      if (queue !== undefined) {
-        const values = Array.isArray(queue) ? queue : [queue];
-        if (!values.every((id) => typeof id === "number" && Number.isFinite(id))) {
-          throw new TypeError(
-            "queue must be a finite number, an array of finite numbers, or undefined",
-          );
-        }
-      }
-      const result = db.getRoleBreakdown(account, queue, timePeriod);
-      console.log("[db] get-role-breakdown handler done:", { count: result.length });
-      return result;
     },
   );
 
@@ -798,39 +683,6 @@ export function registerIpcHandlers() {
   );
 
   ipcMain.handle(
-    "db:most-played-queue",
-    (_event, puuid: string, _gameName: string, _tagLine: string) => {
-      return db.getMostPlayedQueue(puuid);
-    },
-  );
-
-  ipcMain.handle(
-    "db:total-matches-played",
-    (_event, puuid: string, _gameName: string, _tagLine: string) => {
-      const result = db.getTotalMatchesPlayed(puuid);
-      return result;
-    },
-  );
-
-  ipcMain.handle("db:ranked-record", (_event, puuid: string) => {
-    return db.getRankedRecordForPuuid(puuid);
-  });
-
-  ipcMain.handle(
-    "db:recent-games",
-    (
-      _event,
-      puuid: string,
-      _gameName: string,
-      _tagLine: string,
-      queueIds: number[],
-      limit: number,
-    ) => {
-      return db.getRecentGames(puuid, queueIds, limit);
-    },
-  );
-
-  ipcMain.handle(
     "db:champion-match-history",
     (
       _event,
@@ -898,37 +750,6 @@ export function registerIpcHandlers() {
     return { cancelled: true as const };
   });
   ipcMain.handle(
-    "riot:recent-matches",
-    async (
-      event,
-      puuid: string,
-      platform: string,
-      start: number,
-      count: number,
-      forceNewest = false,
-    ) => {
-      const key = `recent:${platform.toLowerCase()}:${puuid}:${start}:${count}:${forceNewest}`;
-      return dedupe(key, async () => {
-        const win = senderWindow(event);
-        riot.setRecentMatchesProgressListener((current, total) => {
-          if (win && !win.isDestroyed()) {
-            win.webContents.send("riot:recent-matches-progress", { current, total });
-          }
-        });
-        try {
-          return await riot.getRecentRiotMatches(puuid, platform, start, count, forceNewest);
-        } catch (err) {
-          if (err instanceof riot.RiotApiError && err.status === 404) {
-            return { matches: [], total: 0 };
-          }
-          return { error: riot.friendlyRiotError(err, "match") };
-        } finally {
-          riot.setRecentMatchesProgressListener(null);
-        }
-      });
-    },
-  );
-  ipcMain.handle(
     "riot:profile",
     async (_event, gameName: string, tagLine: string, platform: string, force = false) => {
       const key = `profile:${platform.toLowerCase()}:${gameName.toLowerCase()}:${tagLine.toLowerCase()}:${force}`;
@@ -941,30 +762,6 @@ export function registerIpcHandlers() {
           return { error: riot.friendlyRiotError(err, "account") };
         }
       });
-    },
-  );
-  ipcMain.handle("riot:profile-icon", async (_event, puuid: string, platform?: string) => {
-    console.log("[riot] profile-icon handler called:", { puuid, platform });
-    try {
-      const profileIconId = await riot.getProfileIcon(puuid, platform);
-      console.log("[riot] profile-icon handler done:", { puuid, profileIconId });
-      return profileIconId;
-    } catch (err) {
-      console.error("[riot] profile-icon handler failed:", err);
-      throw err;
-    }
-  });
-  ipcMain.handle(
-    "riot:import-recent",
-    async (_event, puuid: string, platform: string, count: number) => {
-      try {
-        return await riot.importRecentRiotMatches(puuid, platform, count);
-      } catch (err) {
-        return { error: riot.friendlyRiotError(err, "match") };
-      } finally {
-        // A failed import may still have written some games
-        invalidateDashboardCache();
-      }
     },
   );
   ipcMain.handle("riot:list-accounts", () => {
@@ -1222,10 +1019,6 @@ export function registerIpcHandlers() {
       return db.getTeammateDetail(key, queue, relation);
     },
   );
-
-  ipcMain.handle("db:global-stats", (_event, patch?: string, queue?: number) => {
-    return db.getGlobalStats(patch, queue);
-  });
   ipcMain.handle(
     "db:owned-item-stats",
     (_event, patch?: string, queue?: number, account?: string) => {
@@ -1330,28 +1123,6 @@ export function registerIpcHandlers() {
     return result;
   });
 
-  ipcMain.handle("db:backfill-participant-scores", async (event) => {
-    const missing = db.getMissingScoreCount();
-    if (missing === 0) {
-      return { ok: true, skipped: true };
-    }
-
-    try {
-      const updated = await db.backfillParticipantScores((done, total) => {
-        senderWindow(event)?.webContents.send("lcu:participant-score-progress", {
-          phase: "scores",
-          done,
-          total,
-        });
-      });
-      invalidateDashboardCache();
-      return { ok: true, skipped: false, updated };
-    } catch (err) {
-      console.warn("[db] backfill-participant-scores handler failed:", err);
-      return { ok: false, error: err instanceof Error ? err.message : String(err) };
-    }
-  });
-
   ipcMain.handle("db:delete-summoner", async (event, puuid: string) => {
     console.log("[ipc] deleteSummoner called", puuid);
     const go = await askBackupFirst(
@@ -1372,11 +1143,6 @@ export function registerIpcHandlers() {
     const result = db.restoreOlderGames();
     invalidateDashboardCache();
     return result;
-  });
-
-  ipcMain.handle("db:summoner-puuid", () => {
-    const s = db.getSummoner();
-    return s?.puuid ?? null;
   });
 
   ipcMain.handle("db:profile", () => {
@@ -1571,10 +1337,6 @@ export function registerIpcHandlers() {
     } catch (err: any) {
       return { error: err.message as string };
     }
-  });
-
-  ipcMain.handle("db:has-local-account", () => {
-    return db.getAllPuuids().length > 0;
   });
 
   // Backups

@@ -871,11 +871,7 @@ async function runBackfillForAccount(
     if (added - announced >= GAMES_UPDATED_BATCH) {
       announced = added;
       notifyGamesUpdated(win);
-      db.runScoreBackfillIfNeeded((done, total) => {
-        if (win && !win.isDestroyed()) {
-          win.webContents.send("lcu:participant-score-progress", { phase: "scores", done, total });
-        }
-      });
+      db.runScoreBackfillIfNeeded();
     }
     progress(i + 1, added);
   }
@@ -896,11 +892,7 @@ async function runBackfillForAccount(
 
   if (added > announced) {
     notifyGamesUpdated(win);
-    db.runScoreBackfillIfNeeded((done, total) => {
-      if (win && !win.isDestroyed()) {
-        win.webContents.send("lcu:participant-score-progress", { phase: "scores", done, total });
-      }
-    });
+    db.runScoreBackfillIfNeeded();
   }
 
   const dashboard = db.getDashboardData();
@@ -1034,11 +1026,7 @@ export async function fetchNewGames(
   if (newGamesCount > 0 && win && !win.isDestroyed()) {
     invalidateDashboardCache();
     win.webContents.send("lcu:games-updated");
-    db.runScoreBackfillIfNeeded((done, total) => {
-      if (win && !win.isDestroyed()) {
-        win.webContents.send("lcu:participant-score-progress", { phase: "scores", done, total });
-      }
-    });
+    db.runScoreBackfillIfNeeded();
   }
 
   const dashboard = db.getDashboardData();
@@ -1146,11 +1134,7 @@ async function captureEogGame(
     if (db.insertGameFull(game, trackedSummoner.puuid, "lcu")) {
       console.log(`Stored League game ${gameId} from the post-game screen`);
       notifyGamesUpdated(win);
-      db.runScoreBackfillIfNeeded((done, total) => {
-        if (win && !win.isDestroyed()) {
-          win.webContents.send("lcu:participant-score-progress", { phase: "scores", done, total });
-        }
-      });
+      db.runScoreBackfillIfNeeded();
       autoFetchTimelineQuiet(gameId, game.queueId);
     }
     eogPending.delete(gameId);

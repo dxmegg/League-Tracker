@@ -373,13 +373,7 @@ app
     // backfill uses the same class weights as insert-time scoring.
     waitForChampionData()
       .then(() => {
-        runScoreBackfillIfNeeded((done, total) => {
-          mainWindow?.webContents.send("lcu:participant-score-progress", {
-            phase: "scores",
-            done,
-            total,
-          });
-        });
+        runScoreBackfillIfNeeded();
         if (checkScoreBackfill()) {
           console.log("[score] formula changed, stored scores recomputed");
           invalidateDashboardCache();
