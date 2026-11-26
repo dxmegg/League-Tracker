@@ -502,9 +502,14 @@ export default function Settings() {
       }
       try {
         console.log("[delete] calling api", puuid);
+        // A backup taken first can run for half a minute
+        setSummonerStatus("Working...");
         const result = await window.api.deleteSummoner(puuid);
         console.log("[delete] result", result);
-        if ("cancelled" in result) return;
+        if ("cancelled" in result) {
+          setSummonerStatus(null);
+          return;
+        }
         setSummonerStatus(
           `Deleted account: ${result.deletedGames} game(s) removed, ${result.deletedTrackedRows} tracked row(s) removed`,
         );

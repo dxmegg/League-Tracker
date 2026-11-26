@@ -303,7 +303,10 @@ assert.deepEqual(
 assert.deepEqual(await restoreBackup(legacy), { games: 4 });
 assert.deepEqual(fingerprint(), original);
 
+const dead = inBackups("matches-2020-01-01T00-00-00-auto.db.part");
+fs.writeFileSync(dead, "cut off");
 const monthly = await createBackup("monthly");
+assert.ok(!fs.existsSync(dead));
 assert.deepEqual(files().sort(), [snapshot.file, monthly.file].sort()); // the plain .db is gone
 
 // Called off: nothing changes

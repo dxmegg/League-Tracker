@@ -192,6 +192,14 @@ async function runBackup(reason: BackupReason): Promise<BackupInfo> {
   const db = getDatabase();
   const before = countGames(db);
 
+  // A quit part way through a backup leaves gigabytes behind. Backups run one at a time, so
+  // any .part found now is dead.
+  for (const name of fs.readdirSync(getBackupDir())) {
+    if (/^matches-.*\.db(\.gz)?\.part(-wal|-shm)?$/.test(name)) {
+      fs.rmSync(path.join(getBackupDir(), name), { force: true });
+    }
+  }
+
   const created = new Date();
   const base = path.join(getBackupDir(), `matches-${stamp(created)}-${reason}`);
   // Written under names the listing ignores, so a crash or a full disk part
