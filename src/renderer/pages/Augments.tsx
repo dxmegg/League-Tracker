@@ -7,11 +7,11 @@ import { useAugmentData, getAugmentName } from "../hooks/useChampions";
 import { useScopedQueue } from "../lib/historyScope";
 import { useActiveMode } from "../hooks/useActiveMode";
 import { useViewState } from "../hooks/useViewState";
-import AugmentIcon from "./AugmentIcon";
-import ChampionIcon from "./ChampionIcon";
-import QueueSelect from "./QueueSelect";
-import PatchSelect from "./PatchSelect";
-import { CatalogPage, patchTrend, type CatalogRow } from "./CatalogPage";
+import AugmentIcon from "../components/AugmentIcon";
+import ChampionIcon from "../components/ChampionIcon";
+import QueueSelect from "../components/QueueSelect";
+import PatchSelect from "../components/PatchSelect";
+import { CatalogPage, patchTrend, type CatalogRow } from "../components/CatalogPage";
 import { ALL_ACCOUNTS_SENTINEL } from "../lib/accountsEvent";
 import { isAugmentQueue } from "../../shared/queues";
 
@@ -25,7 +25,7 @@ export function rarityOf(rarity: string | undefined) {
   return RARITIES.find((r) => r.key === rarity || r.label.toLowerCase() === rarity?.toLowerCase());
 }
 
-export function AugmentsExp() {
+export default function Augments() {
   const navigate = useNavigate();
   const [patch, setPatch] = useViewState<string | undefined>("augments.patch", undefined);
   const [queue, setQueue] = useViewState<number | undefined>("augments.queue", undefined);

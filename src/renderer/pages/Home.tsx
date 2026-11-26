@@ -5,7 +5,7 @@ import type {
   HomeDashboardPayload,
   HomeTimePeriod,
 } from "../../shared/api";
-import { HomeRedesign } from "../components/HomeRedesign";
+import { HomeDashboard } from "../components/HomeDashboard";
 import { useActiveAccount } from "../hooks/useActiveAccount";
 import { getAccountsWithData } from "../hooks/useChampions";
 import { useLiveGame } from "../hooks/useLiveGame";
@@ -51,7 +51,7 @@ export default function Home() {
   }, [account, timePeriod, queue]);
 
   return (
-    <HomeRedesign
+    <HomeDashboard
       account={account}
       queue={queue}
       onQueueChange={setQueue}

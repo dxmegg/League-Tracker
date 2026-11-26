@@ -5,7 +5,7 @@ import { useIpc } from "../hooks/useIpc";
 import { useHistoryScopeQueue } from "../lib/historyScope";
 import { getAccountsWithData, invalidateAccountsCache } from "../hooks/useChampions";
 import type { AccountListItem, RecordsData } from "../lib/types";
-import { RecordsExp } from "../components/RecordsExp";
+import { RecordsView } from "../components/RecordsView";
 import { ALL_ACCOUNTS_SENTINEL } from "../lib/accountsEvent";
 
 export default function Records() {
@@ -89,7 +89,7 @@ export default function Records() {
     : undefined;
   const accountValue = accountForFetch === "all" ? undefined : accountForFetch;
   return (
-    <RecordsExp
+    <RecordsView
       data={data}
       error={error}
       onRetry={refetch}

@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { TrendsExp, type TimeRange } from "../components/TrendsExp";
+import { TrendsView, type TimeRange } from "../components/TrendsView";
 import { useActiveAccount } from "../hooks/useActiveAccount";
 import { useIpc } from "../hooks/useIpc";
 import { useViewState } from "../hooks/useViewState";
@@ -24,7 +24,7 @@ export default function Trends() {
 
   return (
     <div className="flex flex-col gap-4">
-      <TrendsExp
+      <TrendsView
         data={data}
         error={error}
         onRetry={refetch}

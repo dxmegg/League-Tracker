@@ -1,10 +1,10 @@
 import { useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import type { ItemData, OwnedItemStats, OwnedItemStatsResult } from "../lib/types";
-import ItemIcon from "./ItemIcon";
-import QueueSelect from "./QueueSelect";
-import PatchSelect from "./PatchSelect";
-import { CatalogPage, patchTrend, type CatalogRow } from "./CatalogPage";
+import ItemIcon from "../components/ItemIcon";
+import QueueSelect from "../components/QueueSelect";
+import PatchSelect from "../components/PatchSelect";
+import { CatalogPage, patchTrend, type CatalogRow } from "../components/CatalogPage";
 import { useItemData, getItemName } from "../hooks/useChampions";
 import { useActiveAccount } from "../hooks/useActiveAccount";
 import { useScopedQueue } from "../lib/historyScope";
@@ -96,7 +96,7 @@ function formatBuyTime(milliseconds: number): string {
   return `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")}`;
 }
 
-export function ItemsExp() {
+export default function Items() {
   const navigate = useNavigate();
   const [queue, setQueue] = useViewState<number | undefined>("items.queue", undefined);
   const [patch, setPatch] = useViewState<string | undefined>("items.patch", undefined);

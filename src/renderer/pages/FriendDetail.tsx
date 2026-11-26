@@ -12,7 +12,7 @@ import type {
 import ChampionIcon from "../components/ChampionIcon";
 import { EmptyState } from "../components/EmptyState";
 import ItemIcon from "../components/ItemIcon";
-import { MatchRowExperiment } from "../components/MatchRowExperiment";
+import { MatchRow } from "../components/MatchRow";
 import { Panel } from "../components/Panel";
 import { queueLabel } from "../components/QueueSelect";
 import StatCard from "../components/StatCard";
@@ -501,7 +501,7 @@ export default function FriendDetail() {
         {matches.length > 0 ? (
           <div className="space-y-1">
             {matches.map((m) => (
-              <MatchRowExperiment
+              <MatchRow
                 key={m.game_id}
                 match={m}
                 championName={getChampionName(champData, m.champion_id)}

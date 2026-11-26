@@ -6,7 +6,7 @@ import { formatDuration, formatNumber, formatTimeAgo, kdaRatio } from "../lib/fo
 import { byGameLength, byMonth, byQueue, winRateBoost, type Bucket } from "../lib/itemStats";
 import { scoreColor } from "../../shared/opScore";
 import ChampionIcon from "./ChampionIcon";
-import { LineChartExp } from "./LineChartExp";
+import { LineChart } from "./LineChart";
 import { Panel } from "./Panel";
 import { queueLabel } from "./QueueSelect";
 import WinRateBar from "./WinRateBar";
@@ -327,7 +327,7 @@ export function ItemInsights({ data, noun = "item" }: { data: Insights; noun?: s
         <Panel variant="tile">
           <Title aside={hint("last 12 months played")}>Win rate over time</Title>
           {months.length >= 2 ? (
-            <LineChartExp
+            <LineChart
               values={rates}
               format={(v) => `${v.toFixed(1)}%`}
               color="var(--theme-win)"

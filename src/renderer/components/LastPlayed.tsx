@@ -12,7 +12,7 @@ interface LastPlayedRow {
   assists: number;
 }
 
-export function LastPlayedExp({
+export function LastPlayed({
   matches,
   loading,
   champData,

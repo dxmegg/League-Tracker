@@ -2,7 +2,7 @@ import ChampionIcon from "./ChampionIcon";
 import { getChampionName } from "../hooks/useChampions";
 import type { ChampionData, ProfileMasteryChampion } from "../../shared/api";
 
-export function ChampionMasteryExp({
+export function ChampionMastery({
   rows,
   champData,
 }: {

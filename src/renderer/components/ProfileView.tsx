@@ -10,9 +10,9 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ChampionMasteryExp } from "./ChampionMasteryExp";
+import { ChampionMastery } from "./ChampionMastery";
 import { Panel } from "./Panel";
-import { RankCardExp } from "./RankCardExp";
+import { RankCard } from "./RankCard";
 import { DEFAULT_SPLASH, SplashPicker, splashUrl, useSplashPref } from "./ProfileSplash";
 import SummonerIcon from "./SummonerIcon";
 import { YourProfileSections } from "./YourProfileSections";
@@ -32,7 +32,7 @@ function SectionTitle({ children, aside }: { children: ReactNode; aside?: ReactN
   );
 }
 
-export function ProfileHeaderRedesign({
+export function ProfileHeader({
   mode,
   gameName,
   tagLine,
@@ -201,8 +201,8 @@ export function ProfileHeaderRedesign({
 
         {mode === "single" && (
           <div className="flex shrink-0 flex-wrap gap-3">
-            <RankCardExp compact title="Ranked Solo" entry={rankedSolo} />
-            <RankCardExp compact title="Ranked Flex" entry={rankedFlex} />
+            <RankCard compact title="Ranked Solo" entry={rankedSolo} />
+            <RankCard compact title="Ranked Flex" entry={rankedFlex} />
           </div>
         )}
 
@@ -270,7 +270,7 @@ export function ProfileHeaderRedesign({
   );
 }
 
-export function ProfileRedesign({
+export function ProfileView({
   header,
   profile,
   error,
@@ -319,10 +319,7 @@ export function ProfileRedesign({
                   Champion mastery
                 </SectionTitle>
                 {profile ? (
-                  <ChampionMasteryExp
-                    rows={profile.topMasteryChampions ?? []}
-                    champData={champData}
-                  />
+                  <ChampionMastery rows={profile.topMasteryChampions ?? []} champData={champData} />
                 ) : (
                   <p className="py-6 text-center text-sm text-lol-text">Loading…</p>
                 )}

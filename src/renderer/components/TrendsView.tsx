@@ -9,7 +9,7 @@ import { isArenaQueue } from "../../shared/queues";
 import { ActivityHeatmap } from "./ActivityHeatmap";
 import ChampionIcon from "./ChampionIcon";
 import { DonutChart } from "./DonutChart";
-import { LineChartExp } from "./LineChartExp";
+import { LineChart } from "./LineChart";
 import { PatchBars } from "./PatchBars";
 import { queueLabel } from "./QueueSelect";
 import { HeroTile, PageHero } from "./SplashHero";
@@ -272,7 +272,7 @@ function OverTime({ weeks, data }: { weeks: Week[]; data: TrendsData }) {
         rolling.length < 2 ? (
           <Empty text={`Needs more than ${ROLLING_GAMES} games in this period`} />
         ) : (
-          <LineChartExp
+          <LineChart
             values={rates}
             format={(v) => `${v.toFixed(0)}%`}
             color="var(--theme-win)"
@@ -285,7 +285,7 @@ function OverTime({ weeks, data }: { weeks: Week[]; data: TrendsData }) {
           />
         )
       ) : metric === "kills" ? (
-        <LineChartExp
+        <LineChart
           values={kdaLines[0].values}
           series={kdaLines}
           format={(v) => v.toFixed(1)}
@@ -664,7 +664,7 @@ function DayHourMatrix({ data }: { data: TrendsData["dayHourMatrix"] }) {
 
 // ---- Page ----
 
-export function TrendsExp({
+export function TrendsView({
   data,
   error,
   onRetry,

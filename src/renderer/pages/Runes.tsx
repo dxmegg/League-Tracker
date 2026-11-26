@@ -6,13 +6,13 @@ import { useRuneData } from "../hooks/useChampions";
 import { useScopedQueue } from "../lib/historyScope";
 import { useViewState } from "../hooks/useViewState";
 import { ALL_ACCOUNTS_SENTINEL } from "../lib/accountsEvent";
-import RuneIcon from "./RuneIcon";
-import { Tile } from "./Tile";
-import { TileGrid } from "./TileGrid";
-import QueueSelect from "./QueueSelect";
-import PatchSelect from "./PatchSelect";
-import { FilterChip } from "./FilterChip";
-import { SearchInput } from "./SearchInput";
+import RuneIcon from "../components/RuneIcon";
+import { Tile } from "../components/Tile";
+import { TileGrid } from "../components/TileGrid";
+import QueueSelect from "../components/QueueSelect";
+import PatchSelect from "../components/PatchSelect";
+import { FilterChip } from "../components/FilterChip";
+import { SearchInput } from "../components/SearchInput";
 import { formatNumber } from "../lib/format";
 import { isAugmentQueue } from "../../shared/queues";
 
@@ -134,7 +134,7 @@ function HighlightCard({
   );
 }
 
-export function RunesExp() {
+export default function Runes() {
   const runeData = useRuneData();
   const [patch, setPatch] = useViewState<string | undefined>("runes.patch", undefined);
   const [queue, setQueue] = useViewState<number | undefined>("runes.queue", undefined);

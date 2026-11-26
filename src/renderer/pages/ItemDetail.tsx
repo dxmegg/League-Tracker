@@ -4,17 +4,17 @@ import type { ItemDetail as ItemDetailData } from "../lib/types";
 import { useIpc } from "../hooks/useIpc";
 import { useHistoryScopeQueue } from "../lib/historyScope";
 import { getItemName, useItemData } from "../hooks/useChampions";
-import ItemIcon from "./ItemIcon";
-import { ChampionBreakdown } from "./ChampionBreakdown";
-import { EmptyState } from "./EmptyState";
-import { ItemInsights } from "./ItemInsights";
-import RiotText from "./RiotText";
-import { Panel } from "./Panel";
-import { HeroTile, SplashHero } from "./SplashHero";
-import { Title } from "./live/shared";
+import ItemIcon from "../components/ItemIcon";
+import { ChampionBreakdown } from "../components/ChampionBreakdown";
+import { EmptyState } from "../components/EmptyState";
+import { ItemInsights } from "../components/ItemInsights";
+import RiotText from "../components/RiotText";
+import { Panel } from "../components/Panel";
+import { HeroTile, SplashHero } from "../components/SplashHero";
+import { Title } from "../components/live/shared";
 import { formatDuration } from "../lib/format";
 
-export function ItemDetailExp() {
+export default function ItemDetail() {
   const { itemId } = useParams<{ itemId: string }>();
   const id = Number(itemId);
   const queue = useHistoryScopeQueue();

@@ -6,42 +6,26 @@ import { useDevMode } from "./hooks/useDevMode";
 
 // Pages load on first visit, so launch only parses the shell and the page being opened. Some of
 // these files are several thousand lines.
-const Settings = lazy(() =>
-  import("./components/SettingsExp").then((m) => ({ default: m.SettingsExp })),
-);
+const Settings = lazy(() => import("./pages/Settings"));
 const Home = lazy(() => import("./pages/Home"));
 const Profile = lazy(() => import("./pages/Profile"));
 const FriendDetail = lazy(() => import("./pages/FriendDetail"));
-const ChampionDetail = lazy(() =>
-  import("./components/ChampionDetailRedesign").then((m) => ({
-    default: m.ChampionDetailRedesign,
-  })),
-);
-const ItemDetail = lazy(() =>
-  import("./components/ItemDetailExp").then((m) => ({ default: m.ItemDetailExp })),
-);
-const AugmentDetail = lazy(() =>
-  import("./components/AugmentDetailExp").then((m) => ({ default: m.AugmentDetailExp })),
-);
-const Champions = lazy(() =>
-  import("./components/ChampionExp").then((m) => ({ default: m.ChampionExp })),
-);
-const Augments = lazy(() =>
-  import("./components/AugmentsExp").then((m) => ({ default: m.AugmentsExp })),
-);
-const Items = lazy(() => import("./components/ItemsExp").then((m) => ({ default: m.ItemsExp })));
-const Runes = lazy(() => import("./components/RunesExp").then((m) => ({ default: m.RunesExp })));
-const Friends = lazy(() =>
-  import("./components/FriendsExp").then((m) => ({ default: m.FriendsExp })),
-);
-const Storage = lazy(() => import("./components/DataExp").then((m) => ({ default: m.DataExp })));
+const ChampionDetail = lazy(() => import("./pages/ChampionDetail"));
+const ItemDetail = lazy(() => import("./pages/ItemDetail"));
+const AugmentDetail = lazy(() => import("./pages/AugmentDetail"));
+const Champions = lazy(() => import("./pages/Champions"));
+const Augments = lazy(() => import("./pages/Augments"));
+const Items = lazy(() => import("./pages/Items"));
+const Runes = lazy(() => import("./pages/Runes"));
+const Friends = lazy(() => import("./pages/Friends"));
+const Storage = lazy(() => import("./pages/Storage"));
 const Trends = lazy(() => import("./pages/Trends"));
 const Records = lazy(() => import("./pages/Records"));
 const Achievements = lazy(() => import("./pages/Achievements"));
 const Challenges = lazy(() => import("./pages/Challenges"));
 const MatchDetailPage = lazy(() => import("./pages/MatchDetailPage"));
 const Live = lazy(() => import("./pages/Live"));
-const MatchHistory = lazy(() => import("./pages/MatchHistoryTab"));
+const MatchHistory = lazy(() => import("./pages/MatchHistory"));
 const DebugTesting = lazy(() => import("./pages/DebugTesting"));
 
 // Mayhem has no runes; a stale /runes URL or link falls back to Home in that mode

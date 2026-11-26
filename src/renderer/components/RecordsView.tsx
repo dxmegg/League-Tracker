@@ -388,7 +388,7 @@ function Message({ title, children }: { title: string; children?: ReactNode }) {
   );
 }
 
-export function RecordsExp({
+export function RecordsView({
   data,
   error,
   onRetry,

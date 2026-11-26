@@ -3,9 +3,9 @@ import { useEffect, useState, type ReactNode } from "react";
 import type { AccountListItem, BackupInfo, DbStats } from "../../shared/api";
 import { useIpc } from "../hooks/useIpc";
 import { formatNumber, formatTimeAgo } from "../lib/format";
-import SummonerIcon from "./SummonerIcon";
-import { FilterChip } from "./FilterChip";
-import { Title } from "./live/shared";
+import SummonerIcon from "../components/SummonerIcon";
+import { FilterChip } from "../components/FilterChip";
+import { Title } from "../components/live/shared";
 
 const TABLE_LABELS: Record<string, string> = {
   games: "Matches",
@@ -46,7 +46,7 @@ function Stat({ label, value, sub }: { label: string; value: ReactNode; sub: str
   );
 }
 
-export function DataExp() {
+export default function Storage() {
   const stats = useIpc<DbStats>(() => window.api.getDbStats(), []);
   const accounts = useIpc<AccountListItem[]>(() => window.api.listAccountsWithData(), []);
   const backups = useIpc<BackupInfo[]>(() => window.api.listBackups(), []);

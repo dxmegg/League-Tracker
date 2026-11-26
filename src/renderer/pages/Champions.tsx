@@ -1,12 +1,12 @@
 import { useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import type { ChampionStats, HomeTimePeriod } from "../../shared/api";
-import ChampionIcon from "./ChampionIcon";
-import { HeroTile, HighlightTile, SplashHero } from "./SplashHero";
-import { Title } from "./live/shared";
-import { ChampionCombobox } from "./ChampionCombobox";
-import { FilterSelect } from "./FilterSelect";
-import PatchSelect from "./PatchSelect";
+import ChampionIcon from "../components/ChampionIcon";
+import { HeroTile, HighlightTile, SplashHero } from "../components/SplashHero";
+import { Title } from "../components/live/shared";
+import { ChampionCombobox } from "../components/ChampionCombobox";
+import { FilterSelect } from "../components/FilterSelect";
+import PatchSelect from "../components/PatchSelect";
 import { useChampionData, getChampionName } from "../hooks/useChampions";
 import { useScopedQueue } from "../lib/historyScope";
 import { useActiveMode } from "../hooks/useActiveMode";
@@ -87,7 +87,7 @@ function HighlightCard({
   );
 }
 
-export function ChampionExp() {
+export default function Champions() {
   const grid = CHAMP_GRID;
   const cellY = "py-4";
   const champData = useChampionData();

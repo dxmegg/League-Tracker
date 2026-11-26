@@ -6,11 +6,11 @@ import { useIpc } from "../hooks/useIpc";
 import { getChampionName, useChampionData } from "../hooks/useChampions";
 import { useHistoryScopeQueue } from "../lib/historyScope";
 import { formatNumber, formatTimeAgo } from "../lib/format";
-import { QueueFilterChips } from "./QueueFilterChips";
-import ChampionIcon from "./ChampionIcon";
-import SummonerIcon from "./SummonerIcon";
-import { FilterChip } from "./FilterChip";
-import { SearchInput } from "./SearchInput";
+import { QueueFilterChips } from "../components/QueueFilterChips";
+import ChampionIcon from "../components/ChampionIcon";
+import SummonerIcon from "../components/SummonerIcon";
+import { FilterChip } from "../components/FilterChip";
+import { SearchInput } from "../components/SearchInput";
 
 const PAGE_SIZE = 50;
 
@@ -33,9 +33,10 @@ type Row = {
 
 const winRate = (row: Row) => (row.games > 0 ? (row.wins / row.games) * 100 : 0);
 
-export function FriendsExp() {
+export default function Friends() {
   const scopedQueue = useHistoryScopeQueue();
   const championData = useChampionData();
+  // The keys keep their old prefix, so remembered filters survive the update
   const [queue, setQueue] = useViewState<number | undefined>("friendsExp.queue", scopedQueue);
   const [relation, setRelation] = useViewState<Relation>("friendsExp.relation", "friends");
   const [subject, setSubject] = useViewState<Subject>("friendsExp.subject", "players");

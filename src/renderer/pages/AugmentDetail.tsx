@@ -7,16 +7,16 @@ import { useViewState } from "../hooks/useViewState";
 import { ALL_ACCOUNTS_SENTINEL } from "../lib/accountsEvent";
 import { formatDuration, formatNumber, kdaRatio } from "../lib/format";
 import { useScopedQueue } from "../lib/historyScope";
-import AugmentIcon from "./AugmentIcon";
-import { rarityOf } from "./AugmentsExp";
-import { ChampionBreakdown } from "./ChampionBreakdown";
-import { ItemInsights } from "./ItemInsights";
-import ItemIcon from "./ItemIcon";
-import { Panel } from "./Panel";
-import RiotText from "./RiotText";
-import { HeroTile, SplashHero } from "./SplashHero";
-import WinRateBar from "./WinRateBar";
-import { Title } from "./live/shared";
+import AugmentIcon from "../components/AugmentIcon";
+import { rarityOf } from "./Augments";
+import { ChampionBreakdown } from "../components/ChampionBreakdown";
+import { ItemInsights } from "../components/ItemInsights";
+import ItemIcon from "../components/ItemIcon";
+import { Panel } from "../components/Panel";
+import RiotText from "../components/RiotText";
+import { HeroTile, SplashHero } from "../components/SplashHero";
+import WinRateBar from "../components/WinRateBar";
+import { Title } from "../components/live/shared";
 
 const CARD = "min-w-0 rounded-xl border border-lol-border/50 bg-black/25 p-3";
 
@@ -47,7 +47,7 @@ function PairCard({
   );
 }
 
-export function AugmentDetailExp() {
+export default function AugmentDetail() {
   const { augmentId } = useParams<{ augmentId: string }>();
   const id = Number(augmentId);
   // The filters chosen on the Augments list carry over

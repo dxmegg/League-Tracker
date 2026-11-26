@@ -7,7 +7,7 @@ import type {
   HomeTimePeriod,
   RankEntry,
 } from "../../shared/api";
-import { ProfileHeaderRedesign, ProfileRedesign } from "../components/ProfileRedesign";
+import { ProfileHeader, ProfileView } from "../components/ProfileView";
 import { useActiveAccount } from "../hooks/useActiveAccount";
 import {
   getAccountsWithData,
@@ -272,7 +272,7 @@ export default function Profile() {
 
   const selectedAccount = accounts.find((account) => account.puuid === selectedPuuid);
   const header = (
-    <ProfileHeaderRedesign
+    <ProfileHeader
       mode={isAllAccounts ? "all" : "single"}
       gameName={selectedAccount?.gameName ?? profile?.gameName ?? "Unknown"}
       tagLine={selectedAccount?.tagLine ?? profile?.tagLine ?? null}
@@ -297,7 +297,7 @@ export default function Profile() {
   );
 
   return (
-    <ProfileRedesign
+    <ProfileView
       header={header}
       profile={profile}
       accounts={accounts}

@@ -1,4 +1,4 @@
-import SummonerIcon from "./SummonerIcon";
+import SummonerIcon from "../components/SummonerIcon";
 import { useActiveAccount } from "../hooks/useActiveAccount";
 import { invalidateAccountsCache } from "../hooks/useChampions";
 import { ALL_ACCOUNTS_SENTINEL } from "../lib/accountsEvent";
@@ -19,10 +19,10 @@ import {
   type StorageInfo,
   type StorageResult,
 } from "../../shared/api";
-import { Title } from "./live/shared";
-import { XIcon } from "./icons";
-import { AboutSection } from "./AboutSection";
-import { ChangelogSection } from "./ChangelogSection";
+import { Title } from "../components/live/shared";
+import { XIcon } from "../components/icons";
+import { AboutSection } from "../components/AboutSection";
+import { ChangelogSection } from "../components/ChangelogSection";
 
 const BACKUP_REASONS: Record<string, string> = {
   auto: "Scheduled",
@@ -325,7 +325,7 @@ function StorageFolders({ onChanged }: { onChanged: () => void }) {
   );
 }
 
-export function SettingsExp() {
+export default function Settings() {
   const [tab, setTab] = useState<(typeof SETTINGS_TABS)[number]["id"]>("general");
   // Shared so a backfill started automatically on first connect shows here too
   const { running: backfilling } = useBackfill();

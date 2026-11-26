@@ -1,7 +1,7 @@
 import { useState } from "react";
 import type { ReactNode } from "react";
 import ChampionIcon from "../components/ChampionIcon";
-import { LastPlayedExp } from "../components/LastPlayedExp";
+import { LastPlayed } from "../components/LastPlayed";
 import { Panel } from "../components/Panel";
 import SummonerIcon from "../components/SummonerIcon";
 import { useActiveAccount } from "../hooks/useActiveAccount";
@@ -365,7 +365,7 @@ function LastPlayedPanel() {
       <h2 className="mb-4 font-display text-[16px] font-semibold text-lol-text-bright">
         Last played champions
       </h2>
-      <LastPlayedExp matches={matches} loading={loading} champData={champData} />
+      <LastPlayed matches={matches} loading={loading} champData={champData} />
     </Panel>
   );
 }

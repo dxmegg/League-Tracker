@@ -4,7 +4,7 @@ import { queueLabel } from "./QueueSelect";
 import { AugmentGrid, parseAugmentIds } from "./AugmentGrid";
 import ChampionIcon from "./ChampionIcon";
 import ItemIcon from "./ItemIcon";
-import MatchScoreboardExp from "./MatchScoreboardExp";
+import MatchScoreboard from "./MatchScoreboard";
 import { RuneCompact } from "./RuneSetup";
 import RuneIcon from "./RuneIcon";
 import { useRuneData } from "../hooks/useChampions";
@@ -147,7 +147,7 @@ const STYLE = `
 }
 `;
 
-export function MatchRowExperiment({
+export function MatchRow({
   match,
   championName,
   secondaryParticipant,
@@ -371,7 +371,7 @@ export function MatchRowExperiment({
           {detailLoading ? (
             <div className="py-4 text-center text-sm text-lol-text">Loading...</div>
           ) : detail ? (
-            <MatchScoreboardExp
+            <MatchScoreboard
               detail={detail}
               champData={champData ?? {}}
               puuids={puuids ?? null}

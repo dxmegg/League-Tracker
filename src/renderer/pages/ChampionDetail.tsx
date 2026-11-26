@@ -33,16 +33,16 @@ import { ALL_ACCOUNTS_SENTINEL } from "../lib/accountsEvent";
 import { formatDuration, formatNumber, formatPlain, formatPlaytime } from "../lib/format";
 import { useScopedQueue } from "../lib/historyScope";
 import { useActiveMode } from "../hooks/useActiveMode";
-import AugmentIcon from "./AugmentIcon";
-import ChampionIcon from "./ChampionIcon";
-import ItemIcon from "./ItemIcon";
-import { LineChartExp } from "./LineChartExp";
-import { MatchRowExperiment } from "./MatchRowExperiment";
-import RuneIcon from "./RuneIcon";
-import { FilterSelect } from "./FilterSelect";
-import WinRateBar from "./WinRateBar";
-import { HeroTile, SplashHero } from "./SplashHero";
-import { Title } from "./live/shared";
+import AugmentIcon from "../components/AugmentIcon";
+import ChampionIcon from "../components/ChampionIcon";
+import ItemIcon from "../components/ItemIcon";
+import { LineChart } from "../components/LineChart";
+import { MatchRow } from "../components/MatchRow";
+import RuneIcon from "../components/RuneIcon";
+import { FilterSelect } from "../components/FilterSelect";
+import WinRateBar from "../components/WinRateBar";
+import { HeroTile, SplashHero } from "../components/SplashHero";
+import { Title } from "../components/live/shared";
 
 // Record keys worth showing on a single page; the full list lives in the old Records tab
 const RECORD_KEYS = [
@@ -130,7 +130,7 @@ const ROLE_LABELS: Record<string, string> = {
   UNKNOWN: "No role",
 };
 
-export function ChampionDetailRedesign() {
+export default function ChampionDetail() {
   const { championId = "" } = useParams<{ championId: string }>();
   const id = Number(championId);
   const navigate = useNavigate();
@@ -412,7 +412,7 @@ export function ChampionDetailRedesign() {
       <div className="grid grid-cols-1 gap-5 xl:grid-cols-3">
         <Section title="Win rate over time" hint="weekly" className="xl:col-span-2">
           {series.values.length >= 2 ? (
-            <LineChartExp
+            <LineChart
               values={series.values}
               format={(v) => `${v.toFixed(1)}%`}
               color="var(--theme-win)"
@@ -599,7 +599,7 @@ export function ChampionDetailRedesign() {
         {(history?.matches ?? []).length > 0 ? (
           <div className="flex flex-col gap-1.5">
             {history?.matches.map((match) => (
-              <MatchRowExperiment
+              <MatchRow
                 key={match.game_id}
                 match={match}
                 championName={name}

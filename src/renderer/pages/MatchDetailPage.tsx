@@ -9,7 +9,7 @@ import { Panel } from "../components/Panel";
 import { SegmentedControl } from "../components/SegmentedControl";
 import ChampionIcon from "../components/ChampionIcon";
 import { MatchCompareTable } from "../components/MatchCompareTable";
-import MatchScoreboardExp from "../components/MatchScoreboardExp";
+import MatchScoreboard from "../components/MatchScoreboard";
 import { queueLabel } from "../components/QueueSelect";
 import { computeMatchScoreBreakdowns, scoreColor } from "../../shared/opScore";
 import { formatDuration, formatNumber, formatTimeAgo, kdaRatio } from "../lib/format";
@@ -207,7 +207,7 @@ export default function MatchDetailPage() {
           </header>
 
           {tab === "overview" && (
-            <MatchScoreboardExp detail={detail} champData={champData} puuids={puuids} />
+            <MatchScoreboard detail={detail} champData={champData} puuids={puuids} />
           )}
           {tab === "table" && players.length > 0 && <MatchCompareTable players={players} />}
           {tab === "statistics" && (

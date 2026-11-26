@@ -563,7 +563,7 @@ function MiniRow({ label, value }: { label: string; value: string }) {
   );
 }
 
-export function HomeRedesign({
+export function HomeDashboard({
   account,
   queue,
   onQueueChange,

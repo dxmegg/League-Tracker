@@ -21,7 +21,7 @@ function lineSegments(values: ChartValue[]): string[] {
   return segments;
 }
 
-export function LineChartExp({
+export function LineChart({
   values,
   format,
   color = "var(--theme-win)",

@@ -25,7 +25,7 @@ function normalizeEmblemTier(tier: string | null | undefined): string {
   return RANK_TIERS.has(baseTier) ? baseTier : "unranked";
 }
 
-export function RankCardExp({
+export function RankCard({
   title,
   entry,
   compact = false,
