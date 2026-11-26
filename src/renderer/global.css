@@ -1,8 +1,8 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 
-/* shadcn/ui semantic tokens, mapped onto the app's own --theme-* variables so every
-   theme switch also restyles shadcn components. `inline` keeps the var() reference
+/* shadcn/ui semantic tokens, mapped onto the app's own --theme-* variables so changing
+   those restyles shadcn components too. `inline` keeps the var() reference
    live instead of resolving it once at build time.
    Deliberately left out: shadcn's --radius-* scale and its global `* { border-color }`
    / body base layer, because both would change the look of existing screens.
@@ -28,7 +28,7 @@
   --color-ring: var(--theme-crimson);
 }
 
-/* Core brand palette: the only colours new code should use. Follows the active theme.
+/* Core brand palette: the only colours new code should use. Follows the --theme-* variables.
    Spacing = Tailwind's default 4px scale. One radius for the whole app (8px).
    shortcut: legacy lol-*, fg-*, crimson, accent tokens below stay until their ~2800 usages are migrated. */
 @theme inline {
@@ -75,117 +75,50 @@
   --color-defeat: var(--theme-defeat);
 }
 
+/* The app's colours and fonts. Everything reads these variables, so a later colour theme only has
+   to override them. */
 :root {
   --tile-radius: 16px;
   --tile-padding: 1.25rem;
-  --theme-bg: #0b0e14;
-  --theme-card: #141924;
-  --theme-card-hover: #1b2130;
-  --theme-border: #242c3d;
-  --theme-gold: #c89b3c;
-  --theme-gold-light: #f0e6d2;
-  --theme-win: #3ecf8e;
-  --theme-loss: #e5636e;
-  --theme-text: #94a0b8;
-  --theme-text-bright: #e8ecf4;
-  --theme-bg-deep: #08080c;
-  --theme-bg-base: #0b0e14;
-  --theme-bg-elevated: #141924;
-  --theme-surface: rgba(200, 155, 60, 0.06);
-  --theme-surface-hover: rgba(200, 155, 60, 0.11);
-  --theme-foreground: #e8ecf4;
-  --theme-foreground-muted: #94a0b8;
-  --theme-foreground-subtle: rgba(232, 236, 244, 0.6);
-  --theme-accent: #c89b3c;
-  --theme-accent-bright: #f0e6d2;
-  --theme-accent-glow: rgba(200, 155, 60, 0.45);
-  --theme-crimson: #a50f15;
-  --theme-crimson-bright: #c41e28;
-  --theme-crimson-glow: rgba(165, 15, 21, 0.48);
-  --theme-border-hover: #354055;
-  --theme-flint: #8a8f95;
-  --theme-victory: #3ecf8e;
-  --theme-defeat: #e5636e;
-}
-
-html[data-theme="test"] {
-  /* Noxian palette */
-  --theme-bg-deep: #08070a;
-  --theme-bg-base: #0e0c11;
-  --theme-bg-elevated: #17141c;
-  --theme-surface: rgba(200, 160, 90, 0.06);
-  --theme-surface-hover: rgba(200, 160, 90, 0.11);
-  --theme-foreground: #f5efe0;
-  --theme-foreground-muted: #b8b2a6;
-  --theme-foreground-subtle: rgba(245, 239, 224, 0.6);
-  --theme-accent: #c9a24d;
-  --theme-accent-bright: #e8c46a;
-  --theme-accent-glow: rgba(201, 162, 77, 0.45);
-  --theme-crimson: #a50f15;
-  --theme-crimson-bright: #c41e28;
-  --theme-crimson-glow: rgba(165, 15, 21, 0.48);
-  --theme-border: #38353c;
-  --theme-border-hover: #5a5560;
-  --theme-flint: #8a8f95;
-  --theme-victory: #57c97e;
-  --theme-defeat: #e05252;
-  /* Legacy aliases so existing `--color-lol-*` classes still resolve */
-  --theme-bg: var(--theme-bg-base);
-  --theme-card: var(--theme-bg-elevated);
-  --theme-card-hover: var(--theme-surface-hover);
-  --theme-gold: var(--theme-accent);
-  --theme-gold-light: var(--theme-accent-bright);
-  --theme-win: var(--theme-victory);
-  --theme-loss: var(--theme-defeat);
-  --theme-text: var(--theme-foreground-muted);
-  --theme-text-bright: var(--theme-foreground);
-}
-
-html[data-theme="experiment"] {
-  /* Experiment palette — redesign concept */
-  --theme-bg-deep: #08050a;
-  --theme-bg-base: #0d080c;
-  --theme-bg-elevated: #171017;
   --theme-bg: #0d080c;
   --theme-card: #171017;
   --theme-card-hover: #20151d;
   --theme-border: #35222c;
-  --theme-border-hover: #4a2e3d;
+  --theme-gold: #e6bc63;
+  --theme-gold-light: #f5e0a8;
+  --theme-win: #38d6a2;
+  --theme-loss: #ff6a4d;
+  --theme-text: #a5939b;
+  --theme-text-bright: #f4ebee;
+  --theme-bg-deep: #08050a;
+  --theme-bg-base: #0d080c;
+  --theme-bg-elevated: #171017;
   --theme-surface: rgba(210, 43, 71, 0.06);
   --theme-surface-hover: rgba(210, 43, 71, 0.11);
   --theme-foreground: #f4ebee;
   --theme-foreground-muted: #a5939b;
   --theme-foreground-subtle: #75646c;
-  --theme-text: #a5939b;
-  --theme-text-bright: #f4ebee;
   --theme-accent: #e6bc63;
   --theme-accent-bright: #f5e0a8;
   --theme-accent-glow: rgba(230, 188, 99, 0.45);
-  --theme-gold: #e6bc63;
-  --theme-gold-light: #f5e0a8;
   --theme-crimson: #d22b47;
   --theme-crimson-bright: #e85068;
   --theme-crimson-glow: rgba(210, 43, 71, 0.48);
+  --theme-border-hover: #4a2e3d;
+  --theme-flint: #75646c;
   --theme-victory: #38d6a2;
-  --theme-win: #38d6a2;
   --theme-defeat: #ff6a4d;
-  --theme-loss: #ff6a4d;
   --theme-assist: #4db8ff;
   --theme-violet: #a98bff;
-  --theme-flint: #75646c;
   --theme-font-display: "Chakra Petch", "Rajdhani", "Segoe UI", system-ui, sans-serif;
   --theme-font-body: "IBM Plex Sans", "Segoe UI", system-ui, sans-serif;
 }
 
-/* Mayhem mode swaps the crimson accent for violet; extra attribute beats the theme blocks on specificity */
-html[data-mode="mayhem"][data-theme] {
+/* Mayhem mode swaps the crimson accent for violet and uses flat violet-black surfaces like the
+   sidebar, with no accent glow */
+html[data-mode="mayhem"] {
   --theme-crimson: #8b5cf6;
   --theme-crimson-bright: #a78bfa;
-  --theme-crimson-glow: rgba(139, 92, 246, 0.48);
-}
-
-/* Mayhem: flat violet-black surfaces like the sidebar, and no accent glow */
-html[data-mode="mayhem"][data-theme="redesign"] {
   --theme-card: #100f15;
   --theme-card-hover: #14121e;
   --theme-bg-elevated: #0c0b11;
@@ -193,69 +126,32 @@ html[data-mode="mayhem"][data-theme="redesign"] {
   --theme-border: #2a2640;
 }
 
-html[data-mode="mayhem"][data-theme="redesign"] .app-tile {
+html[data-mode="mayhem"] .app-tile {
   border-width: 2px;
 }
 
-html[data-mode="mayhem"][data-theme="redesign"] .app-tile-featured {
+html[data-mode="mayhem"] .app-tile-featured {
   border-top-width: 3px;
-}
-
-html[data-mode="mayhem"][data-theme="redesign"] .app-tile-featured {
   background: var(--theme-card);
 }
 
-html[data-theme="redesign"] {
-  /* Redesign — structural clone of the experiment palette; diverge from here */
-  --theme-bg-deep: #08050a;
-  --theme-bg-base: #0d080c;
-  --theme-bg-elevated: #171017;
-  --theme-bg: #0d080c;
-  --theme-card: #171017;
-  --theme-card-hover: #20151d;
-  --theme-border: #35222c;
-  --theme-border-hover: #4a2e3d;
-  --theme-surface: rgba(210, 43, 71, 0.06);
-  --theme-surface-hover: rgba(210, 43, 71, 0.11);
-  --theme-foreground: #f4ebee;
-  --theme-foreground-muted: #a5939b;
-  --theme-foreground-subtle: #75646c;
-  --theme-text: #a5939b;
-  --theme-text-bright: #f4ebee;
-  --theme-accent: #e6bc63;
-  --theme-accent-bright: #f5e0a8;
-  --theme-accent-glow: rgba(230, 188, 99, 0.45);
-  --theme-gold: #e6bc63;
-  --theme-gold-light: #f5e0a8;
-  --theme-crimson: #d22b47;
-  --theme-crimson-bright: #e85068;
-  --theme-crimson-glow: rgba(210, 43, 71, 0.48);
-  --theme-victory: #38d6a2;
-  --theme-win: #38d6a2;
-  --theme-defeat: #ff6a4d;
-  --theme-loss: #ff6a4d;
-  --theme-assist: #4db8ff;
-  --theme-violet: #a98bff;
-  --theme-flint: #75646c;
-  --theme-font-display: "Chakra Petch", "Rajdhani", "Segoe UI", system-ui, sans-serif;
-  --theme-font-body: "IBM Plex Sans", "Segoe UI", system-ui, sans-serif;
-}
-
 body {
-  background-color: var(--theme-bg);
-  color: var(--theme-text);
+  position: relative;
+  background-color: var(--theme-bg-base);
+  background-image:
+    radial-gradient(900px 500px at 85% -8%, var(--theme-crimson-glow), transparent 70%),
+    linear-gradient(to bottom, var(--theme-bg-deep), var(--theme-bg-base));
+  color: var(--theme-foreground);
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   font-variant-numeric: tabular-nums;
   -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
   overflow: hidden;
 }
 
-html[data-theme="experiment"] h1,
-html[data-theme="experiment"] h2,
-html[data-theme="experiment"] h3,
-html[data-theme="redesign"] h1,
-html[data-theme="redesign"] h2,
-html[data-theme="redesign"] h3 {
+h1,
+h2,
+h3 {
   font-family: var(
     --theme-font-display,
     -apple-system,
@@ -264,65 +160,6 @@ html[data-theme="redesign"] h3 {
     Roboto,
     sans-serif
   );
-}
-
-html[data-theme="test"] body {
-  position: relative;
-  background-color: var(--theme-bg-base);
-  background-image: linear-gradient(to bottom, var(--theme-bg-deep), var(--theme-bg-base));
-  color: var(--theme-foreground);
-  -moz-osx-font-smoothing: grayscale;
-}
-
-html[data-theme="experiment"] body {
-  position: relative;
-  background-color: var(--theme-bg-base);
-  background-image:
-    radial-gradient(900px 500px at 85% -8%, var(--theme-crimson-glow), transparent 70%),
-    linear-gradient(to bottom, var(--theme-bg-deep), var(--theme-bg-base));
-  color: var(--theme-foreground);
-  -moz-osx-font-smoothing: grayscale;
-}
-
-html[data-theme="redesign"] body {
-  position: relative;
-  background-color: var(--theme-bg-base);
-  background-image:
-    radial-gradient(900px 500px at 85% -8%, var(--theme-crimson-glow), transparent 70%),
-    linear-gradient(to bottom, var(--theme-bg-deep), var(--theme-bg-base));
-  color: var(--theme-foreground);
-  -moz-osx-font-smoothing: grayscale;
-}
-
-html[data-theme="test"] body::before,
-html[data-theme="test"] body::after {
-  position: fixed;
-  inset: 0;
-  pointer-events: none;
-  z-index: 0;
-  content: "";
-}
-
-html[data-theme="test"] body::before {
-  background:
-    radial-gradient(ellipse 80% 40% at 0% 0%, var(--theme-crimson-glow) 0%, transparent 55%),
-    radial-gradient(ellipse 70% 50% at 100% 100%, var(--theme-accent-glow) 0%, transparent 60%),
-    radial-gradient(ellipse 60% 40% at 100% 0%, var(--theme-crimson-glow) 0%, transparent 65%);
-  opacity: 0.55;
-}
-
-html[data-theme="test"] body::after {
-  background: radial-gradient(
-    ellipse 70% 60% at 105% 105%,
-    var(--theme-crimson-glow),
-    transparent 60%
-  );
-  opacity: 0.4;
-}
-
-html[data-theme="test"] #root {
-  position: relative;
-  z-index: 1;
 }
 
 #root {

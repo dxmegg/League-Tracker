@@ -12,12 +12,6 @@ import { formatDuration, formatKDA, formatNumber, formatTimeAgo, kdaRatio } from
 import { parseRuneIds, splitRuneSelections } from "../lib/runes";
 
 const STYLE = `
-.match-list-exp {
-  container-type: inline-size;
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
 .match-row {
   display: grid;
   align-items: center;

@@ -13,7 +13,6 @@ import { addQueueLabels } from "../shared/queues";
 import "./global.css";
 
 const root = createRoot(document.getElementById("root")!);
-document.documentElement.setAttribute("data-theme", "redesign");
 
 // Not awaited: a slow download must not hold up the window
 window.api
