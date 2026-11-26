@@ -335,6 +335,8 @@ app
     } catch (err: unknown) {
       // Recovery handles expected missing/corrupt databases. Keep an unexpected
       // migration failure from becoming an unhandled rejection in whenReady.
+      migrationWindow?.destroy();
+      migrationWindow = null;
       reportFatal("Database initialization failed", err);
       app.quit();
       return;

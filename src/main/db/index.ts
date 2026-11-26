@@ -230,7 +230,7 @@ export let db: Database.Database;
 // backupBeforeMigration is off for a database just restored from a snapshot: the snapshot is the
 // backup, and another one would take the place of the copy made before the restore
 export async function initDatabase({
-  onMigrationProgress = (_text: string) => {},
+  onMigrationProgress = undefined as ((text: string) => void) | undefined,
   backupBeforeMigration = true,
 } = {}) {
   const dbPath = getDbPath();

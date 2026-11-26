@@ -53,7 +53,10 @@ export async function writeExportTo(
     const totalFrames = countTimeline("match_timeline_frames");
     const totalEvents = countTimeline("match_timeline_events");
     const summoners = db.prepare("SELECT * FROM summoner").all();
-    const settings = db.prepare("SELECT key, value FROM settings").all();
+    const settings = db
+      // A pending compaction belongs to this database's file, not to the one importing it
+      .prepare("SELECT key, value FROM settings WHERE key <> 'vacuum_pending'")
+      .all();
     const ignoredGames = db.prepare("SELECT game_id FROM ignored_games").all();
     const riotSyncState = db
       .prepare("SELECT puuid, platform, last_sync_at, last_match_id, complete FROM riot_sync_state")

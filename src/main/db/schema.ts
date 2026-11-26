@@ -1418,6 +1418,11 @@ export function migrateToV28(): void {
     }
   }
 
+  // A view since v34, which takes no index
+  if (objectSql("match_participant_challenges")) {
+    console.log("[db] v28 added participant telemetry fields");
+    return;
+  }
   db.exec(`
     CREATE TABLE IF NOT EXISTS match_participant_challenges (
       game_id INTEGER NOT NULL,
@@ -1794,7 +1799,7 @@ async function copyByGame(
   label: string,
   source: string,
   insertForRange: string,
-  onProgress: MigrationProgress,
+  onProgress: MigrationProgress | undefined,
 ): Promise<void> {
   const ids = db
     .prepare(`SELECT DISTINCT game_id FROM ${source} ORDER BY game_id`)
@@ -1804,6 +1809,9 @@ async function copyByGame(
   for (let i = 0; i < ids.length; i += 200) {
     const chunk = ids.slice(i, i + 200);
     insert.run(chunk[0], chunk[chunk.length - 1]);
+    // Only with a progress window, at startup: inside a running app (a restore) other code would
+    // write into the tables being copied while this waits
+    if (!onProgress) continue;
     onProgress(`${label} ${Math.round(((i + chunk.length) / ids.length) * 100)}%`);
     await yieldToUi();
   }
@@ -1813,7 +1821,10 @@ async function copyByGame(
 // are stored once, timelines lose their rowids, and the events' raw_json goes (the same timeline
 // is kept whole in match_timeline_status.raw_gz). One transaction, so an interrupted run leaves
 // v33 as it was and simply runs again. vacuumIfPending then gives the space back.
-async function migrateToV34(onProgress: MigrationProgress, backupFirst: boolean): Promise<void> {
+async function migrateToV34(
+  onProgress: MigrationProgress | undefined,
+  backupFirst: boolean,
+): Promise<void> {
   const moveChallenges = objectSql("match_participant_challenges")?.type === "table";
   // raw_json is dropped only where raw_gz holds the same timeline
   const strandedRawJson =
@@ -1848,7 +1859,7 @@ async function migrateToV34(onProgress: MigrationProgress, backupFirst: boolean)
   }
   const games = (db.prepare("SELECT COUNT(*) AS n FROM games").get() as { n: number }).n;
   if (backupFirst && games > 0) {
-    onProgress("Backing up the database before the upgrade…");
+    onProgress?.("Backing up the database before the upgrade…");
     try {
       const copy = await backup.createBackup("pre-migration-34");
       console.log(`[db] v34 backup: ${copy.file}`);
@@ -1901,8 +1912,8 @@ async function migrateToV34(onProgress: MigrationProgress, backupFirst: boolean)
       db.exec(`ALTER TABLE ${next} RENAME TO ${table}`);
     }
     setSetting("vacuum_pending", "1");
-    onProgress("Saving the upgraded database…");
-    await yieldToUi();
+    onProgress?.("Saving the upgraded database…");
+    if (onProgress) await yieldToUi();
     db.exec("COMMIT");
   } catch (err) {
     if (db.inTransaction) db.exec("ROLLBACK");
@@ -1915,7 +1926,7 @@ async function migrateToV34(onProgress: MigrationProgress, backupFirst: boolean)
 
 // Gives back the space a migration freed. Needs room for a second copy of what the database
 // holds; without it the database works as it is, only larger, and the next start tries again.
-export async function vacuumIfPending(onProgress: MigrationProgress = () => {}): Promise<void> {
+export async function vacuumIfPending(onProgress?: MigrationProgress): Promise<void> {
   if (getSetting("vacuum_pending") !== "1") return;
   const pragma = (name: string) => db.pragma(name, { simple: true }) as number;
   const used = (pragma("page_count") - pragma("freelist_count")) * pragma("page_size");
@@ -1923,16 +1934,22 @@ export async function vacuumIfPending(onProgress: MigrationProgress = () => {}):
     console.warn(`[db] compacting skipped: needs about ${gigabytes(2 * used)} GB free`);
     return;
   }
-  onProgress("Compacting the database…");
-  await yieldToUi();
+  onProgress?.("Compacting the database…");
+  if (onProgress) await yieldToUi();
   const started = Date.now();
-  db.exec("VACUUM");
-  db.pragma("wal_checkpoint(TRUNCATE)");
+  try {
+    db.exec("VACUUM");
+    db.pragma("wal_checkpoint(TRUNCATE)");
+  } catch (err) {
+    // The data is whole either way; a failure here must not read as damage at startup
+    console.error("[db] compacting failed, trying again next start:", err);
+    return;
+  }
   db.prepare("DELETE FROM settings WHERE key = 'vacuum_pending'").run();
   console.log(`[db] compacted in ${Date.now() - started} ms`);
 }
 
-export async function runMigrations(onProgress: MigrationProgress = () => {}, backupFirst = true) {
+export async function runMigrations(onProgress?: MigrationProgress, backupFirst = true) {
   const current = db.pragma("user_version", { simple: true }) as number;
   function timelineTablesPresent(): boolean {
     const names = new Set(
