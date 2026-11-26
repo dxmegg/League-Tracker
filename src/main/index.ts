@@ -124,7 +124,7 @@ function showMigrationProgress(text: string): void {
       backgroundColor: "#0b0e14",
       webPreferences: { sandbox: true, contextIsolation: true, nodeIntegration: false },
     });
-    const html = `<body style="margin:0;height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;background:#0b0e14;color:#e5e7eb;font:14px 'Segoe UI',sans-serif;user-select:none">
+    const html = `<title>Rift Records</title><body style="margin:0;height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;background:#0b0e14;color:#e5e7eb;font:14px 'Segoe UI',sans-serif;user-select:none">
       <style>@keyframes spin{to{transform:rotate(360deg)}}</style>
       <div style="width:24px;height:24px;border:3px solid #334155;border-top-color:#c8aa6e;border-radius:50%;animation:spin 1s linear infinite"></div>
       <div id="step"></div>
