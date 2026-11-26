@@ -2,6 +2,7 @@ import Database from "better-sqlite3";
 import zlib from "zlib";
 import { AUGMENT_SLOTS } from "../../shared/queues";
 import { db } from "../db";
+import { applyEogTelemetry } from "./eog";
 
 // ---- Raw match payloads ----
 //
@@ -363,7 +364,8 @@ export function participantRowsFromRaw(raw: any): RawParticipantRow[] {
       spell4_casts: s.spell4Casts ?? p.spell4Casts ?? 0,
       summoner1_casts: s.summoner1Casts ?? p.summoner1Casts ?? 0,
       summoner2_casts: s.summoner2Casts ?? p.summoner2Casts ?? 0,
-      total_heal_on_teammates: s.totalHealOnTeammates ?? p.totalHealOnTeammates ?? 0,
+      total_heal_on_teammates:
+        s.totalHealsOnTeammates ?? s.totalHealOnTeammates ?? p.totalHealsOnTeammates ?? 0,
       total_damage_shielded_on_teammates:
         s.totalDamageShieldedOnTeammates ?? p.totalDamageShieldedOnTeammates ?? 0,
       spell1: p.spell1Id ?? p.summoner1Id ?? s.spell1Id ?? s.summoner1Id ?? null,
@@ -782,6 +784,7 @@ export function writeParticipants(
     );
   }
   writeTeamsAndBans(gameId, raw);
+  applyEogTelemetry(gameId);
 }
 
 export async function backfillParticipantCombatStats(

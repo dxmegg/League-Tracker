@@ -3,7 +3,7 @@ import type { ParsedParticipant } from "../../shared/api";
 import { formatNumber } from "../lib/format";
 import ChampionIcon from "./ChampionIcon";
 
-type Row = {
+export type Row = {
   label: string;
   value: (p: ParsedParticipant) => number | null;
   fmt?: "k";
@@ -12,13 +12,31 @@ type Row = {
 const multikill = (p: ParsedParticipant) =>
   p.pentaKills > 0 ? 5 : p.quadraKills > 0 ? 4 : p.tripleKills > 0 ? 3 : p.doubleKills > 0 ? 2 : 1;
 
-const GROUPS: Array<{ title: string; rows: Row[] }> = [
+const eog = (key: string) => (p: ParsedParticipant) => p.eog?.[key] ?? null;
+const rows = (list: Array<[string, Row["value"]]>): Row[] =>
+  list.map(([label, value]) => ({ label, value }));
+
+export const GROUPS: Array<{ title: string; rows: Row[] }> = [
   {
     title: "Combat",
     rows: [
       { label: "Largest killing spree", value: (p) => p.largestKillingSpree },
       { label: "Largest multikill", value: multikill },
       { label: "Crowd control score", value: (p) => p.timeCcOthers ?? null },
+      ...rows([
+        ["Time controlling others", (p) => p.totalCcDealt ?? null],
+        ["Double kills", (p) => p.doubleKills],
+        ["Triple kills", (p) => p.tripleKills],
+        ["Quadra kills", (p) => p.quadraKills],
+        ["Penta kills", (p) => p.pentaKills],
+        ["Unreal kills", eog("unrealKills")],
+        ["Killing sprees", (p) => p.killingSprees ?? null],
+        ["First blood", (p) => (p.firstBloodKill ? 1 : 0)],
+        ["Champion level", (p) => p.champLevel ?? null],
+        ["Champion experience", eog("champExperience")],
+        ["Longest time alive (s)", (p) => p.longestAlive ?? null],
+        ["Time spent dead (s)", eog("totalTimeSpentDead")],
+      ]),
     ],
   },
   {
@@ -121,6 +139,12 @@ const GROUPS: Array<{ title: string; rows: Row[] }> = [
       { label: "Gold earned", value: (p) => p.goldEarned, fmt: "k" },
       { label: "Gold spent", value: (p) => p.goldSpent ?? null, fmt: "k" },
       { label: "Minions killed", value: (p) => p.minionsKilled ?? p.cs },
+      ...rows([
+        ["Neutral in own jungle", (p) => p.neutralMinionsTeamJungle ?? null],
+        ["Neutral in enemy jungle", (p) => p.neutralMinionsEnemyJungle ?? null],
+        ["Items purchased", eog("itemsPurchased")],
+        ["Consumables purchased", eog("consumablesPurchased")],
+      ]),
       {
         label: "Neutral minions killed",
         value: (p) => p.neutralMinionsKilled ?? null,
@@ -132,7 +156,62 @@ const GROUPS: Array<{ title: string; rows: Row[] }> = [
     rows: [
       { label: "Towers destroyed", value: (p) => p.turretKills ?? null },
       { label: "Inhibitors destroyed", value: (p) => p.inhibitorKills ?? null },
+      ...rows([
+        ["Damage to buildings", eog("damageDealtToBuildings")],
+        ["Tower takedowns", eog("turretTakedowns")],
+        ["Towers lost", eog("turretsLost")],
+        ["Inhibitor takedowns", eog("inhibitorTakedowns")],
+        ["Inhibitors lost", eog("inhibitorsLost")],
+        ["Nexus kills", eog("nexusKills")],
+        ["Nexus takedowns", eog("nexusTakedowns")],
+        ["Nexus lost", eog("nexusLost")],
+        ["Baron kills", eog("baronKills")],
+        ["Dragon kills", eog("dragonKills")],
+        ["Objectives stolen", (p) => p.objectivesStolen ?? null],
+        ["Units healed", (p) => p.totalUnitsHealed ?? null],
+      ]),
     ],
+  },
+  {
+    title: "Casts",
+    rows: rows([
+      ["Q", (p) => p.spell1Casts ?? null],
+      ["W", (p) => p.spell2Casts ?? null],
+      ["E", (p) => p.spell3Casts ?? null],
+      ["R", (p) => p.spell4Casts ?? null],
+      ["Summoner spell 1", (p) => p.summoner1Casts ?? null],
+      ["Summoner spell 2", (p) => p.summoner2Casts ?? null],
+    ]),
+  },
+  {
+    title: "Pings",
+    rows: rows([
+      ["Basic", (p) => p.basicPings ?? null],
+      ["On my way", (p) => p.onMyWayPings ?? null],
+      ["Assist me", (p) => p.assistMePings ?? null],
+      ["Get back", (p) => p.getBackPings ?? null],
+      ["Enemy missing", (p) => p.enemyMissingPings ?? null],
+      ["Danger", (p) => p.dangerPings ?? null],
+      ["Push", (p) => p.pushPings ?? null],
+      ["All in", (p) => p.allInPings ?? null],
+      ["Command", (p) => p.commandPings ?? null],
+      ["Need vision", (p) => p.needVisionPings ?? null],
+      ["Vision cleared", (p) => p.visionClearedPings ?? null],
+    ]),
+  },
+  {
+    title: "Player",
+    rows: rows([
+      ["Account level", eog("level")],
+      ["Wins", eog("wins")],
+      ["Losses", eog("losses")],
+      ["Games left", eog("leaves")],
+      ["Was AFK", eog("wasAfk")],
+      ["Left the game", eog("leaver")],
+      ["Severe behaviour flag", eog("severeTransgressor")],
+      ["Game ended in surrender", eog("gameEndedInSurrender")],
+      ["Caused early surrender", eog("causedEarlySurrender")],
+    ]),
   },
 ];
 

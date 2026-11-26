@@ -5,6 +5,7 @@ import { QUEUE_ID_MAYHEM_CLASSIC } from "../../shared/queues";
 import { getSetting, setSetting } from "./settings";
 import { groupByGame, parsePatch, detectRemake, rebuildDerivedStats } from "./scoring";
 import { unpackRaw, participantRowsFromRaw, writeParticipants } from "./payloads";
+import { backfillEogTelemetry, scrubStoredSecrets } from "./eog";
 import { upsertSummoner } from "./summoner";
 
 // The old hide-Mayhem-Classic switch became a per-queue list. Carry the boolean
@@ -443,7 +444,7 @@ export function createIndexes() {
 // versioning, so it could be missing any subset of the columns v1 adds — which
 // is why each step checks for its column rather than assuming. A database that
 // createTables just built is also version 0, and lands on the same no-op path.
-export const SCHEMA_VERSION = 32;
+export const SCHEMA_VERSION = 33;
 
 export function tableColumns(table: string): Set<string> {
   const rows = db.pragma(`table_info(${table})`) as { name: string }[];
@@ -1713,6 +1714,13 @@ export function migrateToV32(): void {
   }
 }
 
+// Drops chat credentials and spectator keys already stored, and fills the participant columns from
+// the stored end-of-game blocks
+export function migrateToV33(): void {
+  scrubStoredSecrets();
+  backfillEogTelemetry();
+}
+
 export async function runMigrations() {
   const current = db.pragma("user_version", { simple: true }) as number;
   function timelineTablesPresent(): boolean {
@@ -1930,6 +1938,7 @@ export async function runMigrations() {
   if (current < 30) migrateToV30();
   if (current < 31) migrateToV31();
   if (current < 32) migrateToV32();
+  if (current < 33) migrateToV33();
 
   db.pragma(`user_version = ${SCHEMA_VERSION}`);
 }

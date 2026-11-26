@@ -212,6 +212,32 @@ export interface ParticipantDetailStats {
   neutralMinionsKilled?: number | null;
   turretKills?: number | null;
   inhibitorKills?: number | null;
+  champLevel?: number | null;
+  totalCcDealt?: number | null;
+  longestAlive?: number | null;
+  killingSprees?: number | null;
+  totalUnitsHealed?: number | null;
+  neutralMinionsTeamJungle?: number | null;
+  neutralMinionsEnemyJungle?: number | null;
+  // Numbers only the end-of-game block has; null for games it was not captured for
+  eog?: Record<string, number> | null;
+}
+
+export interface MatchTeamRecord {
+  team_id: number;
+  win: number | null;
+  baron_kills: number;
+  dragon_kills: number;
+  rift_herald_kills: number;
+  horde_kills: number;
+  atakhan_kills: number;
+  tower_kills: number;
+  inhibitor_kills: number;
+  first_baron: number;
+  first_dragon: number;
+  first_herald: number;
+  first_tower: number;
+  first_blood: number;
 }
 
 // One row per player, straight from match_participants — the scoreboard no
@@ -281,6 +307,9 @@ export interface MatchDetail {
   stats: PlayerStatsRecord;
   augments: GameAugment[];
   participants: MatchParticipantRecord[];
+  teams?: MatchTeamRecord[];
+  // Client data captured after the game, keyed by kind (see main/post-game.ts)
+  postGame?: Record<string, unknown>;
 }
 
 export interface ChampionStats {
@@ -1821,6 +1850,8 @@ export interface LiveSpell {
   name: string;
   // Resolved from the gameflow session when the client is connected
   id: number | null;
+  // The game's raw description key; Mayhem augments that replace a spell are only told apart by it
+  key?: string;
 }
 
 export interface LivePlayer {
@@ -1907,7 +1938,8 @@ export interface LiveSeriesPoint {
   ORDER: { kills: number; cs: number; itemValue: number };
   CHAOS: { kills: number; cs: number; itemValue: number };
   gold: number;
-  // Per player, in the order of `playerIds`: [kills, deaths, assists, cs, itemValue, level]
+  // Per player, in the order of `playerIds`: [kills, deaths, assists, cs, itemValue, level,
+  // wardScore, isDead (0/1), respawnTimer]; the last three are missing in older rows
   players?: number[][];
 }
 
@@ -1923,8 +1955,10 @@ export interface StoredLiveBody {
   itemLog?: Array<{ t: number; p: string; id: number; d: number }>;
   // Your ability ranks as they were put in, in order
   skillLog?: Array<{ t: number; key: string; level: number }>;
-  // Your champion stats every ~15 game seconds
+  // Your champion stats every ~5 game seconds
   statSeries?: Array<{ t: number; stats: Record<string, number> }>;
+  // Summoner spells of every player: the first ones seen, then every change
+  spellLog?: Array<{ t: number; p: string; slot: 1 | 2; name: string; key: string }>;
   // Draft info captured in champion select, when the app was watching it
   champSelect?: NonNullable<LiveSessionData["champSelect"]> | null;
 }
@@ -1947,6 +1981,8 @@ export interface LiveFull {
   events: LiveEvent[];
   // The untouched allgamedata payload, for the raw viewer
   raw: unknown;
+  // The client's gameflow gameData (without the lobby password); absent without a connected client
+  session?: unknown;
 }
 export interface BackfillProgress {
   current: number;

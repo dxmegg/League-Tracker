@@ -85,7 +85,7 @@ The executable is not signed by a trusted certificate authority, so Windows may 
 
 ## Data and network
 
-Match history is stored in `%APPDATA%\rift-records` (`league-tracker` up to 1.3.0, renamed on the first start); the database and backup folders can be changed in Settings. Uninstalling keeps your data unless you choose to delete it. There is no Rift Records account. The app talks to the League client, the Riot Games API (through a small proxy that holds the API key), Data Dragon and CommunityDragon (game art) and GitHub (update checks).
+Match history is stored in `%APPDATA%\rift-records`; the database and backup folders can be changed in Settings. Uninstalling keeps your data unless you choose to delete it. There is no Rift Records account. The app talks to the League client, the Riot Games API (through a small proxy that holds the API key), Data Dragon and CommunityDragon (game art) and GitHub (update checks).
 
 ## Development
 

@@ -1,3 +1,6 @@
+import { EOG_COLUMNS, eogExtras, findEogPlayer } from "../../shared/eog";
+import { getEogBlock } from "./eog";
+import { getPostGameKinds } from "./live-stats";
 import { db } from "../db";
 import zlib from "zlib";
 import type { QueueStat } from "../../shared/api";
@@ -460,7 +463,9 @@ export function getMatchParticipants(gameId: number): any[] {
              largest_critical_strike, true_damage_dealt, physical_damage_dealt, magic_damage_dealt,
              total_damage_dealt_all, damage_to_turrets, physical_damage_taken, magic_damage_taken,
              true_damage_taken, damage_self_mitigated, wards_placed, wards_killed, vision_wards_bought,
-             gold_spent, total_minions_killed, neutral_minions_killed, turret_kills, inhibitor_kills
+             gold_spent, total_minions_killed, neutral_minions_killed, turret_kills, inhibitor_kills,
+             champ_level, total_cc_dealt, longest_alive, killing_sprees, total_units_healed,
+             neutral_minions_team_jungle, neutral_minions_enemy_jungle
       FROM match_participants
       WHERE game_id = ?
       ORDER BY participant_id
@@ -496,8 +501,19 @@ export function getMatchParticipants(gameId: number): any[] {
     else augments.set(row.participant_id, [row.augment_id]);
   }
 
+  const eog = getEogBlock(gameId);
+
   return rows.map((r) => {
     const raw = rawParticipants.find((p: any) => Number(p.participantId) === r.participant_id);
+    const eogPlayer = eog
+      ? findEogPlayer(eog, { puuid: r.puuid, championId: r.champion_id, teamId: r.team_id })
+      : null;
+    // A zero nobody reported is "no data", not a zero
+    const known = (column: string) => {
+      const key = EOG_COLUMNS[column];
+      const stats = raw?.stats ?? raw ?? {};
+      return r[column] || eogPlayer || key in stats ? (r[column] ?? null) : null;
+    };
     const runes = extractRunes(raw);
     return {
       participantId: r.participant_id,
@@ -523,25 +539,25 @@ export function getMatchParticipants(gameId: number): any[] {
       largestKillingSpree: r.largest_killing_spree,
       spell1Id: r.spell1,
       spell2Id: r.spell2,
-      enemyMissingPings: r.enemy_missing_pings ?? null,
-      dangerPings: r.danger_pings ?? null,
-      onMyWayPings: r.on_my_way_pings ?? null,
-      assistMePings: r.assist_me_pings ?? null,
-      getBackPings: r.get_back_pings ?? null,
-      visionClearedPings: r.vision_cleared_pings ?? null,
-      needVisionPings: r.need_vision_pings ?? null,
-      pushPings: r.push_pings ?? null,
-      allInPings: r.all_in_pings ?? null,
-      basicPings: r.basic_pings ?? null,
-      commandPings: r.command_pings ?? null,
-      spell1Casts: r.spell1_casts ?? null,
-      spell2Casts: r.spell2_casts ?? null,
-      spell3Casts: r.spell3_casts ?? null,
-      spell4Casts: r.spell4_casts ?? null,
-      summoner1Casts: r.summoner1_casts ?? null,
-      summoner2Casts: r.summoner2_casts ?? null,
-      totalHealOnTeammates: r.total_heal_on_teammates ?? null,
-      totalDamageShieldedOnTeammates: r.total_damage_shielded_on_teammates ?? null,
+      enemyMissingPings: known("enemy_missing_pings"),
+      dangerPings: known("danger_pings"),
+      onMyWayPings: known("on_my_way_pings"),
+      assistMePings: known("assist_me_pings"),
+      getBackPings: known("get_back_pings"),
+      visionClearedPings: known("vision_cleared_pings"),
+      needVisionPings: known("need_vision_pings"),
+      pushPings: known("push_pings"),
+      allInPings: known("all_in_pings"),
+      basicPings: known("basic_pings"),
+      commandPings: known("command_pings"),
+      spell1Casts: known("spell1_casts"),
+      spell2Casts: known("spell2_casts"),
+      spell3Casts: known("spell3_casts"),
+      spell4Casts: known("spell4_casts"),
+      summoner1Casts: known("summoner1_casts"),
+      summoner2Casts: known("summoner2_casts"),
+      totalHealOnTeammates: known("total_heal_on_teammates"),
+      totalDamageShieldedOnTeammates: known("total_damage_shielded_on_teammates"),
       teamPosition: r.team_position ?? null,
       visionScore: r.vision_score ?? null,
       timeCcOthers: r.time_cc_others ?? null,
@@ -566,6 +582,14 @@ export function getMatchParticipants(gameId: number): any[] {
       neutralMinionsKilled: r.neutral_minions_killed ?? null,
       turretKills: r.turret_kills ?? null,
       inhibitorKills: r.inhibitor_kills ?? null,
+      champLevel: r.champ_level || null,
+      totalCcDealt: r.total_cc_dealt ?? null,
+      longestAlive: r.longest_alive ?? null,
+      killingSprees: r.killing_sprees ?? null,
+      totalUnitsHealed: r.total_units_healed ?? null,
+      neutralMinionsTeamJungle: r.neutral_minions_team_jungle ?? null,
+      neutralMinionsEnemyJungle: r.neutral_minions_enemy_jungle ?? null,
+      eog: eogPlayer ? eogExtras(eogPlayer) : null,
       challenges: challenges.get(r.participant_id),
       items: [r.item0, r.item1, r.item2, r.item3, r.item4, r.item5, r.item6].map((i) => i ?? 0),
       augments: augments.get(r.participant_id) ?? [],
@@ -603,6 +627,8 @@ export function getMatchDetail(gameId: number): any {
     stats,
     augments,
     participants: getMatchParticipants(gameId),
+    teams: db.prepare("SELECT * FROM match_teams WHERE game_id = ? ORDER BY team_id").all(gameId),
+    postGame: getPostGameKinds(gameId),
   };
 }
 

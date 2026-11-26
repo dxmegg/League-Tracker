@@ -1596,7 +1596,7 @@ function runeRef(v: unknown): LiveRuneRef | null {
 }
 
 function liveSpell(v: unknown, id: number | null): LiveSpell {
-  return { name: str(rec(v).displayName), id };
+  return { name: str(rec(v).displayName), id, key: str(rec(v).rawDescription) };
 }
 
 // Names in the Live Client API carry no tag line in older clients, so compare on the game name only.
@@ -1609,6 +1609,7 @@ async function readGameSession(): Promise<{
   queueId: number | null;
   gameId: number | null;
   byName: Map<string, { championId: number; spell1: number; spell2: number; puuid: string | null }>;
+  data?: Record<string, unknown>;
 }> {
   const empty = { phase: null, queueId: null, gameId: null, byName: new Map() };
   if (!isClientConnected()) return empty;
@@ -1635,6 +1636,10 @@ async function readGameSession(): Promise<{
       queueId: typeof rec(gameData.queue).id === "number" ? rec(gameData.queue).id : null,
       gameId: gameData.gameId ? num(gameData.gameId) : null,
       byName,
+      // Everything the client says about the game, minus the lobby password and the spectator key
+      data: Object.fromEntries(
+        Object.entries(gameData).filter(([k]) => k !== "password" && k !== "spectatorKey"),
+      ),
     };
   } catch {
     return empty;
@@ -1801,6 +1806,7 @@ export async function fetchLiveFull(): Promise<LiveFull> {
     players,
     events,
     raw,
+    session: session.data,
   };
 }
 // ---- Recording your champion's stats during a game ----
@@ -1832,17 +1838,19 @@ type Recording = db.LiveStatRecording & {
   itemLog: NonNullable<StoredLiveBody["itemLog"]>;
   skillLog: NonNullable<StoredLiveBody["skillLog"]>;
   statSeries: NonNullable<StoredLiveBody["statSeries"]>;
+  spellLog: NonNullable<StoredLiveBody["spellLog"]>;
   champSelect: StoredLiveBody["champSelect"];
   // Last seen state, to turn snapshots into change logs
   prevItems: Map<string, Map<number, number>>;
   prevSkills: Record<string, number>;
+  prevSpells: Map<string, string>;
 };
 
 // The last champion select seen by the lobby poll, attached to the game that follows it
 let lastChampSelect: { at: number; value: NonNullable<LiveSessionData["champSelect"]> } | null =
   null;
 const CHAMP_SELECT_MAX_AGE_MS = 30 * 60_000;
-const STAT_SERIES_STEP_SEC = 15;
+const STAT_SERIES_STEP_SEC = 5;
 
 const playerKey = (p: LivePlayer) => p.riotId || `${p.summonerName}|${p.championName}`;
 
@@ -1864,6 +1872,18 @@ function collectExtras(rec: Recording, snap: LiveFull, t: number, sample: Record
       }
     }
     rec.prevItems.set(key, now);
+
+    for (const [slot, spell] of [
+      [1, p.spellOne],
+      [2, p.spellTwo],
+    ] as const) {
+      const id = `${key}|${slot}`;
+      const seen = spell.key || spell.name;
+      if (!seen || rec.prevSpells.get(id) === seen) continue;
+      rec.prevSpells.set(id, seen);
+      rec.spellLog.push({ t, p: key, slot, name: spell.name, key: spell.key ?? "" });
+      rec.dirty = true;
+    }
   }
 
   // prevSkills holds the highest rank seen per key: the client's readings flicker, so only a new
@@ -1881,7 +1901,13 @@ function collectExtras(rec: Recording, snap: LiveFull, t: number, sample: Record
 
   const lastStat = rec.statSeries[rec.statSeries.length - 1];
   if (!lastStat || t < lastStat.t || t - lastStat.t >= STAT_SERIES_STEP_SEC) {
-    rec.statSeries.push({ t, stats: sample });
+    // Momentary readings are left out of the peaks but kept in the series
+    const stats = { ...sample };
+    for (const key of ["currentHealth", "resourceValue"]) {
+      const value = snap.me?.stats[key];
+      if (typeof value === "number") stats[key] = value;
+    }
+    rec.statSeries.push({ t, stats });
   }
 }
 
@@ -1902,6 +1928,7 @@ function persistRecording() {
         itemLog: recording.itemLog,
         skillLog: recording.skillLog,
         statSeries: recording.statSeries,
+        spellLog: recording.spellLog,
         champSelect: recording.champSelect,
       });
     }
@@ -1979,6 +2006,8 @@ async function recordTick() {
         itemLog: [],
         skillLog: [],
         statSeries: [],
+        spellLog: [],
+        prevSpells: new Map(),
         champSelect:
           lastChampSelect && Date.now() - lastChampSelect.at < CHAMP_SELECT_MAX_AGE_MS
             ? lastChampSelect.value
@@ -2009,8 +2038,18 @@ async function recordTick() {
         players: recording.playerIds.map((id) => {
           const p = snap.players.find((x) => playerKey(x) === id);
           return p
-            ? [p.kills, p.deaths, p.assists, p.creepScore, p.itemValue, p.level]
-            : [0, 0, 0, 0, 0, 0];
+            ? [
+                p.kills,
+                p.deaths,
+                p.assists,
+                p.creepScore,
+                p.itemValue,
+                p.level,
+                p.wardScore,
+                Number(p.isDead),
+                p.respawnTimer,
+              ]
+            : [0, 0, 0, 0, 0, 0, 0, 0, 0];
         }),
       });
       recording.dirty = true;

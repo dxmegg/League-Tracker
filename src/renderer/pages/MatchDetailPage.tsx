@@ -9,6 +9,8 @@ import { Panel } from "../components/Panel";
 import { SegmentedControl } from "../components/SegmentedControl";
 import ChampionIcon from "../components/ChampionIcon";
 import { MatchCompareTable } from "../components/MatchCompareTable";
+import { MatchGraphs } from "../components/MatchGraphs";
+import { MatchPostGame, MatchTeams } from "../components/MatchPostGame";
 import MatchScoreboard from "../components/MatchScoreboard";
 import { MatchTimeline } from "../components/MatchTimeline";
 import { queueLabel } from "../components/QueueSelect";
@@ -17,11 +19,12 @@ import { formatDuration, formatNumber, formatTimeAgo, kdaRatio } from "../lib/fo
 import { parseParticipants, scoreInputsFor } from "../lib/participants";
 import type { MatchDetail } from "../lib/types";
 
-type MatchTab = "overview" | "statistics" | "table" | "timeline";
+type MatchTab = "overview" | "statistics" | "table" | "graphs" | "timeline";
 const TABS = [
   { value: "overview", label: "Overview" },
   { value: "statistics", label: "Statistics" },
   { value: "table", label: "Table" },
+  { value: "graphs", label: "Graphs" },
   { value: "timeline", label: "Timeline" },
 ] as const;
 
@@ -211,7 +214,10 @@ export default function MatchDetailPage() {
           {tab === "overview" && (
             <MatchScoreboard detail={detail} champData={champData} puuids={puuids} />
           )}
+          {tab === "overview" && <MatchPostGame data={detail.postGame} players={players} />}
+          {tab === "table" && <MatchTeams teams={detail.teams} />}
           {tab === "table" && players.length > 0 && <MatchCompareTable players={players} />}
+          {tab === "graphs" && players.length > 0 && <MatchGraphs players={players} />}
           {tab === "timeline" && players.length > 0 && (
             <MatchTimeline gameId={parsedGameId} players={players} />
           )}

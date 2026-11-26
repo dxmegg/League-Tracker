@@ -1,5 +1,7 @@
 import { gunzipSync, gzipSync } from "node:zlib";
 import { db } from "../db";
+import { applyEogTelemetry } from "./eog";
+import { stripEogSecrets } from "../../shared/eog";
 import type {
   LiveStatRecord,
   StoredLiveBody,
@@ -128,7 +130,26 @@ export function savePostGameData(gameId: number, puuid: string, kind: string, da
      ON CONFLICT(game_id, puuid, kind) DO UPDATE SET
        payload = excluded.payload,
        recorded_at = excluded.recorded_at`,
-  ).run(gameId, puuid, kind, gzipSync(JSON.stringify(data)), Date.now());
+  ).run(
+    gameId,
+    puuid,
+    kind,
+    gzipSync(JSON.stringify(kind === "eog" ? stripEogSecrets(data) : data)),
+    Date.now(),
+  );
+  if (kind === "eog") applyEogTelemetry(gameId);
+}
+
+// Everything captured after one game except the large end-of-game block, keyed by kind
+export function getPostGameKinds(gameId: number): Record<string, unknown> {
+  const rows = db
+    .prepare(
+      "SELECT kind, payload FROM post_game_data WHERE game_id = ? AND kind <> 'eog' ORDER BY recorded_at",
+    )
+    .all(gameId) as Array<{ kind: string; payload: Buffer }>;
+  return Object.fromEntries(
+    rows.map((row) => [row.kind, JSON.parse(gunzipSync(row.payload).toString("utf8"))]),
+  );
 }
 
 // The newest games that have anything captured, newest game first
