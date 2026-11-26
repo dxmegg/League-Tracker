@@ -162,6 +162,7 @@ export async function writeExportTo(
       SELECT game_id, participant_id, ${TELEMETRY_COLUMNS.join(", ")}
       FROM match_participants
       WHERE (game_id, participant_id) > (?, ?)${timelineWhere}
+        AND (${TELEMETRY_COLUMNS.map((c) => `${c} <> 0`).join(" OR ")})
       ORDER BY game_id, participant_id
       LIMIT ?
     `);
@@ -502,6 +503,8 @@ export async function importData(
   const restoreLiveGame = rowRestorer("live_game_data");
   const restorePostGame = rowRestorer("post_game_data");
   const restoreTrackedRow = rowRestorer("tracked_game_stats");
+  // A game the import skipped must not take the rest of the file down with a foreign key error
+  const gameIsStored = db.prepare("SELECT 1 FROM games WHERE game_id = ?");
   const ownerIdentity = db.prepare(
     "SELECT game_name AS gameName, tag_line AS tagLine FROM summoner WHERE puuid = ?",
   );
@@ -613,6 +616,7 @@ export async function importData(
   const flushPlayerExtras = () => {
     const tx = db.transaction(() => {
       for (const player of challenges.splice(0)) {
+        if (!gameIsStored.get(player.game_id)) continue;
         for (const [key, value] of Object.entries(player.values)) {
           restoreChallenge.run(player.game_id, player.participant_id, key, value);
         }
@@ -715,7 +719,7 @@ export async function importData(
         progressLabel = "Reading timeline events";
         break;
       case "trackedAccount":
-        restoreTrackedRow(record.data);
+        if (gameIsStored.get(record.data.game_id)) restoreTrackedRow(record.data);
         break;
       case "challenges":
         challenges.push(record.data);

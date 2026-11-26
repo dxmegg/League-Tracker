@@ -228,6 +228,25 @@ await openDb("from-v6");
 await importData(v6File);
 assert.equal((db.prepare("SELECT COUNT(*) AS n FROM games").get() as { n: number }).n, 4);
 
+// ---- a game the import can't store doesn't stop the rest ----
+const lines = zlib.gunzipSync(fs.readFileSync(exportFile)).toString("utf8").split("\n");
+const withoutGame = lines.filter(
+  (line) => !line.startsWith('{"type":"game"') || !line.includes('"gameId":1003,'),
+);
+assert.equal(withoutGame.length, lines.length - 1);
+const partialFile = path.join(base, "export-partial.json.gz");
+fs.writeFileSync(partialFile, zlib.gzipSync(withoutGame.join("\n")));
+await openDb("partial");
+assert.equal((await importData(partialFile)).imported, 3);
+assert.equal(
+  (
+    db
+      .prepare("SELECT COUNT(*) AS n FROM match_participant_challenges WHERE game_id = 1003")
+      .get() as { n: number }
+  ).n,
+  0,
+);
+
 // ---- snapshot → delete an account → restore ----
 await openDb("imported");
 const snapshot = await createBackup("manual");
