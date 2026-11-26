@@ -7,8 +7,6 @@ import { useBackfill } from "../hooks/useBackfill";
 import { useLcuStatus } from "../hooks/useLcuStatus";
 import type { LcuStatus } from "../lib/types";
 import { RefreshIcon, SettingsIcon } from "./icons";
-import { ThemeMenu } from "./ThemeMenu";
-import { useDevMode } from "../hooks/useDevMode";
 import { WindowControls } from "./WindowControls";
 
 const STATUS_DOT: Record<LcuStatus, string> = {
@@ -64,8 +62,6 @@ export function TopBar() {
     }
   }, []);
 
-  const [devMode] = useDevMode();
-
   return (
     <header className="titlebar-drag relative z-30 flex h-12 w-full shrink-0 items-center gap-3 border-b border-lol-border/40 bg-black/25 pl-4 backdrop-blur">
       <div className="titlebar-no-drag flex items-center gap-1.5 rounded-full border border-lol-border/60 bg-lol-card/60 p-1 pr-1.5">
@@ -107,7 +103,6 @@ export function TopBar() {
       )}
 
       <div className="titlebar-no-drag ml-auto flex items-center gap-2 pr-2">
-        {devMode && <ThemeMenu />}
         <AccountMenu />
         <UpdateButton />
         <NavLink

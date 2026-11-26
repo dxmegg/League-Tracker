@@ -3,7 +3,6 @@ import { NavLink, useLocation } from "react-router-dom";
 import { useActiveMode } from "../hooks/useActiveMode";
 import { useDevMode } from "../hooks/useDevMode";
 import { useIpc } from "../hooks/useIpc";
-import { useActiveTheme } from "../hooks/useActiveTheme";
 import {
   CoinsIcon,
   GlobeIcon,
@@ -25,9 +24,7 @@ type NavIcon = (props: SVGProps<SVGSVGElement>) => React.JSX.Element;
 const NAV_ICONS: Record<string, NavIcon> = {
   "/test": SettingsIcon,
   "/home": HomeIcon,
-  "/local": UserIcon,
   "/profile": UserIcon,
-  "/history": MedalIcon,
   "/match-history": MedalIcon,
   "/champions": ShieldIcon,
   "/items": CoinsIcon,
@@ -42,11 +39,11 @@ const NAV_ICONS: Record<string, NavIcon> = {
   "/debug": SettingsIcon,
 };
 
-const mainTabs = [
+const TABS = [
   { to: "/test", label: "LIVE GAME" },
   { to: "/home", label: "HOME" },
-  { to: "/local", label: "LOCAL ACCOUNT" },
-  { to: "/history", label: "HISTORY" },
+  { to: "/profile", label: "YOUR PROFILE" },
+  { to: "/match-history", label: "MATCH HISTORY" },
   { to: "/champions", label: "CHAMPIONS" },
   { to: "/items", label: "ITEMS" },
   { to: "/augments", label: "AUGMENTS" },
@@ -60,18 +57,9 @@ const mainTabs = [
   { to: "/debug", label: "DEBUG TESTING" },
 ];
 
-// Redesign merges Local Account and History into one page
-const redesignTabs = [
-  { to: "/test", label: "LIVE GAME" },
-  { to: "/home", label: "HOME" },
-  { to: "/profile", label: "YOUR PROFILE" },
-  { to: "/match-history", label: "MATCH HISTORY" },
-  ...mainTabs.filter((tab) => !["/test", "/home", "/local", "/history"].includes(tab.to)),
-];
-
-// Each tab appears in exactly one group; tabs a theme doesn't have are simply skipped.
+// Each tab appears in exactly one group
 const NAV_GROUPS = [
-  { title: "Main", paths: ["/test", "/home", "/profile", "/match-history", "/local", "/history"] },
+  { title: "Main", paths: ["/test", "/home", "/profile", "/match-history"] },
   { title: "Analytics", paths: ["/champions", "/items", "/augments", "/runes"] },
   {
     title: "Community & progress",
@@ -79,28 +67,13 @@ const NAV_GROUPS = [
   },
 ];
 
-const ACTIVE_TAIL: Record<string, string> = {
-  "/data": "total-stats",
-};
-
 export function Sidebar() {
   const { pathname } = useLocation();
-  const tabs = useActiveTheme({ exact: true }) === "redesign" ? redesignTabs : mainTabs;
   const [mode] = useActiveMode();
   const [devMode] = useDevMode();
   const { data: version } = useIpc(() => window.api.getVersion(), []);
 
-  const isLinkActive = (to: string) => {
-    if (to === "/history") return pathname === "/history" || pathname === "/";
-    if (to === "/home" || to === "/local") return pathname === to || pathname.startsWith(`${to}/`);
-    const tail = ACTIVE_TAIL[to] ?? to.slice(1);
-    return (
-      pathname === to ||
-      pathname.startsWith(`${to}/`) ||
-      pathname === `/history/full/${tail}` ||
-      pathname.startsWith(`/history/full/${tail}/`)
-    );
-  };
+  const isLinkActive = (to: string) => pathname === to || pathname.startsWith(`${to}/`);
 
   return (
     <aside className="relative flex h-full w-[236px] shrink-0 flex-col gap-5 overflow-y-auto border-r border-lol-border/40 bg-lol-card/40 p-5">
@@ -123,7 +96,7 @@ export function Sidebar() {
               <h2 className="px-3 text-[10px] font-semibold uppercase tracking-[0.18em] text-lol-text/60">
                 {title}
               </h2>
-              {tabs
+              {TABS
                 // Mayhem has no runes, so the tab disappears in that mode
                 .filter(
                   (tab) =>

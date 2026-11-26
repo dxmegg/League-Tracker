@@ -53,132 +53,43 @@ const COLUMNS: Array<{
   { key: "mk", label: "Multikills", align: "text-right" },
 ];
 
+// Wide columns for the larger type; win rate holds pill + bar on one line
 const CHAMP_GRID =
-  "grid min-w-[1120px] grid-cols-[40px_minmax(160px,1fr)_60px_50px_50px_80px_90px_60px_70px_70px_90px_80px_80px_100px] items-center";
-
-// Redesign: larger type, so every column is wider; win rate holds pill + bar on one line
-const CHAMP_GRID_REDESIGN =
   "grid min-w-[1150px] grid-cols-[36px_minmax(160px,1fr)_56px_44px_44px_150px_132px_58px_62px_58px_84px_80px_80px_104px] items-center";
 
 // Top three ranks get a medal colour, the rest stay muted
 const RANK_COLORS = ["text-lol-gold", "text-slate-300", "text-amber-600"];
-
-const CHAMPION_ICON_ACCENTS = [
-  "border-lol-crimson/70 shadow-[0_0_10px_rgba(229,72,63,0.22)]",
-  "border-lol-gold/70 shadow-[0_0_10px_rgba(201,164,92,0.22)]",
-  "border-lol-win/70 shadow-[0_0_10px_rgba(74,222,128,0.20)]",
-  "border-lol-assist/70 shadow-[0_0_10px_rgba(77,184,255,0.20)]",
-  "border-lol-violet/70 shadow-[0_0_10px_rgba(169,139,255,0.20)]",
-  "border-lol-text/40 shadow-[0_0_10px_rgba(148,163,184,0.16)]",
-];
-
-type Accent = { color: string; tint: string };
-
-const ACCENTS: Accent[] = [
-  { color: "#E5483F", tint: "rgba(229,72,63,0.08)" },
-  { color: "#C9A45C", tint: "rgba(201,164,92,0.08)" },
-  { color: "#22C55E", tint: "rgba(34,197,94,0.08)" },
-  { color: "#3B82F6", tint: "rgba(59,130,246,0.08)" },
-];
-
-function KpiTile({
-  label,
-  value,
-  caption,
-  accent,
-}: {
-  label: string;
-  value: string;
-  caption: string;
-  accent: Accent;
-}) {
-  return (
-    <div
-      className="relative overflow-hidden rounded-[12px] border border-lol-border p-4"
-      style={{ background: `radial-gradient(circle at 100% 0, ${accent.tint}, transparent 65%)` }}
-    >
-      <span
-        className="absolute inset-x-0 top-0 h-[3px]"
-        style={{ backgroundColor: accent.color }}
-      />
-      <div className="text-[10px] font-bold uppercase tracking-wider text-lol-text">{label}</div>
-      <div className="mt-2 text-[26px] font-bold leading-none text-lol-text-bright">{value}</div>
-      <div className="mt-1 text-xs text-lol-text">{caption}</div>
-    </div>
-  );
-}
 
 function HighlightCard({
   title,
   champion,
   value,
   caption,
-  accent,
   champData,
   emptyTitle,
-  flat = false,
 }: {
   title: string;
   champion: ChampionStats | null;
   value: string;
   caption: string;
-  accent: Accent;
   champData: ReturnType<typeof useChampionData>;
   emptyTitle?: string;
-  // Plain card, neutral icon frame, no glow
-  flat?: boolean;
 }) {
-  if (flat) {
-    return (
-      <HighlightTile
-        title={title}
-        icon={champion ? <ChampionIcon championId={champion.champion_id} size={60} /> : null}
-        name={champion ? getChampionName(champData, champion.champion_id) : "—"}
-        value={value}
-        caption={caption}
-        hint={emptyTitle}
-      />
-    );
-  }
   return (
-    <div
-      className="relative min-h-[132px] overflow-hidden rounded-[12px] border border-lol-border p-4"
-      style={{ background: `radial-gradient(circle at 100% 0, ${accent.tint}, transparent 65%)` }}
-      title={emptyTitle}
-    >
-      <span
-        className="absolute inset-x-0 top-0 h-[3px]"
-        style={{ backgroundColor: accent.color }}
-      />
-      <div className="flex items-start gap-3">
-        {champion ? (
-          <div
-            className="shrink-0 rounded-lg border p-1 shadow-[0_0_14px_rgba(229,72,63,0.18)]"
-            style={{ borderColor: accent.color }}
-          >
-            <ChampionIcon championId={champion.champion_id} size={40} />
-          </div>
-        ) : (
-          <div className="h-[50px] w-[50px] shrink-0 rounded-lg border border-lol-border bg-black/10" />
-        )}
-        <div className="min-w-0">
-          <div className="text-[10px] font-bold uppercase tracking-wider text-lol-text">
-            {title}
-          </div>
-          <div className="mt-1 truncate text-sm font-bold text-lol-text-bright">
-            {champion ? getChampionName(champData, champion.champion_id) : "—"}
-          </div>
-          <div className="mt-1 text-xl font-bold leading-none text-lol-text-bright">{value}</div>
-          <div className="mt-1 text-[11px] text-lol-text">{caption}</div>
-        </div>
-      </div>
-    </div>
+    <HighlightTile
+      title={title}
+      icon={champion ? <ChampionIcon championId={champion.champion_id} size={60} /> : null}
+      name={champion ? getChampionName(champData, champion.champion_id) : "—"}
+      value={value}
+      caption={caption}
+      hint={emptyTitle}
+    />
   );
 }
 
-export function ChampionExp({ redesign = false }: { redesign?: boolean }) {
-  const grid = redesign ? CHAMP_GRID_REDESIGN : CHAMP_GRID;
-  const cellY = redesign ? "py-4" : "py-2";
+export function ChampionExp() {
+  const grid = CHAMP_GRID;
+  const cellY = "py-4";
   const champData = useChampionData();
   const navigate = useNavigate();
   const [patch, setPatch] = useViewState<string | undefined>("champions.patch", undefined);
@@ -324,43 +235,23 @@ export function ChampionExp({ redesign = false }: { redesign?: boolean }) {
 
   return (
     <div className="flex min-h-full w-full flex-col gap-5">
-      {redesign && (
-        <SplashHero championId={mostPlayed?.champion_id}>
-          <div>
-            <h1 className="font-display text-[34px] font-bold leading-none text-lol-text-bright">
-              Champions
-            </h1>
-            <p className="mt-2 text-[13px] text-lol-text">
-              Your performance on every champion, all accounts
-            </p>
-          </div>
-          <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
-            {kpis.map((k) => (
-              <HeroTile key={k.label} label={k.label} value={k.value} sub={k.caption} />
-            ))}
-          </div>
-        </SplashHero>
-      )}
-      <div
-        className={`flex flex-wrap items-end gap-4 ${redesign ? "justify-end" : "justify-between"}`}
-      >
-        <div className={redesign ? "hidden" : ""}>
-          <h1 className="flex items-center font-display text-[30px] font-bold leading-tight tracking-[0.2px] text-lol-text-bright">
-            <span className="mr-2 h-2.5 w-2.5 rotate-45 bg-lol-crimson shadow-[0_0_8px_rgba(229,72,63,0.45)]" />
-            <span className="relative pb-2 after:absolute after:bottom-0 after:left-0 after:h-px after:w-full after:bg-gradient-to-r after:from-lol-crimson after:to-transparent">
-              Champions
-            </span>
+      <SplashHero championId={mostPlayed?.champion_id}>
+        <div>
+          <h1 className="font-display text-[34px] font-bold leading-none text-lol-text-bright">
+            Champions
           </h1>
-          <p className="mt-1.5 text-lol-text">Your performance on every champion, all accounts</p>
+          <p className="mt-2 text-[13px] text-lol-text">
+            Your performance on every champion, all accounts
+          </p>
         </div>
+        <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
+          {kpis.map((k) => (
+            <HeroTile key={k.label} label={k.label} value={k.value} sub={k.caption} />
+          ))}
+        </div>
+      </SplashHero>
+      <div className="flex flex-wrap items-end gap-4 justify-end">
         <div className="flex flex-wrap items-center gap-2">
-          <button
-            type="button"
-            onClick={() => navigate("/champions/summary")}
-            className="h-9 rounded-md border border-lol-border/60 bg-lol-card/40 px-3 text-xs text-lol-text-bright transition-colors duration-[120ms] hover:border-lol-crimson/70 focus-visible:outline-none focus-visible:border-lol-crimson/70 focus-visible:ring-1 focus-visible:ring-lol-crimson/40"
-          >
-            Check summary
-          </button>
           {dataMode !== "mayhem" && (
             <FilterSelect
               value={queue != null ? String(queue) : undefined}
@@ -404,17 +295,7 @@ export function ChampionExp({ redesign = false }: { redesign?: boolean }) {
         </div>
       </div>
 
-      {!redesign && (
-        <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
-          {kpis.map((k, i) => (
-            <KpiTile key={k.label} {...k} accent={ACCENTS[i]} />
-          ))}
-        </div>
-      )}
-
-      <div
-        className={`grid grid-cols-1 gap-3 md:grid-cols-2 ${redesign ? "min-[106rem]:grid-cols-4" : "xl:grid-cols-4"}`}
-      >
+      <div className="grid grid-cols-1 gap-3 md:grid-cols-2 min-[106rem]:grid-cols-4">
         <HighlightCard
           title="Most played"
           champion={mostPlayed}
@@ -424,8 +305,6 @@ export function ChampionExp({ redesign = false }: { redesign?: boolean }) {
               ? `${((mostPlayed.games / totalGames) * 100).toFixed(1)}% of all games`
               : "No champion data"
           }
-          accent={ACCENTS[0]}
-          flat={redesign}
           champData={champData}
         />
         <HighlightCard
@@ -439,8 +318,6 @@ export function ChampionExp({ redesign = false }: { redesign?: boolean }) {
               ? `minimum 25 games · ${formatNumber(bestWinRate.games)} games`
               : "No champion meets the minimum"
           }
-          accent={ACCENTS[1]}
-          flat={redesign}
           champData={champData}
           emptyTitle={bestWinRate ? undefined : "Not enough games"}
         />
@@ -453,8 +330,6 @@ export function ChampionExp({ redesign = false }: { redesign?: boolean }) {
               ? `across ${formatNumber(highestScore.games)} games`
               : "No champion meets the minimum"
           }
-          accent={ACCENTS[2]}
-          flat={redesign}
           champData={champData}
           emptyTitle={highestScore ? undefined : "Not enough games"}
         />
@@ -465,33 +340,23 @@ export function ChampionExp({ redesign = false }: { redesign?: boolean }) {
           caption={
             mostMvpAce ? `across ${formatNumber(mostMvpAce.games)} games` : "No champion data"
           }
-          accent={ACCENTS[3]}
-          flat={redesign}
           champData={champData}
         />
       </div>
 
-      <div
-        className={
-          redesign
-            ? "app-tile min-w-0"
-            : "min-w-0 rounded-[14px] border border-lol-border bg-[linear-gradient(180deg,var(--theme-card-hover),var(--theme-card))] p-5"
-        }
-      >
-        {redesign && (
-          <Title
-            aside={
-              <span className="text-[13px] text-lol-text">Click a champion for the details</span>
-            }
-          >
-            All champions
-          </Title>
-        )}
-        <div className={redesign ? "scroll @container" : "scroll"}>
+      <div className="app-tile min-w-0">
+        <Title
+          aside={
+            <span className="text-[13px] text-lol-text">Click a champion for the details</span>
+          }
+        >
+          All champions
+        </Title>
+        <div className="scroll @container">
           <div
             role="table"
             // Scales the table down in narrow windows instead of cutting columns off
-            className={`tbl ct ${redesign ? "!text-[14px] @max-[1150px]:[zoom:0.88] @max-[1010px]:[zoom:0.78]" : ""}`}
+            className="tbl ct !text-[14px] @max-[1150px]:[zoom:0.88] @max-[1010px]:[zoom:0.78]"
           >
             <div role="rowgroup">
               <div role="row" className={grid}>
@@ -508,11 +373,7 @@ export function ChampionExp({ redesign = false }: { redesign?: boolean }) {
                         : undefined
                     }
                     onClick={column.key ? () => handleSort(column.key as ColumnKey) : undefined}
-                    className={`px-2.5 ${
-                      redesign
-                        ? "pb-3 text-[11px] font-semibold uppercase tracking-wider text-lol-text/80"
-                        : "pb-2.5 text-[12.5px] font-medium text-lol-text/60"
-                    } ${column.align} ${column.key ? "cursor-pointer select-none" : ""}`}
+                    className={`px-2.5 pb-3 text-[11px] font-semibold uppercase tracking-wider text-lol-text/80 ${column.align} ${column.key ? "cursor-pointer select-none" : ""}`}
                   >
                     <span
                       className={`flex items-center gap-1 ${
@@ -530,7 +391,7 @@ export function ChampionExp({ redesign = false }: { redesign?: boolean }) {
                 ))}
               </div>
             </div>
-            <div role="rowgroup" className={redesign ? "flex flex-col gap-1.5" : ""}>
+            <div role="rowgroup" className="flex flex-col gap-1.5">
               {sorted.length === 0 ? (
                 <div role="row" className={grid}>
                   <div role="cell" className="col-span-full px-2.5 py-2 text-left">
@@ -545,15 +406,7 @@ export function ChampionExp({ redesign = false }: { redesign?: boolean }) {
                     <div
                       key={r.champion_id}
                       role="row"
-                      className={`${grid} cursor-pointer transition-colors duration-[120ms] ${
-                        redesign
-                          ? `rounded-xl border border-lol-border/50 bg-black/25 hover:border-lol-border-hover hover:bg-white/[0.04] ${
-                              wr >= 50
-                                ? "shadow-[inset_4px_0_0_var(--theme-win)]"
-                                : "shadow-[inset_4px_0_0_var(--theme-loss)]"
-                            }`
-                          : "border-b border-lol-border/40 hover:bg-white/[0.03]"
-                      }`}
+                      className={`${grid} cursor-pointer transition-colors duration-[120ms] rounded-xl border border-lol-border/50 bg-black/25 hover:border-lol-border-hover hover:bg-white/[0.04] ${wr >= 50 ? "shadow-[inset_4px_0_0_var(--theme-win)]" : "shadow-[inset_4px_0_0_var(--theme-loss)]"}`}
                       tabIndex={0}
                       data-champion-id={r.champion_id}
                       onClick={() => navigate(`/champions/${r.champion_id}`)}
@@ -564,7 +417,7 @@ export function ChampionExp({ redesign = false }: { redesign?: boolean }) {
                       <div
                         role="cell"
                         className={`px-2.5 ${cellY} ${COLUMNS[0].align} ${
-                          redesign && i < 3 ? `${RANK_COLORS[i]} font-bold` : "text-lol-text/60"
+                          i < 3 ? `${RANK_COLORS[i]} font-bold` : "text-lol-text/60"
                         }`}
                       >
                         {i + 1}
@@ -573,12 +426,8 @@ export function ChampionExp({ redesign = false }: { redesign?: boolean }) {
                         <div className="nm">
                           <ChampionIcon
                             championId={r.champion_id}
-                            size={redesign ? 38 : 30}
-                            className={`rounded-lg border ${
-                              redesign
-                                ? "border-lol-border"
-                                : CHAMPION_ICON_ACCENTS[i % CHAMPION_ICON_ACCENTS.length]
-                            }`}
+                            size={38}
+                            className="rounded-lg border border-lol-border"
                           />
                           <span>{getChampionName(champData, r.champion_id)}</span>
                         </div>
@@ -607,42 +456,24 @@ export function ChampionExp({ redesign = false }: { redesign?: boolean }) {
                         >
                           {wr.toFixed(1)}%
                         </span>
-                        {redesign ? (
-                          <span className="h-1.5 w-12 overflow-hidden rounded-full bg-white/10">
-                            <i
-                              className={`block h-full rounded-full ${wr < 50 ? "bg-lol-crimson" : "bg-lol-win"}`}
-                              style={{ width: `${wr}%` }}
-                            />
-                          </span>
-                        ) : (
-                          <span
-                            className={`track ${wr < 50 ? "low" : ""}`}
-                            style={{ display: "inline-block", width: 84 }}
-                          >
-                            <i style={{ width: `${wr}%` }} />
-                          </span>
-                        )}
+                        <span className="h-1.5 w-12 overflow-hidden rounded-full bg-white/10">
+                          <i
+                            className={`block h-full rounded-full ${wr < 50 ? "bg-lol-crimson" : "bg-lol-win"}`}
+                            style={{ width: `${wr}%` }}
+                          />
+                        </span>
                       </div>
                       <div
                         role="cell"
-                        className={`px-2.5 ${cellY} ${COLUMNS[6].align} text-lol-text/60 ${
-                          redesign ? "whitespace-nowrap" : ""
-                        }`}
+                        className={`px-2.5 ${cellY} ${COLUMNS[6].align} text-lol-text/60 whitespace-nowrap`}
                       >
-                        {redesign ? (
-                          <>
-                            <span className="text-lol-text-bright">{r.avg_kills.toFixed(1)}</span>
-                            <span className="text-lol-text/40"> / </span>
-                            <span className="text-lol-loss">{r.avg_deaths.toFixed(1)}</span>
-                            <span className="text-lol-text/40"> / </span>
-                            <span className="text-lol-assist">{r.avg_assists.toFixed(1)}</span>
-                          </>
-                        ) : (
-                          <>
-                            {r.avg_kills.toFixed(1)} / {r.avg_deaths.toFixed(1)} /{" "}
-                            {r.avg_assists.toFixed(1)}
-                          </>
-                        )}
+                        <>
+                          <span className="text-lol-text-bright">{r.avg_kills.toFixed(1)}</span>
+                          <span className="text-lol-text/40"> / </span>
+                          <span className="text-lol-loss">{r.avg_deaths.toFixed(1)}</span>
+                          <span className="text-lol-text/40"> / </span>
+                          <span className="text-lol-assist">{r.avg_assists.toFixed(1)}</span>
+                        </>
                       </div>
                       <div
                         role="cell"
@@ -662,7 +493,7 @@ export function ChampionExp({ redesign = false }: { redesign?: boolean }) {
                       <div
                         role="cell"
                         className={`px-2.5 ${cellY} ${COLUMNS[9].align} ${
-                          redesign && r.avg_score != null
+                          r.avg_score != null
                             ? `${scoreColor(r.avg_score)} font-semibold`
                             : "text-lol-gold"
                         }`}
@@ -670,30 +501,21 @@ export function ChampionExp({ redesign = false }: { redesign?: boolean }) {
                         {r.avg_score?.toFixed(1) ?? "—"}
                       </div>
                       <div role="cell" className={`px-2.5 ${cellY} ${COLUMNS[10].align}`}>
-                        {redesign ? (
-                          <>
-                            <span className={r.mvps > 0 ? "text-amber-300" : "text-lol-text/40"}>
-                              {formatNumber(r.mvps)}
-                            </span>
-                            <span className="text-lol-text/40"> / </span>
-                            <span className={r.aces > 0 ? "text-purple-400" : "text-lol-text/40"}>
-                              {formatNumber(r.aces)}
-                            </span>
-                          </>
-                        ) : (
-                          <>
-                            {formatNumber(r.mvps)}{" "}
-                            <span className="muted">/ {formatNumber(r.aces)}</span>
-                          </>
-                        )}
+                        <>
+                          <span className={r.mvps > 0 ? "text-amber-300" : "text-lol-text/40"}>
+                            {formatNumber(r.mvps)}
+                          </span>
+                          <span className="text-lol-text/40"> / </span>
+                          <span className={r.aces > 0 ? "text-purple-400" : "text-lol-text/40"}>
+                            {formatNumber(r.aces)}
+                          </span>
+                        </>
                       </div>
                       <div role="cell" className={`px-2.5 ${cellY} ${COLUMNS[11].align}`}>
                         {formatNumber(r.avg_damage)}
                       </div>
                       <div role="cell" className={`px-2.5 ${cellY} ${COLUMNS[12].align}`}>
-                        <span className={redesign ? "text-lol-gold" : ""}>
-                          {formatNumber(r.avg_gold)}
-                        </span>
+                        <span className="text-lol-gold">{formatNumber(r.avg_gold)}</span>
                       </div>
                       <div role="cell" className={`px-2.5 ${cellY} ${COLUMNS[13].align}`}>
                         <div className="ml-auto grid w-max grid-cols-2 gap-x-2 gap-y-0.5 text-[10.5px] tabular-nums">

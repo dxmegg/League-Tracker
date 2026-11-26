@@ -1,4 +1,3 @@
-import { FilterChip } from "./FilterChip";
 import SummonerIcon from "./SummonerIcon";
 import { useActiveAccount } from "../hooks/useActiveAccount";
 import { invalidateAccountsCache } from "../hooks/useChampions";
@@ -9,7 +8,6 @@ import { useTimelineBackfill } from "../hooks/useTimelineBackfill";
 import { queueLabel } from "../components/QueueSelect";
 import { QUEUE_LABELS } from "../../shared/queues";
 import { setRemembering } from "../lib/viewState";
-import { useActiveTheme } from "../hooks/useActiveTheme";
 import { useActiveMode } from "../hooks/useActiveMode";
 import { useDevMode } from "../hooks/useDevMode";
 import type { BackupInfo } from "../lib/types";
@@ -52,8 +50,6 @@ const PLATFORM_LABELS: Record<string, string> = {
   tw2: "TW",
   vn2: "VN",
 };
-
-import { THEME_OPTIONS } from "../lib/themes";
 
 function formatSize(bytes: number): string {
   return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
@@ -342,7 +338,6 @@ export function SettingsExp() {
     stop: stopTimelineBackfill,
   } = useTimelineBackfill();
   const anyRunning = backfilling || timelineBackfilling;
-  const activeTheme = useActiveTheme({ exact: true }) || "redesign";
   const [mode] = useActiveMode();
   const [devMode, setDevMode] = useDevMode();
   const [autoStart, setAutoStart] = useState(false);
@@ -1474,8 +1469,8 @@ export function SettingsExp() {
                 <div>
                   <p className="text-[13.5px] text-lol-text-bright">Developer mode</p>
                   <p className="text-[12.5px] text-lol-text">
-                    Show testing tools: the theme switcher, the Debug Testing tab and sample data on
-                    Live Game. Off again after every launch.
+                    Show testing tools: the Debug Testing tab and sample data on Live Game. Off
+                    again after every launch.
                   </p>
                 </div>
                 <Switch
@@ -1484,26 +1479,6 @@ export function SettingsExp() {
                   onChange={() => setDevMode(!devMode)}
                 />
               </div>
-
-              {devMode && (
-                <div className="flex items-center justify-between gap-4 border-b border-lol-border/40 py-2.5 transition-colors duration-[120ms] hover:bg-white/[0.02] last:border-b-0">
-                  <p className="text-[13.5px] text-lol-text-bright">Theme</p>
-                  <div role="group" aria-label="Theme" className="flex flex-wrap justify-end gap-2">
-                    {THEME_OPTIONS.map((option) => (
-                      <FilterChip
-                        key={option.value}
-                        active={activeTheme === option.value}
-                        onClick={() => {
-                          document.documentElement.setAttribute("data-theme", option.value);
-                        }}
-                        className="h-8 px-3"
-                      >
-                        {option.label}
-                      </FilterChip>
-                    ))}
-                  </div>
-                </div>
-              )}
             </div>
           </Section>
         )}

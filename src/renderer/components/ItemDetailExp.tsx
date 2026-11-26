@@ -15,9 +15,9 @@ import { Title } from "./live/shared";
 import { formatDuration } from "../lib/format";
 
 export function ItemDetailExp() {
-  const { itemId, scope = "full" } = useParams<{ itemId: string; scope?: string }>();
+  const { itemId } = useParams<{ itemId: string }>();
   const id = Number(itemId);
-  const queue = useHistoryScopeQueue(scope);
+  const queue = useHistoryScopeQueue();
   const items = useItemData();
   const [zoomOpen, setZoomOpen] = useState(false);
   const { data, loading } = useIpc<ItemDetailData>(
@@ -56,7 +56,7 @@ export function ItemDetailExp() {
   }
 
   const item = items[id];
-  const back = `/history/${scope}/items`;
+  const back = "/items";
   const winRate = data.picks ? (data.wins / data.picks) * 100 : 0;
   const buildRate = data.totalGames ? (data.picks / data.totalGames) * 100 : 0;
   // Banner art: whoever builds this item the most
@@ -158,7 +158,7 @@ export function ItemDetailExp() {
               {data.topPairings.map((pairing) => (
                 <Link
                   key={pairing.item_id}
-                  to={`/history/${scope}/items/${pairing.item_id}`}
+                  to={`/items/${pairing.item_id}`}
                   className="min-w-0 rounded-xl border border-lol-border/50 bg-black/25 transition-colors hover:border-lol-border-hover hover:bg-white/[0.04] p-3"
                 >
                   <ItemIcon itemId={pairing.item_id} size={36} />

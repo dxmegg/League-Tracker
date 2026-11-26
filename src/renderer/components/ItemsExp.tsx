@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import type { ItemData, OwnedItemStats, OwnedItemStatsResult } from "../lib/types";
 import ItemIcon from "./ItemIcon";
 import QueueSelect from "./QueueSelect";
@@ -98,7 +98,6 @@ function formatBuyTime(milliseconds: number): string {
 
 export function ItemsExp() {
   const navigate = useNavigate();
-  const { scope } = useParams<{ scope?: string }>();
   const [queue, setQueue] = useViewState<number | undefined>("items.queue", undefined);
   const [patch, setPatch] = useViewState<string | undefined>("items.patch", undefined);
   const scopedQueue = useScopedQueue(queue);
@@ -171,7 +170,7 @@ export function ItemsExp() {
       groups={["All", "AD", "AP", "Tank", "Boots", "Other"].map((value) => ({ value }))}
       rows={rows}
       loading={loading || !statsResult}
-      onOpen={(id) => navigate(`/history/${scope ?? "full"}/items/${id}`)}
+      onOpen={(id) => navigate(`/items/${id}`)}
       filters={
         <>
           <QueueSelect value={queue} onChange={setQueue} filter={(id) => !isAugmentQueue(id)} />

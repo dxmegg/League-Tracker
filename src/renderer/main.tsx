@@ -8,13 +8,12 @@ import { createRoot } from "react-dom/client";
 import App from "./App";
 import { ErrorBoundary } from "./components/ErrorBoundary";
 import { initViewState } from "./lib/viewState";
-import { DEFAULT_THEME } from "./lib/themes";
 import { dbg } from "../shared/debug";
 import { addQueueLabels } from "../shared/queues";
 import "./global.css";
 
 const root = createRoot(document.getElementById("root")!);
-document.documentElement.setAttribute("data-theme", DEFAULT_THEME);
+document.documentElement.setAttribute("data-theme", "redesign");
 
 // Not awaited: a slow download must not hold up the window
 window.api

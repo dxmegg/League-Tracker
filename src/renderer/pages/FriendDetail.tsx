@@ -24,12 +24,10 @@ import { isArenaQueue } from "../../shared/queues";
 
 export default function FriendDetail() {
   const { key = "" } = useParams();
-  const { section } = useParams<{ section?: string }>();
   const [searchParams] = useSearchParams();
-  const enemies = section === "enemies" || searchParams.get("relation") === "enemies";
+  const enemies = searchParams.get("relation") === "enemies";
   const navigate = useNavigate();
-  const scope = useParams<{ scope?: string }>().scope;
-  const scopedQueue = useHistoryScopeQueue(scope);
+  const scopedQueue = useHistoryScopeQueue();
   const champData = useChampionData();
   const itemData = useItemData();
   const { data, loading, refetch } = useIpc<TeammateDetail | null>(
@@ -57,14 +55,12 @@ export default function FriendDetail() {
         return;
       }
       navigate(
-        scope
-          ? `/history/${scope}/${target}/${encodeURIComponent(key)}`
-          : target === "enemies"
-            ? `/friends/${encodeURIComponent(key)}?relation=enemies`
-            : `/friends/${encodeURIComponent(key)}`,
+        target === "enemies"
+          ? `/friends/${encodeURIComponent(key)}?relation=enemies`
+          : `/friends/${encodeURIComponent(key)}`,
       );
     },
-    [enemies, key, navigate, scope, scopedQueue],
+    [enemies, key, navigate, scopedQueue],
   );
 
   useEffect(() => {
@@ -103,7 +99,7 @@ export default function FriendDetail() {
       <div className="flex min-h-full w-full flex-col gap-5">
         <div className="flex flex-wrap items-center gap-2">
           <Link
-            to={scope ? `/history/${scope}/${enemies ? "enemies" : "friends"}` : "/friends"}
+            to="/friends"
             className="rounded-lg border border-lol-border bg-lol-card px-3 py-1.5 text-sm font-medium text-lol-text-bright transition-colors hover:border-lol-crimson"
           >
             ← {enemies ? "Enemies" : "Friends"}
@@ -237,7 +233,7 @@ export default function FriendDetail() {
     <div className="flex min-h-full w-full flex-col gap-5">
       <div className="flex flex-wrap items-center gap-2">
         <Link
-          to={scope ? `/history/${scope}/${enemies ? "enemies" : "friends"}` : "/friends"}
+          to="/friends"
           className="rounded-lg border border-lol-border bg-lol-card px-3 py-1.5 text-sm font-medium text-lol-text-bright transition-colors hover:border-lol-crimson"
         >
           ← {enemies ? "Enemies" : "Friends"}
@@ -522,11 +518,7 @@ export default function FriendDetail() {
                 onPlayerClick={(clickedPlayer) => {
                   if (!clickedPlayer.puuid) return;
                   const encodedPuuid = encodeURIComponent(clickedPlayer.puuid);
-                  navigate(
-                    scope
-                      ? `/history/${scope}/${enemies ? "enemies" : "friends"}/${encodedPuuid}`
-                      : `/friends/${encodedPuuid}${enemies ? "?relation=enemies" : ""}`,
-                  );
+                  navigate(`/friends/${encodedPuuid}${enemies ? "?relation=enemies" : ""}`);
                 }}
               />
             ))}
