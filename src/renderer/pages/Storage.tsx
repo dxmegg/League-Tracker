@@ -106,7 +106,7 @@ export default function Storage() {
     {
       name: "import",
       label: "Import backup file",
-      hint: "Adds the games from a backup file. A snapshot is taken first.",
+      hint: "Adds the games from a backup file. Asks about a snapshot first.",
       run: async () => {
         const r = await window.api.importData();
         if (r.success) {

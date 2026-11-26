@@ -609,7 +609,9 @@ export default function Settings() {
     setBackfillStatus("Repairing game data...");
     try {
       const result = await window.api.repairPuuids();
-      if ("error" in result) {
+      if ("cancelled" in result) {
+        setBackfillStatus(null);
+      } else if ("error" in result) {
         setBackfillStatus(`Error: ${result.error}`);
       } else {
         setBackfillStatus(
@@ -1574,9 +1576,10 @@ export default function Settings() {
                 <div>
                   <p className="text-[13.5px] text-lol-text-bright">Automatic backups</p>
                   <p className="text-[12.5px] text-lol-text">
-                    Keep a daily copy of your database on this computer, plus one before any import
-                    or repair. Older copies thin out to weekly and monthly. If the database ever
-                    goes missing or won't open, the newest working copy is restored on startup.
+                    Keep a daily copy of your database on this computer. Older copies thin out to
+                    weekly and monthly. If the database ever goes missing or won't open, the newest
+                    working copy is restored on startup. Imports, repairs, restores and account
+                    deletions ask about a backup first, whether this is on or off.
                   </p>
                 </div>
                 <Switch checked={autoBackup} onChange={handleAutoBackupToggle} />

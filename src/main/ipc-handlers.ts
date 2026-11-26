@@ -1560,9 +1560,9 @@ export function registerIpcHandlers() {
     // JSON and well-formed JSON that isn't a backup all have to come back as
     // messages rather than as a thrown "Error invoking remote method".
     try {
-      // Snapshot first: an import writes into every table, and this is the last
+      // Offered first: an import writes into every table, and this is the last
       // moment the database is known to be in the state the user chose it from.
-      await backup.backupQuietly("pre-import");
+      if (!(await askBackupFirst(win, "importing", "pre-import", true))) return { success: false };
       const result = await db.importData(dialogResult.filePaths[0], (progress) => {
         if (win && !win.isDestroyed()) {
           win.webContents.send("data:import-progress", progress);
@@ -1583,13 +1583,16 @@ export function registerIpcHandlers() {
     }
   });
 
-  ipcMain.handle("data:repair-puuids", async () => {
+  ipcMain.handle("data:repair-puuids", async (event) => {
     // Repair rescoring needs champion classes; wait so a repair triggered
     // right after launch doesn't score with default weights.
     await dragon.waitForChampionData();
     // A repair reassigns game ownership and rewrites every derived stat, so
-    // there is no undo for it short of the snapshot taken here.
-    await backup.backupQuietly("pre-repair");
+    // there is no undo for it short of the snapshot offered here.
+    const win = senderWindow(event);
+    if (!(await askBackupFirst(win, "repairing data", "pre-repair", true))) {
+      return { cancelled: true };
+    }
     const result = db.repairPuuids();
     invalidateDashboardCache();
     return result;

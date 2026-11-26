@@ -2693,11 +2693,10 @@ export interface ElectronAPI {
     error?: string;
   }>;
   onImportProgress: (callback: (progress: ImportProgress) => void) => () => void;
-  repairPuuids: () => Promise<{
-    repairedGames: number;
-    discoveredAccounts: number;
-    rebuiltGames: number;
-  }>;
+  repairPuuids: () => Promise<
+    | { repairedGames: number; discoveredAccounts: number; rebuiltGames: number }
+    | { cancelled: true }
+  >;
   recalculateScores: () => Promise<{ games: number; ms: number } | { error: string }>;
   restoreOlderGames: () => Promise<RestoreOlderGamesResult | { error: string }>;
   hasLocalAccount: () => Promise<boolean>;
