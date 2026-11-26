@@ -349,5 +349,64 @@ setSetting("auto_backup", "true");
 await restoreBackup(switchedOff.file);
 assert.equal(getSetting("auto_backup"), "true");
 
+// ---- a v33 database comes up to v34 with every row ----
+await openDb("v33");
+seed();
+const beforeUpgrade = fingerprint();
+// Back to the v33 layout: challenges in a table of their own, timelines with rowids and raw_json
+db.exec(`
+  CREATE TABLE v33_challenges AS SELECT * FROM match_participant_challenges;
+  DROP VIEW match_participant_challenges;
+  DELETE FROM match_challenge_values;
+  DELETE FROM match_challenge_names;
+  CREATE TABLE match_participant_challenges (
+    game_id INTEGER NOT NULL, participant_id INTEGER NOT NULL, challenge_key TEXT NOT NULL, value REAL,
+    PRIMARY KEY (game_id, participant_id, challenge_key),
+    FOREIGN KEY (game_id) REFERENCES games(game_id) ON DELETE CASCADE
+  );
+  INSERT INTO match_participant_challenges SELECT * FROM v33_challenges;
+  DROP TABLE v33_challenges;
+  CREATE TABLE v33_frames AS SELECT * FROM match_timeline_frames;
+  DROP TABLE match_timeline_frames;
+  ALTER TABLE v33_frames RENAME TO match_timeline_frames;
+  CREATE TABLE v33_events AS SELECT *, '{"type":"CHAMPION_KILL"}' AS raw_json FROM match_timeline_events;
+  DROP TABLE match_timeline_events;
+  ALTER TABLE v33_events RENAME TO match_timeline_events;
+  PRAGMA user_version = 33;
+`);
+await openDb("v33");
+assert.equal(db.pragma("user_version", { simple: true }), 34);
+const shape = (name: string) =>
+  db.prepare("SELECT type, sql FROM sqlite_master WHERE name = ?").get(name) as {
+    type: string;
+    sql: string;
+  };
+assert.equal(shape("match_participant_challenges").type, "view");
+for (const table of ["match_timeline_frames", "match_timeline_events"]) {
+  assert.match(shape(table).sql, /WITHOUT ROWID/);
+}
+assert.ok(
+  !(db.pragma("table_info(match_timeline_events)") as { name: string }[]).some(
+    (c) => c.name === "raw_json",
+  ),
+);
+assert.deepEqual(fingerprint(), beforeUpgrade);
+assert.ok(listBackups().some((backup) => backup.reason === "pre-migration-34"));
+assert.equal(getSetting("vacuum_pending"), null);
+// Writing a known counter again replaces its value and keeps its name's id
+const names = () => db.prepare("SELECT id, name FROM match_challenge_names ORDER BY id").all();
+const namesBefore = names();
+db.prepare("INSERT OR REPLACE INTO match_participant_challenges VALUES (1001, 1, 'kda', 42)").run();
+assert.deepEqual(names(), namesBefore);
+assert.equal(
+  db
+    .prepare(
+      "SELECT value FROM match_participant_challenges WHERE game_id = 1001 AND participant_id = 1 AND challenge_key = 'kda'",
+    )
+    .pluck()
+    .get(),
+  42,
+);
+
 closeDatabase();
 console.log("transfer checks passed");

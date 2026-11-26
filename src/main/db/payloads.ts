@@ -607,7 +607,7 @@ export function participantStatements() {
       `),
       clearParticipants: db.prepare("DELETE FROM match_participants WHERE game_id = ?"),
       clearAugments: db.prepare("DELETE FROM match_participant_augments WHERE game_id = ?"),
-      clearChallenges: db.prepare("DELETE FROM match_participant_challenges WHERE game_id = ?"),
+      clearChallenges: db.prepare("DELETE FROM match_challenge_values WHERE game_id = ?"),
       team: db.prepare(`
         INSERT OR REPLACE INTO match_teams (
           game_id, team_id, win, baron_kills, dragon_kills, rift_herald_kills,

@@ -150,7 +150,6 @@ const PAYLOAD_INFO = [
       "building_type",
       "monster_type",
       "monster_subtype",
-      "raw_json",
     ],
   },
   {

@@ -35,7 +35,8 @@ export type BackupReason =
   | "pre-restore"
   | "pre-migration-20"
   | "pre-migration-23"
-  | "pre-migration-24";
+  | "pre-migration-24"
+  | "pre-migration-34";
 
 export interface BackupInfo {
   file: string;
@@ -345,7 +346,7 @@ export async function restoreBackup(
     const autoBackup = autoBackupOn();
     closeDatabase();
     swapIn();
-    await initDatabase();
+    await initDatabase({ backupBeforeMigration: false });
     if (autoBackupOn() !== autoBackup) setSetting("auto_backup", String(autoBackup));
     return { games };
   } finally {
@@ -404,7 +405,7 @@ async function recover(problem: "missing" | "corrupt", detail?: string): Promise
       source = null;
     }
   }
-  await initDatabase();
+  await initDatabase({ backupBeforeMigration: false });
 
   const report: RecoveryReport = {
     problem,
@@ -419,12 +420,14 @@ async function recover(problem: "missing" | "corrupt", detail?: string): Promise
 // Wraps initDatabase so the two ways this database can be lost — the file gone,
 // or the file unreadable — both come back from the newest good snapshot instead
 // of leaving the app to start empty, or not at all.
-export async function initDatabaseWithRecovery(): Promise<void> {
+export async function initDatabaseWithRecovery(
+  onMigrationProgress?: (text: string) => void,
+): Promise<void> {
   recoveryReport = null;
   const missing = !fs.existsSync(getDbPath());
 
   try {
-    await initDatabase();
+    await initDatabase({ onMigrationProgress });
     // quick_check reads the whole file, which is seconds on a database of a gigabyte or more, so a
     // clean result is trusted for a day. A database that cannot even open still fails above.
     const lastCheck = Number(getSetting("last_quick_check") ?? 0);
@@ -436,10 +439,12 @@ export async function initDatabaseWithRecovery(): Promise<void> {
       setSetting("last_quick_check", String(Date.now()));
     }
   } catch (err: unknown) {
-    // A locked file or a full disk is not damage: replacing the database with an older
-    // snapshot would throw away games, so these stop the start with their own message
+    // A locked file, a full disk or a migration that rolled back is not damage: replacing the
+    // database with an older snapshot would throw away games, so these stop the start with
+    // their own message
     const code = (err as { code?: string }).code ?? "";
-    if (/^SQLITE_(BUSY|LOCKED|FULL|READONLY|CANTOPEN|PERM)/.test(code)) throw err;
+    if (/^SQLITE_(BUSY|LOCKED|FULL|READONLY|CANTOPEN|PERM)|^MIGRATION_FAILED$/.test(code))
+      throw err;
     // Damage can surface either on open or on the first statements migrations
     // run, so the check and the init it follows share one handler.
     console.error("Database failed to open:", err);

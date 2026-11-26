@@ -1,5 +1,8 @@
+import fs from "fs";
+import path from "path";
 import zlib from "zlib";
 import { db } from "../db";
+import { getDbPath } from "./connection";
 import * as backup from "../backup";
 import { QUEUE_ID_MAYHEM_CLASSIC } from "../../shared/queues";
 import { getSetting, setSetting } from "./settings";
@@ -53,6 +56,98 @@ export function purgeForeignOwnedGames(): number {
   });
   purgeTx();
   return gameIds.length;
+}
+
+// Challenge values, one row per player and counter: the name is stored once and the rows carry
+// its number, which is most of what v34 saved
+const CHALLENGE_TABLES_SQL = `
+    CREATE TABLE IF NOT EXISTS match_challenge_names (
+      id INTEGER PRIMARY KEY,
+      name TEXT NOT NULL UNIQUE
+    );
+    CREATE TABLE IF NOT EXISTS match_challenge_values (
+      game_id INTEGER NOT NULL,
+      participant_id INTEGER NOT NULL,
+      name_id INTEGER NOT NULL,
+      value REAL,
+      PRIMARY KEY (game_id, participant_id, name_id),
+      FOREIGN KEY (game_id) REFERENCES games(game_id) ON DELETE CASCADE
+    ) WITHOUT ROWID;
+`;
+
+// Readers and writers keep using match_participant_challenges as before. The writer's OR REPLACE
+// overrides the conflict policy of every statement in the trigger, so a new name is added with
+// NOT EXISTS: an OR IGNORE there would become a REPLACE and give a known name a new id.
+const CHALLENGE_VIEW_SQL = `
+    CREATE VIEW IF NOT EXISTS match_participant_challenges AS
+      SELECT v.game_id, v.participant_id, n.name AS challenge_key, v.value
+      FROM match_challenge_values v JOIN match_challenge_names n ON n.id = v.name_id;
+    CREATE TRIGGER IF NOT EXISTS match_participant_challenges_insert
+    INSTEAD OF INSERT ON match_participant_challenges
+    BEGIN
+      INSERT INTO match_challenge_names (name)
+        SELECT NEW.challenge_key
+        WHERE NOT EXISTS (SELECT 1 FROM match_challenge_names WHERE name = NEW.challenge_key);
+      INSERT OR REPLACE INTO match_challenge_values (game_id, participant_id, name_id, value)
+        VALUES (NEW.game_id, NEW.participant_id,
+                (SELECT id FROM match_challenge_names WHERE name = NEW.challenge_key), NEW.value);
+    END;
+`;
+
+// Timelines in their current shape. Keyed by game, so without a rowid the rows sit in key order
+// and the separate primary-key index disappears.
+const TIMELINE_FRAME_COLUMNS = `
+      game_id         INTEGER NOT NULL,
+      frame_index     INTEGER NOT NULL,
+      timestamp_ms    INTEGER NOT NULL,
+      participant_id  INTEGER NOT NULL,
+      puuid           TEXT,
+      level           INTEGER,
+      xp              INTEGER,
+      gold            INTEGER,
+      cs              INTEGER,
+      position_x      INTEGER,
+      position_y      INTEGER,
+      attack_damage   INTEGER,
+      ability_power   INTEGER,
+      armor           INTEGER,
+      magic_resist    INTEGER,
+      attack_speed    REAL,
+      ability_haste   INTEGER,
+      move_speed      INTEGER,
+      max_health      INTEGER,
+      current_health  INTEGER,
+      jungle_minions_killed INTEGER,
+      time_enemy_spent_controlled INTEGER,
+      PRIMARY KEY (game_id, frame_index, participant_id)`;
+const TIMELINE_EVENT_COLUMNS = `
+      game_id          INTEGER NOT NULL,
+      event_index      INTEGER NOT NULL,
+      timestamp_ms     INTEGER NOT NULL,
+      event_type       TEXT NOT NULL,
+      participant_id   INTEGER,
+      killer_id        INTEGER,
+      victim_id        INTEGER,
+      team_id          INTEGER,
+      item_id          INTEGER,
+      skill_slot       INTEGER,
+      level_up_type    TEXT,
+      ward_type        TEXT,
+      building_type    TEXT,
+      monster_type     TEXT,
+      monster_subtype  TEXT,
+      bounty_gold      INTEGER,
+      shutdown_bounty  INTEGER,
+      kill_streak_length INTEGER,
+      assisting_participant_ids TEXT,
+      position_x       INTEGER,
+      position_y       INTEGER,
+      PRIMARY KEY (game_id, event_index)`;
+
+function objectSql(name: string): { type: string; sql: string } | undefined {
+  return db.prepare("SELECT type, sql FROM sqlite_master WHERE name = ?").get(name) as
+    | { type: string; sql: string }
+    | undefined;
 }
 
 // Every table below is declared in its *current* shape, so a new database is
@@ -188,16 +283,7 @@ export function createTables() {
       PRIMARY KEY (game_id, participant_id)
     );
 
-    CREATE TABLE IF NOT EXISTS match_participant_challenges (
-      game_id INTEGER NOT NULL,
-      participant_id INTEGER NOT NULL,
-      challenge_key TEXT NOT NULL,
-      value REAL,
-      PRIMARY KEY (game_id, participant_id, challenge_key),
-      FOREIGN KEY (game_id) REFERENCES games(game_id) ON DELETE CASCADE
-    );
-    CREATE INDEX IF NOT EXISTS idx_participant_challenges_game
-      ON match_participant_challenges(game_id);
+    ${CHALLENGE_TABLES_SQL}
 
     CREATE TABLE IF NOT EXISTS match_teams (
       game_id INTEGER NOT NULL,
@@ -385,6 +471,8 @@ export function createTables() {
       PRIMARY KEY (game_id, puuid, kind)
     );
   `);
+  // A database from before v34 still has the table under this name until migrateToV34 moves it
+  if (objectSql("match_participant_challenges")?.type !== "table") db.exec(CHALLENGE_VIEW_SQL);
 }
 
 // Split out from createTables because an index over a migrated-in column can
@@ -444,7 +532,7 @@ export function createIndexes() {
 // versioning, so it could be missing any subset of the columns v1 adds — which
 // is why each step checks for its column rather than assuming. A database that
 // createTables just built is also version 0, and lands on the same no-op path.
-export const SCHEMA_VERSION = 33;
+export const SCHEMA_VERSION = 34;
 
 export function tableColumns(table: string): Set<string> {
   const rows = db.pragma(`table_info(${table})`) as { name: string }[];
@@ -1226,49 +1314,11 @@ export function migrateToV22(): void {
       raw_gz        BLOB
     );
 
-    CREATE TABLE IF NOT EXISTS match_timeline_frames (
-      game_id         INTEGER NOT NULL,
-      frame_index     INTEGER NOT NULL,
-      timestamp_ms    INTEGER NOT NULL,
-      participant_id  INTEGER NOT NULL,
-      puuid           TEXT,
-      level           INTEGER,
-      xp              INTEGER,
-      gold            INTEGER,
-      cs              INTEGER,
-      position_x      INTEGER,
-      position_y      INTEGER,
-      attack_damage   INTEGER,
-      ability_power   INTEGER,
-      armor           INTEGER,
-      magic_resist    INTEGER,
-      attack_speed    REAL,
-      ability_haste   INTEGER,
-      move_speed      INTEGER,
-      max_health      INTEGER,
-      current_health  INTEGER,
-      PRIMARY KEY (game_id, frame_index, participant_id)
-    );
+    CREATE TABLE IF NOT EXISTS match_timeline_frames (${TIMELINE_FRAME_COLUMNS}
+    ) WITHOUT ROWID;
 
-    CREATE TABLE IF NOT EXISTS match_timeline_events (
-      game_id          INTEGER NOT NULL,
-      event_index      INTEGER NOT NULL,
-      timestamp_ms     INTEGER NOT NULL,
-      event_type       TEXT NOT NULL,
-      participant_id   INTEGER,
-      killer_id        INTEGER,
-      victim_id        INTEGER,
-      team_id          INTEGER,
-      item_id          INTEGER,
-      skill_slot       INTEGER,
-      level_up_type    TEXT,
-      ward_type        TEXT,
-      building_type    TEXT,
-      monster_type     TEXT,
-      monster_subtype  TEXT,
-      raw_json         TEXT,
-      PRIMARY KEY (game_id, event_index)
-    );
+    CREATE TABLE IF NOT EXISTS match_timeline_events (${TIMELINE_EVENT_COLUMNS}
+    ) WITHOUT ROWID;
   `);
   console.log("[db] v22 added timeline tables");
 }
@@ -1721,7 +1771,168 @@ export function migrateToV33(): void {
   backfillEogTelemetry();
 }
 
-export async function runMigrations() {
+export type MigrationProgress = (text: string) => void;
+
+// Lets the progress window repaint and the system see the program is alive
+const yieldToUi = () => new Promise((resolve) => setTimeout(resolve, 0));
+
+function freeBytesNextToDb(): number {
+  const stats = fs.statfsSync(path.dirname(getDbPath()));
+  return stats.bavail * stats.bsize;
+}
+
+const gigabytes = (bytes: number) => (bytes / 1024 ** 3).toFixed(1);
+
+// A migration that stopped on its own left the database as it was: the startup must not take it
+// for damage and replace the database with a snapshot
+function migrationFailed(message: string, cause?: unknown): Error {
+  return Object.assign(new Error(message, { cause }), { code: "MIGRATION_FAILED" });
+}
+
+// Copies a game range at a time, so the progress window can say how far along it is
+async function copyByGame(
+  label: string,
+  source: string,
+  insertForRange: string,
+  onProgress: MigrationProgress,
+): Promise<void> {
+  const ids = db
+    .prepare(`SELECT DISTINCT game_id FROM ${source} ORDER BY game_id`)
+    .pluck()
+    .all() as number[];
+  const insert = db.prepare(insertForRange);
+  for (let i = 0; i < ids.length; i += 200) {
+    const chunk = ids.slice(i, i + 200);
+    insert.run(chunk[0], chunk[chunk.length - 1]);
+    onProgress(`${label} ${Math.round(((i + chunk.length) / ids.length) * 100)}%`);
+    await yieldToUi();
+  }
+}
+
+// v34 makes the database about a third of its size without losing anything: challenge names
+// are stored once, timelines lose their rowids, and the events' raw_json goes (the same timeline
+// is kept whole in match_timeline_status.raw_gz). One transaction, so an interrupted run leaves
+// v33 as it was and simply runs again. vacuumIfPending then gives the space back.
+async function migrateToV34(onProgress: MigrationProgress, backupFirst: boolean): Promise<void> {
+  const moveChallenges = objectSql("match_participant_challenges")?.type === "table";
+  // raw_json is dropped only where raw_gz holds the same timeline
+  const strandedRawJson =
+    tableColumns("match_timeline_events").has("raw_json") &&
+    !!db
+      .prepare(`
+        SELECT 1 FROM match_timeline_events e
+        WHERE e.raw_json IS NOT NULL AND NOT EXISTS (
+          SELECT 1 FROM match_timeline_status s WHERE s.game_id = e.game_id AND s.raw_gz IS NOT NULL
+        ) LIMIT 1
+      `)
+      .get();
+  if (strandedRawJson) {
+    console.warn("[db] v34 keeps the timeline events as they are: some raw_json has no raw_gz");
+  }
+  const timelines = [
+    ["match_timeline_frames", TIMELINE_FRAME_COLUMNS, "game_id, frame_index, participant_id"],
+    ["match_timeline_events", TIMELINE_EVENT_COLUMNS, "game_id, event_index"],
+  ].filter(
+    ([table]) =>
+      !(table === "match_timeline_events" && strandedRawJson) &&
+      (!/WITHOUT ROWID/i.test(objectSql(table)?.sql ?? "") || tableColumns(table).has("raw_json")),
+  );
+  if (!moveChallenges && timelines.length === 0) return;
+
+  const dbBytes = fs.statSync(getDbPath()).size;
+  if (freeBytesNextToDb() < 2 * dbBytes) {
+    throw migrationFailed(
+      `Upgrading the database needs about ${gigabytes(2 * dbBytes)} GB free on its drive. ` +
+        "Free some space and start Rift Records again.",
+    );
+  }
+  const games = (db.prepare("SELECT COUNT(*) AS n FROM games").get() as { n: number }).n;
+  if (backupFirst && games > 0) {
+    onProgress("Backing up the database before the upgrade…");
+    try {
+      const copy = await backup.createBackup("pre-migration-34");
+      console.log(`[db] v34 backup: ${copy.file}`);
+    } catch (err) {
+      throw migrationFailed(
+        "The backup before the database upgrade failed, so nothing was changed.",
+        err,
+      );
+    }
+  }
+
+  const started = Date.now();
+  db.exec("BEGIN IMMEDIATE");
+  try {
+    if (moveChallenges) {
+      db.exec(`
+        INSERT OR IGNORE INTO match_challenge_names (name)
+          SELECT DISTINCT challenge_key FROM match_participant_challenges ORDER BY 1
+      `);
+      await copyByGame(
+        "Upgrading challenge values",
+        "match_participant_challenges",
+        `INSERT OR REPLACE INTO match_challenge_values (game_id, participant_id, name_id, value)
+           SELECT c.game_id, c.participant_id, n.id, c.value
+           FROM match_participant_challenges c JOIN match_challenge_names n ON n.name = c.challenge_key
+           WHERE c.game_id BETWEEN ? AND ?`,
+        onProgress,
+      );
+      db.exec("DROP TABLE match_participant_challenges");
+      db.exec(CHALLENGE_VIEW_SQL);
+    }
+    for (const [table, columns, key] of timelines) {
+      const next = `${table}_v34`;
+      db.exec(`DROP TABLE IF EXISTS ${next}`);
+      db.exec(`CREATE TABLE ${next} (${columns}\n) WITHOUT ROWID`);
+      const kept = tableColumns(next);
+      const lost = [...tableColumns(table)].filter((c) => !kept.has(c) && c !== "raw_json");
+      if (lost.length > 0) throw new Error(`v34 would lose ${table} columns: ${lost.join(", ")}`);
+      const list = [...kept].join(", ");
+      await copyByGame(
+        table === "match_timeline_frames"
+          ? "Upgrading timeline frames"
+          : "Upgrading timeline events",
+        table,
+        `INSERT INTO ${next} (${list}) SELECT ${list} FROM ${table}
+           WHERE game_id BETWEEN ? AND ? ORDER BY ${key}`,
+        onProgress,
+      );
+      db.exec(`DROP TABLE ${table}`);
+      db.exec(`ALTER TABLE ${next} RENAME TO ${table}`);
+    }
+    setSetting("vacuum_pending", "1");
+    onProgress("Saving the upgraded database…");
+    await yieldToUi();
+    db.exec("COMMIT");
+  } catch (err) {
+    if (db.inTransaction) db.exec("ROLLBACK");
+    // Damage is still damage, for the startup to recover from
+    if (/CORRUPT|NOTADB/.test((err as { code?: string }).code ?? "")) throw err;
+    throw migrationFailed("The database upgrade failed, so nothing was changed.", err);
+  }
+  console.log(`[db] v34 done in ${Date.now() - started} ms`);
+}
+
+// Gives back the space a migration freed. Needs room for a second copy of what the database
+// holds; without it the database works as it is, only larger, and the next start tries again.
+export async function vacuumIfPending(onProgress: MigrationProgress = () => {}): Promise<void> {
+  if (getSetting("vacuum_pending") !== "1") return;
+  const pragma = (name: string) => db.pragma(name, { simple: true }) as number;
+  const used = (pragma("page_count") - pragma("freelist_count")) * pragma("page_size");
+  if (freeBytesNextToDb() < 2 * used) {
+    console.warn(`[db] compacting skipped: needs about ${gigabytes(2 * used)} GB free`);
+    return;
+  }
+  onProgress("Compacting the database…");
+  await yieldToUi();
+  const started = Date.now();
+  db.exec("VACUUM");
+  db.pragma("wal_checkpoint(TRUNCATE)");
+  db.prepare("DELETE FROM settings WHERE key = 'vacuum_pending'").run();
+  console.log(`[db] compacted in ${Date.now() - started} ms`);
+}
+
+export async function runMigrations(onProgress: MigrationProgress = () => {}, backupFirst = true) {
   const current = db.pragma("user_version", { simple: true }) as number;
   function timelineTablesPresent(): boolean {
     const names = new Set(
@@ -1826,10 +2037,11 @@ export async function runMigrations() {
       "total_heal_on_teammates",
       "total_damage_shielded_on_teammates",
     ];
-    const tables = db
-      .prepare("SELECT name FROM sqlite_master WHERE type='table' AND name = ?")
-      .get("match_participant_challenges");
-    return requiredColumns.every((column) => columns.has(column)) && !!tables;
+    // A view since v34
+    return (
+      requiredColumns.every((column) => columns.has(column)) &&
+      !!objectSql("match_participant_challenges")
+    );
   }
 
   // Safety net for databases that were stamped to SCHEMA_VERSION by the
@@ -1939,6 +2151,7 @@ export async function runMigrations() {
   if (current < 31) migrateToV31();
   if (current < 32) migrateToV32();
   if (current < 33) migrateToV33();
+  if (current < 34) await migrateToV34(onProgress, backupFirst);
 
   db.pragma(`user_version = ${SCHEMA_VERSION}`);
 }

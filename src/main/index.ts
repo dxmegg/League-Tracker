@@ -109,6 +109,33 @@ app.on("child-process-gone", (_event, details) => {
   app.exit(0);
 });
 
+// Only while a database upgrade runs ahead of the main window, which would otherwise look like a
+// program that never started. The spinner is CSS, so it keeps turning between updates.
+let migrationWindow: BrowserWindow | null = null;
+function showMigrationProgress(text: string): void {
+  if (!migrationWindow) {
+    migrationWindow = new BrowserWindow({
+      title: "Rift Records",
+      width: 440,
+      height: 160,
+      resizable: false,
+      frame: false,
+      icon: iconPath,
+      backgroundColor: "#0b0e14",
+      webPreferences: { sandbox: true, contextIsolation: true, nodeIntegration: false },
+    });
+    const html = `<body style="margin:0;height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;background:#0b0e14;color:#e5e7eb;font:14px 'Segoe UI',sans-serif;user-select:none">
+      <style>@keyframes spin{to{transform:rotate(360deg)}}</style>
+      <div style="width:24px;height:24px;border:3px solid #334155;border-top-color:#c8aa6e;border-radius:50%;animation:spin 1s linear infinite"></div>
+      <div id="step"></div>
+      <div style="color:#94a3b8;font-size:12px">Rift Records is upgrading its database. This takes a minute or two.</div></body>`;
+    void migrationWindow.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(html)}`);
+  }
+  migrationWindow.webContents
+    .executeJavaScript(`document.getElementById("step").textContent = ${JSON.stringify(text)}`)
+    .catch(() => {});
+}
+
 function createWindow(): BrowserWindow {
   const { width: workAreaWidth } = screen.getPrimaryDisplay().workAreaSize;
 
@@ -304,13 +331,16 @@ app
         return;
       }
       await migrateLegacyBackups();
-      await initDatabaseWithRecovery();
+      await initDatabaseWithRecovery(showMigrationProgress);
     } catch (err: unknown) {
       // Recovery handles expected missing/corrupt databases. Keep an unexpected
       // migration failure from becoming an unhandled rejection in whenReady.
       reportFatal("Database initialization failed", err);
       app.quit();
       return;
+    } finally {
+      migrationWindow?.destroy();
+      migrationWindow = null;
     }
 
     try {

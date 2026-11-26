@@ -15,6 +15,7 @@ import {
   migrateHiddenQueues,
   backfillAugmentSlots,
   runMigrations,
+  vacuumIfPending,
 } from "./schema";
 
 export { getDbPath } from "./connection";
@@ -226,7 +227,12 @@ export type GameSource = "lcu" | "riot-sync" | "search-import";
 
 export let db: Database.Database;
 
-export async function initDatabase() {
+// backupBeforeMigration is off for a database just restored from a snapshot: the snapshot is the
+// backup, and another one would take the place of the copy made before the restore
+export async function initDatabase({
+  onMigrationProgress = (_text: string) => {},
+  backupBeforeMigration = true,
+} = {}) {
   const dbPath = getDbPath();
   db = new Database(dbPath);
   // Prepared statements belong to the connection that made them, so the cache
@@ -246,7 +252,8 @@ export async function initDatabase() {
   db.pragma("mmap_size = 536870912");
 
   createTables();
-  await runMigrations();
+  await runMigrations(onMigrationProgress, backupBeforeMigration);
+  await vacuumIfPending(onMigrationProgress);
   // Startup counts rows with no score on every launch; without these the count scans every
   // participant row. Partial, so they stay tiny while nothing is missing.
   try {

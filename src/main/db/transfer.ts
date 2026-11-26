@@ -124,21 +124,28 @@ export async function writeExportTo(
 
     // Counters fetched after the game was stored are not in its payload. One record per
     // player; a player split across two pages just becomes two records.
+    // Paged by the stored key: the view's names have no index to order by
     const challengePage = db.prepare(`
-      SELECT game_id, participant_id, challenge_key, value
-      FROM match_participant_challenges
-      WHERE (game_id, participant_id, challenge_key) > (?, ?, ?)${timelineWhere}
-      ORDER BY game_id, participant_id, challenge_key
+      SELECT game_id, participant_id, name_id, n.name AS challenge_key, value
+      FROM match_challenge_values JOIN match_challenge_names n ON n.id = name_id
+      WHERE (game_id, participant_id, name_id) > (?, ?, ?)${timelineWhere}
+      ORDER BY game_id, participant_id, name_id
       LIMIT ?
     `);
-    let lastChallenge = { game_id: 0, participant_id: -1, challenge_key: "" };
+    let lastChallenge = { game_id: 0, participant_id: -1, name_id: -1 };
     for (;;) {
       const rows = challengePage.all(
         lastChallenge.game_id,
         lastChallenge.participant_id,
-        lastChallenge.challenge_key,
+        lastChallenge.name_id,
         TIMELINE_PAGE_SIZE,
-      ) as Array<{ game_id: number; participant_id: number; challenge_key: string; value: number }>;
+      ) as Array<{
+        game_id: number;
+        participant_id: number;
+        name_id: number;
+        challenge_key: string;
+        value: number;
+      }>;
       if (rows.length === 0) break;
       const players = new Map<
         string,
