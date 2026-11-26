@@ -361,30 +361,35 @@ export function insertGameFull(
   return tx() as boolean;
 }
 
+// Participant columns a later fetch can fill in, which the stored game payload may lack
+export const TELEMETRY_COLUMNS = [
+  "enemy_missing_pings",
+  "danger_pings",
+  "on_my_way_pings",
+  "assist_me_pings",
+  "get_back_pings",
+  "vision_cleared_pings",
+  "need_vision_pings",
+  "push_pings",
+  "all_in_pings",
+  "basic_pings",
+  "command_pings",
+  "spell1_casts",
+  "spell2_casts",
+  "spell3_casts",
+  "spell4_casts",
+  "summoner1_casts",
+  "summoner2_casts",
+  "total_heal_on_teammates",
+  "total_damage_shielded_on_teammates",
+] as const;
+
 export function refreshParticipantTelemetry(gameData: any): number {
   console.log("[db] refreshParticipantTelemetry called:", { gameId: gameData?.gameId });
   const rows = participantRowsFromRaw(gameData);
   const update = db.prepare(`
     UPDATE match_participants SET
-      enemy_missing_pings = COALESCE(NULLIF(enemy_missing_pings, 0), ?),
-      danger_pings = COALESCE(NULLIF(danger_pings, 0), ?),
-      on_my_way_pings = COALESCE(NULLIF(on_my_way_pings, 0), ?),
-      assist_me_pings = COALESCE(NULLIF(assist_me_pings, 0), ?),
-      get_back_pings = COALESCE(NULLIF(get_back_pings, 0), ?),
-      vision_cleared_pings = COALESCE(NULLIF(vision_cleared_pings, 0), ?),
-      need_vision_pings = COALESCE(NULLIF(need_vision_pings, 0), ?),
-      push_pings = COALESCE(NULLIF(push_pings, 0), ?),
-      all_in_pings = COALESCE(NULLIF(all_in_pings, 0), ?),
-      basic_pings = COALESCE(NULLIF(basic_pings, 0), ?),
-      command_pings = COALESCE(NULLIF(command_pings, 0), ?),
-      spell1_casts = COALESCE(NULLIF(spell1_casts, 0), ?),
-      spell2_casts = COALESCE(NULLIF(spell2_casts, 0), ?),
-      spell3_casts = COALESCE(NULLIF(spell3_casts, 0), ?),
-      spell4_casts = COALESCE(NULLIF(spell4_casts, 0), ?),
-      summoner1_casts = COALESCE(NULLIF(summoner1_casts, 0), ?),
-      summoner2_casts = COALESCE(NULLIF(summoner2_casts, 0), ?),
-      total_heal_on_teammates = COALESCE(NULLIF(total_heal_on_teammates, 0), ?),
-      total_damage_shielded_on_teammates = COALESCE(NULLIF(total_damage_shielded_on_teammates, 0), ?)
+      ${TELEMETRY_COLUMNS.map((c) => `${c} = COALESCE(NULLIF(${c}, 0), ?)`).join(",\n      ")}
     WHERE game_id = ? AND participant_id = ?
   `);
   const upsertChallenge = db.prepare(`
@@ -397,25 +402,7 @@ export function refreshParticipantTelemetry(gameData: any): number {
   const tx = db.transaction(() => {
     for (const row of rows) {
       const result = update.run(
-        row.enemy_missing_pings,
-        row.danger_pings,
-        row.on_my_way_pings,
-        row.assist_me_pings,
-        row.get_back_pings,
-        row.vision_cleared_pings,
-        row.need_vision_pings,
-        row.push_pings,
-        row.all_in_pings,
-        row.basic_pings,
-        row.command_pings,
-        row.spell1_casts,
-        row.spell2_casts,
-        row.spell3_casts,
-        row.spell4_casts,
-        row.summoner1_casts,
-        row.summoner2_casts,
-        row.total_heal_on_teammates,
-        row.total_damage_shielded_on_teammates,
+        ...TELEMETRY_COLUMNS.map((c) => row[c]),
         gameData.gameId,
         row.participant_id,
       );

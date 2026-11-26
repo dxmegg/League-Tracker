@@ -10,8 +10,8 @@ import electron from "electron";
 import { build } from "vite";
 
 const root = path.resolve(import.meta.dirname, "..");
-// Inside the project, so the bundle's require("better-sqlite3") finds node_modules
-const outDir = path.join(root, "out", "transfer-test");
+// Under node_modules so its imports resolve, and outside out/, which the installer packs
+const outDir = path.join(root, "node_modules", ".cache", "transfer-test");
 const work = fs.mkdtempSync(path.join(os.tmpdir(), "rr-transfer-"));
 try {
   await build({

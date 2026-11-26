@@ -11,6 +11,7 @@ import {
   closeDatabase,
   db,
   insertGameFull,
+  refreshParticipantTelemetry,
   writeExportTo,
   importData,
   deleteSavedSummoner,
@@ -30,7 +31,7 @@ async function openDb(name: string): Promise<void> {
   await initDatabase();
 }
 
-function game(gameId: number, owner: string, other: string) {
+function game(gameId: number, owner: string, other: string, ownerName = "Player0") {
   return {
     gameId,
     queueId: 450,
@@ -41,7 +42,7 @@ function game(gameId: number, owner: string, other: string) {
     participants: Array.from({ length: 10 }, (_, i) => ({
       participantId: i + 1,
       puuid: i === 0 ? owner : i === 5 ? other : `p${gameId}-${i}`,
-      riotIdGameName: `Player${i}`,
+      riotIdGameName: i === 0 ? ownerName : `Player${i}`,
       riotIdTagline: "EUNE",
       teamId: i < 5 ? 100 : 200,
       championId: 10 + i,
@@ -79,10 +80,32 @@ function seed(): void {
       last_seen: 1,
     });
   }
-  // 1001 and 1002 belong to Alice alone; 1003 is Bob's, with Alice in it
+  // 1001, 1002 and 1004 belong to Alice alone; 1003 is Bob's, with Alice in it
   assert.ok(insertGameFull(game(1001, ALICE, "x1"), ALICE, "lcu"));
   assert.ok(insertGameFull(game(1002, ALICE, "x2"), ALICE, "riot-sync"));
   assert.ok(insertGameFull(game(1003, BOB, ALICE), BOB, "lcu"));
+  assert.ok(insertGameFull(game(1003, BOB, ALICE), ALICE, "lcu"));
+  // A Riot API payload that knows Alice only by the API's id: found by her Riot ID
+  assert.ok(
+    insertGameFull(game(1004, "riot-api-id-of-alice", "x4", "Alice"), ALICE, "riot-sync", false, {
+      gameName: "Alice",
+      tagLine: "EUNE",
+    }),
+  );
+  // Fetched after the game was stored, so none of it is in the stored payload
+  refreshParticipantTelemetry({
+    gameId: 1001,
+    participants: Array.from({ length: 10 }, (_, i) => ({
+      participantId: i + 1,
+      dangerPings: 3 + i,
+      summoner1Casts: 5,
+      totalHealsOnTeammates: 1200 + i,
+      totalDamageShieldedOnTeammates: 800,
+      challenges: { kda: 9, damagePerMinute: 1000 + i },
+      missions: { Missions_SnowballsHit: 4 },
+      totalTimeSpentDead: 60 + i,
+    })),
+  });
   db.prepare("UPDATE games SET favorite = 1 WHERE game_id = 1002").run();
   db.prepare("INSERT INTO settings (key, value) VALUES ('test_key', 'x')").run();
   db.prepare("INSERT INTO ignored_games (game_id) VALUES (999)").run();
@@ -93,7 +116,9 @@ function seed(): void {
     db.prepare(
       "INSERT INTO match_timeline_status (game_id, fetched_at, frame_count, event_count, fetch_error, raw_gz) VALUES (?, 1, 2, 1, NULL, ?)",
     ).run(gameId, zlib.gzipSync("{}"));
-    for (const frame of [0, 1]) {
+    // More than one import batch of frames (5000), so the batches meet the timeline status
+    const frameCount = gameId === 1003 ? 5001 : 2;
+    for (let frame = 0; frame < frameCount; frame++) {
       db.prepare(
         "INSERT INTO match_timeline_frames (game_id, frame_index, timestamp_ms, participant_id, gold) VALUES (?, ?, ?, 1, ?)",
       ).run(gameId, frame, frame * 60000, 500 + frame);
@@ -145,13 +170,15 @@ function fingerprint(): Record<string, unknown> {
   result.telemetry = hash(
     db
       .prepare(
-        `SELECT game_id, participant_id, enemy_missing_pings, spell1_casts,
+        `SELECT game_id, participant_id, enemy_missing_pings, danger_pings, spell1_casts, summoner1_casts,
            total_heal_on_teammates, total_damage_shielded_on_teammates
          FROM match_participants ORDER BY game_id, participant_id`,
       )
       .all(),
   );
   for (const table of [
+    "tracked_game_stats",
+    "player_stats",
     "summoner",
     "ignored_games",
     "riot_sync_state",
@@ -185,35 +212,35 @@ function asV6(file: string, out: string, drop: string[]): void {
 await openDb("source");
 seed();
 const original = fingerprint();
-assert.equal(original.games, 3);
+assert.equal(original.games, 4);
 const exportFile = path.join(base, "export.json.gz");
-assert.deepEqual(await writeExportTo(exportFile), { games: 3 });
+assert.deepEqual(await writeExportTo(exportFile), { games: 4 });
 
 await openDb("imported");
 const imported = await importData(exportFile);
-assert.equal(imported.imported, 3);
+assert.equal(imported.imported, 4);
 assert.deepEqual(fingerprint(), original);
 
 // ---- the previous export format still imports ----
 const v6File = path.join(base, "export-v6.json.gz");
-asV6(exportFile, v6File, []);
+asV6(exportFile, v6File, ["trackedAccount", "challenges", "telemetry"]);
 await openDb("from-v6");
 await importData(v6File);
-assert.equal((db.prepare("SELECT COUNT(*) AS n FROM games").get() as { n: number }).n, 3);
+assert.equal((db.prepare("SELECT COUNT(*) AS n FROM games").get() as { n: number }).n, 4);
 
 // ---- snapshot → delete an account → restore ----
 await openDb("imported");
 const snapshot = await createBackup("manual");
-assert.equal(snapshot.games, 3);
+assert.equal(snapshot.games, 4);
 
 const deleted = deleteSavedSummoner(ALICE);
-assert.deepEqual(deleted, { deletedGames: 2, deletedTrackedRows: 2 });
+assert.deepEqual(deleted, { deletedGames: 3, deletedTrackedRows: 4 });
 assert.equal(db.prepare("SELECT 1 FROM summoner WHERE puuid = ?").get(ALICE), undefined);
 for (const name of tables()) {
   const columns = (db.pragma(`table_info(${name})`) as { name: string }[]).map((c) => c.name);
   if (!columns.includes("game_id") || name === "ignored_games") continue;
   const left = db
-    .prepare(`SELECT COUNT(*) AS n FROM ${name} WHERE game_id IN (1001, 1002)`)
+    .prepare(`SELECT COUNT(*) AS n FROM ${name} WHERE game_id IN (1001, 1002, 1004)`)
     .get() as { n: number };
   assert.equal(left.n, 0, `${name} still holds rows of a deleted game`);
 }
@@ -227,7 +254,7 @@ assert.ok(
   "Bob's game keeps its players",
 );
 
-assert.deepEqual(await restoreBackup(snapshot.file), { games: 3 });
+assert.deepEqual(await restoreBackup(snapshot.file), { games: 4 });
 assert.deepEqual(fingerprint(), original);
 
 closeDatabase();

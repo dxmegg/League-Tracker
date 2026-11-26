@@ -2,7 +2,7 @@ import fs from "fs";
 import zlib from "zlib";
 import { db, type GameSource } from "../db";
 import { unpackRaw } from "./payloads";
-import { insertGameFull, insertTrackedStatsOnly } from "./ingest";
+import { insertGameFull, insertTrackedStatsOnly, TELEMETRY_COLUMNS } from "./ingest";
 import { upsertSummoner, restoreSummonerFull, getAllPuuids } from "./summoner";
 import { getSetting, setSetting } from "./settings";
 import { rebuildDerivedStats, repairDerivedScores } from "./scoring";
@@ -58,7 +58,8 @@ export async function writeExportTo(
     const riotSyncState = db
       .prepare("SELECT puuid, platform, last_sync_at, last_match_id, complete FROM riot_sync_state")
       .all();
-    await write({ type: "header", version: 6, exportedAt: Date.now() });
+    // v7 added trackedAccount, challenges and telemetry records; v6 files still import
+    await write({ type: "header", version: 7, exportedAt: Date.now() });
     for (const summoner of summoners) await write({ type: "summoner", data: summoner });
     for (const setting of settings) await write({ type: "setting", data: setting });
     for (const ignoredGame of ignoredGames) {
@@ -109,6 +110,71 @@ export async function writeExportTo(
         total: totalGames,
         label: "Writing games",
       });
+    }
+
+    // A game is written once, under its owner; any other tracked account's row in it is copied
+    // as is, since its payload may know that account by another id
+    const trackedAccounts = db
+      .prepare(`
+        SELECT t.* FROM tracked_game_stats t JOIN games g USING (game_id)
+        WHERE t.puuid <> g.puuid AND g.raw_gz IS NOT NULL${gamesWhere}
+      `)
+      .all();
+    for (const row of trackedAccounts) await write({ type: "trackedAccount", data: row });
+
+    // Counters fetched after the game was stored are not in its payload. One record per
+    // player; a player split across two pages just becomes two records.
+    const challengePage = db.prepare(`
+      SELECT game_id, participant_id, challenge_key, value
+      FROM match_participant_challenges
+      WHERE (game_id, participant_id, challenge_key) > (?, ?, ?)${timelineWhere}
+      ORDER BY game_id, participant_id, challenge_key
+      LIMIT ?
+    `);
+    let lastChallenge = { game_id: 0, participant_id: -1, challenge_key: "" };
+    for (;;) {
+      const rows = challengePage.all(
+        lastChallenge.game_id,
+        lastChallenge.participant_id,
+        lastChallenge.challenge_key,
+        TIMELINE_PAGE_SIZE,
+      ) as Array<{ game_id: number; participant_id: number; challenge_key: string; value: number }>;
+      if (rows.length === 0) break;
+      const players = new Map<
+        string,
+        { game_id: number; participant_id: number; values: Record<string, number> }
+      >();
+      for (const row of rows) {
+        const key = `${row.game_id}:${row.participant_id}`;
+        let player = players.get(key);
+        if (!player) {
+          player = { game_id: row.game_id, participant_id: row.participant_id, values: {} };
+          players.set(key, player);
+        }
+        player.values[row.challenge_key] = row.value;
+      }
+      for (const player of players.values()) await write({ type: "challenges", data: player });
+      lastChallenge = rows[rows.length - 1];
+    }
+
+    // Same for the pings, casts and ally healing a later fetch filled in
+    const telemetryPage = db.prepare(`
+      SELECT game_id, participant_id, ${TELEMETRY_COLUMNS.join(", ")}
+      FROM match_participants
+      WHERE (game_id, participant_id) > (?, ?)${timelineWhere}
+      ORDER BY game_id, participant_id
+      LIMIT ?
+    `);
+    let lastTelemetry = { game_id: 0, participant_id: -1 };
+    for (;;) {
+      const rows = telemetryPage.all(
+        lastTelemetry.game_id,
+        lastTelemetry.participant_id,
+        TIMELINE_PAGE_SIZE,
+      ) as Array<{ game_id: number; participant_id: number }>;
+      if (rows.length === 0) break;
+      for (const row of rows) await write({ type: "telemetry", data: row });
+      lastTelemetry = rows[rows.length - 1];
     }
 
     const statusPage = db.prepare(`
@@ -435,11 +501,32 @@ export async function importData(
   const restoreLivePeak = rowRestorer("live_stat_peaks");
   const restoreLiveGame = rowRestorer("live_game_data");
   const restorePostGame = rowRestorer("post_game_data");
+  const restoreTrackedRow = rowRestorer("tracked_game_stats");
+  const ownerIdentity = db.prepare(
+    "SELECT game_name AS gameName, tag_line AS tagLine FROM summoner WHERE puuid = ?",
+  );
+  const restoreChallenge = db.prepare(`
+      INSERT OR REPLACE INTO match_participant_challenges
+        (game_id, participant_id, challenge_key, value)
+      VALUES (?, ?, ?, ?)
+    `);
+  // The source database's final values; a zero there never wipes one already here
+  const restoreTelemetry = db.prepare(`
+      UPDATE match_participants
+      SET ${TELEMETRY_COLUMNS.map((c) => `${c} = COALESCE(NULLIF(?, 0), ${c})`).join(", ")}
+      WHERE game_id = ? AND participant_id = ?
+    `);
 
   const games: Array<{ data: any }> = [];
   const statuses: Array<{ data: any }> = [];
   const frames: Array<{ data: any }> = [];
   const events: Array<{ data: any }> = [];
+  const telemetry: Array<Record<string, number>> = [];
+  const challenges: Array<{
+    game_id: number;
+    participant_id: number;
+    values: Record<string, number>;
+  }> = [];
   const statusGameIds = new Set<number>();
   const clearedTimelineGameIds = new Set<number>();
   let imported = 0;
@@ -457,14 +544,19 @@ export async function importData(
           continue;
         }
         const source: GameSource = game._source ?? "lcu";
-        if (insertGameFull(game, puuid, source, source === "search-import")) imported++;
+        // A Riot API payload keeps the API's id for the owner after the database moved the
+        // account to the client's one, so the owner is also found by Riot ID
+        const identity = ownerIdentity.get(puuid) as
+          | { gameName: string | null; tagLine: string | null }
+          | undefined;
+        if (insertGameFull(game, puuid, source, source === "search-import", identity)) imported++;
         db.prepare("UPDATE games SET favorite = ? WHERE game_id = ?").run(
           game._favorite ?? 0,
           game.gameId,
         );
       } catch (err: unknown) {
         skipped++;
-        console.warn("[db] v6 game restore failed:", {
+        console.warn("[db] game restore failed:", {
           gameId: game?.gameId,
           error: err instanceof Error ? err.message : String(err),
         });
@@ -518,6 +610,32 @@ export async function importData(
     });
     tx();
   };
+  const flushPlayerExtras = () => {
+    const tx = db.transaction(() => {
+      for (const player of challenges.splice(0)) {
+        for (const [key, value] of Object.entries(player.values)) {
+          restoreChallenge.run(player.game_id, player.participant_id, key, value);
+        }
+      }
+      for (const row of telemetry.splice(0)) {
+        restoreTelemetry.run(
+          ...TELEMETRY_COLUMNS.map((c) => row[c] ?? 0),
+          row.game_id,
+          row.participant_id,
+        );
+      }
+    });
+    tx();
+  };
+
+  const flushAll = () => {
+    flushGames();
+    flushStatuses();
+    flushFrames();
+    flushEvents();
+    flushPlayerExtras();
+  };
+  let lastType: string | undefined;
 
   let pending = Buffer.alloc(0);
   let headerSeen = false;
@@ -541,7 +659,7 @@ export async function importData(
     }
     if (!headerSeen) {
       if (record.type !== "header" || typeof record.version !== "number" || record.version < 6) {
-        throw new Error("That file isn't a supported Rift Records v6 backup");
+        throw new Error("That file isn't a supported Rift Records backup (v6 or newer)");
       }
       headerSeen = true;
       reportProgress("reading", "Reading backup", true);
@@ -549,6 +667,10 @@ export async function importData(
     }
     let progressPhase: ImportProgress["phase"] = "reading";
     let progressLabel = "Reading backup";
+    // Each kind refers to the ones before it: a timeline status still buffered when its frames
+    // arrive would later clear them as stale, and storing a game clears its challenges
+    if (record.type !== lastType) flushAll();
+    lastType = record.type;
     switch (record.type) {
       case "summoner":
         restoreSummonerFull(record.data);
@@ -592,6 +714,17 @@ export async function importData(
         progressPhase = "timeline-events";
         progressLabel = "Reading timeline events";
         break;
+      case "trackedAccount":
+        restoreTrackedRow(record.data);
+        break;
+      case "challenges":
+        challenges.push(record.data);
+        if (challenges.length >= 200) flushPlayerExtras();
+        break;
+      case "telemetry":
+        telemetry.push(record.data);
+        if (telemetry.length >= TIMELINE_PAGE_SIZE) flushPlayerExtras();
+        break;
       case "liveStatPeak":
         restoreLivePeak(record.data);
         break;
@@ -626,10 +759,7 @@ export async function importData(
     throw new Error("Backup line exceeds the 50 MB limit");
   if (pending.length > 0) processLine(pending.toString("utf8"));
   if (!headerSeen) throw new Error("That file isn't a Rift Records backup");
-  flushGames();
-  flushStatuses();
-  flushFrames();
-  flushEvents();
+  flushAll();
   const repairedScores = repairDerivedScores().repaired;
   console.log(`[db] post-import repaired ${repairedScores} derived scores`);
   onProgress?.({ phase: "done", current: lineNumber, total: 0, label: "Import complete" });
