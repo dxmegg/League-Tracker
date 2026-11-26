@@ -7,6 +7,7 @@ import {
   deleteDataFiles,
   moveBackupFiles,
   readLocations,
+  resolveUserDataDir,
   writeLocations,
 } from "../src/main/storage-files.ts";
 
@@ -47,6 +48,28 @@ put("shared", "notes.txt");
 put("shared", "backups", backup);
 deleteDataFiles(path.join(root, "shared"), path.join(root, "shared", "backups"));
 assert.deepEqual(names("shared"), ["my-matches.db", "notes.txt"]);
+
+// Profile folder rename
+const appData = path.join(root, "appdata");
+const oldDir = path.join(appData, "league-tracker");
+const newDir = path.join(appData, "rift-records");
+assert.equal(resolveUserDataDir(appData), newDir); // new user: nothing to move
+put("appdata", "league-tracker", "data", "matches.db");
+writeLocations(path.join(oldDir, "locations.json"), {
+  dbDir: path.join(oldDir, "mine"),
+  backupDir: "D:\\backups",
+});
+put("appdata", "rift-records", "stray.txt"); // blocks the rename
+assert.equal(resolveUserDataDir(appData), oldDir);
+fs.rmSync(newDir, { recursive: true });
+assert.equal(resolveUserDataDir(appData), newDir);
+assert.equal(fs.existsSync(oldDir), false);
+assert.deepEqual(names("appdata/rift-records/data"), ["matches.db"]);
+assert.deepEqual(readLocations(path.join(newDir, "locations.json")), {
+  dbDir: path.join(newDir, "mine"),
+  backupDir: "D:\\backups",
+});
+assert.equal(resolveUserDataDir(appData), newDir);
 
 fs.rmSync(root, { recursive: true, force: true });
 console.log("storage checks passed");

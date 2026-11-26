@@ -76,11 +76,11 @@ The executable is not signed by a trusted certificate authority, so Windows may 
 
 - If a blue "Windows protected your PC" screen appears, click **More info → Run anyway**.
 - If nothing happens at all, right-click the setup file → **Properties** → tick **Unblock** → OK, then run it again. Also check Windows Security → Protection history, in case antivirus quarantined it.
-- If the app opens an error window, or `%APPDATA%\league-tracker\startup.log` exists, include that text in your report.
+- If the app opens an error window, or `%APPDATA%\rift-records\startup.log` exists, include that text in your report.
 
 ## Data and network
 
-Match history is stored in `%APPDATA%\league-tracker`; the database and backup folders can be changed in Settings. Uninstalling keeps your data unless you choose to delete it. There is no Rift Records account. The app talks to the League client, the Riot Games API (through a small proxy that holds the API key), Data Dragon and CommunityDragon (game art) and GitHub (update checks).
+Match history is stored in `%APPDATA%\rift-records` (`league-tracker` up to 1.3.0, renamed on the first start); the database and backup folders can be changed in Settings. Uninstalling keeps your data unless you choose to delete it. There is no Rift Records account. The app talks to the League client, the Riot Games API (through a small proxy that holds the API key), Data Dragon and CommunityDragon (game art) and GitHub (update checks).
 
 ## Development
 

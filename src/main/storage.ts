@@ -109,10 +109,10 @@ async function exclusive(task: () => Promise<StorageResult>): Promise<StorageRes
   }
 }
 
-export function changeDbFolder(win: BrowserWindow): Promise<StorageResult> {
+export function changeDbFolder(win: BrowserWindow, reset: boolean): Promise<StorageResult> {
   return exclusive(async () => {
     const current = getDbDir();
-    const target = await pickFolder(win, "Database folder", current);
+    const target = reset ? getDataDir() : await pickFolder(win, "Database folder", current);
     if (!target || samePath(target, current)) return { status: "cancelled" };
     if (!(await confirmRiskyFolder(win, target))) return { status: "cancelled" };
 

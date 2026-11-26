@@ -2256,7 +2256,7 @@ export interface StorageResult {
 
 export interface ElectronAPI {
   getStorageInfo: () => Promise<StorageInfo>;
-  changeDbFolder: () => Promise<StorageResult>;
+  changeDbFolder: (reset: boolean) => Promise<StorageResult>;
   changeBackupFolder: (reset: boolean) => Promise<StorageResult>;
   openDbFolder: () => Promise<void>;
   getMatchHistory: (

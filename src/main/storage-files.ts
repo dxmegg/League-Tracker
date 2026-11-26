@@ -31,6 +31,37 @@ export function samePath(a: string, b: string): boolean {
   return path.resolve(a).toLowerCase() === path.resolve(b).toLowerCase();
 }
 
+// The profile folder, renaming the pre-1.4 "league-tracker" one on the first start. While it
+// cannot be renamed (a file in it is open) the old folder stays in use, so nothing looks lost.
+export function resolveUserDataDir(appData: string): string {
+  const dir = path.join(appData, "rift-records");
+  const old = path.join(appData, "league-tracker");
+  if (fs.existsSync(path.join(dir, "data")) || !fs.existsSync(old)) return dir;
+  try {
+    fs.renameSync(old, dir);
+  } catch {
+    return old;
+  }
+  try {
+    // Folders the user picked inside the old one moved along with it
+    const file = path.join(dir, "locations.json");
+    const locations = readLocations(file);
+    const prefix = `${old}${path.sep}`.toLowerCase();
+    let changed = false;
+    for (const key of ["dbDir", "backupDir"] as const) {
+      const value = locations[key];
+      if (!value?.toLowerCase().startsWith(prefix)) continue;
+      locations[key] = path.join(dir, value.slice(prefix.length));
+      changed = true;
+    }
+    if (changed) writeLocations(file, locations);
+  } catch (err) {
+    // A damaged file is reported by the normal start, which can show a dialog
+    console.error("[storage] could not update locations.json:", err);
+  }
+  return dir;
+}
+
 function listMatching(dir: string, pattern: RegExp): string[] {
   try {
     return fs.readdirSync(dir).filter((name) => pattern.test(name));

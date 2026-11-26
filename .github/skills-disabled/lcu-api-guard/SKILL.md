@@ -9,7 +9,7 @@ description: Riot API access must always go through the Cloudflare Worker proxy.
 
 Before you use this skill for the first time in a session, verify the following against the actual repository. Do not assume. Read the files.
 
-1. **Locate the proxy URL.** Grep the repo for `league-tracker-proxy` and for `workers.dev`. If the URL differs from the one in this skill, use the one in the code and report the mismatch to the user.
+1. **Locate the proxy URL.** Grep the repo for `rift-records-proxy` and for `workers.dev`. If the URL differs from the one in this skill, use the one in the code and report the mismatch to the user.
 2. **Locate the Riot API module.** Grep `src/main/` for `accountByRiotId`, `match-v5`, or `riot`. Confirm the file name. If it is not `riot-api.ts`, update the reference in this skill for the rest of the session and note the actual path.
 3. **Locate the LCU module.** Grep `src/main/` for `league-connect` or `lcu`. Confirm the file name. If it is not `lcu.ts`, note the actual path.
 4. **Check for the API key.** Grep the entire repo for `RIOT_API_KEY`, `riotApiKey`, and `apiKey`. If any match is found outside of this skill's own text and outside the proxy Worker config, **stop and report it as a critical finding** before doing anything else.
@@ -24,7 +24,7 @@ If any verification fails, output a short report with `[skill:lcu-api-guard]` pr
 The Riot API key never enters this codebase. Not in `.env`, not in `safeStorage`, not in source, not in a comment, not in an example.
 
 The only path to Riot is the Cloudflare Worker proxy:
-GET https://league-tracker-proxy.dxmegg.workers.dev/proxy{path}?platform={region}
+GET https://rift-records-proxy.dxmegg.workers.dev/proxy{path}?platform={region}
 
 Do not suggest moving the key back into the app. Do not add a second path that bypasses the proxy.
 

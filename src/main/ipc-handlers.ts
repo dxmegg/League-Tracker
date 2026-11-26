@@ -1622,9 +1622,9 @@ export function registerIpcHandlers() {
   // one place a user needs to reach to copy a backup somewhere safer.
   // The folders come from native dialogs in the main process, never from the renderer
   ipcMain.handle("storage:info", () => getStorageInfo());
-  ipcMain.handle("storage:change-db", (event) => {
+  ipcMain.handle("storage:change-db", (event, reset: unknown) => {
     const win = senderWindow(event);
-    return win ? changeDbFolder(win) : { status: "cancelled" };
+    return win ? changeDbFolder(win, reset === true) : { status: "cancelled" };
   });
   ipcMain.handle("storage:change-backup", (event, reset: unknown) => {
     const win = senderWindow(event);

@@ -292,7 +292,20 @@ function StorageFolders({ onChanged }: { onChanged: () => void }) {
         <Button variant="neutral" onClick={() => void window.api.openDbFolder()}>
           Open
         </Button>
-        <Button variant="neutral" disabled={busy} onClick={() => run(window.api.changeDbFolder)}>
+        {info && !info.dbIsDefault && (
+          <Button
+            variant="neutral"
+            disabled={busy}
+            onClick={() => run(() => window.api.changeDbFolder(true))}
+          >
+            Use default
+          </Button>
+        )}
+        <Button
+          variant="neutral"
+          disabled={busy}
+          onClick={() => run(() => window.api.changeDbFolder(false))}
+        >
           Change
         </Button>
       </ActionRow>
