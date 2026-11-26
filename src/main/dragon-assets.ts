@@ -169,7 +169,9 @@ async function downloadDragonAsset(remoteUrl: string): Promise<string | null> {
       return null;
     }
     await fs.promises.mkdir(path.dirname(localPath), { recursive: true });
-    await fs.promises.writeFile(localPath, bytes);
+    // Renamed into place: a half-written icon would count as downloaded forever
+    await fs.promises.writeFile(`${localPath}.part`, bytes);
+    await fs.promises.rename(`${localPath}.part`, localPath);
     sessionFailures.delete(remoteUrl);
     return `${DRAGON_ASSET_SCHEME}://${hash}`;
   } catch (error) {
