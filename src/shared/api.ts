@@ -2518,10 +2518,6 @@ export interface ImportProgress {
   label: string;
 }
 
-export interface TimelineBackfillResult extends TimelineBackfillProgress {
-  cancelled: boolean;
-}
-
 export interface TimelineStatus {
   game_id: number;
   fetched_at: number;

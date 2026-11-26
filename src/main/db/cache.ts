@@ -57,7 +57,3 @@ export function getCachedOwnedItemStats(key: string): OwnedItemStatsCacheValue |
 export function setCachedOwnedItemStats(key: string, value: OwnedItemStatsCacheValue): void {
   store.set(key, { value, expiresAt: Date.now() + DEFAULT_TTL_MS });
 }
-
-export function invalidateOwnedItemStatsCache(): void {
-  store.clear();
-}

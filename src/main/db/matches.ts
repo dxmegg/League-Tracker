@@ -23,7 +23,6 @@ import {
   localGamesFilter,
   hideRemakes,
   statsSource,
-  EXCLUDED_STATS_SQL,
   GAME_MAX_STATS_SQL,
 } from "./filters";
 import { extractRunes, displayName } from "./payloads";
@@ -817,15 +816,6 @@ export function gameExists(gameId: number): boolean {
   return !!row;
 }
 
-// Every game id we've already made a decision about — stored or deliberately
-// skipped. One query beats a lookup per id when a backfill checks hundreds.
-export function getKnownGameIds(): Set<number> {
-  // Ignored games were used by the Mayhem-only importer. The general League
-  // history path must be able to revisit those IDs after an upgrade.
-  const rows = db.prepare("SELECT game_id FROM games").all() as { game_id: number }[];
-  return new Set(rows.map((r) => r.game_id));
-}
-
 export function getAllKnownGameIds(): Set<number> {
   const rows = db.prepare("SELECT game_id FROM games").all() as { game_id: number }[];
   return new Set(rows.map((r) => r.game_id));
@@ -848,44 +838,6 @@ export function getKnownGameIdsForPuuid(puuid: string): Set<number> {
     )
     .all(puuid, puuid) as { game_id: number }[];
   return new Set(rows.map((r) => r.game_id));
-}
-
-export function getTrackedGameIdsForPuuid(puuid: string): Set<number> {
-  const rows = db.prepare("SELECT game_id FROM tracked_game_stats WHERE puuid = ?").all(puuid) as {
-    game_id: number;
-  }[];
-  return new Set(rows.map((r) => r.game_id));
-}
-
-export function getTrackedRowCountForPuuid(puuid: string): {
-  trackedRows: number;
-  gamesRows: number;
-  joinedRows: number;
-} {
-  const trackedRows = (
-    db.prepare("SELECT COUNT(*) as n FROM tracked_game_stats WHERE puuid = ?").get(puuid) as {
-      n: number;
-    }
-  ).n;
-  const gamesRows = (
-    db
-      .prepare(
-        `SELECT COUNT(*) as n FROM games g
-         JOIN tracked_game_stats tgs ON g.game_id = tgs.game_id
-         WHERE tgs.puuid = ?`,
-      )
-      .get(puuid) as { n: number }
-  ).n;
-  const joinedRows = (
-    db
-      .prepare(
-        `SELECT COUNT(*) as n FROM games g
-         JOIN tracked_game_stats tgs ON g.game_id = tgs.game_id
-         WHERE tgs.puuid = ? AND g.is_remake = 0`,
-      )
-      .get(puuid) as { n: number }
-  ).n;
-  return { trackedRows, gamesRows, joinedRows };
 }
 
 export function markIgnoredGame(gameId: number): void {
@@ -932,146 +884,6 @@ export function identityFromGame(
     name: displayName(row.game_name, row.tag_line),
     icon: row.profile_icon,
   };
-}
-
-export function getMostPlayedQueueByName(
-  gameName: string,
-  tagLine: string,
-): { queue_id: number; games: number; wins: number; isArenaGroup: boolean } | null {
-  const arenaPlaceholders = ARENA_QUEUE_IDS.map(() => "?").join(", ");
-  const arenaRow = db
-    .prepare(`
-      SELECT COUNT(*) AS games, SUM(mp.win) AS wins
-      FROM match_participants mp
-      WHERE LOWER(mp.game_name) = LOWER(?)
-        AND LOWER(mp.tag_line) = LOWER(?)
-        AND mp.is_remake = 0
-        AND mp.queue_id IN (${arenaPlaceholders})
-        AND mp.queue_id NOT IN (${EXCLUDED_STATS_SQL})
-    `)
-    .get(gameName, tagLine, ...ARENA_QUEUE_IDS) as { games: number; wins: number } | undefined;
-  const nonArenaRow = db
-    .prepare(`
-      SELECT queue_id, COUNT(*) AS games, SUM(win) AS wins
-      FROM match_participants
-      WHERE LOWER(game_name) = LOWER(?)
-        AND LOWER(tag_line) = LOWER(?)
-        AND is_remake = 0
-        AND queue_id IS NOT NULL
-        AND queue_id NOT IN (${arenaPlaceholders})
-        AND queue_id NOT IN (${EXCLUDED_STATS_SQL})
-      GROUP BY queue_id
-      ORDER BY games DESC
-      LIMIT 1
-    `)
-    .get(gameName, tagLine, ...ARENA_QUEUE_IDS) as
-    | { queue_id: number; games: number; wins: number }
-    | undefined;
-  const arenaGames = arenaRow?.games ?? 0;
-  const nonArenaGames = nonArenaRow?.games ?? 0;
-  if (arenaGames === 0 && nonArenaGames === 0) return null;
-  if (arenaGames >= nonArenaGames) {
-    return {
-      queue_id: ARENA_QUEUE_IDS[0],
-      games: arenaGames,
-      wins: arenaRow?.wins ?? 0,
-      isArenaGroup: true,
-    };
-  }
-  return { ...nonArenaRow!, isArenaGroup: false };
-}
-
-export function getTotalMatchesPlayedByName(
-  gameName: string,
-  tagLine: string,
-): { games: number; wins: number } | null {
-  const row = db
-    .prepare(`
-      SELECT COUNT(*) AS games, SUM(ps.win) AS wins
-      FROM games g
-      JOIN player_stats ps ON ps.game_id = g.game_id
-      WHERE g.puuid IN (
-        SELECT DISTINCT mp.puuid
-        FROM match_participants mp
-        WHERE LOWER(mp.game_name) = LOWER(?)
-          AND LOWER(mp.tag_line) = LOWER(?)
-          AND mp.puuid IS NOT NULL
-      )
-        AND g.is_remake = 0
-    `)
-    .get(gameName, tagLine) as { games: number; wins: number } | undefined;
-  if (!row || row.games === 0) return null;
-  return row;
-}
-
-export function getRecentGamesByName(
-  gameName: string,
-  tagLine: string,
-  queueIds: number[],
-  limit: number,
-): Array<{
-  game_id: number;
-  champion_id: number;
-  win: number;
-  is_remake: number;
-  kills: number;
-  deaths: number;
-  assists: number;
-  cs: number;
-  game_duration: number;
-  score: number | null;
-  team_position: string | null;
-  queue_id: number;
-}> | null {
-  if (limit <= 0) return null;
-  const queueFilter =
-    queueIds.length > 0 ? `AND mp.queue_id IN (${queueIds.map(() => "?").join(", ")})` : "";
-  const rows = db
-    .prepare(`
-      SELECT
-        mp.game_id,
-        COALESCE(tgs.champion_id, ps.champion_id, mp.champion_id) AS champion_id,
-        mp.win,
-        mp.is_remake,
-        COALESCE(tgs.kills, ps.kills, mp.kills) AS kills,
-        COALESCE(tgs.deaths, ps.deaths, mp.deaths) AS deaths,
-        COALESCE(tgs.assists, ps.assists, mp.assists) AS assists,
-        COALESCE(tgs.cs, ps.cs, mp.cs) AS cs,
-        g.game_duration,
-        COALESCE(tgs.score, ps.score) AS score,
-        mp.team_position AS team_position,
-        mp.queue_id
-      FROM match_participants mp
-      JOIN games g ON g.game_id = mp.game_id
-      LEFT JOIN tracked_game_stats tgs
-        ON tgs.game_id = g.game_id AND tgs.puuid = mp.puuid
-      LEFT JOIN player_stats ps
-        ON ps.game_id = g.game_id
-        AND ps.champion_id = mp.champion_id
-        AND ps.kills = mp.kills
-        AND ps.deaths = mp.deaths
-        AND ps.assists = mp.assists
-      WHERE LOWER(mp.game_name) = LOWER(?)
-        AND LOWER(mp.tag_line) = LOWER(?)
-        ${queueFilter}
-      ORDER BY g.game_creation DESC
-      LIMIT ?
-    `)
-    .all(gameName, tagLine, ...queueIds, limit) as Array<{
-    game_id: number;
-    champion_id: number;
-    win: number;
-    is_remake: number;
-    kills: number;
-    deaths: number;
-    assists: number;
-    cs: number;
-    game_duration: number;
-    score: number | null;
-    team_position: string | null;
-    queue_id: number;
-  }>;
-  return rows.length > 0 ? rows : null;
 }
 
 export function listUsedItemIds(): number[] {

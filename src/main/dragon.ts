@@ -407,24 +407,6 @@ export async function loadRuneTreeLayout() {
   }
 }
 
-const runeDictionaryCache = new Map<string, Record<number, string>>();
-export async function getRunesDictionary(version = "16.18.1") {
-  const cached = runeDictionaryCache.get(version);
-  if (cached) return cached;
-  const roots = (await fetchJson(
-    `https://ddragon.leagueoflegends.com/cdn/${version}/data/en_US/runesReforged.json`,
-  )) as any[];
-  const dictionary: Record<number, string> = {};
-  for (const tree of roots) {
-    dictionary[tree.id] = tree.key;
-    for (const slot of tree.slots ?? []) {
-      for (const rune of slot.runes ?? []) dictionary[rune.id] = rune.key;
-    }
-  }
-  runeDictionaryCache.set(version, dictionary);
-  return dictionary;
-}
-
 const itemCache = new Map<string, Record<number, ItemInfo>>();
 const itemPromises = new Map<string, Promise<Record<number, ItemInfo>>>();
 let latestLivePatch: string | null = null;
