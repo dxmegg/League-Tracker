@@ -1,6 +1,8 @@
 /// <reference types="vite/client" />
 import { useState } from "react";
 import changelog from "../../../CHANGELOG.md?raw";
+import earlyChangelog from "../../../CHANGELOG-EARLY.md?raw";
+import { parseChangelog } from "../../shared/changelog";
 import { useIpc } from "../hooks/useIpc";
 import { Title } from "./live/shared";
 
@@ -33,25 +35,19 @@ if (import.meta.env.DEV) {
   console.assert(kindOf("Live Game tab: scoreboard") === "new", "changelog kind: new");
 }
 
-// Bundled with the build, so it matches the running version and works offline.
-// CHANGELOG.md only uses "## version (yyyy-mm-dd)" headings and "- " bullets.
-// A block without a date is not released yet and is never shown.
-const RELEASES = changelog
-  .replaceAll("`", "")
-  .split(/^## /m)
-  .slice(1)
-  .map((block) => {
-    const [title, ...lines] = block.split(/\r?\n/);
-    const [, version = "", date = ""] = title.match(/^(\S+)\s+\((\d{4}-\d{2}-\d{2})\)/) ?? [];
-    const changes = lines
-      .filter((l) => l.startsWith("- "))
-      .map((l) => ({ text: l.slice(2), kind: kindOf(l.slice(2)) }));
-    return { version, date, changes };
-  })
-  .filter((release) => release.date);
+// Bundled with the build, so it matches the running version and works offline
+const read = (text: string) =>
+  parseChangelog(text).map((release) => ({
+    ...release,
+    changes: release.changes.map((change) => ({ text: change, kind: kindOf(change) })),
+  }));
+
+const RELEASES = read(changelog);
+// From before the numbering started again: the same version numbers occur in both files
+const EARLY = read(earlyChangelog);
 
 const SHOWN_AT_FIRST = 3;
-const TOTAL_CHANGES = RELEASES.reduce((sum, r) => sum + r.changes.length, 0);
+const TOTAL_CHANGES = [...RELEASES, ...EARLY].reduce((sum, r) => sum + r.changes.length, 0);
 
 function formatDate(date: string) {
   return new Date(`${date}T12:00:00`).toLocaleDateString(undefined, {
@@ -66,7 +62,7 @@ function Release({
   latest,
   installed,
 }: {
-  release: (typeof RELEASES)[number];
+  release: ReturnType<typeof read>[number];
   latest: boolean;
   installed: boolean;
 }) {
@@ -149,7 +145,7 @@ export function ChangelogSection() {
       <Title
         aside={
           <span className="text-[12px] text-lol-text">
-            {RELEASES.length} releases · {TOTAL_CHANGES} changes
+            {RELEASES.length + EARLY.length} releases · {TOTAL_CHANGES} changes
           </span>
         }
       >
@@ -176,6 +172,16 @@ export function ChangelogSection() {
             : `Show ${RELEASES.length - SHOWN_AT_FIRST} older releases`}
         </button>
       )}
+      <details className="mt-4">
+        <summary className="cursor-pointer rounded-lg border border-lol-border/60 px-4 py-2.5 text-[12px] font-bold uppercase tracking-wider text-lol-text transition-colors hover:border-lol-crimson/50 hover:text-lol-text-bright focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-lol-crimson/60">
+          Early builds ({EARLY.length} releases)
+        </summary>
+        <ol className="ml-1.5 mt-4 border-l-2 border-lol-border/40">
+          {EARLY.map((release) => (
+            <Release key={release.version} release={release} latest={false} installed={false} />
+          ))}
+        </ol>
+      </details>
     </section>
   );
 }

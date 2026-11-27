@@ -81,9 +81,7 @@ export function Sidebar() {
           <div className="font-display text-[18px] font-bold leading-tight text-lol-text-bright">
             Rift Records
             {version && (
-              <span className="ml-1.5 text-[11px] font-semibold text-lol-text/60">
-                v{version.replace(/\.0$/, "")}
-              </span>
+              <span className="ml-1.5 text-[11px] font-semibold text-lol-text/60">v{version}</span>
             )}
           </div>
         </div>

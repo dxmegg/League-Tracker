@@ -6,48 +6,16 @@ A Windows desktop app that keeps your League of Legends match history on your ow
 
 ## Recent Changes
 
-**1.4.1**
+**1.0.0**
 
-- **(NEW)** Full match data for Mayhem and ARAM: timeline, skill and item order, per-player numbers
-- **(NEW)** "After the game" section, Graphs tab, more Trends views and teammate groups
-- **(NEW)** A question about a backup before deleting, importing, repairing or restoring
-- **(IMPROVED)** The database is about three times smaller; backups are compressed
-- **(IMPROVED)** Long lists load as you scroll, one row per item across game modes
-- **(CHANGED)** Automatic backups are on by default: weekly, monthly and manual copies
+- **(NEW)** The numbering starts again: 1.0.0 brings together everything from the early builds
+- **(NEW)** Diagnostics page in Settings: versions, connections, database and folders, with a report to copy or export
+- **(NEW)** Log files in the program data folder, with tokens and player ids removed
+- **(NEW)** What's new button in the top bar; the update window lists every release you missed
+- **(IMPROVED)** Item statistics no longer freeze the window for about a second
 - Various small fixes
 
-**1.4.0**
-
-- **(NEW)** All champions summary, opened from the Champions tab
-- **(NEW)** Misc. Data tab: champions, augments and items of the other players in your games
-- **(NEW)** Timeline on ARAM Mayhem matches: gold and XP lead and a kill map
-- **(NEW)** Favorite matches, a setting to run Mayhem only, and a test view of post-game data on Live Game
-- **(IMPROVED)** Filters, sorting and search are remembered by default
-- **(IMPROVED)** Games played while the app was closed are all picked up on the next start
-- **(CHANGED)** Automatic backups are off unless you switch them on
-- **(REMOVED)** Manual add-account form, searched-accounts cleanup and the old themes
-- Various small fixes
-
-**1.3.1**
-
-- **(NEW)** Use default button for the database folder (Settings → Backups)
-- **(CHANGED)** Data folder renamed to `%APPDATA%\rift-records`; existing data moves on the first start
-- **(CHANGED)** New server address for Riot API sync: 1.3.0 and older can no longer sync through the Riot API
-
-**1.3.0**
-
-- **(NEW)** Installer: coming from the portable exe, your match history is picked up automatically
-- **(NEW)** Choose where the database and its backups are kept (Settings → Backups)
-- **(IMPROVED)** Updates install silently, without console windows
-- **(REMOVED)** The portable exe
-
-**1.2.2**
-
-- **(IMPROVED)** What's new tab redesigned as a timeline of releases with labelled changes
-- **(CHANGED)** Bigger die icon on the taskbar, in Task Manager and on the exe
-- **(REMOVED)** Theme switcher: the app now uses the Redesign theme
-
-Full history: [CHANGELOG.md](CHANGELOG.md)
+Full history: [CHANGELOG.md](CHANGELOG.md) · [Early builds changelog](CHANGELOG-EARLY.md)
 
 ## Screenshots
 
@@ -63,14 +31,15 @@ Full history: [CHANGELOG.md](CHANGELOG.md)
 - **Automatic tracking**: detects the League client and stores games as you play, also from the system tray
 - **Live Game**: scoreboard, game flow charts, events and peak stats while a match is running
 - **Match history**: grouped by day and session, with a detailed page per match (items, runes, augments, per-player stats)
-- **Champions, Items, Augments, Runes**: win rates, KDA, damage, gold, multikills and detailed breakdowns
+- **Champions, Items, Augments**: win rates, KDA, damage, gold, multikills and detailed breakdowns
 - **Match timeline**: gold and XP lead and a kill map for ARAM Mayhem games
 - **Misc. Data**: what the other players in your games picked and built
 - **Scoring**: separate systems for ARAM, Summoner's Rift and Arena, with MVP/ACE badges and a score breakdown on hover
 - **Your Profile, Friends & Foes, Trends, Records**: habits, time-of-day patterns, who you play with and your best games
-- **Achievements and Challenges**: tiers from Iron to Challenger, plus challenges read from the League client
-- **Multiple accounts**: sync, show, hide or merge them
+- **Achievements**: tiers from Iron to Challenger
+- **Multiple accounts**: show, hide or merge them
 - **Your data stays yours**: local database, automatic backups, export and import
+- **Diagnostics**: versions, connection states, database size and folders, with a report you can copy or export
 - **Updates**: checks GitHub Releases on start, can install automatically, with download progress
 
 ## Install
@@ -84,6 +53,7 @@ The executable is not signed by a trusted certificate authority, so Windows may 
 - If a blue "Windows protected your PC" screen appears, click **More info → Run anyway**.
 - If nothing happens at all, right-click the setup file → **Properties** → tick **Unblock** → OK, then run it again. Also check Windows Security → Protection history, in case antivirus quarantined it.
 - If the app opens an error window, or `%APPDATA%\rift-records\startup.log` exists, include that text in your report.
+- If the app starts but something misbehaves, the log files next to `startup.log`, in the `logs` folder (`errors.log` first), say what happened. Settings → Diagnostics opens it.
 
 ## Data and network
 
