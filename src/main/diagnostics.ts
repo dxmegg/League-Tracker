@@ -73,7 +73,6 @@ function databaseFacts() {
 }
 
 // The page asks every few seconds; only a probe goes out to the proxy
-let riotApi = "";
 let riotProbedAt = 0;
 // An open page notices a service that stopped answering within this long
 const RIOT_RECHECK_MS = 60_000;
@@ -83,9 +82,9 @@ export async function getDiagnostics(probe: boolean): Promise<Diagnostics> {
   const probeRiot = probe || Date.now() - riotProbedAt > RIOT_RECHECK_MS;
   if (probeRiot) {
     riotProbedAt = Date.now();
-    riotApi = await checkRiotProxy();
-    if (riotApi === "Working") markSuccess("riot");
-    else markFailure("riot", riotApi);
+    const answer = await checkRiotProxy();
+    if (answer === "Working") markSuccess("riot");
+    else markFailure("riot", answer);
   }
   if (probe) await checkForUpdate();
   if (!lcu.isClientConnected()) version = null;
@@ -97,7 +96,6 @@ export async function getDiagnostics(probe: boolean): Promise<Diagnostics> {
     runtime: `Electron ${process.versions.electron}, Chrome ${process.versions.chrome}, Node ${process.versions.node}`,
     clientStatus: lcu.getStatus(),
     clientVersion: version,
-    riotApi,
     lastSuccess: lastSuccess(),
     lastFailure: lastFailure(),
     release: getLastRelease(),

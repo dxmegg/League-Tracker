@@ -2076,7 +2076,6 @@ export interface Diagnostics {
   runtime: string;
   clientStatus: LcuStatus;
   clientVersion: string | null;
-  riotApi: string;
   lastSuccess: Partial<Record<ServiceName, number>>;
   lastFailure: Partial<Record<ServiceName, ServiceFailure>>;
   // What GitHub offered at the last update check; null until one has worked
