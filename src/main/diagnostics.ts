@@ -6,21 +6,23 @@ import * as lcu from "./lcu";
 import { lcuRequest } from "./lcu/connection";
 import { getLogsDir, logNetwork } from "./logger";
 import { lastFailure, lastSuccess, markFailure, markSuccess } from "./last-success";
-import { checkForUpdate, getLastRelease } from "./updater";
+import { getLastRelease } from "./updater";
 import { getBackupDir, getDbDir } from "./paths";
 import { PROXY_BASE_URL } from "../shared/proxy";
+import { isRiotNotFound } from "../shared/diagnostics-rules";
 import type { Diagnostics } from "../shared/api";
 
-// Asks for an account that does not exist: any answer but a refused key means the way is open
+// Asks for a made-up account: an answer from Riot, found or not, means the way is open
 async function checkRiotProxy(): Promise<string> {
   const startedAt = performance.now();
   try {
-    const { status } = await fetch(
+    const response = await fetch(
       `${PROXY_BASE_URL}/proxy/riot/account/v1/accounts/by-riot-id/test/test?platform=europe`,
       { signal: AbortSignal.timeout(10_000) },
     );
+    const { status } = response;
     logNetwork("riot probe", status, startedAt);
-    if (status === 200 || status === 404) return "Working";
+    if (status === 200 || isRiotNotFound(status, await response.text())) return "Working";
     if (status === 401 || status === 403) return "The API key was refused";
     if (status === 429) return "Rate limited";
     return `HTTP ${status}`;
@@ -86,7 +88,6 @@ export async function getDiagnostics(probe: boolean): Promise<Diagnostics> {
     if (answer === "Working") markSuccess("riot");
     else markFailure("riot", answer);
   }
-  if (probe) await checkForUpdate();
   if (!lcu.isClientConnected()) version = null;
   else if (probe || !version) version = await clientVersion();
   return {

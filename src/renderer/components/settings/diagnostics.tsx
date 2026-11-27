@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useState, type ReactNode } from "react";
 import type { Diagnostics, ServiceName } from "../../../shared/api";
+import { lastCheck } from "../../../shared/diagnostics-rules";
+import { checkForUpdates } from "../../hooks/useUpdater";
 import { Tooltip, TooltipContent, TooltipTrigger } from "../ui/tooltip";
 import { Button, Section } from "./parts";
 
@@ -106,7 +108,7 @@ function report(d: Diagnostics): string {
       "Connections",
       services(d).map((s) => [
         s.name,
-        `${[s.status, ...s.details].join(", ")} (last check: ${date(d.lastSuccess[s.id])})`,
+        `${[s.status, ...s.details].join(", ")} (last check: ${date(lastCheck(d.lastSuccess[s.id], d.lastFailure[s.id]))})`,
       ]),
     ),
     block("Database", [
@@ -161,6 +163,7 @@ export function DiagnosticsSections() {
     setError(null);
     const shown = new Promise((resolve) => window.setTimeout(resolve, MIN_CHECK_MS));
     try {
+      await checkForUpdates();
       setData(await window.api.getDiagnostics(true));
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
@@ -245,41 +248,44 @@ export function DiagnosticsSections() {
         <>
           <Section title="Connections">
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
-              {services(data).map((service) => (
-                <div
-                  key={service.id}
-                  className="rounded-xl border border-lol-border/50 bg-black/25 px-4 py-3"
-                >
-                  <p className="text-[11px] font-bold uppercase tracking-widest text-lol-text">
-                    {service.name}
-                  </p>
-                  <p className="mt-1.5 flex items-center gap-2 font-display text-[16px] font-bold text-lol-text-bright">
-                    <span className={`h-2 w-2 shrink-0 rounded-full ${DOTS[service.tone]}`} />
-                    {service.status}
-                  </p>
-                  <p
-                    className="mt-1 text-[11.5px] text-lol-text"
-                    title={date(data.lastSuccess[service.id])}
+              {services(data).map((service) => {
+                const checked = lastCheck(
+                  data.lastSuccess[service.id],
+                  data.lastFailure[service.id],
+                );
+                return (
+                  <div
+                    key={service.id}
+                    className="rounded-xl border border-lol-border/50 bg-black/25 px-4 py-3"
                   >
-                    {data.lastSuccess[service.id]
-                      ? `Last check: ${since(data.lastSuccess[service.id]!)}`
-                      : "Not checked since the program started"}
-                  </p>
-                  {service.id === "history" && data.lastGameAdded && (
-                    <p className="text-[11.5px] text-lol-text" title={date(data.lastGameAdded)}>
-                      Last update: {since(data.lastGameAdded)}
+                    <p className="text-[11px] font-bold uppercase tracking-widest text-lol-text">
+                      {service.name}
                     </p>
-                  )}
-                  {service.details.map((detail) => (
-                    <p
-                      key={detail}
-                      className={`text-[11.5px] ${detail.startsWith("New version") ? "font-semibold text-lol-gold" : "text-lol-text"}`}
-                    >
-                      {detail}
+                    <p className="mt-1.5 flex items-center gap-2 font-display text-[16px] font-bold text-lol-text-bright">
+                      <span className={`h-2 w-2 shrink-0 rounded-full ${DOTS[service.tone]}`} />
+                      {service.status}
                     </p>
-                  ))}
-                </div>
-              ))}
+                    <p className="mt-1 text-[11.5px] text-lol-text" title={date(checked)}>
+                      {checked
+                        ? `Last check: ${since(checked)}`
+                        : "Not checked since the program started"}
+                    </p>
+                    {service.id === "history" && data.lastGameAdded && (
+                      <p className="text-[11.5px] text-lol-text" title={date(data.lastGameAdded)}>
+                        Last update: {since(data.lastGameAdded)}
+                      </p>
+                    )}
+                    {service.details.map((detail) => (
+                      <p
+                        key={detail}
+                        className={`text-[11.5px] ${detail.startsWith("New version") ? "font-semibold text-lol-gold" : "text-lol-text"}`}
+                      >
+                        {detail}
+                      </p>
+                    ))}
+                  </div>
+                );
+              })}
             </div>
           </Section>
 

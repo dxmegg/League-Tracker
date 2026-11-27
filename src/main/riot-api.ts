@@ -11,6 +11,7 @@ import type {
   RiotSyncProgress,
 } from "../shared/api";
 import { PROXY_BASE_URL } from "../shared/proxy";
+import { isRiotNotFound } from "../shared/diagnostics-rules";
 import { markFailure, markSuccess } from "./last-success";
 import { logNetwork } from "./logger";
 import { nextSlot } from "../shared/rate-limit";
@@ -270,7 +271,7 @@ async function riotFetch<T>(
     const body = await response.text();
     if (!response.ok) {
       // "No such thing" is an answer too
-      if (response.status === 404) markSuccess("riot");
+      if (isRiotNotFound(response.status, body)) markSuccess("riot");
       else markFailure("riot", `HTTP ${response.status}`);
       if (response.status !== 404) {
         console.error(
@@ -594,7 +595,7 @@ async function configuredIdentity(
     throw new Error("No platform configured. Start the League client once.");
   }
   if (!gameName || !tagLine) {
-    throw new Error("No account selected. Open the League client or enter a Riot ID in Settings.");
+    throw new Error("No account selected. Open the League client and try again.");
   }
 
   let account: { puuid: string; gameName: string; tagLine: string };

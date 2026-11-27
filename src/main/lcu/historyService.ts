@@ -180,10 +180,6 @@ function sgpMatchIdsUrl(host: string, puuid: string, startIndex: number, count: 
   );
 }
 
-// The LCU's league-session token used to be accepted here, but the service now
-// answers it with 403 "RBAC: access denied". The RSO access token is what the
-// entitlement follows, and it lives an hour instead of ten minutes. The old one
-// stays as a fallback in case the requirement differs by region or flips back.
 // A request to the match history service, noted for Diagnostics
 async function historyFetch(url: string, token: string): Promise<Response> {
   const startedAt = performance.now();
@@ -202,6 +198,10 @@ async function historyFetch(url: string, token: string): Promise<Response> {
   return response;
 }
 
+// The LCU's league-session token used to be accepted here, but the service now
+// answers it with 403 "RBAC: access denied". The RSO access token is what the
+// entitlement follows, and it lives an hour instead of ten minutes. The old one
+// stays as a fallback in case the requirement differs by region or flips back.
 export async function fetchSgpToken(): Promise<string> {
   try {
     const rso = (await lcuRequest("/lol-rso-auth/v1/authorization/access-token")) as any;

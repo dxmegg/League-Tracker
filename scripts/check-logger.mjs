@@ -1,6 +1,7 @@
 // node --no-warnings scripts/check-logger.mjs
 import assert from "node:assert/strict";
-import { logFileFor, logLine, redact } from "../src/shared/log-format.ts";
+import { EventEmitter } from "node:events";
+import { ignoreStreamErrors, logFileFor, logLine, redact } from "../src/shared/log-format.ts";
 
 assert.equal(logFileFor("[sync x] Match 1 skipped"), "sync");
 assert.equal(logFileFor("[lcu-watcher] connected"), "sync");
@@ -18,4 +19,8 @@ assert.equal(
   logLine("WARN", "[sync] x", new Date(2026, 0, 5, 7, 8, 9)),
   "2026-01-05 07:08:09 WARN [sync] x\n",
 );
+// An "error" event nobody listens to throws
+const stream = new EventEmitter();
+ignoreStreamErrors(stream);
+stream.emit("error", Object.assign(new Error("broken pipe"), { code: "EPIPE" }));
 console.log("logger checks passed");

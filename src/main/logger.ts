@@ -2,7 +2,7 @@ import { app, ipcMain } from "electron";
 import fs from "fs";
 import path from "path";
 import { format } from "util";
-import { logFileFor, logLine, type LogFile } from "../shared/log-format";
+import { ignoreStreamErrors, logFileFor, logLine, type LogFile } from "../shared/log-format";
 
 // Log files next to the program data. Imported right after ./identity, so that whatever the other
 // modules print while loading is kept too.
@@ -43,6 +43,9 @@ export function logNetwork(service: string, outcome: number | string, startedAt:
   append("network", logLine("INFO", `${service} ${outcome} ${ms} ms`, new Date()));
 }
 
+// The console may be a pipe whose reader has exited; unhandled, that EPIPE stops the program
+ignoreStreamErrors(process.stdout, process.stderr);
+
 for (const [method, level] of [
   ["log", "INFO"],
   ["info", "INFO"],
@@ -55,6 +58,9 @@ for (const [method, level] of [
     write(level, format(...args));
   };
 }
+
+// Only watches: the error window still appears, and the log keeps what it said
+process.on("uncaughtExceptionMonitor", (err) => write("ERROR", `[app] uncaught: ${format(err)}`));
 
 // Errors the page prints
 app.on("web-contents-created", (_event, contents) => {

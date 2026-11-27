@@ -28,3 +28,7 @@ export function logLine(level: "INFO" | "WARN" | "ERROR", message: string, at: D
   const time = `${two(at.getHours())}:${two(at.getMinutes())}:${two(at.getSeconds())}`;
   return `${day} ${time} ${level} ${redact(message)}\n`;
 }
+
+export function ignoreStreamErrors(...streams: { on(event: "error", fn: () => void): unknown }[]) {
+  for (const stream of streams) stream.on("error", () => {});
+}
