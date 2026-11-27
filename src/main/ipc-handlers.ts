@@ -1195,6 +1195,8 @@ export function registerIpcHandlers() {
       // Offered first: an import writes into every table, and this is the last
       // moment the database is known to be in the state the user chose it from.
       if (!(await askBackupFirst(win, "importing", "pre-import", true))) return { success: false };
+      // The import ends by rescoring everything, which needs the champion classes
+      await dragon.waitForChampionData();
       const result = await db.importData(dialogResult.filePaths[0], (progress) => {
         if (win && !win.isDestroyed()) {
           win.webContents.send("data:import-progress", progress);

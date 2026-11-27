@@ -374,6 +374,8 @@ db.exec(`
   ALTER TABLE v33_events RENAME TO match_timeline_events;
   PRAGMA user_version = 33;
 `);
+// The monthly slot, so the backup taken ahead of the upgrade leaves it alone
+const oldSnapshot = await createBackup("monthly");
 await openDb("v33");
 assert.equal(db.pragma("user_version", { simple: true }), 34);
 const shape = (name: string) =>
@@ -407,6 +409,20 @@ assert.equal(
     .get(),
   42,
 );
+
+// No room to upgrade an older snapshot: refused before anything is asked or replaced
+const statfs = fs.statfsSync;
+fs.statfsSync = (() => ({ bavail: -1e12, bsize: 1 })) as unknown as typeof fs.statfsSync;
+let asked = false;
+await assert.rejects(
+  restoreBackup(oldSnapshot.file, async () => (asked = true)),
+  /Nothing was changed/,
+);
+fs.statfsSync = statfs;
+assert.equal(asked, false);
+assert.equal(db.pragma("user_version", { simple: true }), 34);
+assert.deepEqual(await restoreBackup(oldSnapshot.file), { games: 4 });
+assert.deepEqual(fingerprint(), beforeUpgrade);
 
 closeDatabase();
 console.log("transfer checks passed");

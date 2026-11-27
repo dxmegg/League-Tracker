@@ -327,6 +327,23 @@ function swapIn(): void {
   fs.renameSync(incomingPath(), dbPath);
 }
 
+// A snapshot from before v34 is upgraded once it is in place, and running out of room then leaves
+// the app on a half-opened database. The live file's space comes back with the swap.
+function assertRoomToUpgrade(snapshot: string): void {
+  const snap = new Database(snapshot, { readonly: true });
+  const version = snap.pragma("user_version", { simple: true }) as number;
+  snap.close();
+  if (version >= 34) return;
+  const disk = fs.statfsSync(path.dirname(getDbPath()));
+  // Twice the size for the upgrade, and a half more for the "before restoring" backup
+  const needed = 2.5 * fs.statSync(snapshot).size;
+  if (disk.bavail * disk.bsize + fs.statSync(getDbPath()).size >= needed) return;
+  throw new Error(
+    `Restoring this older backup needs about ${(needed / 1024 ** 3).toFixed(1)} GB free on the ` +
+      "database drive. Nothing was changed.",
+  );
+}
+
 // Null means beforeSwap called the restore off
 export async function restoreBackup(
   file: string,
@@ -340,6 +357,8 @@ export async function restoreBackup(
     // Verified again at restore time, not trusted from when it was written — the
     // file has been sitting on disk since, and this is the moment it matters.
     const games = verifySnapshot(incoming);
+    // Before beforeSwap, whose backup may replace the very snapshot being restored
+    assertRoomToUpgrade(incoming);
     if (!(await beforeSwap())) return null;
     await waitForBackups();
     // The switch is the user's choice today, not part of the data being rolled back

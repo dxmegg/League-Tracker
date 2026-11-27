@@ -19,8 +19,8 @@ export function backupSlot(reason: string): "monthly" | "auto" | "manual" {
 }
 
 // The newest snapshot of each slot is kept. Names carry the time, so they sort by age. `written`
-// is the snapshot just taken: it keeps its slot even if the clock moved back. Plain .db files go
-// once a compressed one is written.
+// is the snapshot just taken: it keeps its slot even if the clock moved back. Plain .db files from
+// older versions stay until there is a monthly snapshot, the only kind checked in full.
 export function staleBackups(names: string[], written: string): string[] {
   const backups = names.filter((name) => BACKUP_FILE_RE.test(name));
   const slot = (name: string) => backupSlot(BACKUP_FILE_RE.exec(name)![2]);
@@ -32,7 +32,10 @@ export function staleBackups(names: string[], written: string): string[] {
       .at(-1);
     if (newest) kept.add(newest);
   }
-  return backups.filter((name) => !kept.has(name));
+  const checked = [written, ...backups].some(
+    (name) => name.endsWith(".gz") && slot(name) === "monthly",
+  );
+  return backups.filter((name) => !kept.has(name) && (checked || name.endsWith(".gz")));
 }
 
 const WEEK_MS = 7 * 24 * 60 * 60 * 1000;

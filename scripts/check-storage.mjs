@@ -33,7 +33,7 @@ assert.deepEqual(await decide("cancel"), [false, 0]);
 assert.deepEqual(await decide("backup", true), [false, 1]);
 
 // Three slots, each replaced only by its own kind: monthly, weekly ("auto") and manual, which also
-// takes every "before ..." backup; plain .db files go
+// takes every "before ..." backup; plain .db files go once there is a monthly one
 const name = (day, reason, ext = "-5g.db.gz") => `matches-2026-01-0${day}T00-00-00-${reason}${ext}`;
 const old = name(1, "manual", ".db");
 const month = name(2, "monthly");
@@ -42,6 +42,7 @@ const manual = name(4, "pre-delete");
 assert.deepEqual(staleBackups([old, month, week, manual, "notes.txt"], manual), [old]);
 assert.deepEqual(staleBackups([month, week, manual, name(5, "auto")], name(5, "auto")), [week]);
 assert.deepEqual(staleBackups([old, month], month), [old]);
+assert.deepEqual(staleBackups([old, week, manual], manual), []); // nothing checked in full yet
 assert.deepEqual(staleBackups([month, week, name(5, "monthly")], name(5, "monthly")), [month]);
 assert.deepEqual(staleBackups([name(5, "manual"), manual], manual), [name(5, "manual")]); // clock moved back
 const migration = name(1, "pre-migration-20");
