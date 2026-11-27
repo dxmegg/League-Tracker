@@ -1,4 +1,5 @@
 import "./identity";
+import "./logger";
 import { app, BrowserWindow, Tray, Menu, nativeImage, screen, dialog } from "electron";
 import fs from "fs";
 import path from "path";

@@ -29,6 +29,10 @@ const MatchDetailPage = lazy(() => import("./pages/MatchDetailPage"));
 const Live = lazy(() => import("./pages/Live"));
 const MatchHistory = lazy(() => import("./pages/MatchHistory"));
 const DebugTesting = lazy(() => import("./pages/DebugTesting"));
+const Wip = lazy(() => import("./pages/Wip"));
+const WipRandom = lazy(() => import("./pages/WipRandom"));
+const WipSettings = lazy(() => import("./pages/WipSettings"));
+const WhatsNew = lazy(() => import("./pages/WhatsNew"));
 
 // Mayhem has no runes; a stale /runes URL or link falls back to Home in that mode
 function HiddenInMayhem({ children }: { children: ReactNode }) {
@@ -62,21 +66,62 @@ export default function App() {
           <Route
             path="/runes"
             element={
-              <HiddenInMayhem>
-                <Runes />
-              </HiddenInMayhem>
+              <DevOnly>
+                <HiddenInMayhem>
+                  <Runes />
+                </HiddenInMayhem>
+              </DevOnly>
             }
           />
           <Route path="/friends" element={<Friends />} />
           <Route path="/friends/:key" element={<FriendDetail />} />
           <Route path="/trends" element={<Trends />} />
-          <Route path="/season-recap" element={<SeasonRecap />} />
+          <Route
+            path="/season-recap"
+            element={
+              <DevOnly>
+                <SeasonRecap />
+              </DevOnly>
+            }
+          />
           <Route path="/records" element={<Records />} />
           <Route path="/achievements" element={<Achievements />} />
-          <Route path="/challenges" element={<Challenges />} />
+          <Route
+            path="/challenges"
+            element={
+              <DevOnly>
+                <Challenges />
+              </DevOnly>
+            }
+          />
           <Route path="/misc" element={<MiscData />} />
           <Route path="/data" element={<Storage />} />
           <Route path="/settings" element={<Settings />} />
+          <Route path="/whats-new" element={<WhatsNew />} />
+          <Route
+            path="/wip"
+            element={
+              <DevOnly>
+                <Wip />
+              </DevOnly>
+            }
+          />
+          <Route
+            path="/wip/random"
+            element={
+              <DevOnly>
+                <WipRandom />
+              </DevOnly>
+            }
+          />
+          <Route
+            path="/wip/settings"
+            element={
+              <DevOnly>
+                <WipSettings />
+              </DevOnly>
+            }
+          />
           <Route
             path="/debug"
             element={

@@ -450,6 +450,11 @@ const api: ElectronAPI = {
   openBackupFolder: () => ipcRenderer.invoke("backup:open-folder"),
 
   getStorageInfo: () => ipcRenderer.invoke("storage:info"),
+  getDiagnostics: (probe: boolean) => ipcRenderer.invoke("app:diagnostics", probe),
+  copyText: (text: string) => ipcRenderer.invoke("app:copy-text", text),
+  saveReport: (text: string, data: unknown) => ipcRenderer.invoke("app:save-report", text, data),
+  openLogsFolder: () => ipcRenderer.invoke("app:open-logs-folder"),
+  openProgramFolder: () => ipcRenderer.invoke("app:open-program-folder"),
   changeDbFolder: (reset: boolean) => ipcRenderer.invoke("storage:change-db", reset),
   changeBackupFolder: (reset: boolean) => ipcRenderer.invoke("storage:change-backup", reset),
   openDbFolder: () => ipcRenderer.invoke("storage:open-db"),

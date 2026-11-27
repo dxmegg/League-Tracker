@@ -1,6 +1,7 @@
 import { db, type GameSource } from "../db";
 import type { PlayerScore } from "../../shared/opScore";
 import { gameExists } from "./matches";
+import { setSetting } from "./settings";
 import {
   packRaw,
   challengeRowsFromRaw,
@@ -290,6 +291,8 @@ export function insertGameFull(
       source,
       packRaw(gameData),
     );
+    // Shown in Diagnostics: when a match last arrived, not when it was played
+    if (result.changes > 0) setSetting("last_game_added_at", String(Date.now()));
 
     if (result.changes === 0) {
       // The game payload is shared, but its owner line is not. A second

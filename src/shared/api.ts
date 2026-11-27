@@ -2046,7 +2046,7 @@ export interface UpdateInfo {
   url?: string;
   assetUrl?: string;
   assetSize?: number;
-  // The notes of the release on offer
+  // The notes of every release since the installed one, newest first
   releases?: ReleaseNote[];
   error?: string;
   // False outside the portable exe, where there is no file to swap
@@ -2059,6 +2059,41 @@ export interface UpdateProgress {
   received: number;
   total: number;
   bytesPerSecond: number;
+}
+
+export type ServiceName = "client" | "history" | "riot" | "github";
+
+// A failure stays until the same service answers again
+export interface ServiceFailure {
+  at: number;
+  reason: string;
+}
+
+export interface Diagnostics {
+  appVersion: string;
+  installed: boolean;
+  system: string;
+  runtime: string;
+  clientStatus: LcuStatus;
+  clientVersion: string | null;
+  riotApi: string;
+  lastSuccess: Partial<Record<ServiceName, number>>;
+  lastFailure: Partial<Record<ServiceName, ServiceFailure>>;
+  // What GitHub offered at the last update check; null until one has worked
+  release: { latest: string; hasUpdate: boolean } | null;
+  // The schema this program expects
+  latestSchemaVersion: number;
+  appDir: string;
+  dbDir: string;
+  backupDir: string;
+  logsDir: string;
+  schemaVersion: number;
+  games: number;
+  newestGame: number | null;
+  // When a match last arrived in the history
+  lastGameAdded: number | null;
+  dbBytes: number;
+  freeBytes: number;
 }
 
 export interface DbStats {
@@ -2482,6 +2517,12 @@ export interface ElectronAPI {
   getRecoveryReport: () => Promise<RecoveryReport | null>;
   openBackupFolder: () => Promise<void>;
   getVersion: () => Promise<string>;
+  getDiagnostics: (probe: boolean) => Promise<Diagnostics>;
+  openProgramFolder: () => Promise<void>;
+  openLogsFolder: () => Promise<void>;
+  // Asks where to save; false when the dialog was cancelled
+  saveReport: (text: string, data: unknown) => Promise<boolean>;
+  copyText: (text: string) => Promise<void>;
   checkForUpdate: () => Promise<UpdateInfo>;
   downloadUpdate: (assetUrl: string) => Promise<{ success: boolean; error?: string }>;
   onUpdateProgress: (callback: (progress: UpdateProgress) => void) => () => void;

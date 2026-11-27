@@ -65,7 +65,8 @@ export function UpdatePanel() {
     void window.api.getSetting("auto_update").then((value) => setAuto(value !== "false"));
   }, []);
 
-  const release = info?.releases?.[0];
+  const releases = info?.releases ?? [];
+  const release = releases[0];
   const headline =
     status === "checking"
       ? "Checking for updates…"
@@ -124,11 +125,20 @@ export function UpdatePanel() {
       {release && (
         <details className="mt-3 rounded-xl border border-lol-border/50 bg-black/25 px-3 py-2">
           <summary className="cursor-pointer text-[12px] font-semibold text-lol-text-bright">
-            What&apos;s new in {release.version}
+            {releases.length > 1
+              ? `What's new in the last ${releases.length} releases`
+              : `What's new in ${release.version}`}
           </summary>
-          <p className="mt-2 max-h-48 overflow-y-auto whitespace-pre-wrap text-[12px] text-lol-text">
-            {release.body || "No release notes."}
-          </p>
+          <div className="mt-2 max-h-48 overflow-y-auto text-[12px] text-lol-text">
+            {releases.map((note) => (
+              <div key={note.version} className="mb-3 last:mb-0">
+                {releases.length > 1 && (
+                  <p className="font-semibold text-lol-text-bright">{note.version}</p>
+                )}
+                <p className="whitespace-pre-wrap">{note.body || "No release notes."}</p>
+              </div>
+            ))}
+          </div>
         </details>
       )}
 

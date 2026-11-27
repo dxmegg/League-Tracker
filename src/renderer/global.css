@@ -524,6 +524,25 @@ h3 {
   }
 }
 
+/* A bar that says "working" without knowing how far it is */
+@keyframes progress-sweep {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(300%);
+  }
+}
+.progress-sweep {
+  animation: progress-sweep 1.1s ease-in-out infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .progress-sweep {
+    animation: none;
+    width: 100%;
+  }
+}
+
 @keyframes page-enter {
   from {
     opacity: 0;

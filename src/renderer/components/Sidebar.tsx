@@ -1,6 +1,5 @@
 import type { SVGProps } from "react";
 import { NavLink, useLocation } from "react-router-dom";
-import { useActiveMode } from "../hooks/useActiveMode";
 import { useDevMode } from "../hooks/useDevMode";
 import { useIpc } from "../hooks/useIpc";
 import {
@@ -18,7 +17,6 @@ import {
   StarIcon,
   UserIcon,
   UsersIcon,
-  ZapIcon,
 } from "./icons";
 
 type NavIcon = (props: SVGProps<SVGSVGElement>) => React.JSX.Element;
@@ -31,16 +29,12 @@ const NAV_ICONS: Record<string, NavIcon> = {
   "/champions": ShieldIcon,
   "/items": CoinsIcon,
   "/augments": SparklesIcon,
-  "/runes": ZapIcon,
   "/friends": UsersIcon,
   "/trends": TrendingUpIcon,
-  "/season-recap": HourglassIcon,
   "/records": TrophyIcon,
   "/achievements": StarIcon,
-  "/challenges": MedalIcon,
   "/misc": LayersIcon,
   "/data": GlobeIcon,
-  "/debug": SettingsIcon,
 };
 
 const TABS = [
@@ -51,41 +45,29 @@ const TABS = [
   { to: "/champions", label: "CHAMPIONS" },
   { to: "/items", label: "ITEMS" },
   { to: "/augments", label: "AUGMENTS" },
-  { to: "/runes", label: "RUNES" },
   { to: "/friends", label: "FRIENDS & FOES" },
   { to: "/trends", label: "TRENDS" },
-  { to: "/season-recap", label: "SEASON RECAP" },
   { to: "/records", label: "RECORDS" },
   { to: "/achievements", label: "ACHIEVEMENTS" },
-  { to: "/challenges", label: "CHALLENGES" },
   { to: "/misc", label: "MISC. DATA" },
   { to: "/data", label: "STORAGE" },
-  { to: "/debug", label: "DEBUG TESTING" },
 ];
 
 // Each tab appears in exactly one group
 const NAV_GROUPS = [
   { title: "Main", paths: ["/test", "/home", "/profile", "/match-history"] },
-  { title: "Analytics", paths: ["/champions", "/items", "/augments", "/runes"] },
+  { title: "Analytics", paths: ["/champions", "/items", "/augments"] },
   {
     title: "Community & progress",
-    paths: [
-      "/friends",
-      "/trends",
-      "/season-recap",
-      "/records",
-      "/achievements",
-      "/challenges",
-      "/misc",
-      "/data",
-      "/debug",
-    ],
+    paths: ["/friends", "/trends", "/records", "/achievements", "/misc", "/data"],
   },
 ];
 
+// The pages reached through Work in progress keep its link lit
+const WIP_PATHS = ["/wip", "/debug", "/challenges", "/runes", "/season-recap"];
+
 export function Sidebar() {
   const { pathname } = useLocation();
-  const [mode] = useActiveMode();
   const [devMode] = useDevMode();
   const { data: version } = useIpc(() => window.api.getVersion(), []);
 
@@ -112,42 +94,48 @@ export function Sidebar() {
               <h2 className="px-3 text-[10px] font-semibold uppercase tracking-[0.18em] text-lol-text/60">
                 {title}
               </h2>
-              {TABS
-                // Mayhem has no runes, so the tab disappears in that mode
-                .filter(
-                  (tab) =>
-                    paths.includes(tab.to) &&
-                    !(mode === "mayhem" && tab.to === "/runes") &&
-                    (devMode || tab.to !== "/debug"),
-                )
-                .map(({ to, label }) => (
-                  <NavLink
-                    key={to}
-                    to={to}
-                    className={`group flex items-center gap-3 rounded-xl px-3 py-2 text-[13px] font-medium transition-all duration-150 ${
-                      isLinkActive(to)
-                        ? "bg-gradient-to-r from-lol-crimson/25 via-lol-crimson/10 to-transparent text-lol-text-bright shadow-[inset_2px_0_0_var(--theme-crimson)]"
-                        : "text-lol-text hover:bg-white/[0.05] hover:text-lol-text-bright"
-                    }`}
-                  >
-                    {(() => {
-                      const Icon = NAV_ICONS[to];
-                      return Icon ? (
-                        <Icon
-                          className={`h-[15px] w-[15px] shrink-0 transition-colors ${
-                            isLinkActive(to)
-                              ? "text-lol-crimson drop-shadow-[0_0_6px_var(--theme-crimson-glow)]"
-                              : "opacity-70 group-hover:opacity-100"
-                          }`}
-                        />
-                      ) : null;
-                    })()}
-                    <span>{label}</span>
-                  </NavLink>
-                ))}
+              {TABS.filter((tab) => paths.includes(tab.to)).map(({ to, label }) => (
+                <NavLink
+                  key={to}
+                  to={to}
+                  className={`group flex items-center gap-3 rounded-xl px-3 py-2 text-[13px] font-medium transition-all duration-150 ${
+                    isLinkActive(to)
+                      ? "bg-gradient-to-r from-lol-crimson/25 via-lol-crimson/10 to-transparent text-lol-text-bright shadow-[inset_2px_0_0_var(--theme-crimson)]"
+                      : "text-lol-text hover:bg-white/[0.05] hover:text-lol-text-bright"
+                  }`}
+                >
+                  {(() => {
+                    const Icon = NAV_ICONS[to];
+                    return Icon ? (
+                      <Icon
+                        className={`h-[15px] w-[15px] shrink-0 transition-colors ${
+                          isLinkActive(to)
+                            ? "text-lol-crimson drop-shadow-[0_0_6px_var(--theme-crimson-glow)]"
+                            : "opacity-70 group-hover:opacity-100"
+                        }`}
+                      />
+                    ) : null;
+                  })()}
+                  <span>{label}</span>
+                </NavLink>
+              ))}
             </div>
           ))}
         </nav>
+
+        {devMode && (
+          <NavLink
+            to="/wip"
+            className={`mt-auto flex shrink-0 items-center gap-3 rounded-xl border border-dashed px-3 py-2 text-[13px] font-medium transition-colors ${
+              WIP_PATHS.some(isLinkActive)
+                ? "border-lol-crimson/60 bg-lol-crimson/15 text-lol-text-bright"
+                : "border-lol-border/60 text-lol-text hover:border-lol-crimson/40 hover:text-lol-text-bright"
+            }`}
+          >
+            <HourglassIcon className="h-[15px] w-[15px] shrink-0" />
+            <span>WORK IN PROGRESS</span>
+          </NavLink>
+        )}
       </div>
     </aside>
   );

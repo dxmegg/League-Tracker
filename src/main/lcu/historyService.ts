@@ -1,4 +1,6 @@
 import * as db from "../db";
+import { markFailure, markSuccess } from "../last-success";
+import { logNetwork } from "../logger";
 import { parseTimeline } from "../timeline";
 import { MAYHEM_QUEUE_IDS } from "../../shared/queues";
 import { lcuRequest, getCurrentSummoner, isInGame } from "./connection";
@@ -77,12 +79,9 @@ async function fetchFullMatchData(gameId: number): Promise<void> {
   const host = await resolveSgpHost((await getCurrentSummoner()).puuid, token);
 
   const get = async (platform: string, kind: "SUMMARY" | "DETAILS"): Promise<any> => {
-    const response = await fetch(
+    const response = await historyFetch(
       `${host}/match-history-query/v1/products/lol/${platform.toUpperCase()}_${gameId}/${kind}`,
-      {
-        headers: { Authorization: `Bearer ${token}` },
-        signal: AbortSignal.timeout(SGP_PAGE_TIMEOUT_MS),
-      },
+      token,
     );
     if (!response.ok) throw new SgpHttpError(response.status, kind);
     const body: any = await response.json();
@@ -185,6 +184,24 @@ function sgpMatchIdsUrl(host: string, puuid: string, startIndex: number, count: 
 // answers it with 403 "RBAC: access denied". The RSO access token is what the
 // entitlement follows, and it lives an hour instead of ten minutes. The old one
 // stays as a fallback in case the requirement differs by region or flips back.
+// A request to the match history service, noted for Diagnostics
+async function historyFetch(url: string, token: string): Promise<Response> {
+  const startedAt = performance.now();
+  const response = await fetch(url, {
+    headers: { Authorization: `Bearer ${token}` },
+    signal: AbortSignal.timeout(SGP_PAGE_TIMEOUT_MS),
+  }).catch((err: unknown) => {
+    markFailure("history", "Not reachable");
+    logNetwork("history", "unreachable", startedAt);
+    throw err;
+  });
+  logNetwork("history", response.status, startedAt);
+  // A game the server does not have is an answer too
+  if (response.ok || response.status === 404) markSuccess("history");
+  else markFailure("history", `HTTP ${response.status}`);
+  return response;
+}
+
 export async function fetchSgpToken(): Promise<string> {
   try {
     const rso = (await lcuRequest("/lol-rso-auth/v1/authorization/access-token")) as any;
@@ -293,10 +310,10 @@ export async function fetchAllMatchIds(
   const ids: number[] = [];
 
   for (let page = 0; page < SGP_MAX_PAGES; page++) {
-    const response = await fetch(sgpMatchIdsUrl(host, puuid, page * SGP_PAGE_SIZE, SGP_PAGE_SIZE), {
-      headers: { Authorization: `Bearer ${token}` },
-      signal: AbortSignal.timeout(SGP_PAGE_TIMEOUT_MS),
-    });
+    const response = await historyFetch(
+      sgpMatchIdsUrl(host, puuid, page * SGP_PAGE_SIZE, SGP_PAGE_SIZE),
+      token,
+    );
     if (!response.ok) {
       throw new SgpHttpError(response.status);
     }

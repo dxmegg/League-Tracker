@@ -40,7 +40,13 @@ export async function checkForUpdates() {
   setUpdaterState({ status: "checking", error: null });
   try {
     const info = await window.api.checkForUpdate();
-    setUpdaterState({ status: "idle", info, error: info.error ?? null, checkedAt: Date.now() });
+    // A failed check must not drop an update already found
+    setUpdaterState({
+      status: "idle",
+      info: info.error && state.info ? state.info : info,
+      error: info.error ?? null,
+      checkedAt: Date.now(),
+    });
   } catch {
     setUpdaterState({ status: "idle", error: "Failed to check for updates" });
   }
@@ -66,11 +72,14 @@ export async function installUpdate() {
 
 // Gives the League client time to report a running game before anything restarts the app
 const AUTO_INSTALL_DELAY_MS = 8_000;
+// While the app stays open: only looks, the install still waits for a click or the next start
+const RECHECK_INTERVAL_MS = 4 * 60 * 60 * 1000;
 let started = false;
 
 export async function startUpdater() {
   if (started) return;
   started = true;
+  setInterval(() => void checkForUpdates(), RECHECK_INTERVAL_MS);
   await checkForUpdates();
   const { info } = state;
   if (!info?.hasUpdate || !info.canInstall || !info.latest) return;

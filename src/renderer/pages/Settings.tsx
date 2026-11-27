@@ -1,18 +1,18 @@
 import { useState } from "react";
 import { useActiveMode } from "../hooks/useActiveMode";
 import { AboutSection } from "../components/AboutSection";
-import { ChangelogSection } from "../components/ChangelogSection";
 import { AccountsSections, useAccountSettings } from "../components/settings/accounts";
 import { DataSections, useDataSettings } from "../components/settings/data";
+import { DiagnosticsSections } from "../components/settings/diagnostics";
 import { GeneralSections, useGeneralSettings } from "../components/settings/general";
 import { SyncSections, useSyncSettings } from "../components/settings/sync";
 
 const SETTINGS_TABS = [
   { id: "general", label: "General", hint: "Startup behaviour and which games count" },
-  { id: "accounts", label: "Accounts", hint: "Riot accounts to sync and accounts already saved" },
-  { id: "sync", label: "Sync & repair", hint: "Fetch history, timelines and fix stored data" },
+  { id: "accounts", label: "Accounts", hint: "Accounts already saved" },
+  { id: "sync", label: "Sync & repair", hint: "Fetch history and recalculate scores" },
   { id: "data", label: "Backups", hint: "Export, import and database snapshots" },
-  { id: "changelog", label: "What's new", hint: "Changes in every release" },
+  { id: "diagnostics", label: "Diagnostics", hint: "Versions, connections and folders" },
   { id: "about", label: "About", hint: "Version, your data, legal notices and licenses" },
 ] as const;
 
@@ -67,7 +67,7 @@ export default function Settings() {
         {tab === "sync" && <SyncSections settings={sync} />}
         {tab === "data" && <DataSections settings={data} mode={mode} />}
         {tab === "general" && <GeneralSections settings={general} setMode={setMode} />}
-        {tab === "changelog" && <ChangelogSection />}
+        {tab === "diagnostics" && <DiagnosticsSections />}
         {tab === "about" && <AboutSection />}
       </div>
     </div>

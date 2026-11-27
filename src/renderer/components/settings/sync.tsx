@@ -300,7 +300,14 @@ export function useSyncSettings() {
   };
 }
 
-export function SyncSections({ settings }: { settings: ReturnType<typeof useSyncSettings> }) {
+// `wip` shows the actions that still need testing or rework instead of the working ones
+export function SyncSections({
+  settings,
+  wip = false,
+}: {
+  settings: ReturnType<typeof useSyncSettings>;
+  wip?: boolean;
+}) {
   const {
     backfilling,
     timelineBackfilling,
@@ -336,110 +343,129 @@ export function SyncSections({ settings }: { settings: ReturnType<typeof useSync
   return (
     <>
       <Section title="League history sync">
-        <ActionRow name="Backfill" description="Fetch games the client knows and we don't yet.">
-          <Button onClick={handleBackfill} disabled={anyRunning} className="w-28">
-            {backfilling ? "Working..." : "Run"}
-          </Button>
-        </ActionRow>
-        <ActionRow
-          name="Force full backfill"
-          description="Walk the whole Riot history again, ignoring that it was done before."
-        >
-          <Button
-            variant="subtle"
-            onClick={handleForceFullBackfill}
-            disabled={anyRunning}
-            className="w-28"
-          >
-            Run
-          </Button>
-        </ActionRow>
-        <ActionRow
-          name="Riot Match-V5 sync"
-          description={
-            <>
-              Adds pings, spell casts and challenge metrics the client doesn't provide.{" "}
-              {resolvedPlatform
-                ? `Platform: ${resolvedPlatform.platform} → ${resolvedPlatform.route}`
-                : "No platform configured."}
-            </>
-          }
-        >
-          {riotSyncing ? (
-            <Button variant="destructive" onClick={handleRiotCancel} className="w-28">
-              Stop
-            </Button>
-          ) : (
-            <Button onClick={handleRiotSync} className="w-28">
-              Sync now
-            </Button>
-          )}
-        </ActionRow>
-        <ActionRow
-          name="Refresh existing games"
-          description="Fetch stored games again through Match-V5. May take several minutes."
-        >
-          <Button
-            variant="subtle"
-            onClick={handleRiotRefresh}
-            disabled={riotSyncing}
-            className="w-28"
-          >
-            {riotSyncing ? "Working..." : "Refresh"}
-          </Button>
-        </ActionRow>
+        {!wip && (
+          <>
+            <ActionRow name="Backfill" description="Fetch games the client knows and we don't yet.">
+              <Button onClick={handleBackfill} disabled={anyRunning} className="w-28">
+                {backfilling ? "Working..." : "Run"}
+              </Button>
+            </ActionRow>
+            <ActionRow
+              name="Force full backfill"
+              description="Walk the whole Riot history again, ignoring that it was done before."
+            >
+              <Button
+                variant="subtle"
+                onClick={handleForceFullBackfill}
+                disabled={anyRunning}
+                className="w-28"
+              >
+                Run
+              </Button>
+            </ActionRow>
+          </>
+        )}
+        {wip && (
+          <>
+            <ActionRow
+              name="Riot Match-V5 sync"
+              description={
+                <>
+                  Adds pings, spell casts and challenge metrics the client doesn't provide.{" "}
+                  {resolvedPlatform
+                    ? `Platform: ${resolvedPlatform.platform} → ${resolvedPlatform.route}`
+                    : "No platform configured."}
+                </>
+              }
+            >
+              {riotSyncing ? (
+                <Button variant="destructive" onClick={handleRiotCancel} className="w-28">
+                  Stop
+                </Button>
+              ) : (
+                <Button onClick={handleRiotSync} className="w-28">
+                  Sync now
+                </Button>
+              )}
+            </ActionRow>
+            <ActionRow
+              name="Refresh existing games"
+              description="Fetch stored games again through Match-V5. May take several minutes."
+            >
+              <Button
+                variant="subtle"
+                onClick={handleRiotRefresh}
+                disabled={riotSyncing}
+                className="w-28"
+              >
+                {riotSyncing ? "Working..." : "Refresh"}
+              </Button>
+            </ActionRow>
+          </>
+        )}
 
         <p className="mt-2 text-[10px] font-bold uppercase tracking-widest text-lol-gold">
           Fix stored data
         </p>
-        <ActionRow name="Repair" description="Reassign games to your accounts and rebuild stats.">
-          <Button variant="subtle" onClick={handleRepair} disabled={repairing} className="w-28">
-            {repairing ? "Working..." : "Repair"}
-          </Button>
-        </ActionRow>
-        <ActionRow
-          name="Recalculate scores"
-          description="Rescore every game with the current system."
-        >
-          <Button
-            variant="subtle"
-            onClick={handleRecalculateScores}
-            disabled={recalculating || anyRunning}
-            className="w-28"
+        {wip && (
+          <ActionRow name="Repair" description="Reassign games to your accounts and rebuild stats.">
+            <Button variant="subtle" onClick={handleRepair} disabled={repairing} className="w-28">
+              {repairing ? "Working..." : "Repair"}
+            </Button>
+          </ActionRow>
+        )}
+        {!wip && (
+          <ActionRow
+            name="Recalculate scores"
+            description="Rescore every game with the current system."
           >
-            {recalculating ? "Working..." : "Run"}
-          </Button>
-        </ActionRow>
-        <ActionRow name="Restore older games" description="Look again at games skipped earlier.">
-          <Button
-            variant="subtle"
-            onClick={handleRestoreOlderGames}
-            disabled={restoring}
-            className="w-28"
-          >
-            {restoring ? "Working..." : "Restore"}
-          </Button>
-        </ActionRow>
-        <ActionRow name="Teams and bans" description="Rebuild them from the stored match data.">
-          <Button
-            variant="subtle"
-            onClick={handleTeamsBackfill}
-            disabled={anyRunning}
-            className="w-28"
-          >
-            Rebuild
-          </Button>
-        </ActionRow>
-        <ActionRow name="Timeline fields" description="Rebuild them from the stored timelines.">
-          <Button
-            variant="subtle"
-            onClick={handleTimelineFieldsBackfill}
-            disabled={anyRunning}
-            className="w-28"
-          >
-            Rebuild
-          </Button>
-        </ActionRow>
+            <Button
+              variant="subtle"
+              onClick={handleRecalculateScores}
+              disabled={recalculating || anyRunning}
+              className="w-28"
+            >
+              {recalculating ? "Working..." : "Run"}
+            </Button>
+          </ActionRow>
+        )}
+        {wip && (
+          <>
+            <ActionRow
+              name="Restore older games"
+              description="Look again at games skipped earlier."
+            >
+              <Button
+                variant="subtle"
+                onClick={handleRestoreOlderGames}
+                disabled={restoring}
+                className="w-28"
+              >
+                {restoring ? "Working..." : "Restore"}
+              </Button>
+            </ActionRow>
+            <ActionRow name="Teams and bans" description="Rebuild them from the stored match data.">
+              <Button
+                variant="subtle"
+                onClick={handleTeamsBackfill}
+                disabled={anyRunning}
+                className="w-28"
+              >
+                Rebuild
+              </Button>
+            </ActionRow>
+            <ActionRow name="Timeline fields" description="Rebuild them from the stored timelines.">
+              <Button
+                variant="subtle"
+                onClick={handleTimelineFieldsBackfill}
+                disabled={anyRunning}
+                className="w-28"
+              >
+                Rebuild
+              </Button>
+            </ActionRow>
+          </>
+        )}
         {backfillStatus && <p className="text-[12.5px] text-lol-text">{backfillStatus}</p>}
         {riotSyncing && (
           <div className="mt-2 space-y-1">
@@ -464,62 +490,68 @@ export function SyncSections({ settings }: { settings: ReturnType<typeof useSync
         {riotSyncStatus && <p className="mt-1 text-xs text-lol-text">{riotSyncStatus}</p>}
       </Section>
 
-      <Section title="Timeline backfill">
-        <p className="text-[12.5px] text-lol-text">
-          Fetches detailed timeline data (gold, items, abilities over time) for stored matches.
-          Skips Arena and Mayhem automatically.
-        </p>
-        <div className="flex flex-col gap-3 rounded-xl border border-lol-border/50 bg-black/25 p-4">
-          <label className="flex items-center justify-between gap-4 text-[13.5px] text-lol-text-bright">
-            <span>Games to scan</span>
-            <input
-              type="number"
-              min={1}
-              max={5000}
-              value={timelineLimit}
-              disabled={timelineBackfilling}
-              onChange={(event) =>
-                setTimelineLimit(Math.min(5000, Math.max(1, Number(event.target.value) || 1)))
-              }
-              className={`${INPUT_CLASS} w-24 text-right`}
-            />
-          </label>
-          <div className="flex items-center gap-2">
-            <Button variant="primary" onClick={handleTimelineStart} disabled={timelineBackfilling}>
-              {timelineBackfilling ? "Working..." : "Start backfill"}
-            </Button>
-            <Button
-              variant="secondary"
-              onClick={handleTimelineStop}
-              disabled={!timelineBackfilling}
-            >
-              Stop
-            </Button>
-          </div>
-          {timelineProgress && (
-            <div className="space-y-2 text-[12.5px] text-lol-text">
-              <div className="h-[5px] overflow-hidden rounded-full bg-white/[0.05]">
-                <i
-                  className="block h-full rounded-full bg-lol-crimson"
-                  style={{ width: `${timelinePercent}%` }}
-                />
-              </div>
-              <p>
-                {timelineProgress.current} of {timelineProgress.total} scanned · succeeded{" "}
-                {timelineProgress.succeeded} · failed {timelineProgress.failed} · skipped{" "}
-                {timelineProgress.skipped}
-              </p>
-              {timelineProgress.currentGameId !== null && (
-                <p className="text-[11.5px]">Current game: {timelineProgress.currentGameId}</p>
-              )}
-              {timelinePercent > 0 && timelineEtaMs !== null && (
-                <p>ETA: {formatDuration(timelineEtaMs)}</p>
-              )}
+      {wip && (
+        <Section title="Timeline backfill">
+          <p className="text-[12.5px] text-lol-text">
+            Fetches detailed timeline data (gold, items, abilities over time) for stored matches.
+            Skips Arena and Mayhem automatically.
+          </p>
+          <div className="flex flex-col gap-3 rounded-xl border border-lol-border/50 bg-black/25 p-4">
+            <label className="flex items-center justify-between gap-4 text-[13.5px] text-lol-text-bright">
+              <span>Games to scan</span>
+              <input
+                type="number"
+                min={1}
+                max={5000}
+                value={timelineLimit}
+                disabled={timelineBackfilling}
+                onChange={(event) =>
+                  setTimelineLimit(Math.min(5000, Math.max(1, Number(event.target.value) || 1)))
+                }
+                className={`${INPUT_CLASS} w-24 text-right`}
+              />
+            </label>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="primary"
+                onClick={handleTimelineStart}
+                disabled={timelineBackfilling}
+              >
+                {timelineBackfilling ? "Working..." : "Start backfill"}
+              </Button>
+              <Button
+                variant="secondary"
+                onClick={handleTimelineStop}
+                disabled={!timelineBackfilling}
+              >
+                Stop
+              </Button>
             </div>
-          )}
-          {timelineMessage && <p className="text-[12.5px] text-lol-text">{timelineMessage}</p>}
-        </div>
-      </Section>
+            {timelineProgress && (
+              <div className="space-y-2 text-[12.5px] text-lol-text">
+                <div className="h-[5px] overflow-hidden rounded-full bg-white/[0.05]">
+                  <i
+                    className="block h-full rounded-full bg-lol-crimson"
+                    style={{ width: `${timelinePercent}%` }}
+                  />
+                </div>
+                <p>
+                  {timelineProgress.current} of {timelineProgress.total} scanned · succeeded{" "}
+                  {timelineProgress.succeeded} · failed {timelineProgress.failed} · skipped{" "}
+                  {timelineProgress.skipped}
+                </p>
+                {timelineProgress.currentGameId !== null && (
+                  <p className="text-[11.5px]">Current game: {timelineProgress.currentGameId}</p>
+                )}
+                {timelinePercent > 0 && timelineEtaMs !== null && (
+                  <p>ETA: {formatDuration(timelineEtaMs)}</p>
+                )}
+              </div>
+            )}
+            {timelineMessage && <p className="text-[12.5px] text-lol-text">{timelineMessage}</p>}
+          </div>
+        </Section>
+      )}
     </>
   );
 }

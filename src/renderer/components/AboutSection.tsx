@@ -1,7 +1,9 @@
 /// <reference types="vite/client" />
 import type { ReactNode } from "react";
 import icon from "../../../assets/icon.png";
+import { useDevMode } from "../hooks/useDevMode";
 import { useIpc } from "../hooks/useIpc";
+import { Switch } from "./settings/parts";
 import { Title } from "./live/shared";
 import { REPOSITORY_URL as REPO_URL } from "../../shared/version";
 
@@ -220,6 +222,7 @@ function Panel({ title, children }: { title: string; children: ReactNode }) {
 
 export function AboutSection() {
   const { data: version } = useIpc(() => window.api.getVersion(), []);
+  const [devMode, setDevMode] = useDevMode();
 
   return (
     <div className="grid grid-cols-1 gap-4 lg:col-span-2 lg:grid-cols-2">
@@ -332,6 +335,27 @@ export function AboutSection() {
             </details>
           ))}
         </div>
+      </section>
+
+      <section className="app-tile flex min-w-0 items-center justify-between gap-4 lg:col-span-2">
+        <div>
+          <h3 className="font-display text-[15px] font-bold text-lol-text-bright">
+            See what I&apos;m working on
+          </h3>
+          <p className="text-[12.5px] text-lol-text">
+            Adds a Work in progress tab with things that are unfinished or broken, and sample data
+            on Live Game.
+          </p>
+          <p className="mt-1 text-[12.5px] text-lol-gold">
+            Warning: some of these tools change your database. Backing it up first is recommended;
+            switching this on does not make a backup.
+          </p>
+        </div>
+        <Switch
+          label="See what I'm working on"
+          checked={devMode}
+          onChange={() => setDevMode(!devMode)}
+        />
       </section>
     </div>
   );

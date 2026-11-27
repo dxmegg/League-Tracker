@@ -173,14 +173,63 @@ export function useAccountSettings() {
   };
 }
 
+// Lives under Work in progress
+export function RiotAccountsSection({
+  settings,
+}: {
+  settings: ReturnType<typeof useAccountSettings>;
+}) {
+  const { riotAccounts, riotAccountStatus, savedSummoners, handleRemoveRiotAccount } = settings;
+
+  return (
+    <Section title="Riot Accounts" className="lg:col-span-2">
+      <p className="text-[12.5px] text-lol-text">
+        Accounts included when Match-V5 sync searches for recent League matches.
+      </p>
+      {riotAccounts.length === 0 ? (
+        <p className="text-[12.5px] text-lol-text">No Riot accounts configured.</p>
+      ) : (
+        <div className="grid grid-cols-1 gap-2 md:grid-cols-2 xl:grid-cols-3">
+          {riotAccounts.map((account) => {
+            const name = `${account.gameName}#${account.tagLine}`;
+            // The picture and game count come from the saved account of the same Riot ID
+            const saved = savedSummoners.find(
+              (row) => `${row.game_name}#${row.tag_line}`.toLowerCase() === name.toLowerCase(),
+            );
+            return (
+              <AccountCard
+                key={account.id}
+                icon={saved?.profile_icon ?? null}
+                name={name}
+                detail={
+                  <>
+                    <span className="rounded border border-lol-border/60 px-1.5 py-px text-[10px] font-bold uppercase tracking-wider">
+                      {PLATFORM_LABELS[account.platform] ?? account.platform}
+                    </span>
+                    {saved ? `${saved.games} games` : "not synced yet"}
+                  </>
+                }
+              >
+                <RemoveButton
+                  label={`Remove ${name}`}
+                  onClick={() => void handleRemoveRiotAccount(account.id)}
+                />
+              </AccountCard>
+            );
+          })}
+        </div>
+      )}
+      {riotAccountStatus && <p className="text-xs text-lol-text">{riotAccountStatus}</p>}
+    </Section>
+  );
+}
+
 export function AccountsSections({
   settings,
 }: {
   settings: ReturnType<typeof useAccountSettings>;
 }) {
   const {
-    riotAccounts,
-    riotAccountStatus,
     savedSummoners,
     confirmDeleteSummoner,
     setConfirmDeleteSummoner,
@@ -189,52 +238,11 @@ export function AccountsSections({
     mergingDuplicates,
     handleDeleteSummoner,
     handleMergeDuplicateAccounts,
-    handleRemoveRiotAccount,
     handleAccountToggle,
   } = settings;
 
   return (
     <>
-      <Section title="Riot Accounts" className="lg:col-span-2">
-        <p className="text-[12.5px] text-lol-text">
-          Accounts included when Match-V5 sync searches for recent League matches.
-        </p>
-        {riotAccounts.length === 0 ? (
-          <p className="text-[12.5px] text-lol-text">No Riot accounts configured.</p>
-        ) : (
-          <div className="grid grid-cols-1 gap-2 md:grid-cols-2 xl:grid-cols-3">
-            {riotAccounts.map((account) => {
-              const name = `${account.gameName}#${account.tagLine}`;
-              // The picture and game count come from the saved account of the same Riot ID
-              const saved = savedSummoners.find(
-                (row) => `${row.game_name}#${row.tag_line}`.toLowerCase() === name.toLowerCase(),
-              );
-              return (
-                <AccountCard
-                  key={account.id}
-                  icon={saved?.profile_icon ?? null}
-                  name={name}
-                  detail={
-                    <>
-                      <span className="rounded border border-lol-border/60 px-1.5 py-px text-[10px] font-bold uppercase tracking-wider">
-                        {PLATFORM_LABELS[account.platform] ?? account.platform}
-                      </span>
-                      {saved ? `${saved.games} games` : "not synced yet"}
-                    </>
-                  }
-                >
-                  <RemoveButton
-                    label={`Remove ${name}`}
-                    onClick={() => void handleRemoveRiotAccount(account.id)}
-                  />
-                </AccountCard>
-              );
-            })}
-          </div>
-        )}
-        {riotAccountStatus && <p className="text-xs text-lol-text">{riotAccountStatus}</p>}
-      </Section>
-
       <Section
         title="Saved accounts"
         action={

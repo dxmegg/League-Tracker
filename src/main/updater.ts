@@ -6,7 +6,14 @@ import os from "os";
 import path from "path";
 import { once } from "events";
 import { finished } from "stream/promises";
-import { isSameRelease, lastPublished, REPOSITORY as UPDATE_REPOSITORY } from "../shared/version";
+import {
+  isSameRelease,
+  lastPublished,
+  releasesSince,
+  REPOSITORY as UPDATE_REPOSITORY,
+} from "../shared/version";
+import { markFailure, markSuccess } from "./last-success";
+import { logNetwork } from "./logger";
 import { HIDDEN_FLAG, leaveStartHiddenNote, takeStartHiddenNote } from "./autostart";
 import type { UpdateProgress } from "../shared/api";
 
@@ -37,7 +44,7 @@ export interface UpdateInfo {
   url?: string;
   assetUrl?: string;
   assetSize?: number;
-  // The notes of the release on offer; empty when already up to date
+  // The notes of every release since the installed one, newest first; empty when up to date
   releases?: ReleaseNote[];
   error?: string;
   // False outside the installed program
@@ -71,14 +78,23 @@ function parseDigest(digest: unknown): string | null {
   return m ? m[1].toLowerCase() : null;
 }
 
+let lastRelease: { latest: string; hasUpdate: boolean } | null = null;
+export const getLastRelease = () => lastRelease;
+
 export async function checkForUpdate(): Promise<UpdateInfo> {
+  const startedAt = performance.now();
   try {
     const res = await fetch(`${UPDATE_API_URL}?per_page=${RELEASE_PAGE_SIZE}`, {
       headers: { "User-Agent": "rift-records" },
       signal: AbortSignal.timeout(CHECK_TIMEOUT_MS),
     });
-    if (!res.ok) return { hasUpdate: false, error: `GitHub answered HTTP ${res.status}` };
+    logNetwork("github", res.status, startedAt);
+    if (!res.ok) {
+      markFailure("github", `HTTP ${res.status}`);
+      return { hasUpdate: false, error: `GitHub answered HTTP ${res.status}` };
+    }
     const page = (await res.json()) as any;
+    markSuccess("github");
     // Unlike /releases/latest, this endpoint includes drafts and prereleases,
     // which were never meant to be offered as an update.
     const published: any[] = (Array.isArray(page) ? page : []).filter(
@@ -99,6 +115,7 @@ export async function checkForUpdate(): Promise<UpdateInfo> {
     // Any other release than the installed one counts, a lower number included
     const hasUpdate = !isSameRelease(latest, current);
     const canInstall = app.isPackaged && process.platform === "win32";
+    lastRelease = { latest, hasUpdate };
     return {
       hasUpdate,
       latest,
@@ -106,10 +123,12 @@ export async function checkForUpdate(): Promise<UpdateInfo> {
       url: newest.html_url as string,
       assetUrl: asset?.browser_download_url,
       assetSize: asset?.size,
-      releases: hasUpdate ? [toReleaseNote(newest)] : [],
+      releases: hasUpdate ? releasesSince(published, current).map(toReleaseNote) : [],
       canInstall,
     };
   } catch {
+    markFailure("github", "Not reachable");
+    logNetwork("github", "failed", startedAt);
     return { hasUpdate: false, error: "Failed to check for updates" };
   }
 }

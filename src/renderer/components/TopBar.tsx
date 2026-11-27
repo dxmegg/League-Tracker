@@ -6,7 +6,7 @@ import { useActiveMode } from "../hooks/useActiveMode";
 import { useBackfill } from "../hooks/useBackfill";
 import { useLcuStatus } from "../hooks/useLcuStatus";
 import type { LcuStatus } from "../lib/types";
-import { RefreshIcon, SettingsIcon } from "./icons";
+import { RefreshIcon, SettingsIcon, SparklesIcon } from "./icons";
 import { WindowControls } from "./WindowControls";
 
 const STATUS_DOT: Record<LcuStatus, string> = {
@@ -39,6 +39,10 @@ const PAGE_TITLES: Record<string, string> = {
   misc: "Misc. Data",
   data: "Storage",
   settings: "Settings",
+  "whats-new": "What's new",
+  wip: "Work in progress",
+  debug: "Your Profile Redesign",
+  "season-recap": "Season recap",
   history: "History",
   match: "Match",
   test: "Live game",
@@ -107,18 +111,32 @@ export function TopBar() {
         <AccountMenu />
         <UpdateButton />
         <NavLink
-          to="/settings"
-          title="Settings"
-          aria-label="Settings"
+          to="/whats-new"
+          title="What's new"
+          aria-label="What's new"
           className={({ isActive }) =>
-            `flex h-8 w-8 items-center justify-center rounded-full border transition-colors ${
+            `group flex h-8 w-8 items-center justify-center rounded-full border transition-colors ${
               isActive
                 ? "border-lol-crimson/60 bg-lol-crimson/20 text-lol-text-bright"
                 : "border-lol-border/60 bg-lol-card/60 text-lol-text hover:border-lol-crimson/40 hover:text-lol-text-bright"
             }`
           }
         >
-          <SettingsIcon className="h-4 w-4 transition-transform duration-300 hover:rotate-90" />
+          <SparklesIcon className="h-4 w-4 transition-transform duration-300 group-hover:rotate-12 group-hover:scale-125" />
+        </NavLink>
+        <NavLink
+          to="/settings"
+          title="Settings"
+          aria-label="Settings"
+          className={({ isActive }) =>
+            `group flex h-8 w-8 items-center justify-center rounded-full border transition-colors ${
+              isActive
+                ? "border-lol-crimson/60 bg-lol-crimson/20 text-lol-text-bright"
+                : "border-lol-border/60 bg-lol-card/60 text-lol-text hover:border-lol-crimson/40 hover:text-lol-text-bright"
+            }`
+          }
+        >
+          <SettingsIcon className="h-4 w-4 transition-transform duration-300 group-hover:rotate-90" />
         </NavLink>
         <WindowControls />
       </div>

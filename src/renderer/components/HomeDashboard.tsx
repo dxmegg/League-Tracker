@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import type { ReactNode, SVGProps } from "react";
 import { Link } from "react-router-dom";
 import { useActiveMode } from "../hooks/useActiveMode";
+import { useDevMode } from "../hooks/useDevMode";
 import type {
   AccountListItem,
   AugmentStats,
@@ -567,6 +568,39 @@ function MiniRow({ label, value }: { label: string; value: string }) {
   );
 }
 
+// Shown under Work in progress; it used to sit on Home, below the mode and period filters
+export function YourRecord({
+  wins,
+  losses,
+  games,
+  periodText,
+}: {
+  wins: number;
+  losses: number;
+  games: number;
+  periodText: string;
+}) {
+  return (
+    <Card className="glass-card flex-row flex-wrap items-center justify-between gap-3 rounded-[14px] px-5 py-3">
+      <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1">
+        <span className="font-display text-[10px] font-bold uppercase tracking-widest text-lol-gold">
+          Your record
+        </span>
+        <span className="font-display text-[15px] font-semibold text-lol-text-bright">
+          {formatNumber(wins)}W – {formatNumber(losses)}L
+          {games > 0 ? `, ${Math.round((wins / games) * 100)}% winrate` : ""}
+        </span>
+        <span className="text-[12px] text-lol-text">
+          {formatNumber(games)} games, {periodText}
+        </span>
+      </div>
+      <Button asChild variant="outline" size="sm" className={LINK_BUTTON}>
+        <Link to="/data">Open stats →</Link>
+      </Button>
+    </Card>
+  );
+}
+
 export function HomeDashboard({
   account,
   queue,
@@ -593,6 +627,9 @@ export function HomeDashboard({
   const live = useLiveGame();
   const [dataMode] = useActiveMode();
   const isMayhem = dataMode === "mayhem";
+  const [devMode] = useDevMode();
+  // The Runes page is under Work in progress, and Mayhem has no runes
+  const showRunes = devMode && !isMayhem;
   const [lastMatch, setLastMatch] = useState<MatchListItem | null>(null);
   const [allTimeGames, setAllTimeGames] = useState(0);
   const [friends, setFriends] = useState<TeammateStats[]>([]);
@@ -818,7 +855,7 @@ export function HomeDashboard({
     { to: "/runes", label: "Runes", Icon: ZapIcon },
     { to: "/records", label: "Records", Icon: TrophyIcon },
     { to: "/trends", label: "Trends", Icon: TrendingUpIcon },
-  ].filter((tile) => !(isMayhem && tile.to === "/runes"));
+  ].filter((tile) => showRunes || tile.to !== "/runes");
 
   return (
     <div
@@ -966,26 +1003,7 @@ export function HomeDashboard({
         </Tabs>
       </div>
 
-      {/* 3. Win record banner */}
-      <Card className="glass-card flex-row flex-wrap items-center justify-between gap-3 rounded-[14px] px-5 py-3">
-        <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1">
-          <span className="font-display text-[10px] font-bold uppercase tracking-widest text-lol-gold">
-            Your record
-          </span>
-          <span className="font-display text-[15px] font-semibold text-lol-text-bright">
-            {formatNumber(wins)}W – {formatNumber(losses)}L
-            {games > 0 ? `, ${Math.round(winRate)}% winrate` : ""}
-          </span>
-          <span className="text-[12px] text-lol-text">
-            {formatNumber(games)} games, {periodText}
-          </span>
-        </div>
-        <Button asChild variant="outline" size="sm" className={LINK_BUTTON}>
-          <Link to="/data">Open stats →</Link>
-        </Button>
-      </Card>
-
-      {/* 4. Four-column stats and quick access grid; Trends spans both rows in column 4 */}
+      {/* 3. Four-column stats and quick access grid; Trends spans both rows in column 4 */}
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4 lg:grid-rows-[auto_auto]">
         <HubCard title="Latest match" to={lastMatchLink} linkLabel="Detailed analysis">
           {lastMatch ? (
@@ -1399,7 +1417,7 @@ export function HomeDashboard({
                 ? `${live.session.members.length} in your lobby`
                 : "Everything the client reports is on the live tab"}
             </span>
-            {!isMayhem && (
+            {showRunes && (
               <Button
                 asChild
                 variant="ghost"

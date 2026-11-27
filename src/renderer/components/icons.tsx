@@ -126,8 +126,11 @@ export function DownloadIcon(props: React.SVGProps<SVGSVGElement>) {
       {...props}
     >
       <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-      <path d="m7 10 5 5 5-5" />
-      <path d="M12 15V3" />
+      {/* Only the arrow dips when the button around it is hovered; the tray stays put */}
+      <g className="transition-transform duration-300 group-hover:translate-y-[2px]">
+        <path d="m7 10 5 5 5-5" />
+        <path d="M12 15V3" />
+      </g>
     </svg>
   );
 }

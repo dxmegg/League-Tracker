@@ -8,6 +8,8 @@ import {
 } from "league-connect";
 import { BrowserWindow } from "electron";
 import * as db from "../db";
+import { markSuccess } from "../last-success";
+import { logNetwork } from "../logger";
 import type { CurrentSummoner, LcuStatus, RankEntry } from "../../shared/api";
 
 let credentials: Credentials | null = null;
@@ -61,15 +63,21 @@ export async function lcuRequest(url: string, method: HttpRequestOptions["method
   // The request has no timeout of its own, and one that hangs would leave the sync guard set
   // for the rest of the session
   let timer: ReturnType<typeof setTimeout> | undefined;
+  const startedAt = performance.now();
   const response = await Promise.race([
     createHttp1Request({ url, method }, credentials!),
     new Promise<never>((_resolve, reject) => {
       timer = setTimeout(() => reject(new Error(`LCU request timed out: ${url}`)), 30_000);
     }),
   ]).finally(() => clearTimeout(timer));
+  // 404 is how the client says "no game running"
+  if ((!response.ok && response.status !== 404) || performance.now() - startedAt > 1_000) {
+    logNetwork(`client ${url}`, response.status, startedAt);
+  }
   if (!response.ok) {
     throw new Error(`LCU request failed: ${response.status} ${url}`);
   }
+  markSuccess("client");
   return response.json();
 }
 

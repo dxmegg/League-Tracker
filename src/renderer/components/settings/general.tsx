@@ -3,7 +3,6 @@ import { queueLabel } from "../QueueSelect";
 import { QUEUE_LABELS } from "../../../shared/queues";
 import { setRemembering } from "../../lib/viewState";
 import { useShowAllMode } from "../../hooks/useShowAllMode";
-import { useDevMode } from "../../hooks/useDevMode";
 import { useSessionGrouping } from "../../hooks/useSessionGrouping";
 import type { useActiveMode } from "../../hooks/useActiveMode";
 import { FilterSelect } from "../FilterSelect";
@@ -11,7 +10,6 @@ import { Section, Switch } from "./parts";
 
 export function useGeneralSettings() {
   const [showAllMode, setShowAllMode] = useShowAllMode();
-  const [devMode, setDevMode] = useDevMode();
   const [grouping, setGrouping] = useSessionGrouping();
   const [autoStart, setAutoStart] = useState(false);
   // Only the packaged program has a path worth registering, so the switch says
@@ -101,8 +99,6 @@ export function useGeneralSettings() {
     rememberFilters,
     showAllMode,
     setShowAllMode,
-    devMode,
-    setDevMode,
     grouping,
     setGrouping,
     handleAutoStartToggle,
@@ -130,8 +126,6 @@ export function GeneralSections({
     rememberFilters,
     showAllMode,
     setShowAllMode,
-    devMode,
-    setDevMode,
     grouping,
     setGrouping,
     handleAutoStartToggle,
@@ -230,23 +224,6 @@ export function GeneralSections({
                 if (showAllMode) setMode("mayhem");
                 setShowAllMode(!showAllMode);
               }}
-            />
-          </div>
-
-          <div className="flex items-center justify-between gap-4 border-b border-lol-border/40 py-2.5 transition-colors duration-[120ms] hover:bg-white/[0.02] last:border-b-0">
-            <div>
-              <p className="text-[13.5px] text-lol-text-bright">Developer mode</p>
-              <p className="text-[12.5px] text-lol-text">
-                Show testing tools: the Debug Testing tab and sample data on Live Game.{" "}
-                {import.meta.env.DEV
-                  ? "On after every launch when run from source."
-                  : "Off again after every launch."}
-              </p>
-            </div>
-            <Switch
-              label="Developer mode"
-              checked={devMode}
-              onChange={() => setDevMode(!devMode)}
             />
           </div>
         </div>

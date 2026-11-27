@@ -15,6 +15,19 @@ export function isSameRelease(a: string, b: string): boolean {
   return releaseName(a) === releaseName(b);
 }
 
+// Everything published after the installed release, newest first. An installed version that is
+// not on the list (older than the page, or never released) gives only the newest one.
+export function releasesSince<T extends { tag_name: string; published_at?: string }>(
+  releases: T[],
+  current: string,
+): T[] {
+  const sorted = [...releases].sort((a, b) =>
+    (b.published_at ?? "").localeCompare(a.published_at ?? ""),
+  );
+  const installed = sorted.findIndex((r) => isSameRelease(r.tag_name, current));
+  return sorted.slice(0, installed < 0 ? 1 : installed);
+}
+
 export function lastPublished<T extends { published_at?: string }>(releases: T[]): T | undefined {
   return [...releases].sort((a, b) =>
     (b.published_at ?? "").localeCompare(a.published_at ?? ""),

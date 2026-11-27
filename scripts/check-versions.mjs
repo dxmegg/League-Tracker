@@ -1,6 +1,6 @@
 // node --no-warnings scripts/check-versions.mjs
 import assert from "node:assert/strict";
-import { isSameRelease, lastPublished } from "../src/shared/version.ts";
+import { isSameRelease, lastPublished, releasesSince } from "../src/shared/version.ts";
 
 assert.ok(isSameRelease("v1.1", "1.1.0"));
 assert.ok(isSameRelease("v.1.0.8", "1.0.8"));
@@ -16,4 +16,9 @@ const releases = [
 ];
 assert.equal(lastPublished(releases).tag_name, "v0.1");
 assert.equal(lastPublished([]), undefined);
+// Skipped releases follow the publish order too
+const tags = (current) => releasesSince(releases, current).map((r) => r.tag_name);
+assert.deepEqual(tags("4.0"), ["v0.1", "v1.6"]);
+assert.deepEqual(tags("0.1"), []);
+assert.deepEqual(tags("9.9.9"), ["v0.1"]);
 console.log("version checks passed");

@@ -1,4 +1,4 @@
-import { ipcMain, BrowserWindow, dialog, app, shell } from "electron";
+import { ipcMain, BrowserWindow, dialog, app, shell, clipboard } from "electron";
 import fs from "fs";
 import * as db from "./db";
 import * as lcu from "./lcu";
@@ -9,6 +9,8 @@ import * as backup from "./backup";
 import { backupFirst } from "./backup-choice";
 import { cacheDragonAsset } from "./dragon-assets";
 import { getBackupDir, getDbDir } from "./paths";
+import { getDiagnostics } from "./diagnostics";
+import { getLogsDir } from "./logger";
 import { changeBackupFolder, changeDbFolder, getStorageInfo } from "./storage";
 import { openExternalUrl } from "./security";
 import { applyAutoStart, isAutoStartSupported } from "./autostart";
@@ -1281,6 +1283,36 @@ export function registerIpcHandlers() {
   // one place a user needs to reach to copy a backup somewhere safer.
   // The folders come from native dialogs in the main process, never from the renderer
   ipcMain.handle("storage:info", () => getStorageInfo());
+  ipcMain.handle("app:diagnostics", (_event, probe: unknown) => getDiagnostics(probe === true));
+  // The page itself is refused the clipboard (security.ts denies every permission)
+  ipcMain.handle("app:copy-text", (_event, text: unknown) => {
+    if (typeof text === "string") clipboard.writeText(text);
+  });
+  ipcMain.handle("app:save-report", async (event, text: unknown, data: unknown) => {
+    if (typeof text !== "string") return false;
+    const win = senderWindow(event);
+    const options = {
+      title: "Save diagnostics report",
+      defaultPath: `rift-records-diagnostics-${new Date().toISOString().slice(0, 10)}.txt`,
+      filters: [
+        { name: "Text", extensions: ["txt"] },
+        { name: "JSON", extensions: ["json"] },
+      ],
+    };
+    const result = win
+      ? await dialog.showSaveDialog(win, options)
+      : await dialog.showSaveDialog(options);
+    if (result.canceled || !result.filePath) return false;
+    const asJson = result.filePath.toLowerCase().endsWith(".json");
+    await fs.promises.writeFile(result.filePath, asJson ? JSON.stringify(data, null, 2) : text);
+    return true;
+  });
+  ipcMain.handle("app:open-logs-folder", () => {
+    void shell.openPath(getLogsDir());
+  });
+  ipcMain.handle("app:open-program-folder", () => {
+    void shell.openPath(app.getPath("userData"));
+  });
   ipcMain.handle("storage:change-db", (event, reset: unknown) => {
     const win = senderWindow(event);
     return win ? changeDbFolder(win, reset === true) : { status: "cancelled" };

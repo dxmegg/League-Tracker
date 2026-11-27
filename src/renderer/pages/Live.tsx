@@ -5,9 +5,7 @@ import { LiveLastGame } from "../components/live/LiveLastGame";
 import { LiveMe } from "../components/live/LiveMe";
 import { LivePostGame } from "../components/live/LivePostGame";
 import { LivePulse } from "../components/live/LivePulse";
-import { LiveRecords } from "../components/live/LiveRecords";
 import { LiveScouting } from "../components/live/LiveScouting";
-import { LiveSavedGames } from "../components/live/LiveSavedGames";
 import { LiveTeamStrip, LiveTeamTable } from "../components/live/LiveTeams";
 import { LiveTrends } from "../components/live/LiveTrends";
 import { Pill, Title } from "../components/live/shared";
@@ -79,11 +77,11 @@ function RawPanel({ snapshot }: { snapshot: LiveFull }) {
 
   const copy = async () => {
     try {
-      await navigator.clipboard.writeText(json);
+      await window.api.copyText(json);
       setCopied(true);
       window.setTimeout(() => setCopied(false), 1500);
     } catch {
-      /* clipboard can be blocked; the text is still selectable */
+      /* the text is still selectable */
     }
   };
   const save = () => {
@@ -295,8 +293,6 @@ export default function Live() {
         <>
           <ClientStatePanel session={session} />
           <LiveLastGame />
-          <LiveRecords />
-          <LiveSavedGames />
           {devMode && <LivePostGame />}
         </>
       ) : (
@@ -324,9 +320,7 @@ export default function Live() {
           <LiveTeamTable team={ally} ally clockSec={clockSec} />
           <LiveTeamTable team={enemy} ally={false} clockSec={clockSec} />
           <LiveEvents events={snapshot.events} players={snapshot.players} allyTeam={allyTeam} />
-          <LiveRecords />
           <RawPanel snapshot={snapshot} />
-          <LiveSavedGames />
           {devMode && <LivePostGame />}
           <p className="pb-2 text-center text-[11.5px] text-lol-text/60">
             Source: Live Client Data API (127.0.0.1:2999) and the client&apos;s gameflow session ·

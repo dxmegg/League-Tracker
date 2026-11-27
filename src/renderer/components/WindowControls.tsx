@@ -15,9 +15,9 @@ export function WindowControls() {
         type="button"
         onClick={() => window.location.reload()}
         title="Refresh"
-        className="titlebar-no-drag mr-1 flex h-8 w-8 items-center justify-center rounded-full border border-lol-border/60 bg-lol-card/60 text-lol-text transition-colors hover:border-lol-crimson/40 hover:text-lol-text-bright focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-lol-crimson/60"
+        className="titlebar-no-drag group mr-1 flex h-8 w-8 items-center justify-center rounded-full border border-lol-border/60 bg-lol-card/60 text-lol-text transition-colors hover:border-lol-crimson/40 hover:text-lol-text-bright focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-lol-crimson/60"
       >
-        <RefreshIcon className="h-4 w-4" />
+        <RefreshIcon className="h-4 w-4 transition-transform duration-300 group-hover:rotate-180" />
       </button>
       <button
         type="button"

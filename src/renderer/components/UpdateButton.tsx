@@ -39,7 +39,7 @@ export function UpdateButton() {
         aria-label={label}
         aria-expanded={open}
         onClick={() => setOpen((v) => !v)}
-        className={`relative flex h-8 w-8 items-center justify-center rounded-full border transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-lol-crimson/60 ${
+        className={`group relative flex h-8 w-8 items-center justify-center rounded-full border transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-lol-crimson/60 ${
           open
             ? "border-lol-crimson/60 bg-lol-crimson/20 text-lol-text-bright"
             : "border-lol-border/60 bg-lol-card/60 text-lol-text hover:border-lol-crimson/40 hover:text-lol-text-bright"

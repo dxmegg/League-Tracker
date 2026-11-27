@@ -11,6 +11,8 @@ import type {
   RiotSyncProgress,
 } from "../shared/api";
 import { PROXY_BASE_URL } from "../shared/proxy";
+import { markFailure, markSuccess } from "./last-success";
+import { logNetwork } from "./logger";
 import { nextSlot } from "../shared/rate-limit";
 import { getChampionDataVersion } from "./dragon";
 
@@ -242,10 +244,16 @@ async function riotFetch<T>(
   const logPrefix = tag ? `[sync ${tag}] ` : "";
   for (let attempt = 0; ; attempt++) {
     await acquireRequestSlot();
+    const startedAt = performance.now();
     const response = await fetch(proxyUrl, {
       headers: { Accept: "application/json" },
       signal: AbortSignal.timeout(30_000),
+    }).catch((err: unknown) => {
+      markFailure("riot", "Not reachable");
+      logNetwork("riot", "unreachable", startedAt);
+      throw err;
     });
+    logNetwork("riot", response.status, startedAt);
     if (response.status === 429 && attempt < MAX_RATE_LIMIT_RETRIES) {
       const retryAfterHeader = response.headers.get("Retry-After");
       const retryAfterSeconds = retryAfterHeader ? Number(retryAfterHeader) : NaN;
@@ -261,6 +269,9 @@ async function riotFetch<T>(
     }
     const body = await response.text();
     if (!response.ok) {
+      // "No such thing" is an answer too
+      if (response.status === 404) markSuccess("riot");
+      else markFailure("riot", `HTTP ${response.status}`);
       if (response.status !== 404) {
         console.error(
           `${logPrefix}Riot API error ${response.status} for ${proxyUrl}: ${body || "<empty response>"}`,
@@ -269,6 +280,7 @@ async function riotFetch<T>(
       throw new RiotApiError(response.status, proxyUrl);
     }
     const parsed = JSON.parse(body) as T;
+    markSuccess("riot");
     return parsed;
   }
 }
