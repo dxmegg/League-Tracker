@@ -15,6 +15,21 @@
   StrCpy $isForceCurrentInstall "1"
 !macroend
 
+# The shortcut names its icon, and the shell is told to read icons again: an update removes the
+# exe for a moment, and the desktop would keep showing the blank page it cached then
+!macro writeDesktopLink
+  CreateShortCut "$DESKTOP\${SHORTCUT_NAME}.lnk" "$appExe" "" "$appExe" 0
+  WinShell::SetLnkAUMI "$DESKTOP\${SHORTCUT_NAME}.lnk" "${APP_ID}"
+  System::Call 'shell32::SHChangeNotify(i 0x8000000, i 0, p 0, p 0)'
+!macroend
+
+# Installs and updates alike: rewrites a shortcut that is already there, never adds one
+!macro customInstall
+  ${if} ${FileExists} "$DESKTOP\${SHORTCUT_NAME}.lnk"
+    !insertmacro writeDesktopLink
+  ${endIf}
+!macroend
+
 # The finish page with "Run" and an unticked "desktop shortcut" box
 !macro customFinishPage
   Var DesktopLinkText
@@ -29,8 +44,7 @@
   FunctionEnd
 
   Function CreateDesktopLink
-    CreateShortCut "$DESKTOP\${SHORTCUT_NAME}.lnk" "$appExe"
-    WinShell::SetLnkAUMI "$DESKTOP\${SHORTCUT_NAME}.lnk" "${APP_ID}"
+    !insertmacro writeDesktopLink
   FunctionEnd
 
   Function FinishPagePre
