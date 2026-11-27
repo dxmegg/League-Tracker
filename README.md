@@ -6,6 +6,16 @@ A Windows desktop app that keeps your League of Legends match history on your ow
 
 ## Recent Changes
 
+**1.4.1**
+
+- **(NEW)** Full match data for Mayhem and ARAM: timeline, skill and item order, per-player numbers
+- **(NEW)** "After the game" section, Graphs tab, more Trends views and teammate groups
+- **(NEW)** A question about a backup before deleting, importing, repairing or restoring
+- **(IMPROVED)** The database is about three times smaller; backups are compressed
+- **(IMPROVED)** Long lists load as you scroll, one row per item across game modes
+- **(CHANGED)** Automatic backups are on by default: weekly, monthly and manual copies
+- Various small fixes
+
 **1.4.0**
 
 - **(NEW)** All champions summary, opened from the Champions tab
@@ -37,14 +47,6 @@ A Windows desktop app that keeps your League of Legends match history on your ow
 - **(CHANGED)** Bigger die icon on the taskbar, in Task Manager and on the exe
 - **(REMOVED)** Theme switcher: the app now uses the Redesign theme
 
-**1.2.1**
-
-- **(NEW)** What's new tab in Settings
-- **(NEW)** Update window in the top bar with download progress and optional automatic install
-- **(CHANGED)** New app icon; flat violet-black panels in Mayhem mode
-- **(IMPROVED)** Rebuilt About section in Settings
-- Various small fixes
-
 Full history: [CHANGELOG.md](CHANGELOG.md)
 
 ## Screenshots
@@ -68,7 +70,7 @@ Full history: [CHANGELOG.md](CHANGELOG.md)
 - **Your Profile, Friends & Foes, Trends, Records**: habits, time-of-day patterns, who you play with and your best games
 - **Achievements and Challenges**: tiers from Iron to Challenger, plus challenges read from the League client
 - **Multiple accounts**: sync, show, hide or merge them
-- **Your data stays yours**: local database, optional automatic backups, export and import
+- **Your data stays yours**: local database, automatic backups, export and import
 - **Updates**: checks GitHub Releases on start, can install automatically, with download progress
 
 ## Install

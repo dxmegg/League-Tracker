@@ -1,5 +1,22 @@
 # Changelog
 
+## 1.4.1 (2026-11-27)
+
+- New Season Recap tab, still empty
+- New full match data for Mayhem and ARAM: timeline, skill and item order, per-player CS, gold and damage
+- New "After the game" section and Graphs tab on the match page
+- New Trends views: win rate by gold lead, economy by queue, matchup tier list and results against classes
+- New teammate groups in Friends & Foes and a setting for how match lists are grouped
+- New question about a backup before deleting an account, importing, repairing or restoring
+- Automatic backups are compressed and on by default, with separate weekly, monthly and manual copies
+- The database is about three times smaller; the first start upgrades it and takes a minute or two
+- Faster long lists that load more as you scroll, and one row per item across game modes
+- The update check now offers the release published last
+- Fixed export and import losing some stored data
+- Fixed item statistics ignoring the chosen account and patch, and counting copies instead of games
+- Fixed champion page charts ignoring the Mayhem or All matches mode
+- Fixed half-downloaded icons, retired item art and several smaller problems
+
 ## 1.4.0 (2026-11-26)
 
 - New All champions summary, opened from the Champions tab
