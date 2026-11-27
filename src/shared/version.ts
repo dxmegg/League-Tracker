@@ -2,21 +2,21 @@
 export const REPOSITORY = "dxmegg/Rift-Records";
 export const REPOSITORY_URL = `https://github.com/${REPOSITORY}`;
 
-// Release tags have been v1.0.10, v1.1 and v.1.0.8, so the patch number and the dot are optional
-export function parseVersion(version: string): number[] | null {
-  const m = version.trim().match(/^(?:v\.?)?(\d+)\.(\d+)(?:\.(\d+))?/);
-  return m ? [Number(m[1]), Number(m[2]), Number(m[3] ?? 0)] : null;
+// "v1.1", "v.1.1.0" and "1.1.0" name the same release; any other tag is taken as written
+function releaseName(tag: string): string {
+  return tag
+    .trim()
+    .replace(/^v\.?/, "")
+    .replace(/^(\d+\.\d+)$/, "$1.0");
 }
 
-// Positive when a is newer than b, negative when older, 0 when equal. An
-// unparseable tag sorts as older, so a malformed release can never present
-// itself as an update.
-export function compareVersions(a: string, b: string): number {
-  const pa = parseVersion(a);
-  const pb = parseVersion(b);
-  if (!pa || !pb) return pa ? 1 : pb ? -1 : 0;
-  for (let i = 0; i < 3; i++) {
-    if (pa[i] !== pb[i]) return pa[i] - pb[i];
-  }
-  return 0;
+// Versions are never ordered: the newest release is the one published last, whatever its number
+export function isSameRelease(a: string, b: string): boolean {
+  return releaseName(a) === releaseName(b);
+}
+
+export function lastPublished<T extends { published_at?: string }>(releases: T[]): T | undefined {
+  return [...releases].sort((a, b) =>
+    (b.published_at ?? "").localeCompare(a.published_at ?? ""),
+  )[0];
 }

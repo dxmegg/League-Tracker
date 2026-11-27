@@ -2046,10 +2046,8 @@ export interface UpdateInfo {
   url?: string;
   assetUrl?: string;
   assetSize?: number;
-  // Every release newer than the installed version, newest first
+  // The notes of the release on offer
   releases?: ReleaseNote[];
-  // True when there are skipped releases beyond the page the check fetched
-  moreVersions?: boolean;
   error?: string;
   // False outside the portable exe, where there is no file to swap
   canInstall?: boolean;

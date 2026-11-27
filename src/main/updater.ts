@@ -6,15 +6,14 @@ import os from "os";
 import path from "path";
 import { once } from "events";
 import { finished } from "stream/promises";
-import { compareVersions, REPOSITORY as UPDATE_REPOSITORY } from "../shared/version";
+import { isSameRelease, lastPublished, REPOSITORY as UPDATE_REPOSITORY } from "../shared/version";
 import { HIDDEN_FLAG, leaveStartHiddenNote, takeStartHiddenNote } from "./autostart";
 import type { UpdateProgress } from "../shared/api";
 
 const CHECK_TIMEOUT_MS = 10_000;
 const UPDATE_API_URL = `https://api.github.com/repos/${UPDATE_REPOSITORY}/releases`;
 const UPDATE_DOWNLOAD_URL_PREFIX = `https://github.com/${UPDATE_REPOSITORY}/`;
-// One page covers any realistic gap between installs, and costs the same single
-// request the old /releases/latest check did.
+// GitHub lists releases by the date of their commit, so the last published one is picked from a page
 const RELEASE_PAGE_SIZE = 20;
 // Release bodies are hand-written, but they still arrive over the network, so
 // cap what the dialog is asked to lay out.
@@ -38,13 +37,8 @@ export interface UpdateInfo {
   url?: string;
   assetUrl?: string;
   assetSize?: number;
-  // Every release newer than the installed version, newest first, so someone who
-  // skipped a few versions sees the notes they missed rather than only the last
-  // set. Empty when already up to date.
+  // The notes of the release on offer; empty when already up to date
   releases?: ReleaseNote[];
-  // True when the fetched page never reached back to the installed version, so
-  // there are skipped releases the dialog cannot show.
-  moreVersions?: boolean;
   error?: string;
   // False outside the installed program
   canInstall?: boolean;
@@ -90,9 +84,9 @@ export async function checkForUpdate(): Promise<UpdateInfo> {
     const published: any[] = (Array.isArray(page) ? page : []).filter(
       (r) => r && !r.draft && !r.prerelease && typeof r.tag_name === "string",
     );
-    if (!published.length) return { hasUpdate: false, error: "No releases found" };
+    const newest = lastPublished(published);
+    if (!newest) return { hasUpdate: false, error: "No releases found" };
 
-    const newest = published[0];
     const latest = String(newest.tag_name).replace(/^v/, "");
     const current = app.getVersion();
     const asset = (newest.assets as any[])?.find((a) => a.name?.endsWith(".exe"));
@@ -102,20 +96,9 @@ export async function checkForUpdate(): Promise<UpdateInfo> {
         sha256: parseDigest(asset.digest),
       };
     }
-    // A local build can sit ahead of the newest release, so compare versions
-    // rather than just testing them for inequality.
-    const hasUpdate = compareVersions(latest, current) > 0;
-    const missed = hasUpdate
-      ? published.filter((r) => compareVersions(r.tag_name, current) > 0)
-      : [];
+    // Any other release than the installed one counts, a lower number included
+    const hasUpdate = !isSameRelease(latest, current);
     const canInstall = app.isPackaged && process.platform === "win32";
-    // Reaching a release at or below the installed version proves the page went
-    // back far enough for the missed list to be complete. A short page means the
-    // repo had nothing older to give, which proves it just as well — otherwise a
-    // version older than the first ever release would claim missing notes.
-    const reachedCurrent =
-      page.length < RELEASE_PAGE_SIZE ||
-      published.some((r) => compareVersions(r.tag_name, current) <= 0);
     return {
       hasUpdate,
       latest,
@@ -123,8 +106,7 @@ export async function checkForUpdate(): Promise<UpdateInfo> {
       url: newest.html_url as string,
       assetUrl: asset?.browser_download_url,
       assetSize: asset?.size,
-      releases: missed.map(toReleaseNote),
-      moreVersions: hasUpdate && !reachedCurrent,
+      releases: hasUpdate ? [toReleaseNote(newest)] : [],
       canInstall,
     };
   } catch {
