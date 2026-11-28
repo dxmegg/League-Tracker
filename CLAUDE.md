@@ -25,7 +25,7 @@ Aplikacja na Windows (Electron, React, TypeScript, better-sqlite3) trzymająca l
 - Nowa logika dostaje mały test w `scripts/`.
 - Przy błędzie napraw przyczynę we wspólnym kodzie i sprawdź wszystkie miejsca, które go wołają.
 - Instalator buduj tylko do wydania.
-- Gdy proszę o rozplanowanie czegoś, zapisz plan po polsku jako `.md` w `data\` (poza gitem).
+- Gdy proszę o rozplanowanie czegoś, zapisz plan po polsku jako `.md` w `data\Baza Planów\` (poza gitem).
 - Pliki tymczasowe usuwaj od razu, gdy nie są potrzebne.
 - Nie uruchamiaj podagentów ani dodatkowych sesji bez prośby.
 - Mów wprost, czego nie sprawdziłeś i co się nie udało.

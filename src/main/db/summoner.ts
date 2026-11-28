@@ -135,7 +135,6 @@ export function upsertSummoner(
     summonerLevel,
     now,
   );
-  console.log("[db] upsertSummoner done:", { puuid });
   return puuid;
 }
 
