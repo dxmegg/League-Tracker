@@ -1,4 +1,5 @@
 import { useEffect, useRef } from "react";
+import { createPortal } from "react-dom";
 
 export function ContextMenu({
   x,
@@ -38,13 +39,15 @@ export function ContextMenu({
     if (rect.bottom > window.innerHeight) el.style.top = `${y - rect.height}px`;
   }, [x, y]);
 
-  return (
+  // In the body: a transformed ancestor would shift a fixed menu away from the cursor
+  return createPortal(
     <div
       ref={ref}
       style={{ left: x, top: y }}
       className="fixed z-50 min-w-44 py-1 bg-lol-card border border-lol-border rounded-md shadow-lg shadow-black/40"
     >
       {children}
-    </div>
+    </div>,
+    document.body,
   );
 }
