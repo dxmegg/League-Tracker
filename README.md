@@ -6,6 +6,12 @@ A Windows desktop app that keeps your League of Legends match history on your ow
 
 ## Recent Changes
 
+**1.0.2**
+
+- **(IMPROVED)** Much faster export, and faster import
+- **(IMPROVED)** Animated progress bar with a percentage for export and import
+- Various small fixes
+
 **1.0.1**
 
 - **(IMPROVED)** Safer backups: plain `.db` backups are kept, and a failed restore puts your current database back

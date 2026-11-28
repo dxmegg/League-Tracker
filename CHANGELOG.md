@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.0.2 (2026-11-28)
+
+- Much faster export
+- Faster import, especially when most games are already in your database
+- New animated progress bar for export and import, with a percentage
+- Fixed an export that could hang forever when the file could not be written
+
 ## 1.0.1 (2026-11-28)
 
 - Fixed an "EPIPE: broken pipe" error window that could appear while the app was running
