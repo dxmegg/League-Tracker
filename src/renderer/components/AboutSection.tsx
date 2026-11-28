@@ -1,8 +1,10 @@
 /// <reference types="vite/client" />
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import icon from "../../../assets/icon.png";
+import { useAltPortraits } from "../hooks/useAltPortraits";
 import { useDevMode } from "../hooks/useDevMode";
 import { useIpc } from "../hooks/useIpc";
+import { ContextMenu } from "./ContextMenu";
 import { Switch } from "./settings/parts";
 import { Title } from "./live/shared";
 import { REPOSITORY_URL as REPO_URL } from "../../shared/version";
@@ -223,11 +225,21 @@ function Panel({ title, children }: { title: string; children: ReactNode }) {
 export function AboutSection() {
   const { data: version } = useIpc(() => window.api.getVersion(), []);
   const [devMode, setDevMode] = useDevMode();
+  const [altPortraits, setAltPortraits] = useAltPortraits();
+  const [menu, setMenu] = useState<{ x: number; y: number } | null>(null);
 
   return (
     <div className="grid grid-cols-1 gap-4 lg:col-span-2 lg:grid-cols-2">
       <section className="app-tile flex min-w-0 flex-wrap items-center gap-4 lg:col-span-2">
-        <img src={icon} alt="" className="h-16 w-16 rounded-2xl" />
+        <img
+          src={icon}
+          alt=""
+          className="h-16 w-16 rounded-2xl"
+          onContextMenu={(e) => {
+            e.preventDefault();
+            setMenu({ x: e.clientX, y: e.clientY });
+          }}
+        />
         <div className="min-w-0 flex-1">
           <h2 className="font-display text-[22px] font-bold leading-tight text-lol-text-bright">
             Rift Records
@@ -252,6 +264,28 @@ export function AboutSection() {
           ))}
         </div>
       </section>
+
+      {menu && (
+        <ContextMenu x={menu.x} y={menu.y} onClose={() => setMenu(null)}>
+          <button
+            type="button"
+            role="menuitemcheckbox"
+            aria-checked={altPortraits}
+            onClick={() => setAltPortraits(!altPortraits)}
+            className="flex w-full items-center gap-2.5 px-3 py-1.5 text-left text-sm text-lol-text-bright hover:bg-white/5"
+          >
+            <span
+              aria-hidden="true"
+              className={`flex h-4 w-4 items-center justify-center rounded border text-[11px] ${
+                altPortraits ? "border-lol-crimson bg-lol-crimson" : "border-lol-border"
+              }`}
+            >
+              {altPortraits && "✓"}
+            </span>
+            tryb woliber
+          </button>
+        </ContextMenu>
+      )}
 
       <Panel title="Your data">
         <p className="mb-3 text-[12.5px] leading-relaxed text-lol-text">
