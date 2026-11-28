@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.0.2-b (2026-11-28)
+
+- Added an easter egg
+- Fixed the right-click menu opening far from the cursor
+
 ## 1.0.2 (2026-11-28)
 
 - Much faster export
