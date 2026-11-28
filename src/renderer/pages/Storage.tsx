@@ -1,11 +1,18 @@
 // The Storage tab: what is on disk, how big it is, and the ways to copy it out or back in
 import { useEffect, useState, type ReactNode } from "react";
-import type { AccountListItem, BackupInfo, DbStats } from "../../shared/api";
+import type {
+  AccountListItem,
+  BackupInfo,
+  DbStats,
+  ExportProgress,
+  ImportProgress,
+} from "../../shared/api";
 import { useIpc } from "../hooks/useIpc";
 import { formatNumber, formatTimeAgo } from "../lib/format";
 import SummonerIcon from "../components/SummonerIcon";
 import { FilterChip } from "../components/FilterChip";
 import { Title } from "../components/live/shared";
+import { TransferProgress } from "../components/TransferProgress";
 
 const TABLE_LABELS: Record<string, string> = {
   games: "Matches",
@@ -53,7 +60,7 @@ export default function Storage() {
   const backups = useIpc<BackupInfo[]>(() => window.api.listBackups(), []);
   const [busy, setBusy] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
-  const [progress, setProgress] = useState<string | null>(null);
+  const [progress, setProgress] = useState<ExportProgress | ImportProgress | null>(null);
 
   const refetchStats = stats.refetch;
   const refetchAccounts = accounts.refetch;
@@ -65,12 +72,8 @@ export default function Storage() {
   };
 
   useEffect(() => {
-    const show = (p: { label: string; current: number; total: number }) =>
-      setProgress(
-        p.total
-          ? `${p.label}: ${formatNumber(p.current)} / ${formatNumber(p.total)}`
-          : `${p.label}…`,
-      );
+    // Cleared on "done" too: the export or import may have been started from Settings
+    const show = (p: ExportProgress | ImportProgress) => setProgress(p.phase === "done" ? null : p);
     const offExport = window.api.onExportProgress(show);
     const offImport = window.api.onImportProgress(show);
     return () => {
@@ -184,10 +187,22 @@ export default function Storage() {
           </button>
         ))}
       </div>
-      {(progress || message) && (
-        <p role="status" className="text-[13px] text-lol-text-bright">
-          {progress ?? message}
-        </p>
+      {progress ? (
+        <TransferProgress
+          label={progress.label}
+          percent={progress.percent}
+          detail={
+            progress.total
+              ? `${formatNumber(progress.current)} / ${formatNumber(progress.total)}`
+              : undefined
+          }
+        />
+      ) : (
+        message && (
+          <p role="status" className="text-[13px] text-lol-text-bright">
+            {message}
+          </p>
+        )
       )}
 
       <div className="grid grid-cols-1 gap-3 xl:grid-cols-2">

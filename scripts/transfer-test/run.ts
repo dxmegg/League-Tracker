@@ -20,6 +20,7 @@ import {
   setSetting,
   recalculateAllScores,
 } from "../../src/main/db";
+import { MAYHEM_QUEUE_IDS } from "../../src/shared/queues";
 import { restoreSummonerFull } from "../../src/main/db/summoner";
 import {
   createBackup,
@@ -234,6 +235,53 @@ await openDb("imported");
 const imported = await importData(exportFile);
 assert.equal(imported.imported, 4);
 assert.deepEqual(fingerprint(), original);
+
+// ---- a whole timeline already stored is kept, a damaged one is rewritten ----
+await openDb("again");
+await importData(exportFile);
+const gold = (gameId: number) =>
+  (
+    db
+      .prepare("SELECT gold FROM match_timeline_frames WHERE game_id = ? AND frame_index = 0")
+      .get(gameId) as { gold: number } | undefined
+  )?.gold;
+db.prepare(
+  "UPDATE match_timeline_frames SET gold = 1 WHERE game_id = 1001 AND frame_index = 0",
+).run();
+db.prepare("DELETE FROM match_timeline_frames WHERE game_id = 1003 AND frame_index = 0").run();
+const percents: number[] = [];
+await importData(exportFile, (p) => percents.push(p.percent as number));
+assert.equal(gold(1001), 1);
+assert.equal(gold(1003), 500);
+assert.equal(percents.at(-1), 100);
+assert.deepEqual(
+  percents,
+  [...percents].sort((a, b) => a - b),
+);
+
+// a newer timeline in the file replaces the stored one
+db.prepare("UPDATE match_timeline_status SET fetched_at = 0 WHERE game_id = 1001").run();
+await importData(exportFile);
+assert.equal(gold(1001), 500);
+
+// ---- a Mayhem-only export counts only what it writes ----
+db.prepare("UPDATE games SET queue_id = ? WHERE game_id = 1001").run(MAYHEM_QUEUE_IDS[0]);
+const mayhemFile = path.join(base, "export-mayhem.json.gz");
+assert.deepEqual(await writeExportTo(mayhemFile, undefined, true), { games: 1 });
+const [header] = zlib.gunzipSync(fs.readFileSync(mayhemFile)).toString("utf8").split("\n", 1);
+assert.deepEqual(JSON.parse(header).totals, {
+  game: 1,
+  challenges: 10,
+  telemetry: 10,
+  timelineStatus: 1,
+  timelineFrame: 2,
+  timelineEvent: 1,
+});
+
+// ---- an export that can't be written fails instead of hanging ----
+await assert.rejects(writeExportTo(path.join(base, "no-such-folder", "export.json.gz")), {
+  code: "ENOENT",
+});
 
 // ---- the previous export format still imports ----
 const v6File = path.join(base, "export-v6.json.gz");

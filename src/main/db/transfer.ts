@@ -1,5 +1,7 @@
 import fs from "fs";
 import zlib from "zlib";
+import { pipeline } from "stream";
+import { pipeline as pipelineDone } from "stream/promises";
 import { db, type GameSource } from "../db";
 import { unpackRaw } from "./payloads";
 import { insertGameFull, insertTrackedStatsOnly, TELEMETRY_COLUMNS } from "./ingest";
@@ -16,6 +18,16 @@ import { MAYHEM_QUEUE_IDS } from "../../shared/queues";
 // needs to materialize the complete backup as one V8 string.
 const EXPORT_PAGE_SIZE = 200;
 const TIMELINE_PAGE_SIZE = 5000;
+const EXPORT_BATCH_LENGTH = 1 << 20;
+// Rough cost of importing one record, for the progress bar: a game costs far more than an event
+const IMPORT_WEIGHTS: Record<string, number> = {
+  game: 150,
+  challenges: 150,
+  telemetry: 150,
+  timelineStatus: 300,
+  timelineFrame: 1,
+  timelineEvent: 1,
+};
 
 export async function writeExportTo(
   filePath: string,
@@ -30,11 +42,30 @@ export async function writeExportTo(
     : "";
   const out = fs.createWriteStream(filePath);
   const gz = zlib.createGzip();
-  gz.pipe(out);
-  const write = (record: object) =>
-    new Promise<void>((resolve, reject) => {
-      gz.write(`${JSON.stringify(record)}\n`, (err) => (err ? reject(err) : resolve()));
+  // A failed write (full disk, drive pulled out) has to reject the export, not hang it
+  const written = pipelineDone(gz, out);
+  written.catch(() => {});
+  // Lines are handed to gzip a megabyte at a time: waiting on each one made an export 3x slower
+  let batch: string[] = [];
+  let batchLength = 0;
+  const flush = () => {
+    const text = batch.join("");
+    batch = [];
+    batchLength = 0;
+    const accepted = new Promise<void>((resolve, reject) => {
+      gz.write(text, (err) => (err ? reject(err) : resolve()));
     });
+    return Promise.race([accepted, written]);
+  };
+  const write = (record: object): Promise<void> | undefined => {
+    const line = `${JSON.stringify(record)}\n`;
+    batch.push(line);
+    batchLength += line.length;
+    return batchLength >= EXPORT_BATCH_LENGTH ? flush() : undefined;
+  };
+  // Each phase has its slice of the bar, sized by how long it takes
+  const percent = (from: number, to: number, current: number, total: number) =>
+    Math.floor(from + (to - from) * (total > 0 ? Math.min(1, current / total) : 1));
 
   let count = 0;
   try {
@@ -61,8 +92,20 @@ export async function writeExportTo(
     const riotSyncState = db
       .prepare("SELECT puuid, platform, last_sync_at, last_match_id, complete FROM riot_sync_state")
       .all();
+    // How many records of each costly kind follow, so an import can show how far it is
+    const countRows = (sql: string) => (db.prepare(sql).get() as { count: number }).count;
+    const totals = {
+      game: totalGames,
+      challenges: countRows(`SELECT COUNT(*) AS count FROM (SELECT 1 FROM match_challenge_values
+        WHERE 1=1${timelineWhere} GROUP BY game_id, participant_id)`),
+      telemetry: countRows(`SELECT COUNT(*) AS count FROM match_participants
+        WHERE (${TELEMETRY_COLUMNS.map((c) => `${c} <> 0`).join(" OR ")})${timelineWhere}`),
+      timelineStatus: totalStatuses,
+      timelineFrame: totalFrames,
+      timelineEvent: totalEvents,
+    };
     // v7 added trackedAccount, challenges and telemetry records; v6 files still import
-    await write({ type: "header", version: 7, exportedAt: Date.now() });
+    await write({ type: "header", version: 7, exportedAt: Date.now(), totals });
     for (const summoner of summoners) await write({ type: "summoner", data: summoner });
     for (const setting of settings) await write({ type: "setting", data: setting });
     for (const ignoredGame of ignoredGames) {
@@ -112,6 +155,7 @@ export async function writeExportTo(
         current: count,
         total: totalGames,
         label: "Writing games",
+        percent: percent(0, 35, count, totalGames),
       });
     }
 
@@ -223,6 +267,7 @@ export async function writeExportTo(
         current: statusCount,
         total: totalStatuses,
         label: "Writing timeline status",
+        percent: percent(35, 36, statusCount, totalStatuses),
       });
     }
 
@@ -252,6 +297,7 @@ export async function writeExportTo(
         current: frameCount,
         total: totalFrames,
         label: "Writing timeline frames",
+        percent: percent(36, 53, frameCount, totalFrames),
       });
       const last = rows[rows.length - 1];
       lastFrame = {
@@ -284,6 +330,7 @@ export async function writeExportTo(
         current: eventCount,
         total: totalEvents,
         label: "Writing timeline events",
+        percent: percent(53, 99, eventCount, totalEvents),
       });
       const last = rows[rows.length - 1];
       lastEvent = { game_id: last.game_id, event_index: last.event_index };
@@ -313,14 +360,17 @@ export async function writeExportTo(
         data: { ...row, payload: row.payload.toString("base64") },
       });
     }
-    onProgress?.({ phase: "done", current: count, total: totalGames, label: "Export complete" });
-  } finally {
-    await new Promise<void>((resolve, reject) => {
-      out.once("error", reject);
-      gz.once("error", reject);
-      out.once("finish", resolve);
-      gz.end();
+    await flush();
+    onProgress?.({
+      phase: "done",
+      current: count,
+      total: totalGames,
+      label: "Export complete",
+      percent: 100,
     });
+  } finally {
+    gz.end();
+    await written;
   }
   return { games: count };
 }
@@ -476,7 +526,8 @@ export async function importData(
   }
 
   if (magic[0] !== 0x1f || magic[1] !== 0x8b) {
-    onProgress?.({ phase: "reading", current: 0, total: 0, label: "Parsing legacy JSON" });
+    const label = "Parsing legacy JSON";
+    onProgress?.({ phase: "reading", current: 0, total: 0, label, percent: null });
     const raw = await fs.promises.readFile(filePath, "utf8");
     const data = JSON.parse(raw);
     if (!data || typeof data !== "object" || !Array.isArray(data.games)) {
@@ -485,13 +536,18 @@ export async function importData(
     const result = importLegacyData(data);
     const repairedScores = repairDerivedScores().repaired;
     console.log(`[db] post-import repaired ${repairedScores} derived scores`);
-    onProgress?.({ phase: "done", current: 0, total: 0, label: "Import complete" });
+    const done = "Import complete";
+    onProgress?.({ phase: "done", current: 0, total: 0, label: done, percent: 100 });
     const importResult = { ...result, repairedScores };
     console.log("[db] importData done:", importResult);
     return importResult;
   }
 
-  const input = fs.createReadStream(filePath).pipe(zlib.createGunzip());
+  const fileSize = Math.max(1, (await fs.promises.stat(filePath)).size);
+  const file = fs.createReadStream(filePath);
+  const input = zlib.createGunzip();
+  // Unlike pipe, this hands a read error on to the loop below
+  pipeline(file, input, () => {});
   const restoreSetting = db.prepare("INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)");
   const restoreIgnoredGame = db.prepare("INSERT OR IGNORE INTO ignored_games (game_id) VALUES (?)");
   const restoreSyncState = db.prepare(`
@@ -540,6 +596,15 @@ export async function importData(
     values: Record<string, number>;
   }> = [];
   const statusGameIds = new Set<number>();
+  // Timelines already stored whole and no older than the file's: rewriting them was most of an
+  // import into a database that already had the games
+  const keptTimelineIds = new Set<number>();
+  const storedTimeline = db.prepare(`
+    SELECT 1 FROM match_timeline_status s
+    WHERE s.game_id = ? AND s.fetch_error IS NULL AND (? OR s.fetched_at >= ?)
+      AND s.frame_count = (SELECT COUNT(*) FROM match_timeline_frames f WHERE f.game_id = s.game_id)
+      AND s.event_count = (SELECT COUNT(*) FROM match_timeline_events e WHERE e.game_id = s.game_id)
+  `);
   const clearedTimelineGameIds = new Set<number>();
   let imported = 0;
   let total = 0;
@@ -579,6 +644,11 @@ export async function importData(
     const tx = db.transaction(() => {
       for (const record of statuses.splice(0)) {
         const status = record.data;
+        const failed = status.fetch_error != null ? 1 : 0;
+        if (storedTimeline.get(status.game_id, failed, status.fetched_at)) {
+          keptTimelineIds.add(status.game_id);
+          continue;
+        }
         const rawGz =
           typeof status.raw_gz === "string" ? Buffer.from(status.raw_gz, "base64") : null;
         restoreStatus.run(
@@ -598,6 +668,7 @@ export async function importData(
     const tx = db.transaction(() => {
       for (const record of frames.splice(0)) {
         const frame = record.data;
+        if (keptTimelineIds.has(frame.game_id)) continue;
         if (statusGameIds.has(frame.game_id) && !clearedTimelineGameIds.has(frame.game_id)) {
           deleteTimelineFrames.run(frame.game_id);
           deleteTimelineEvents.run(frame.game_id);
@@ -612,6 +683,7 @@ export async function importData(
     const tx = db.transaction(() => {
       for (const record of events.splice(0)) {
         const event = record.data;
+        if (keptTimelineIds.has(event.game_id)) continue;
         if (statusGameIds.has(event.game_id) && !clearedTimelineGameIds.has(event.game_id)) {
           deleteTimelineFrames.run(event.game_id);
           deleteTimelineEvents.run(event.game_id);
@@ -654,15 +726,24 @@ export async function importData(
   let headerSeen = false;
   let lineNumber = 0;
   let lastProgressPhase: ImportProgress["phase"] | null = null;
+  let lastPercent = -1;
+  let totalWeight = 0;
+  let doneWeight = 0;
   const reportProgress = (phase: ImportProgress["phase"], label: string, force = false): void => {
-    if (!force && phase === lastProgressPhase && lineNumber % 1000 !== 0) return;
+    // 99 at most: the rescoring after the last line still has to run
+    // Files from before the header had totals fall back to how much of the file was read
+    const share = totalWeight > 0 ? doneWeight / totalWeight : file.bytesRead / fileSize;
+    const percent = Math.min(99, Math.floor(share * 100));
+    const unchanged = phase === lastProgressPhase && percent === lastPercent;
+    if (!force && unchanged && lineNumber % 1000 !== 0) return;
     lastProgressPhase = phase;
-    onProgress?.({ phase, current: lineNumber, total: 0, label });
+    lastPercent = percent;
+    onProgress?.({ phase, current: lineNumber, total: 0, label, percent });
   };
   const processLine = (line: string) => {
     if (!line.trim()) return;
     lineNumber++;
-    let record: { type?: string; version?: number; data?: any };
+    let record: { type?: string; version?: number; data?: any; totals?: Record<string, number> };
     try {
       record = JSON.parse(line);
     } catch (err) {
@@ -675,6 +756,10 @@ export async function importData(
         throw new Error("That file isn't a supported Rift Records backup (v6 or newer)");
       }
       headerSeen = true;
+      totalWeight = Object.entries(IMPORT_WEIGHTS).reduce(
+        (sum, [type, weight]) => sum + (record.totals?.[type] ?? 0) * weight,
+        0,
+      );
       reportProgress("reading", "Reading backup", true);
       return;
     }
@@ -750,6 +835,7 @@ export async function importData(
       default:
         throw new Error(`Unknown record type on backup line ${lineNumber}`);
     }
+    doneWeight += IMPORT_WEIGHTS[record.type ?? ""] ?? 0;
     reportProgress(progressPhase, progressLabel);
   };
 
@@ -773,6 +859,7 @@ export async function importData(
   if (pending.length > 0) processLine(pending.toString("utf8"));
   if (!headerSeen) throw new Error("That file isn't a Rift Records backup");
   flushAll();
+  reportProgress("finishing", "Recalculating scores", true);
   // The file's settings say both passes already ran, but that was on the source database: the
   // rows here were just rebuilt from payloads, before telemetry and ids were put back
   setSetting("puuid_reconciled_v1", "0");
@@ -780,7 +867,8 @@ export async function importData(
   recalculateAllScores();
   const repairedScores = repairDerivedScores().repaired;
   console.log(`[db] post-import repaired ${repairedScores} derived scores`);
-  onProgress?.({ phase: "done", current: lineNumber, total: 0, label: "Import complete" });
+  const done = "Import complete";
+  onProgress?.({ phase: "done", current: lineNumber, total: 0, label: done, percent: 100 });
   const result = { imported, total, skipped: total - imported, repairedScores };
   console.log("[db] importData done:", result);
   return result;

@@ -2547,13 +2547,24 @@ export interface ExportProgress {
   current: number;
   total: number;
   label: string;
+  /** Whole export, 0-100 */
+  percent: number;
 }
 
 export interface ImportProgress {
-  phase: "reading" | "games" | "timeline-status" | "timeline-frames" | "timeline-events" | "done";
+  phase:
+    | "reading"
+    | "games"
+    | "timeline-status"
+    | "timeline-frames"
+    | "timeline-events"
+    | "finishing"
+    | "done";
   current: number;
   total: number;
   label: string;
+  /** 0-100, by records done (by bytes read for files without totals); null when unknown */
+  percent: number | null;
 }
 
 export interface TimelineStatus {

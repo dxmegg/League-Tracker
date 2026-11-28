@@ -7,6 +7,7 @@ import {
   type StorageResult,
 } from "../../../shared/api";
 import type { useActiveMode } from "../../hooks/useActiveMode";
+import { TransferProgress } from "../TransferProgress";
 import { ActionRow, Button, Section, Switch, formatDuration } from "./parts";
 
 const BACKUP_REASONS: Record<string, string> = {
@@ -46,6 +47,7 @@ const IMPORT_PROGRESS_LABELS: Record<ImportProgress["phase"], string> = {
   "timeline-status": "timeline statuses imported",
   "timeline-frames": "timeline frames imported",
   "timeline-events": "timeline events imported",
+  finishing: "lines read, recalculating scores",
   done: "done",
 };
 
@@ -367,43 +369,21 @@ export function DataSections({
             </p>
           )}
           {exporting && exportProgress && (
-            <div className="space-y-2 text-[12.5px] text-lol-text">
-              <div className="h-[5px] overflow-hidden rounded-full bg-white/[0.05]">
-                <i
-                  className={`block h-full rounded-full bg-lol-crimson ${
-                    exportProgress.total === 0 ? "w-full animate-pulse" : ""
-                  }`}
-                  style={
-                    exportProgress.total > 0
-                      ? {
-                          width: `${Math.min(
-                            100,
-                            (exportProgress.current / exportProgress.total) * 100,
-                          )}%`,
-                        }
-                      : undefined
-                  }
-                />
-              </div>
-              <div className="flex items-center justify-between gap-3">
-                <p>
-                  {exportProgress.current.toLocaleString()}
-                  {exportProgress.total > 0 && `/${exportProgress.total.toLocaleString()}`}{" "}
-                  {EXPORT_PROGRESS_LABELS[exportProgress.phase]}
-                </p>
-                {exportStartedAt &&
-                  exportProgress.current > 0 &&
-                  exportProgress.total > exportProgress.current && (
-                    <p className="shrink-0">
-                      ETA:{" "}
-                      {formatDuration(
-                        ((Date.now() - exportStartedAt) / exportProgress.current) *
-                          (exportProgress.total - exportProgress.current),
-                      )}
-                    </p>
-                  )}
-              </div>
-            </div>
+            <TransferProgress
+              label="Exporting"
+              percent={exportProgress.percent}
+              detail={`${exportProgress.current.toLocaleString()}${
+                exportProgress.total > 0 ? `/${exportProgress.total.toLocaleString()}` : ""
+              } ${EXPORT_PROGRESS_LABELS[exportProgress.phase]}`}
+              aside={
+                exportStartedAt && exportProgress.percent > 5 && exportProgress.percent < 100
+                  ? `ETA: ${formatDuration(
+                      ((Date.now() - exportStartedAt) / exportProgress.percent) *
+                        (100 - exportProgress.percent),
+                    )}`
+                  : undefined
+              }
+            />
           )}
 
           <div className="flex items-center justify-between gap-4 rounded-xl border border-lol-border/50 bg-black/25 px-4 py-3 text-xs transition-colors hover:border-lol-crimson/40">
@@ -429,15 +409,13 @@ export function DataSections({
             </p>
           )}
           {importing && importProgress && (
-            <div className="space-y-2 text-[12.5px] text-lol-text">
-              <div className="h-[5px] overflow-hidden rounded-full bg-white/[0.05]">
-                <i className="block h-full w-full animate-pulse rounded-full bg-lol-crimson" />
-              </div>
-              <p>
-                {importProgress.current.toLocaleString()}{" "}
-                {IMPORT_PROGRESS_LABELS[importProgress.phase]}
-              </p>
-            </div>
+            <TransferProgress
+              label="Importing"
+              percent={importProgress.percent}
+              detail={`${importProgress.current.toLocaleString()} ${
+                IMPORT_PROGRESS_LABELS[importProgress.phase]
+              }`}
+            />
           )}
         </div>
       </Section>
