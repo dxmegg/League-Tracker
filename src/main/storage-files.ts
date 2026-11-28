@@ -20,22 +20,47 @@ export function backupSlot(reason: string): "monthly" | "auto" | "manual" {
 
 // The newest snapshot of each slot is kept. Names carry the time, so they sort by age. `written`
 // is the snapshot just taken: it keeps its slot even if the clock moved back. Plain .db files from
-// older versions stay until there is a monthly snapshot, the only kind checked in full.
+// older versions are never removed: they can be the only copy that far back.
 export function staleBackups(names: string[], written: string): string[] {
-  const backups = names.filter((name) => BACKUP_FILE_RE.test(name));
+  const backups = names.filter((name) => BACKUP_FILE_RE.test(name) && name.endsWith(".gz"));
   const slot = (name: string) => backupSlot(BACKUP_FILE_RE.exec(name)![2]);
   const kept = new Set([written]);
   for (const other of ["monthly", "auto", "manual"].filter((s) => s !== slot(written))) {
     const newest = backups
-      .filter((name) => name.endsWith(".gz") && slot(name) === other)
+      .filter((name) => slot(name) === other)
       .sort()
       .at(-1);
     if (newest) kept.add(newest);
   }
-  const checked = [written, ...backups].some(
-    (name) => name.endsWith(".gz") && slot(name) === "monthly",
-  );
-  return backups.filter((name) => !kept.has(name) && (checked || name.endsWith(".gz")));
+  return backups.filter((name) => !kept.has(name));
+}
+
+// Puts `incoming` in place of the closed database and opens it. The old file stays aside until that
+// has worked, and comes back if it does not.
+export async function swapAndOpen(
+  dbPath: string,
+  incoming: string,
+  open: () => Promise<void>,
+  close: () => void,
+): Promise<void> {
+  const previous = `${dbPath}.previous`;
+  // The -wal and -shm belong to the file being moved: SQLite would replay them onto the next one
+  const dropSidecars = () => {
+    for (const suffix of ["-wal", "-shm"]) fs.rmSync(dbPath + suffix, { force: true });
+  };
+  dropSidecars();
+  fs.renameSync(dbPath, previous);
+  try {
+    fs.renameSync(incoming, dbPath);
+    await open();
+  } catch (err) {
+    close();
+    dropSidecars();
+    fs.renameSync(previous, dbPath);
+    await open();
+    throw err;
+  }
+  fs.rmSync(previous, { force: true });
 }
 
 const WEEK_MS = 7 * 24 * 60 * 60 * 1000;

@@ -1195,13 +1195,13 @@ export function migrateToV19() {
   db.exec("UPDATE summoner SET last_seen = updated_at WHERE last_seen IS NULL");
   console.log("[db] v19 added account snapshot columns");
 }
-export async function migrateToV20() {
+export async function migrateToV20(backupFirst: boolean) {
   const columns = tableColumns("match_participants");
   const additions = [["match_participants", "score", "REAL"]] as const;
 
   for (const [table, name, definition] of additions) {
     if (!columns.has(name)) {
-      await backup.backupQuietly("pre-migration-20");
+      if (backupFirst) await backup.backupQuietly("pre-migration-20");
       db.exec(`ALTER TABLE ${table} ADD COLUMN ${name} ${definition}`);
     }
   }
@@ -1209,7 +1209,7 @@ export async function migrateToV20() {
   console.log("[db] v20 added participant score column");
 }
 
-export async function migrateToV23() {
+export async function migrateToV23(backupFirst: boolean) {
   const columns = tableColumns("match_participants");
   const additions = [
     ["physical_damage_dealt", "INTEGER NOT NULL DEFAULT 0"],
@@ -1229,7 +1229,7 @@ export async function migrateToV23() {
   ] as const;
 
   if (additions.some(([name]) => !columns.has(name))) {
-    await backup.backupQuietly("pre-migration-23");
+    if (backupFirst) await backup.backupQuietly("pre-migration-23");
   }
   for (const [name, definition] of additions) {
     if (!columns.has(name)) {
@@ -1240,7 +1240,7 @@ export async function migrateToV23() {
   console.log("[db] v23 added participant combat columns");
 }
 
-export async function migrateToV24() {
+export async function migrateToV24(backupFirst: boolean) {
   const columns = tableColumns("match_participants");
   const additions = [
     ["gold_spent", "INTEGER NOT NULL DEFAULT 0"],
@@ -1268,7 +1268,7 @@ export async function migrateToV24() {
   ] as const;
 
   if (additions.some(([name]) => !columns.has(name))) {
-    await backup.backupQuietly("pre-migration-24");
+    if (backupFirst) await backup.backupQuietly("pre-migration-24");
   }
   for (const [name, definition] of additions) {
     if (!columns.has(name)) {
@@ -2068,10 +2068,10 @@ export async function runMigrations(onProgress?: MigrationProgress, backupFirst 
   }
 
   if (current >= SCHEMA_VERSION && !combatColumnsPresent()) {
-    await migrateToV23();
+    await migrateToV23(backupFirst);
   }
   if (current >= SCHEMA_VERSION && !economyColumnsPresent()) {
-    await migrateToV24();
+    await migrateToV24(backupFirst);
   }
   if (current >= SCHEMA_VERSION && !timelineColumnsPresent()) {
     migrateToV27();
@@ -2152,9 +2152,9 @@ export async function runMigrations(onProgress?: MigrationProgress, backupFirst 
   if (current < 17) migrateToV17();
   if (current < 18) migrateToV18();
   if (current < 19) migrateToV19();
-  if (current < 20) await migrateToV20();
-  if (current < 23) await migrateToV23();
-  if (current < 24) await migrateToV24();
+  if (current < 20) await migrateToV20(backupFirst);
+  if (current < 23) await migrateToV23(backupFirst);
+  if (current < 24) await migrateToV24(backupFirst);
   if (current < 25) migrateToV25();
   if (current < 21) migrateToV21();
   if (current < 22) migrateToV22();

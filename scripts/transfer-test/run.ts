@@ -309,7 +309,7 @@ const dead = inBackups("matches-2020-01-01T00-00-00-auto.db.part");
 fs.writeFileSync(dead, "cut off");
 const monthly = await createBackup("monthly");
 assert.ok(!fs.existsSync(dead));
-assert.deepEqual(files().sort(), [snapshot.file, monthly.file].sort()); // the plain .db is gone
+assert.deepEqual(files().sort(), [legacy, snapshot.file, monthly.file].sort()); // the plain .db stays
 
 // Called off: nothing changes
 deleteSavedSummoner(ALICE);
@@ -324,7 +324,7 @@ const restored = await restoreBackup(snapshot.file, async () => {
 assert.deepEqual(restored, { games: 4 });
 assert.deepEqual(fingerprint(), original);
 assert.ok(!files().includes(snapshot.file));
-assert.equal(files().length, 2);
+assert.equal(files().length, 3); // pre-restore, monthly and the plain .db
 
 // ---- recovery from a damaged database, from either kind of snapshot ----
 for (const kind of [".db.gz", ".db"]) {

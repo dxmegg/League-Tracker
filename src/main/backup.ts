@@ -6,7 +6,7 @@ import { pipeline } from "stream/promises";
 import zlib from "zlib";
 import { closeDatabase, getDatabase, getDbPath, getSetting, initDatabase, setSetting } from "./db";
 import { getBackupDir } from "./paths";
-import { BACKUP_FILE_RE as FILE_RE, dueBackup, staleBackups } from "./storage-files";
+import { BACKUP_FILE_RE as FILE_RE, dueBackup, staleBackups, swapAndOpen } from "./storage-files";
 
 // Snapshots are taken through SQLite's online backup API rather than by copying
 // matches.db off disk. The database runs in WAL mode, so the file on its own is
@@ -328,7 +328,7 @@ function swapIn(): void {
 }
 
 // A snapshot from before v34 is upgraded once it is in place, and running out of room then leaves
-// the app on a half-opened database. The live file's space comes back with the swap.
+// the restore half done. The live file stays on disk until the upgrade has worked.
 function assertRoomToUpgrade(snapshot: string): void {
   const snap = new Database(snapshot, { readonly: true });
   const version = snap.pragma("user_version", { simple: true }) as number;
@@ -337,7 +337,7 @@ function assertRoomToUpgrade(snapshot: string): void {
   const disk = fs.statfsSync(path.dirname(getDbPath()));
   // Twice the size for the upgrade, and a half more for the "before restoring" backup
   const needed = 2.5 * fs.statSync(snapshot).size;
-  if (disk.bavail * disk.bsize + fs.statSync(getDbPath()).size >= needed) return;
+  if (disk.bavail * disk.bsize >= needed) return;
   throw new Error(
     `Restoring this older backup needs about ${(needed / 1024 ** 3).toFixed(1)} GB free on the ` +
       "database drive. Nothing was changed.",
@@ -363,9 +363,15 @@ export async function restoreBackup(
     await waitForBackups();
     // The switch is the user's choice today, not part of the data being rolled back
     const autoBackup = autoBackupOn();
+    // The file set aside has to be whole without its -wal
+    getDatabase().pragma("wal_checkpoint(TRUNCATE)");
     closeDatabase();
-    swapIn();
-    await initDatabase({ backupBeforeMigration: false });
+    await swapAndOpen(
+      getDbPath(),
+      incoming,
+      () => initDatabase({ backupBeforeMigration: false }),
+      closeDatabase,
+    );
     if (autoBackupOn() !== autoBackup) setSetting("auto_backup", String(autoBackup));
     return { games };
   } finally {

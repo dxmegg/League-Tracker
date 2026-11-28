@@ -7,6 +7,7 @@ import {
   deleteDataFiles,
   dueBackup,
   staleBackups,
+  swapAndOpen,
   moveBackupFiles,
   readLocations,
   resolveUserDataDir,
@@ -33,16 +34,15 @@ assert.deepEqual(await decide("cancel"), [false, 0]);
 assert.deepEqual(await decide("backup", true), [false, 1]);
 
 // Three slots, each replaced only by its own kind: monthly, weekly ("auto") and manual, which also
-// takes every "before ..." backup; plain .db files go once there is a monthly one
+// takes every "before ..." backup; plain .db files are never removed
 const name = (day, reason, ext = "-5g.db.gz") => `matches-2026-01-0${day}T00-00-00-${reason}${ext}`;
 const old = name(1, "manual", ".db");
 const month = name(2, "monthly");
 const week = name(3, "auto");
 const manual = name(4, "pre-delete");
-assert.deepEqual(staleBackups([old, month, week, manual, "notes.txt"], manual), [old]);
+assert.deepEqual(staleBackups([old, month, week, manual, "notes.txt"], manual), []);
 assert.deepEqual(staleBackups([month, week, manual, name(5, "auto")], name(5, "auto")), [week]);
-assert.deepEqual(staleBackups([old, month], month), [old]);
-assert.deepEqual(staleBackups([old, week, manual], manual), []); // nothing checked in full yet
+assert.deepEqual(staleBackups([old, month], month), []);
 assert.deepEqual(staleBackups([month, week, name(5, "monthly")], name(5, "monthly")), [month]);
 assert.deepEqual(staleBackups([name(5, "manual"), manual], manual), [name(5, "manual")]); // clock moved back
 const migration = name(1, "pre-migration-20");
@@ -116,6 +116,25 @@ assert.deepEqual(readLocations(path.join(newDir, "locations.json")), {
   backupDir: "D:\\backups",
 });
 assert.equal(resolveUserDataDir(appData), newDir);
+
+// Restoring: a database that cannot be opened gives way to the one it replaced
+for (const broken of [false, true]) {
+  const live = put(`swap-${broken}`, "matches.db");
+  fs.writeFileSync(live, "old");
+  const incoming = put(`swap-${broken}`, "matches.db.incoming");
+  fs.writeFileSync(incoming, "new");
+  const opened = [];
+  const open = async () => {
+    opened.push(fs.readFileSync(live, "utf8"));
+    if (broken && opened.length === 1) throw new Error("upgrade failed");
+  };
+  const done = swapAndOpen(live, incoming, open, () => {});
+  if (broken) await assert.rejects(done, /upgrade failed/);
+  else await done;
+  assert.deepEqual(opened, broken ? ["new", "old"] : ["new"]);
+  assert.equal(fs.readFileSync(live, "utf8"), broken ? "old" : "new");
+  assert.deepEqual(names(`swap-${broken}`), ["matches.db"]);
+}
 
 fs.rmSync(root, { recursive: true, force: true });
 console.log("storage checks passed");
