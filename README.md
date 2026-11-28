@@ -6,6 +6,13 @@ A Windows desktop app that keeps your League of Legends match history on your ow
 
 ## Recent Changes
 
+**1.0.1**
+
+- **(IMPROVED)** Safer backups: plain `.db` backups are kept, and a failed restore puts your current database back
+- **(IMPROVED)** More accurate Diagnostics page, and unexpected errors reach the log files
+- Fixed an "EPIPE: broken pipe" error window
+- Various small fixes
+
 **1.0.0**
 
 - **(NEW)** The numbering starts again: 1.0.0 brings together everything from the early builds

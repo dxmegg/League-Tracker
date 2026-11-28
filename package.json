@@ -1,6 +1,6 @@
 {
   "name": "rift-records",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Rift Records - your League of Legends match history and stats",
   "license": "MIT",
   "main": "./out/main/index.js",

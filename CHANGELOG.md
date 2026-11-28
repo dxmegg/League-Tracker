@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.0.1 (2026-11-28)
+
+- Fixed an "EPIPE: broken pipe" error window that could appear while the app was running
+- Plain `.db` backups are no longer removed automatically
+- A restore that fails now puts your current database back
+- Restoring an older backup no longer overwrites the safety copy made just before it
+- Unexpected errors are now written to the log files
+- Diagnostics: "Last check" shows when a failed update check happened, and the Riot API is no longer reported as OK when the answer did not come from Riot
+- Clearer message when no account is selected
+
 ## 1.0.0 (2026-11-27)
 
 - First release under the new numbering, bringing together everything from the early builds
