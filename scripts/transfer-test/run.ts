@@ -375,6 +375,8 @@ assert.ok(!files().includes(snapshot.file));
 assert.equal(files().length, 3); // pre-restore, monthly and the plain .db
 
 // ---- recovery from a damaged database, from either kind of snapshot ----
+// The one-game "before restore" snapshot is the newest whenever a second ticks over before it
+for (const file of files()) if (file.includes("-pre-restore-")) fs.rmSync(inBackups(file));
 for (const kind of [".db.gz", ".db"]) {
   if (kind === ".db") {
     putLegacy();
