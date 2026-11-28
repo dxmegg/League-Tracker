@@ -8,6 +8,10 @@
     "sqlite": {
       "command": "npx",
       "args": ["-y", "--allow-scripts=sqlite3", "mcp-sqlite", "data/matches.db"]
+    },
+    "shadcn": {
+      "command": "npx",
+      "args": ["shadcn@latest", "mcp"]
     }
   }
 }
